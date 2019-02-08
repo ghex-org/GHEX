@@ -25,7 +25,7 @@ namespace gridtools {
             , m_begin(b)
             , m_end(e)
             , m_outer_ranges{halo_range(m_begin - m_minus, m_begin), halo_range(m_begin, m_end + 1), halo_range(m_end + 1, m_end+m_plus + 1)}
-            , m_inner_ranges{halo_range(m_begin, m_plus), halo_range(m_begin, m_plus), halo_range(m_end - m_minus + 1, m_end + 1)}
+            , m_inner_ranges{halo_range(m_begin, m_begin+m_plus), halo_range(m_begin, m_end+1), halo_range(m_end - m_minus + 1, m_end + 1)}
         {}
 
         constexpr halo_range inner_range(int i) const {

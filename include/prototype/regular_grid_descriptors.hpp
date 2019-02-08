@@ -108,7 +108,9 @@ namespace gridtools {
     struct direction {
         std::array<int, D> m_data;
 
-        direction(std::array<int, D> data) : m_data(data) {}
+        constexpr direction(std::array<int, D> data) : m_data(data) {}
+
+        constexpr int operator[](int i) const {return m_data[i];}
     };
 
     namespace _impl {
@@ -116,10 +118,12 @@ namespace gridtools {
         template <typename Partitioned, int CurrentIndex, typename ENABLE = void>
         struct iterate_data {
 
-            template <typename Data, typename Iterator, int Dims>
-            void operator()(Data const& data, Iterator it, direction<Dims> dir) {
+            template <typename Data, typename Iterator, int Dims, typename Halos>
+            void operator()(Data const& data, Iterator it, direction<Dims> dir, Halos const& halos) {
                 std::cout << "Not a partitioned dimension " << CurrentIndex << "\n";
-                iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir);
+                for (int i = data.template begin<CurrentIndex>(); i < data.template end<CurrentIndex>(); ++i) {
+                    iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir, halos);
+                }
             }
 
         };
@@ -127,19 +131,24 @@ namespace gridtools {
         template <typename Partitioned, int CurrentIndex>
         struct iterate_data<Partitioned, CurrentIndex, typename std::enable_if<Partitioned{}.contains(CurrentIndex), void>::type > {
 
-            template <typename Data, typename Iterator, int Dims>
-            void operator()(Data const& data, Iterator it, direction<Dims> dir) {
+            template <typename Data, typename Iterator, int Dims, typename Halos>
+            void operator()(Data const& data, Iterator it, direction<Dims> dir, Halos const& halos) {
                 std::cout << "This is a partitioned dimension " << CurrentIndex << "\n";
-                iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir);
+                constexpr int index = Partitioned{}.index_of(CurrentIndex);
+                static_assert(index != -1, "");
+                auto range = halos[index].inner_range(dir[index]);
+                for (int i = range.begin(); i < range.end(); ++i) {
+                    iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir, halos);
+                }
             }
 
         };
 
-                template <typename Partitioned>
+        template <typename Partitioned>
         struct iterate_data<Partitioned, -1 > {
 
-            template <typename Data, typename Iterator, int Dims>
-            void operator()(Data const& data, Iterator it, direction<Dims> dir) {}
+            template <typename Data, typename Iterator, int Dims, typename Halos>
+            void operator()(Data const&, Iterator, direction<Dims>, Halos const&) {}
 
         };
 
@@ -160,6 +169,15 @@ namespace gridtools {
             }
             return false;
         }
+
+        constexpr int index_of(int v) const {
+            for (int i = 0; i < sizeof...(D); ++i) {
+                if (m_values[i] == v) {
+                    return i;
+                }
+            }
+            return -1;
+        }
     };
 
     /** The idea here is that the grid-descriptor is a tuple where $D$
@@ -176,7 +194,7 @@ namespace gridtools {
 
         template < typename Partitioned, typename Data, typename Iter >
         void pack(Data const& data, Iter it, direction<NDims> && dir) {
-            _impl::iterate_data<Partitioned, Data::layout::masked_length-1 >{}( data, it, dir);
+            _impl::iterate_data<Partitioned, Data::layout::masked_length-1 >{}( data, it, dir, m_halos);
         }
     };
 
