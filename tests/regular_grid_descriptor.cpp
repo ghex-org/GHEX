@@ -40,7 +40,7 @@ int main() {
 
     std::vector<int> container;
 
-    x.pack< gt::partitioned<2,3> >(data,
+    x.pack< gt::partitioned<2,0> >(data,
                                    [&container](data_type::value_type x) {container.push_back(x);},
                                    gt::direction<2>({-1,-1}));
 
