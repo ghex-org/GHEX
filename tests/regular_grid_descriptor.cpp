@@ -9,6 +9,7 @@ template <typename ValueType, typename Layout>
 class data_t {
 public:
 
+    using value_type = ValueType;
     using layout = Layout;
 
     std::array<int, layout::masked_length> m_sizes;
@@ -29,15 +30,19 @@ public:
 
 int main() {
 
-    data_t<int, gt::layout_map<0,1,2,3,4> > data(2, 3, 4, 5, 6);
+    using data_type = data_t<int, gt::layout_map<0,1,2,3,4> >;
+
+    data_type data(2, 3, 4, 5, 6);
 
     std::array<gt::dimension_descriptor, 2> halos = { gt::dimension_descriptor{ 2, 2, 2, 6}, { 1, 1, 1, 6} };
 
     gt::regular_grid_descriptor< 2 /* number of dimensions */ > x(halos);
 
-    std::vector<int> container(10000);
+    std::vector<int> container;
 
-    x.pack< gt::partitioned<2,3> >(data, container.begin(), gt::direction<2>({-1,-1}));
+    x.pack< gt::partitioned<2,3> >(data,
+                                   [&container](data_type::value_type x) {container.push_back(x);},
+                                   gt::direction<2>({-1,-1}));
 
     { // unit test for partitioned
         constexpr gt::partitioned<2,3> p;
