@@ -122,6 +122,7 @@ namespace gridtools {
             void operator()(Data const& data, Iterator it, direction<Dims> dir, Halos const& halos) {
                 std::cout << "Not a partitioned dimension " << CurrentIndex << "\n";
                 for (int i = data.template begin<CurrentIndex>(); i < data.template end<CurrentIndex>(); ++i) {
+                    std::cout << i << " *> ";
                     iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir, halos);
                 }
             }
@@ -138,6 +139,7 @@ namespace gridtools {
                 static_assert(index != -1, "");
                 auto range = halos[index].inner_range(dir[index]);
                 for (int i = range.begin(); i < range.end(); ++i) {
+                    std::cout << i << " -> ";
                     iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir, halos);
                 }
             }
@@ -148,7 +150,7 @@ namespace gridtools {
         struct iterate_data<Partitioned, -1 > {
 
             template <typename Data, typename Iterator, int Dims, typename Halos>
-            void operator()(Data const&, Iterator, direction<Dims>, Halos const&) {}
+                void operator()(Data const&, Iterator, direction<Dims>, Halos const&) { std::cout << "."; }
 
         };
 
