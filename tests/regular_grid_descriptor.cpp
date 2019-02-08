@@ -23,6 +23,15 @@ public:
     }
 
     template <int I>
+    int stride() const {
+        int stride = 1;
+        for (int i = 0; i < I; ++i) {
+            stride *= m_sizes[i];
+        }
+        return stride;
+    }
+
+    template <int I>
     int end() const {
         return m_sizes[I];
     }
