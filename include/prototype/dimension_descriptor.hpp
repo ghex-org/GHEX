@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <type_traits>
 #include <gridtools/common/array.hpp>
 #include <prototype/halo_range.hpp>
 
@@ -36,5 +37,8 @@ namespace gridtools {
         }
 
     };
+
+    template <typename T>
+    struct is_dimension_descriptor : public std::is_same<T, dimension_descriptor> {};
 
 }

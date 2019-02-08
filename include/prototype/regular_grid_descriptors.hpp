@@ -40,12 +40,12 @@
       what follows, but the code will make sure the permutations are
       accounted in the proper way.
 
-    - A halo descriptor is a tuple of 4 integer values indicating, in
+    - A dimension descriptor is a tuple of 4 integer values indicating, in
       a specific dimension, the halo in the minus direction, the halo
       in the plus direction, the begin and end of the core region.
 
     - A grid is then partitioned into $3^D$ regions corresponding to
-      the halo descriptors in each dimension that is
+      the dimension descriptors in each dimension that is
       partitioned. There are $D$ dimensions that are partitioned. The
       regions can be identified using a tuple $\eta \in \{-1, 0,
       1\}^D$, exactly as the neighbors. In fact they identify the
@@ -66,15 +66,15 @@
       can be interpreted ad a range as $[i, i+1)$. A range that takes
       all the elements in one dimension is indicated as $:$.
 
-    - A halo descriptor $H$ can provide information about the ranges
+    - A dimension descriptor $H$ can provide information about the ranges
       used for data to be sent and data to be received. We will focus
       on the data to be sent, which is the interior, but it will
       probably not be noticed in the discussion in this comment.
 
-    - We can index the range of a halo descriptor using the same
-      indices used in the $\eta$ tuples. So that given a halo
+    - We can index the range of a dimension descriptor using the same
+      indices used in the $\eta$ tuples. So that given a dimension
       descriptor $H$, $H^{-1}$, $H^0$, and $H^1$ should have an
-      obvious meaning (this is abuse of notation since a halo
+      obvious meaning (this is abuse of notation since a dimension
       descriptor is told to be a tuple, but the indices there actually
       are not accessing the elements of the tuple but rather the
       ranges associated with them - in this case for data to be sent).
@@ -87,10 +87,97 @@
 
       $$(H_0^{\eta_0}, H_1^{\eta_1}, \ldtos, H_{D-1}^{\eta_{D-1}}, :, \ldots)$$
 
-      Where $H_i$ is the halo descriptor for dimension $i$. The $:$
+      Where $H_i$ is the dimension descriptor for dimension $i$. The $:$
       will take all the other dimensions in full until we cover all
       the $d$ dimensions of the grid elements.
  */
 
-#include <common/layout_map.hpp>
-#include "./halo_descriptor.hpp"
+#pragma once
+
+#include <gridtools/common/layout_map.hpp>
+#include "./dimension_descriptor.hpp"
+#include <tuple>
+#include <gridtools/meta/filter.hpp>
+#include "./halo_range.hpp"
+
+#include <iostream>
+
+namespace gridtools {
+
+    template <int D>
+    struct direction {
+        std::array<int, D> m_data;
+
+        direction(std::array<int, D> data) : m_data(data) {}
+    };
+
+    namespace _impl {
+
+        template <typename Partitioned, int CurrentIndex, typename ENABLE = void>
+        struct iterate_data {
+
+            template <typename Data, typename Iterator, int Dims>
+            void operator()(Data const& data, Iterator it, direction<Dims> dir) {
+                std::cout << "Not a partitioned dimension " << CurrentIndex << "\n";
+                iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir);
+            }
+
+        };
+
+        template <typename Partitioned, int CurrentIndex>
+        struct iterate_data<Partitioned, CurrentIndex, typename std::enable_if<Partitioned{}.contains(CurrentIndex), void>::type > {
+
+            template <typename Data, typename Iterator, int Dims>
+            void operator()(Data const& data, Iterator it, direction<Dims> dir) {
+                std::cout << "This is a partitioned dimension " << CurrentIndex << "\n";
+                iterate_data<Partitioned, CurrentIndex-1>{}(data, it, dir);
+            }
+
+        };
+
+                template <typename Partitioned>
+        struct iterate_data<Partitioned, -1 > {
+
+            template <typename Data, typename Iterator, int Dims>
+            void operator()(Data const& data, Iterator it, direction<Dims> dir) {}
+
+        };
+
+    };
+
+
+    /** List of dimensions of a data that are partitioned */
+    template <int ...D>
+    struct partitioned {
+        std::array<int, sizeof...(D)> m_values = {D...};
+        //        using ids = std::tuple<std::integer_constant<int, D>...>;
+
+        constexpr bool contains(int v) const {
+            for (int i = 0; i < sizeof...(D); ++i) {
+                if (m_values[i] == v) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    /** The idea here is that the grid-descriptor is a tuple where $D$
+        entries are dimension descriptors, while the others are integers
+        desctibing uninterrupted dimensions.
+    */
+    template < unsigned NDims >
+    struct regular_grid_descriptor {
+
+        std::array<dimension_descriptor, 2> m_halos;
+
+        template <typename Halos>
+        regular_grid_descriptor(Halos && halos) : m_halos{std::forward<Halos>(halos)} {}
+
+        template < typename Partitioned, typename Data, typename Iter >
+        void pack(Data const& data, Iter it, direction<NDims> && dir) {
+            _impl::iterate_data<Partitioned, Data::layout::masked_length-1 >{}( data, it, dir);
+        }
+    };
+
+}

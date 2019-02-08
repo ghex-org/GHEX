@@ -4,11 +4,15 @@ cmake_policy(SET CMP0048 NEW)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 14)
+
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 find_package(MPI REQUIRED)
 
-find_package(GridTools 0.1.8.2 REQUIRED)
+find_package(GridTools 0.20 REQUIRED)
+
+message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 
@@ -25,6 +29,10 @@ target_link_libraries(mbianco_gcl2_managed ${exe_LIBS} GridTools::gridtools Grid
 
 add_executable( test_iteration_spaces tests/test_iteration_spaces.cpp )
 target_link_libraries(test_iteration_spaces ${exe_LIBS} GridTools::gridtools GridTools::gcl)
+
+
+add_executable( regular_grid_descriptor tests/regular_grid_descriptor.cpp )
+target_link_libraries( regular_grid_descriptor ${exe_LIBS} GridTools::gridtools )
 
 
 add_executable( test_is_multi_arg tests/test_is_multi_arg.cpp )
