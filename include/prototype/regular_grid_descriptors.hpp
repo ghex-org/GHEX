@@ -99,10 +99,49 @@
 #include <tuple>
 #include <gridtools/meta/filter.hpp>
 #include "./halo_range.hpp"
+#include <gridtools/meta/utility.hpp>
+#include <gridtools/meta.hpp>
+#include <gridtools/common/tuple_util.hpp>
 
 #include <iostream>
 
 namespace gridtools {
+
+    template <size_t N, class NewVal>
+    struct replace_f {
+        NewVal const & m_new_val;
+
+        template <class Val, class I, enable_if_t<I::value == N, int> = 0>
+        constexpr NewVal operator()(Val const&, I) const { return m_new_val;   }
+
+        template <class Val, class I, enable_if_t<I::value != N, int> = 0>
+        constexpr Val operator()(Val const& val, I) const { return val;   }
+    };
+
+    template <size_t N,
+              class NewVal,
+              class Src,
+              class Indices = GT_META_CALL(meta::make_indices, (tuple_util::size<Src>, std::tuple))>
+    constexpr auto replace(NewVal const &new_val, Src const &src)
+        GT_AUTO_RETURN(tuple_util::transform(replace_f<N, NewVal>{new_val}, src, Indices{}));
+
+    struct halo_sizes {
+        int m_minus;
+        int m_plus;
+
+        constexpr halo_sizes(int m, int p)
+            : m_minus(m)
+            , m_plus(p)
+        {}
+
+        constexpr int minus() const {return m_minus;}
+        constexpr int plus() const {return m_plus;}
+
+        template <typename DataRange>
+        dimension_descriptor get_dimension_descriptor(DataRange const& data_range) const {
+            return {m_minus, m_plus, data_range.begin()+m_minus, data_range.end()-m_plus};
+        }
+    };
 
     template <int D>
     struct direction {
@@ -113,76 +152,6 @@ namespace gridtools {
         constexpr int operator[](int i) const {return m_data[i];}
     };
 
-    namespace _impl {
-
-        template <typename Partitioned, int CurrentIndex, typename ENABLE = void>
-        struct iterate_data;
-
-        template <typename Partitioned, int CurrentIndex>
-        struct iterate_data<Partitioned, CurrentIndex, typename std::enable_if<!Partitioned{}.contains(CurrentIndex) && (CurrentIndex>0), void>::type > {
-
-            template <typename Data, typename Functor, int Dims, typename Halos>
-            void operator()(Data const& data, Functor fun, direction<Dims> dir, Halos const& halos, unsigned offset) {
-                std::cout << "Not a partitioned dimension " << CurrentIndex << "\n";
-                for (int i = data.template begin<CurrentIndex>(); i < data.template end<CurrentIndex>(); ++i) {
-                    std::cout << i << " *> ";
-                    iterate_data<Partitioned, CurrentIndex-1>{}(data, fun, dir, halos, offset+i*data.template stride<CurrentIndex>());
-                }
-            }
-
-        };
-
-        template <typename Partitioned, int CurrentIndex>
-        struct iterate_data<Partitioned, CurrentIndex, typename std::enable_if<Partitioned{}.contains(CurrentIndex) && (CurrentIndex>0), void>::type > {
-
-            template <typename Data, typename Functor, int Dims, typename Halos>
-                void operator()(Data const& data, Functor fun, direction<Dims> dir, Halos const& halos, unsigned offset) {
-                std::cout << "This is a partitioned dimension " << CurrentIndex << "\n";
-                constexpr int index = Partitioned{}.index_of(CurrentIndex);
-                static_assert(index != -1, "");
-                auto range = halos[index].inner_range(dir[index]);
-                for (int i = range.begin(); i < range.end(); ++i) {
-                    std::cout << i << " -> ";
-                    iterate_data<Partitioned, CurrentIndex-1>{}(data, fun, dir, halos, offset+i*data.template stride<CurrentIndex>());
-                }
-            }
-
-        };
-
-        template <typename Partitioned>
-        struct iterate_data<Partitioned, 0, typename std::enable_if<!Partitioned{}.contains(0), void>::type  > {
-
-            template <typename Data, typename Functor, int Dims, typename Halos>
-                void operator()(Data const& data, Functor fun, direction<Dims> dir, Halos const& halos, unsigned offset) {
-                std::cout << ".";
-                std::cout << "Not a partitioned dimension " << 0 << ":";
-                for (int i = data.template begin<0>(); i < data.template end<0>(); ++i) {
-                    offset = offset+i*data.template stride<0>();
-                    std::cout << offset << ", ";
-                }
-            }
-
-        };
-
-        template <typename Partitioned>
-        struct iterate_data<Partitioned, 0, typename std::enable_if<Partitioned{}.contains(0), void>::type > {
-
-            template <typename Data, typename Functor, int Dims, typename Halos>
-                void operator()(Data const& data, Functor fun, direction<Dims> dir, Halos const& halos, unsigned offset) {
-                                std::cout << ".";
-                std::cout << "This is a partitioned dimension " << 0 << ": ";
-                constexpr int index = Partitioned{}.index_of(0);
-                static_assert(index != -1, "");
-                auto range = halos[index].inner_range(dir[index]);
-                for (int i = range.begin(); i < range.end(); ++i) {
-                    offset = offset+i*data.template stride<0>();
-                    std::cout << offset << ", ";
-                }
-            }
-
-        };
-
-    } // namespace _impl
 
 
     /** List of dimensions of a data that are partitioned */
@@ -217,15 +186,58 @@ namespace gridtools {
     template < unsigned NDims >
     struct regular_grid_descriptor {
 
-        std::array<dimension_descriptor, 2> m_halos;
+        std::array<halo_sizes, NDims> m_halos;
 
         template <typename Halos>
         regular_grid_descriptor(Halos && halos) : m_halos{std::forward<Halos>(halos)} {}
 
-        template < typename Partitioned, typename Data, typename Iter >
-        void pack(Data const& data, Iter fun, direction<NDims> && dir) {
-            _impl::iterate_data<Partitioned, Data::layout::masked_length-1 >{}( data, fun, dir, m_halos, 0);
+        template <int Len, typename ...Ts, int I>
+        typename std::enable_if<Len!=I, void>::type
+        print_ranges(std::tuple<Ts...> const& ranges, std::integral_constant<int, I>) const {
+            auto const& range = std::get<I>(ranges);
+            std::cout << I << ": " << range.begin() << " -> " << range.end() << "\n";
+            print_ranges<Len>(ranges, std::integral_constant<int, I+1>{});
         }
+
+        template <int Len, typename ...Ts, int I>
+        typename std::enable_if<Len==I, void>::type
+        print_ranges(std::tuple<Ts...> const&, std::integral_constant<int, I>) const {
+            std::cout << "\n";
+        }
+
+            template < typename Partitioned, typename Data, typename Iter >
+        void pack(Data const& data, Iter fun, direction<NDims> && dir) {
+            // First create iteration space: iteration space is an array of elements with a begin and an end.
+            auto ranges_of_data = make_range_of_data(data, meta::make_integer_sequence<int, Data::rank>{});
+            // then we substitute the partitioned dimensions with the proper halo ranges.
+            auto iteration_space = make_tuple_of_inner_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
+
+            print_ranges<std::tuple_size<decltype(iteration_space)>::value>(iteration_space, std::integral_constant<int, 0>{});
+
+        }
+
+    private:
+        template <typename Data, int... Inds>
+        auto make_range_of_data(Data const& data, meta::integer_sequence<int, Inds...>) {
+            return std::make_tuple(data.template range_of<Inds>()...);
+        }
+
+        template <typename DataRanges, typename Halos, int FirstHInd, int... HInds, typename  Direction, int I>
+        auto make_tuple_of_inner_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<FirstHInd, HInds...>, Direction const& dir, std::integral_constant<int, I> ) {
+
+            return make_tuple_of_inner_ranges
+                (replace<FirstHInd>
+                 (halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[FirstHInd]),
+                  data_ranges),
+                 halos, partitioned<HInds...>{}, dir, std::integral_constant<int, I+1>{});
+        }
+
+        template <typename DataRanges, typename Halos, int ...Inds, typename Direction, int I>
+        auto make_tuple_of_inner_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<>, Direction const&, std::integral_constant<int, I> ) {
+            return data_ranges;
+
+        }
+
     };
 
 }

@@ -13,7 +13,7 @@ namespace gridtools {
         int m_minus;
         int m_plus;
         int m_begin;
-        int m_end; /* inclusive to not brake the old API */
+        int m_end; /* exclusive, like STD */
 
         array<halo_range, 3> m_inner_ranges;
         array<halo_range, 3> m_outer_ranges;
@@ -24,8 +24,8 @@ namespace gridtools {
             , m_plus(p)
             , m_begin(b)
             , m_end(e)
-            , m_outer_ranges{halo_range(m_begin - m_minus, m_begin), halo_range(m_begin, m_end + 1), halo_range(m_end + 1, m_end+m_plus + 1)}
-            , m_inner_ranges{halo_range(m_begin, m_begin+m_plus), halo_range(m_begin, m_end+1), halo_range(m_end - m_minus + 1, m_end + 1)}
+            , m_outer_ranges{halo_range(m_begin - m_minus, m_begin), halo_range(m_begin, m_end), halo_range(m_end, m_end+m_plus)}
+            , m_inner_ranges{halo_range(m_begin, m_begin+m_plus), halo_range(m_begin, m_end), halo_range(m_end - m_minus, m_end)}
         {}
 
         constexpr halo_range inner_range(int i) const {
