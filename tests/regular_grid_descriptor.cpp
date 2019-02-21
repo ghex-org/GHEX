@@ -62,6 +62,20 @@ public:
         return stride;
     }
 
+    template <typename Array>
+    ValueType operator()(Array const& indices) const {
+        static_assert(std::tuple_size<Array>::value == rank);
+
+        int offset = indices[rank-1];
+        int current_stride = 1;
+        for (int i = rank-2; i>=0; --i) {
+            current_stride *= m_sizes[i+1];
+            offset += indices[i] * current_stride;
+        }
+
+        return offset;
+    }
+
     template <typename ...Inds>
     ValueType operator()(Inds const... inds) const {
         auto indices = std::array<int, rank>{inds...};

@@ -1,6 +1,7 @@
 #include <array>
 #include <tuple>
 #include <iomanip>
+#include <iostream>
 
 namespace gridtools {
 
@@ -18,11 +19,6 @@ namespace gridtools {
             auto const& r = std::get<NesingLevel>(ranges);
             for (int i = r.begin(); i < r.end(); ++i) {
                 indices[NesingLevel] = i;
-
-                std::cout << "tuple: " ;
-                for (int k=0; k<std::tuple_size<Ranges>::value; k++ )
-                    std::cout << std::setw(3) << indices[k] ;
-                std::cout << "\n";
 
                 iterate<NesingLevel+1>(ranges, indices, std::forward<Fun>(fun));
             }

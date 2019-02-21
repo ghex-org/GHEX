@@ -102,7 +102,7 @@
 #include <gridtools/meta/utility.hpp>
 #include <gridtools/meta.hpp>
 #include <gridtools/common/tuple_util.hpp>
-
+#include "./range_loops.hpp"
 #include <iostream>
 
 namespace gridtools {
@@ -205,16 +205,17 @@ namespace gridtools {
             std::cout << "\n";
         }
 
-            template < typename Partitioned, typename Data, typename Iter >
+        template < typename Partitioned, typename Data, typename Iter >
         void pack(Data const& data, Iter fun, direction<NDims> && dir) {
             // First create iteration space: iteration space is an array of elements with a begin and an end.
             auto ranges_of_data = make_range_of_data(data, meta::make_integer_sequence<int, Data::rank>{});
             // then we substitute the partitioned dimensions with the proper halo ranges.
             auto iteration_space = make_tuple_of_inner_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
 
-            // now iteration_space is a tuple of ranges. Now we need to iterate on them and execute the functor.
-
             print_ranges<std::tuple_size<decltype(iteration_space)>::value>(iteration_space, std::integral_constant<int, 0>{});
+
+            // now iteration_space is a tuple of ranges. Now we need to iterate on them and execute the functor.
+            range_loop(iteration_space, [&fun,&data](auto const& indices) {fun(data(indices));});
 
         }
 
