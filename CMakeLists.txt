@@ -34,6 +34,9 @@ target_link_libraries(test_iteration_spaces ${exe_LIBS} GridTools::gridtools Gri
 add_executable( regular_grid_descriptor tests/regular_grid_descriptor.cpp )
 target_link_libraries( regular_grid_descriptor ${exe_LIBS} GridTools::gridtools )
 
+add_executable( range_loops tests/range_loops.cpp )
+target_link_libraries( range_loops ${exe_LIBS} GridTools::gridtools )
+
 
 add_executable( test_is_multi_arg tests/test_is_multi_arg.cpp )
 target_link_libraries(test_is_multi_arg ${exe_LIBS} GridTools::gridtools GridTools::gcl)

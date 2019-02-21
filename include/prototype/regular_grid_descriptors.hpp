@@ -212,6 +212,8 @@ namespace gridtools {
             // then we substitute the partitioned dimensions with the proper halo ranges.
             auto iteration_space = make_tuple_of_inner_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
 
+            // now iteration_space is a tuple of ranges. Now we need to iterate on them and execute the functor.
+
             print_ranges<std::tuple_size<decltype(iteration_space)>::value>(iteration_space, std::integral_constant<int, 0>{});
 
         }
