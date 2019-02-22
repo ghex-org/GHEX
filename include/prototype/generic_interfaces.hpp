@@ -330,8 +330,8 @@ class generic_co {
 
     id_type m_id;
     PG const& m_pg;
-    IterationSpacesSend m_sendis;
-    IterationSpacesRecv m_recvis;
+    IterationSpacesSend m_send_iteration_space;
+    IterationSpacesRecv m_recv_iteration_space;
 
     struct future {
         std::vector<MPI_Request> request;
@@ -352,11 +352,11 @@ class generic_co {
     }
 
 public:
-    generic_co(id_type id, PG const& pg,  IterationSpacesSend sendis,  IterationSpacesRecv recvis)
+    generic_co(id_type id, PG const& pg,  IterationSpacesSend send_iteration_space,  IterationSpacesRecv recv_iteration_space)
         : m_id{id}
         , m_pg{pg}
-        , m_sendis(sendis)
-        , m_recvis(recvis)
+        , m_send_iteration_space(send_iteration_space)
+        , m_recv_iteration_space(recv_iteration_space)
     {}
 
     generic_co(generic_co const&) = delete;
@@ -389,7 +389,7 @@ public:
                               wrong (tags should not identigy
                               neighbors, but messages
                               (neighbot+directon). */
-                          auto r = m_recvis(m_id, neighbor.id(), neighbor.direction());
+                          auto r = m_recv_iteration_space(m_id, neighbor.id(), neighbor.direction());
 
                           //if (my_rank == neighbor.uid().rank()) return;
 
@@ -415,7 +415,7 @@ public:
                               wrong (tags should not identigy
                               neighbors, but messages
                               (neighbot+directon). */
-                          auto s = m_sendis(m_id, neighbor.id(), neighbor.direction());
+                          auto s = m_send_iteration_space(m_id, neighbor.id(), neighbor.direction());
 
                           MPI_Status st;
                           MPI_Request mock;
