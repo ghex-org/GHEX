@@ -1,3 +1,13 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2019, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /** @file We describe here the way of representing the regular grids
     (multi-dimensional arrays) could be decsribed in a general way, so
     that a back-end can take this information to pack-unpack or do
