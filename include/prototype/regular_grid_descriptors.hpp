@@ -215,10 +215,10 @@ namespace gridtools {
             std::cout << "\n";
         }
 
-        template < typename Partitioned, typename Data>
-        auto inner_iteration_space(Data const& data, direction<NDims> && dir) {
+        template < typename Partitioned, typename DataDescriptor>
+        auto inner_iteration_space(DataDescriptor const& datadsc, direction<NDims> const& dir) {
             // First create iteration space: iteration space is an array of elements with a begin and an end.
-            auto ranges_of_data = make_range_of_data(data, meta::make_integer_sequence<int, Data::rank>{});
+            auto ranges_of_data = make_range_of_data(datadsc, meta::make_integer_sequence<int, DataDescriptor::rank>{});
             // then we substitute the partitioned dimensions with the proper halo ranges.
             auto iteration_space = make_tuple_of_inner_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
 
@@ -228,10 +228,10 @@ namespace gridtools {
         }
 
 
-        template < typename Partitioned, typename Data>
-        void outer_iteration_space(Data const& data, direction<NDims> && dir) {
+        template < typename Partitioned, typename DataDescriptor>
+        auto outer_iteration_space(DataDescriptor const& datadsc, direction<NDims> const& dir) {
             // First create iteration space: iteration space is an array of elements with a begin and an end.
-            auto ranges_of_data = make_range_of_data(data, meta::make_integer_sequence<int, Data::rank>{});
+            auto ranges_of_data = make_range_of_data(datadsc, meta::make_integer_sequence<int, DataDescriptor::rank>{});
             // then we substitute the partitioned dimensions with the proper halo ranges.
             auto iteration_space = make_tuple_of_outer_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
 
@@ -242,7 +242,7 @@ namespace gridtools {
 
 
         template < typename Partitioned, typename Data, typename Function >
-        void pack(Data const& data, Function fun, direction<NDims> && dir) {
+        void pack(Data const& data, Function fun, direction<NDims> const& dir) {
             auto iteration_space = inner_iteration_space<Partitioned>(data, std::forward<direction<NDims>>(dir));
 
             // now iteration_space is a tuple of ranges. Now we need to iterate on them and execute the functor.
@@ -251,7 +251,7 @@ namespace gridtools {
         }
 
         template < typename Partitioned, typename Data, typename Function >
-        void unpack(Data const& data, Function fun, direction<NDims> && dir) {
+        void unpack(Data const& data, Function fun, direction<NDims> const& dir) {
             auto iteration_space = outer_iteration_space<Partitioned>(data, std::forward<direction<NDims>>(dir));
 
             // now iteration_space is a tuple of ranges. Now we need to iterate on them and execute the functor.
@@ -277,6 +277,22 @@ namespace gridtools {
 
         template <typename DataRanges, typename Halos, int ...Inds, typename Direction, int I>
         auto make_tuple_of_inner_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<>, Direction const&, std::integral_constant<int, I> ) {
+            return data_ranges;
+
+        }
+
+        template <typename DataRanges, typename Halos, int FirstHInd, int... HInds, typename  Direction, int I>
+        auto make_tuple_of_outer_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<FirstHInd, HInds...>, Direction const& dir, std::integral_constant<int, I> ) {
+
+            return make_tuple_of_outer_ranges
+                (replace<FirstHInd>
+                 (halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).outer_range(dir[FirstHInd]),
+                  data_ranges),
+                 halos, partitioned<HInds...>{}, dir, std::integral_constant<int, I+1>{});
+        }
+
+        template <typename DataRanges, typename Halos, int ...Inds, typename Direction, int I>
+        auto make_tuple_of_outer_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<>, Direction const&, std::integral_constant<int, I> ) {
             return data_ranges;
 
         }

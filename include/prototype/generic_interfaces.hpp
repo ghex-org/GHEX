@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <mutex>
 #include <cassert>
+#include "./range_loops.hpp"
 
 const int log_max_objs = 10; // log_2(max number of PGs)
 
@@ -403,14 +404,14 @@ public:
 
                           //if (my_rank == neighbor.uid().rank()) return;
 
-                          fl << m_id << ": Recv " << sizeof(TT)*(r.end()-r.begin()) << " bytes from "
-                             << neighbor.uid().rank() << " (id: " << neighbor.id() << ") "
-                             << " with tag " << my_unique_id<<7 + direction_type::direction2int(direction_type::invert_direction(neighbor.direction()))
-                             << " recv in: " << r.begin()
-                             << "\n";
-                          fl.flush();
-                          MPI_Irecv((reinterpret_cast<TT*>(reinterpret_cast<char*>(data)+r.begin()*sizeof(TT))),
-                                    sizeof(TT)*(r.end()-r.begin()), MPI_CHAR, neighbor.uid().rank(),
+                          std::vector<TT> container;
+
+                          gridtools::range_loop(r, [&data, &container](auto const& indices) { container.push_back(data[indices[0]][indices[1]]); });
+
+                          assert(gridtools::range_loop_size(r) == container.size());
+
+                          MPI_Irecv(&(*container.begin()),
+                                     container.size()*sizeof(TT), MPI_CHAR, neighbor.uid().rank(),
                                     my_unique_id<<7 + direction_type::direction2int(direction_type::invert_direction(neighbor.direction())), MPI_COMM_WORLD, &request[ind++]);
                           fl << "Done " << ind << "\n";
                           fl.flush();
@@ -432,19 +433,18 @@ public:
 
                           //if (my_rank == neighbor.uid().rank()) return;
 
-                          fl << m_id << ": Send " << sizeof(TT)*(s.end()-s.begin()) << " bytes to   "
-                             << neighbor.uid().rank() << " (id: " << neighbor.id() << ") "
-                             << " with tag " << neighbor.uid().unique_id()<<7 + direction_type::direction2int(neighbor.direction())
-                             << " send from: " << s.begin()
-                             << "\n";
-                          fl.flush();
-                          MPI_Isend((reinterpret_cast<TT*>(reinterpret_cast<char*>(data)+s.begin()*sizeof(TT))),
-                                    sizeof(TT)*(s.end()-s.begin()), MPI_CHAR, neighbor.uid().rank(),
+                          std::vector<TT> container(10); // enough space
+
+                          MPI_Isend(&(*container.begin()),
+                                    sizeof(TT)*range_loop_size(s), MPI_CHAR, neighbor.uid().rank(),
                                     neighbor.uid().unique_id()<<7 + direction_type::direction2int(neighbor.direction()), MPI_COMM_WORLD, &mock);
                           fl << "Done\n";
                           fl.flush();
                           MPI_Wait(&mock, &st);
-                     }
+                          auto it = container.begin();
+                          gridtools::range_loop(s, [&data, &it](auto const& indices) { data[indices[0]][indices[1]] = *it; it++; });
+
+                      }
                       );
 
         return request;
