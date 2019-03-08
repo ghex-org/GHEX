@@ -1,3 +1,13 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2019, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include <mpi.h>
 #include <fstream>
 #include <sstream>
@@ -13,6 +23,7 @@
 #include <algorithm>
 #include <mutex>
 #include <cassert>
+#include "./range_loops.hpp"
 
 const int log_max_objs = 10; // log_2(max number of PGs)
 
@@ -330,8 +341,8 @@ class generic_co {
 
     id_type m_id;
     PG const& m_pg;
-    IterationSpacesSend m_sendis;
-    IterationSpacesRecv m_recvis;
+    IterationSpacesSend m_send_iteration_space;
+    IterationSpacesRecv m_recv_iteration_space;
 
     struct future {
         std::vector<MPI_Request> request;
@@ -352,11 +363,11 @@ class generic_co {
     }
 
 public:
-    generic_co(id_type id, PG const& pg,  IterationSpacesSend sendis,  IterationSpacesRecv recvis)
+    generic_co(id_type id, PG const& pg,  IterationSpacesSend send_iteration_space,  IterationSpacesRecv recv_iteration_space)
         : m_id{id}
         , m_pg{pg}
-        , m_sendis(sendis)
-        , m_recvis(recvis)
+        , m_send_iteration_space(send_iteration_space)
+        , m_recv_iteration_space(recv_iteration_space)
     {}
 
     generic_co(generic_co const&) = delete;
@@ -389,18 +400,18 @@ public:
                               wrong (tags should not identigy
                               neighbors, but messages
                               (neighbot+directon). */
-                          auto r = m_recvis(m_id, neighbor.id(), neighbor.direction());
+                          auto r = m_recv_iteration_space(m_id, neighbor.id(), neighbor.direction());
 
                           //if (my_rank == neighbor.uid().rank()) return;
 
-                          fl << m_id << ": Recv " << sizeof(TT)*(r.end()-r.begin()) << " bytes from "
-                             << neighbor.uid().rank() << " (id: " << neighbor.id() << ") "
-                             << " with tag " << my_unique_id<<7 + direction_type::direction2int(direction_type::invert_direction(neighbor.direction()))
-                             << " recv in: " << r.begin()
-                             << "\n";
-                          fl.flush();
-                          MPI_Irecv((reinterpret_cast<TT*>(reinterpret_cast<char*>(data)+r.begin()*sizeof(TT))),
-                                    sizeof(TT)*(r.end()-r.begin()), MPI_CHAR, neighbor.uid().rank(),
+                          std::vector<TT> container;
+
+                          gridtools::range_loop(r, [&data, &container](auto const& indices) { container.push_back(data[indices[0]][indices[1]]); });
+
+                          assert(gridtools::range_loop_size(r) == container.size());
+
+                          MPI_Irecv(&(*container.begin()),
+                                     container.size()*sizeof(TT), MPI_CHAR, neighbor.uid().rank(),
                                     my_unique_id<<7 + direction_type::direction2int(direction_type::invert_direction(neighbor.direction())), MPI_COMM_WORLD, &request[ind++]);
                           fl << "Done " << ind << "\n";
                           fl.flush();
@@ -415,26 +426,25 @@ public:
                               wrong (tags should not identigy
                               neighbors, but messages
                               (neighbot+directon). */
-                          auto s = m_sendis(m_id, neighbor.id(), neighbor.direction());
+                          auto s = m_send_iteration_space(m_id, neighbor.id(), neighbor.direction());
 
                           MPI_Status st;
                           MPI_Request mock;
 
                           //if (my_rank == neighbor.uid().rank()) return;
 
-                          fl << m_id << ": Send " << sizeof(TT)*(s.end()-s.begin()) << " bytes to   "
-                             << neighbor.uid().rank() << " (id: " << neighbor.id() << ") "
-                             << " with tag " << neighbor.uid().unique_id()<<7 + direction_type::direction2int(neighbor.direction())
-                             << " send from: " << s.begin()
-                             << "\n";
-                          fl.flush();
-                          MPI_Isend((reinterpret_cast<TT*>(reinterpret_cast<char*>(data)+s.begin()*sizeof(TT))),
-                                    sizeof(TT)*(s.end()-s.begin()), MPI_CHAR, neighbor.uid().rank(),
+                          std::vector<TT> container(10); // enough space
+
+                          MPI_Isend(&(*container.begin()),
+                                    sizeof(TT)*range_loop_size(s), MPI_CHAR, neighbor.uid().rank(),
                                     neighbor.uid().unique_id()<<7 + direction_type::direction2int(neighbor.direction()), MPI_COMM_WORLD, &mock);
                           fl << "Done\n";
                           fl.flush();
                           MPI_Wait(&mock, &st);
-                     }
+                          auto it = container.begin();
+                          gridtools::range_loop(s, [&data, &it](auto const& indices) { data[indices[0]][indices[1]] = *it; it++; });
+
+                      }
                       );
 
         return request;
