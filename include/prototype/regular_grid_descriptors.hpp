@@ -243,7 +243,8 @@ namespace gridtools {
 
         template < typename Partitioned, typename Data, typename Function >
         void pack(Data const& data, Function fun, direction<NDims> const& dir) {
-            auto iteration_space = inner_iteration_space<Partitioned>(data, std::forward<direction<NDims>>(dir));
+            //auto iteration_space = inner_iteration_space<Partitioned>(data, std::forward<direction<NDims>>(dir));
+            auto iteration_space = inner_iteration_space<Partitioned>(data, dir);
 
             // now iteration_space is a tuple of ranges. Now we need to iterate on them and execute the functor.
             range_loop(iteration_space, [&fun,&data](auto const& indices) {fun(data(indices));});
@@ -252,7 +253,8 @@ namespace gridtools {
 
         template < typename Partitioned, typename Data, typename Function >
         void unpack(Data const& data, Function fun, direction<NDims> const& dir) {
-            auto iteration_space = outer_iteration_space<Partitioned>(data, std::forward<direction<NDims>>(dir));
+            //auto iteration_space = outer_iteration_space<Partitioned>(data, std::forward<direction<NDims>>(dir));
+            auto iteration_space = outer_iteration_space<Partitioned>(data, dir);
 
             // now iteration_space is a tuple of ranges. Now we need to iterate on them and execute the functor.
             range_loop(iteration_space, [&fun,&data](auto const& indices) {fun(data(indices));});
@@ -267,10 +269,16 @@ namespace gridtools {
 
         template <typename DataRanges, typename Halos, int FirstHInd, int... HInds, typename  Direction, int I>
         auto make_tuple_of_inner_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<FirstHInd, HInds...>, Direction const& dir, std::integral_constant<int, I> ) {
-
+            //std::cout << "make_tuple_of_inner_range: " << std::endl;
+            //std::cout << "  inner range = "
+            //<< halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[I]).begin() << ", "
+            //<< halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[I]).end();
+            //std::cout << std::endl;
+            //std::cout << "  I = " << I << std::endl; 
             return make_tuple_of_inner_ranges
                 (replace<FirstHInd>
-                 (halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[FirstHInd]),
+                 //(halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[FirstHInd]),
+                 (halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[I]),
                   data_ranges),
                  halos, partitioned<HInds...>{}, dir, std::integral_constant<int, I+1>{});
         }

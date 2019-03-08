@@ -89,14 +89,7 @@ public:
     template <typename ...Inds>
     ValueType operator()(Inds const... inds) const {
         auto indices = std::array<int, rank>{inds...};
-        int offset = indices[rank-1];
-        int current_stride = 1;
-        for (int i = rank-2; i>=0; --i) {
-            current_stride *= m_sizes[i+1];
-            offset += indices[i] * current_stride;
-        }
-
-        return offset;
+        return this->operator()(indices);
     }
 };
 
@@ -123,7 +116,7 @@ int main() {
         std::vector<int> container;
 
 
-        x.pack< gt::partitioned<0> >(data,
+        x.pack< gt::partitioned<1> >(data,
                                      [&container](data_type::value_type x) {container.push_back(x);},
                                      gt::direction<1>({-1}));
 
