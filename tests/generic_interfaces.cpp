@@ -112,7 +112,8 @@ public:
 int main(int argc, char** argv) {
     int p;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &p);
-    int rank, world_size;
+    //int rank, world_size;
+    int world_size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
@@ -163,7 +164,10 @@ int main(int argc, char** argv) {
         {
             int i = id.first;
             int j = id.second;
-            return { std::make_pair(id_type{mod(i-1, grid_sizes[0]),j}, std::array<int, 2>{-1,0}), {{mod(i+1, grid_sizes[0]),j}, std::array<int, 2>{1,0}},  {{i,mod(j-1,grid_sizes[1]*2)}, std::array<int, 2>{0,-1}}, {{i,mod(j+1,grid_sizes[1]*2)}, std::array<int, 2>{0,1}} };
+            return { std::make_pair(id_type{mod(i-1,grid_sizes[0]),j},                        std::array<int, 2>{-1, 0}), 
+                                          {{mod(i+1,grid_sizes[0]),j},                        std::array<int, 2>{ 1, 0}},  
+                                          {{i,                     mod(j-1,grid_sizes[1]*2)}, std::array<int, 2>{ 0,-1}}, 
+                                          {{i,                     mod(j+1,grid_sizes[1]*2)}, std::array<int, 2>{ 0, 1}} };
         };
 
     file << "Local ids\n";
@@ -186,7 +190,7 @@ int main(int argc, char** argv) {
     file.flush();
     file.close();
 
-    data_descriptor_t data_dsc(3);
+    data_descriptor_t data_dsc(3,3,3);
     std::array<gt::halo_sizes, 2> halos = { gt::halo_sizes{ 1, 1 }, gt::halo_sizes{ 1, 1 } };
 
     gt::regular_grid_descriptor< 2 /* number of partitioned dimensions */ > grid(halos);
@@ -222,7 +226,7 @@ int main(int argc, char** argv) {
     std::vector<std::thread> threads;
     auto itc = co.begin();
     for (auto it = local_ids.begin(); it != local_ids.end(); ++it, ++itc) {
-        threads.push_back(std::thread([&file, pg, rank, grid_sizes](id_type id, co_type& co) -> void
+        threads.push_back(std::thread([&file, pg, /*rank,*/ grid_sizes](id_type id, co_type& co) -> void
                                       {
                                           id_type data[3][3] = { {{-1,-1}, {-1,-1}, {-1,-1}},
                                                                  {{-1,-1},    id  , {-1,-1}},

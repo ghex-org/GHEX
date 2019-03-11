@@ -26,25 +26,22 @@ list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 #
 #add_executable( mbianco_gcl2_managed tests/gcl2_app.cpp )
 #target_link_libraries(mbianco_gcl2_managed ${exe_LIBS} GridTools::gridtools GridTools::gcl)
-#
-#add_executable( test_iteration_spaces tests/test_iteration_spaces.cpp )
-#target_link_libraries(test_iteration_spaces ${exe_LIBS} GridTools::gridtools GridTools::gcl)
 
+add_executable( test_iteration_spaces tests/test_iteration_spaces.cpp )
+target_link_libraries(test_iteration_spaces ${exe_LIBS} GridTools::gridtools GridTools::gcl)
 
 add_executable( regular_grid_descriptor tests/regular_grid_descriptor.cpp )
 target_link_libraries( regular_grid_descriptor ${exe_LIBS} GridTools::gridtools )
 
-#add_executable( range_loops tests/range_loops.cpp )
-#target_link_libraries( range_loops ${exe_LIBS} GridTools::gridtools )
-#
-#
-#add_executable( test_is_multi_arg tests/test_is_multi_arg.cpp )
-#target_link_libraries(test_is_multi_arg ${exe_LIBS} GridTools::gridtools GridTools::gcl)
-#
-#
-#add_executable( generic_interfaces tests/generic_interfaces.cpp )
-#target_link_libraries(generic_interfaces ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
-#
+add_executable( range_loops tests/range_loops.cpp )
+target_link_libraries( range_loops ${exe_LIBS} GridTools::gridtools )
+
+add_executable( test_is_multi_arg tests/test_is_multi_arg.cpp )
+target_link_libraries(test_is_multi_arg ${exe_LIBS} GridTools::gridtools GridTools::gcl)
+
+add_executable( generic_interfaces tests/generic_interfaces.cpp )
+target_link_libraries(generic_interfaces ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
+
 #add_executable( generic_interfaces8 tests/generic_interfaces8.cpp )
 #target_link_libraries(generic_interfaces8 ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
 #

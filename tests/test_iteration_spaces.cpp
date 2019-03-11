@@ -145,6 +145,16 @@ namespace gridtools {
         {
             setup_inner(halos, m_inner_bounds);
             setup_outer(halos, m_outer_bounds);
+            for (int i=0; i<3; ++i)
+            for (int j=0; j<3; ++j)
+            for (int k=0; k<3; ++k)
+                std::cout 
+                << "[" 
+                << "(" << m_inner_bounds[i][j][k][0].begin() << ", " << m_inner_bounds[i][j][k][0].end() << "), "
+                << "(" << m_inner_bounds[i][j][k][1].begin() << ", " << m_inner_bounds[i][j][k][1].end() << "), "
+                << "(" << m_inner_bounds[i][j][k][2].begin() << ", " << m_inner_bounds[i][j][k][2].end() << ")] "
+                << std::endl;
+            std::cout << std::endl;
         }
 
         template <typename ...Ints>
@@ -207,6 +217,15 @@ int main() {
 
     std::cout << "is equal is " << std::boolalpha << is_equal << "\n";
 
+    /*constexpr gt::array<gt::dimension_descriptor, 4> halos4{
+        gt::dimension_descriptor{3,2,5,9},
+        {1,3,2,6},
+        {2,1,2,8},
+        {2,1,2,8}
+    };*/
+
+    // this is most probably wrong and not used anywhere else
+    // do not consider for now!
     gt::iteration_spaces<3> is(halos);
 
 }

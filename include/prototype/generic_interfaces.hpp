@@ -215,7 +215,7 @@ public:
         std::vector< int > all_sizes(total_size);
         MPI_Allgather(&send_size, 1, MPI_INT, (void*)all_sizes.data(), 1, MPI_INT, MPI_COMM_WORLD);
         std::for_each(all_sizes.begin(), all_sizes.end(), [](int& v) { v *= sizeof(std::pair<DomainId, node_uid_t >); });
-        std::vector< int > all_offsets(total_size);
+        std::vector< int > all_offsets(total_size, 0);
         for (int i = 1; i < total_size; ++i) {
             all_offsets[i] = all_offsets[i-1] + all_sizes[i-1];
         }
@@ -402,11 +402,20 @@ public:
                               (neighbot+directon). */
                           auto r = m_recv_iteration_space(m_id, neighbor.id(), neighbor.direction());
 
-                          //if (my_rank == neighbor.uid().rank()) return;
 
+                          //if (my_rank == neighbor.uid().rank()) return;
+                          // ----------------------------------
+                          // mixed up send and receive here????
+                          // ----------------------------------
                           std::vector<TT> container;
 
-                          gridtools::range_loop(r, [&data, &container](auto const& indices) { container.push_back(data[indices[0]][indices[1]]); });
+                          gridtools::range_loop(r, [&data, &container, my_rank, &fl](auto const& indices) { 
+                                container.push_back(data[indices[0]][indices[1]]); 
+                                if (my_rank == 0)
+                                {
+                                    fl << "recv range (rank 0): " << container.back() << std::endl;
+                                }        
+                          });
 
                           assert(gridtools::range_loop_size(r) == container.size());
 

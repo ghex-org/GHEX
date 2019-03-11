@@ -222,7 +222,7 @@ namespace gridtools {
             // then we substitute the partitioned dimensions with the proper halo ranges.
             auto iteration_space = make_tuple_of_inner_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
 
-            print_ranges<std::tuple_size<decltype(iteration_space)>::value>(iteration_space, std::integral_constant<int, 0>{});
+            //print_ranges<std::tuple_size<decltype(iteration_space)>::value>(iteration_space, std::integral_constant<int, 0>{});
 
             return iteration_space;
         }
@@ -232,8 +232,20 @@ namespace gridtools {
         auto outer_iteration_space(DataDescriptor const& datadsc, direction<NDims> const& dir) {
             // First create iteration space: iteration space is an array of elements with a begin and an end.
             auto ranges_of_data = make_range_of_data(datadsc, meta::make_integer_sequence<int, DataDescriptor::rank>{});
+            //// 
+            //// ranges of data
+            //std::cout << "range of data 0: " << std::get<0>(ranges_of_data).begin() << ", " << std::get<0>(ranges_of_data).end() << std::endl;
+            //std::cout << "range of data 1: " << std::get<1>(ranges_of_data).begin() << ", " << std::get<1>(ranges_of_data).end() << std::endl;
+            //std::cout << "range of data 2: " << std::get<2>(ranges_of_data).begin() << ", " << std::get<2>(ranges_of_data).end() << std::endl;
+            ////
             // then we substitute the partitioned dimensions with the proper halo ranges.
             auto iteration_space = make_tuple_of_outer_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
+            //// 
+            //// iteration space
+            //std::cout << "iteration space 0: " << std::get<0>(iteration_space).begin() << ", " << std::get<0>(iteration_space).end() << std::endl;
+            //std::cout << "iteration space 1: " << std::get<1>(iteration_space).begin() << ", " << std::get<1>(iteration_space).end() << std::endl;
+            //std::cout << "iteration space 2: " << std::get<2>(iteration_space).begin() << ", " << std::get<2>(iteration_space).end() << std::endl;
+            ////
 
             print_ranges<std::tuple_size<decltype(iteration_space)>::value>(iteration_space, std::integral_constant<int, 0>{});
 
@@ -264,17 +276,14 @@ namespace gridtools {
     private:
         template <typename Data, int... Inds>
         auto make_range_of_data(Data const& data, meta::integer_sequence<int, Inds...>) {
+            //std::cout << "data.range_of<0> = " << data.template range_of<0>().begin() << ", " << data.template range_of<0>().end() << std::endl;
+            //std::cout << "data.range_of<1> = " << data.template range_of<1>().begin() << ", " << data.template range_of<1>().end() << std::endl;
+            //std::cout << "data.range_of<2> = " << data.template range_of<2>().begin() << ", " << data.template range_of<2>().end() << std::endl;
             return std::make_tuple(data.template range_of<Inds>()...);
         }
 
         template <typename DataRanges, typename Halos, int FirstHInd, int... HInds, typename  Direction, int I>
         auto make_tuple_of_inner_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<FirstHInd, HInds...>, Direction const& dir, std::integral_constant<int, I> ) {
-            //std::cout << "make_tuple_of_inner_range: " << std::endl;
-            //std::cout << "  inner range = "
-            //<< halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[I]).begin() << ", "
-            //<< halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[I]).end();
-            //std::cout << std::endl;
-            //std::cout << "  I = " << I << std::endl; 
             return make_tuple_of_inner_ranges
                 (replace<FirstHInd>
                  //(halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).inner_range(dir[FirstHInd]),
@@ -294,7 +303,8 @@ namespace gridtools {
 
             return make_tuple_of_outer_ranges
                 (replace<FirstHInd>
-                 (halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).outer_range(dir[FirstHInd]),
+                 //(halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).outer_range(dir[FirstHInd]),
+                 (halos[I].get_dimension_descriptor(std::get<FirstHInd>(data_ranges)).outer_range(dir[I]),
                   data_ranges),
                  halos, partitioned<HInds...>{}, dir, std::integral_constant<int, I+1>{});
         }
