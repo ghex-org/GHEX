@@ -16,14 +16,15 @@ message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 
-#add_executable( mbianco_gcl2 tests/gcl2_app.cpp )
-#target_compile_options(mbianco_gcl2 PRIVATE -DMT_MPI)
-#target_link_libraries(mbianco_gcl2 ${exe_LIBS} GridTools::gridtools GridTools::gcl)
-#
-#add_executable( mbianco_gcl2_os tests/gcl2_app.cpp )
-#target_compile_options(mbianco_gcl2_os PRIVATE -DOS_MPI)
-#target_link_libraries(mbianco_gcl2_os ${exe_LIBS} ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
-#
+add_executable( mbianco_gcl2 tests/gcl2_app.cpp )
+target_compile_options(mbianco_gcl2 PRIVATE -DMT_MPI)
+target_link_libraries(mbianco_gcl2 ${exe_LIBS} GridTools::gridtools GridTools::gcl)
+
+add_executable( mbianco_gcl2_os tests/gcl2_app.cpp )
+target_compile_options(mbianco_gcl2_os PRIVATE -DOS_MPI)
+target_link_libraries(mbianco_gcl2_os ${exe_LIBS} ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
+
+# segfaults for me, maybe gridtools not configured properly
 #add_executable( mbianco_gcl2_managed tests/gcl2_app.cpp )
 #target_link_libraries(mbianco_gcl2_managed ${exe_LIBS} GridTools::gridtools GridTools::gcl)
 
@@ -42,11 +43,14 @@ target_link_libraries(test_is_multi_arg ${exe_LIBS} GridTools::gridtools GridToo
 add_executable( generic_interfaces tests/generic_interfaces.cpp )
 target_link_libraries(generic_interfaces ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
 
+# this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces8 tests/generic_interfaces8.cpp )
 #target_link_libraries(generic_interfaces8 ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
-#
+
+# this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces1D tests/generic_interfaces1D.cpp )
 #target_link_libraries(generic_interfaces1D ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
-#
+
+# this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces1D_mt tests/generic_interfaces1D_mt.cpp )
 #target_link_libraries(generic_interfaces1D_mt ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)

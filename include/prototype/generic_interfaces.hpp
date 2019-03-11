@@ -409,12 +409,12 @@ public:
                           // ----------------------------------
                           std::vector<TT> container;
 
-                          gridtools::range_loop(r, [&data, &container, my_rank, &fl](auto const& indices) { 
+                          gridtools::range_loop(r, [&data, &container/*, my_rank, &fl*/](auto const& indices) { 
                                 container.push_back(data[indices[0]][indices[1]]); 
-                                if (my_rank == 0)
-                                {
-                                    fl << "recv range (rank 0): " << container.back() << std::endl;
-                                }        
+                                //if (my_rank == 0)
+                                //{
+                                //    fl << "recv range (rank 0): " << container.back() << std::endl;
+                                //}        
                           });
 
                           assert(gridtools::range_loop_size(r) == container.size());
