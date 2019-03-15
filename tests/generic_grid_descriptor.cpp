@@ -62,5 +62,11 @@ int main()
 
     std::cout << inflated_cube_topology::rank::value << std::endl;
 
+    std::cout << topology_traits<regular_grid_topology<1,2>>::nested::value << std::endl;
+    std::cout << topology_traits<inflated_cube_topology>::nested::value << std::endl;
+
+    std::cout << topology_traits<regular_grid_topology<1,2>>::faces::value << std::endl;
+    std::cout << topology_traits<inflated_cube_topology>::faces::value << std::endl;
+
     return 0;
 }

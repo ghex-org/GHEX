@@ -97,8 +97,38 @@ using inflated_cube_topology = inflated_regular_topology<6>;
 
 using inflated_icosahedron_topology = inflated_regular_topology<10>;
 
+namespace _impl {
 
-}
+template<typename T, typename V = void>
+struct _nested : std::false_type {};
+
+template<typename T>
+struct _nested<T, typename std::enable_if<T::nested::value, void>::type> : T::nested {};
+
+
+template<typename T, typename V = void>
+struct _faces : std::integral_constant<unsigned,0> {};
+
+template<typename T>
+struct _faces<T, typename std::enable_if<(T::faces::value > 0), void>::type> : T::faces {};
+} // namespace _impl
+
+
+template<typename Topology>
+struct topology_traits
+{
+    using type = Topology;
+    using rank   = typename type::rank;
+    using decomposed_dimensions = typename type::decomposed_dimensions;
+    using remaining_dimensions  = typename type::remaining_dimensions;
+    using regular = typename type::regular;
+    using mixed   = typename type::mixed;
+    using unstructured = typename type::unstructured;
+    using nested = typename _impl::_nested<type>;
+    using faces  = typename _impl::_faces<type>;
+};
+
+} // namespace gridtools
 
 
 #endif /* INCLUDED_GENERIC_GRID_DESCRIPTOR_HPP */
