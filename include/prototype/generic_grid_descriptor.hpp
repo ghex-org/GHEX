@@ -76,6 +76,18 @@ struct grid_topology
         , "invalid topology specified");
 };
 
+template<typename DD, typename RD>
+struct grid_topology<grid_topology<DD,RD>>
+{
+    using nested = std::true_type;
+    using nested_type = grid_topology<DD,RD>;
+    using decomposed_dimensions = typename nested_type::decomposed_dimensions;
+    using remaining_dimensions  = typename nested_type::remaining_dimensions;
+    using rank = typename nested_type::rank;
+    using unstructured = std::true_type;
+    using mixed = std::false_type;
+    using regular = std::false_type;
+};
 
 template<unsigned DD, unsigned RD = 1>
 using regular_grid_topology = grid_topology< dimensions<DD>, dimensions<RD> >;
@@ -84,18 +96,9 @@ using mixed_grid_topology = grid_topology< dimensions<2,false>, dimensions<1> >;
 
 using unstructured_grid_topology = grid_topology< dimensions<3,false>, dimensions<0> >;
 
+template<unsigned DD = 2, unsigned RD = 1>
+using nested_topology = grid_topology<regular_grid_topology<DD,RD>>;
 
-template<unsigned Faces>
-struct inflated_regular_topology : public regular_grid_topology<2,1>
-{
-    using nested = std::true_type;
-    using face_topology = regular_grid_topology<2,1>;
-    using faces = std::integral_constant<unsigned, Faces>;
-};
-
-using inflated_cube_topology = inflated_regular_topology<6>;
-
-using inflated_icosahedron_topology = inflated_regular_topology<10>;
 
 namespace _impl {
 
@@ -105,12 +108,12 @@ struct _nested : std::false_type {};
 template<typename T>
 struct _nested<T, typename std::enable_if<T::nested::value, void>::type> : T::nested {};
 
+//template<typename T, typename V = void>
+//struct _faces : std::integral_constant<unsigned,0> {};
+//
+//template<typename T>
+//struct _faces<T, typename std::enable_if<(T::faces::value > 0), void>::type> : T::faces {};
 
-template<typename T, typename V = void>
-struct _faces : std::integral_constant<unsigned,0> {};
-
-template<typename T>
-struct _faces<T, typename std::enable_if<(T::faces::value > 0), void>::type> : T::faces {};
 } // namespace _impl
 
 
@@ -125,7 +128,6 @@ struct topology_traits
     using mixed   = typename type::mixed;
     using unstructured = typename type::unstructured;
     using nested = typename _impl::_nested<type>;
-    using faces  = typename _impl::_faces<type>;
 };
 
 } // namespace gridtools

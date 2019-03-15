@@ -49,24 +49,18 @@ int main()
 
     regular_grid_topology<1,2> rgt0;
     regular_grid_topology<2,1> rgt1;
-    //regular_grid_topology<3,0> rgt2;
-    //regular_grid_topology<4,0> rgt3;
 
     unstructured_grid_topology u_;
 
     mixed_grid_topology m_;
 
 
-    inflated_cube_topology ic;
+    using inflated_topology = nested_topology<2,1>;
 
-
-    std::cout << inflated_cube_topology::rank::value << std::endl;
+    std::cout << inflated_topology::rank::value << std::endl;
 
     std::cout << topology_traits<regular_grid_topology<1,2>>::nested::value << std::endl;
-    std::cout << topology_traits<inflated_cube_topology>::nested::value << std::endl;
-
-    std::cout << topology_traits<regular_grid_topology<1,2>>::faces::value << std::endl;
-    std::cout << topology_traits<inflated_cube_topology>::faces::value << std::endl;
+    std::cout << topology_traits<inflated_topology>::nested::value << std::endl;
 
     return 0;
 }
