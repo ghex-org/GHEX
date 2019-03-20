@@ -47,6 +47,10 @@ int main(int argc, char** argv)
         std::cout << grid;
         std::cout.flush();
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+
+
 
 
 

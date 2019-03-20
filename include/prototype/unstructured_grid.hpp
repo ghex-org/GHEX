@@ -158,6 +158,11 @@ static std::array<int,64> index_lu{
 
 static std::array<int,6> decomposition{0,11,19,34,52,64};
 
+static int get_rank(int index)
+{
+    return (std::upper_bound(decomposition.begin(), decomposition.end(), index)-decomposition.begin())-1;
+}
+
 
 template<typename T>
 struct local_unstructured_grid_data
@@ -274,10 +279,19 @@ public: // print
             for (int y=0; y<8; ++y)
             {
                 const auto index = index_lu[y*8 + x];
+                const auto r = get_rank(index);
                 if (g.is_inner(index)) 
-                    os << "\033[1;31m" << g(index, 0) << " " << "\033[0m";
+                    //os << "\033[1;3"<< r+1 <<"m" 
+                    os << "\033[1m\033[7;3"<< r+1 <<"m" 
+                       << g(index, 0)
+                       << "\033[0m"
+                       << " ";
                 else if (g.is_outer(index))
-                    os << "\033[1;36m" << g(index,0) << " " << "\033[0m";
+                    //os << "\033[1m\033[7;3"<< r+1 <<"m" 
+                    os << "\033[1;3"<< r+1 <<"m" 
+                       << g(index,0)  
+                       << "\033[0m" 
+                       << " ";
                 else 
                     //os << "  x  ";
                     os << "  ·  ";
