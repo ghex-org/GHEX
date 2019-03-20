@@ -50,6 +50,15 @@ int main(int argc, char** argv)
     MPI_Barrier(MPI_COMM_WORLD);
 
 
+    if (rank==1)
+    {
+        // visit edge neighbors (principal neighbors)
+        grid.visit_neighbors<0>(11,[](int& data, int rank) { std::cout << data << ", " << rank << std::endl; });
+        std::cout << std::endl;
+        // visit vertex neighbors
+        grid.visit_neighbors<1>(11,[](int& data, int rank) { std::cout << data << ", " << rank << std::endl; });
+        std::cout.flush();
+    }
 
 
 

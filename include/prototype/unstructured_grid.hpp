@@ -268,6 +268,145 @@ struct local_unstructured_grid_data
     auto end() const { return m_data.cend(); }
     auto cend() const { return m_data.cend(); }
 
+    template<int L, typename Fun>
+    void visit_neighbors(int index, Fun&& f) 
+    {
+        visit_neighbors(index,std::forward<Fun>(f),std::integral_constant<int,L>());
+    }
+
+    template<typename Fun>
+    void visit_neighbors(int index, Fun&& fun, std::integral_constant<int,0>)
+    {
+        const auto coord = coordinate_lu[index];
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+0+8)%8)*8 + ((coord.first-1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second-1+8)%8)*8 + ((coord.first+0+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+0+8)%8)*8 + ((coord.first+1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+1+8)%8)*8 + ((coord.first+0+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+    }
+
+    template<typename Fun>
+    void visit_neighbors(int index, Fun&& fun, std::integral_constant<int,1>)
+    {
+        const auto coord = coordinate_lu[index];
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second-1+8)%8)*8 + ((coord.first-1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second-1+8)%8)*8 + ((coord.first+1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+1+8)%8)*8 + ((coord.first+1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+1+8)%8)*8 + ((coord.first-1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) 
+            {
+                const auto r = get_rank(i0);
+                if (inner)
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_data[idx + k], r);
+                else
+                    for (int k=0; k<m_k; ++k)
+                        fun(m_recv_data[idx + k], r);
+            }
+        }
+    }
+
+
 public: // print
 
     template< class CharT, class Traits = std::char_traits<CharT>> 
