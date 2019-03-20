@@ -46,6 +46,9 @@ target_link_libraries(generic_interfaces ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridT
 add_executable( generic_grid_descriptor tests/generic_grid_descriptor.cpp )
 target_link_libraries(generic_grid_descriptor ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
 
+add_executable( unstructured_grid tests/unstructured_grid.cpp )
+target_link_libraries(unstructured_grid ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
+
 # this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces8 tests/generic_interfaces8.cpp )
 #target_link_libraries(generic_interfaces8 ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
