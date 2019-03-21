@@ -471,13 +471,6 @@ private:
 
 
 
-template<typename T>
-struct local_structured_grid_data
-{
-
-
-};
-
 
 
 }

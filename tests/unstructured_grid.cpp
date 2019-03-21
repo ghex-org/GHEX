@@ -1,4 +1,5 @@
 
+#include "../include/prototype/structured_grid.hpp"
 #include "../include/prototype/unstructured_grid.hpp"
 #include <mpi.h>
 #include <iostream>
@@ -14,6 +15,7 @@ using id_type = int;
 
 
 namespace gridtools {
+
 
 template<typename Grid>
 struct visit
@@ -41,8 +43,10 @@ struct visit<local_unstructured_grid_data<T>>
 
 
 
-
 }
+
+
+
 
 int main(int argc, char** argv)
 {
@@ -82,14 +86,19 @@ int main(int argc, char** argv)
     gt::local_unstructured_grid_data<int> grid_1(5,rank*2);
     gt::local_unstructured_grid_data<int> grid_2(5,rank*2+1);
 
+    gt::local_structured_grid_data<int> sgrid_1(5,rank*2);
+    gt::local_structured_grid_data<int> sgrid_2(5,rank*2+1);
+
     MPI_Barrier(MPI_COMM_WORLD);
     if (rank==0)
     {
         std::cout << "rank = " << rank << std::endl;
         std::cout << "  id = " << rank*2 << std::endl;
         std::cout << grid_1;
+        std::cout << sgrid_1;
         std::cout << "  id = " << rank*2+1 << std::endl;
         std::cout << grid_2;
+        std::cout << sgrid_2;
         std::cout.flush();
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -98,8 +107,10 @@ int main(int argc, char** argv)
         std::cout << "rank = " << rank << std::endl;
         std::cout << "  id = " << rank*2 << std::endl;
         std::cout << grid_1;
+        std::cout << sgrid_1;
         std::cout << "  id = " << rank*2+1 << std::endl;
         std::cout << grid_2;
+        std::cout << sgrid_2;
         std::cout.flush();
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -108,8 +119,10 @@ int main(int argc, char** argv)
         std::cout << "rank = " << rank << std::endl;
         std::cout << "  id = " << rank*2 << std::endl;
         std::cout << grid_1;
+        std::cout << sgrid_1;
         std::cout << "  id = " << rank*2+1 << std::endl;
         std::cout << grid_2;
+        std::cout << sgrid_2;
         std::cout.flush();
     }
     MPI_Barrier(MPI_COMM_WORLD);
