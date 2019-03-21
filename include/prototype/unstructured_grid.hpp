@@ -156,9 +156,10 @@ static std::array<int,64> index_lu{
 };
 
 
-static std::array<int,6> decomposition{0,11,19,34,52,64};
+//static std::array<int,6> decomposition{0,11,19,34,52,64};
+static std::array<int,7> decomposition{0,11,19,30,42,52,64};
 
-static int get_rank(int index)
+static int get_domain_id(int index)
 {
     return (std::upper_bound(decomposition.begin(), decomposition.end(), index)-decomposition.begin())-1;
 }
@@ -167,20 +168,23 @@ static int get_rank(int index)
 template<typename T>
 struct local_unstructured_grid_data
 {
+    using id_type = int;
+    using cell_id_type = int;
+
     int m_k;
-    int m_rank;
-    int m_begin;
-    int m_end;
+    id_type m_id;
+    cell_id_type m_begin;
+    cell_id_type m_end;
     std::vector<T> m_data;
     std::vector<T> m_recv_data;
     std::vector<int> m_recv_index;
     std::vector<int> m_send_index;
 
-    local_unstructured_grid_data(int k, int rank) :
+    local_unstructured_grid_data(int k, int id) :
         m_k(k),
-        m_rank(rank),
-        m_begin(decomposition[rank]),
-        m_end(decomposition[rank+1]),
+        m_id(id),
+        m_begin(decomposition[id]),
+        m_end(decomposition[id+1]),
         m_data(m_k*(m_end-m_begin))
     {
         std::set<int> neighbors;
@@ -221,13 +225,13 @@ struct local_unstructured_grid_data
             for (int z=0; z<m_k; ++z)
             {
                 const auto coord = coordinate_lu[i];
-                this->operator()(i,z) = 1000*(m_rank+1) + 100*coord.first + 10*coord.second + z;
+                this->operator()(i,z) = 1000*(m_id+1) + 100*coord.first + 10*coord.second + z;
             }
         for (auto r : m_recv_index)
             for (int z=0; z<m_k; ++z)
             {
                 const auto coord = coordinate_lu[r];
-                this->operator()(r,z) = 1000*(m_rank+1) + 100*coord.first + 10*coord.second + z;
+                this->operator()(r,z) = 1000*(m_id+1) + 100*coord.first + 10*coord.second + z;
             }
     }
 
@@ -284,7 +288,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -299,7 +303,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -314,7 +318,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -329,7 +333,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -350,7 +354,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -365,7 +369,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -380,7 +384,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -395,7 +399,7 @@ struct local_unstructured_grid_data
             const auto idx = data_index(i0, 0, inner);
             if (idx >= 0) 
             {
-                const auto r = get_rank(i0);
+                const auto r = get_domain_id(i0);
                 if (inner)
                     for (int k=0; k<m_k; ++k)
                         fun(m_data[idx + k], r);
@@ -418,7 +422,7 @@ public: // print
             for (int y=0; y<8; ++y)
             {
                 const auto index = index_lu[y*8 + x];
-                const auto r = get_rank(index);
+                const auto r = get_domain_id(index);
                 if (g.is_inner(index)) 
                     //os << "\033[1;3"<< r+1 <<"m" 
                     os << "\033[1m\033[7;3"<< r+1 <<"m" 
@@ -461,6 +465,16 @@ private:
             return (index-m_begin)*m_k+k;
         }
     }
+
+};
+
+
+
+
+template<typename T>
+struct local_structured_grid_data
+{
+
 
 };
 
