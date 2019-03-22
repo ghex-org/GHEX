@@ -1,7 +1,6 @@
 #ifndef INCLUDED_STRUCTURED_GRID_HPP
 #define INCLUDED_STRUCTURED_GRID_HPP
 
-#include <iostream>
 #include <array>
 #include <vector>
 
@@ -86,6 +85,10 @@ struct local_structured_grid_data
             const auto gx = ((structured_decomposition[m_id][0]-1+x)+8)%8;
             const auto gy = ((structured_decomposition[m_id][1]-1+y)+8)%8;
             this->operator()(local_cell_id_t(x,y), z) = 1000*(m_id+1) + 100*(gx) + 10*(gy) + z;
+            local_cell_id_t tmp;
+            if (is_outer(global_cell_id(local_cell_id_t(x,y)), tmp))
+                this->operator()(local_cell_id_t(x,y), z) = 9999;
+
         }
     }
 
@@ -98,11 +101,13 @@ struct local_structured_grid_data
 
     T& operator()(local_cell_id_t id, extent_t k)
     {
+        if (data_index(id,k) >= m_data.size()) throw std::runtime_error("index out of bounds");
         return m_data[data_index(id,k)];
     }
 
     const T& operator()(local_cell_id_t id, extent_t k) const
     {
+        if (data_index(id,k) >= m_data.size()) throw std::runtime_error("index out of bounds");
         return m_data[data_index(id,k)];
     }
 
@@ -132,9 +137,7 @@ public: // print
                 else if (g.is_outer(index, loc_id))
                     //os << "\033[1m\033[7;3"<< r+1 <<"m" 
                     os << "\033[1;3"<< r+1 <<"m" 
-                       //<< g(index,0)
                        << g(loc_id,0)
-                       //<< "xxxx"  
                        << "\033[0m" 
                        << " ";
                 else 
@@ -207,12 +210,12 @@ private:
 
         if (y==y_s && x_inner) 
         {
-            loc_id = local_cell_id_t{x-structured_decomposition[m_id][0]+1, sw[2]};
+            loc_id = local_cell_id_t{x-structured_decomposition[m_id][0]+1, sw[1]};
             return true;
         }
         if (y==y_n && x_inner)
         {
-            loc_id = local_cell_id_t{x-structured_decomposition[m_id][0]+1, nw[2]};
+            loc_id = local_cell_id_t{x-structured_decomposition[m_id][0]+1, nw[1]};
             return true;
         }
         if (x==x_e && y_inner)
