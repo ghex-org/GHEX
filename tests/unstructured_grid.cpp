@@ -17,41 +17,6 @@ namespace gt = gridtools;
 using id_type = int;
 
 
-namespace gridtools {
-
-
-
-
-
-
-template<typename Grid>
-struct visit
-{
-    template<typename F>
-    void apply(Grid& g, F&& f)
-    {
-    }
-};
-
-template<typename T>
-struct visit<local_unstructured_grid_data<T>>
-{
-    template<typename F>
-    void apply(local_unstructured_grid_data<T>& g, F&& f)
-    {
-        for (typename local_unstructured_grid_data<T>::cell_id_type id=g.m_begin; id<g.m_end; ++id)
-            f(id, get_domain_id(id));
-
-        for (typename local_unstructured_grid_data<T>::cell_id_type id : g.m_recv_index)
-            f(id, get_domain_id(id));
-    }
-};
-
-
-
-
-}
-
 
 
 
