@@ -15,8 +15,8 @@ template<
     typename LocalCellId,
     typename GlobalCellId,
     typename DomainId,
-    typename Extent,
-    typename IdMap
+    typename Extent//,
+    //typename IdMap
 >
 struct regular_grid_map
 {
@@ -25,7 +25,7 @@ struct regular_grid_map
     using global_cell_id_t = GlobalCellId;
     using domain_id_t = DomainId;
     using extent_t = Extent;
-    using id_map_t = IdMap;
+    //using id_map_t = IdMap;
 
     struct range
     {
@@ -52,17 +52,20 @@ struct regular_grid_map
     extent_t m_k;
     local_cell_id_t m_begin;
     local_cell_id_t m_end;
-    id_map_t m_id_map;
+    //id_map_t m_id_map;
+    domain_id_t m_domain;
 
     std::map<domain_id_t, std::vector<range> > m_send_ranges;
     std::map<domain_id_t, std::vector<range> > m_recv_ranges;
 
-    regular_grid_map(extent_t halo, extent_t k, local_cell_id_t b, local_cell_id_t e, id_map_t m) :
+    template<typename IdMap>
+    regular_grid_map(extent_t halo, extent_t k, local_cell_id_t b, local_cell_id_t e, IdMap&& m) : //id_map_t m) :
         m_halo(halo),
         m_k(k),
         m_begin(b),
         m_end(e),
-        m_id_map(m)
+        //m_id_map(m)
+        m_domain( std::get<1>(m(local_cell_id_t(m_begin[0]+m_halo,m_begin[1]+m_halo))))
     {
 
         // generate recv ranges 
@@ -74,12 +77,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin);
             local_cell_id_t end(origin[0]+halo,origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -87,12 +90,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin[0]+halo,m_begin[1]);
             local_cell_id_t end(origin[0]+(m_end[0]-m_begin[0]-2*halo),origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -100,12 +103,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin[0]+(m_end[0]-m_begin[0]-halo),m_begin[1]);
             local_cell_id_t end(m_end[0],origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -114,12 +117,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin[0],m_begin[1]+halo);
             local_cell_id_t end(origin[0]+halo,origin[1]+(m_end[1]-m_begin[1]-2*halo));
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -127,12 +130,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin[0]+(m_end[0]-m_begin[0]-halo),m_begin[1]+halo);
             local_cell_id_t end(origin[0]+halo,origin[1]+(m_end[1]-m_begin[1]-2*halo));
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -142,12 +145,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin[0],m_end[1]-halo);
             local_cell_id_t end(origin[0]+halo,origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -155,12 +158,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin[0]+halo,m_end[1]-halo);
             local_cell_id_t end(origin[0]+(m_end[0]-m_begin[0]-2*halo),origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -168,12 +171,12 @@ struct regular_grid_map
             local_cell_id_t origin(m_begin[0]+(m_end[0]-m_begin[0]-halo),m_end[1]-halo);
             local_cell_id_t end(m_end[0],origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
-            m_recv_ranges[std::get<1>(m_id_map(origin))].push_back(
+            m_recv_ranges[std::get<1>(m(origin))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -191,12 +194,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+halo,origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(origin[0]-1,origin[1]-1);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -205,12 +208,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+(m_end[0]-m_begin[0]-2*halo),origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(origin[0],origin[1]-1);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -219,12 +222,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+halo,origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(origin[0]+1,origin[1]-1);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -234,12 +237,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+halo,origin[1]+(m_end[1]-m_begin[1]-2*halo));
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(origin[0]-1,origin[1]);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -248,12 +251,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+halo,origin[1]+(m_end[1]-m_begin[1]-2*halo));
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(last[0]+1,origin[1]);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -263,12 +266,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+halo,origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(origin[0]-1,last[1]+1);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -277,12 +280,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+(m_end[0]-m_begin[0]-2*halo),origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(origin[0],last[1]+1);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -291,12 +294,12 @@ struct regular_grid_map
             local_cell_id_t end(origin[0]+halo,origin[1]+halo);
             local_cell_id_t last(end[0]-1,end[1]-1);
             local_cell_id_t target(last[0]+1,last[1]+1);
-            m_send_ranges[std::get<1>(m_id_map(target))].push_back(
+            m_send_ranges[std::get<1>(m(target))].push_back(
                 range{
                     origin, 
                     end, 
-                    std::get<0>(m_id_map(origin)),   
-                    std::get<0>(m_id_map(last))
+                    std::get<0>(m(origin)),   
+                    std::get<0>(m(last))
                 }
             );
         }
@@ -381,8 +384,8 @@ struct regular_grid_map
 
         std::vector<MPI_Request> reqs(send_container.size()+recv_container.size());
 
-        const auto my_domain = std::get<1>(m_id_map(local_cell_id_t(m_begin[0]+m_halo,m_begin[1]+m_halo)));
-        const int my_rank = get_rank(std::get<1>(m_id_map(m_begin)));
+        //const auto my_domain = std::get<1>(m_id_map(local_cell_id_t(m_begin[0]+m_halo,m_begin[1]+m_halo)));
+        const int my_rank = get_rank(m_domain); //std::get<1>(m_id_map(m_begin)));
 
         // post receives
         int r = 0;
@@ -390,7 +393,7 @@ struct regular_grid_map
         for (const auto& p : m_recv_ranges)
         {
             int src_rank = get_rank(p.first);
-            int tag = my_domain;
+            int tag = m_domain;
             char* buffer = const_cast<char*>(reinterpret_cast<const char*>(&recv_container[mr][0]));
             const unsigned int size = const_cast<char*>(reinterpret_cast<const char*>(&recv_container[mr].back() + 1)) - buffer;
 
