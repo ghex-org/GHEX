@@ -231,7 +231,8 @@ struct local_unstructured_grid_data
             for (int z=0; z<m_k; ++z)
             {
                 const auto coord = coordinate_lu[r];
-                this->operator()(r,z) = 1000*(m_id+1) + 100*coord.first + 10*coord.second + z;
+                //this->operator()(r,z) = 1000*(m_id+1) + 100*coord.first + 10*coord.second + z;
+                this->operator()(r,z) = 9999;
             }
     }
 
@@ -271,6 +272,38 @@ struct local_unstructured_grid_data
     auto end() { return m_data.end(); }
     auto end() const { return m_data.cend(); }
     auto cend() const { return m_data.cend(); }
+
+    std::vector<cell_id_type> get_neighbor_indices(cell_id_type index) const
+    {
+        const auto coord = coordinate_lu[index];
+        std::vector<cell_id_type> res;
+        res.reserve(4);
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+0+8)%8)*8 + ((coord.first-1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) res.push_back(i0);
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second-1+8)%8)*8 + ((coord.first-0+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) res.push_back(i0);
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+0+8)%8)*8 + ((coord.first+1+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) res.push_back(i0);
+        }
+        {
+            bool inner;
+            const auto i0 = index_lu[((coord.second+1+8)%8)*8 + ((coord.first+0+8)%8)];
+            const auto idx = data_index(i0, 0, inner);
+            if (idx >= 0) res.push_back(i0);
+        }
+        return res;
+    }
 
     template<int L, typename Fun>
     void visit_neighbors(int index, Fun&& f) 

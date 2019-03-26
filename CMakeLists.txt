@@ -4,7 +4,8 @@ cmake_policy(SET CMP0048 NEW)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 

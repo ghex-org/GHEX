@@ -17,6 +17,303 @@
 //using namespace gridtools;
 namespace gt = gridtools;
 
+template<typename Id>
+struct unstructured_range
+{
+    struct iterator
+    {
+        Id m_begin;
+        Id m_end;
+        std::vector<Id> const * m_index_vec_ptr;
+        Id m_inner_pos;
+        int m_outer_pos;
+
+        iterator(Id begin, Id end, std::vector<Id> const * ptr, Id inner_pos, int outer_pos = -1) noexcept :
+            m_begin(begin),
+            m_end(end),
+            m_index_vec_ptr(ptr),
+            m_inner_pos(inner_pos),
+            m_outer_pos(outer_pos)
+        {
+            if (outer_pos>=0)
+                m_inner_pos = m_end;
+        }
+
+        iterator(const iterator&) noexcept = default;
+        iterator(iterator&&) noexcept = default;
+        iterator& operator=(const iterator&) noexcept = default;
+        iterator& operator=(iterator&&) noexcept = default;
+
+        void swap(iterator& other) noexcept
+        {
+            std::swap(m_begin, other.m_begin);
+            std::swap(m_end, other.m_end);
+            std::swap(m_index_vec_ptr, other.m_index_vec_ptr);
+            std::swap(m_inner_pos, other.m_inner_pos);
+            std::swap(m_outer_pos, other.m_outer_pos);
+        }
+
+        iterator& operator++() noexcept
+        {
+            if (inner())
+            {
+                ++m_inner_pos;
+                if (m_inner_pos == m_end)
+                    m_outer_pos = 0;
+            }
+            else
+            {
+                if (m_outer_pos < (int)(m_index_vec_ptr->size()))
+                    ++m_outer_pos;
+            }
+            return *this;
+        }
+
+        iterator operator++(int) const noexcept
+        {
+            iterator tmp(*this);
+            operator++();
+            return tmp;
+        }
+
+        Id operator*() const noexcept
+        {
+            return inner() ? m_inner_pos : m_index_vec_ptr->operator[](m_outer_pos);
+        }
+
+        bool operator!=(const iterator& other) const noexcept
+        {
+            return !operator==(other);
+        }
+
+        bool operator==(const iterator& other) const noexcept
+        {
+            return     (m_begin         == other.m_begin)
+                    && (m_end           == other.m_end)
+                    && (m_index_vec_ptr == other.m_index_vec_ptr)
+                    && (m_inner_pos     == other.m_inner_pos)
+                    && (m_outer_pos     == other.m_outer_pos);
+        }
+
+        bool operator<(const iterator& other) const noexcept
+        {
+            if (inner())
+            {
+                if (other.inner())
+                    return m_inner_pos < m_outer_pos;
+                else
+                    return true;
+            }
+            else
+            {
+                if (other.inner())
+                    return false;
+                else
+                    return m_outer_pos < other.m_outer_pos;
+            }
+        }
+
+        bool inner() const noexcept
+        {
+            return m_outer_pos < 0;
+        }
+    };
+
+    iterator m_begin;
+    iterator m_end;
+
+    template<typename Grid>
+    unstructured_range(const Grid& g) noexcept :
+        m_begin(g.m_begin, g.m_end, &g.m_recv_index, g.m_begin),
+        m_end(g.m_begin, g.m_end, &g.m_recv_index, g.m_end, g.m_recv_index.size())
+    {}
+
+    iterator begin() const noexcept { return m_begin; }
+    iterator end() const noexcept { return m_end; }
+};
+
+void test_unstructured_grids_serial(int rank)
+{
+    // 2 domains
+    std::vector<int> domain_ids;
+    domain_ids.push_back(rank*2);
+    domain_ids.push_back(rank*2+1);   
+    
+    // 2 unsstructured grids    
+    using grid_t = gt::local_unstructured_grid_data<int>;
+    std::array<grid_t,2> grids{grid_t(1,domain_ids[0]), grid_t(1,domain_ids[1])};
+
+    // print grid data
+    for (int r = 0; r<3; ++r)
+    {
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (r==rank)
+        {
+            std::cout << "rank = " << rank << std::endl;
+            std::cout << "--------" << std::endl;
+            auto it_d = domain_ids.begin();
+            for (auto it = grids.begin(); it!=grids.end(); ++it_d, ++it)
+            {
+                std::cout << "  id = " << *it_d << std::endl;
+                std::cout << *it;
+                std::cout << std::endl;
+            }
+            std::cout.flush();
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+    // unstructured grid map 
+    using grid_map_t = gt::unstructured_grid_map<
+        typename grid_t::cell_id_type,
+        typename grid_t::cell_id_type,
+        int,
+        int>;
+    std::vector<grid_map_t> maps;
+
+    using range_t = unstructured_range<typename grid_t::cell_id_type>;
+
+    /*MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0)
+    {
+        range_t r(grids[0]);
+        for (auto idx : r)
+            std::cout << idx << std::endl;
+        std::cout << std::endl;
+        std::cout.flush();
+    }*/
+
+    // create maps
+    auto it_d = domain_ids.begin();
+    for (auto it=grids.begin(); it!=grids.end(); ++it_d, ++it)
+    {
+        const auto& grid(*it);
+        maps.emplace_back(
+            grid_map_t(
+                1,                                        // vertical size
+                *it_d,                                    // domain id
+                range_t(grid),                            // local index range
+                [&grid](typename grid_t::cell_id_type id) // neighbor index range generator
+                { 
+                    return grid.get_neighbor_indices(id); 
+                },
+                [](typename grid_t::cell_id_type id)      // global map: local_id -> {global_id, domain_id}
+                { 
+                    return std::make_tuple(id, gt::get_domain_id(id)); 
+                } 
+            )
+        );
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0)
+    {
+        for (const auto& p: maps[0].m_send_ids)
+        {
+            std::cout << "send to " << p.first << ":" << std::endl;
+            for (const auto& i : p.second)
+                std::cout << i << " ";
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        for (const auto& p: maps[0].m_recv_ids)
+        {
+            std::cout << "recv from " << p.first << ":" << std::endl;
+            for (const auto& i : p.second)
+                std::cout << i << " ";
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        std::cout.flush();
+    }
+
+    // prepare temporary storage
+    std::array<std::vector<std::vector<int>>,2> send_package;
+    std::array<std::vector<std::vector<int>>,2> recv_package;
+    std::vector<MPI_Request> reqs;
+
+    // pack data
+    auto it_s = send_package.begin();
+    auto it_g = grids.begin();
+    for (auto it=maps.begin(); it!=maps.end(); ++it_g, ++it_s, ++it)
+        it->pack(*it_s, *it_g);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0)
+    {
+        std::cout << "send package: " << std::endl;
+        for (const auto& v: send_package[0])
+        {
+            for (const auto& x : v)
+                std::cout << x << " ";
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        std::cout.flush();
+    }
+
+    // exchange data
+    it_s = send_package.begin();
+    auto it_r = recv_package.begin();
+    auto it_req = reqs.begin();
+    for (auto it=maps.begin(); it!=maps.end(); ++it_req, ++it_r, ++it_s, ++it)
+    {
+        auto reqs_i = it->exchange(*it_s, *it_r, [](int domain_id)->int { return domain_id/2;});
+        reqs.insert(reqs.end(), reqs_i.begin(), reqs_i.end());
+    }
+
+    // wait for exchange to finish
+    std::vector<MPI_Status> sts(reqs.size());
+    MPI_Waitall(reqs.size(), &reqs[0], &sts[0]);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0)
+    {
+        std::cout << "recv package: " << std::endl;
+        for (const auto& v: recv_package[0])
+        {
+            for (const auto& x : v)
+                std::cout << x << " ";
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        std::cout.flush();
+    }
+
+    // unpack data
+    it_r = recv_package.begin();
+    it_g = grids.begin();
+    for (auto it=maps.begin(); it!=maps.end(); ++it_g, ++it_r, ++it)
+        it->unpack(*it_r,*it_g);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank==0)
+    {
+        std::cout << std::endl << "=========================" << std::endl << std::endl;
+        std::cout.flush();
+    }
+
+    // print grid data
+    for (int r = 0; r<3; ++r)
+    {
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (r==rank)
+        {
+            std::cout << "rank = " << rank << std::endl;
+            std::cout << "--------" << std::endl;
+            auto it_d = domain_ids.begin();
+            for (auto it = grids.begin(); it!=grids.end(); ++it_d, ++it)
+            {
+                std::cout << "  id = " << *it_d << std::endl;
+                std::cout << *it;
+                std::cout << std::endl;
+            }
+            std::cout.flush();
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+}
+
 void test_regular_grids_serial(int rank)
 {
     // 2 domains
@@ -56,6 +353,7 @@ void test_regular_grids_serial(int rank)
         typename grid_t::extent_t>;
     std::vector<grid_map_t> maps;
 
+    // create maps
     for (const auto& grid : grids)
     {
         maps.emplace_back(
@@ -252,8 +550,8 @@ using id_type = int;
 int main(int argc, char** argv)
 {
     int p;
-    //MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &p);
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &p);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &p);
+    //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &p);
 
     int rank;
     int world_size;
@@ -261,7 +559,9 @@ int main(int argc, char** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     //test_regular_grids(rank);
-    test_regular_grids_serial(rank);
+    //test_regular_grids_serial(rank);
+
+    test_unstructured_grids_serial(rank);
 
 //    std::stringstream ss;
 //    ss << rank;
