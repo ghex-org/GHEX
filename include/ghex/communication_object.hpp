@@ -113,9 +113,9 @@ private:
 
     using communication_objects_tuple = std::tuple<communication_object<Domain,T,protocol::mpi_async,Backend>&...>;
 
+    using size = std::integral_constant<std::size_t, sizeof...(T)>;
+
     using value_types = std::tuple<T...>;
-    
-    using map_type = std::map<int, std::pair<std::size_t, std::vector<std::size_t>>>;    
 
     using max_alignment_t = typename detail::ct_reduce<
         detail::ct_max,
@@ -123,17 +123,21 @@ private:
         std::integral_constant<std::size_t,alignof(T)>... 
     >::type;
 
-    /*struct buffer_impl{
-        std::vector<char, allocator_t> _memory;
-        char* buffer;
-    };*/
+    struct ledger
+    {
+        std::size_t total_size = 0;
+        std::array<std::size_t, size::value> offset;
+    };
+
+    using ledger_map_type = std::map<int, ledger>;    
+    using pack_type = std::array< std::map<int, void*>, size::value>; 
 
     communication_objects_tuple m_cos;
-    allocator_t m_alloc;
-    //std::vector<char*, typename allocator_t::rebind_alloc<char*>> m_inner_memory;
-    //std::vector<char*, typename allocator_t::rebind_alloc<char*>> m_outer_memory;
-    std::vector<char*, typename allocator_t::rebind_alloc<char*>> m_inner_memory;
-    std::vector<char*, typename allocator_t::rebind_alloc<char*>> m_outer_memory;
+    allocator_t                 m_alloc;
+    ledger_map_type             m_inner_ledger_map;
+    pack_type                   m_inner_pack;
+    std::vector<std::pair<char*,std::size_t>> m_inner_memory;
+    std::vector<std::pair<char*,std::size_t>> m_outer_memory;
 
 public:
 
@@ -141,19 +145,31 @@ public:
     exchange(MPI_Comm comm, const Allocator& alloc, CommunicationObjects&... cos)
     :   m_cos{cos...},
         m_alloc{ alloc }
-        //m_inner_memory(alloc),
-        //m_outer_memory(alloc)
     {
+        int i = 0;
         detail::for_each(
-            m_cos, [](const auto& co) 
-            { 
+            m_cos, [&i, this](const auto& co) 
+            {
+                using co_t    = std::remove_reference_t<decltype(co)>;
+                using value_t = typename co_t::value_type; 
                 std::cout << co.inner().size() << std::endl; 
+                for (const auto& p : co.inner())
+                {
+                    auto& l = this->m_inner_ledger_map[p.first];
+                    l.offset[i]   = l.total_size;
+                    l.total_size += p.second.first*sizeof(value_t) + alignof(value_t)-1;
+                }
+
+                ++i;
             });
     }
 
     ~exchange()
     {
-        //for (auto char_ptr : m_inner_memory)
+        for (auto p : m_inner_memory)
+            std::allocator_traits<allocator_t>::deallocate(m_alloc, p.first, p.second);
+        for (auto p : m_outer_memory)
+            std::allocator_traits<allocator_t>::deallocate(m_alloc, p.first, p.second);
     }
 
     template<typename... Fields>
