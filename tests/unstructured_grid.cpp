@@ -205,7 +205,7 @@ void test_unstructured_grids_serial(int rank)
         );
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    /*MPI_Barrier(MPI_COMM_WORLD);
     if (rank == 0)
     {
         for (const auto& p: maps[0].m_send_ids)
@@ -225,7 +225,7 @@ void test_unstructured_grids_serial(int rank)
         }
         std::cout << std::endl;
         std::cout.flush();
-    }
+    }*/
 
     // prepare temporary storage
     std::array<std::vector<std::vector<int>>,2> send_package;
@@ -238,7 +238,7 @@ void test_unstructured_grids_serial(int rank)
     for (auto it=maps.begin(); it!=maps.end(); ++it_g, ++it_s, ++it)
         it->pack(*it_s, *it_g);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    /*MPI_Barrier(MPI_COMM_WORLD);
     if (rank == 0)
     {
         std::cout << "send package: " << std::endl;
@@ -250,7 +250,7 @@ void test_unstructured_grids_serial(int rank)
         }
         std::cout << std::endl;
         std::cout.flush();
-    }
+    }*/
 
     // exchange data
     it_s = send_package.begin();
@@ -266,7 +266,7 @@ void test_unstructured_grids_serial(int rank)
     std::vector<MPI_Status> sts(reqs.size());
     MPI_Waitall(reqs.size(), &reqs[0], &sts[0]);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    /*MPI_Barrier(MPI_COMM_WORLD);
     if (rank == 0)
     {
         std::cout << "recv package: " << std::endl;
@@ -278,7 +278,7 @@ void test_unstructured_grids_serial(int rank)
         }
         std::cout << std::endl;
         std::cout.flush();
-    }
+    }*/
 
     // unpack data
     it_r = recv_package.begin();
@@ -559,7 +559,8 @@ int main(int argc, char** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     //test_regular_grids(rank);
-    //test_regular_grids_serial(rank);
+    //
+    test_regular_grids_serial(rank);
 
     test_unstructured_grids_serial(rank);
 

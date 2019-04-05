@@ -11,7 +11,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 find_package(MPI REQUIRED)
 
-find_package(GridTools 0.21 REQUIRED)
+find_package(GridTools 0.22 REQUIRED)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 
@@ -49,6 +49,10 @@ target_link_libraries(generic_grid_descriptor ${exe_LIBS}  ${MPI_CXX_LIBRARIES} 
 
 add_executable( unstructured_grid tests/unstructured_grid.cpp )
 target_link_libraries(unstructured_grid ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
+
+
+add_executable( halo_exchange_3D_generic tests/test_halo_exchange_3D_generic.cpp )
+target_link_libraries(halo_exchange_3D_generic ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
 
 # this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces8 tests/generic_interfaces8.cpp )
