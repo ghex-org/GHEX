@@ -110,7 +110,7 @@ public:
     }
 
     template<typename BufferMap, typename Field>
-    void unpack(const BufferMap& buffer_map, Field& field) const
+    void unpack(/*const*/ BufferMap& buffer_map, Field& field) /*const*/
     {
         std::cout << "should be unpacking a map of size " << buffer_map.size() << std::endl;
         std::size_t i = 0;
@@ -183,8 +183,6 @@ private:
     ledger_map_type                           m_outer_ledger_map;
     pack_type                                 m_inner_pack;
     pack_type                                 m_outer_pack;
-    //std::vector<std::pair<char*,std::size_t>> m_inner_memory;
-    //std::vector<std::pair<char*,std::size_t>> m_outer_memory;
     std::vector<memory_holder>                m_inner_memory;
     std::vector<memory_holder>                m_outer_memory;
     std::vector<MPI_Request>                  m_reqs;
@@ -198,8 +196,7 @@ public:
         m_alignment{ alignof(T)... }
     {
         // loop over tuples of communication objects 
-        // and compute memory requirements as well as
-        // offsets
+        // compute memory requirements as well as offsets
         int i = 0;
         detail::for_each(
             m_cos, [&i, this](const auto& co) 
@@ -226,15 +223,10 @@ public:
         // and prepare the package 
         for (const auto& p : m_inner_ledger_map)
         {
-            /*m_inner_memory.push_back(
-                std::pair<char*,std::size_t>{
-                    reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value)),
-                    p.second.total_size+max_alignment_t::value
-                }
-            );*/
             m_inner_memory.push_back(memory_holder());
             auto& holder = m_inner_memory.back();
             holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
+            std::cout << "allocating " << p.second.total_size+max_alignment_t::value << " bytes for inner at rank " << p.first << std::endl;
             holder.size = p.second.total_size+max_alignment_t::value;
             void* buffer =  holder.ptr; //m_inner_memory.back().first;
             std::size_t space = holder.size; // m_inner_memory.back().second;
@@ -257,6 +249,7 @@ public:
             m_outer_memory.push_back(memory_holder());
             auto& holder = m_outer_memory.back();
             holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
+            std::cout << "allocating " << p.second.total_size+max_alignment_t::value << " bytes for outer at rank " << p.first << std::endl;
             holder.size = p.second.total_size+max_alignment_t::value;
             void* buffer =  holder.ptr;
             std::size_t space = holder.size;
@@ -270,7 +263,7 @@ public:
                 ptr += x;
                 void* ptr_tmp = ptr;
                 std::size_t space = max_alignment_t::value;
-                m_inner_pack[j][p.first] = std::align(m_alignment[j], 1, ptr_tmp, space);
+                m_outer_pack[j][p.first] = std::align(m_alignment[j], 1, ptr_tmp, space);
                 ++j;
             }
         }
@@ -329,7 +322,7 @@ public:
         detail::for_each(m_cos, std::tuple<Fields&...>{fields...}, 
             [&i,this](auto& co, auto& field) 
             { 
-                co.pack( this->m_outer_pack[i], field );
+                co.unpack( this->m_outer_pack[i], field );
                 ++i;
             }
         );

@@ -210,6 +210,63 @@ namespace halo_exchange_3D_generic_full {
         array<triple_t<USE_DOUBLE, T3>, layoutmap> c(
             _c, (DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3));
 
+
+        file << "Proc: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
+
+        /* Just an initialization */
+        for (int ii = 0; ii < DIM1 + H1m1 + H1p1; ++ii)
+            for (int jj = 0; jj < DIM2 + H2m1 + H2p1; ++jj) {
+                for (int kk = 0; kk < DIM3 + H3m1 + H3p1; ++kk) {
+                    a(ii, jj, kk) = triple_t<USE_DOUBLE, T1>();
+                }
+            }
+
+        for (int ii = 0; ii < DIM1 + H1m2 + H1p2; ++ii)
+            for (int jj = 0; jj < DIM2 + H2m2 + H2p2; ++jj) {
+                for (int kk = 0; kk < DIM3 + H3m2 + H3p2; ++kk) {
+                    b(ii, jj, kk) = triple_t<USE_DOUBLE, T2>();
+                }
+            }
+
+        for (int ii = 0; ii < DIM1 + H1m3 + H1p3; ++ii)
+            for (int jj = 0; jj < DIM2 + H2m3 + H2p3; ++jj) {
+                for (int kk = 0; kk < DIM3 + H3m3 + H3p3; ++kk) {
+                    c(ii, jj, kk) = triple_t<USE_DOUBLE, T3>();
+                }
+            }
+
+        for (int ii = H1m1; ii < DIM1 + H1m1; ++ii)
+            for (int jj = H2m1; jj < DIM2 + H2m1; ++jj)
+                for (int kk = H3m1; kk < DIM3 + H3m1; ++kk) {
+                    a(ii, jj, kk) = triple_t<USE_DOUBLE, T1>(
+                        ii - H1m1 + (DIM1)*coords[0], jj - H2m1 + (DIM2)*coords[1], kk - H3m1 + (DIM3)*coords[2]);
+                }
+
+        for (int ii = H1m2; ii < DIM1 + H1m2; ++ii)
+            for (int jj = H2m2; jj < DIM2 + H2m2; ++jj)
+                for (int kk = H3m2; kk < DIM3 + H3m2; ++kk) {
+                    b(ii, jj, kk) = triple_t<USE_DOUBLE, T2>(ii - H1m2 + (DIM1)*coords[0] + B_ADD,
+                        jj - H2m2 + (DIM2)*coords[1] + B_ADD,
+                        kk - H3m2 + (DIM3)*coords[2] + B_ADD);
+                }
+
+        for (int ii = H1m3; ii < DIM1 + H1m3; ++ii)
+            for (int jj = H2m3; jj < DIM2 + H2m3; ++jj)
+                for (int kk = H3m3; kk < DIM3 + H3m3; ++kk) {
+                    c(ii, jj, kk) = triple_t<USE_DOUBLE, T3>(ii - H1m3 + (DIM1)*coords[0] + C_ADD,
+                        jj - H2m3 + (DIM2)*coords[1] + C_ADD,
+                        kk - H3m3 + (DIM3)*coords[2] + C_ADD);
+                }
+
+        file << "A \n";
+        printbuff(file, a, DIM1 + H1m1 + H1p1, DIM2 + H2m1 + H2p1, DIM3 + H3m1 + H3p1);
+        file << "B \n";
+        printbuff(file, b, DIM1 + H1m2 + H1p2, DIM2 + H2m2 + H2p2, DIM3 + H3m2 + H3p2);
+        file << "C \n";
+        printbuff(file, c, DIM1 + H1m3 + H1p3, DIM2 + H2m3 + H2p3, DIM3 + H3m3 + H3p3);
+        file.flush();
+
+
         field_descriptor a_desc(DIM1,DIM2,DIM3,H1m1,H1p1,H2m1,H2p1,H3m1,H3p1);
         field_descriptor b_desc(DIM1,DIM2,DIM3,H1m2,H1p2,H2m2,H2p2,H3m2,H3p2);
         field_descriptor c_desc(DIM1,DIM2,DIM3,H1m3,H1p3,H2m3,H2p3,H3m3,H3p3);
@@ -233,6 +290,14 @@ namespace halo_exchange_3D_generic_full {
             [&b_desc](int i, int j, int k) { return b_desc.global_index(i,j,k); },
             [&b_desc](int i) { return b_desc.domain_id(i); }
         );
+        regular_domain_t c_domain(
+            std::array<int,3>{H1m3,H2m3,H3m3},
+            std::array<int,3>{DIM1,DIM2,DIM3},
+            std::array<int,3>{H1m3,H2m3,H3m3},
+            std::array<int,3>{H1p3,H2p3,H3p3},
+            [&c_desc](int i, int j, int k) { return c_desc.global_index(i,j,k); },
+            [&c_desc](int i) { return c_desc.domain_id(i); }
+        );
 
         using co_a_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T1>, ghex::protocol::mpi_async>;
         using co_b_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T2>, ghex::protocol::mpi_async>;
@@ -240,17 +305,198 @@ namespace halo_exchange_3D_generic_full {
 
         co_a_t co_a(a_domain, [&a_desc](int i) { return a_desc.rank(i);});
         co_b_t co_b(b_domain, [&b_desc](int i) { return b_desc.rank(i);});
+        co_c_t co_c(c_domain, [&c_desc](int i) { return c_desc.rank(i);});
 
-        using exchange_t = ghex::exchange<std::allocator<double>, co_a_t, co_b_t/*, co_c_t*/>;
+        using exchange_t = ghex::exchange<std::allocator<double>, co_a_t, co_b_t, co_c_t>;
 
-        exchange_t ex(CartComm, co_a, co_b);
+        exchange_t ex(CartComm, co_a, co_b, co_c);
 
-        ex.pack(a,b);
-        ex.post();
-        ex.wait();
-        ex.unpack(a,b);
+        MPI_Barrier(MPI_COMM_WORLD);
 
-        return true;
+        gettimeofday(&start_tv, nullptr);
+
+        ex.pack(a,b,c);
+        
+        gettimeofday(&stop1_tv, nullptr);
+        
+        //ex.post();
+        //ex.wait();
+
+        gettimeofday(&stop2_tv, nullptr);
+        
+        //ex.unpack(a,b,c);
+
+        gettimeofday(&stop3_tv, nullptr);
+
+
+        lapse_time1 =
+            ((static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec)) -
+                (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
+            1000.0;
+
+        lapse_time2 =
+            ((static_cast<double>(stop2_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop2_tv.tv_usec)) -
+                (static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec))) *
+            1000.0;
+
+        lapse_time3 =
+            ((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
+                (static_cast<double>(stop2_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop2_tv.tv_usec))) *
+            1000.0;
+
+        lapse_time4 =
+            ((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
+                (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
+            1000.0;
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        file << "TIME PACK: " << lapse_time1 << std::endl;
+        file << "TIME EXCH: " << lapse_time2 << std::endl;
+        file << "TIME UNPK: " << lapse_time3 << std::endl;
+        file << "TIME ALL : " << lapse_time1 + lapse_time2 + lapse_time3 << std::endl;
+        file << "TIME TOT : " << lapse_time4 << std::endl;
+
+
+        file << "\n********************************************************************************\n";
+
+        file << "A \n";
+        printbuff(file, a, DIM1 + H1m1 + H1p1, DIM2 + H2m1 + H2p1, DIM3 + H3m1 + H3p1);
+        file << "B \n";
+        printbuff(file, b, DIM1 + H1m2 + H1p2, DIM2 + H2m2 + H2p2, DIM3 + H3m2 + H3p2);
+        file << "C \n";
+        printbuff(file, c, DIM1 + H1m3 + H1p3, DIM2 + H2m3 + H2p3, DIM3 + H3m3 + H3p3);
+        file.flush();
+
+        int passed = true;
+
+        /* Checking the data arrived correctly in the whole region
+         */
+        for (int ii = 0; ii < DIM1 + H1m1 + H1p1; ++ii)
+            for (int jj = 0; jj < DIM2 + H2m1 + H2p1; ++jj)
+                for (int kk = 0; kk < DIM3 + H3m1 + H3p1; ++kk) {
+
+                    triple_t<USE_DOUBLE, T1> ta;
+                    int tax, tay, taz;
+
+                    tax = modulus(ii - H1m1 + (DIM1)*coords[0], DIM1 * dims[0]);
+
+                    tay = modulus(jj - H2m1 + (DIM2)*coords[1], DIM2 * dims[1]);
+
+                    taz = modulus(kk - H3m1 + (DIM3)*coords[2], DIM3 * dims[2]);
+
+                    if (!per0) {
+                        if (((coords[0] == 0) && (ii < H1m1)) || ((coords[0] == dims[0] - 1) && (ii >= DIM1 + H1m1))) {
+                            tax = triple_t<USE_DOUBLE, T1>().x();
+                        }
+                    }
+
+                    if (!per1) {
+                        if (((coords[1] == 0) && (jj < H2m1)) || ((coords[1] == dims[1] - 1) && (jj >= DIM2 + H2m1))) {
+                            tay = triple_t<USE_DOUBLE, T1>().y();
+                        }
+                    }
+
+                    if (!per2) {
+                        if (((coords[2] == 0) && (kk < H3m1)) || ((coords[2] == dims[2] - 1) && (kk >= DIM3 + H3m1))) {
+                            taz = triple_t<USE_DOUBLE, T1>().z();
+                        }
+                    }
+
+                    ta = triple_t<USE_DOUBLE, T1>(tax, tay, taz).floor();
+
+                    if (a(ii, jj, kk) != ta) {
+                        passed = false;
+                        file << ii << ", " << jj << ", " << kk << " values found != expected: "
+                             << "a " << a(ii, jj, kk) << " != " << ta << "\n";
+                    }
+                }
+
+        for (int ii = 0; ii < DIM1 + H1m2 + H1p2; ++ii)
+            for (int jj = 0; jj < DIM2 + H2m2 + H2p2; ++jj)
+                for (int kk = 0; kk < DIM3 + H3m2 + H3p2; ++kk) {
+
+                    triple_t<USE_DOUBLE, T2> tb;
+                    int tbx, tby, tbz;
+
+                    tbx = modulus(ii - H1m2 + (DIM1)*coords[0], DIM1 * dims[0]) + B_ADD;
+
+                    tby = modulus(jj - H2m2 + (DIM2)*coords[1], DIM2 * dims[1]) + B_ADD;
+
+                    tbz = modulus(kk - H3m2 + (DIM3)*coords[2], DIM3 * dims[2]) + B_ADD;
+
+                    if (!per0) {
+                        if (((coords[0] == 0) && (ii < H1m2)) || ((coords[0] == dims[0] - 1) && (ii >= DIM1 + H1m2))) {
+                            tbx = triple_t<USE_DOUBLE, T2>().x();
+                        }
+                    }
+
+                    if (!per1) {
+                        if (((coords[1] == 0) && (jj < H2m2)) || ((coords[1] == dims[1] - 1) && (jj >= DIM2 + H2m2))) {
+                            tby = triple_t<USE_DOUBLE, T2>().y();
+                        }
+                    }
+
+                    if (!per2) {
+                        if (((coords[2] == 0) && (kk < H3m2)) || ((coords[2] == dims[2] - 1) && (kk >= DIM3 + H3m2))) {
+                            tbz = triple_t<USE_DOUBLE, T2>().z();
+                        }
+                    }
+
+                    tb = triple_t<USE_DOUBLE, T2>(tbx, tby, tbz).floor();
+
+                    if (b(ii, jj, kk) != tb) {
+                        passed = false;
+                        file << ii << ", " << jj << ", " << kk << " values found != expected: "
+                             << "b " << b(ii, jj, kk) << " != " << tb << "\n";
+                    }
+                }
+
+        for (int ii = 0; ii < DIM1 + H1m3 + H1p3; ++ii)
+            for (int jj = 0; jj < DIM2 + H2m3 + H2p3; ++jj)
+                for (int kk = 0; kk < DIM3 + H3m3 + H3p3; ++kk) {
+
+                    triple_t<USE_DOUBLE, T3> tc;
+                    int tcx, tcy, tcz;
+
+                    tcx = modulus(ii - H1m3 + (DIM1)*coords[0], DIM1 * dims[0]) + C_ADD;
+
+                    tcy = modulus(jj - H2m3 + (DIM2)*coords[1], DIM2 * dims[1]) + C_ADD;
+
+                    tcz = modulus(kk - H3m3 + (DIM3)*coords[2], DIM3 * dims[2]) + C_ADD;
+
+                    if (!per0) {
+                        if (((coords[0] == 0) && (ii < H1m3)) || ((coords[0] == dims[0] - 1) && (ii >= DIM1 + H1m3))) {
+                            tcx = triple_t<USE_DOUBLE, T3>().x();
+                        }
+                    }
+
+                    if (!per1) {
+                        if (((coords[1] == 0) && (jj < H2m3)) || ((coords[1] == dims[1] - 1) && (jj >= DIM2 + H2m3))) {
+                            tcy = triple_t<USE_DOUBLE, T3>().y();
+                        }
+                    }
+
+                    if (!per2) {
+                        if (((coords[2] == 0) && (kk < H3m3)) || ((coords[2] == dims[2] - 1) && (kk >= DIM3 + H3m3))) {
+                            tcz = triple_t<USE_DOUBLE, T3>().z();
+                        }
+                    }
+
+                    tc = triple_t<USE_DOUBLE, T3>(tcx, tcy, tcz).floor();
+
+                    if (c(ii, jj, kk) != tc) {
+                        passed = false;
+                        file << ii << ", " << jj << ", " << kk << " values found != expected: "
+                             << "c " << c(ii, jj, kk) << " != " << tc << "\n";
+                    }
+                }
+
+        if (passed)
+            file << "RESULT: PASSED!\n";
+        else
+            file << "RESULT: FAILED!\n";
+
+        return passed;
     }
 
     bool test(int DIM1,
