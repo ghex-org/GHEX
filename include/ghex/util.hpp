@@ -35,6 +35,38 @@ void for_each(Tuple&& t, Func&& f)
     );
 }
 
+template<typename Func>
+void invoke_with_2_args(Func&&)
+{}
+
+template<typename Func, typename Arg0, typename... Args>
+void invoke_with_2_args(Func&& f, Arg0&& a0, Args&&... as)
+{
+    //f(std::forward<decltype(a0.first)>(a0.first), std::forward<decltype(a0.second)>(a0.second));
+    f(a0.first, a0.second); //, std::forward<decltype(a0.second)>(a0.second));
+    invoke_with_2_args(std::forward<Func>(f), std::forward<Args>(as)...);
+}
+
+template<typename Tuple1, typename Tuple2, typename Func, std::size_t... Is>
+void for_each_impl(Tuple1&& t1, Tuple2&& t2, Func&& f, std::index_sequence<Is...>)
+{
+    using std::get;
+    invoke_with_2_args(std::forward<Func>(f), //get<Is>(std::forward<Tuple1>(t1), get<Is>(std::forward<Tuple2>(t2))...);
+            std::make_pair<decltype(get<Is>(t1)), decltype(get<Is>(t2))>(get<Is>(t1), get<Is>(t2))...);
+}
+
+template<typename Tuple1, typename Tuple2, typename Func>
+void for_each(Tuple1&& t1, Tuple2&& t2, Func&& f)
+{
+    using size = std::tuple_size<std::remove_reference_t<Tuple1>>;
+    for_each_impl(
+        std::forward<Tuple1>(t1),
+        std::forward<Tuple2>(t2),
+        std::forward<Func>(f),
+        std::make_index_sequence<size::value>()
+    );
+}
+
 
 
 template<typename T0, typename T1>

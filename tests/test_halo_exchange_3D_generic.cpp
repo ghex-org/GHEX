@@ -225,17 +225,30 @@ namespace halo_exchange_3D_generic_full {
             [&a_desc](int i, int j, int k) { return a_desc.global_index(i,j,k); },
             [&a_desc](int i) { return a_desc.domain_id(i); }
         );
+        regular_domain_t b_domain(
+            std::array<int,3>{H1m2,H2m2,H3m2},
+            std::array<int,3>{DIM1,DIM2,DIM3},
+            std::array<int,3>{H1m2,H2m2,H3m2},
+            std::array<int,3>{H1p2,H2p2,H3p2},
+            [&b_desc](int i, int j, int k) { return b_desc.global_index(i,j,k); },
+            [&b_desc](int i) { return b_desc.domain_id(i); }
+        );
 
-        using co_a_t = ghex::communication_object<regular_domain_t, T1, ghex::protocol::mpi_async>;
-        using co_b_t = ghex::communication_object<regular_domain_t, T2, ghex::protocol::mpi_async>;
-        using co_c_t = ghex::communication_object<regular_domain_t, T3, ghex::protocol::mpi_async>;
+        using co_a_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T1>, ghex::protocol::mpi_async>;
+        using co_b_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T2>, ghex::protocol::mpi_async>;
+        using co_c_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T3>, ghex::protocol::mpi_async>;
 
         co_a_t co_a(a_domain, [&a_desc](int i) { return a_desc.rank(i);});
+        co_b_t co_b(b_domain, [&b_desc](int i) { return b_desc.rank(i);});
 
+        using exchange_t = ghex::exchange<std::allocator<double>, co_a_t, co_b_t/*, co_c_t*/>;
 
-        using exchange_t = ghex::exchange<std::allocator<double>, co_a_t/*, co_b_t, co_c_t*/>;
+        exchange_t ex(CartComm, co_a, co_b);
 
-        exchange_t ex(CartComm, std::allocator<double>(), co_a);
+        ex.pack(a,b);
+        ex.post();
+        ex.wait();
+        ex.unpack(a,b);
 
         return true;
     }
