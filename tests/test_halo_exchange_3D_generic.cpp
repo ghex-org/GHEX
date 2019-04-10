@@ -1,6 +1,6 @@
 
 
-#include "../include/ghex/data_field.hpp"
+//#include "../include/ghex/data_field.hpp"
 #include "../include/ghex/regular_domain.hpp"
 #include "../include/ghex/communication_object.hpp"
 
@@ -146,7 +146,7 @@ namespace halo_exchange_3D_generic_full {
 
 }
 
-namespace ghex {
+/*namespace ghex {
 
     template<typename T, int I1, int I2, int I3>
     struct data_field_traits<halo_exchange_3D_generic_full::array_t<T,I1,I2,I3>>
@@ -169,7 +169,7 @@ namespace ghex {
 
         //global_cell_index(daint i, int j, int k) const 
     };
-}
+}*/
 
 namespace halo_exchange_3D_generic_full {
 
@@ -275,7 +275,7 @@ namespace halo_exchange_3D_generic_full {
 
 
         regular_domain_t a_domain(
-            std::array<int,3>{H1m1,H2m1,H3m1},
+            std::array<int,3>{H1m1,H2m1,H3m1}, // origin
             std::array<int,3>{DIM1,DIM2,DIM3},
             std::array<int,3>{H1m1,H2m1,H3m1},
             std::array<int,3>{H1p1,H2p1,H3p1},
@@ -496,6 +496,8 @@ namespace halo_exchange_3D_generic_full {
         else
             file << "RESULT: FAILED!\n";
 
+        std::cout << "run finished!!" << std::endl;
+
         return passed;
     }
 
@@ -616,6 +618,7 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c);
 
+        std::cout << "run finished 2" << std::endl;
         /*file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
@@ -2030,6 +2033,8 @@ namespace halo_exchange_3D_generic_full {
         delete[] _b;
         delete[] _c;
 
+        MPI_Comm_free(&CartComm);
+        std::cout << "after delete[]" << std::endl;
         return passed;
     }
 
@@ -2037,13 +2042,10 @@ namespace halo_exchange_3D_generic_full {
 
 #ifdef STANDALONE
 int main(int argc, char **argv) {
-#ifdef GT_USE_GPU
-    device_binding();
-#endif
 
     int p;
-    //MPI_Init(&argc, &argv);
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &p);
+    MPI_Init(&argc, &argv);
+    //MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &p);
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &p);
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &p);
     //gridtools::GCL_Init(argc, argv);
@@ -2099,8 +2101,10 @@ int main(int argc, char **argv) {
         H3m3,
         H3p3);
 
+    std::cout << "after test" << std::endl;
 
     MPI_Finalize();
+    return 0;
 }
 #else
 /*TEST(Communication, test_halo_exchange_3D_generic_full) {

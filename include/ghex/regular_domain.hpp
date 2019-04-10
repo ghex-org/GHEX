@@ -263,7 +263,7 @@ public: // ctors
         };*/
         // generate outer boxes
         auto local_outer_spaces = compute_spaces<local_box_type>(outer_spaces);
-        /*for (const auto s : local_outer_spaces)
+        for (const auto s : local_outer_spaces)
         {
             for (int i=0; i<3; ++i)
                 std::cout << s.first()[i] << " ";
@@ -272,7 +272,7 @@ public: // ctors
                 std::cout << s.last()[i] << " ";
             std::cout << std::endl;
         }
-        std::cout << std::endl;*/
+        std::cout << std::endl;
         // modulo operation to generate inner spaces
         std::remove_reference_t<decltype(local_outer_spaces)> local_inner_spaces;
         local_inner_spaces.reserve(local_outer_spaces.size());
@@ -284,7 +284,7 @@ public: // ctors
                     (s.last() -m_origin+m_extent)%m_extent+m_origin
                 }
             );
-        /*for (const auto s : local_inner_spaces)
+        for (const auto s : local_inner_spaces)
         {
             for (int i=0; i<3; ++i)
                 std::cout << s.first()[i] << " ";
@@ -293,7 +293,7 @@ public: // ctors
                 std::cout << s.last()[i] << " ";
             std::cout << std::endl;
         }
-        std::cout << std::endl;*/
+        std::cout << std::endl;
         // fill map and order
         for (int j=0; j<local_outer_spaces.size(); ++j)
         {
