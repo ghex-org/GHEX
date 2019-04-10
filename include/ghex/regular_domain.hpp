@@ -328,14 +328,19 @@ public: // ctors
             const auto domain_id_inner = dmap( detail::call_enumerated<D>(gmap, neighbor_look_up) );
             //std::cout << domain_id_outer << " " << domain_id_inner << std::endl;
             if (domain_id_inner != domain_id_traits<domain_id_type>::invalid)
-            m_inner_map[domain_id_inner].second.push_back( global_box_type(local_inner_spaces[j], gmap) );
+            {
+                m_inner_map[domain_id_inner].second.push_back( global_box_type(local_inner_spaces[j], gmap) );
+            }
             if (domain_id_outer != domain_id_traits<domain_id_type>::invalid)
-            m_outer_map[domain_id_outer].second.push_back( global_box_type(local_outer_spaces[j], gmap) );
+            {
+                m_outer_map[domain_id_outer].second.push_back( global_box_type(local_outer_spaces[j], gmap) );
+            }
         }
 
         for (auto& p : m_inner_map)
         {
             std::sort(p.second.second.begin(), p.second.second.end());
+            // TODO fuse adjacent boxes!
             std::size_t s=0;
             //std::cout << "inner_map[" << p.first << "] = {";
             for (auto& x : p.second.second)
@@ -349,6 +354,7 @@ public: // ctors
         for (auto& p : m_outer_map)
         {
             std::sort(p.second.second.begin(), p.second.second.end());
+            // TODO fuse adjacent boxes!
             std::size_t s=0;
             for (auto& x : p.second.second)
                 s += x.size();

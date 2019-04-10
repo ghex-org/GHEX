@@ -8,9 +8,13 @@
 //#include <mpi.h>
 //#include <memory>
 
+#include <gridtools/common/layout_map.hpp>
+
 namespace ghex {
 
-template<int D, int I>
+namespace detail {
+
+template<int D, int I, typename Layout=void>
 struct for_loop
 {
     using idx = std::integral_constant<int,D-I>;
@@ -22,7 +26,7 @@ struct for_loop
         {
             std::remove_const_t<std::remove_reference_t<Array>> x{};
             x[idx::value] = i;
-            for_loop<D,I-1>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+            for_loop<D,I-1,Layout>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
         }
     }
 
@@ -33,27 +37,18 @@ struct for_loop
         {
             std::remove_const_t<std::remove_reference_t<Array2>> x{y};
             x[idx::value] = i;
-            for_loop<D,I-1>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+            for_loop<D,I-1,Layout>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
         }
     }
 };
 
-template<int D>
-struct for_loop<D,0>
+template<int D,typename Layout>
+struct for_loop<D,0,Layout>
 {
     
     template<typename Func, typename Array, typename Array2>
     inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& x) noexcept
     {
-        // compute counter
-        /*Int counter = 0; //x[D-1];
-        for (Int i=0; i<D-1; ++i)
-        {
-            counter += x[i];
-            counter *= last[i+1]-first[i+1]+1;
-        }
-        counter += x[D-1]; 
-        */
         apply_impl(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
     }
 
@@ -63,6 +58,42 @@ struct for_loop<D,0>
         f(x[Is]...);
     }
 };
+
+
+template<int D, int I, int... Args>
+struct for_loop<D,I,gridtools::layout_map<Args...>>
+{
+    using layout_t = gridtools::layout_map<Args...>;
+    using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
+
+    template<typename Func, typename Array>
+    inline static void apply(Func&& f, Array&& first, Array&& last) noexcept
+    {
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        {
+            std::remove_const_t<std::remove_reference_t<Array>> x{};
+            x[idx::value] = i;
+            for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+        }
+    }
+
+    template<typename Func, typename Array, typename Array2>
+    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
+    {
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        {
+            std::remove_const_t<std::remove_reference_t<Array2>> x{y};
+            x[idx::value] = i;
+            for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+        }
+    }
+
+};
+
+template<int D, int... Args>
+struct for_loop<D,0,gridtools::layout_map<Args...>> : for_loop<D,0,void> {};
+
+} // namespace detail
 
 
 template<typename Domain, typename T, protocol P, typename Backend = void>
@@ -83,7 +114,7 @@ class communication_object<regular_domain<D,LocalIndex,GlobalCellID,DomainID,Lay
 {
 public: // member types
 
-    using domain_type = regular_domain<D,LocalIndex,GlobalCellID,DomainID>;
+    using domain_type = regular_domain<D,LocalIndex,GlobalCellID,DomainID,Layout>;
     using value_type  = T;
     using box_type    = typename domain_type::global_box_type;
     using layout_type = Layout;
@@ -147,7 +178,7 @@ public:
             //for (const auto& box : m_inner[rank].second)
             for (const auto& box : m_inner.at(rank).second)
             {
-                for_loop<D,D>::apply(
+                detail::for_loop<D,D,layout_type>::apply(
                     [buffer,&i,&field](auto... is)
                     {
                         buffer[i++] = field(is...); 
@@ -174,7 +205,7 @@ public:
             //for (const auto& box : m_outer[rank].second)
             for (const auto& box : m_outer.at(rank).second)
             {
-                for_loop<D,D>::apply(
+                detail::for_loop<D,D,layout_type>::apply(
                     [buffer,&i,&field](auto... is)
                     {
                         field(is...) = buffer[i++]; 

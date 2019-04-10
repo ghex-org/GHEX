@@ -53,12 +53,17 @@ namespace halo_exchange_3D_generic_full {
 
 
     //template<typename T, int I1, int I2, int I3>
+    template<typename Layout>
     struct field_descriptor
     {
         //using array_type = array_t<T,I1,I2,I3>;
         using index_type = int;
         using global_index_type = int;
         using domain_index_type = int;
+
+        using i0 = std::integral_constant<int, Layout::template find<2>()>;
+        using i1 = std::integral_constant<int, Layout::template find<1>()>;
+        using i2 = std::integral_constant<int, Layout::template find<0>()>;
 
         //array_type m_impl;
         int hm[3];
@@ -70,6 +75,7 @@ namespace halo_exchange_3D_generic_full {
         int g_nx;
         int g_ny;
         int g_nz;
+        int g_ext[3];
         bool periodic[3];
 
         field_descriptor(
@@ -109,6 +115,9 @@ namespace halo_exchange_3D_generic_full {
             g_nx = dims[0]*DIM1;
             g_ny = dims[1]*DIM2;
             g_nz = dims[2]*DIM3;
+            g_ext[0] = g_nx;
+            g_ext[1] = g_ny;
+            g_ext[2] = g_nz;
             origin[0] = coords[0]*DIM1;
             origin[1] = coords[1]*DIM2;
             origin[2] = coords[2]*DIM3;
@@ -119,23 +128,37 @@ namespace halo_exchange_3D_generic_full {
             if (!periodic[0] && ((i-hm[0]+origin[0])<0 || (i-hm[0]+origin[0])>=g_nx)) return -1;
             if (!periodic[1] && ((j-hm[1]+origin[1])<0 || (j-hm[1]+origin[1])>=g_ny)) return -1;
             if (!periodic[2] && ((k-hm[2]+origin[2])<0 || (k-hm[2]+origin[2])>=g_nz)) return -1;
+
+            int idx[] = {i,j,k};
+
+            /*return
+              (((idx[0]-hm[0]+origin[0])+g_ext[0])%g_ext[0])
+            + (((idx[1]-hm[1]+origin[1])+g_ext[1])%g_ext[1])*g_ext[0]
+            + (((idx[2]-hm[2]+origin[2])+g_ext[2])%g_ext[2])*g_ext[0]*g_ext[1];*/
             return
-              (((i-hm[0]+origin[0])+g_nx)%g_nx)
-            + (((j-hm[1]+origin[1])+g_ny)%g_ny)*g_nx
-            + (((k-hm[2]+origin[2])+g_nz)%g_nz)*g_nx*g_ny;
+              (((idx[i0::value]-hm[i0::value]+origin[i0::value])+g_ext[i0::value])%g_ext[i0::value])
+            + (((idx[i1::value]-hm[i1::value]+origin[i1::value])+g_ext[i1::value])%g_ext[i1::value])*g_ext[i0::value]
+            + (((idx[i2::value]-hm[i2::value]+origin[i2::value])+g_ext[i2::value])%g_ext[i2::value])*g_ext[i0::value]*g_ext[i1::value];
         }
 
         domain_index_type domain_id(global_index_type gid) const noexcept
         {
             if (gid == -1) return -1;
-            const auto k = gid/(g_nx*g_ny);
-            gid -= k*(g_nx*g_ny);
-            const auto j = gid/(g_nx);
-            gid -= j*(g_nx);
-            const auto i = gid;
-            const auto xx = i/domain_extent[0];
-            const auto yy = j/domain_extent[1];
-            const auto zz = k/domain_extent[2];
+            int g_idx[3];
+            /*g_idx[2] = gid/(g_ext[0]*g_ext[1]);
+            gid -= g_idx[2]*(g_ext[0]*g_ext[1]);
+            g_idx[1] = gid/(g_ext[0]);
+            gid -= g_idx[1]*(g_ext[0]);
+            g_idx[0] = gid;*/
+            g_idx[i2::value] = gid/(g_ext[i0::value]*g_ext[i1::value]);
+            gid -= g_idx[i2::value]*(g_ext[i0::value]*g_ext[i1::value]);
+            g_idx[i1::value] = gid/(g_ext[i0::value]);
+            gid -= g_idx[i1::value]*(g_ext[i0::value]);
+            g_idx[i0::value] = gid;
+
+            const auto xx = g_idx[0]/domain_extent[0];
+            const auto yy = g_idx[1]/domain_extent[1];
+            const auto zz = g_idx[2]/domain_extent[2];
             return xx+yy*dims[0]+zz*dims[0]*dims[1];
         }
 
@@ -288,11 +311,11 @@ namespace halo_exchange_3D_generic_full {
         file.flush();
 
 
-        field_descriptor a_desc(DIM1,DIM2,DIM3,H1m1,H1p1,H2m1,H2p1,H3m1,H3p1, per0, per1, per2);
-        field_descriptor b_desc(DIM1,DIM2,DIM3,H1m2,H1p2,H2m2,H2p2,H3m2,H3p2, per0, per1, per2);
-        field_descriptor c_desc(DIM1,DIM2,DIM3,H1m3,H1p3,H2m3,H2p3,H3m3,H3p3, per0, per1, per2);
+        field_descriptor<layoutmap> a_desc(DIM1,DIM2,DIM3,H1m1,H1p1,H2m1,H2p1,H3m1,H3p1, per0, per1, per2);
+        field_descriptor<layoutmap> b_desc(DIM1,DIM2,DIM3,H1m2,H1p2,H2m2,H2p2,H3m2,H3p2, per0, per1, per2);
+        field_descriptor<layoutmap> c_desc(DIM1,DIM2,DIM3,H1m3,H1p3,H2m3,H2p3,H3m3,H3p3, per0, per1, per2);
 
-        using regular_domain_t = ghex::regular_domain<3,int,int,int>;
+        using regular_domain_t = ghex::regular_domain<3,int,int,int, layoutmap>;
 
 
         regular_domain_t a_domain(
