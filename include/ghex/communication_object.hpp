@@ -47,7 +47,7 @@ struct for_loop<D,0,Layout>
 {
     
     template<typename Func, typename Array, typename Array2>
-    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& x) noexcept
+    inline static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept
     {
         apply_impl(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
     }
@@ -92,6 +92,48 @@ struct for_loop<D,I,gridtools::layout_map<Args...>>
 
 template<int D, int... Args>
 struct for_loop<D,0,gridtools::layout_map<Args...>> : for_loop<D,0,void> {};
+
+
+template<int D, int I, typename Layout>
+struct for_loop_simple {};
+
+template<int D, int I, int... Args>
+struct for_loop_simple<D,I,gridtools::layout_map<Args...>>
+{
+    using layout_t = gridtools::layout_map<Args...>;
+    using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
+
+    template<typename Func, typename Array, typename Array2>
+    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent) noexcept
+    {
+        std::size_t offset = 0;
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        {
+            for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i);
+        }
+    }
+
+    template<typename Func, typename Array, typename Array2>
+    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, std::size_t offset) noexcept
+    {
+        offset *= extent[idx::value];
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        {
+            for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i);
+        }
+
+    }
+};
+
+template<int D, int... Args>
+struct for_loop_simple<D,0,gridtools::layout_map<Args...>>
+{
+    template<typename Func, typename Array, typename Array2>
+    inline static void apply(Func&& f, Array&&, Array&&, Array2&&, std::size_t offset) noexcept
+    {
+        f(offset);
+    }
+};
 
 } // namespace detail
 
@@ -178,14 +220,24 @@ public:
             //for (const auto& box : m_inner[rank].second)
             for (const auto& box : m_inner.at(rank).second)
             {
-                detail::for_loop<D,D,layout_type>::apply(
+                // this is a bit cheating
+                detail::for_loop_simple<D,D,layout_type>::apply(
+                    [buffer,&i,&field](std::size_t offset)
+                    {
+                        buffer[i++] = field.ptr[offset]; 
+                    }, 
+                    box.first(), 
+                    box.last(),
+                    field.ext 
+                );
+                /*detail::for_loop<D,D,layout_type>::apply(
                     [buffer,&i,&field](auto... is)
                     {
                         buffer[i++] = field(is...); 
                     }, 
                     box.first(), 
                     box.last()
-                );
+                );*/
                 /*for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
                 for (auto y=box.first()[1]; y<=box.last()[1]; ++y)
                 for (auto z=box.first()[2]; z<=box.last()[2]; ++z)
@@ -205,14 +257,24 @@ public:
             //for (const auto& box : m_outer[rank].second)
             for (const auto& box : m_outer.at(rank).second)
             {
-                detail::for_loop<D,D,layout_type>::apply(
+                // this is a bit cheating
+                detail::for_loop_simple<D,D,layout_type>::apply(
+                    [buffer,&i,&field](std::size_t offset)
+                    {
+                        field.ptr[offset] = buffer[i++]; 
+                    }, 
+                    box.first(), 
+                    box.last(),
+                    field.ext
+                );
+                /*detail::for_loop<D,D,layout_type>::apply(
                     [buffer,&i,&field](auto... is)
                     {
                         field(is...) = buffer[i++]; 
                     }, 
                     box.first(), 
                     box.last()
-                );
+                );*/
                 /*for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
                 for (auto y=box.first()[1]; y<=box.last()[1]; ++y)
                 for (auto z=box.first()[2]; z<=box.last()[2]; ++z)

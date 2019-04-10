@@ -18,6 +18,14 @@ message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 add_executable( mbianco_gcl2 tests/gcl2_app.cpp )
 target_compile_options(mbianco_gcl2 PRIVATE -DMT_MPI)
 target_link_libraries(mbianco_gcl2 ${exe_LIBS} GridTools::gridtools GridTools::gcl)

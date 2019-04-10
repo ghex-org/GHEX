@@ -318,6 +318,7 @@ namespace halo_exchange_3D_generic_full {
         using regular_domain_t = ghex::regular_domain<3,int,int,int, layoutmap>;
 
 
+
         regular_domain_t a_domain(
             std::array<int,3>{H1m1,H2m1,H3m1}, // origin
             std::array<int,3>{DIM1,DIM2,DIM3},
@@ -2082,7 +2083,7 @@ namespace halo_exchange_3D_generic_full {
 #ifdef STANDALONE
 int main(int argc, char **argv) {
 
-    int p;
+    //int p;
     MPI_Init(&argc, &argv);
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &p);
     //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &p);

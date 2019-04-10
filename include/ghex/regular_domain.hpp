@@ -299,7 +299,7 @@ public: // ctors
         std::cout << std::endl;*/
         // fill map and order
         //std::cout << "computing maps" << std::endl;
-        for (int j=0; j<local_outer_spaces.size(); ++j)
+        for (int j=0; j<static_cast<int>(local_outer_spaces.size()); ++j)
         {
             if (j==(detail::int_pow(3,D)/2)) continue;
             const auto domain_id_outer = dmap( detail::call_enumerated<D>(gmap, local_outer_spaces[j].first()) );

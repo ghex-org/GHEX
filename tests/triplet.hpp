@@ -16,11 +16,13 @@ template <typename T, typename lmap>
 struct array {
     T *ptr;
     int n, m, l;
+    std::array<int,3> ext;
 
     array(T *_p, int _n, int _m, int _l)
         : ptr(_p), n(gridtools::make_array(_n, _m, _l)[lmap::template find<0>()]),
           m(gridtools::make_array(_n, _m, _l)[lmap::template find<1>()]),
-          l(gridtools::make_array(_n, _m, _l)[lmap::template find<2>()]) {}
+          l(gridtools::make_array(_n, _m, _l)[lmap::template find<2>()]),
+          ext{_n,_m,_l} {}
 
     T &operator()(int i, int j, int k) {
         // a[(DIM1+2*H)*(DIM2+2*H)*kk+ii*(DIM2+2*H)+jj]
