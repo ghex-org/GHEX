@@ -1,6 +1,9 @@
 #ifndef INCLUDED_REGULAR_DOMAIN_HPP
 #define INCLUDED_REGULAR_DOMAIN_HPP
 
+
+#include "domain_id_traits.hpp"
+
 #include <utility>
 #include <tuple>
 #include <array>
@@ -295,9 +298,23 @@ public: // ctors
         }
         std::cout << std::endl;*/
         // fill map and order
+        //std::cout << "computing maps" << std::endl;
         for (int j=0; j<local_outer_spaces.size(); ++j)
         {
             if (j==(detail::int_pow(3,D)/2)) continue;
+            const auto domain_id_outer = dmap( detail::call_enumerated<D>(gmap, local_outer_spaces[j].first()) );
+            //std::cout << "invalid did = " << domain_id_traits<domain_id_type>::invalid<<std::endl;
+            bool empty = false;
+            for (int i=0; i<D; ++i)
+            {
+                if (local_outer_spaces[j].last()[i] < local_outer_spaces[j].first()[i])
+                {
+                    empty = true;
+                    break;
+                }
+            }
+            if (empty) continue;
+            //std::cout << "  domain_id_outer = " << domain_id_outer << std::endl;
             auto diff = local_outer_spaces[j].first() - local_inner_spaces[j].first();
             for (int i=0; i<D; ++i)
             {
@@ -308,10 +325,11 @@ public: // ctors
                     static_cast<local_index_type>(0);
             }
             const auto neighbor_look_up = local_inner_spaces[j].first() + diff;
-            const auto domain_id_outer = dmap( detail::call_enumerated<D>(gmap, local_outer_spaces[j].first()) );
             const auto domain_id_inner = dmap( detail::call_enumerated<D>(gmap, neighbor_look_up) );
             //std::cout << domain_id_outer << " " << domain_id_inner << std::endl;
+            if (domain_id_inner != domain_id_traits<domain_id_type>::invalid)
             m_inner_map[domain_id_inner].second.push_back( global_box_type(local_inner_spaces[j], gmap) );
+            if (domain_id_outer != domain_id_traits<domain_id_type>::invalid)
             m_outer_map[domain_id_outer].second.push_back( global_box_type(local_outer_spaces[j], gmap) );
         }
 
@@ -319,8 +337,13 @@ public: // ctors
         {
             std::sort(p.second.second.begin(), p.second.second.end());
             std::size_t s=0;
+            //std::cout << "inner_map[" << p.first << "] = {";
             for (auto& x : p.second.second)
+            {
+                //std::cout << x.size() << " ";
                 s += x.size();
+            }
+            //std::cout << "}" << std::endl;
             p.second.first = s;
         }
         for (auto& p : m_outer_map)

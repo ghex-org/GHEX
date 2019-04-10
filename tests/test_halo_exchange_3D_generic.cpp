@@ -1,8 +1,8 @@
 
 
-//#include "../include/ghex/data_field.hpp"
 #include "../include/ghex/regular_domain.hpp"
 #include "../include/ghex/communication_object.hpp"
+#include "../include/ghex/exchange.hpp"
 
 #include "gtest/gtest.h"
 #include <fstream>
@@ -70,6 +70,7 @@ namespace halo_exchange_3D_generic_full {
         int g_nx;
         int g_ny;
         int g_nz;
+        bool periodic[3];
 
         field_descriptor(
             int DIM1,
@@ -80,10 +81,16 @@ namespace halo_exchange_3D_generic_full {
             int H2m,
             int H2p,
             int H3m,
-            int H3p)
+            int H3p,
+            bool periodic1=true, 
+            bool periodic2=true,
+            bool periodic3=true)
             //triple_t<USE_DOUBLE, T> *_a ) :
             //m_impl(_a,DIM1+H1m+H1p,DIM2+H2m+H2p,DIM3+H3m+H3p)
         {
+            periodic[0] = periodic1;
+            periodic[1] = periodic2;
+            periodic[2] = periodic3;
             hm[0] = H1m;
             hm[1] = H2m;
             hm[2] = H3m;
@@ -109,6 +116,9 @@ namespace halo_exchange_3D_generic_full {
 
         global_index_type global_index(index_type i, index_type j, index_type k) const noexcept
         {
+            if (!periodic[0] && ((i-hm[0]+origin[0])<0 || (i-hm[0]+origin[0])>=g_nx)) return -1;
+            if (!periodic[1] && ((j-hm[1]+origin[1])<0 || (j-hm[1]+origin[1])>=g_ny)) return -1;
+            if (!periodic[2] && ((k-hm[2]+origin[2])<0 || (k-hm[2]+origin[2])>=g_nz)) return -1;
             return
               (((i-hm[0]+origin[0])+g_nx)%g_nx)
             + (((j-hm[1]+origin[1])+g_ny)%g_ny)*g_nx
@@ -117,6 +127,7 @@ namespace halo_exchange_3D_generic_full {
 
         domain_index_type domain_id(global_index_type gid) const noexcept
         {
+            if (gid == -1) return -1;
             const auto k = gid/(g_nx*g_ny);
             gid -= k*(g_nx*g_ny);
             const auto j = gid/(g_nx);
@@ -143,6 +154,16 @@ namespace halo_exchange_3D_generic_full {
     };
 
 
+
+}
+
+namespace ghex {
+
+template<>
+struct domain_id_traits<int>
+{
+    static constexpr int invalid = -1;
+};
 
 }
 
@@ -267,9 +288,9 @@ namespace halo_exchange_3D_generic_full {
         file.flush();
 
 
-        field_descriptor a_desc(DIM1,DIM2,DIM3,H1m1,H1p1,H2m1,H2p1,H3m1,H3p1);
-        field_descriptor b_desc(DIM1,DIM2,DIM3,H1m2,H1p2,H2m2,H2p2,H3m2,H3p2);
-        field_descriptor c_desc(DIM1,DIM2,DIM3,H1m3,H1p3,H2m3,H2p3,H3m3,H3p3);
+        field_descriptor a_desc(DIM1,DIM2,DIM3,H1m1,H1p1,H2m1,H2p1,H3m1,H3p1, per0, per1, per2);
+        field_descriptor b_desc(DIM1,DIM2,DIM3,H1m2,H1p2,H2m2,H2p2,H3m2,H3p2, per0, per1, per2);
+        field_descriptor c_desc(DIM1,DIM2,DIM3,H1m3,H1p3,H2m3,H2p3,H3m3,H3p3, per0, per1, per2);
 
         using regular_domain_t = ghex::regular_domain<3,int,int,int>;
 
@@ -327,7 +348,7 @@ namespace halo_exchange_3D_generic_full {
         ex.unpack(a,b,c);
 
         gettimeofday(&stop3_tv, nullptr);
-
+        
 
         lapse_time1 =
             ((static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec)) -
@@ -581,15 +602,15 @@ namespace halo_exchange_3D_generic_full {
             new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
         triple_t<USE_DOUBLE, T3> *_c =
             new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
+        
+        bool passed = true;
 
         file << "Permutation 0,1,2\n";
 
         file << "run<std::ostream, 0,1,2, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-
-        bool passed = true;
-
+        
         passed = passed and run<std::ostream, 0, 1, 2, true, true, true>(file,
                                 DIM1,
                                 DIM2,
@@ -616,7 +637,7 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c);
 
-        /*file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
+        file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
         passed = passed and run<std::ostream, 0, 1, 2, true, true, false>(file,
@@ -675,9 +696,8 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-
-        file
-            << "run<std::ostream, 0,1,2, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
+        
+        file << "run<std::ostream, 0,1,2, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
         passed = passed and run<std::ostream, 0, 1, 2, true, false, false>(file,
                                 DIM1,
@@ -705,7 +725,7 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-
+        
         file << "run<std::ostream, 0,1,2, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
@@ -735,7 +755,7 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-
+        
         file
             << "run<std::ostream, 0,1,2, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
@@ -2025,7 +2045,7 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c);
         file << "---------------------------------------------------\n";
-        */
+        
         delete[] _a;
         delete[] _b;
         delete[] _c;

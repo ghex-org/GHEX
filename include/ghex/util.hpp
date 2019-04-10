@@ -1,6 +1,8 @@
 #ifndef INCLUDED_UTIL_HPP
 #define INCLUDED_UTIL_HPP
 
+#include <utility>
+
 namespace ghex {
 
 namespace detail {
