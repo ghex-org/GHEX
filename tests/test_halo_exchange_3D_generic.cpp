@@ -319,12 +319,12 @@ namespace halo_exchange_3D_generic_full {
         
         gettimeofday(&stop1_tv, nullptr);
         
-        //ex.post();
-        //ex.wait();
+        ex.post();
+        ex.wait();
 
         gettimeofday(&stop2_tv, nullptr);
         
-        //ex.unpack(a,b,c);
+        ex.unpack(a,b,c);
 
         gettimeofday(&stop3_tv, nullptr);
 
@@ -496,8 +496,6 @@ namespace halo_exchange_3D_generic_full {
         else
             file << "RESULT: FAILED!\n";
 
-        std::cout << "run finished!!" << std::endl;
-
         return passed;
     }
 
@@ -618,7 +616,6 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c);
 
-        std::cout << "run finished 2" << std::endl;
         /*file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
@@ -2034,7 +2031,6 @@ namespace halo_exchange_3D_generic_full {
         delete[] _c;
 
         MPI_Comm_free(&CartComm);
-        std::cout << "after delete[]" << std::endl;
         return passed;
     }
 
@@ -2100,8 +2096,6 @@ int main(int argc, char **argv) {
         H2p3,
         H3m3,
         H3p3);
-
-    std::cout << "after test" << std::endl;
 
     MPI_Finalize();
     return 0;

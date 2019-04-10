@@ -49,7 +49,6 @@ public:
     template<typename RMap>
     communication_object(const domain_type& domain, RMap&& m)
     {
-        std::cout << "size is " << sizeof(value_type) << std::endl;
         for (const auto& p : domain.inner())
         {
             const int rank = m(p.first);
@@ -66,7 +65,6 @@ public:
                 it->second.first += p.second.first;
             }
         }
-        std::cout << "num elements inner = " << m_inner.begin()->second.first << std::endl;
         for (const auto& p : domain.outer())
         {
             const int rank = m(p.first);
@@ -83,7 +81,6 @@ public:
                 it->second.first += p.second.first;
             }
         }
-        std::cout << "num elements outer = " << m_outer.begin()->second.first << std::endl;
     }
 
     const map_type& inner() const noexcept { return m_inner; }
@@ -92,25 +89,23 @@ public:
     template<typename BufferMap, typename Field>
     void pack(BufferMap& buffer_map, const Field& field) /*const*/
     {
-        std::cout << "should be packing a map of size " << buffer_map.size() << std::endl;
         for (auto& p : buffer_map)
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
-            std::cout << "packing at " << (void*)buffer << std::endl;
             std::size_t i = 0;
             for (const auto& box : m_inner[rank].second)
             {
-                std::cout << "  " 
+                /*std::cout << "  " 
                 << "[" <<  box.first()[0] << ", " << box.first()[1] << ", " << box.first()[2] << "] "
                 << "[" <<  box.last()[0] << ", " << box.last()[1] << ", " << box.last()[2] << "] "
-                << std::endl;
+                << std::endl;*/
                 for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
                 for (auto y=box.first()[1]; y<=box.last()[1]; ++y)
                 for (auto z=box.first()[2]; z<=box.last()[2]; ++z)
-                {std::cout << "  " << (void*)(buffer+i) << " i= " << i << std::endl;
-                    std::cout << (reinterpret_cast<char*>(buffer+i+1) - reinterpret_cast<char*>(buffer+i)) << std::endl;
-                buffer[i++] = field(x,y,z);}
+                //{std::cout << "  " << (void*)(buffer+i) << " i= " << i << std::endl;
+                //    std::cout << (reinterpret_cast<char*>(buffer+i+1) - reinterpret_cast<char*>(buffer+i)) << std::endl;
+                    buffer[i++] = field(x,y,z);
             }
         }
     }
@@ -118,7 +113,6 @@ public:
     template<typename BufferMap, typename Field>
     void unpack(/*const*/ BufferMap& buffer_map, Field& field) /*const*/
     {
-        std::cout << "should be unpacking a map of size " << buffer_map.size() << std::endl;
         for (auto& p : buffer_map)
         {
             int rank = p.first;
@@ -126,10 +120,10 @@ public:
             std::size_t i = 0;
             for (const auto& box : m_outer[rank].second)
             {
-                std::cout << "  " 
+                /*std::cout << "  " 
                 << "[" <<  box.first()[0] << ", " << box.first()[1] << ", " << box.first()[2] << "] "
                 << "[" <<  box.last()[0] << ", " << box.last()[1] << ", " << box.last()[2] << "] "
-                << std::endl;
+                << std::endl;*/
                 for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
                 for (auto y=box.first()[1]; y<=box.last()[1]; ++y)
                 for (auto z=box.first()[2]; z<=box.last()[2]; ++z)
@@ -210,16 +204,18 @@ public:
                 using co_t    = std::remove_reference_t<decltype(co)>;
                 using value_t = typename co_t::value_type; 
 
-                std::cout << "co.inner().size = " << co.inner().size() << std::endl;
+                //std::cout << std::endl;
+                //std::cout << "co.inner().size = " << co.inner().size() << std::endl;
                 for (const auto& p : co.inner())
                 {
                     auto& l         = this->m_inner_ledger_map[p.first];
-                    std::cout << "total size before: " << l.total_size << std::endl;
+                    //std::cout << "total size before: " << l.total_size << std::endl;
                     l.offset[i]     = l.total_size;
-                    std::cout << "adding " << p.second.first << " elements" << std::endl;
+                    //std::cout << "adding " << p.second.first << " elements" << std::endl;
+                    //std::cout << "sizeof(value_t) = " << sizeof(value_t) << std::endl;
                     l.total_size   += p.second.first*sizeof(value_t) + alignof(value_t);//-1;
-                    std::cout << "bytes = " << p.second.first*sizeof(value_t) + alignof(value_t)/*-1*/ << std::endl;
-                    std::cout << "total size after: " << l.total_size << std::endl;
+                    //std::cout << "bytes = " << p.second.first*sizeof(value_t) + alignof(value_t)/*-1*/ << std::endl;
+                    //std::cout << "total size after: " << l.total_size << std::endl;
                 }
                 for (const auto& p : co.outer())
                 {
@@ -230,51 +226,63 @@ public:
                 ++i;
             }
         );
+
+        //std::cout << std::endl;
+
         // allocate the memory per rank
         // and prepare the package 
         for (const auto& p : m_inner_ledger_map)
         {
             m_inner_memory.push_back(memory_holder());
             auto& holder = m_inner_memory.back();
-            //holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
-            std::cout << "total size is now " << p.second.total_size << " bytes" << std::endl;
-            holder.ptr = ::new char[p.second.total_size+max_alignment_t::value /*+ 1000*/];
-            std::cout << "allocating " << p.second.total_size+max_alignment_t::value << " bytes for inner at rank " << p.first << std::endl;
+            holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
+            //std::cout << "total size is now " << p.second.total_size << " bytes" << std::endl;
+            //holder.ptr = ::new char[p.second.total_size+max_alignment_t::value /*+ 1000*/];
+            //std::cout << "allocating " << p.second.total_size+max_alignment_t::value << " bytes for inner at rank " << p.first << std::endl;
             holder.size = p.second.total_size+max_alignment_t::value;
+
+            //std::cout << "total size should be: " << 26*12+4+(26*24+8)*2 << std::endl;
+            //std::cout << "ptrs : " << (void*)(holder.ptr) 
+            //    << " " << (void*)(holder.ptr+26*12+4)
+            //    << " " << (void*)(holder.ptr+26*12+4+26*24+8)
+            //    << " " << (void*)(holder.ptr+26*12+4+(26*24+8)*2+max_alignment_t::value)
+            //    << std::endl;
+
             void* buffer =  holder.ptr; //m_inner_memory.back().first;
             std::size_t space = holder.size; // m_inner_memory.back().second;
             char* ptr = reinterpret_cast<char*>(std::align(max_alignment_t::value, 1, buffer, space));
             holder.aligned_ptr = ptr;
             holder.aligned_size = space;
             holder.rank = p.first;
-            std::cout << (void*)(holder.aligned_ptr) << " " << (void*)(holder.aligned_ptr+holder.aligned_size) << std::endl;
-            std::cout << (void*)(holder.ptr) << " " << (void*)(holder.ptr+holder.size) << std::endl;
+            //std::cout << (void*)(holder.aligned_ptr) << " " << (void*)(holder.aligned_ptr+holder.aligned_size) << std::endl;
+            //std::cout << (void*)(holder.ptr) << " " << (void*)(holder.ptr+holder.size) << std::endl;
             int j=0;
             for (const auto& x : p.second.offset)
             {
-                std::cout << "offset = " << x << std::endl;
-                ptr += x;
-                void* ptr_tmp = ptr;
+                //char* location = ptr+x;
+                //std::cout << "offset = " << x << std::endl;
+                //ptr += x;
+                void* ptr_tmp = ptr+x;
                 std::size_t space = max_alignment_t::value;
-                std::cout << "alignment " << j << " = " << m_alignment[j] << std::endl;
-                std::cout << "ptr before alignment: " << ptr_tmp << std::endl;
+                //std::cout << "alignment " << j << " = " << m_alignment[j] << std::endl;
+                //std::cout << "ptr before alignment: " << ptr_tmp << std::endl;
                 m_inner_pack[j][p.first] = std::align(m_alignment[j], 1, ptr_tmp, space);
-                std::cout << "ptr after alignment: " << m_inner_pack[j][p.first] << std::endl;
-                std::cout << "ptr after alignment end: " << reinterpret_cast<void*>(reinterpret_cast<char*>(m_inner_pack[j][p.first]) + 26*24) << std::endl; 
-                std::cout << "ptr after alignment end: " << 26*24 << " bytes" << std::endl; 
+                //std::cout << "ptr after alignment: " << m_inner_pack[j][p.first] << std::endl;
+                //std::cout << "ptr after alignment end: " << reinterpret_cast<void*>(reinterpret_cast<char*>(m_inner_pack[j][p.first]) + 26*24) << std::endl; 
+                //std::cout << "ptr after alignment end: " << 26*24 << " bytes" << std::endl; 
                 ++j;
             }
         }
-        std::cout << m_inner_pack[0][0] << std::endl;
-        std::cout << m_inner_pack[1][0] << std::endl;
-        std::cout << m_inner_pack[2][0] << std::endl;
+        //std::cout << m_inner_pack[0][0] << std::endl;
+        //std::cout << m_inner_pack[1][0] << std::endl;
+        //std::cout << m_inner_pack[2][0] << std::endl;
         for (const auto& p : m_outer_ledger_map)
         {
             m_outer_memory.push_back(memory_holder());
             auto& holder = m_outer_memory.back();
-            //holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
-            holder.ptr = ::new char[p.second.total_size+max_alignment_t::value+ 1000];
-            std::cout << "allocating " << p.second.total_size+max_alignment_t::value << " bytes for outer at rank " << p.first << std::endl;
+            holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
+            //holder.ptr = ::new char[p.second.total_size+max_alignment_t::value+ 1000];
+            //std::cout << "allocating " << p.second.total_size+max_alignment_t::value << " bytes for outer at rank " << p.first << std::endl;
             holder.size = p.second.total_size+max_alignment_t::value;
             void* buffer =  holder.ptr;
             std::size_t space = holder.size;
@@ -282,33 +290,33 @@ public:
             holder.aligned_ptr = ptr;
             holder.aligned_size = space;
             holder.rank = p.first;
-            std::cout << "holder space: " << holder.aligned_size << std::endl;
-            std::cout << (void*)(holder.aligned_ptr) << " " << (void*)(holder.aligned_ptr+holder.aligned_size) << std::endl;
+            //std::cout << "holder space: " << holder.aligned_size << std::endl;
+            //std::cout << (void*)(holder.aligned_ptr) << " " << (void*)(holder.aligned_ptr+holder.aligned_size) << std::endl;
             int j=0;
             for (const auto& x : p.second.offset)
             {
-                ptr += x;
-                void* ptr_tmp = ptr;
+                //char* location = ptr+x;
+                void* ptr_tmp = ptr+x;
                 std::size_t space = max_alignment_t::value;
                 m_outer_pack[j][p.first] = std::align(m_alignment[j], 1, ptr_tmp, space);
                 ++j;
             }
         }
 
-        std::cout << m_outer_pack[0][0] << std::endl;
-        std::cout << m_outer_pack[1][0] << std::endl;
-        std::cout << m_outer_pack[2][0] << std::endl;
+        //std::cout << m_outer_pack[0][0] << std::endl;
+        //std::cout << m_outer_pack[1][0] << std::endl;
+        //std::cout << m_outer_pack[2][0] << std::endl;
         m_reqs.resize(m_inner_memory.size()+m_outer_memory.size());
     }
 
     ~exchange()
     {
         for (auto& h : m_inner_memory)
-            //std::allocator_traits<allocator_t>::deallocate(m_alloc, h.ptr, h.size);
-            delete[] h.ptr;
+            std::allocator_traits<allocator_t>::deallocate(m_alloc, h.ptr, h.size);
+            //delete[] h.ptr;
         for (auto& h : m_outer_memory)
-            //std::allocator_traits<allocator_t>::deallocate(m_alloc, h.ptr, h.size);
-            delete[] h.ptr;
+            std::allocator_traits<allocator_t>::deallocate(m_alloc, h.ptr, h.size);
+            //delete[] h.ptr;
     }
 
     template<typename... Fields>
@@ -318,11 +326,11 @@ public:
         detail::for_each(m_cos, std::tuple<Fields&...>{fields...}, 
             [&i,this](auto& co, auto& field) 
             { 
-                co.pack( this->m_inner_pack[2-i], field );
+                co.pack( this->m_inner_pack[i], field );
                 ++i;
             }
         );
-        std::cout << "packing done!" << std::endl;
+        //std::cout << "packing done!" << std::endl;
     }
 
     void post()
@@ -331,13 +339,13 @@ public:
         int i = 0;
         for (auto& h : m_inner_memory)
         {
-            std::cout << "recv from " << h.rank << " " << h.aligned_size << " bytes" << std::endl;
+            //std::cout << "recv from " << h.rank << " " << h.aligned_size << " bytes" << std::endl;
             MPI_Isend(h.aligned_ptr, h.aligned_size, MPI_BYTE, h.rank, 0, m_comm, &m_reqs[i++]);
         }
         // post receives
         for (auto& h : m_outer_memory)
         {
-            std::cout << "send to   " << h.rank << " " << h.aligned_size << " bytes" << std::endl;
+            //std::cout << "send to   " << h.rank << " " << h.aligned_size << " bytes" << std::endl;
             MPI_Irecv(h.aligned_ptr, h.aligned_size, MPI_BYTE, h.rank, 0, m_comm, &m_reqs[i++]);
         }
     }
