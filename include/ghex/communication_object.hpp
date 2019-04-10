@@ -10,6 +10,60 @@
 
 namespace ghex {
 
+template<int D, int I>
+struct for_loop
+{
+    using idx = std::integral_constant<int,D-I>;
+
+    template<typename Func, typename Array>
+    inline static void apply(Func&& f, Array&& first, Array&& last) noexcept
+    {
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        {
+            std::remove_const_t<std::remove_reference_t<Array>> x{};
+            x[idx::value] = i;
+            for_loop<D,I-1>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+        }
+    }
+
+    template<typename Func, typename Array, typename Array2>
+    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
+    {
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        {
+            std::remove_const_t<std::remove_reference_t<Array2>> x{y};
+            x[idx::value] = i;
+            for_loop<D,I-1>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+        }
+    }
+};
+
+template<int D>
+struct for_loop<D,0>
+{
+    
+    template<typename Func, typename Array, typename Array2>
+    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& x) noexcept
+    {
+        // compute counter
+        /*Int counter = 0; //x[D-1];
+        for (Int i=0; i<D-1; ++i)
+        {
+            counter += x[i];
+            counter *= last[i+1]-first[i+1]+1;
+        }
+        counter += x[D-1]; 
+        */
+        apply_impl(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
+    }
+
+    template<typename Func, typename Array, std::size_t... Is>
+    inline static void apply_impl(Func&& f, Array&& x, std::index_sequence<Is...>)
+    {
+        f(x[Is]...);
+    }
+};
+
 
 template<typename Domain, typename T, protocol P, typename Backend = void>
 class communication_object
@@ -83,47 +137,55 @@ public:
     const map_type& outer() const noexcept { return m_outer; }
 
     template<typename BufferMap, typename Field>
-    void pack(BufferMap& buffer_map, const Field& field) /*const*/
+    void pack(BufferMap& buffer_map, const Field& field) const
     {
         for (auto& p : buffer_map)
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
             std::size_t i = 0;
-            for (const auto& box : m_inner[rank].second)
+            //for (const auto& box : m_inner[rank].second)
+            for (const auto& box : m_inner.at(rank).second)
             {
-                /*std::cout << "  " 
-                << "[" <<  box.first()[0] << ", " << box.first()[1] << ", " << box.first()[2] << "] "
-                << "[" <<  box.last()[0] << ", " << box.last()[1] << ", " << box.last()[2] << "] "
-                << std::endl;*/
-                for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
+                for_loop<D,D>::apply(
+                    [buffer,&i,&field](auto... is)
+                    {
+                        buffer[i++] = field(is...); 
+                    }, 
+                    box.first(), 
+                    box.last()
+                );
+                /*for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
                 for (auto y=box.first()[1]; y<=box.last()[1]; ++y)
                 for (auto z=box.first()[2]; z<=box.last()[2]; ++z)
-                //{std::cout << "  " << (void*)(buffer+i) << " i= " << i << std::endl;
-                //    std::cout << (reinterpret_cast<char*>(buffer+i+1) - reinterpret_cast<char*>(buffer+i)) << std::endl;
-                    buffer[i++] = field(x,y,z);
+                    buffer[i++] = field(x,y,z);*/
             }
         }
     }
 
     template<typename BufferMap, typename Field>
-    void unpack(/*const*/ BufferMap& buffer_map, Field& field) /*const*/
+    void unpack(const BufferMap& buffer_map, Field& field) const
     {
         for (auto& p : buffer_map)
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
             std::size_t i = 0;
-            for (const auto& box : m_outer[rank].second)
+            //for (const auto& box : m_outer[rank].second)
+            for (const auto& box : m_outer.at(rank).second)
             {
-                /*std::cout << "  " 
-                << "[" <<  box.first()[0] << ", " << box.first()[1] << ", " << box.first()[2] << "] "
-                << "[" <<  box.last()[0] << ", " << box.last()[1] << ", " << box.last()[2] << "] "
-                << std::endl;*/
-                for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
+                for_loop<D,D>::apply(
+                    [buffer,&i,&field](auto... is)
+                    {
+                        field(is...) = buffer[i++]; 
+                    }, 
+                    box.first(), 
+                    box.last()
+                );
+                /*for (auto x=box.first()[0]; x<=box.last()[0]; ++x)
                 for (auto y=box.first()[1]; y<=box.last()[1]; ++y)
                 for (auto z=box.first()[2]; z<=box.last()[2]; ++z)
-                field(x,y,z) = buffer[i++];
+                    field(x,y,z) = buffer[i++];*/
             }
         }
     }

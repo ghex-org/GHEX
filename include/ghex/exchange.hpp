@@ -199,17 +199,16 @@ public:
     }
 
     template<typename... Fields>
-    void pack(Fields&... fields)
+    void pack(const Fields&... fields) const
     {
         int i=0;
-        detail::for_each(m_cos, std::tuple<Fields&...>{fields...}, 
+        detail::for_each(m_cos, std::tuple<const Fields&...>{fields...}, 
             [&i,this](auto& co, auto& field) 
             { 
                 co.pack( this->m_inner_pack[i], field );
                 ++i;
             }
         );
-        //std::cout << "packing done!" << std::endl;
     }
 
     void post()
@@ -237,7 +236,7 @@ public:
     }
 
     template<typename... Fields>
-    void unpack(Fields&... fields)
+    void unpack(Fields&... fields) const
     {
         int i=0;
         detail::for_each(m_cos, std::tuple<Fields&...>{fields...}, 
