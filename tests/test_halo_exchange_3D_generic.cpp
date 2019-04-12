@@ -310,14 +310,46 @@ namespace halo_exchange_3D_generic_full {
         printbuff(file, c, DIM1 + H1m3 + H1p3, DIM2 + H2m3 + H2p3, DIM3 + H3m3 + H3p3);
         file.flush();
 
+#ifdef __CUDACC__
+        file << "***** GPU ON *****\n";
+
+        triple_t<USE_DOUBLE, T1>::data_type *gpu_a = 0;
+        triple_t<USE_DOUBLE, T2>::data_type *gpu_b = 0;
+        triple_t<USE_DOUBLE, T3>::data_type *gpu_c = 0;
+        GT_CUDA_CHECK(cudaMalloc(&gpu_a,
+            (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
+                sizeof(triple_t<USE_DOUBLE, T1>::data_type)));
+        GT_CUDA_CHECK(cudaMalloc(&gpu_b,
+            (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
+                sizeof(triple_t<USE_DOUBLE, T2>::data_type)));
+        GT_CUDA_CHECK(cudaMalloc(&gpu_c,
+            (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
+                sizeof(triple_t<USE_DOUBLE, T3>::data_type)));
+
+        GT_CUDA_CHECK(cudaMemcpy(gpu_a,
+            a.ptr,
+            (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
+                sizeof(triple_t<USE_DOUBLE, T1>::data_type),
+            cudaMemcpyHostToDevice));
+
+        GT_CUDA_CHECK(cudaMemcpy(gpu_b,
+            b.ptr,
+            (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
+                sizeof(triple_t<USE_DOUBLE, T2>::data_type),
+            cudaMemcpyHostToDevice));
+
+        GT_CUDA_CHECK(cudaMemcpy(gpu_c,
+            c.ptr,
+            (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
+                sizeof(triple_t<USE_DOUBLE, T3>::data_type),
+            cudaMemcpyHostToDevice));
+#endif
 
         field_descriptor<layoutmap> a_desc(DIM1,DIM2,DIM3,H1m1,H1p1,H2m1,H2p1,H3m1,H3p1, per0, per1, per2);
         field_descriptor<layoutmap> b_desc(DIM1,DIM2,DIM3,H1m2,H1p2,H2m2,H2p2,H3m2,H3p2, per0, per1, per2);
         field_descriptor<layoutmap> c_desc(DIM1,DIM2,DIM3,H1m3,H1p3,H2m3,H2p3,H3m3,H3p3, per0, per1, per2);
 
         using regular_domain_t = ghex::regular_domain<3,int,int,int, layoutmap>;
-
-
 
         regular_domain_t a_domain(
             std::array<int,3>{H1m1,H2m1,H3m1}, // origin
@@ -401,6 +433,29 @@ namespace halo_exchange_3D_generic_full {
         file << "TIME ALL : " << lapse_time1 + lapse_time2 + lapse_time3 << std::endl;
         file << "TIME TOT : " << lapse_time4 << std::endl;
 
+#ifdef __CUDACC__
+        GT_CUDA_CHECK(cudaMemcpy(a.ptr,
+            gpu_a,
+            (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
+                sizeof(triple_t<USE_DOUBLE, T1>::data_type),
+            cudaMemcpyDeviceToHost));
+
+        GT_CUDA_CHECK(cudaMemcpy(b.ptr,
+            gpu_b,
+            (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
+                sizeof(triple_t<USE_DOUBLE, T2>::data_type),
+            cudaMemcpyDeviceToHost));
+
+        GT_CUDA_CHECK(cudaMemcpy(c.ptr,
+            gpu_c,
+            (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
+                sizeof(triple_t<USE_DOUBLE, T3>::data_type),
+            cudaMemcpyDeviceToHost));
+
+        GT_CUDA_CHECK(cudaFree(gpu_a));
+        GT_CUDA_CHECK(cudaFree(gpu_b));
+        GT_CUDA_CHECK(cudaFree(gpu_c));
+#endif
 
         file << "\n********************************************************************************\n";
 
@@ -2082,6 +2137,15 @@ namespace halo_exchange_3D_generic_full {
 
 #ifdef STANDALONE
 int main(int argc, char **argv) {
+#ifdef GT_USE_GPU
+    device_binding();
+#endif
+
+    //MPI_Init(&argc, &argv);
+    //gridtools::GCL_Init(argc, argv);
+
+//#ifdef STANDALONE
+//int main(int argc, char **argv) {
 
     //int p;
     MPI_Init(&argc, &argv);
@@ -2145,9 +2209,9 @@ int main(int argc, char **argv) {
     return 0;
 }
 #else
-/*TEST(Communication, test_halo_exchange_3D_generic_full) {
+TEST(Communication, test_halo_exchange_3D_generic_full) {
     bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
-    EXPECT_TRUE(passed);*/
+    EXPECT_TRUE(passed);
 }
 #endif
 

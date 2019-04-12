@@ -7,6 +7,7 @@
 //#include <functional>
 //#include <mpi.h>
 //#include <memory>
+#include <iostream>
 
 #include <gridtools/common/layout_map.hpp>
 
@@ -107,19 +108,21 @@ struct for_loop_simple<D,I,gridtools::layout_map<Args...>>
     inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent) noexcept
     {
         std::size_t offset = 0;
-        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        std::size_t iter = 0;
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
         {
-            for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i);
+            for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i, iter);
         }
     }
 
     template<typename Func, typename Array, typename Array2>
-    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, std::size_t offset) noexcept
+    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, std::size_t offset, std::size_t iter) noexcept
     {
         offset *= extent[idx::value];
-        for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
+        iter   *= last[idx::value]-first[idx::value]+1;
+        for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
         {
-            for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i);
+            for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i, iter);
         }
 
     }
@@ -129,9 +132,9 @@ template<int D, int... Args>
 struct for_loop_simple<D,0,gridtools::layout_map<Args...>>
 {
     template<typename Func, typename Array, typename Array2>
-    inline static void apply(Func&& f, Array&&, Array&&, Array2&&, std::size_t offset) noexcept
+    inline static void apply(Func&& f, Array&&, Array&&, Array2&&, std::size_t offset, std::size_t iter) noexcept
     {
-        f(offset);
+        f(offset, iter);
     }
 };
 
@@ -216,20 +219,25 @@ public:
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
-            std::size_t i = 0;
+            //std::size_t i = 0;
+            std::size_t j = 0;
             //for (const auto& box : m_inner[rank].second)
             for (const auto& box : m_inner.at(rank).second)
             {
                 // this is a bit cheating
                 detail::for_loop_simple<D,D,layout_type>::apply(
-                    [buffer,&i,&field](std::size_t offset)
+                    [buffer,&j,&field](std::size_t offset, std::size_t j_offset)
                     {
-                        buffer[i++] = field.ptr[offset]; 
+                        //std::cout << j+j_offset << " == " << i << std::endl;
+                        //buffer[i++] = field.ptr[offset]; 
+                        buffer[j+j_offset] = field.ptr[offset]; 
+                        //std::cout << j << " " << i++ << std::endl;
                     }, 
                     box.first(), 
                     box.last(),
                     field.ext 
                 );
+                j+= box.size();
                 /*detail::for_loop<D,D,layout_type>::apply(
                     [buffer,&i,&field](auto... is)
                     {
@@ -253,20 +261,23 @@ public:
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
-            std::size_t i = 0;
+            //std::size_t i = 0;
+            std::size_t j = 0;
             //for (const auto& box : m_outer[rank].second)
             for (const auto& box : m_outer.at(rank).second)
             {
                 // this is a bit cheating
                 detail::for_loop_simple<D,D,layout_type>::apply(
-                    [buffer,&i,&field](std::size_t offset)
+                    [buffer,&j,&field](std::size_t offset, std::size_t j_offset)
                     {
-                        field.ptr[offset] = buffer[i++]; 
+                        //field.ptr[offset] = buffer[i++]; 
+                        field.ptr[offset] = buffer[j+j_offset]; 
                     }, 
                     box.first(), 
                     box.last(),
                     field.ext
                 );
+                j+=box.size();
                 /*detail::for_loop<D,D,layout_type>::apply(
                     [buffer,&i,&field](auto... is)
                     {
