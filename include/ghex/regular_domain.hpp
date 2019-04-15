@@ -10,7 +10,9 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+
 //#include <iostream>
+//#include <mpi.h>
 
 namespace ghex {
 
@@ -246,36 +248,10 @@ public: // ctors
             local_box_type{ m_origin,               m_origin+m_extent-1 },
             local_box_type{ m_origin+m_extent,      m_origin+m_extent+m_halo_right-1 }
         };
-        /*std::cout 
-        << "outer spaces: \n"
-        << "  " 
-        << "[" << outer_spaces[0].first()[0] << ", " << outer_spaces[0].first()[1] << ", " << outer_spaces[0].first()[2] << "], "
-        << "[" << outer_spaces[0].last()[0] << ", " << outer_spaces[0].last()[1] << ", " << outer_spaces[0].last()[2] << "]\n"
-        << "  " 
-        << "[" << outer_spaces[1].first()[0] << ", " << outer_spaces[1].first()[1] << ", " << outer_spaces[1].first()[2] << "], "
-        << "[" << outer_spaces[1].last()[0] << ", " << outer_spaces[1].last()[1] << ", " << outer_spaces[1].last()[2] << "]\n"
-        << "  " 
-        << "[" << outer_spaces[2].first()[0] << ", " << outer_spaces[2].first()[1] << ", " << outer_spaces[2].first()[2] << "], "
-        << "[" << outer_spaces[2].last()[0] << ", " << outer_spaces[2].last()[1] << ", " << outer_spaces[2].last()[2] << "]\n"
-        << std::endl;*/
-        
-        /*std::array<local_box_type, 3> inner_spaces{
-            local_box_type{ m_origin,                      m_origin+m_halo_right-1 },
-            local_box_type{ m_origin,                      m_origin+m_extent-1 },
-            local_box_type{ m_origin+m_extent-m_halo_left, m_origin+m_extent-1 }
-        };*/
+
         // generate outer boxes
         auto local_outer_spaces = compute_spaces<local_box_type>(outer_spaces);
-        /*for (const auto s : local_outer_spaces)
-        {
-            for (int i=0; i<3; ++i)
-                std::cout << s.first()[i] << " ";
-            std::cout << " ->  ";
-            for (int i=0; i<3; ++i)
-                std::cout << s.last()[i] << " ";
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;*/
+
         // modulo operation to generate inner spaces
         std::remove_reference_t<decltype(local_outer_spaces)> local_inner_spaces;
         local_inner_spaces.reserve(local_outer_spaces.size());
@@ -287,23 +263,12 @@ public: // ctors
                     (s.last() -m_origin+m_extent)%m_extent+m_origin
                 }
             );
-        /*for (const auto s : local_inner_spaces)
-        {
-            for (int i=0; i<3; ++i)
-                std::cout << s.first()[i] << " ";
-            std::cout << " ->  ";
-            for (int i=0; i<3; ++i)
-                std::cout << s.last()[i] << " ";
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;*/
+
         // fill map and order
-        //std::cout << "computing maps" << std::endl;
         for (int j=0; j<static_cast<int>(local_outer_spaces.size()); ++j)
         {
             if (j==(detail::int_pow(3,D)/2)) continue;
             const auto domain_id_outer = dmap( detail::call_enumerated<D>(gmap, local_outer_spaces[j].first()) );
-            //std::cout << "invalid did = " << domain_id_traits<domain_id_type>::invalid<<std::endl;
             bool empty = false;
             for (int i=0; i<D; ++i)
             {
@@ -314,7 +279,6 @@ public: // ctors
                 }
             }
             if (empty) continue;
-            //std::cout << "  domain_id_outer = " << domain_id_outer << std::endl;
             auto diff = local_outer_spaces[j].first() - local_inner_spaces[j].first();
             for (int i=0; i<D; ++i)
             {
@@ -326,7 +290,6 @@ public: // ctors
             }
             const auto neighbor_look_up = local_inner_spaces[j].first() + diff;
             const auto domain_id_inner = dmap( detail::call_enumerated<D>(gmap, neighbor_look_up) );
-            //std::cout << domain_id_outer << " " << domain_id_inner << std::endl;
             if (domain_id_inner != domain_id_traits<domain_id_type>::invalid)
             {
                 m_inner_map[domain_id_inner].second.push_back( global_box_type(local_inner_spaces[j], gmap) );
@@ -342,13 +305,10 @@ public: // ctors
             std::sort(p.second.second.begin(), p.second.second.end());
             // TODO fuse adjacent boxes!
             std::size_t s=0;
-            //std::cout << "inner_map[" << p.first << "] = {";
             for (auto& x : p.second.second)
             {
-                //std::cout << x.size() << " ";
                 s += x.size();
             }
-            //std::cout << "}" << std::endl;
             p.second.first = s;
         }
         for (auto& p : m_outer_map)
@@ -357,7 +317,9 @@ public: // ctors
             // TODO fuse adjacent boxes!
             std::size_t s=0;
             for (auto& x : p.second.second)
+            {
                 s += x.size();
+            }
             p.second.first = s;
         }
     }
