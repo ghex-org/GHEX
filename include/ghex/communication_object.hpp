@@ -7,7 +7,7 @@
 //#include <functional>
 //#include <mpi.h>
 //#include <memory>
-#include <iostream>
+//#include <iostream>
 
 #include <gridtools/common/layout_map.hpp>
 
@@ -219,9 +219,7 @@ public:
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
-            //std::size_t i = 0;
             std::size_t j = 0;
-            //for (const auto& box : m_inner[rank].second)
             for (const auto& box : m_inner.at(rank).second)
             {
                 // this is a bit cheating
@@ -261,9 +259,7 @@ public:
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
-            //std::size_t i = 0;
             std::size_t j = 0;
-            //for (const auto& box : m_outer[rank].second)
             for (const auto& box : m_outer.at(rank).second)
             {
                 // this is a bit cheating

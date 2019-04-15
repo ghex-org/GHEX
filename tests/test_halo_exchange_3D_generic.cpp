@@ -19,8 +19,7 @@
 
 #include "triplet.hpp"
 //#include <gridtools/regression/communtriplet.hpp>
-
-//#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
+#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
 
 #define STANDALONE
 
@@ -174,6 +173,7 @@ namespace halo_exchange_3D_generic_full {
             MPI_Cart_rank(CartComm, coords, &r);
             return r;
         }
+
     };
 
 
@@ -190,30 +190,6 @@ struct domain_id_traits<int>
 
 }
 
-/*namespace ghex {
-
-    template<typename T, int I1, int I2, int I3>
-    struct data_field_traits<halo_exchange_3D_generic_full::array_t<T,I1,I2,I3>>
-    {
-        using data_field_type        = halo_exchange_3D_generic_full::array_t<T,I1,I2,I3>; 
-        using value_type             = T;
-        using local_cell_index_type  = std::tuple<int,int,int>;
-        using global_cell_index_type = int;
-    };
-
-    template<typename T, int I1, int I2, int I3>
-    struct regular_data_field_traits<halo_exchange_3D_generic_full::array_t<T,I1,I2,I3>>
-    {
-        using data_field_type        = halo_exchange_3D_generic_full::array_t<T,I1,I2,I3>; 
-        using value_type             = T;
-        //using local_cell_index_type  = std::tuple<int,int,int>;
-        using index_type             = int; 
-        using global_cell_index_type = int;
-        using dimension              = std::integral_constant<int,3>;
-
-        //global_cell_index(daint i, int j, int k) const 
-    };
-}*/
 
 namespace halo_exchange_3D_generic_full {
 
@@ -715,7 +691,7 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-
+        
         file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
