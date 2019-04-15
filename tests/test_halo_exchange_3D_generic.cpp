@@ -20,7 +20,7 @@
 #include "triplet.hpp"
 //#include <gridtools/regression/communtriplet.hpp>
 
-//#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
+#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
 
 #define STANDALONE
 
