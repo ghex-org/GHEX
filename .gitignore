@@ -34,3 +34,8 @@
 # Temporaries
 *.swp
 *~
+
+CMakeCache.txt
+CMakeFiles
+.vscode
+build
