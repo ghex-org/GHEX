@@ -1,10 +1,9 @@
 
 
-#include "../include/ghex/regular_domain.hpp"
-#include "../include/ghex/communication_object.hpp"
-#include "../include/ghex/exchange.hpp"
+#include <ghex/regular_domain.hpp>
+#include <ghex/communication_object.hpp>
+#include <ghex/exchange.hpp>
 
-#include "gtest/gtest.h"
 #include <fstream>
 #include <gridtools/common/layout_map.hpp>
 //#include <gridtools/common/boollist.hpp>
@@ -87,7 +86,7 @@ namespace halo_exchange_3D_generic_full {
             int H2p,
             int H3m,
             int H3p,
-            bool periodic1=true, 
+            bool periodic1=true,
             bool periodic2=true,
             bool periodic3=true)
             //triple_t<USE_DOUBLE, T> *_a ) :
@@ -218,7 +217,7 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c) 
+        triple_t<USE_DOUBLE, T3> *_c)
     {
 
         typedef gridtools::layout_map<I1, I2, I3> layoutmap;
@@ -369,18 +368,18 @@ namespace halo_exchange_3D_generic_full {
         gettimeofday(&start_tv, nullptr);
 
         ex.pack(a,b,c);
-        
+
         gettimeofday(&stop1_tv, nullptr);
-        
+
         ex.post();
         ex.wait();
 
         gettimeofday(&stop2_tv, nullptr);
-        
+
         ex.unpack(a,b,c);
 
         gettimeofday(&stop3_tv, nullptr);
-        
+
 
         lapse_time1 =
             ((static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec)) -
@@ -657,7 +656,7 @@ namespace halo_exchange_3D_generic_full {
             new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
         triple_t<USE_DOUBLE, T3> *_c =
             new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
-        
+
         bool passed = true;
 
         file << "Permutation 0,1,2\n";
@@ -665,7 +664,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,1,2, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        
+
         passed = passed and run<std::ostream, 0, 1, 2, true, true, true>(file,
                                 DIM1,
                                 DIM2,
@@ -691,7 +690,7 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-        
+
         file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
@@ -751,7 +750,7 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-        
+
         file << "run<std::ostream, 0,1,2, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
         passed = passed and run<std::ostream, 0, 1, 2, true, false, false>(file,
@@ -780,7 +779,7 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-        
+
         file << "run<std::ostream, 0,1,2, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
@@ -810,7 +809,7 @@ namespace halo_exchange_3D_generic_full {
                                 _a,
                                 _b,
                                 _c);
-        
+
         file
             << "run<std::ostream, 0,1,2, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
@@ -2100,7 +2099,7 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c);
         file << "---------------------------------------------------\n";
-        
+
         delete[] _a;
         delete[] _b;
         delete[] _c;
