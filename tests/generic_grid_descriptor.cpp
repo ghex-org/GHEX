@@ -45,7 +45,7 @@ int main()
 
     unstructured_topology u;
 
-    mixed_topology m;
+    //mixed_topology m;
 
     regular_grid_topology<1,2> rgt0;
     regular_grid_topology<2,1> rgt1;
