@@ -65,7 +65,7 @@ namespace gridtools {
             template <typename F, typename Arg>
             struct execute< F, Arg, false > {
                 template < typename ...Ints >
-                static void go(F f, Arg& x, Ints... is) {
+                static void go(F f, Arg& x, Ints...) {
                     f(x);
                 }
             };
@@ -148,8 +148,8 @@ namespace gridtools {
             for (int i=0; i<3; ++i)
             for (int j=0; j<3; ++j)
             for (int k=0; k<3; ++k)
-                std::cout 
-                << "[" 
+                std::cout
+                << "["
                 << "(" << m_inner_bounds[i][j][k][0].begin() << ", " << m_inner_bounds[i][j][k][0].end() << "), "
                 << "(" << m_inner_bounds[i][j][k][1].begin() << ", " << m_inner_bounds[i][j][k][1].end() << "), "
                 << "(" << m_inner_bounds[i][j][k][2].begin() << ", " << m_inner_bounds[i][j][k][2].end() << ")] "

@@ -232,7 +232,7 @@ namespace gridtools {
         auto outer_iteration_space(DataDescriptor const& datadsc, direction<NDims> const& dir) {
             // First create iteration space: iteration space is an array of elements with a begin and an end.
             auto ranges_of_data = make_range_of_data(datadsc, meta::make_integer_sequence<int, DataDescriptor::rank>{});
-            //// 
+            ////
             //// ranges of data
             //std::cout << "range of data 0: " << std::get<0>(ranges_of_data).begin() << ", " << std::get<0>(ranges_of_data).end() << std::endl;
             //std::cout << "range of data 1: " << std::get<1>(ranges_of_data).begin() << ", " << std::get<1>(ranges_of_data).end() << std::endl;
@@ -240,7 +240,7 @@ namespace gridtools {
             ////
             // then we substitute the partitioned dimensions with the proper halo ranges.
             auto iteration_space = make_tuple_of_outer_ranges(ranges_of_data, m_halos, Partitioned{}, dir, std::integral_constant<int,0>{});
-            //// 
+            ////
             //// iteration space
             //std::cout << "iteration space 0: " << std::get<0>(iteration_space).begin() << ", " << std::get<0>(iteration_space).end() << std::endl;
             //std::cout << "iteration space 1: " << std::get<1>(iteration_space).begin() << ", " << std::get<1>(iteration_space).end() << std::endl;
@@ -293,7 +293,7 @@ namespace gridtools {
         }
 
         template <typename DataRanges, typename Halos, int ...Inds, typename Direction, int I>
-        auto make_tuple_of_inner_ranges(DataRanges const& data_ranges, Halos const& halos, partitioned<>, Direction const&, std::integral_constant<int, I> ) {
+        auto make_tuple_of_inner_ranges(DataRanges const& data_ranges, Halos const&, partitioned<>, Direction const&, std::integral_constant<int, I> ) {
             return data_ranges;
 
         }

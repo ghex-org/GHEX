@@ -19,7 +19,7 @@ target_include_directories(GHEX_libs INTERFACE
                            $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
                            $<INSTALL_INTERFACE:include>
                           )
-target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
+target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools  ${MPI_CXX_LIBRARIES})
 
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 
@@ -37,7 +37,7 @@ target_link_libraries(mbianco_gcl2 ${exe_LIBS} GHEX_libs)
 
 add_executable( mbianco_gcl2_os tests/gcl2_app.cpp )
 target_compile_options(mbianco_gcl2_os PRIVATE -DOS_MPI)
-target_link_libraries(mbianco_gcl2_os ${exe_LIBS} ${MPI_CXX_LIBRARIES} GHEX_libs)
+target_link_libraries(mbianco_gcl2_os ${exe_LIBS} GHEX_libs)
 
 # segfaults for me, maybe gridtools not configured properly
 #add_executable( mbianco_gcl2_managed tests/gcl2_app.cpp )
@@ -56,26 +56,26 @@ add_executable( test_is_multi_arg tests/test_is_multi_arg.cpp )
 target_link_libraries(test_is_multi_arg ${exe_LIBS} GHEX_libs)
 
 add_executable( generic_interfaces tests/generic_interfaces.cpp )
-target_link_libraries(generic_interfaces ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GHEX_libs)
+target_link_libraries(generic_interfaces ${exe_LIBS}  GHEX_libs)
 
 add_executable( generic_grid_descriptor tests/generic_grid_descriptor.cpp )
-target_link_libraries(generic_grid_descriptor ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GHEX_libs)
+target_link_libraries(generic_grid_descriptor ${exe_LIBS}  GHEX_libs)
 
 add_executable( unstructured_grid tests/unstructured_grid.cpp )
-target_link_libraries(unstructured_grid ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GHEX_libs)
+target_link_libraries(unstructured_grid ${exe_LIBS}  GHEX_libs)
 
 
 add_executable( halo_exchange_3D_generic tests/test_halo_exchange_3D_generic.cpp )
-target_link_libraries(halo_exchange_3D_generic ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GHEX_libs)
+target_link_libraries(halo_exchange_3D_generic ${exe_LIBS}  GHEX_libs)
 
 # this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces8 tests/generic_interfaces8.cpp )
-#target_link_libraries(generic_interfaces8 ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GHEX_libs)
+#target_link_libraries(generic_interfaces8 ${exe_LIBS}  GHEX_libs)
 
 # this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces1D tests/generic_interfaces1D.cpp )
-#target_link_libraries(generic_interfaces1D ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GHEX_libs)
+#target_link_libraries(generic_interfaces1D ${exe_LIBS}  GHEX_libs)
 
 # this is not working -> iteration space concept not followed
 #add_executable( generic_interfaces1D_mt tests/generic_interfaces1D_mt.cpp )
-#target_link_libraries(generic_interfaces1D_mt ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GHEX_libs)
+#target_link_libraries(generic_interfaces1D_mt ${exe_LIBS}  GHEX_libs)
