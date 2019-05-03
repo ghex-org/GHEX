@@ -379,7 +379,7 @@ namespace halo_exchange_3D_generic_full {
 
         exchange_t ex(CartComm, co_a, co_b, co_c);
 #endif
-
+        /*
 // time step 1
 // ===========
 
@@ -431,7 +431,10 @@ namespace halo_exchange_3D_generic_full {
         file << "TIME UNPK: " << lapse_time3 << std::endl;
         file << "TIME ALL : " << lapse_time1 + lapse_time2 + lapse_time3 << std::endl;
         file << "TIME TOT : " << lapse_time4 << std::endl;
+        */
 
+        for (int n = 0; n<10; ++n)
+        {
 // time step 2
 // ===========
 
@@ -476,6 +479,9 @@ namespace halo_exchange_3D_generic_full {
             ((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
                 (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
             1000.0;
+            //((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
+            //    (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
+            //1000.0;
 
         MPI_Barrier(MPI_COMM_WORLD);
         file << "TIME PACK: " << lapse_time1 << std::endl;
@@ -483,6 +489,7 @@ namespace halo_exchange_3D_generic_full {
         file << "TIME UNPK: " << lapse_time3 << std::endl;
         file << "TIME ALL : " << lapse_time1 + lapse_time2 + lapse_time3 << std::endl;
         file << "TIME TOT : " << lapse_time4 << std::endl;
+        }
 
 
 
