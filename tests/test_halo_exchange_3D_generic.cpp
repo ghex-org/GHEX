@@ -44,10 +44,6 @@ namespace halo_exchange_3D_generic_full {
     double lapse_time3;
     double lapse_time4;
 
-#ifdef USE_RT
-    ghex::exchange_rt<>* ex_rt_ptr;
-#endif
-
 #define B_ADD 1
 #define C_ADD 2
 
@@ -366,6 +362,10 @@ namespace halo_exchange_3D_generic_full {
         co_rt_t co_a_rt(a_domain, [&a_desc](int i) { return a_desc.rank(i);});
         co_rt_t co_b_rt(b_domain, [&b_desc](int i) { return b_desc.rank(i);});
         co_rt_t co_c_rt(c_domain, [&c_desc](int i) { return c_desc.rank(i);});
+
+        using exchange_t = ghex::exchange_rt<>;
+
+        exchange_t ex(CartComm);
 #else
         using co_a_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T1>, ghex::protocol::mpi_async>;
         using co_b_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T2>, ghex::protocol::mpi_async>;
@@ -380,37 +380,29 @@ namespace halo_exchange_3D_generic_full {
         exchange_t ex(CartComm, co_a, co_b, co_c);
 #endif
 
+// time step 1
+// ===========
 
         MPI_Barrier(MPI_COMM_WORLD);
-
         gettimeofday(&start_tv, nullptr);
-
 #ifdef USE_RT
-        ex_rt_ptr->pack(co_a_rt, a);
-        ex_rt_ptr->pack(co_b_rt, b);
-        ex_rt_ptr->pack(co_c_rt, c);
+        ex.pack(co_a_rt, a);
+        ex.pack(co_b_rt, b);
+        ex.pack(co_c_rt, c);
 #else
         ex.pack(a,b,c);
-#endif
-        
+#endif  
         gettimeofday(&stop1_tv, nullptr);
         
-#ifdef USE_RT
-        ex_rt_ptr->post();
-        ex_rt_ptr->wait();
-#else
         ex.post();
         ex.wait();
-#endif
 
-        gettimeofday(&stop2_tv, nullptr);
-        
+        gettimeofday(&stop2_tv, nullptr);  
 #ifdef USE_RT
-        ex_rt_ptr->unpack();
+        ex.unpack();
 #else
         ex.unpack(a,b,c);
 #endif
-
         gettimeofday(&stop3_tv, nullptr);
 
         lapse_time1 =
@@ -439,6 +431,60 @@ namespace halo_exchange_3D_generic_full {
         file << "TIME UNPK: " << lapse_time3 << std::endl;
         file << "TIME ALL : " << lapse_time1 + lapse_time2 + lapse_time3 << std::endl;
         file << "TIME TOT : " << lapse_time4 << std::endl;
+
+// time step 2
+// ===========
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        gettimeofday(&start_tv, nullptr);
+#ifdef USE_RT
+        ex.pack(co_a_rt, a);
+        ex.pack(co_b_rt, b);
+        ex.pack(co_c_rt, c);
+#else
+        ex.pack(a,b,c);
+#endif  
+        gettimeofday(&stop1_tv, nullptr);
+        
+        ex.post();
+        ex.wait();
+
+        gettimeofday(&stop2_tv, nullptr);  
+#ifdef USE_RT
+        ex.unpack();
+#else
+        ex.unpack(a,b,c);
+#endif
+        gettimeofday(&stop3_tv, nullptr);
+
+        lapse_time1 =
+            ((static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec)) -
+                (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
+            1000.0;
+
+        lapse_time2 =
+            ((static_cast<double>(stop2_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop2_tv.tv_usec)) -
+                (static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec))) *
+            1000.0;
+
+        lapse_time3 =
+            ((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
+                (static_cast<double>(stop2_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop2_tv.tv_usec))) *
+            1000.0;
+
+        lapse_time4 =
+            ((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
+                (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
+            1000.0;
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        file << "TIME PACK: " << lapse_time1 << std::endl;
+        file << "TIME EXCH: " << lapse_time2 << std::endl;
+        file << "TIME UNPK: " << lapse_time3 << std::endl;
+        file << "TIME ALL : " << lapse_time1 + lapse_time2 + lapse_time3 << std::endl;
+        file << "TIME TOT : " << lapse_time4 << std::endl;
+
+
 
 #ifdef __CUDACC__
         GT_CUDA_CHECK(cudaMemcpy(a.ptr,
@@ -678,11 +724,6 @@ namespace halo_exchange_3D_generic_full {
              << "Halo along j " << H2m3 << " - " << H2p3 << ", "
              << "Halo along k " << H3m3 << " - " << H3p3 << std::endl;
         file.flush();
-
-#ifdef USE_RT
-        ghex::exchange_rt<> ex_rt(CartComm);
-        ex_rt_ptr = &ex_rt;
-#endif
 
         /* This example will exchange 3 data arrays at the same time with
            different values.
