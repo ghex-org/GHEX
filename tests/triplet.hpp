@@ -14,6 +14,7 @@
 
 template <typename T, typename lmap>
 struct array {
+    using value_type = T;
     T *ptr;
     int n, m, l;
     std::array<int,3> ext;

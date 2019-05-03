@@ -219,6 +219,7 @@ public:
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
+            //auto buffer = reinterpret_cast<U*>(p.second);
             std::size_t j = 0;
             for (const auto& box : m_inner.at(rank).second)
             {
@@ -259,6 +260,7 @@ public:
         {
             int rank = p.first;
             auto buffer = reinterpret_cast<value_type*>(p.second);
+            //auto buffer = reinterpret_cast<U*>(p.second);
             std::size_t j = 0;
             for (const auto& box : m_outer.at(rank).second)
             {

@@ -28,7 +28,7 @@ private:
 
     using size = std::integral_constant<std::size_t, sizeof...(T)>;
 
-    using value_types = std::tuple<T...>;
+    //using value_types = std::tuple<T...>;
 
     using max_alignment_t = typename detail::ct_reduce<
         detail::ct_max,
@@ -45,6 +45,8 @@ private:
         std::size_t total_size = 0;
         std::array<std::size_t, size::value> offset;
         std::array<std::size_t, size::value> num_elements;
+        //std::size_t type_alignment;
+        //std::size_t type_size;
     };
 
     struct memory_holder
@@ -94,6 +96,8 @@ public:
                     l.offset[i]     = l.total_size;
                     l.num_elements[i] = p.second.first;
                     l.total_size   += p.second.first*sizeof(value_t) + alignof(value_t);//-1;
+                    //l.type_alignment = alignof(value_t);
+                    //l.type_size = sizeof(value_t);
                 }
                 for (const auto& p : co.outer())
                 {
@@ -101,6 +105,8 @@ public:
                     l.offset[i]     = l.total_size;
                     l.num_elements[i] = p.second.first;
                     l.total_size   += p.second.first*sizeof(value_t) + alignof(value_t);//-1;
+                    //l.type_alignment = alignof(value_t);
+                    //l.type_size = sizeof(value_t);
                 }
                 ++i;
             }
@@ -112,11 +118,11 @@ public:
         {
             m_inner_memory.push_back(memory_holder());
             auto& holder = m_inner_memory.back();
-            holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
-            holder.size = p.second.total_size+max_alignment_t::value;
+            holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size/*+max_alignment_t::value*/));
+            holder.size = p.second.total_size/*+max_alignment_t::value*/;
             void* buffer =  holder.ptr;
             std::size_t space = holder.size;
-            char* ptr = reinterpret_cast<char*>(std::align(max_alignment_t::value, 1, buffer, space));
+            char* ptr = reinterpret_cast<char*>(buffer); //reinterpret_cast<char*>(std::align(max_alignment_t::value, 1, buffer, space));
             holder.aligned_ptr = ptr;
             holder.aligned_size = space;
             holder.rank = p.first;
@@ -124,6 +130,7 @@ public:
             for (const auto& x : p.second.offset)
             {
                 void* ptr_tmp = ptr+x;
+                //std::size_t space = p.second.type_size+p.second.type_alignment; //max_alignment_t::value;
                 std::size_t space = max_alignment_t::value;
                 if (p.second.num_elements[j] > 0)
                     m_inner_pack[j][p.first] = std::align(m_alignment[j], 1, ptr_tmp, space);
@@ -134,11 +141,11 @@ public:
         {
             m_outer_memory.push_back(memory_holder());
             auto& holder = m_outer_memory.back();
-            holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size+max_alignment_t::value));
-            holder.size = p.second.total_size+max_alignment_t::value;
+            holder.ptr = reinterpret_cast<char*>(std::allocator_traits<allocator_t>::allocate(m_alloc, p.second.total_size/*+max_alignment_t::value*/));
+            holder.size = p.second.total_size/*+max_alignment_t::value*/;
             void* buffer =  holder.ptr;
             std::size_t space = holder.size;
-            char* ptr = reinterpret_cast<char*>(std::align(max_alignment_t::value, 1, buffer, space));
+            char* ptr = reinterpret_cast<char*>(buffer); //reinterpret_cast<char*>(std::align(max_alignment_t::value, 1, buffer, space));
             holder.aligned_ptr = ptr;
             holder.aligned_size = space;
             holder.rank = p.first;
@@ -146,6 +153,7 @@ public:
             for (const auto& x : p.second.offset)
             {
                 void* ptr_tmp = ptr+x;
+                //std::size_t space = p.second.type_size+p.second.type_alignment; //max_alignment_t::value;
                 std::size_t space = max_alignment_t::value;
                 if (p.second.num_elements[j] > 0)
                     m_outer_pack[j][p.first] = std::align(m_alignment[j], 1, ptr_tmp, space);
@@ -171,6 +179,7 @@ public:
             [&i,this](auto& co, auto& field) 
             { 
                 co.pack(this->m_inner_pack[i], field);
+                //co.template pack<typename std::remove_reference_t<decltype(field)>::value_type>(this->m_inner_pack[i], field);
                 ++i;
             }
         );
@@ -206,6 +215,7 @@ public:
             [&i,this](auto& co, auto& field) 
             { 
                 co.unpack(this->m_outer_pack[i], field);
+                //co.template unpack<typename std::remove_reference_t<decltype(field)>::value_type>(this->m_outer_pack[i], field);
                 ++i;
             }
         );

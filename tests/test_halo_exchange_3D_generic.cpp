@@ -3,6 +3,8 @@
 #include "../include/ghex/regular_domain.hpp"
 #include "../include/ghex/communication_object.hpp"
 #include "../include/ghex/exchange.hpp"
+#include "../include/ghex/communication_object_rt.hpp"
+#include "../include/ghex/exchange_rt.hpp"
 
 #include "gtest/gtest.h"
 #include <fstream>
@@ -23,6 +25,8 @@
 
 #define STANDALONE
 
+#define USE_RT
+
 
 namespace halo_exchange_3D_generic_full {
     int pid;
@@ -39,6 +43,10 @@ namespace halo_exchange_3D_generic_full {
     double lapse_time2;
     double lapse_time3;
     double lapse_time4;
+
+#ifdef USE_RT
+    ghex::exchange_rt<>* ex_rt_ptr;
+#endif
 
 #define B_ADD 1
 #define C_ADD 2
@@ -352,6 +360,13 @@ namespace halo_exchange_3D_generic_full {
             [&c_desc](int i) { return c_desc.domain_id(i); }
         );
 
+#ifdef USE_RT
+        using co_rt_t = ghex::communication_object_rt<regular_domain_t, ghex::protocol::mpi_async>;
+
+        co_rt_t co_a_rt(a_domain, [&a_desc](int i) { return a_desc.rank(i);});
+        co_rt_t co_b_rt(b_domain, [&b_desc](int i) { return b_desc.rank(i);});
+        co_rt_t co_c_rt(c_domain, [&c_desc](int i) { return c_desc.rank(i);});
+#else
         using co_a_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T1>, ghex::protocol::mpi_async>;
         using co_b_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T2>, ghex::protocol::mpi_async>;
         using co_c_t = ghex::communication_object<regular_domain_t, triple_t<USE_DOUBLE, T3>, ghex::protocol::mpi_async>;
@@ -363,24 +378,40 @@ namespace halo_exchange_3D_generic_full {
         using exchange_t = ghex::exchange<std::allocator<double>, co_a_t, co_b_t, co_c_t>;
 
         exchange_t ex(CartComm, co_a, co_b, co_c);
+#endif
+
 
         MPI_Barrier(MPI_COMM_WORLD);
 
         gettimeofday(&start_tv, nullptr);
 
+#ifdef USE_RT
+        ex_rt_ptr->pack(co_a_rt, a);
+        ex_rt_ptr->pack(co_b_rt, b);
+        ex_rt_ptr->pack(co_c_rt, c);
+#else
         ex.pack(a,b,c);
+#endif
         
         gettimeofday(&stop1_tv, nullptr);
         
+#ifdef USE_RT
+        ex_rt_ptr->post();
+        ex_rt_ptr->wait();
+#else
         ex.post();
         ex.wait();
+#endif
 
         gettimeofday(&stop2_tv, nullptr);
         
+#ifdef USE_RT
+        ex_rt_ptr->unpack();
+#else
         ex.unpack(a,b,c);
+#endif
 
         gettimeofday(&stop3_tv, nullptr);
-        
 
         lapse_time1 =
             ((static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec)) -
@@ -647,6 +678,11 @@ namespace halo_exchange_3D_generic_full {
              << "Halo along j " << H2m3 << " - " << H2p3 << ", "
              << "Halo along k " << H3m3 << " - " << H3p3 << std::endl;
         file.flush();
+
+#ifdef USE_RT
+        ghex::exchange_rt<> ex_rt(CartComm);
+        ex_rt_ptr = &ex_rt;
+#endif
 
         /* This example will exchange 3 data arrays at the same time with
            different values.
