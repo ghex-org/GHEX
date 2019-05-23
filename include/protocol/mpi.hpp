@@ -30,6 +30,48 @@ public:
     : communicator(other.m_comm) {} 
 
     address_type address() const { return m_comm.rank(); }
+    address_type rank() const { return m_comm.rank(); }
+    void barrier() { m_comm.barrier(); }
+
+    template<typename T>
+    void send(int dest, int tag, const T & value)
+    {
+        m_comm.send(dest, tag, reinterpret_cast<const char*>(&value), sizeof(T));
+    }
+
+    template<typename T>
+    boost::mpi::status recv(int source, int tag, T & value)
+    {
+        return m_comm.recv(source, tag, reinterpret_cast<char*>(&value), sizeof(T));
+    }
+
+    template<typename T>
+    void send(int dest, int tag, const T* values, int n)
+    {
+        m_comm.send(dest, tag, reinterpret_cast<const char*>(values), sizeof(T)*n);
+    }
+
+    template<typename T>
+    boost::mpi::status recv(int source, int tag, T* values, int n)
+    {
+        return m_comm.recv(source, tag, reinterpret_cast<char*>(values), sizeof(T)*n);
+    }
+
+    template<typename T> 
+    void broadcast(T& value, int root)
+    {
+        BOOST_MPI_CHECK_RESULT(
+            MPI_Bcast,
+            (&value, sizeof(T), MPI_BYTE, root, m_comm));
+    }
+
+    template<typename T> 
+    void broadcast(T * values, int n, int root)
+    {
+        BOOST_MPI_CHECK_RESULT(
+            MPI_Bcast,
+            (values, sizeof(T)*n, MPI_BYTE, root, m_comm));
+    }
 
     template<typename T>
     future< std::vector<std::vector<T>> > all_gather(const std::vector<T>& payload, const std::vector<int>& sizes)
