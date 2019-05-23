@@ -36,7 +36,7 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_executable( mpi_all_to_all tests/mpi_all_to_all.cpp )
+add_executable( mpi_all_to_all tests/mpi_allgather.cpp )
 target_compile_options(mpi_all_to_all PRIVATE -DOS_MPI)
 target_link_libraries(mpi_all_to_all ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
 
