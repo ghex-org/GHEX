@@ -12,12 +12,32 @@
 
 #include "protocol/setup.hpp"
 #include "protocol/mpi.hpp"
+#include <vector>
 
 namespace gridtools {
 
 template<typename P, typename GridType, typename DomainIdType>
 class pattern
 {};
+
+template<typename P, typename GridType, typename DomainIdType>
+struct pattern_container
+{
+    using value_type = pattern<P,GridType,DomainIdType>;
+    using data_type  = std::vector<value_type>;
+
+    pattern_container(data_type&& d) noexcept : m_patterns(d) {}
+    pattern_container(pattern_container&&) noexcept = default;
+
+    int size() const noexcept { return m_patterns.size(); }
+
+    const auto& operator[](int i) const noexcept { return m_patterns[i]; }
+
+    auto begin() const noexcept { return m_patterns.cbegin(); }
+    auto end() const noexcept { return m_patterns.cend(); }
+private:
+    std::vector<pattern<P,GridType,DomainIdType>> m_patterns;
+};
 
 namespace detail {
 
