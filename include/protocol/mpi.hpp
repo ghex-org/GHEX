@@ -41,6 +41,26 @@ public:
     
     address_type rank() const { return m_comm.rank(); }
 
+    template<typename T>
+    future<void> isend(address_type dest, int tag, const T* buffer, int n) const
+    {
+        return {m_comm.isend(dest, tag, reinterpret_cast<const char*>(buffer), sizeof(T)*n)};
+    }
+
+    template<typename T>
+    future<void> irecv(address_type source, int tag, T* buffer, int n) const
+    {
+        return {m_comm.irecv(source, tag, reinterpret_cast<char*>(buffer), sizeof(T)*n)};
+    }
+
+    /*template<typename T, typename Allocator = std::allocator<T>, typename template<typename, typename> Vector = std::vector> 
+    future<Vector<T,Allocator>> irecv(address_type source, int tag, const Allocator& a = Allocator()) const
+    {
+        Vector<T,Allocator> vec;
+        m_comm.irecv(source, tag, )
+    }
+    request irecv(int source, int tag, Vector< T, A > & values) const;
+    */
 private:
     boost::mpi::communicator m_comm;
 };
