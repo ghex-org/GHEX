@@ -1,4 +1,13 @@
-#include "../include/pattern.hpp"
+// 
+// GridTools
+// 
+// Copyright (c) 2014-2019, ETH Zurich
+// All rights reserved.
+// 
+// Please, refer to the LICENSE file in the root directory.
+// SPDX-License-Identifier: BSD-3-Clause
+// 
+#include "../include/structured_pattern.hpp"
 #include <boost/mpi/environment.hpp>
 #include <iostream>
 #include <array>
@@ -81,7 +90,8 @@ bool test0(boost::mpi::communicator& mpi_comm)
             return halos;
         };
 
-    auto patterns = gridtools::make_pattern<gridtools::protocol::mpi, gridtools::structured_grid>(comm, halo_gen, local_domains);
+    //auto patterns = gridtools::make_pattern<gridtools::protocol::mpi, gridtools::structured_grid>(comm, halo_gen, local_domains);
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen, local_domains);
 
     return true;
 }
@@ -97,3 +107,8 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+// modelines
+// vim: set ts=4 sw=4 sts=4 et: 
+// vim: ff=unix: 
+

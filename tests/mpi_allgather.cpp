@@ -1,12 +1,21 @@
+// 
+// GridTools
+// 
+// Copyright (c) 2014-2019, ETH Zurich
+// All rights reserved.
+// 
+// Please, refer to the LICENSE file in the root directory.
+// SPDX-License-Identifier: BSD-3-Clause
+// 
 
-#include "../include/protocol/mpi.hpp"
+#include "../include/protocol/setup.hpp"
 #include <boost/mpi/environment.hpp>
 #include <iostream>
 
 template<typename T>
 bool test_0(boost::mpi::communicator& mpi_comm)
 {
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
+    gridtools::protocol::setup_communicator comm{mpi_comm};
     std::vector<T> values;
     {
         auto f = comm.all_gather( static_cast<T>(comm.address()) );
@@ -21,7 +30,7 @@ bool test_0(boost::mpi::communicator& mpi_comm)
 template<typename T>
 bool test_1(boost::mpi::communicator& mpi_comm)
 {
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
+    gridtools::protocol::setup_communicator comm{mpi_comm};
     int my_num_values = (comm.address()+1)*2;
     std::vector<T> my_values(my_num_values);
     for (int i=0; i<my_num_values; ++i)
@@ -49,3 +58,8 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+// modelines
+// vim: set ts=4 sw=4 sts=4 et: 
+// vim: ff=unix: 
+
