@@ -25,11 +25,11 @@ namespace ghex {
     class communication_object<DomainId, Pattern, ghex::ghex_mpi, ghex::ghex_cpu> {
 
         using Byte = unsigned char;
-        using IterationSpace = typename Pattern::iteration_space;
+        using IterationSpace = typename Pattern::iteration_space_t;
 
         const Pattern& m_pattern;
-        std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
-        std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_send_halos;
+        const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
+        const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_send_halos;
 
         template <typename... DataDescriptor>
         std::size_t receive_buffer_size(const std::vector<IterationSpace>& iteration_spaces,
