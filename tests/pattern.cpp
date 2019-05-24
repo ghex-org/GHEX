@@ -9,7 +9,6 @@
 // 
 #include "../include/structured_pattern.hpp"
 #include <boost/mpi/environment.hpp>
-#include <iostream>
 #include <array>
 
 struct my_domain_desc

@@ -10,7 +10,6 @@
 
 #include "../include/protocol/setup.hpp"
 #include <boost/mpi/environment.hpp>
-#include <iostream>
 
 template<typename T>
 bool test_0(boost::mpi::communicator& mpi_comm)

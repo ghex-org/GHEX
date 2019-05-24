@@ -14,7 +14,6 @@
 #include "pattern.hpp"
 #include "coordinate.hpp"
 #include <map>
-//#include <numeric>
 
 namespace gridtools {
 
