@@ -27,8 +27,6 @@ namespace ghex {
         using Byte = unsigned char;
         using IterationSpace = typename Pattern::iteration_space;
 
-        friend class handle;
-
         Pattern& m_pattern;
         std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
         std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_send_halos;
