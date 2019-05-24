@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <mpi.h>
 #include <communication_object.hpp>
 
 
