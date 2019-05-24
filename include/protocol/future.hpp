@@ -36,13 +36,39 @@ struct future_base
         m_handle.wait();
     }
 
-    value_type get() noexcept 
+    [[nodiscard]] value_type get() noexcept
     {
         wait(); 
         return std::move(m_data); 
     }
 
     value_type m_data;
+    handle_type m_handle;
+};
+
+template<typename H>
+struct future_base<H,void>
+{
+    using handle_type = H;
+
+    future_base(handle_type&& h) 
+    :   m_handle(std::move(h))
+    {}
+    future_base(const future_base&) = delete;
+    future_base(future_base&&) = default;
+    future_base& operator=(const future_base&) = delete;
+    future_base& operator=(future_base&&) = default;
+
+    void wait()
+    {
+        m_handle.wait();
+    }
+
+    void get() noexcept 
+    {
+        wait(); 
+    }
+
     handle_type m_handle;
 };
 

@@ -108,11 +108,6 @@ public: // ctors
 
 public: // member functions
 
-    /*coordinate_type& first() noexcept { return m_first; }
-    const coordinate_type& first() const noexcept { return m_first; }
-    coordinate_type& last() noexcept { return m_last; }
-    const coordinate_type& last() const noexcept { return m_last; }*/
-
     map_type& send_halos() noexcept { return m_send_map; }
     const map_type& send_halos() const noexcept { return m_send_map; }
 
@@ -138,7 +133,6 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
         using iteration_space           = typename pattern_type::iteration_space;
         using coordinate_type           = typename pattern_type::coordinate_type;
         using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
-        //using map_type                  = typename pattern_type::map_type;
 
         // get this address from new communicator
         auto my_address = new_comm.address();
@@ -168,25 +162,6 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
         auto domain_extents  = comm.all_gather(my_domain_extents, num_domain_ids).get();
         const int world_size = num_domain_ids.size();
         
-        /*comm.barrier();
-        int i = 0;
-        for (const auto& h_vec : my_generated_recv_halos)
-        {
-            std::cout 
-                << "  {(" << my_domain_extents[i].first()[0] << ", " << my_domain_extents[i].first()[1] << ", " << my_domain_extents[i].first()[2] << ")\n"
-                << "   (" << my_domain_extents[i].last()[0] << ", " << my_domain_extents[i].last()[1] << ", " << my_domain_extents[i].last()[2] << ")}\n";
-            for (const auto h: h_vec)
-            {
-                std::cout 
-                << "    {(" <<h.first()[0] << ", " << h.first()[1] << ", " << h.first()[2] << ")\n"
-                << "     (" <<h.last()[0] << ", " << h.last()[1] << ", " << h.last()[2] << ")}\n";
-            }
-            std::cout << "\n";
-            ++i;
-        }
-        std::cout<< std::endl;
-        comm.barrier();*/
-
         // loop over patterns/domains
         for (unsigned int i=0; i<my_patterns.size(); ++i)
         {
@@ -238,66 +213,20 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
             }
         }
         
-        /*std::cout << "rank " << comm.rank() << " (address = " << new_comm.address() << ")\n";
-        i = 0;
-        for (const auto& p : my_patterns)
-        {
-            std::cout << "  pattern for domain id " << my_domain_ids[i].id << "\n";
-            for (const auto& pp : p.recv_halos())
-            {
-                std::cout << "    " << pp.first.id << ", rank = " << pp.first.mpi_rank << ", tag = " << pp.first.tag << ": ";
-                for (const auto& is : pp.second)
-                {
-                    std::cout
-                    << "    {(" <<is.first()[0] << ", " << is.first()[1] << ", " << is.first()[2] << "),"
-                    <<     " (" <<is.last()[0] << ", " << is.last()[1] << ", " << is.last()[2] << ")}, ";
-                }
-                std::cout << "\n";
-            }
-            std::cout << std::endl;
-            ++i;
-        }*/
-
         // translate to send halos
         std::map<int,
             std::map<domain_id_type,
                 std::map<extended_domain_id_type, std::vector<iteration_space> > > > send_halos_map;
-        //i=0;
         for (const auto& p : my_patterns)
         {
             for (const auto& id_is_pair : p.recv_halos())
             {
-                //extended_domain_id_type d_id{ my_domain_ids[i].id, my_domain_ids[i].mpi_rank, my_domain_ids[i].address, id_is_pair.first.tag };
                 auto d_id = p.extended_domain_id();
                 d_id.tag = id_is_pair.first.tag;
                 auto& is_vec = send_halos_map[id_is_pair.first.mpi_rank][id_is_pair.first.id][d_id];
                 is_vec.insert(is_vec.end(), id_is_pair.second.begin(), id_is_pair.second.end());
             }
-            //++i;
         }
-
-        /*comm.barrier();
-        if (comm.rank()==0)
-        {
-            std::cout << "rank 0: listing send maps\n";
-            for (const auto& p0 : send_halos_map)
-            {
-                std::cout << "  rank " << p0.first << "\n";
-                for (const auto& p1 : p0.second)
-                {
-                    std::cout << "    domain " << p1.first << "\n";
-                    for (const auto& p2 : p1.second)
-                    {
-                        std::cout << "      extended_id: "
-                        << "id = " << p2.first.id << ", "
-                        << "rank = " << p2.first.mpi_rank << ", "
-                        << "address = " << p2.first.address << ", "
-                        << "tag = " << p2.first.tag << ", "
-                        << "num is = " << p2.second.size() << "\n"; 
-                    }
-                }
-            }
-        }*/
 
         // filter out my own send halos
         auto it = send_halos_map.find(comm.rank());
@@ -312,39 +241,12 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
                     if (p.domain_id() == dom_id) break;
                     ++j;
                 }
-                //for (j=0; j<my_patterns.size(); ++j)
-                //{
-                //    if (my_domain_ids[j].id == dom_id) break;
-                //}
                 pattern_type& p = my_patterns[j];
                 for (const auto& p2 : p1.second)
                     p.send_halos().insert(p2);
             }
             send_halos_map.erase(it);
         }
-
-        /*comm.barrier();
-        if (comm.rank()==0)
-        {
-            std::cout << "rank 0: listing send maps\n";
-            for (const auto& p0 : send_halos_map)
-            {
-                std::cout << "  rank " << p0.first << "\n";
-                for (const auto& p1 : p0.second)
-                {
-                    std::cout << "    domain " << p1.first << "\n";
-                    for (const auto& p2 : p1.second)
-                    {
-                        std::cout << "      extended_id: "
-                        << "id = " << p2.first.id << ", "
-                        << "rank = " << p2.first.mpi_rank << ", "
-                        << "address = " << p2.first.address << ", "
-                        << "tag = " << p2.first.tag << ", "
-                        << "num is = " << p2.second.size() << "\n"; 
-                    }
-                }
-            }
-        }*/
 
         // loop over all ranks and establish connection
         for (int rank = 0; rank<world_size; ++rank)
@@ -449,26 +351,12 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
                         std::vector<int> num_pairs(num_domains);
                         comm.recv(rank, 0, &num_pairs[0], num_domains);
 
-                        /*std::cout << "rank " << comm.rank() << " should send " << num_domains << " (";
-                        int j=0;
-                        for (const auto a : dom_ids)
-                        {
-                            std::cout << a << " with " << num_pairs[j++] << " pairs, ";
-                        }
-                        std::cout << ") to rank " << rank << std::endl;*/
-
                         int j=0;
                         for (auto np : num_pairs)
                         {
                             // recv extended_domain_ids for each domain j and all its np pairs
                             std::vector<extended_domain_id_type> send_dom_ids(np);
                             comm.recv(rank, 0, &send_dom_ids[0], np);
-                            
-                            /*std::cout << "domain ids to send to (from my domain " << dom_ids[j] << ":\n";
-                            for (const auto& did : send_dom_ids)
-                            {
-                                std::cout << "  " << did.id << ", rank = " << did.mpi_rank << ", tag = " << did.tag << std::endl; 
-                            }*/
 
                             // find domain in my list of patterns
                             int k=0;
@@ -477,11 +365,6 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
                                 if (pat.domain_id() == dom_ids[j]) break;
                                 ++k;
                             }
-                            /*int k;
-                            for (k=0; k<(int)my_patterns.size(); ++k)
-                            {
-                                if (my_domain_ids[k].id == dom_ids[j]) break;
-                            }*/
                             auto& pat = my_patterns[k];
 
                             // recv all iteration spaces for each domain and each pair
