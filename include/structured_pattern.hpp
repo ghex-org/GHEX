@@ -368,55 +368,47 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
                     std::vector<int> num_domains;
                     num_domains.reserve(num_ranks);
                     for (const auto& p : send_halos_map)
-                    {
                         num_domains.push_back(p.second.size());
-                    }
                     int j=0;
                     for (auto& nd : num_domains)
-                    {
                         comm.send(ranks[j++], 0, nd);
-                    }
 
                     j=0;
                     for (const auto& p : send_halos_map)
                     {
+                        // send domain ids
                         std::vector<domain_id_type> dom_ids;
                         dom_ids.reserve(num_domains[j]);
-                        // send domain ids
                         for (const auto& p1 : p.second)
-                        {
                             dom_ids.push_back(p1.first);
-                        }
                         comm.send(ranks[j], 0, &dom_ids[0], num_domains[j]);
 
-                        // send number of id_iteration_space pairs
+                        // send number of id_iteration_space pairs per domain
                         std::vector<int> num_pairs;
                         num_pairs.reserve(num_domains[j]);
                         for (const auto& p1 : p.second)
-                        {
                             num_pairs.push_back(p1.second.size());
-                        }
                         comm.send(ranks[j], 0, &num_pairs[0], num_domains[j]);
 
                         int k=0;
                         for (const auto& p1 : p.second)
                         {
+                            // send extended_domain_ids for each domain j and each pair k
                             std::vector<extended_domain_id_type> my_dom_ids;
                             my_dom_ids.reserve(num_pairs[k]);
                             for (const auto& p2 : p1.second)
                                 my_dom_ids.push_back(p2.first);
                             comm.send(ranks[j], 0, &my_dom_ids[0], num_pairs[k]);
 
+                            // send all iteration spaces for each domain j, each pair k
                             for (const auto& p2 :  p1.second)
                             {
                                 int num_is = p2.second.size();
                                 comm.send(ranks[j], 0, num_is);
                                 comm.send(ranks[j], 0, &p2.second[0], num_is);
                             }
-                            
                             ++k;
                         }
-
                         ++j;
                     }
                 } 
@@ -449,38 +441,50 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
                         int num_domains;
                         comm.recv(rank, 0, num_domains);
 
+                        // recv domain ids
                         std::vector<domain_id_type> dom_ids(num_domains);
                         comm.recv(rank, 0, &dom_ids[0], num_domains);
 
+                        // recv number of id_iteration_space pairs per domain
                         std::vector<int> num_pairs(num_domains);
                         comm.recv(rank, 0, &num_pairs[0], num_domains);
 
-                        std::cout << "rank " << comm.rank() << " should send " << num_domains << " (";
+                        /*std::cout << "rank " << comm.rank() << " should send " << num_domains << " (";
                         int j=0;
                         for (const auto a : dom_ids)
                         {
                             std::cout << a << " with " << num_pairs[j++] << " pairs, ";
                         }
-                        std::cout << ") to rank " << rank << std::endl;
+                        std::cout << ") to rank " << rank << std::endl;*/
 
-                        j=0;
+                        int j=0;
                         for (auto np : num_pairs)
                         {
+                            // recv extended_domain_ids for each domain j and all its np pairs
                             std::vector<extended_domain_id_type> send_dom_ids(np);
                             comm.recv(rank, 0, &send_dom_ids[0], np);
-                            std::cout << "domain ids to send to (from my domain " << dom_ids[j] << ":\n";
+                            
+                            /*std::cout << "domain ids to send to (from my domain " << dom_ids[j] << ":\n";
                             for (const auto& did : send_dom_ids)
                             {
                                 std::cout << "  " << did.id << ", rank = " << did.mpi_rank << ", tag = " << did.tag << std::endl; 
+                            }*/
+
+                            // find domain in my list of patterns
+                            int k=0;
+                            for (const auto& pat : my_patterns)
+                            {
+                                if (pat.domain_id() == dom_ids[j]) break;
+                                ++k;
                             }
-                            // find domain
-                            int k;
+                            /*int k;
                             for (k=0; k<(int)my_patterns.size(); ++k)
                             {
                                 if (my_domain_ids[k].id == dom_ids[j]) break;
-                            }
+                            }*/
                             auto& pat = my_patterns[k];
 
+                            // recv all iteration spaces for each domain and each pair
                             for (const auto& did : send_dom_ids)
                             {
                                 int num_is;
@@ -490,7 +494,6 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
                                 auto& vec = pat.send_halos()[did];
                                 vec.insert(vec.end(), is.begin(), is.end());
                             }
-
                             ++j;
                         }
 
@@ -499,7 +502,7 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
             }
         }
 
-        for (int r=0; r<(int)num_domain_ids.size(); ++r)
+        /*for (int r=0; r<(int)num_domain_ids.size(); ++r)
         {
             comm.barrier();
             if (comm.rank()==r)
@@ -550,7 +553,7 @@ struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
                 }
             }
             comm.barrier();
-        }
+        }*/
 
         return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns));
     }
