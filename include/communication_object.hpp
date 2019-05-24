@@ -27,7 +27,7 @@ namespace ghex {
         using Byte = unsigned char;
         using IterationSpace = typename Pattern::iteration_space;
 
-        Pattern& m_pattern;
+        const Pattern& m_pattern;
         std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
         std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_send_halos;
 
@@ -79,10 +79,10 @@ namespace ghex {
         template <typename... DataDescriptor>
         class handle {
 
-            std::vector<MPI_Request>& m_receive_requests;
-            std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
-            std::vector<std::vector<Byte>>& m_receive_buffers;
-            std::tuple<DataDescriptor...>& m_data_descriptors;
+            const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
+            std::vector<MPI_Request> m_receive_requests;
+            std::vector<std::vector<Byte>> m_receive_buffers;
+            std::tuple<DataDescriptor...> m_data_descriptors;
 
             void unpack() {
 
@@ -108,14 +108,14 @@ namespace ghex {
 
             }
 
-            handle(std::vector<MPI_Request>& receive_requests,
-                   std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& receive_halos,
-                   std::vector<std::vector<Byte>>& receive_buffers,
-                   std::tuple<DataDescriptor...>& data_descriptors) :
-                m_receive_requests{receive_requests},
+            handle(const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& receive_halos,
+                   std::vector<MPI_Request>&& receive_requests,
+                   std::vector<std::vector<Byte>>&& receive_buffers,
+                   std::tuple<DataDescriptor...>&& data_descriptors) :
                 m_receive_halos{receive_halos},
-                m_receive_buffers{receive_buffers},
-                m_data_descriptors {data_descriptors} {}
+                m_receive_requests{std::move(receive_requests)},
+                m_receive_buffers{std::move(receive_buffers)},
+                m_data_descriptors{std::move(data_descriptors)} {}
 
         public:
 
@@ -141,12 +141,16 @@ namespace ghex {
         handle<DataDescriptor...> exchange(DataDescriptor& ...dds) {
 
             std::size_t n_halos{m_receive_halos.size()};
+
             std::vector<std::vector<Byte>> send_buffers(n_halos);
-            std::vector<std::vector<Byte>> receive_buffers(n_halos);
             std::vector<MPI_Request> send_requests(n_halos);
             std::vector<MPI_Status> send_statuses(n_halos);
+
+            std::vector<std::vector<Byte>> receive_buffers(n_halos);
             std::vector<MPI_Request> receive_requests(n_halos);
+
             auto data_descriptors = std::make_tuple(dds...);
+
             std::size_t halo_index;
 
             /* RECEIVE */
@@ -197,7 +201,7 @@ namespace ghex {
 
             MPI_Waitall(n_halos, &send_requests[0], &send_statuses[0]);
 
-            return {m_receive_halos, receive_buffers, data_descriptors};
+            return {m_receive_halos, std::move(receive_requests), std::move(receive_buffers), std::move(data_descriptors)};
 
         }
 
