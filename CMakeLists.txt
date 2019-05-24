@@ -23,4 +23,4 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 add_executable(communication_object tests/communication_object.cpp)
-target_link_libraries(communication_object ${exe_LIBS} ${MPI_CXX_LIBRARIES})
+target_link_libraries(communication_object MPI::MPI_CXX)
