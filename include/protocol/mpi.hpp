@@ -44,23 +44,30 @@ public:
     template<typename T>
     future<void> isend(address_type dest, int tag, const T* buffer, int n) const
     {
-        return {m_comm.isend(dest, tag, reinterpret_cast<const char*>(buffer), sizeof(T)*n)};
+        return {std::move(m_comm.isend(dest, tag, reinterpret_cast<const char*>(buffer), sizeof(T)*n))};
     }
 
     template<typename T>
     future<void> irecv(address_type source, int tag, T* buffer, int n) const
     {
-        return {m_comm.irecv(source, tag, reinterpret_cast<char*>(buffer), sizeof(T)*n)};
+        return {std::move(m_comm.irecv(source, tag, reinterpret_cast<char*>(buffer), sizeof(T)*n))};
     }
 
-    /*template<typename T, typename Allocator = std::allocator<T>, typename template<typename, typename> Vector = std::vector> 
-    future<Vector<T,Allocator>> irecv(address_type source, int tag, const Allocator& a = Allocator()) const
+    template<typename T, template<typename, typename> typename Vector, typename Allocator> 
+    future<void> isend(address_type dest, int tag, const Vector<T,Allocator>& vec) const
     {
-        Vector<T,Allocator> vec;
-        m_comm.irecv(source, tag, )
+        return {std::move(m_comm.isend(dest, tag, reinterpret_cast<const char*>(vec.data()), sizeof(T)*vec.size()))};
     }
-    request irecv(int source, int tag, Vector< T, A > & values) const;
-    */
+
+    template<typename T, template<typename, typename> typename Vector = std::vector, typename Allocator = std::allocator<T>> 
+    [[nodiscard]] future<Vector<T,Allocator>> irecv(address_type source, int tag, int n, const Allocator& a = Allocator()) const
+    {
+        using vector_type = Vector<T,Allocator>;
+        using size_type   = typename vector_type::size_type;
+        vector_type vec( size_type(n), a );
+        return { std::move(vec), std::move(m_comm.irecv(source, tag, reinterpret_cast<char*>(vec.data()), sizeof(T)*n)) };
+    }
+
 private:
     boost::mpi::communicator m_comm;
 };
