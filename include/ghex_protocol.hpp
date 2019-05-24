@@ -8,6 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#pragma once
+
 namespace ghex {
 
     struct ghex_mpi {};
