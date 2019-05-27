@@ -81,7 +81,7 @@ namespace gridtools {
      * @param comm custom communicator used in the actual exchange operations
      * @param hgen receive halo generator function object (emits iteration spaces (global coordinates) or index lists (global indices)
      * @param d_range range of local domains
-     * @return 
+     * @return iterable of patterns (one per domain) 
      */
     template<typename GridType, typename P, typename HaloGenerator, typename DomainRange>
     auto make_pattern(MPI_Comm mpi_comm, protocol::communicator<P>& comm, HaloGenerator&& hgen, DomainRange&& d_range)
