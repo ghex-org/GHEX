@@ -118,6 +118,10 @@ namespace gridtools {
 
         domain_id_type domain_id() const noexcept { return m_id.id; }
         extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
+
+        communicator_type& communicator() noexcept { return m_comm; }
+        const communicator_type& communicator() const noexcept { return m_comm; }
+
     };
 
     namespace detail {
