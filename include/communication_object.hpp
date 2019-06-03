@@ -8,13 +8,16 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#ifndef INCLUDED_COMMUNICATION_OBJECT_HPP
+#define INCLUDED_COMMUNICATION_OBJECT_HPP
+
 #include <vector>
 #include <tuple>
 #include "ghex_arch.hpp"
 #include "utils.hpp"
 
 
-namespace ghex {
+namespace gridtools {
 
     template <typename Pattern, typename Arch>
     class communication_object {};
@@ -203,3 +206,5 @@ namespace ghex {
     };
 
 }
+
+#endif /* INCLUDED_COMMUNICATION_OBJECT_HPP */
