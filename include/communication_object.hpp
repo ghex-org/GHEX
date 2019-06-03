@@ -8,28 +8,30 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include <mpi.h>
 #include <vector>
 #include <tuple>
 #include "ghex_arch.hpp"
-#include "ghex_protocol.hpp"
 #include "utils.hpp"
 
 
 namespace ghex {
 
-    template <typename DomainId, typename Pattern, typename Protocol, typename Arch>
+    template <typename Pattern, typename Arch>
     class communication_object {};
 
-    template <typename DomainId, typename Pattern>
-    class communication_object<DomainId, Pattern, ghex::ghex_mpi, ghex::ghex_cpu> {
+    template <typename Pattern>
+    class communication_object<Pattern, ghex::ghex_cpu> {
 
         using Byte = unsigned char;
-        using IterationSpace = typename Pattern::iteration_space_t;
+        using DomainId = typename Pattern::extended_domain_id_type;
+        using IterationSpace = typename Pattern::iteration_space;
+        using Communicator = typename Pattern::communicator_type;
+        using Future = typename Communicator::template future<void>;
 
         const Pattern& m_pattern;
-        const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
         const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_send_halos;
+        const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
+        const Communicator& m_communicator;
 
         template <typename... DataDescriptor>
         std::size_t receive_buffer_size(const std::vector<IterationSpace>& iteration_spaces,
@@ -80,7 +82,7 @@ namespace ghex {
         class handle {
 
             const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
-            std::vector<MPI_Request> m_receive_requests;
+            std::vector<Future> m_receive_requests;
             std::vector<std::vector<Byte>> m_receive_buffers;
             std::tuple<DataDescriptor...> m_data_descriptors;
 
@@ -109,7 +111,7 @@ namespace ghex {
             }
 
             handle(const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& receive_halos,
-                   std::vector<MPI_Request>&& receive_requests,
+                   std::vector<Future>&& receive_requests,
                    std::vector<std::vector<Byte>>&& receive_buffers,
                    std::tuple<DataDescriptor...>&& data_descriptors) :
                 m_receive_halos{receive_halos},
@@ -121,10 +123,7 @@ namespace ghex {
 
             void wait() {
 
-                auto n_halos = m_receive_halos.size();
-                std::vector<MPI_Status> receive_statuses(n_halos);
-
-                MPI_Waitall(n_halos, &m_receive_requests[0], &receive_statuses[0]);
+                for (auto r : m_receive_requests) { r.wait(); }
 
                 unpack();
 
@@ -134,20 +133,20 @@ namespace ghex {
 
         communication_object(const Pattern& p) :
             m_pattern{p},
+            m_send_halos {m_pattern.send_halos()},
             m_receive_halos{m_pattern.receive_halos()},
-            m_send_halos {m_pattern.send_halos()} {}
+            m_communicator{m_pattern.communicator()} {}
 
         template <typename... DataDescriptor>
         handle<DataDescriptor...> exchange(DataDescriptor& ...dds) {
 
-            std::size_t n_halos{m_receive_halos.size()};
+            std::size_t n_send_halos{m_send_halos.size()};
+            std::size_t n_receive_halos{m_receive_halos.size()};
 
-            std::vector<std::vector<Byte>> send_buffers(n_halos);
-            std::vector<MPI_Request> send_requests(n_halos);
-            std::vector<MPI_Status> send_statuses(n_halos);
-
-            std::vector<std::vector<Byte>> receive_buffers(n_halos);
-            std::vector<MPI_Request> receive_requests(n_halos);
+            std::vector<std::vector<Byte>> send_buffers(n_send_halos);
+            std::vector<std::vector<Byte>> receive_buffers(n_receive_halos);
+            std::vector<Future> send_requests(n_send_halos);
+            std::vector<Future> receive_requests(n_receive_halos);
 
             auto data_descriptors = std::make_tuple(dds...);
 
@@ -158,19 +157,16 @@ namespace ghex {
             halo_index = 0;
             for (const auto& halo : m_receive_halos) {
 
-                int mpi_rank = halo.first.mpi_rank();
-                int tag = halo.first.tag();
+                auto source = halo.first.address;
+                auto tag = halo.first.tag;
                 auto& iteration_spaces = halo.second;
 
                 receive_buffers[halo_index].resize(receive_buffer_size(iteration_spaces, data_descriptors));
 
-                MPI_Irecv(&receive_buffers[halo_index][0],
-                        static_cast<int>(receive_buffers[halo_index].size()),
-                        MPI_CHAR,
-                        mpi_rank,
+                receive_requests[halo_index] = m_communicator.irecv(source,
                         tag,
-                        MPI_COMM_WORLD, // Temporary
-                        &receive_requests[halo_index]);
+                        &receive_buffers[halo_index][0],
+                        static_cast<int>(receive_buffers[halo_index].size()));
 
                 ++halo_index;
 
@@ -183,23 +179,22 @@ namespace ghex {
             halo_index = 0;
             for (const auto& halo : m_send_halos) {
 
-                int mpi_rank = halo.first.mpi_rank();
-                int tag = halo.first.tag();
+                auto dest = halo.first.address;
+                auto tag = halo.first.tag;
                 auto& iteration_spaces = halo.second;
 
-                MPI_Isend(&send_buffers[halo_index][0],
-                        static_cast<int>(send_buffers[halo_index].size()),
-                        MPI_CHAR,
-                        mpi_rank,
+                send_requests[halo_index] = m_communicator.isend(dest,
                         tag,
-                        MPI_COMM_WORLD, // Temporary
-                        &send_requests[halo_index]);
+                        &send_buffers[halo_index][0],
+                        static_cast<int>(send_buffers[halo_index].size()));
 
                 ++halo_index;
 
             }
 
-            MPI_Waitall(n_halos, &send_requests[0], &send_statuses[0]);
+            /* SEND WAIT */
+
+            for (auto r : send_requests) { r.wait(); }
 
             return {m_receive_halos, std::move(receive_requests), std::move(receive_buffers), std::move(data_descriptors)};
 
