@@ -10,43 +10,55 @@
 
 #include <gtest/gtest.h>
 #include <vector>
-#include <mpi.h>
+#include <array>
 #include "ghex_arch.hpp"
-#include "ghex_protocol.hpp"
 #include "communication_object.hpp"
+
+
+class my_domain_desc {
+
+public:
+
+    using coordinate_type = std::array<int, 3>;
+    using domain_id_type = int;
+
+private:
+
+    domain_id_type m_id;
+    coordinate_type m_first;
+    coordinate_type m_last;
+
+public:
+
+    class halo {
+
+        coordinate_type m_first;
+        coordinate_type m_last;
+
+    public:
+
+        const coordinate_type& first() const { return m_first; }
+        const coordinate_type& last() const { return m_last; }
+
+    };
+
+    domain_id_type domain_id() const { return m_id; }
+    const coordinate_type& first() const { return m_first; }
+    const coordinate_type& last() const { return m_last; }
+
+};
+
+
+class my_data_desc {};
 
 
 TEST(communication_object, constructor) {
 
-    using domain_id_t = int;
+    // boost::mpi::communicator world;
+    // gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
-    class my_pattern {
+    // ...
 
-    public:
-
-        using iteration_space_t = std::pair<int, int>;
-        using halo_t = std::pair<domain_id_t, std::vector<iteration_space_t>>;
-
-    private:
-
-        std::vector<halo_t> m_send_halos;
-        std::vector<halo_t> m_receive_halos;
-
-    public:
-
-        my_pattern() :
-            m_send_halos{ halo_t{ 1, { iteration_space_t{1, 2}, iteration_space_t{2, 3} } } },
-            m_receive_halos{ halo_t{ 1, { iteration_space_t{0, 1}, iteration_space_t{3, 4} } } } {}
-
-        const std::vector<halo_t>& send_halos() const { return m_send_halos; }
-        const std::vector<halo_t>& receive_halos() const { return m_receive_halos; };
-
-    };
-
-    using communication_object_t = ghex::communication_object<domain_id_t, my_pattern, ghex::ghex_mpi, ghex::ghex_cpu>;
-
-    my_pattern p{};
-
-    EXPECT_NO_THROW(communication_object_t c{p});
+    // EXPECT_NO_THROW(communication_object_t c{p});
 
 }
