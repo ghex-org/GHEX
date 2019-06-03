@@ -62,7 +62,7 @@ if(NOT GTEST_SOURCE_DIR)
 endif()
 
 set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
-set(GTEST_MAIN_SOURCES ${GTEST_SOURCE_DIR}/gtest_main.cc)
+# set(GTEST_MAIN_SOURCES ${GTEST_SOURCE_DIR}/gtest_main.cc)
 set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
 add_subdirectory(tests)
