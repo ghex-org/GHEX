@@ -88,7 +88,15 @@ namespace gridtools {
             bool operator<(const extended_domain_id_type& other) const noexcept { return id < other.id; }
         };
 
-        using map_type = std::map<extended_domain_id_type, std::vector<iteration_space>>;
+        using index_container_type = std::vector<iteration_space>;
+        using map_type = std::map<extended_domain_id_type, index_container_type>;
+
+        static int num_elements(const index_container_type& c) noexcept
+        {
+            int s = 0;
+            for (const auto& is : c) s += is.size();
+            return s;
+        }
 
     private: // members
 
@@ -118,6 +126,17 @@ namespace gridtools {
 
         domain_id_type domain_id() const noexcept { return m_id.id; }
         extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
+
+        /*template<typename Device, typename Field>
+        buffer_info<pattern, Device, Field> bind(Field& field, typename Device::id_type id) const
+        {
+            return {*this,field,id};
+        }*/
+        template<typename Field>
+        buffer_info<pattern, typename Field::device_type, Field> operator()(Field& field) const
+        {
+            return {*this,field,field.device_id()};
+        }
     };
 
     namespace detail {
@@ -387,7 +406,7 @@ namespace gridtools {
                     }
                 }
 
-                /*for (int r=0; r<(int)num_domain_ids.size(); ++r)
+                for (int r=0; r<(int)num_domain_ids.size(); ++r)
                 {
                     comm.barrier();
                     if (comm.rank()==r)
@@ -438,7 +457,7 @@ namespace gridtools {
                         }
                     }
                     comm.barrier();
-                }*/
+                }
 
                 return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns));
             }
