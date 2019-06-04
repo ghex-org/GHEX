@@ -43,7 +43,7 @@ namespace gridtools {
             std::size_t size{0};
 
             for (const auto& is : iteration_spaces) {
-                ghex::for_each(data_descriptors, [&is, &size](const auto& dd) {
+                gridtools::detail::for_each(data_descriptors, [&is, &size](const auto& dd) {
                     size += is.size() * dd.data_type_size();
                 });
             }
@@ -66,7 +66,7 @@ namespace gridtools {
 
                 /* The two loops are performed with this order
                  * in order to have as many data of the same type as possible in contiguos memory */
-                ghex::for_each(data_descriptors, [&iteration_spaces, &send_buffers, &halo_index, &buffer_index](const auto& dd) {
+                gridtools::detail::for_each(data_descriptors, [&iteration_spaces, &send_buffers, &halo_index, &buffer_index](const auto& dd) {
                     for (const auto& is : iteration_spaces) {
                         dd.load(is, send_buffers[halo_index][buffer_index]);
                         buffer_index += is.size();
@@ -100,7 +100,7 @@ namespace gridtools {
 
                     /* The two loops are performed with this order
                      * in order to have as many data of the same type as possible in contiguos memory */
-                    ghex::for_each(m_data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](const auto& dd) {
+                    gridtools::detail::for_each(m_data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](const auto& dd) {
                         for (const auto& is : iteration_spaces) {
                             dd.store(is, m_receive_buffers[halo_index][buffer_index]);
                             buffer_index += is.size();

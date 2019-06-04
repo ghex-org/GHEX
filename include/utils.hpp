@@ -12,6 +12,8 @@
 
 #include <utility>
 #include <tuple>
+#include <gridtools/common/layout_map.hpp>
+
 
 namespace gridtools {
 
@@ -35,6 +37,7 @@ namespace gridtools {
         {
             f(std::forward<Arg0>(a0));
             invoke_with_arg(std::forward<Func>(f), std::forward<Args>(as)...);
+        }
 
         template<typename Tuple, typename Func, std::size_t... Is>
         void for_each_impl(Tuple&& t, Func&& f, std::index_sequence<Is...>)
@@ -86,7 +89,6 @@ namespace gridtools {
             );
         }
 
-
         template<typename T0, typename T1>
         struct ct_max
         {
@@ -113,8 +115,6 @@ namespace gridtools {
         {
             using type = typename ct_reduce<Op, typename ct_reduce<Op,Ta,Tb>::type, Tc, Ts...>::type;
         };
-
-
 
         template<int D, int I, typename Layout=void>
         struct for_loop
@@ -161,7 +161,6 @@ namespace gridtools {
             }
         };
 
-
         template<int D, int I, int... Args>
         struct for_loop<D,I,gridtools::layout_map<Args...>>
         {
@@ -194,7 +193,6 @@ namespace gridtools {
 
         template<int D, int... Args>
         struct for_loop<D,0,gridtools::layout_map<Args...>> : for_loop<D,0,void> {};
-
 
         template<int D, int I, typename Layout>
         struct for_loop_simple {};
@@ -239,7 +237,6 @@ namespace gridtools {
             }
         };
 
-
     }   // namespace detail
 
 } // namespace gridtools
@@ -248,5 +245,4 @@ namespace gridtools {
 
 // modelines
 // vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
-
+// vim: ff=unix:
