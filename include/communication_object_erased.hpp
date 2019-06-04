@@ -58,6 +58,7 @@ namespace gridtools {
         using pattern_type            = pattern<P,GridType,DomainIdType>;
         using index_container_type    = typename pattern_type::index_container_type;
         using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
+        using communicator_type       = typename pattern_type::communicator_type;
         template<typename D, typename F>
         using buffer_info_t           = buffer_info<pattern_type,D,F>;
 
@@ -89,6 +90,17 @@ namespace gridtools {
 
         internal_co_list m_list;
 
+    /*private:
+
+        template<typename D>
+        struct buffer_info_internal
+        {
+            typename D::id_type  idx;
+
+            std::vector<typename internal_co_t<Devices>::vector_type*> recv_memory;
+            std::vector<typename internal_co_t<Devices>::vector_type*> send_memory;
+        };*/
+
     public: // member functions
 
         template<typename... Devices, typename... Fields>
@@ -100,6 +112,12 @@ namespace gridtools {
             std::array<const pattern_type*,              sizeof...(Fields)> patterns{&buffer_infos.get_pattern()...};
             std::array<std::vector<std::size_t>,         sizeof...(Fields)> recv_offsets;
             std::array<std::vector<std::size_t>,         sizeof...(Fields)> send_offsets;
+
+            //std::tuple<std::vector<typename internal_co_t<Devices>::vector_type*>, sizeof...(Fields)> recv_memory;
+            //std::tuple<std::vector<typename internal_co_t<Devices>::vector_type*>, sizeof...(Fields)> send_memory;
+
+            std::array<communicator_type*,               sizeof...(Fields)> comms;
+            auto& comm = *(comms[0]);
 
             std::tuple<typename Devices::id_type...> indices{buffer_infos.device_id()...};
             std::tuple<Fields*...>                   field_ptrs{&buffer_infos.get_field()...};
@@ -120,6 +138,13 @@ namespace gridtools {
                                       send_offsets[i], *(sizes_send[i]), alignments[i]);
                 ++i;
             });
+
+            /*i = 0;
+            detail::for_each(list, indices, [](auto ico, auto idx)
+            { 
+                using device_type = typename std::remove_reference_t<decltype(*ico)>::device_type;
+                ico
+            }*/
         }
 
     private: // member functions
@@ -132,6 +157,7 @@ namespace gridtools {
             std::vector<std::size_t>& offsets,
             const std::vector<std::size_t>& sizes,
             std::size_t alignment)
+            //std::vector<typename internal_co_t<D>::vector_type*>& memory)
         {
             int j = 0;
             for (const auto& p_id_c : halos)
@@ -140,6 +166,7 @@ namespace gridtools {
                 if (it == p.end())
                     it = p.insert( std::make_pair( p_id_c.first, D::template make_vector<char>(idx) ) ).first;
                 offsets.push_back(it->second.size());
+                //memory.push_back( &it->second );
                 it->second.resize( it->second.size() + alignment + sizes[j] );
                 ++j;
             }

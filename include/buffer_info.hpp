@@ -33,6 +33,12 @@ namespace gridtools {
         using device_id_type           = typename device_type::id_type;
         using value_type               = typename field_type::value_type; 
 
+
+        using index_container_type    = typename pattern_type::index_container_type;
+        using pack_function_type      = std::function<void(void*,const index_container_type&)>;
+        using unpack_function_type    = std::function<void(void*,const index_container_type&)>;
+        using memory_type             = std::vector<typename device_type::template vector_type<char> *>;
+
     public:
         buffer_info(const pattern_type& p, field_type& field, device_id_type id)
         :   m_p{p}, m_field{field}, m_id{id}
