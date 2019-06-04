@@ -137,6 +137,8 @@ namespace gridtools {
         {
             return {*this,field,field.device_id()};
         }
+
+        communicator_type& communicator() noexcept { return m_comm; }
     };
 
     namespace detail {
