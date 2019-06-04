@@ -101,7 +101,6 @@ namespace gridtools {
             std::array<std::vector<std::size_t>,         sizeof...(Fields)> recv_offsets;
             std::array<std::vector<std::size_t>,         sizeof...(Fields)> send_offsets;
 
-
             std::tuple<typename Devices::id_type...> indices{buffer_infos.device_id()...};
             std::tuple<Fields*...>                   field_ptrs{&buffer_infos.get_field()...};
             std::tuple<void (Fields::*)(void*,const index_container_type&)...> pack_fct_ptrs{&Fields::template pack<index_container_type>...};
@@ -111,107 +110,25 @@ namespace gridtools {
             auto unpack_funcs = detail::memfunc_ptr<index_container_type>(field_ptrs, unpack_fct_ptrs, std::make_index_sequence<sizeof...(Fields)>());
 
             std::tuple<internal_co_t<Devices>*...> list{&(std::get< internal_co_t<Devices> >(m_list))...};
-
-            //std::cout << "size of list = " << std::tuple_size<decltype(list)>::value << std::endl;
-            //std::cout << "size of m_list = " << std::tuple_size<decltype(m_list)>::value << std::endl;
-            
             int i = 0;
-            detail::for_each(list, indices, [&patterns,&i,&recv_offsets,&send_offsets,&alignments,&sizes_recv,&sizes_send](auto ico, auto idx)
+            detail::for_each(list, indices, [this,&patterns,&i,&recv_offsets,&send_offsets,&alignments,&sizes_recv,&sizes_send](auto ico, auto idx)
             { 
-                std::cout << "analyzing buffer info..." << std::endl;
-                std::cout << "  i = " << i << std::endl;
-                std::cout << "  idx = " << idx << std::endl;
                 using device_type = typename std::remove_reference_t<decltype(*ico)>::device_type;
-                std::cout << "  device = " <<  device_type::name << std::endl;
-                {
-                    auto& p = ico->recv_memory[idx];
-                    std::cout << "  recv memory map size = " << p.size() << std::endl;
-                    std::cout << "  ptr to ico = " << ico << std::endl;
-                    std::cout << "  ptr to internal memory object = " << &p << std::endl;
-                    auto& pat = *patterns[i];
-                    int j = 0;
-                    for (const auto& p_id_c : pat.recv_halos())
-                    {
-                        std::cout << "    j = " << j << std::endl;
-                        std::cout << "    p_id_c.first.id = " << p_id_c.first.id  << std::endl;
-                        std::cout << "    p_id_c.first.mpi_rank = " << p_id_c.first.mpi_rank  << std::endl;
-                        std::cout << "    p_id_c.first.tag = " << p_id_c.first.tag  << std::endl;
-                        auto it = p.find(p_id_c.first);
-                        if (it == p.end())
-                        {
-                            std::cout << "    ext_domain_id not found, creating it" << std::endl;
-                            it = p.insert( std::make_pair( p_id_c.first, device_type::template make_vector<char>(idx) ) ).first;
-                        }
-                        else
-                        {
-                            std::cout << "    ext_domain found!!!!" << std::endl;
-                        }
-                        std::cout << "    it->second.size() = " << it->second.size() << std::endl;
-                        //recv_offset[i][p_id_c.first] = it.second.size();
-                        recv_offsets[i].push_back(it->second.size());
-                        it->second.resize( it->second.size() + alignments[i] + sizes_recv[i]->operator[](j) );
-                        std::cout << "    it->second.size() after = " << it->second.size() << std::endl;
-                        ++j;
-                    }
-                }
-                {
-                    allocate<device_type>(
-                        ico->send_memory[idx],
-                        patterns[i]->send_halos(),
-                        idx,
-                        send_offsets[i],
-                        *(sizes_send[i]),
-                        alignments[i]);
-
-                    auto& p = ico->send_memory[idx];
-                    std::cout << "  send memory map size = " << p.size() << std::endl;
-                    std::cout << "  ptr to ico = " << ico << std::endl;
-                    std::cout << "  ptr to internal memory object = " << &p << std::endl;
-                    auto& pat = *patterns[i];
-                    int j = 0;
-                    for (const auto& p_id_c : pat.send_halos())
-                    {
-                        std::cout << "    j = " << j << std::endl;
-                        std::cout << "    p_id_c.first.id = " << p_id_c.first.id  << std::endl;
-                        std::cout << "    p_id_c.first.mpi_rank = " << p_id_c.first.mpi_rank  << std::endl;
-                        std::cout << "    p_id_c.first.tag = " << p_id_c.first.tag  << std::endl;
-                        auto it = p.find(p_id_c.first);
-                        if (it == p.end())
-                        {
-                            std::cout << "    ext_domain_id not found, creating it" << std::endl;
-                            it = p.insert( std::make_pair( p_id_c.first, device_type::template make_vector<char>(idx) ) ).first;
-                        }
-                        else
-                        {
-                            std::cout << "    ext_domain found!!!!" << std::endl;
-                        }
-                        std::cout << "    it->second.size() = " << it->second.size() << std::endl;
-                        send_offsets[i].push_back(it->second.size());
-                        it->second.resize( it->second.size() + alignments[i] + sizes_send[i]->operator[](j) );
-                        std::cout << "    it->second.size() after = " << it->second.size() << std::endl;
-                        ++j;
-                    }
-                }
+                allocate<device_type>(ico->recv_memory[idx], patterns[i]->recv_halos(), idx, 
+                                      recv_offsets[i], *(sizes_recv[i]), alignments[i]);
+                allocate<device_type>(ico->send_memory[idx], patterns[i]->send_halos(), idx, 
+                                      send_offsets[i], *(sizes_send[i]), alignments[i]);
                 ++i;
             });
-
-            std::cout << "recv offsets: " << std::endl;
-            for (const auto& x : recv_offsets)
-            {
-                for (const auto& y : x)
-                    std::cout << y << ", ";
-                std::cout << std::endl;
-            }
-            std::cout << std::endl;
         }
 
     private: // member functions
 
         template<typename D>
         void allocate(
-            typename internal_co_t<D>::memory_type::value_type& p, 
+            typename internal_co_t<D>::memory_type::mapped_type& p, 
             const typename pattern_type::map_type& halos, 
-            typename D::index_type idx,
+            typename D::id_type idx,
             std::vector<std::size_t>& offsets,
             const std::vector<std::size_t>& sizes,
             std::size_t alignment)

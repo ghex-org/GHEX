@@ -406,7 +406,7 @@ namespace gridtools {
                     }
                 }
 
-                for (int r=0; r<(int)num_domain_ids.size(); ++r)
+                /*for (int r=0; r<(int)num_domain_ids.size(); ++r)
                 {
                     comm.barrier();
                     if (comm.rank()==r)
@@ -457,7 +457,7 @@ namespace gridtools {
                         }
                     }
                     comm.barrier();
-                }
+                }*/
 
                 return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns));
             }
