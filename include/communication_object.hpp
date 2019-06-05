@@ -68,7 +68,7 @@ namespace gridtools {
                  * in order to have as many data of the same type as possible in contiguos memory */
                 gridtools::detail::for_each(data_descriptors, [&iteration_spaces, &send_buffers, &halo_index, &buffer_index](const auto& dd) {
                     for (const auto& is : iteration_spaces) {
-                        dd.load(is, &send_buffers[halo_index][buffer_index]);
+                        dd.get(is, &send_buffers[halo_index][buffer_index]);
                         buffer_index += is.size();
                     }
                 });
@@ -102,7 +102,7 @@ namespace gridtools {
                      * in order to have as many data of the same type as possible in contiguos memory */
                     gridtools::detail::for_each(m_data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](const auto& dd) {
                         for (const auto& is : iteration_spaces) {
-                            dd.store(is, &m_receive_buffers[halo_index][buffer_index]);
+                            dd.set(is, &m_receive_buffers[halo_index][buffer_index]);
                             buffer_index += is.size();
                         }
                     });

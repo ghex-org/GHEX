@@ -75,28 +75,28 @@ public:
         m_domain{domain},
         m_values{values} {}
 
-    void store(const T& value, const Coordinate& coords) {
+    void set(const T& value, const Coordinate& coords) {
         m_values(coords[0], coords[1], coords[2]) = value;
     }
 
-    const T* load(const Coordinate& coords) const {
+    const T& get(const Coordinate& coords) const {
         return m_values(coords[0], coords[1], coords[2]);
     }
 
     template <typename IterationSpace>
-    void store(const IterationSpace& is, const Byte* buffer) {
+    void set(const IterationSpace& is, const Byte* buffer) {
         gridtools::detail::for_loop<3, 3, Layoutmap>::apply([this, &buffer](auto... indices){
-            Coordinate c{indices...};
-            store(static_cast<T>(buffer), c);
+            Coordinate coords{indices...};
+            set(*(reinterpret_cast<const T*>(buffer)), coords);
             buffer += sizeof(T);
         }, is.first(), is.last());
     }
 
     template <typename IterationSpace>
-    void load(const IterationSpace& is, Byte* buffer) const {
+    void get(const IterationSpace& is, Byte* buffer) const {
         gridtools::detail::for_loop<3, 3, Layoutmap>::apply([this, &buffer](auto... indices){
-            Coordinate c{indices...};
-            buffer = static_cast<Byte>(load(c));
+            Coordinate coords{indices...};
+            std::memcpy(reinterpret_cast<void*>(buffer), reinterpret_cast<const void*>(&get(coords)), sizeof(T));
             buffer += sizeof(T);
         }, is.first(), is.last());
     }
