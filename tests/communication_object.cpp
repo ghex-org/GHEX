@@ -107,6 +107,44 @@ public:
 };
 
 
+auto halo_gen = [](const my_domain_desc& d) {
+
+    using halo_type = my_domain_desc::halo;
+
+    std::vector<halo_type> halos;
+
+    halo_type bottom{d.first(), d.last()};
+    bottom.m_last[2] = bottom.m_first[2]-1;
+    bottom.m_first[2] -= 2;
+    bottom.m_first[2] = (bottom.m_first[2]+20)%20;
+    bottom.m_last[2] = (bottom.m_last[2]+20)%20;
+    halos.push_back(bottom);
+
+    auto top{bottom};
+    top.m_first[2] = 0;
+    top.m_last[2] = 1;
+    halos.push_back(top);
+
+    halo_type left{d.first(), d.last()};
+    left.m_last[0] = left.m_first[0]-1;
+    left.m_first[0] -= 2;
+    left.m_first[0] = (left.m_first[0]+40)%40;
+    left.m_last[0] = (left.m_last[0]+40)%40;
+    halos.push_back(left);
+
+    halo_type right{d.first(), d.last()};
+    right.m_first[0] = right.m_last[0]+1;
+    right.m_last[0] += 2;
+    right.m_first[0] = (right.m_first[0]+40)%40;
+    right.m_last[0] = (right.m_last[0]+40)%40;
+
+    halos.push_back( right );
+
+    return halos;
+
+};
+
+
 TEST(communication_object, constructor) {
 
     using coordinate_type = my_domain_desc::coordinate_type;
@@ -131,46 +169,9 @@ TEST(communication_object, constructor) {
     };
     local_domains.push_back(my_domain_2);
 
-    auto halo_gen = [](const my_domain_desc& d) {
-
-        using halo_type = my_domain_desc::halo;
-
-        std::vector<halo_type> halos;
-
-        halo_type bottom{d.first(), d.last()};
-        bottom.m_last[2] = bottom.m_first[2]-1;
-        bottom.m_first[2] -= 2;
-        bottom.m_first[2] = (bottom.m_first[2]+20)%20;
-        bottom.m_last[2] = (bottom.m_last[2]+20)%20;
-        halos.push_back(bottom);
-
-        auto top{bottom};
-        top.m_first[2] = 0;
-        top.m_last[2] = 1;
-        halos.push_back(top);
-
-        halo_type left{d.first(), d.last()};
-        left.m_last[0] = left.m_first[0]-1;
-        left.m_first[0] -= 2;
-        left.m_first[0] = (left.m_first[0]+40)%40;
-        left.m_last[0] = (left.m_last[0]+40)%40;
-        halos.push_back(left);
-
-        halo_type right{d.first(), d.last()};
-        right.m_first[0] = right.m_last[0]+1;
-        right.m_last[0] += 2;
-        right.m_first[0] = (right.m_first[0]+40)%40;
-        right.m_last[0] = (right.m_last[0]+40)%40;
-
-        halos.push_back( right );
-
-        return halos;
-
-    };
-
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(patterns[0])>, gridtools::cpu>;
+    using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
 
     std::vector<communication_object_type> cos;
     for (auto& p : patterns) {
