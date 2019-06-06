@@ -66,14 +66,14 @@ struct my_field
     {
         for (const auto& is : c)
         {
-            T res;
+            //T res;
             std::size_t counter=0;
             for (int i=is.first()[0]; i<=is.last()[0]; ++i)
             for (int j=is.first()[1]; j<=is.last()[1]; ++j)
             for (int k=is.first()[2]; k<=is.last()[2]; ++k)
             {
                 std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
-                res = buffer[counter++];
+                T res = buffer[counter++];
             }
         }
     }
