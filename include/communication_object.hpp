@@ -13,7 +13,7 @@
 
 #include <vector>
 #include <tuple>
-#include "ghex_arch.hpp"
+#include "gridtools_arch.hpp"
 #include "utils.hpp"
 
 
@@ -23,17 +23,17 @@ namespace gridtools {
     class communication_object {};
 
     template <typename Pattern>
-    class communication_object<Pattern, ghex::ghex_cpu> {
+    class communication_object<Pattern, gridtools::cpu> {
 
         using Byte = unsigned char;
-        using DomainId = typename Pattern::extended_domain_id_type;
         using IterationSpace = typename Pattern::iteration_space;
+        using MapType = typename Pattern::map_type;
         using Communicator = typename Pattern::communicator_type;
         using Future = typename Communicator::template future<void>;
 
         const Pattern& m_pattern;
-        const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_send_halos;
-        const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
+        const MapType& m_send_halos;
+        const MapType& m_receive_halos;
         const Communicator& m_communicator;
 
         template <typename... DataDescriptor>
@@ -84,7 +84,7 @@ namespace gridtools {
         template <typename... DataDescriptor>
         class handle {
 
-            const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& m_receive_halos;
+            const MapType& m_receive_halos;
             std::vector<Future> m_receive_requests;
             std::vector<std::vector<Byte>> m_receive_buffers;
             std::tuple<DataDescriptor...> m_data_descriptors;
@@ -113,7 +113,7 @@ namespace gridtools {
 
             }
 
-            handle(const std::vector<std::pair<DomainId, std::vector<IterationSpace>>>& receive_halos,
+            handle(const MapType& receive_halos,
                    std::vector<Future>&& receive_requests,
                    std::vector<std::vector<Byte>>&& receive_buffers,
                    std::tuple<DataDescriptor...>&& data_descriptors) :
@@ -136,8 +136,8 @@ namespace gridtools {
 
         communication_object(const Pattern& p) :
             m_pattern{p},
-            m_send_halos {m_pattern.send_halos()},
-            m_receive_halos{m_pattern.receive_halos()},
+            m_send_halos{m_pattern.send_halos()},
+            m_receive_halos{m_pattern.recv_halos()},
             m_communicator{m_pattern.communicator()} {}
 
         template <typename... DataDescriptor>
