@@ -10,10 +10,10 @@
 
 #pragma once
 
-namespace ghex {
+namespace gridtools {
 
-    struct ghex_cpu {};
+    struct cpu {};
 
-    struct ghex_gpu {};
+    struct gpu {};
 
 }
