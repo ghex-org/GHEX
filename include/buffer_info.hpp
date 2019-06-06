@@ -34,16 +34,16 @@ namespace gridtools {
         using value_type               = typename field_type::value_type; 
 
 
-        using index_container_type    = typename pattern_type::index_container_type;
-        using pack_function_type      = std::function<void(void*,const index_container_type&)>;
-        using unpack_function_type    = std::function<void(void*,const index_container_type&)>;
-        using memory_type             = std::vector<typename device_type::template vector_type<char> *>;
+        //using index_container_type    = typename pattern_type::index_container_type;
+        //using pack_function_type      = std::function<void(void*,const index_container_type&)>;
+        //using unpack_function_type    = std::function<void(void*,const index_container_type&)>;
+        //using memory_type             = std::vector<typename device_type::template vector_type<char> *>;
 
     public:
         buffer_info(const pattern_type& p, field_type& field, device_id_type id)
         :   m_p{p}, m_field{field}, m_id{id}
         {
-            m_sizes_recv.reserve(p.recv_halos().size());
+            /*m_sizes_recv.reserve(p.recv_halos().size());
             for (const auto& c : p.recv_halos())
                 m_sizes_recv.push_back(
                     static_cast<std::size_t>(pattern_type::num_elements(c.second))*
@@ -52,15 +52,15 @@ namespace gridtools {
             for (const auto& c : p.send_halos())
                 m_sizes_send.push_back(
                     static_cast<std::size_t>(pattern_type::num_elements(c.second))*
-                    static_cast<std::size_t>(sizeof(value_type)));
+                    static_cast<std::size_t>(sizeof(value_type)));*/
         }
 
         buffer_info(const buffer_info&) noexcept = default;
         buffer_info(buffer_info&&) noexcept = default;
 
         device_id_type device_id() const noexcept { return m_id; }
-        const std::vector<std::size_t>& sizes_recv() const noexcept { return m_sizes_recv; }
-        const std::vector<std::size_t>& sizes_send() const noexcept { return m_sizes_send; }
+        //const std::vector<std::size_t>& sizes_recv() const noexcept { return m_sizes_recv; }
+        //const std::vector<std::size_t>& sizes_send() const noexcept { return m_sizes_send; }
         const pattern_type& get_pattern() const noexcept { return m_p; }
         field_type& get_field() noexcept { return m_field; }
 
@@ -68,8 +68,12 @@ namespace gridtools {
         const pattern_type& m_p;
         field_type& m_field;
         device_id_type m_id;
-        std::vector<std::size_t> m_sizes_recv;
-        std::vector<std::size_t> m_sizes_send;
+        //std::vector<std::size_t> m_sizes_recv;
+        //std::vector<std::size_t> m_sizes_send;
+
+        //pack_function_type m_pack;
+        //unpack_function_type m_unpack;
+        //memory_type m_memory;
     };
 
 } // namespace gridtools

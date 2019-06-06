@@ -139,6 +139,7 @@ namespace gridtools {
         }
 
         communicator_type& communicator() noexcept { return m_comm; }
+        const communicator_type& communicator() const noexcept { return m_comm; }
     };
 
     namespace detail {

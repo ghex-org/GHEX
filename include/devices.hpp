@@ -33,6 +33,13 @@ namespace gridtools {
 
             template<typename T>
             static vector_type<T> make_vector(id_type index) { return vector_type<T>{std::allocator<T>()}; }
+
+            template<typename T>
+            static void* align(void* ptr, id_type index) 
+            {
+                std::size_t space = alignof(T);
+                return std::align(alignof(T), 1, ptr, space); 
+            }
         };
 
         struct gpu
@@ -51,6 +58,13 @@ namespace gridtools {
 
             template<typename T>
             static vector_type<T> make_vector(id_type index) { return vector_type<T>{std::allocator<T>()}; }
+
+            template<typename T>
+            static void* align(void* ptr, id_type index) 
+            {
+                std::size_t space = alignof(T);
+                return std::align(alignof(T), 1, ptr, space); 
+            }
         };
 
         using device_list = std::tuple<cpu,gpu>;

@@ -46,13 +46,36 @@ struct my_field
     int domain_id() const { return m_dom_id; }
 
     template<typename IndexContainer>
-    void pack(void* buffer, const IndexContainer& c)
+    void pack(T* buffer, const IndexContainer& c)
     {
+        for (const auto& is : c)
+        {
+            std::size_t counter=0;
+            for (int i=is.first()[0]; i<=is.last()[0]; ++i)
+            for (int j=is.first()[1]; j<=is.last()[1]; ++j)
+            for (int k=is.first()[2]; k<=is.last()[2]; ++k)
+            {
+                std::cout << "packing [" << i << ", " << j << ", " << k << "] at " << (void*)(&(buffer[counter])) << std::endl;
+                buffer[counter++] = T(100);
+            }
+        }
     }
 
     template<typename IndexContainer>
-    void unpack(void* buffer, const IndexContainer& c)
+    void unpack(const T* buffer, const IndexContainer& c)
     {
+        for (const auto& is : c)
+        {
+            T res;
+            std::size_t counter=0;
+            for (int i=is.first()[0]; i<=is.last()[0]; ++i)
+            for (int j=is.first()[1]; j<=is.last()[1]; ++j)
+            for (int k=is.first()[2]; k<=is.last()[2]; ++k)
+            {
+                std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
+                res = buffer[counter++];
+            }
+        }
     }
 
     int m_dom_id;
@@ -156,7 +179,10 @@ bool test0(boost::mpi::communicator& mpi_comm)
     auto patterns1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
     auto patterns2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
 
-    gridtools::communication_object<typename decltype(patterns1)::value_type> co;
+    using pattern_t = typename decltype(patterns1)::value_type;
+    gridtools::communication_object_erased<gridtools::protocol::mpi,typename pattern_t::grid_type,int> co_erased;
+
+    //gridtools::communication_object<typename decltype(patterns1)::value_type> co;
 
     my_field<double, gridtools::device::cpu> field1_a{0};
     my_field<double, gridtools::device::gpu> field1_b{1};
@@ -164,12 +190,23 @@ bool test0(boost::mpi::communicator& mpi_comm)
     my_field<int, gridtools::device::cpu> field2_a{0};
     my_field<int, gridtools::device::gpu> field2_b{1};
 
-    co.exchange(
+    /*co.exchange(
+        patterns1(field1_a),
+        patterns1(field1_b),
+        patterns2(field2_a),
+        patterns2(field2_b)
+    );*/
+
+    auto h = co_erased.exchange(
         patterns1(field1_a),
         patterns1(field1_b),
         patterns2(field2_a),
         patterns2(field2_b)
     );
+
+    h.post();
+
+    h.wait();
 
     return true;
 }
