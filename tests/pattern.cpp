@@ -66,14 +66,14 @@ struct my_field
     {
         for (const auto& is : c)
         {
-            T res;
+            //T res;
             std::size_t counter=0;
             for (int i=is.first()[0]; i<=is.last()[0]; ++i)
             for (int j=is.first()[1]; j<=is.last()[1]; ++j)
             for (int k=is.first()[2]; k<=is.last()[2]; ++k)
             {
                 std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
-                res = buffer[counter++];
+                T res = buffer[counter++];
             }
         }
     }
@@ -103,7 +103,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
     auto halo_gen1 = [&mpi_comm](const my_domain_desc& d)
         {
             std::vector<typename my_domain_desc::box> halos;
-            typename my_domain_desc::box bottom{ d.first(), d.last() };
+            /*typename my_domain_desc::box bottom{ d.first(), d.last() };
 
             bottom.m_last[2]   = bottom.m_first[2]-1;
             bottom.m_first[2] -= 2;
@@ -116,7 +116,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
             top.m_first[2] = 0;
             top.m_last[2]  = 1;
 
-            halos.push_back( top );
+            halos.push_back( top );*/
 
             typename my_domain_desc::box left{ d.first(), d.last() };
             left.m_last[0]   = left.m_first[0]-1; 
@@ -182,20 +182,11 @@ bool test0(boost::mpi::communicator& mpi_comm)
     using pattern_t = typename decltype(patterns1)::value_type;
     gridtools::communication_object_erased<gridtools::protocol::mpi,typename pattern_t::grid_type,int> co_erased;
 
-    //gridtools::communication_object<typename decltype(patterns1)::value_type> co;
-
     my_field<double, gridtools::device::cpu> field1_a{0};
     my_field<double, gridtools::device::gpu> field1_b{1};
 
     my_field<int, gridtools::device::cpu> field2_a{0};
     my_field<int, gridtools::device::gpu> field2_b{1};
-
-    /*co.exchange(
-        patterns1(field1_a),
-        patterns1(field1_b),
-        patterns2(field2_a),
-        patterns2(field2_b)
-    );*/
 
     auto h = co_erased.exchange(
         patterns1(field1_a),
@@ -203,8 +194,6 @@ bool test0(boost::mpi::communicator& mpi_comm)
         patterns2(field2_a),
         patterns2(field2_b)
     );
-
-    //h.post();
 
     h.wait();
 
