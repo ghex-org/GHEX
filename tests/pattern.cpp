@@ -56,7 +56,7 @@ struct my_field
             for (int k=is.first()[2]; k<=is.last()[2]; ++k)
             {
                 std::cout << "packing [" << i << ", " << j << ", " << k << "] at " << (void*)(&(buffer[counter])) << std::endl;
-                buffer[counter++] = T(100);
+                buffer[counter++] = T(i);
             }
         }
     }
@@ -204,7 +204,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
         patterns2(field2_b)
     );
 
-    h.post();
+    //h.post();
 
     h.wait();
 

@@ -274,6 +274,7 @@ namespace gridtools {
                 ++i;
             });
 
+            h.post();
             return std::move(h);
         }
 
