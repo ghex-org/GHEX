@@ -57,11 +57,13 @@ namespace gridtools {
                 void* m_buffer;
             };
 
+            using chunk_vector_type = std::vector<chunk_type>;
+
             const pattern_type* m_pattern;
             pack_function_type m_pack;
             unpack_function_type m_unpack;
-            std::vector<chunk_type> m_recv_chunks;
-            std::vector<chunk_type> m_send_chunks;
+            chunk_vector_type m_recv_chunks;
+            chunk_vector_type m_send_chunks;
         };
 
     private:
@@ -122,10 +124,11 @@ namespace gridtools {
     template<typename P, typename GridType, typename DomainIdType>
     class communication_object_erased
     {
-    private:
-
-        friend class communication_handle<P,GridType,DomainIdType>;
+    public:
         using handle_type             = communication_handle<P,GridType,DomainIdType>;
+
+    private:
+        friend class communication_handle<P,GridType,DomainIdType>;
         using communicator_type       = typename handle_type::communicator_type;
         using pattern_type            = typename handle_type::pattern_type;
         using index_container_type    = typename handle_type::index_container_type;
@@ -171,74 +174,35 @@ namespace gridtools {
             memory_t memory_tuple{&(std::get<buffer_memory<Devices>>(m_mem))...};
 
             int i = 0;
-            detail::for_each(memory_tuple, buffer_info_tuple, [&i,&h](auto mem, auto bi) 
+            detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&h](auto mem, auto bi) 
             {
                 using device_type = typename std::remove_reference_t<decltype(*mem)>::device_type;
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
                 auto& f     = h.m_fields[i];
                 f.m_pattern = &(bi->get_pattern());
-                f.m_pack    = [bi](void* buffer, const index_container_type& c) {bi->get_field().pack(reinterpret_cast<value_type*>(buffer),c); };
-                f.m_unpack  = [bi](const void* buffer, const index_container_type& c) {bi->get_field().unpack(reinterpret_cast<const value_type*>(buffer),c); };
+                f.m_pack    = [bi](void* buffer, const index_container_type& c) 
+                                  { bi->get_field().pack(reinterpret_cast<value_type*>(buffer),c); };
+                f.m_unpack  = [bi](const void* buffer, const index_container_type& c) 
+                                  { bi->get_field().unpack(reinterpret_cast<const value_type*>(buffer),c); };
                 f.m_recv_chunks.resize(f.m_pattern->recv_halos().size());
                 f.m_send_chunks.resize(f.m_pattern->send_halos().size());
-
                 auto& m_recv = mem->recv_memory[bi->device_id()];
                 auto& m_send = mem->send_memory[bi->device_id()];
-
-                int j=0;
-                for (const auto& p_id_c : f.m_pattern->recv_halos())
-                {
-                    auto it = m_recv.find(p_id_c.first);
-                    if (it == m_recv.end())
-                        it = m_recv.insert(std::make_pair(p_id_c.first, device_type::template make_vector<char>(bi->device_id()))).first;
-                    f.m_recv_chunks[j].m_offset = it->second.size();
-                    it->second.resize( 
-                        it->second.size() 
-                        + alignof(value_type) 
-                        + static_cast<std::size_t>(pattern_type::num_elements(p_id_c.second))*sizeof(value_type));
-                    ++j;
-                }
-                j=0;
-                for (const auto& p_id_c : f.m_pattern->send_halos())
-                {
-                    auto it = m_send.find(p_id_c.first);
-                    if (it == m_send.end())
-                        it = m_send.insert(std::make_pair(p_id_c.first, device_type::template make_vector<char>(bi->device_id()))).first;
-                    f.m_send_chunks[j].m_offset = it->second.size();
-                    it->second.resize( 
-                        it->second.size() 
-                        + alignof(value_type) 
-                        + static_cast<std::size_t>(pattern_type::num_elements(p_id_c.second))*sizeof(value_type));
-                    ++j;
-                }
+                allocate<device_type, value_type>(f.m_pattern->recv_halos(), m_recv, bi->device_id(), f.m_recv_chunks);
+                allocate<device_type, value_type>(f.m_pattern->send_halos(), m_send, bi->device_id(), f.m_send_chunks);
                 ++i;
             });
 
             i = 0;
-            detail::for_each(memory_tuple, buffer_info_tuple, [&i,&h](auto mem, auto bi) 
+            detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&h](auto mem, auto bi) 
             {
                 using device_type = typename std::remove_reference_t<decltype(*mem)>::device_type;
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
                 auto& f     = h.m_fields[i];
                 auto& m_recv = mem->recv_memory[bi->device_id()];
                 auto& m_send = mem->send_memory[bi->device_id()];
-
-                int j=0;
-                for (const auto& p_id_c : f.m_pattern->recv_halos())
-                {
-                    auto& vec = m_recv[p_id_c.first];
-                    f.m_recv_chunks[j].m_buffer = device_type::template align<value_type>(
-                        vec.data()+f.m_recv_chunks[j].m_offset, bi->device_id());
-                    ++j;
-                }
-                j=0;
-                for (const auto& p_id_c : f.m_pattern->send_halos())
-                {
-                    auto& vec = m_send[p_id_c.first];
-                    f.m_send_chunks[j].m_buffer = device_type::template align<value_type>(
-                        vec.data()+f.m_send_chunks[j].m_offset, bi->device_id());
-                    ++j;
-                }
+                align<device_type, value_type>(f.m_pattern->recv_halos(), m_recv, bi->device_id(), f.m_recv_chunks);
+                align<device_type, value_type>(f.m_pattern->send_halos(), m_send, bi->device_id(), f.m_send_chunks);
                 ++i;
             });
 
@@ -248,15 +212,40 @@ namespace gridtools {
 
     private:
 
-        template<typename D>
-        void allocate()
+        template<typename Device, typename ValueType>
+        void allocate(
+            const typename pattern_type::map_type& halos, 
+            typename buffer_memory<Device>::memory_type::mapped_type& memory, 
+            typename Device::id_type device_id, 
+            typename handle_type::field::chunk_vector_type& chunks)
         {
-            // todo: simplify code above by calling this function
+            std::size_t j=0;
+            for (const auto& p_id_c : halos)
+            {
+                auto it = memory.find(p_id_c.first);
+                if (it == memory.end())
+                    it = memory.insert(std::make_pair(p_id_c.first, Device::template make_vector<char>(device_id))).first;
+                chunks[j].m_offset = it->second.size();
+                it->second.resize(it->second.size() + alignof(ValueType) +
+                                  static_cast<std::size_t>(pattern_type::num_elements(p_id_c.second))*sizeof(ValueType));
+                ++j;
+            }
         }
-        template<typename D>
-        void align()
+
+        template<typename Device, typename ValueType>
+        void align(
+            const typename pattern_type::map_type& halos, 
+            typename buffer_memory<Device>::memory_type::mapped_type& memory, 
+            typename Device::id_type device_id, 
+            typename handle_type::field::chunk_vector_type& chunks)
         {
-            // todo: simplify code above by calling this function
+            int j=0;
+            for (const auto& p_id_c : halos)
+            {
+                auto& vec = memory[p_id_c.first];
+                chunks[j].m_buffer = Device::template align<ValueType>(vec.data()+chunks[j].m_offset, device_id);
+                ++j;
+            }
         }
 
         void clear()
@@ -272,6 +261,40 @@ namespace gridtools {
             });
         }
     };
+
+    namespace detail {
+
+        template<typename Test, typename... Ts>
+        struct test_eq_t {};
+
+        template<typename Test, typename T0, typename T1, typename... Ts>
+        struct test_eq_t<Test,T0,T1,Ts...> : public 
+            std::integral_constant<
+                bool, 
+                std::is_same_v<Test,T0> && test_eq_t<Test,T1,Ts...>::value
+            > {};
+
+        template<typename Test, typename T0>
+        struct test_eq_t<Test,T0> : public 
+            std::integral_constant<bool, std::is_same_v<Test,T0>> {};
+
+    } // namespace detail
+
+    template<typename... Patterns>
+    auto make_communication_object(const Patterns& ... p)
+    {
+        using in_t = std::tuple<Patterns...>;
+        using ps_t = std::tuple<typename Patterns::value_type...>;
+        using p_t  = std::tuple_element_t<0,ps_t>;
+        using protocol_type    = typename p_t::communicator_type::protocol_type;
+        using grid_type        = typename p_t::grid_type;
+        using domain_id_type   = typename p_t::domain_id_type;
+
+        using test_t = pattern_container<protocol_type,grid_type,domain_id_type>;
+        static_assert(detail::test_eq_t<test_t,Patterns...>::value, "patterns are incompatible");
+
+        return std::move(communication_object_erased<protocol_type,grid_type,domain_id_type>());
+    }
 
 } // namespace gridtools
 

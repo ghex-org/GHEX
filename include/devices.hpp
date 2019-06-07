@@ -12,6 +12,7 @@
 #define INCLUDED_DEVICES_HPP
 
 #include <tuple>
+#include <boost/align/aligned_allocator_adaptor.hpp>
 
 namespace gridtools {
 
@@ -24,9 +25,15 @@ namespace gridtools {
             static constexpr const char* name = "CPU";
 
             static id_type default_id() { return 0; }
+
+            template<typename T>
+            using allocator_type = std::allocator<T>;
+
+            template<typename T>
+            using aligned_allocator_type = boost::alignment::aligned_allocator_adaptor<allocator_type<T>, 64>;
             
             template<typename T>
-            using vector_type = std::vector<T, std::allocator<T>>;
+            using vector_type = std::vector<T, aligned_allocator_type<T>>;
 
             /*struct handle
             {
@@ -36,7 +43,7 @@ namespace gridtools {
             template<typename T>
             static vector_type<T> make_vector(id_type index = default_id()) 
             { 
-                return vector_type<T>{std::allocator<T>()}; 
+                return vector_type<T>{aligned_allocator_type<T>()}; 
             }
 
             template<typename T>
@@ -56,7 +63,13 @@ namespace gridtools {
             static id_type default_id() { return 0; }
 
             template<typename T>
-            using vector_type = std::vector<T, std::allocator<T>>;
+            using allocator_type = std::allocator<T>;
+
+            template<typename T>
+            using aligned_allocator_type = boost::alignment::aligned_allocator_adaptor<allocator_type<T>, 64>;
+            
+            template<typename T>
+            using vector_type = std::vector<T, aligned_allocator_type<T>>;
 
             /*struct handle
             {
@@ -66,7 +79,7 @@ namespace gridtools {
             template<typename T>
             static vector_type<T> make_vector(id_type index = default_id()) 
             { 
-                return vector_type<T>{std::allocator<T>()}; 
+                return vector_type<T>{aligned_allocator_type<T>()}; 
             }
 
             template<typename T>

@@ -179,8 +179,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
     auto patterns1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
     auto patterns2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
 
-    using pattern_t = typename decltype(patterns1)::value_type;
-    gridtools::communication_object_erased<gridtools::protocol::mpi,typename pattern_t::grid_type,int> co_erased;
+    auto co = gridtools::make_communication_object(patterns1,patterns2);
 
     my_field<double, gridtools::device::cpu> field1_a{0};
     my_field<double, gridtools::device::gpu> field1_b{1};
@@ -188,7 +187,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
     my_field<int, gridtools::device::cpu> field2_a{0};
     my_field<int, gridtools::device::gpu> field2_b{1};
 
-    auto h = co_erased.exchange(
+    auto h = co.exchange(
         patterns1(field1_a),
         patterns1(field1_b),
         patterns2(field2_a),
