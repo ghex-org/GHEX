@@ -73,7 +73,8 @@ struct my_field
             for (int k=is.first()[2]; k<=is.last()[2]; ++k)
             {
                 std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
-                T res = buffer[counter++];
+                //T res = buffer[counter++];
+                ++counter;
             }
         }
     }

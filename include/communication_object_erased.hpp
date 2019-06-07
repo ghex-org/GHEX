@@ -281,9 +281,8 @@ namespace gridtools {
     } // namespace detail
 
     template<typename... Patterns>
-    auto make_communication_object(const Patterns& ... p)
+    auto make_communication_object(const Patterns&...)
     {
-        using in_t = std::tuple<Patterns...>;
         using ps_t = std::tuple<typename Patterns::value_type...>;
         using p_t  = std::tuple_element_t<0,ps_t>;
         using protocol_type    = typename p_t::communicator_type::protocol_type;
