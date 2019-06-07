@@ -80,7 +80,7 @@ namespace gridtools {
 
 
 
-        template<typename T0, typename T1>
+        /*template<typename T0, typename T1>
         struct ct_max
         {
             using type = std::integral_constant<std::size_t, ((T0::value) > (T1::value) ? (T0::value) : (T1::value))>;
@@ -105,7 +105,7 @@ namespace gridtools {
         struct ct_reduce<Op,Ta,Tb,Tc,Ts...>
         {
             using type = typename ct_reduce<Op, typename ct_reduce<Op,Ta,Tb>::type, Tc, Ts...>::type;
-        };
+        };*/
 
 
     }   // namespace detail

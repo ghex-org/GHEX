@@ -7,7 +7,8 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-
+#ifndef INCLUDED_GTEST_MAIN_BOOST_CPP
+#define INCLUDED_GTEST_MAIN_BOOST_CPP
 #include <cstdio>
 #include "gtest/gtest.h"
 #include <boost/mpi/environment.hpp>
@@ -22,3 +23,5 @@ GTEST_API_ int main(int argc, char **argv) {
     return RUN_ALL_TESTS();
 
 }
+
+#endif /* INCLUDED_GTEST_MAIN_BOOST_CPP */

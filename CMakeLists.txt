@@ -4,8 +4,8 @@ cmake_policy(SET CMP0048 NEW)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 
-#set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
@@ -37,6 +37,10 @@ target_link_libraries(mpi_all_to_all ${exe_LIBS} GridTools::gridtools GridTools:
 add_executable( pattern tests/pattern.cpp )
 target_compile_options(pattern PRIVATE -DOS_MPI)
 target_link_libraries(pattern ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
+
+#add_executable( co tests/communication_object.cpp )
+#target_compile_options(co PRIVATE -DOS_MPI)
+#target_link_libraries(co ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
 
 enable_testing()
 

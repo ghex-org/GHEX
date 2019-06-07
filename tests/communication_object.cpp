@@ -16,14 +16,14 @@
 #include <boost/mpi/environment.hpp>
 #include <boost/mpi/communicator.hpp>
 #include <gridtools/common/layout_map.hpp>
-#include "gridtools_arch.hpp"
-#include "communication_object.hpp"
-#include "protocol/communicator_base.hpp"
-#include "protocol/mpi.hpp"
-#include "pattern.hpp"
-#include "structured_pattern.hpp"
+#include "../include/gridtools_arch.hpp"
+#include "../include/communication_object.hpp"
+#include "../include/protocol/communicator_base.hpp"
+#include "../include/protocol/mpi.hpp"
+#include "../include/pattern.hpp"
+#include "../include/structured_pattern.hpp"
 #include "triplet.hpp"
-#include "utils.hpp"
+#include "../include/utils.hpp"
 
 
 struct my_domain_desc {
@@ -147,6 +147,7 @@ auto halo_gen = [](const my_domain_desc& d) {
 
 
 TEST(communication_object, constructor) {
+//void test_constructor() {
 
     using coordinate_type = my_domain_desc::coordinate_type;
 
@@ -176,14 +177,16 @@ TEST(communication_object, constructor) {
 
     std::vector<communication_object_type> cos;
     for (const auto& p : patterns) {
-        EXPECT_NO_THROW(cos.push_back(communication_object_type{p}));
+        EXPECT_NO_THROW(
+        cos.push_back(communication_object_type{p});
+        );
     }
 
 }
 
 
 TEST(communication_object, exchange) {
-
+//void test_exchange() {
     using coordinate_type = my_domain_desc::coordinate_type;
 
     boost::mpi::communicator world;
@@ -225,4 +228,16 @@ TEST(communication_object, exchange) {
 }
 
 #include "gtest_main_boost.cpp"
+/*int main(int argc, char** argv)
+{
+    boost::mpi::environment env(argc, argv);
+
+    test_constructor();
+    test_exchange();
+
+    return 0;
+}*/
+
+
+
 

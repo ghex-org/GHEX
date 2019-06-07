@@ -19,14 +19,14 @@ namespace gridtools {
 
     namespace detail {
 
-        template<std::size_t I = 0, typename Func, typename ...Args>
+        /*template<std::size_t I = 0, typename Func, typename ...Args>
         typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>&, Func) {}
 
         template<std::size_t I = 0, typename Func, typename ...Args>
         typename std::enable_if<(I < sizeof...(Args))>::type for_each(std::tuple<Args...>& t, Func f) {
                 f(std::get<I>(t));
                 for_each<I+1, Func, Args...>(t, f);
-        }
+        }*/
 
         template<typename Func>
         void invoke_with_arg(Func&&)
@@ -89,7 +89,7 @@ namespace gridtools {
             );
         }
 
-        template<typename T0, typename T1>
+        /*template<typename T0, typename T1>
         struct ct_max
         {
             using type = std::integral_constant<std::size_t, ((T0::value) > (T1::value) ? (T0::value) : (T1::value))>;
@@ -114,7 +114,7 @@ namespace gridtools {
         struct ct_reduce<Op,Ta,Tb,Tc,Ts...>
         {
             using type = typename ct_reduce<Op, typename ct_reduce<Op,Ta,Tb>::type, Tc, Ts...>::type;
-        };
+        };*/
 
         template<int D, int I, typename Layout=void>
         struct for_loop

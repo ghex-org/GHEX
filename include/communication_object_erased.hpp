@@ -11,7 +11,7 @@
 #ifndef INCLUDED_COMMUNICATION_OBJECT_ERASED_HPP
 #define INCLUDED_COMMUNICATION_OBJECT_ERASED_HPP
 
-#include "util.hpp"
+#include "utils.hpp"
 #include "buffer_info.hpp"
 #include "devices.hpp"
 
@@ -271,12 +271,12 @@ namespace gridtools {
         struct test_eq_t<Test,T0,T1,Ts...> : public 
             std::integral_constant<
                 bool, 
-                std::is_same_v<Test,T0> && test_eq_t<Test,T1,Ts...>::value
+                std::is_same<Test,T0>::value && test_eq_t<Test,T1,Ts...>::value
             > {};
 
         template<typename Test, typename T0>
         struct test_eq_t<Test,T0> : public 
-            std::integral_constant<bool, std::is_same_v<Test,T0>> {};
+            std::integral_constant<bool, std::is_same<Test,T0>::value> {};
 
     } // namespace detail
 
