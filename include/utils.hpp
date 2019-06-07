@@ -20,7 +20,7 @@ namespace gridtools {
     namespace detail {
 
         template<std::size_t I = 0, typename Func, typename ...Args>
-        typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>& t, Func) {}
+        typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>&, Func) {}
 
         template<std::size_t I = 0, typename Func, typename ...Args>
         typename std::enable_if<(I < sizeof...(Args))>::type for_each(std::tuple<Args...>& t, Func f) {

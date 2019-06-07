@@ -174,8 +174,51 @@ TEST(communication_object, constructor) {
     using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
 
     std::vector<communication_object_type> cos;
-    for (auto& p : patterns) {
+    for (const auto& p : patterns) {
         EXPECT_NO_THROW(cos.push_back(communication_object_type{p}));
+    }
+
+}
+
+
+TEST(communication_object, exchange) {
+
+    using coordinate_type = my_domain_desc::coordinate_type;
+
+    boost::mpi::communicator world;
+    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+
+    /* same domain setup as for pattern test */
+    std::vector<my_domain_desc> local_domains;
+
+    my_domain_desc my_domain_1{
+        comm.rank()*2,
+        coordinate_type{(comm.rank()%2)*20, (comm.rank()/2)*15, 0},
+        coordinate_type{(comm.rank()%2)*20+9, (comm.rank()/2+1)*15-1, 19}
+    };
+    local_domains.push_back(my_domain_1);
+
+    my_domain_desc my_domain_2{
+        comm.rank()*2+1,
+        coordinate_type{(comm.rank()%2)*20+10, (comm.rank()/2)*15, 0},
+        coordinate_type{(comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19}
+    };
+    local_domains.push_back(my_domain_2);
+
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+
+    using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+
+    std::vector<communication_object_type> cos;
+    for (const auto& p : patterns) {
+        cos.push_back(communication_object_type{p});
+    }
+
+    for (auto& co : cos) {
+        EXPECT_NO_THROW(
+            auto h = co.exchange();
+            h.wait();
+        );
     }
 
 }

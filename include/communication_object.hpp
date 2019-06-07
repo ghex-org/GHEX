@@ -113,6 +113,8 @@ namespace gridtools {
 
             }
 
+        public:
+
             handle(const MapType& receive_halos,
                    std::vector<Future>&& receive_requests,
                    std::vector<std::vector<Byte>>&& receive_buffers,
@@ -122,11 +124,9 @@ namespace gridtools {
                 m_receive_buffers{std::move(receive_buffers)},
                 m_data_descriptors{std::move(data_descriptors)} {}
 
-        public:
-
             void wait() {
 
-                for (auto r : m_receive_requests) { r.wait(); }
+                for (auto& r : m_receive_requests) { r.wait(); }
 
                 unpack();
 
@@ -148,8 +148,12 @@ namespace gridtools {
 
             std::vector<std::vector<Byte>> send_buffers(n_send_halos);
             std::vector<std::vector<Byte>> receive_buffers(n_receive_halos);
-            std::vector<Future> send_requests(n_send_halos);
-            std::vector<Future> receive_requests(n_receive_halos);
+
+            std::vector<Future> send_requests;
+            send_requests.reserve(n_send_halos); // no default constructor
+
+            std::vector<Future> receive_requests;
+            receive_requests.reserve(n_receive_halos); // no default constructor
 
             auto data_descriptors = std::make_tuple(dds...);
 
@@ -166,10 +170,10 @@ namespace gridtools {
 
                 receive_buffers[halo_index].resize(receive_buffer_size(iteration_spaces, data_descriptors));
 
-                receive_requests[halo_index] = m_communicator.irecv(source,
+                receive_requests.push_back(m_communicator.irecv(source,
                         tag,
                         &receive_buffers[halo_index][0],
-                        static_cast<int>(receive_buffers[halo_index].size()));
+                        static_cast<int>(receive_buffers[halo_index].size())));
 
                 ++halo_index;
 
@@ -184,12 +188,11 @@ namespace gridtools {
 
                 auto dest = halo.first.address;
                 auto tag = halo.first.tag;
-                auto& iteration_spaces = halo.second;
 
-                send_requests[halo_index] = m_communicator.isend(dest,
+                send_requests.push_back(m_communicator.isend(dest,
                         tag,
                         &send_buffers[halo_index][0],
-                        static_cast<int>(send_buffers[halo_index].size()));
+                        static_cast<int>(send_buffers[halo_index].size())));
 
                 ++halo_index;
 
@@ -197,7 +200,7 @@ namespace gridtools {
 
             /* SEND WAIT */
 
-            for (auto r : send_requests) { r.wait(); }
+            for (auto& r : send_requests) { r.wait(); }
 
             return {m_receive_halos, std::move(receive_requests), std::move(receive_buffers), std::move(data_descriptors)};
 
