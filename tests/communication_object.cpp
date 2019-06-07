@@ -9,10 +9,11 @@
  */
 
 #include <gtest/gtest.h>
-#include "gtest_main_boost.cpp"
+//#include "gtest_main_boost.cpp"
 #include <vector>
 #include <array>
 #include <utility>
+#include <boost/mpi/environment.hpp>
 #include <boost/mpi/communicator.hpp>
 #include <gridtools/common/layout_map.hpp>
 #include "gridtools_arch.hpp"
@@ -222,3 +223,6 @@ TEST(communication_object, exchange) {
     }
 
 }
+
+#include "gtest_main_boost.cpp"
+

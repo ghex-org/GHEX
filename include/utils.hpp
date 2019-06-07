@@ -7,8 +7,8 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef INCLUDED_UTIL_HPP
-#define INCLUDED_UTIL_HPP
+#ifndef INCLUDED_UTILS_HPP
+#define INCLUDED_UTILS_HPP
 
 #include <utility>
 #include <tuple>
@@ -241,7 +241,7 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_UTIL_HPP */
+#endif /* INCLUDED_UTILS_HPP */
 
 // modelines
 // vim: set ts=4 sw=4 sts=4 et: 
