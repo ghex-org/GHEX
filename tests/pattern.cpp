@@ -177,10 +177,10 @@ bool test0(boost::mpi::communicator& mpi_comm)
 
     //auto patterns = gridtools::make_pattern<gridtools::protocol::mpi, gridtools::structured_grid>(comm, halo_gen, local_domains);
     
-    auto patterns1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
-    auto patterns2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
+    auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
+    auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
 
-    auto co = gridtools::make_communication_object(patterns1,patterns2);
+    auto co       = gridtools::make_communication_object(pattern1,pattern2);
 
     my_field<double, gridtools::device::cpu> field1_a{0};
     my_field<double, gridtools::device::gpu> field1_b{1};
@@ -189,10 +189,10 @@ bool test0(boost::mpi::communicator& mpi_comm)
     my_field<int, gridtools::device::gpu> field2_b{1};
 
     auto h = co.exchange(
-        patterns1(field1_a),
-        patterns1(field1_b),
-        patterns2(field2_a),
-        patterns2(field2_b)
+        pattern1(field1_a),
+        pattern1(field1_b),
+        pattern2(field2_a),
+        pattern2(field2_b)
     );
 
     h.wait();
