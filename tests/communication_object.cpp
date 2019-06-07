@@ -78,6 +78,10 @@ public:
         m_domain{domain},
         m_values{values} {}
 
+    std::size_t data_type_size() const {
+        return sizeof (T);
+    }
+
     void set(const T& value, const coordinate_type& coords) {
         m_values(coords[0], coords[1], coords[2]) = value;
     }
@@ -184,6 +188,7 @@ TEST(communication_object, constructor) {
 TEST(communication_object, exchange) {
 
     using coordinate_type = my_domain_desc::coordinate_type;
+    using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
     boost::mpi::communicator world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
@@ -191,19 +196,19 @@ TEST(communication_object, exchange) {
     /* same domain setup as for pattern test */
     std::vector<my_domain_desc> local_domains;
 
-    my_domain_desc my_domain_1{
+    my_domain_desc domain_1{
         comm.rank()*2,
         coordinate_type{(comm.rank()%2)*20, (comm.rank()/2)*15, 0},
         coordinate_type{(comm.rank()%2)*20+9, (comm.rank()/2+1)*15-1, 19}
     };
-    local_domains.push_back(my_domain_1);
+    local_domains.push_back(domain_1);
 
-    my_domain_desc my_domain_2{
+    my_domain_desc domain_2{
         comm.rank()*2+1,
         coordinate_type{(comm.rank()%2)*20+10, (comm.rank()/2)*15, 0},
         coordinate_type{(comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19}
     };
-    local_domains.push_back(my_domain_2);
+    local_domains.push_back(domain_2);
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
@@ -214,16 +219,32 @@ TEST(communication_object, exchange) {
         cos.push_back(communication_object_type{p});
     }
 
-    /*
-    for (auto& co : cos) {
-        EXPECT_NO_THROW(
-            auto h = co.exchange();
-            h.wait();
-        );
-    }
-    */
+    triple_t<USE_DOUBLE, double> *_values_1 = new triple_t<USE_DOUBLE, double>[(10) * (15) * (20)];
+    array<triple_t<USE_DOUBLE, double>, layout_map_type> values_1(_values_1, (10), (15), (20));
+    my_data_desc<triple_t<USE_DOUBLE, double>, my_domain_desc> data_1{domain_1, values_1};
 
-    auto h = cos[0].exchange();
-    h.wait();
+    triple_t<USE_DOUBLE, double> *_values_2 = new triple_t<USE_DOUBLE, double>[(10) * (15) * (20)];
+    array<triple_t<USE_DOUBLE, double>, layout_map_type> values_2(_values_2, (10), (15), (20));
+    my_data_desc<triple_t<USE_DOUBLE, double>, my_domain_desc> data_2{domain_2, values_2};
+
+    /* Just an initialization */
+    for (int ii = 0; ii < 10; ++ii)
+        for (int jj = 0; jj < 15; ++jj)
+            for (int kk = 0; kk < 20; ++kk)
+                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+    for (int ii = 0; ii < 10; ++ii)
+        for (int jj = 0; jj < 15; ++jj)
+            for (int kk = 0; kk < 20; ++kk)
+                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+
+    //EXPECT_NO_THROW(
+
+        auto h_1 = cos[0].exchange(data_1);
+        auto h_2 = cos[1].exchange(data_2);
+
+        h_1.wait();
+        h_2.wait();
+
+    //);
 
 }

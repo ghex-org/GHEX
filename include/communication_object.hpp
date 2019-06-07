@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <tuple>
+#include <iostream>
 #include "gridtools_arch.hpp"
 #include "utils.hpp"
 
@@ -100,7 +101,7 @@ namespace gridtools {
 
                     /* The two loops are performed with this order
                      * in order to have as many data of the same type as possible in contiguos memory */
-                    gridtools::detail::for_each(m_data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](const auto& dd) {
+                    gridtools::detail::for_each(m_data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](auto& dd) {
                         for (const auto& is : iteration_spaces) {
                             dd.set(is, &m_receive_buffers[halo_index][buffer_index]);
                             buffer_index += is.size();
@@ -126,8 +127,9 @@ namespace gridtools {
 
             void wait() {
 
+                int i{0};
                 for (auto& r : m_receive_requests) {
-                    std::cout << "DEBUG: waititng for request n. "  <<
+                    std::cout << "DEBUG: waititng for receive request n. " << i++ << " \n";
                     r.wait();
                 }
 
@@ -173,6 +175,8 @@ namespace gridtools {
 
                 receive_buffers[halo_index].resize(receive_buffer_size(iteration_spaces, data_descriptors));
 
+                std::cout<< "DEBUG: Starting receive request for halo_index = " << halo_index << " \n";
+
                 receive_requests.push_back(m_communicator.irecv(source,
                         tag,
                         &receive_buffers[halo_index][0],
@@ -192,6 +196,8 @@ namespace gridtools {
                 auto dest = halo.first.address;
                 auto tag = halo.first.tag;
 
+                std::cout<< "DEBUG: Starting send request for halo_index = " << halo_index << " \n";
+
                 send_requests.push_back(m_communicator.isend(dest,
                         tag,
                         &send_buffers[halo_index][0],
@@ -203,7 +209,11 @@ namespace gridtools {
 
             /* SEND WAIT */
 
-            for (auto& r : send_requests) { r.wait(); }
+            int i{0};
+            for (auto& r : send_requests) {
+                std::cout << "DEBUG: waititng for send request n. " << i++ << " \n";
+                r.wait();
+            }
 
             return {m_receive_halos, std::move(receive_requests), std::move(receive_buffers), std::move(data_descriptors)};
 
