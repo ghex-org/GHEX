@@ -214,11 +214,16 @@ TEST(communication_object, exchange) {
         cos.push_back(communication_object_type{p});
     }
 
+    /*
     for (auto& co : cos) {
         EXPECT_NO_THROW(
             auto h = co.exchange();
             h.wait();
         );
     }
+    */
+
+    auto h = cos[0].exchange();
+    h.wait();
 
 }

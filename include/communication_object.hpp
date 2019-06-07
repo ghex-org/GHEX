@@ -126,7 +126,10 @@ namespace gridtools {
 
             void wait() {
 
-                for (auto& r : m_receive_requests) { r.wait(); }
+                for (auto& r : m_receive_requests) {
+                    std::cout << "DEBUG: waititng for request n. "  <<
+                    r.wait();
+                }
 
                 unpack();
 
