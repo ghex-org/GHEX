@@ -34,10 +34,14 @@ namespace gridtools {
     template<typename P, typename GridType, typename DomainIdType>
     class communication_object_erased;
 
+    /** @brief handle type for waiting on asynchronous communication processes
+     * @tparam P message protocol type
+     * @tparam GridType grid tag type
+     * @tparam DomainIdType domain id type*/
     template<typename P, typename GridType, typename DomainIdType>
     class communication_handle
     {
-    private:
+    private: // member types
         friend class communication_object_erased<P,GridType,DomainIdType>;
         using co_t = communication_object_erased<P,GridType,DomainIdType>;
 
@@ -49,6 +53,9 @@ namespace gridtools {
         using pack_function_type   = std::function<void(void*,const index_container_type&)>;
         using unpack_function_type = std::function<void(const void*,const index_container_type&)>;
 
+        // holds bookkeeping info for a data field
+        // - type erased function pointers to pack and unpack methods
+        // - pointers to memory locations
         struct field
         {
             struct chunk_type
@@ -66,10 +73,11 @@ namespace gridtools {
             chunk_vector_type m_send_chunks;
         };
 
-    private:
+    private: // private constructor
         communication_handle(co_t& co, const communicator_type& comm, std::size_t size) : m_co{&co}, m_comm{comm}, m_fields(size) {}
 
-    public:
+    public: // member function
+        /** @brief  wait for communication to be finished*/
         void wait()
         {
             for (auto& f : m_futures) f.wait();
@@ -77,7 +85,7 @@ namespace gridtools {
             m_co->clear();
         }
 
-    private:
+    private: // member functions
         void post()
         {
             pack();
@@ -114,20 +122,26 @@ namespace gridtools {
             }
         }
 
-    private:
+    private: // members
         co_t* m_co;
         communicator_type m_comm;
         std::vector<field> m_fields;
         std::vector<typename communicator_type::template future<void>> m_futures;
     };
 
+    /** @brief communication object responsible for exchanging halo data. Allocates storage depending on the 
+     * device type and device id of involved fields.
+     * @tparam P message protocol type
+     * @tparam GridType grid tag type
+     * @tparam DomainIdType domain id type*/
     template<typename P, typename GridType, typename DomainIdType>
     class communication_object_erased
     {
-    public:
+    public: // member types
+        /** @brief handle type returned by exhange operation */
         using handle_type             = communication_handle<P,GridType,DomainIdType>;
 
-    private:
+    private: // member types
         friend class communication_handle<P,GridType,DomainIdType>;
         using communicator_type       = typename handle_type::communicator_type;
         using pattern_type            = typename handle_type::pattern_type;
@@ -156,12 +170,29 @@ namespace gridtools {
 
         using memory_type = detail::transform<device::device_list>::with<buffer_memory>;
 
-    private:
-        
+    private: // members
         memory_type m_mem;
 
-    public:
+    public: // member functions
+        /**
+         * @brief blocking variant of halo exchange
+         * @tparam Devices list of device types
+         * @tparam Fields list of field types
+         * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
+         */
+        template<typename... Devices, typename... Fields>
+        void bexchange(buffer_info_type<Devices,Fields>... buffer_infos)
+        {
+            exchange(buffer_infos...).wait();
+        }
 
+        /**
+         * @brief non-blocking exchange of halo data
+         * @tparam Devices list of device types
+         * @tparam Fields list of field types
+         * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
+         * @return handle to await communication
+         */
         template<typename... Devices, typename... Fields>
         [[nodiscard]] handle_type exchange(buffer_info_type<Devices,Fields>... buffer_infos)
         {
@@ -210,8 +241,8 @@ namespace gridtools {
             return std::move(h);
         }
 
-    private:
-
+    private: // member functions
+        // allocate memory on device
         template<typename Device, typename ValueType>
         void allocate(
             const typename pattern_type::map_type& halos, 
@@ -232,6 +263,7 @@ namespace gridtools {
             }
         }
 
+        // align memory on device
         template<typename Device, typename ValueType>
         void align(
             const typename pattern_type::map_type& halos, 
@@ -248,6 +280,7 @@ namespace gridtools {
             }
         }
 
+        // reset storage (but doesn't deallocate)
         void clear()
         {
             detail::for_each(m_mem, [](auto& m)
@@ -264,6 +297,7 @@ namespace gridtools {
 
     namespace detail {
 
+        // helper template metafunction to test equality of a type with respect to all element types of a tuple
         template<typename Test, typename... Ts>
         struct test_eq_t {};
 
@@ -280,6 +314,12 @@ namespace gridtools {
 
     } // namespace detail
 
+    /**
+     * @brief creates a communication object based on the patterns involved
+     * @tparam Patterns list of pattern types
+     * @param ... unnamed list of pattern_holder objects
+     * @return communication object
+     */
     template<typename... Patterns>
     auto make_communication_object(const Patterns&...)
     {

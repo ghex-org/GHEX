@@ -188,14 +188,20 @@ bool test0(boost::mpi::communicator& mpi_comm)
     my_field<int, gridtools::device::cpu> field2_a{0};
     my_field<int, gridtools::device::gpu> field2_b{1};
 
-    auto h = co.exchange(
+    co.bexchange(
+        pattern1(field1_a),
+        pattern1(field1_b),
+        pattern2(field2_a),
+        pattern2(field2_b));
+
+    /*auto h = co.exchange(
         pattern1(field1_a),
         pattern1(field1_b),
         pattern2(field2_a),
         pattern2(field2_b)
     );
 
-    h.wait();
+    h.wait();*/
 
     return true;
 }
