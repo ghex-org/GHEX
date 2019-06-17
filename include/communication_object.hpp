@@ -38,8 +38,8 @@ namespace gridtools {
         const Communicator& m_communicator;
 
         template <typename... DataDescriptor>
-        std::size_t receive_buffer_size(const std::vector<IterationSpace>& iteration_spaces,
-                                        const std::tuple<DataDescriptor...>& data_descriptors) {
+        std::size_t buffer_size(const std::vector<IterationSpace>& iteration_spaces,
+                                const std::tuple<DataDescriptor...>& data_descriptors) {
 
             std::size_t size{0};
 
@@ -62,13 +62,16 @@ namespace gridtools {
 
                 auto iteration_spaces = halo.second;
 
-                send_buffers[halo_index].resize(0);
+                send_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
                 std::size_t buffer_index{0};
 
                 /* The two loops are performed with this order
                  * in order to have as many data of the same type as possible in contiguos memory */
                 gridtools::detail::for_each(data_descriptors, [&iteration_spaces, &send_buffers, &halo_index, &buffer_index](const auto& dd) {
                     for (const auto& is : iteration_spaces) {
+                        std::cout << "DEBUG: packing: halo index = " << halo_index << "; buffer index = " << buffer_index << " \n";
+                        std::cout << "DEBUG: send buffer[halo_index][buffer_index] = " << send_buffers[halo_index][buffer_index] << " \n";
+                        std::cout.flush();
                         dd.get(is, &send_buffers[halo_index][buffer_index]);
                         buffer_index += is.size();
                     }
@@ -130,6 +133,7 @@ namespace gridtools {
                 int i{0};
                 for (auto& r : m_receive_requests) {
                     std::cout << "DEBUG: waititng for receive request n. " << i++ << " \n";
+                    std::cout.flush();
                     r.wait();
                 }
 
@@ -173,9 +177,10 @@ namespace gridtools {
                 auto tag = halo.first.tag;
                 auto& iteration_spaces = halo.second;
 
-                receive_buffers[halo_index].resize(receive_buffer_size(iteration_spaces, data_descriptors));
+                receive_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
 
-                std::cout<< "DEBUG: Starting receive request for halo_index = " << halo_index << " \n";
+                std::cout << "DEBUG: Starting receive request for halo_index = " << halo_index << " \n";
+                std::cout.flush();
 
                 receive_requests.push_back(m_communicator.irecv(source,
                         tag,
@@ -196,7 +201,8 @@ namespace gridtools {
                 auto dest = halo.first.address;
                 auto tag = halo.first.tag;
 
-                std::cout<< "DEBUG: Starting send request for halo_index = " << halo_index << " \n";
+                std::cout << "DEBUG: Starting send request for halo_index = " << halo_index << " \n";
+                std::cout.flush();
 
                 send_requests.push_back(m_communicator.isend(dest,
                         tag,
@@ -212,6 +218,7 @@ namespace gridtools {
             int i{0};
             for (auto& r : send_requests) {
                 std::cout << "DEBUG: waititng for send request n. " << i++ << " \n";
+                std::cout.flush();
                 r.wait();
             }
 
