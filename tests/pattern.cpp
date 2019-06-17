@@ -25,6 +25,14 @@ struct my_domain_desc
         coordinate_type m_last;
     };
 
+    struct box2
+    {
+        const box& local() const { return m_local; }
+        const box& global() const { return m_global; }
+        box m_local;
+        box m_global;
+    };
+
     domain_id_type domain_id() const { return m_id; }
     const coordinate_type& first() const { return m_first; }
     const coordinate_type& last() const { return m_last; }
@@ -51,9 +59,9 @@ struct my_field
         for (const auto& is : c)
         {
             std::size_t counter=0;
-            for (int i=is.first()[0]; i<=is.last()[0]; ++i)
-            for (int j=is.first()[1]; j<=is.last()[1]; ++j)
-            for (int k=is.first()[2]; k<=is.last()[2]; ++k)
+            for (int i=is.global().first()[0]; i<=is.global().last()[0]; ++i)
+            for (int j=is.global().first()[1]; j<=is.global().last()[1]; ++j)
+            for (int k=is.global().first()[2]; k<=is.global().last()[2]; ++k)
             {
                 std::cout << "packing [" << i << ", " << j << ", " << k << "] at " << (void*)(&(buffer[counter])) << std::endl;
                 buffer[counter++] = T(i);
@@ -68,9 +76,9 @@ struct my_field
         {
             //T res;
             std::size_t counter=0;
-            for (int i=is.first()[0]; i<=is.last()[0]; ++i)
-            for (int j=is.first()[1]; j<=is.last()[1]; ++j)
-            for (int k=is.first()[2]; k<=is.last()[2]; ++k)
+            for (int i=is.global().first()[0]; i<=is.global().last()[0]; ++i)
+            for (int j=is.global().first()[1]; j<=is.global().last()[1]; ++j)
+            for (int k=is.global().first()[2]; k<=is.global().last()[2]; ++k)
             {
                 std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
                 //T res = buffer[counter++];
@@ -103,7 +111,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
 
     auto halo_gen1 = [&mpi_comm](const my_domain_desc& d)
         {
-            std::vector<typename my_domain_desc::box> halos;
+            std::vector<typename my_domain_desc::box2> halos;
             /*typename my_domain_desc::box bottom{ d.first(), d.last() };
 
             bottom.m_last[2]   = bottom.m_first[2]-1;
@@ -119,7 +127,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
 
             halos.push_back( top );*/
 
-            typename my_domain_desc::box left{ d.first(), d.last() };
+            /*typename my_domain_desc::box left{ d.first(), d.last() };
             left.m_last[0]   = left.m_first[0]-1; 
             left.m_first[0] -= 2;
             left.m_first[0]  = (left.m_first[0]+40)%40;
@@ -133,15 +141,15 @@ bool test0(boost::mpi::communicator& mpi_comm)
             right.m_first[0]  = (right.m_first[0]+40)%40;
             right.m_last[0]   = (right.m_last[0]+40)%40;
 
-            halos.push_back( right );
+            halos.push_back( right );*/
 
             return halos;
         };
 
     auto halo_gen2 = [&mpi_comm](const my_domain_desc& d)
         {
-            std::vector<typename my_domain_desc::box> halos;
-            typename my_domain_desc::box bottom{ d.first(), d.last() };
+            std::vector<typename my_domain_desc::box2> halos;
+            /*typename my_domain_desc::box bottom{ d.first(), d.last() };
 
             bottom.m_last[2]   = bottom.m_first[2]-1;
             bottom.m_first[2] -= 2;
@@ -170,7 +178,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
             right.m_first[0]  = (right.m_first[0]+40)%40;
             right.m_last[0]   = (right.m_last[0]+40)%40;
 
-            halos.push_back( right );
+            halos.push_back( right );*/
 
             return halos;
         };

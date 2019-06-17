@@ -78,6 +78,17 @@ namespace gridtools {
             coordinate_type _max;
         };
 
+        struct iteration_space2
+        {
+            iteration_space& local() noexcept { return m_local; }
+            const iteration_space& local() const noexcept { return m_local; }
+            iteration_space& global() noexcept { return m_global; }
+            const iteration_space& global() const noexcept { return m_global; }
+            int size() const noexcept { return m_local.size(); } 
+            iteration_space m_local;
+            iteration_space m_global;
+        };
+
         struct extended_domain_id_type
         {
             domain_id_type id;
@@ -88,7 +99,7 @@ namespace gridtools {
             bool operator<(const extended_domain_id_type& other) const noexcept { return id < other.id; }
         };
 
-        using index_container_type = std::vector<iteration_space>;
+        using index_container_type = std::vector<iteration_space2>;
         using map_type = std::map<extended_domain_id_type, index_container_type>;
 
         static int num_elements(const index_container_type& c) noexcept
@@ -101,14 +112,14 @@ namespace gridtools {
     private: // members
 
         communicator_type m_comm;
-        iteration_space m_domain;
+        iteration_space2 m_domain;
         extended_domain_id_type m_id;
         map_type m_send_map;
         map_type m_recv_map;
 
     public: // ctors
 
-        pattern(communicator_type& comm, const iteration_space& domain, const extended_domain_id_type& id)
+        pattern(communicator_type& comm, const iteration_space2& domain, const extended_domain_id_type& id)
         :   m_comm(comm), m_domain(domain), m_id(id)
         {}
 
@@ -155,6 +166,7 @@ namespace gridtools {
                 using grid_type                 = detail::structured_grid<CoordinateArrayType>;
                 using pattern_type              = pattern<P, grid_type, domain_id_type>;
                 using iteration_space           = typename pattern_type::iteration_space;
+                using iteration_space2          = typename pattern_type::iteration_space2;
                 using coordinate_type           = typename pattern_type::coordinate_type;
                 using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
 
@@ -162,21 +174,30 @@ namespace gridtools {
                 auto my_address = new_comm.address();
                 
                 // set up domain ids, extents and recv halos
-                std::vector<iteration_space>               my_domain_extents;
+                std::vector<iteration_space2>              my_domain_extents;
                 std::vector<extended_domain_id_type>       my_domain_ids;
                 std::vector<pattern_type>                  my_patterns;
-                std::vector<std::vector<iteration_space>>  my_generated_recv_halos;
+                std::vector<std::vector<iteration_space2>> my_generated_recv_halos;
                 for (const auto& d : d_range)
                 {
                     my_domain_ids.push_back( extended_domain_id_type{d.domain_id(), comm.rank(), my_address, 0} );
-                    my_domain_extents.push_back( iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}} );
+                    my_domain_extents.push_back( 
+                            //iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}} );
+                            iteration_space2{
+                                iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}},
+                                iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
+                                                coordinate_type{d.last()} -coordinate_type{d.first()}}} );
                     my_patterns.emplace_back( new_comm, my_domain_extents.back(), my_domain_ids.back() );
                     my_generated_recv_halos.resize(my_generated_recv_halos.size()+1);
                     // generate recv halos
                     auto recv_halos = hgen(d);
                     // convert ghe recv halos to internal format
                     for (const auto& h : recv_halos)
-                        my_generated_recv_halos.back().push_back( iteration_space{coordinate_type{h.first()}, coordinate_type{h.last()}} );
+                    {
+                        my_generated_recv_halos.back().push_back(iteration_space2{
+                            iteration_space{coordinate_type{h.local().first()},coordinate_type{h.local().last()}},
+                            iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}});
+                    }
                 }
 
                 // find all domains and their extents
@@ -190,7 +211,7 @@ namespace gridtools {
                 for (unsigned int i=0; i<my_patterns.size(); ++i)
                 {
                     // get corresponding halos
-                    const auto recv_halos = my_generated_recv_halos[i];
+                    const auto& recv_halos = my_generated_recv_halos[i];
                     // intersect each halo with all domain extents
                     for (const auto& halo : recv_halos)
                     {
@@ -203,13 +224,17 @@ namespace gridtools {
                                 const auto& extent = extents_vec[k];
                                 const auto& domain_id = domain_id_vec[k];
 
-                                const auto left  = max(halo.first(),extent.first());
-                                const auto right = min(halo.last(),extent.last());
+                                const auto left  = max(halo.global().first(),extent.global().first());
+                                const auto right = min(halo.global().last(),extent.global().last());
 
                                 if (left <= right)
                                 {
+                                    const auto leftl  = halo.local().first()+(left-halo.global().first());
+                                    const auto rightl = halo.local().first()+(right-halo.global().first());
                                     iteration_space h{left, right};
-                                    my_patterns[i].recv_halos()[domain_id].push_back(h);
+                                    iteration_space hl{leftl, rightl};
+                                    //my_patterns[i].recv_halos()[domain_id].push_back(h);
+                                    my_patterns[i].recv_halos()[domain_id].push_back(iteration_space2{h,hl});
                                 }
                             }
                         }
@@ -240,7 +265,7 @@ namespace gridtools {
                 // translate to send halos
                 std::map<int,
                     std::map<domain_id_type,
-                        std::map<extended_domain_id_type, std::vector<iteration_space> > > > send_halos_map;
+                        std::map<extended_domain_id_type, std::vector<iteration_space2> > > > send_halos_map;
                 for (const auto& p : my_patterns)
                 {
                     for (const auto& id_is_pair : p.recv_halos())
@@ -248,7 +273,25 @@ namespace gridtools {
                         auto d_id = p.extended_domain_id();
                         d_id.tag = id_is_pair.first.tag;
                         auto& is_vec = send_halos_map[id_is_pair.first.mpi_rank][id_is_pair.first.id][d_id];
+                        int s = is_vec.size();
                         is_vec.insert(is_vec.end(), id_is_pair.second.begin(), id_is_pair.second.end());
+                        // recast local?
+                        for (unsigned int l=s; l<is_vec.size(); ++l)
+                        {
+                            const auto& extents_vec = domain_extents[id_is_pair.first.mpi_rank];
+                            const auto& domains_vec = domain_ids[id_is_pair.first.mpi_rank];
+                            // find domain id
+                            unsigned int ll=0; 
+                            for (const auto& dd : domains_vec)
+                            {
+                                if (dd.id == id_is_pair.first.id) break;
+                                ++ll;
+                            }
+                            const auto is_g = extents_vec[ll].global();
+                            const auto is_l = extents_vec[ll].local();
+                            is_vec[l].local().first() = is_l.first() + (is_vec[l].global().first()-is_g.first());
+                            is_vec[l].local().last()  = is_l.first() + (is_vec[l].global().last()-is_g.first());
+                        }
                     }
                 }
 
@@ -396,7 +439,7 @@ namespace gridtools {
                                     {
                                         int num_is;
                                         comm.recv(rank, 0, num_is);
-                                        std::vector<iteration_space> is(num_is);
+                                        std::vector<iteration_space2> is(num_is);
                                         comm.recv(rank, 0, &is[0], num_is);
                                         auto& vec = pat.send_halos()[did];
                                         vec.insert(vec.end(), is.begin(), is.end());
