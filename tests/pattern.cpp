@@ -63,7 +63,7 @@ struct my_field
             for (int j=is.global().first()[1]; j<=is.global().last()[1]; ++j)
             for (int k=is.global().first()[2]; k<=is.global().last()[2]; ++k)
             {
-                std::cout << "packing [" << i << ", " << j << ", " << k << "] at " << (void*)(&(buffer[counter])) << std::endl;
+                //std::cout << "packing [" << i << ", " << j << ", " << k << "] at " << (void*)(&(buffer[counter])) << std::endl;
                 buffer[counter++] = T(i);
             }
         }
@@ -80,7 +80,7 @@ struct my_field
             for (int j=is.global().first()[1]; j<=is.global().last()[1]; ++j)
             for (int k=is.global().first()[2]; k<=is.global().last()[2]; ++k)
             {
-                std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
+                //std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
                 //T res = buffer[counter++];
                 ++counter;
             }
@@ -127,44 +127,74 @@ bool test0(boost::mpi::communicator& mpi_comm)
 
             halos.push_back( top );*/
 
-            /*typename my_domain_desc::box left{ d.first(), d.last() };
+            typename my_domain_desc::box left{ d.first(), d.last() };
             left.m_last[0]   = left.m_first[0]-1; 
             left.m_first[0] -= 2;
             left.m_first[0]  = (left.m_first[0]+40)%40;
             left.m_last[0]   = (left.m_last[0]+40)%40;
+            typename my_domain_desc::box left_l{left};
+            left_l.m_first[0] = -2;
+            left_l.m_last[0]  = -1;
+            left_l.m_first[1] =  0;
+            left_l.m_last[1]  =  d.last()[1]-d.first()[1];
+            left_l.m_first[2] =  0;
+            left_l.m_last[2]  =  d.last()[2]-d.first()[2];
 
-            halos.push_back( left );
+            halos.push_back( typename my_domain_desc::box2{left_l,left} );
+
 
             typename my_domain_desc::box right{ d.first(), d.last() };
             right.m_first[0]  = right.m_last[0]+1; 
             right.m_last[0]  += 2;
             right.m_first[0]  = (right.m_first[0]+40)%40;
             right.m_last[0]   = (right.m_last[0]+40)%40;
+            typename my_domain_desc::box right_l{left};
+            right_l.m_first[0] =  d.last()[0]-d.first()[0]+1;
+            right_l.m_last[0]  =  d.last()[0]-d.first()[0]+2;
+            right_l.m_first[1] =  0;
+            right_l.m_last[1]  =  d.last()[1]-d.first()[1];
+            right_l.m_first[2] =  0;
+            right_l.m_last[2]  =  d.last()[2]-d.first()[2];
 
-            halos.push_back( right );*/
+            halos.push_back( typename my_domain_desc::box2{right_l,right} );
+
 
             return halos;
         };
 
+    //auto halo_gen2 = halo_gen1;
     auto halo_gen2 = [&mpi_comm](const my_domain_desc& d)
         {
             std::vector<typename my_domain_desc::box2> halos;
-            /*typename my_domain_desc::box bottom{ d.first(), d.last() };
-
+            typename my_domain_desc::box bottom{ d.first(), d.last() };
             bottom.m_last[2]   = bottom.m_first[2]-1;
             bottom.m_first[2] -= 2;
             bottom.m_first[2]  = (bottom.m_first[2]+20)%20;
             bottom.m_last[2]   = (bottom.m_last[2]+20)%20;
+            typename my_domain_desc::box bottom_l{bottom};
+            bottom_l.m_first[2] = -2;
+            bottom_l.m_last[2]  = -1;
+            bottom_l.m_first[0] =  0;
+            bottom_l.m_last[0]  =  d.last()[0]-d.first()[0];
+            bottom_l.m_first[1] =  0;
+            bottom_l.m_last[1]  =  d.last()[1]-d.first()[1];
 
-            halos.push_back( bottom );
+            halos.push_back( typename my_domain_desc::box2{bottom_l,bottom} );
 
             auto top{bottom};
             top.m_first[2] = 0;
             top.m_last[2]  = 1;
+            typename my_domain_desc::box top_l{top};
+            top_l.m_first[2] =  d.last()[2]-d.first()[2]+1;
+            top_l.m_last[2]  =  d.last()[2]-d.first()[2]+2;
+            top_l.m_first[0] =  0;
+            top_l.m_last[0]  =  d.last()[0]-d.first()[0];
+            top_l.m_first[1] =  0;
+            top_l.m_last[1]  =  d.last()[1]-d.first()[1];
 
-            halos.push_back( top );
+            halos.push_back( typename my_domain_desc::box2{top_l,top} );
             
-            typename my_domain_desc::box left{ d.first(), d.last() };
+            /*typename my_domain_desc::box left{ d.first(), d.last() };
             left.m_last[0]   = left.m_first[0]-1; 
             left.m_first[0] -= 2;
             left.m_first[0]  = (left.m_first[0]+40)%40;

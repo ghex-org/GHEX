@@ -184,9 +184,15 @@ namespace gridtools {
                     my_domain_extents.push_back( 
                             //iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}} );
                             iteration_space2{
-                                iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}},
                                 iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
-                                                coordinate_type{d.last()} -coordinate_type{d.first()}}} );
+                                                coordinate_type{d.last()} -coordinate_type{d.first()}},
+                                iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}}} );
+                    /*std::cout << "domain: \n"
+                              << "  local:  (" << my_domain_extents.back().local().first()[0] << "," << my_domain_extents.back().local().first()[1] << ")"
+                              <<       " -> (" << my_domain_extents.back().local().last()[0] << "," << my_domain_extents.back().local().last()[1] << ")\n"
+                              << "  global: (" << my_domain_extents.back().global().first()[0] << "," << my_domain_extents.back().global().first()[1] << ")"
+                              <<       " -> (" << my_domain_extents.back().global().last()[0] << "," << my_domain_extents.back().global().last()[1] << ")\n"
+                              << std::endl;*/
                     my_patterns.emplace_back( new_comm, my_domain_extents.back(), my_domain_ids.back() );
                     my_generated_recv_halos.resize(my_generated_recv_halos.size()+1);
                     // generate recv halos
@@ -197,6 +203,13 @@ namespace gridtools {
                         my_generated_recv_halos.back().push_back(iteration_space2{
                             iteration_space{coordinate_type{h.local().first()},coordinate_type{h.local().last()}},
                             iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}});
+                        /*std::cout << "  halo = \n"
+                                  << "  local:  (" << my_generated_recv_halos.back().back().local().first()[0] << "," << my_generated_recv_halos.back().back().local().first()[1] << ")"
+                              <<       " -> (" << my_generated_recv_halos.back().back().local().last()[0] << "," << my_generated_recv_halos.back().back().local().last()[1] << ")\n"
+                              << "  global: (" << my_generated_recv_halos.back().back().global().first()[0] << "," << my_generated_recv_halos.back().back().global().first()[1] << ")"
+                              <<       " -> (" << my_generated_recv_halos.back().back().global().last()[0] << "," << my_generated_recv_halos.back().back().global().last()[1] << ")\n"
+                              << std::endl;*/
+
                     }
                 }
 
@@ -234,7 +247,7 @@ namespace gridtools {
                                     iteration_space h{left, right};
                                     iteration_space hl{leftl, rightl};
                                     //my_patterns[i].recv_halos()[domain_id].push_back(h);
-                                    my_patterns[i].recv_halos()[domain_id].push_back(iteration_space2{h,hl});
+                                    my_patterns[i].recv_halos()[domain_id].push_back(iteration_space2{hl,h});
                                 }
                             }
                         }
