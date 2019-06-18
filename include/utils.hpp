@@ -7,26 +7,25 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef INCLUDED_UTIL_HPP
-#define INCLUDED_UTIL_HPP
+#ifndef INCLUDED_UTILS_HPP
+#define INCLUDED_UTILS_HPP
 
 #include <utility>
 #include <tuple>
 #include <gridtools/common/layout_map.hpp>
 
-
 namespace gridtools {
 
     namespace detail {
 
-        template<std::size_t I = 0, typename Func, typename ...Args>
+        /*template<std::size_t I = 0, typename Func, typename ...Args>
         typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>&, Func) {}
 
         template<std::size_t I = 0, typename Func, typename ...Args>
         typename std::enable_if<(I < sizeof...(Args))>::type for_each(std::tuple<Args...>& t, Func f) {
                 f(std::get<I>(t));
                 for_each<I+1, Func, Args...>(t, f);
-        }
+        }*/
 
         template<typename Func>
         void invoke_with_arg(Func&&)
@@ -46,6 +45,13 @@ namespace gridtools {
             invoke_with_arg(std::forward<Func>(f), get<Is>(std::forward<Tuple>(t))...);
         }
 
+        /**
+         * @brief iterate over tuple type using a functor
+         * @tparam Tuple tuple-like type
+         * @tparam Func functor with signature void(auto& x), where x is tuple element
+         * @param t tuple instance
+         * @param f functor instance
+         */
         template<typename Tuple, typename Func>
         void for_each(Tuple&& t, Func&& f)
         {
@@ -77,6 +83,15 @@ namespace gridtools {
                     std::make_pair<decltype(get<Is>(t1)), decltype(get<Is>(t2))>(get<Is>(t1), get<Is>(t2))...);
         }
 
+        /**
+         * @brief iterate over two tuple types using a functor
+         * @tparam Tuple1 tuple-like type
+         * @tparam Tuple2 tuple-like type
+         * @tparam Func functor with signature void(auto& x1, auto& x2), where x1, x2 are elements of t1 and t2
+         * @param t1 tuple instance
+         * @param t2 tuple instance
+         * @param f functor instance
+         */
         template<typename Tuple1, typename Tuple2, typename Func>
         void for_each(Tuple1&& t1, Tuple2&& t2, Func&& f)
         {
@@ -89,38 +104,23 @@ namespace gridtools {
             );
         }
 
-        template<typename T0, typename T1>
-        struct ct_max
-        {
-            using type = std::integral_constant<std::size_t, ((T0::value) > (T1::value) ? (T0::value) : (T1::value))>;
-        };
-
-        template<typename T0, typename T1>
-        struct ct_min
-        {
-            using type = std::integral_constant<std::size_t, ((T0::value) < (T1::value) ? (T0::value) : (T1::value))>;
-        };
-
-        template<template<typename,typename> typename Op, typename... Ts> 
-        struct ct_reduce {};
-
-        template<template<typename,typename> typename Op, typename Ta, typename Tb>
-        struct ct_reduce<Op, Ta, Tb>
-        {
-            using type = typename Op<Ta,Tb>::type;
-        };
-
-        template<template<typename,typename> typename Op, typename Ta, typename Tb, typename Tc, typename... Ts>
-        struct ct_reduce<Op,Ta,Tb,Tc,Ts...>
-        {
-            using type = typename ct_reduce<Op, typename ct_reduce<Op,Ta,Tb>::type, Tc, Ts...>::type;
-        };
-
+        /** @brief compile time recursive generation of loop nest
+         * @tparam D dimensionality of loop nest
+         * @tparam I I==D to start recursion
+         * @tparam Layout template meta function which determines order of nesting */
         template<int D, int I, typename Layout=void>
         struct for_loop
         {
             using idx = std::integral_constant<int,D-I>;
 
+            /**
+             * @brief generate loop nest
+             * @tparam Func functor with signature void(x_0,x_1,...) where x_i are coordinates
+             * @tparam Array coordinate vector type 
+             * @param f instance of functor
+             * @param first start coordinate
+             * @param last end coordinate (inclusive)
+             */
             template<typename Func, typename Array>
             inline static void apply(Func&& f, Array&& first, Array&& last) noexcept
             {
@@ -132,6 +132,7 @@ namespace gridtools {
                 }
             }
 
+            // implementation details
             template<typename Func, typename Array, typename Array2>
             inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
             {
@@ -143,11 +144,11 @@ namespace gridtools {
                 }
             }
         };
-
+    
+        // implementation details
         template<int D,typename Layout>
         struct for_loop<D,0,Layout>
         {
-            
             template<typename Func, typename Array, typename Array2>
             inline static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept
             {
@@ -157,10 +158,12 @@ namespace gridtools {
             template<typename Func, typename Array, std::size_t... Is>
             inline static void apply_impl(Func&& f, Array&& x, std::index_sequence<Is...>)
             {
+                // functor is called with expanded coordinates
                 f(x[Is]...);
             }
         };
 
+        // specialization when Layout==gridtools::layout_map
         template<int D, int I, int... Args>
         struct for_loop<D,I,gridtools::layout_map<Args...>>
         {
@@ -194,15 +197,32 @@ namespace gridtools {
         template<int D, int... Args>
         struct for_loop<D,0,gridtools::layout_map<Args...>> : for_loop<D,0,void> {};
 
+
+
+        // simpler for loop nest
         template<int D, int I, typename Layout>
         struct for_loop_simple {};
 
+        /** @brief generation of loop nest assuming contiguous memory 
+         * @tparam D dimensionality of loop nest
+         * @tparam I I==D to start recursion
+         * @tparam Args compile time list of integral constants indicating order of loop nest*/
         template<int D, int I, int... Args>
         struct for_loop_simple<D,I,gridtools::layout_map<Args...>>
         {
             using layout_t = gridtools::layout_map<Args...>;
             using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
 
+            /**
+             * @brief generate loop nest
+             * @tparam Func functor type with signature void(std::size_t, std::size_t)
+             * @tparam Array coordinate vector type
+             * @tparam Array2 coordinate difference vector type
+             * @param f functor instance
+             * @param first first coordinate in loop nest
+             * @param last last coordinate in loop nest
+             * @param extent extent of multi-dimensional array of which [first, last] is a sub-region
+             */
             template<typename Func, typename Array, typename Array2>
             inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent) noexcept
             {
@@ -214,6 +234,7 @@ namespace gridtools {
                 }
             }
 
+            // implementation details
             template<typename Func, typename Array, typename Array2>
             inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, std::size_t offset, std::size_t iter) noexcept
             {
@@ -227,12 +248,16 @@ namespace gridtools {
             }
         };
 
+        // implementation details
         template<int D, int... Args>
         struct for_loop_simple<D,0,gridtools::layout_map<Args...>>
         {
             template<typename Func, typename Array, typename Array2>
             inline static void apply(Func&& f, Array&&, Array&&, Array2&&, std::size_t offset, std::size_t iter) noexcept
             {
+                // functor call with two arguments
+                // argument 1: offset in global multi-dimensional array
+                // argument 2: offset within region defined by [first, last]
                 f(offset, iter);
             }
         };
@@ -241,7 +266,7 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_UTIL_HPP */
+#endif /* INCLUDED_UTILS_HPP */
 
 // modelines
 // vim: set ts=4 sw=4 sts=4 et: 

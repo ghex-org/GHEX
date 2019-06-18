@@ -13,9 +13,16 @@
 
 #include "protocol/setup.hpp"
 #include "protocol/mpi.hpp"
-#include <vector>
+//#include <vector>
+#include "buffer_info.hpp"
 
 namespace gridtools {
+
+    namespace detail {
+        // forward declaration
+        template<typename GridType>
+        struct make_pattern_impl {};
+    } // namespace detail
 
     /** @brief generic communication pattern
      * @tparam P transport protocol
@@ -30,13 +37,30 @@ namespace gridtools {
      * @tparam GridType indicates structured/unstructured grids
      * @tparam DomainIdType type to uniquely identify partail (local) domains*/
     template<typename P, typename GridType, typename DomainIdType>
-    struct pattern_container
+    class pattern_container
     {
+    public: // member tyes
+
+        /** @brief pattern type this object is holding */
         using value_type = pattern<P,GridType,DomainIdType>;
+
+    private: // private member types
+
         using data_type  = std::vector<value_type>;
 
-        pattern_container(data_type&& d) noexcept : m_patterns(d) {}
+    private: // friend declarations
+
+        friend class detail::make_pattern_impl<GridType>;
+
+    public: // copy constructor
+
         pattern_container(pattern_container&&) noexcept = default;
+
+    private: // private constructor called through make_pattern
+
+        pattern_container(data_type&& d) noexcept : m_patterns(d) {}
+
+    public: // member functions
 
         int size() const noexcept { return m_patterns.size(); }
 
@@ -44,14 +68,19 @@ namespace gridtools {
 
         auto begin() const noexcept { return m_patterns.cbegin(); }
         auto end() const noexcept { return m_patterns.cend(); }
-    private:
-        std::vector<pattern<P,GridType,DomainIdType>> m_patterns;
+
+        template<typename Field>
+        buffer_info<value_type,typename Field::device_type,Field> operator()(Field& field) const
+        {
+            return m_patterns[field.domain_id()](field);
+        }
+
+    private: // members
+
+        data_type m_patterns;
     };
 
     namespace detail {
-
-        template<typename GridType>
-        struct make_pattern_impl {};
 
         template<typename GridType, typename P, typename HaloGenerator, typename DomainRange>
         auto make_pattern(protocol::setup_communicator& setup_comm, protocol::communicator<P>& comm, HaloGenerator&& hgen, DomainRange&& d_range)
@@ -81,7 +110,7 @@ namespace gridtools {
      * @param comm custom communicator used in the actual exchange operations
      * @param hgen receive halo generator function object (emits iteration spaces (global coordinates) or index lists (global indices)
      * @param d_range range of local domains
-     * @return 
+     * @return iterable of patterns (one per domain) 
      */
     template<typename GridType, typename P, typename HaloGenerator, typename DomainRange>
     auto make_pattern(MPI_Comm mpi_comm, protocol::communicator<P>& comm, HaloGenerator&& hgen, DomainRange&& d_range)

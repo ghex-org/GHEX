@@ -16,14 +16,14 @@
 #include <thread>
 #include <boost/mpi/communicator.hpp>
 #include <gridtools/common/layout_map.hpp>
-#include "gridtools_arch.hpp"
-#include "communication_object.hpp"
-#include "protocol/communicator_base.hpp"
-#include "protocol/mpi.hpp"
-#include "pattern.hpp"
-#include "structured_pattern.hpp"
+#include "../include/gridtools_arch.hpp"
+#include "../include/communication_object.hpp"
+#include "../include/protocol/communicator_base.hpp"
+#include "../include/protocol/mpi.hpp"
+#include "../include/pattern.hpp"
+#include "../include/structured_pattern.hpp"
 #include "triplet.hpp"
-#include "utils.hpp"
+#include "../include/utils.hpp"
 
 
 struct my_domain_desc {
@@ -252,7 +252,9 @@ TEST(communication_object, constructor) {
 
     std::vector<communication_object_type> cos;
     for (const auto& p : patterns) {
-        EXPECT_NO_THROW(cos.push_back(communication_object_type{p}));
+        EXPECT_NO_THROW(
+        cos.push_back(communication_object_type{p});
+        );
     }
 
 }
