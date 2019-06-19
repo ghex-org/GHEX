@@ -26,23 +26,23 @@ namespace gridtools {
     template <typename Pattern>
     class communication_object<Pattern, gridtools::cpu> {
 
-        using Byte = unsigned char;
-        using IterationSpace = typename Pattern::iteration_space2;
-        using MapType = typename Pattern::map_type;
-        using Communicator = typename Pattern::communicator_type;
-        using Future = typename Communicator::template future<void>;
+        using byte_t = unsigned char;
+        using iteration_space_t = typename Pattern::iteration_space2;
+        using map_t = typename Pattern::map_type;
+        using communicator_t = typename Pattern::communicator_type;
+        using future_t = typename communicator_t::template future<void>;
 
         const Pattern& m_pattern;
-        const MapType& m_send_halos;
-        const MapType& m_receive_halos;
+        const map_t& m_send_halos;
+        const map_t& m_receive_halos;
         std::size_t m_n_send_halos;
         std::size_t m_n_receive_halos;
-        std::vector<std::vector<Byte>> m_send_buffers;
-        std::vector<std::vector<Byte>> m_receive_buffers;
-        const Communicator& m_communicator;
+        std::vector<std::vector<byte_t>> m_send_buffers;
+        std::vector<std::vector<byte_t>> m_receive_buffers;
+        const communicator_t& m_communicator;
 
         template <typename... DataDescriptor>
-        std::size_t buffer_size(const std::vector<IterationSpace>& iteration_spaces,
+        std::size_t buffer_size(const std::vector<iteration_space_t>& iteration_spaces,
                                 const std::tuple<DataDescriptor...>& data_descriptors) {
 
             std::size_t size{0};
@@ -88,9 +88,9 @@ namespace gridtools {
         template <typename... DataDescriptor>
         class handle {
 
-            const MapType& m_receive_halos;
-            std::vector<std::vector<Byte>> m_receive_buffers;
-            std::vector<Future> m_receive_requests;
+            const map_t& m_receive_halos;
+            std::vector<std::vector<byte_t>> m_receive_buffers;
+            std::vector<future_t> m_receive_requests;
             std::tuple<DataDescriptor...> m_data_descriptors;
 
             void unpack() {
@@ -119,9 +119,9 @@ namespace gridtools {
 
         public:
 
-            handle(const MapType& receive_halos,
-                   const std::vector<std::vector<Byte>>& receive_buffers,
-                   std::vector<Future>&& receive_requests,
+            handle(const map_t& receive_halos,
+                   const std::vector<std::vector<byte_t>>& receive_buffers,
+                   std::vector<future_t>&& receive_requests,
                    std::tuple<DataDescriptor...>&& data_descriptors) :
                 m_receive_halos{receive_halos},
                 m_receive_buffers{receive_buffers},
@@ -156,10 +156,10 @@ namespace gridtools {
         template <typename... DataDescriptor>
         handle<DataDescriptor...> exchange(DataDescriptor& ...dds) {
 
-            std::vector<Future> send_requests;
+            std::vector<future_t> send_requests;
             send_requests.reserve(m_n_send_halos); // no default constructor
 
-            std::vector<Future> receive_requests;
+            std::vector<future_t> receive_requests;
             receive_requests.reserve(m_n_receive_halos); // no default constructor
 
             auto data_descriptors = std::make_tuple(dds...);
