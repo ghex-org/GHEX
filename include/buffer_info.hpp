@@ -11,7 +11,6 @@
 #ifndef INCLUDED_BUFFER_INFO_HPP
 #define INCLUDED_BUFFER_INFO_HPP
 
-#include "pattern.hpp"
 #include <vector>
 
 namespace gridtools {
