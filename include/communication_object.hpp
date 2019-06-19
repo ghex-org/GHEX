@@ -128,10 +128,7 @@ namespace gridtools {
 
             void wait() {
 
-                int i{0};
                 for (auto& r : m_receive_requests) {
-                    std::cout << "DEBUG: waititng for receive request n. " << i++ << " \n";
-                    std::cout.flush();
                     std::get<2>(r).wait();
                     unpack(std::get<0>(r), std::get<1>(r));
                 }
@@ -168,15 +165,12 @@ namespace gridtools {
             halo_index = 0;
             for (const auto& halo : m_receive_halos) {
 
-                auto domain = halo.first;
+                const auto& domain = halo.first;
                 auto source = domain.address;
                 auto tag = domain.tag;
                 const auto& iteration_spaces = halo.second;
 
                 m_receive_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
-
-                std::cout << "DEBUG: Starting receive request for halo_index = " << halo_index << " \n";
-                std::cout.flush();
 
                 receive_requests.push_back(std::make_tuple(halo_index, domain, m_communicator.irecv(
                                                               source,
@@ -198,13 +192,10 @@ namespace gridtools {
                 auto dest = halo.first.address;
                 auto tag = halo.first.tag;
 
-                std::cout << "DEBUG: Starting send request for halo_index = " << halo_index << " \n";
-                std::cout.flush();
-
                 send_requests.push_back(m_communicator.isend(dest,
-                        tag,
-                        &m_send_buffers[halo_index][0],
-                        static_cast<int>(m_send_buffers[halo_index].size())));
+                                                             tag,
+                                                             &m_send_buffers[halo_index][0],
+                                                             static_cast<int>(m_send_buffers[halo_index].size())));
 
                 ++halo_index;
 
@@ -212,10 +203,7 @@ namespace gridtools {
 
             /* SEND WAIT */
 
-            int i{0};
             for (auto& r : send_requests) {
-                std::cout << "DEBUG: waititng for send request n. " << i++ << " \n";
-                std::cout.flush();
                 r.wait();
             }
 
