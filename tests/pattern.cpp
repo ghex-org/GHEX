@@ -91,31 +91,44 @@ struct my_field
     int m_dom_id;
 };
 
+template<typename T, long unsigned N>
+std::ostream& operator<<(std::ostream& os, const std::array<T,N>& arr)
+{
+    os << "(";
+    for (unsigned int i=0; i<N-1; ++i) os << arr[i] << ", ";
+    os << arr[N-1] << ")";
+    return os;
+}
+
 bool test0(boost::mpi::communicator& mpi_comm)
 {
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
 
-    const std::array<int,3> g_first{0,0,0};
-    const std::array<int,3> g_last{39, ((comm.size()-1)/2+1)*15-1, 19};
-    const std::array<int,3> local_ext{10,15,20};
+    //const std::array<int,3> local_ext{10,15,20};
+    const std::array<int,3> local_ext{2,2,2};
+    const std::array<int,3> g_first{               0,                                    0,              0};
+    const std::array<int,3> g_last {local_ext[0]*4-1, ((comm.size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1};
     const std::array<int,3> offset{3,3,3};
-    const int max_memory = (local_ext[0]+2*offset[0])*(local_ext[1]+2*offset[1])*(local_ext[2]+2*offset[2]);
+    const std::array<int,3> local_ext_buffer{local_ext[0]+2*offset[0], local_ext[1]+2*offset[1], local_ext[2]+2*offset[2]};
+    const int max_memory = local_ext_buffer[0]*local_ext_buffer[1]*local_ext_buffer[2];
 
     std::vector<double> field_1a_raw(max_memory);
     std::vector<double> field_1b_raw(max_memory);
     std::vector<int> field_2a_raw(max_memory);
     std::vector<int> field_2b_raw(max_memory);
+    std::vector<std::array<int,3>> field_3a_raw(max_memory);
+    std::vector<std::array<int,3>> field_3b_raw(max_memory);
 
-    using domain_descriptor_type = gridtools::simple_domain_descriptor<int,3>;
+    using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
     std::vector<domain_descriptor_type> local_domains_;
     local_domains_.push_back( domain_descriptor_type{
         comm.rank()*2, 
-        std::array<int,3>{ (comm.rank()%2)*20,       (comm.rank()/2)*15,  0},
-        std::array<int,3>{ (comm.rank()%2)*20+9, (comm.rank()/2+1)*15-1, 19}});
+        std::array<int,3>{ ((comm.rank()%2)*2  )*local_ext[0],   (comm.rank()/2  )*local_ext[1],                0},
+        std::array<int,3>{ ((comm.rank()%2)*2+1)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
     local_domains_.push_back( domain_descriptor_type{
         comm.rank()*2+1,
-        std::array<int,3>{ (comm.rank()%2)*20+10,     (comm.rank()/2)*15,  0},
-        std::array<int,3>{ (comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19}});
+        std::array<int,3>{ ((comm.rank()%2)*2+1)*local_ext[0],   (comm.rank()/2  )*local_ext[1],             0},
+        std::array<int,3>{ ((comm.rank()%2)*2+2)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
 
     auto halo_gen1_ = domain_descriptor_type::halo_generator_type(
         g_first, g_last,
@@ -127,23 +140,86 @@ bool test0(boost::mpi::communicator& mpi_comm)
         {true,true,true});
     auto pattern1_ = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1_, local_domains_);
     auto pattern2_ = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2_, local_domains_);
-
+    
     gridtools::simple_field_wrapper<double,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_1a_{
         local_domains_[0].domain_id(),
         field_1a_raw.data(),
-        offset,local_ext};
+        offset,local_ext_buffer};
     gridtools::simple_field_wrapper<double,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_1b_{
         local_domains_[1].domain_id(),
         field_1b_raw.data(),
-        offset,local_ext};
+        offset,local_ext_buffer};
     gridtools::simple_field_wrapper<int,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_2a_{
         local_domains_[0].domain_id(),
         field_2a_raw.data(),
-        offset,local_ext};
+        offset,local_ext_buffer};
     gridtools::simple_field_wrapper<int,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_2b_{
         local_domains_[1].domain_id(),
         field_2b_raw.data(),
-        offset,local_ext};
+        offset,local_ext_buffer};
+    gridtools::simple_field_wrapper<std::array<int,3>,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_3a_{
+        local_domains_[0].domain_id(),
+        field_3a_raw.data(),
+        offset,local_ext_buffer};
+    gridtools::simple_field_wrapper<std::array<int,3>,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_3b_{
+        local_domains_[1].domain_id(),
+        field_3b_raw.data(),
+        offset,local_ext_buffer};
+
+    // fill arrays
+    { int xl = 0;
+    for (int x=local_domains_[0].first()[0]; x<=local_domains_[0].last()[0]; ++x, ++xl)
+    { int yl = 0;
+    for (int y=local_domains_[0].first()[1]; y<=local_domains_[0].last()[1]; ++y, ++yl)
+    { int zl = 0;
+    for (int z=local_domains_[0].first()[2]; z<=local_domains_[0].last()[2]; ++z, ++zl)
+    {
+        field_3a_(xl,yl,zl) = std::array<int,3>{x,y,z};
+    }}}}
+    { int xl = 0;
+    for (int x=local_domains_[1].first()[0]; x<=local_domains_[1].last()[0]; ++x, ++xl)
+    { int yl = 0;
+    for (int y=local_domains_[1].first()[1]; y<=local_domains_[1].last()[1]; ++y, ++yl)
+    { int zl = 0;
+    for (int z=local_domains_[1].first()[2]; z<=local_domains_[1].last()[2]; ++z, ++zl)
+    {
+        field_3b_(xl,yl,zl) = std::array<int,3>{x,y,z};
+    }}}}
+
+    
+    std::cout.flush();
+    comm.barrier();
+    for (int r=0; r<comm.size(); ++r)
+    {
+        if (r!=comm.rank())
+        {
+            std::cout.flush();
+            comm.barrier();
+            continue;
+        }
+        std::cout << "rank " << r << std::endl;
+        std::cout << std::endl;
+        std::cout << std::endl;
+        for (int z=-1; z<local_ext[2]+1; ++z)
+        {
+        for (int y=-1; y<local_ext[1]+1; ++y)
+        {
+            for (int x=-1; x<local_ext[0]+1; ++x)
+            {
+                std::cout << field_3a_(x,y,z);
+            }
+            std::cout << "      ";
+            for (int x=-1; x<local_ext[0]+1; ++x)
+            {
+                std::cout << field_3b_(x,y,z);
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        }
+        std::cout.flush();
+        comm.barrier();
+    }
 
     auto co_       = gridtools::make_communication_object(pattern1_,pattern2_);
 
@@ -151,155 +227,199 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern1_(field_1a_),
         pattern1_(field_1b_),
         pattern2_(field_2a_),
-        pattern2_(field_2b_));
+        pattern2_(field_2b_),
+        pattern1_(field_3a_),
+        pattern1_(field_3b_)
+        );
 
-
-
-    std::vector<my_domain_desc> local_domains;
-
-    local_domains.push_back(
-        my_domain_desc{ 
-            comm.rank()*2,
-            typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20,     (comm.rank()/2)*15,  0},
-            typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+9, (comm.rank()/2+1)*15-1, 19} } );
-
-    local_domains.push_back(
-        my_domain_desc{ 
-            comm.rank()*2+1,
-            typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+10,     (comm.rank()/2)*15,  0},
-            typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19} } );
-
-    auto halo_gen1 = [&mpi_comm](const my_domain_desc& d)
+    std::cout.flush();
+    comm.barrier();
+    for (int r=0; r<comm.size(); ++r)
+    {
+        if (r!=comm.rank())
         {
-            std::vector<typename my_domain_desc::box2> halos;
-            /*typename my_domain_desc::box bottom{ d.first(), d.last() };
-
-            bottom.m_last[2]   = bottom.m_first[2]-1;
-            bottom.m_first[2] -= 2;
-            bottom.m_first[2]  = (bottom.m_first[2]+20)%20;
-            bottom.m_last[2]   = (bottom.m_last[2]+20)%20;
-
-            halos.push_back( bottom );
-
-            auto top{bottom};
-            top.m_first[2] = 0;
-            top.m_last[2]  = 1;
-
-            halos.push_back( top );*/
-
-            typename my_domain_desc::box left{ d.first(), d.last() };
-            left.m_last[0]   = left.m_first[0]-1; 
-            left.m_first[0] -= 2;
-            left.m_first[0]  = (left.m_first[0]+40)%40;
-            left.m_last[0]   = (left.m_last[0]+40)%40;
-            typename my_domain_desc::box left_l{left};
-            left_l.m_first[0] = -2;
-            left_l.m_last[0]  = -1;
-            left_l.m_first[1] =  0;
-            left_l.m_last[1]  =  d.last()[1]-d.first()[1];
-            left_l.m_first[2] =  0;
-            left_l.m_last[2]  =  d.last()[2]-d.first()[2];
-
-            halos.push_back( typename my_domain_desc::box2{left_l,left} );
-
-
-            typename my_domain_desc::box right{ d.first(), d.last() };
-            right.m_first[0]  = right.m_last[0]+1; 
-            right.m_last[0]  += 2;
-            right.m_first[0]  = (right.m_first[0]+40)%40;
-            right.m_last[0]   = (right.m_last[0]+40)%40;
-            typename my_domain_desc::box right_l{left};
-            right_l.m_first[0] =  d.last()[0]-d.first()[0]+1;
-            right_l.m_last[0]  =  d.last()[0]-d.first()[0]+2;
-            right_l.m_first[1] =  0;
-            right_l.m_last[1]  =  d.last()[1]-d.first()[1];
-            right_l.m_first[2] =  0;
-            right_l.m_last[2]  =  d.last()[2]-d.first()[2];
-
-            halos.push_back( typename my_domain_desc::box2{right_l,right} );
-
-
-            return halos;
-        };
-
-    //auto halo_gen2 = halo_gen1;
-    auto halo_gen2 = [&mpi_comm](const my_domain_desc& d)
+            std::cout.flush();
+            comm.barrier();
+            continue;
+        }
+        std::cout << "rank " << r << std::endl;
+        std::cout << std::endl;
+        std::cout << std::endl;
+        for (int z=-1; z<local_ext[2]+1; ++z)
         {
-            std::vector<typename my_domain_desc::box2> halos;
-            typename my_domain_desc::box bottom{ d.first(), d.last() };
-            bottom.m_last[2]   = bottom.m_first[2]-1;
-            bottom.m_first[2] -= 2;
-            bottom.m_first[2]  = (bottom.m_first[2]+20)%20;
-            bottom.m_last[2]   = (bottom.m_last[2]+20)%20;
-            typename my_domain_desc::box bottom_l{bottom};
-            bottom_l.m_first[2] = -2;
-            bottom_l.m_last[2]  = -1;
-            bottom_l.m_first[0] =  0;
-            bottom_l.m_last[0]  =  d.last()[0]-d.first()[0];
-            bottom_l.m_first[1] =  0;
-            bottom_l.m_last[1]  =  d.last()[1]-d.first()[1];
+        for (int y=-1; y<local_ext[1]+1; ++y)
+        {
+            for (int x=-1; x<local_ext[0]+1; ++x)
+            {
+                std::cout << field_3a_(x,y,z);
+            }
+            std::cout << "      ";
+            for (int x=-1; x<local_ext[0]+1; ++x)
+            {
+                std::cout << field_3b_(x,y,z);
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        }
+        std::cout.flush();
+        comm.barrier();
+    }
+        
+    /*std::cout << "field 3a:" << std::endl;
+    std::cout << " ( 0, 0, 0) = " << field_3a_( 0, 0, 0) << std::endl;
+    std::cout << " ( 1, 0, 0) = " << field_3a_( 1, 0, 0) << std::endl;
+    std::cout << " ( 1, 1, 0) = " << field_3a_( 1, 1, 0) << std::endl;
+    std::cout << " ( 1, 1, 1) = " << field_3a_( 1, 1, 1) << std::endl;
+    std::cout << "field 3b:" << std::endl;
+    std::cout << " (-1, 0, 0) = " << field_3b_(-1, 0, 0) << std::endl;*/
 
-            halos.push_back( typename my_domain_desc::box2{bottom_l,bottom} );
 
-            auto top{bottom};
-            top.m_first[2] = 0;
-            top.m_last[2]  = 1;
-            typename my_domain_desc::box top_l{top};
-            top_l.m_first[2] =  d.last()[2]-d.first()[2]+1;
-            top_l.m_last[2]  =  d.last()[2]-d.first()[2]+2;
-            top_l.m_first[0] =  0;
-            top_l.m_last[0]  =  d.last()[0]-d.first()[0];
-            top_l.m_first[1] =  0;
-            top_l.m_last[1]  =  d.last()[1]-d.first()[1];
+    //std::vector<my_domain_desc> local_domains;
 
-            halos.push_back( typename my_domain_desc::box2{top_l,top} );
-            
-            /*typename my_domain_desc::box left{ d.first(), d.last() };
-            left.m_last[0]   = left.m_first[0]-1; 
-            left.m_first[0] -= 2;
-            left.m_first[0]  = (left.m_first[0]+40)%40;
-            left.m_last[0]   = (left.m_last[0]+40)%40;
+    //local_domains.push_back(
+    //    my_domain_desc{ 
+    //        comm.rank()*2,
+    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20,     (comm.rank()/2)*15,  0},
+    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+9, (comm.rank()/2+1)*15-1, 19} } );
 
-            halos.push_back( left );
+    //local_domains.push_back(
+    //    my_domain_desc{ 
+    //        comm.rank()*2+1,
+    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+10,     (comm.rank()/2)*15,  0},
+    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19} } );
 
-            typename my_domain_desc::box right{ d.first(), d.last() };
-            right.m_first[0]  = right.m_last[0]+1; 
-            right.m_last[0]  += 2;
-            right.m_first[0]  = (right.m_first[0]+40)%40;
-            right.m_last[0]   = (right.m_last[0]+40)%40;
+    //auto halo_gen1 = [&mpi_comm](const my_domain_desc& d)
+    //    {
+    //        std::vector<typename my_domain_desc::box2> halos;
+    //        /*typename my_domain_desc::box bottom{ d.first(), d.last() };
 
-            halos.push_back( right );*/
+    //        bottom.m_last[2]   = bottom.m_first[2]-1;
+    //        bottom.m_first[2] -= 2;
+    //        bottom.m_first[2]  = (bottom.m_first[2]+20)%20;
+    //        bottom.m_last[2]   = (bottom.m_last[2]+20)%20;
 
-            return halos;
-        };
+    //        halos.push_back( bottom );
 
-    //auto patterns = gridtools::make_pattern<gridtools::protocol::mpi, gridtools::structured_grid>(comm, halo_gen, local_domains);
-    
-    auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
-    auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
+    //        auto top{bottom};
+    //        top.m_first[2] = 0;
+    //        top.m_last[2]  = 1;
 
-    auto co       = gridtools::make_communication_object(pattern1,pattern2);
+    //        halos.push_back( top );*/
 
-    my_field<double, gridtools::device::cpu> field1_a{0};
-    my_field<double, gridtools::device::gpu> field1_b{1};
+    //        typename my_domain_desc::box left{ d.first(), d.last() };
+    //        left.m_last[0]   = left.m_first[0]-1; 
+    //        left.m_first[0] -= 2;
+    //        left.m_first[0]  = (left.m_first[0]+40)%40;
+    //        left.m_last[0]   = (left.m_last[0]+40)%40;
+    //        typename my_domain_desc::box left_l{left};
+    //        left_l.m_first[0] = -2;
+    //        left_l.m_last[0]  = -1;
+    //        left_l.m_first[1] =  0;
+    //        left_l.m_last[1]  =  d.last()[1]-d.first()[1];
+    //        left_l.m_first[2] =  0;
+    //        left_l.m_last[2]  =  d.last()[2]-d.first()[2];
 
-    my_field<int, gridtools::device::cpu> field2_a{0};
-    my_field<int, gridtools::device::gpu> field2_b{1};
+    //        halos.push_back( typename my_domain_desc::box2{left_l,left} );
 
-    co.bexchange(
-        pattern1(field1_a),
-        pattern1(field1_b),
-        pattern2(field2_a),
-        pattern2(field2_b));
 
-    /*auto h = co.exchange(
-        pattern1(field1_a),
-        pattern1(field1_b),
-        pattern2(field2_a),
-        pattern2(field2_b)
-    );
+    //        typename my_domain_desc::box right{ d.first(), d.last() };
+    //        right.m_first[0]  = right.m_last[0]+1; 
+    //        right.m_last[0]  += 2;
+    //        right.m_first[0]  = (right.m_first[0]+40)%40;
+    //        right.m_last[0]   = (right.m_last[0]+40)%40;
+    //        typename my_domain_desc::box right_l{left};
+    //        right_l.m_first[0] =  d.last()[0]-d.first()[0]+1;
+    //        right_l.m_last[0]  =  d.last()[0]-d.first()[0]+2;
+    //        right_l.m_first[1] =  0;
+    //        right_l.m_last[1]  =  d.last()[1]-d.first()[1];
+    //        right_l.m_first[2] =  0;
+    //        right_l.m_last[2]  =  d.last()[2]-d.first()[2];
 
-    h.wait();*/
+    //        halos.push_back( typename my_domain_desc::box2{right_l,right} );
+
+
+    //        return halos;
+    //    };
+
+    ////auto halo_gen2 = halo_gen1;
+    //auto halo_gen2 = [&mpi_comm](const my_domain_desc& d)
+    //    {
+    //        std::vector<typename my_domain_desc::box2> halos;
+    //        typename my_domain_desc::box bottom{ d.first(), d.last() };
+    //        bottom.m_last[2]   = bottom.m_first[2]-1;
+    //        bottom.m_first[2] -= 2;
+    //        bottom.m_first[2]  = (bottom.m_first[2]+20)%20;
+    //        bottom.m_last[2]   = (bottom.m_last[2]+20)%20;
+    //        typename my_domain_desc::box bottom_l{bottom};
+    //        bottom_l.m_first[2] = -2;
+    //        bottom_l.m_last[2]  = -1;
+    //        bottom_l.m_first[0] =  0;
+    //        bottom_l.m_last[0]  =  d.last()[0]-d.first()[0];
+    //        bottom_l.m_first[1] =  0;
+    //        bottom_l.m_last[1]  =  d.last()[1]-d.first()[1];
+
+    //        halos.push_back( typename my_domain_desc::box2{bottom_l,bottom} );
+
+    //        auto top{bottom};
+    //        top.m_first[2] = 0;
+    //        top.m_last[2]  = 1;
+    //        typename my_domain_desc::box top_l{top};
+    //        top_l.m_first[2] =  d.last()[2]-d.first()[2]+1;
+    //        top_l.m_last[2]  =  d.last()[2]-d.first()[2]+2;
+    //        top_l.m_first[0] =  0;
+    //        top_l.m_last[0]  =  d.last()[0]-d.first()[0];
+    //        top_l.m_first[1] =  0;
+    //        top_l.m_last[1]  =  d.last()[1]-d.first()[1];
+
+    //        halos.push_back( typename my_domain_desc::box2{top_l,top} );
+    //        
+    //        /*typename my_domain_desc::box left{ d.first(), d.last() };
+    //        left.m_last[0]   = left.m_first[0]-1; 
+    //        left.m_first[0] -= 2;
+    //        left.m_first[0]  = (left.m_first[0]+40)%40;
+    //        left.m_last[0]   = (left.m_last[0]+40)%40;
+
+    //        halos.push_back( left );
+
+    //        typename my_domain_desc::box right{ d.first(), d.last() };
+    //        right.m_first[0]  = right.m_last[0]+1; 
+    //        right.m_last[0]  += 2;
+    //        right.m_first[0]  = (right.m_first[0]+40)%40;
+    //        right.m_last[0]   = (right.m_last[0]+40)%40;
+
+    //        halos.push_back( right );*/
+
+    //        return halos;
+    //    };
+
+    ////auto patterns = gridtools::make_pattern<gridtools::protocol::mpi, gridtools::structured_grid>(comm, halo_gen, local_domains);
+    //
+    //auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
+    //auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
+
+    //auto co       = gridtools::make_communication_object(pattern1,pattern2);
+
+    //my_field<double, gridtools::device::cpu> field1_a{0};
+    //my_field<double, gridtools::device::gpu> field1_b{1};
+
+    //my_field<int, gridtools::device::cpu> field2_a{0};
+    //my_field<int, gridtools::device::gpu> field2_b{1};
+
+    //co.bexchange(
+    //    pattern1(field1_a),
+    //    pattern1(field1_b),
+    //    pattern2(field2_a),
+    //    pattern2(field2_b));
+
+    ///*auto h = co.exchange(
+    //    pattern1(field1_a),
+    //    pattern1(field1_b),
+    //    pattern2(field2_a),
+    //    pattern2(field2_b)
+    //);
+
+    //h.wait();*/
 
     return true;
 }

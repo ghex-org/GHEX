@@ -14,30 +14,9 @@
 #include "structured_grid.hpp"
 #include "protocol/communicator_base.hpp"
 #include "pattern.hpp"
-//#include "coordinate.hpp"
 #include <map>
 
 namespace gridtools {
-
-    //namespace detail {
-
-    //    template<typename CoordinateArrayType>
-    //    struct structured_grid 
-    //    {
-    //        using coordinate_base_type    = CoordinateArrayType;
-    //        using coordinate_type         = coordinate<coordinate_base_type>;
-    //        using coordinate_element_type = typename coordinate_type::element_type;
-    //        using dimension               = typename coordinate_type::dimension;    
-    //    };
-
-    //} // namespace detail
-
-    ///** @brief type to indicate structured grids */
-    //struct structured_grid 
-    //{
-    //    template<typename Domain>
-    //    using type = detail::structured_grid<typename Domain::coordinate_type>;
-    //};
 
     /** @brief structured pattern */
     template<typename P, typename CoordinateArrayType, typename DomainIdType>
@@ -55,7 +34,6 @@ namespace gridtools {
 
         struct iteration_space
         {
-            //using typename pattern::coordinate_type;
                   coordinate_type& first()       noexcept { return _min; }
                   coordinate_type& last()        noexcept { return _max; }
             const coordinate_type& first() const noexcept { return _min; }
@@ -83,7 +61,6 @@ namespace gridtools {
         struct iteration_space2
         {
             using pattern_type = pattern; 
-            //using pattern::coordinate_type;
             iteration_space& local() noexcept { return m_local; }
             const iteration_space& local() const noexcept { return m_local; }
             iteration_space& global() noexcept { return m_global; }
@@ -186,34 +163,22 @@ namespace gridtools {
                 {
                     my_domain_ids.push_back( extended_domain_id_type{d.domain_id(), comm.rank(), my_address, 0} );
                     my_domain_extents.push_back( 
-                            //iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}} );
-                            iteration_space2{
-                                iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
-                                                coordinate_type{d.last()} -coordinate_type{d.first()}},
-                                iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}}} );
-                    /*std::cout << "domain: \n"
-                              << "  local:  (" << my_domain_extents.back().local().first()[0] << "," << my_domain_extents.back().local().first()[1] << ")"
-                              <<       " -> (" << my_domain_extents.back().local().last()[0] << "," << my_domain_extents.back().local().last()[1] << ")\n"
-                              << "  global: (" << my_domain_extents.back().global().first()[0] << "," << my_domain_extents.back().global().first()[1] << ")"
-                              <<       " -> (" << my_domain_extents.back().global().last()[0] << "," << my_domain_extents.back().global().last()[1] << ")\n"
-                              << std::endl;*/
+                        iteration_space2{
+                            iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
+                                            coordinate_type{d.last()} -coordinate_type{d.first()}},
+                            iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}}} );
                     my_patterns.emplace_back( new_comm, my_domain_extents.back(), my_domain_ids.back() );
                     my_generated_recv_halos.resize(my_generated_recv_halos.size()+1);
                     // generate recv halos
                     auto recv_halos = hgen(d);
-                    // convert ghe recv halos to internal format
+                    // convert the recv halos to internal format
                     for (const auto& h : recv_halos)
                     {
-                        my_generated_recv_halos.back().push_back(iteration_space2{
+                        iteration_space2 is{
                             iteration_space{coordinate_type{h.local().first()},coordinate_type{h.local().last()}},
-                            iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}});
-                        /*std::cout << "  halo = \n"
-                                  << "  local:  (" << my_generated_recv_halos.back().back().local().first()[0] << "," << my_generated_recv_halos.back().back().local().first()[1] << ")"
-                              <<       " -> (" << my_generated_recv_halos.back().back().local().last()[0] << "," << my_generated_recv_halos.back().back().local().last()[1] << ")\n"
-                              << "  global: (" << my_generated_recv_halos.back().back().global().first()[0] << "," << my_generated_recv_halos.back().back().global().first()[1] << ")"
-                              <<       " -> (" << my_generated_recv_halos.back().back().global().last()[0] << "," << my_generated_recv_halos.back().back().global().last()[1] << ")\n"
-                              << std::endl;*/
-
+                            iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}};
+                        if (is.local().first() <= is.local().last())
+                            my_generated_recv_halos.back().push_back( is );
                     }
                 }
 
@@ -250,7 +215,6 @@ namespace gridtools {
                                     const auto rightl = halo.local().first()+(right-halo.global().first());
                                     iteration_space h{left, right};
                                     iteration_space hl{leftl, rightl};
-                                    //my_patterns[i].recv_halos()[domain_id].push_back(h);
                                     my_patterns[i].recv_halos()[domain_id].push_back(iteration_space2{hl,h});
                                 }
                             }
@@ -292,7 +256,7 @@ namespace gridtools {
                         auto& is_vec = send_halos_map[id_is_pair.first.mpi_rank][id_is_pair.first.id][d_id];
                         int s = is_vec.size();
                         is_vec.insert(is_vec.end(), id_is_pair.second.begin(), id_is_pair.second.end());
-                        // recast local?
+                        // recast local
                         for (unsigned int l=s; l<is_vec.size(); ++l)
                         {
                             const auto& extents_vec = domain_extents[id_is_pair.first.mpi_rank];
@@ -468,59 +432,6 @@ namespace gridtools {
                         }
                     }
                 }
-
-                /*for (int r=0; r<(int)num_domain_ids.size(); ++r)
-                {
-                    comm.barrier();
-                    if (comm.rank()==r)
-                    {
-                        std::cout << "rank " << r << ": listing recv maps\n";
-                        for (const auto& p : my_patterns)
-                        {
-                            std::cout << "  pattern for domain " << p.domain_id() << std::endl;
-                            for (const auto& p0 : p.recv_halos())
-                            {
-                                    std::cout << "      extended_id: "
-                                    << "id = " << p0.first.id << ", "
-                                    << "rank = " << p0.first.mpi_rank << ", "
-                                    << "address = " << p0.first.address << ", "
-                                    << "tag = " << p0.first.tag << ", "
-                                    << "num is = " << p0.second.size() << "\n"; 
-                                for (const auto& is : p0.second)
-                                {
-                                    std::cout << "        {(" << is.first()[0] << ", " << is.first()[1] << ", " << is.first()[2] << "), "
-                                                       << "(" << is.last()[0] << ", " << is.last()[1] << ", " << is.last()[2] << ")}"
-                                                       << std::endl;
-                                }
-                            }
-                        }
-                    }
-                    comm.barrier();
-                    if (comm.rank()==r)
-                    {
-                        std::cout << "rank " << r << ": listing send maps\n";
-                        for (const auto& p : my_patterns)
-                        {
-                            std::cout << "  pattern for domain " << p.domain_id() << std::endl;
-                            for (const auto& p0 : p.send_halos())
-                            {
-                                    std::cout << "      extended_id: "
-                                    << "id = " << p0.first.id << ", "
-                                    << "rank = " << p0.first.mpi_rank << ", "
-                                    << "address = " << p0.first.address << ", "
-                                    << "tag = " << p0.first.tag << ", "
-                                    << "num is = " << p0.second.size() << "\n"; 
-                                for (const auto& is : p0.second)
-                                {
-                                    std::cout << "        {(" << is.first()[0] << ", " << is.first()[1] << ", " << is.first()[2] << "), "
-                                                       << "(" << is.last()[0] << ", " << is.last()[1] << ", " << is.last()[2] << ")}"
-                                                       << std::endl;
-                                }
-                            }
-                        }
-                    }
-                    comm.barrier();
-                }*/
 
                 return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns));
             }

@@ -201,7 +201,28 @@ namespace gridtools {
     }
 
     template<typename A>
-    auto dot(coordinate<A> l, const coordinate<A>& r) noexcept
+    auto dot(const coordinate<A>& l, const coordinate<A>& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        return res;
+    }
+    template<typename A>
+    auto dot(coordinate<A>&& l, const coordinate<A>& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        return res;
+    }
+    template<typename A>
+    auto dot(const coordinate<A>& l, coordinate<A>&& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        return res;
+    }
+    template<typename A>
+    auto dot(coordinate<A>&& l, coordinate<A>&& r) noexcept
     {
         auto res = l[0]*r[0];
         for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];

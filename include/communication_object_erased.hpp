@@ -94,11 +94,17 @@ namespace gridtools {
                 for (auto& mm : m.send_memory)
                     for (auto& p : mm.second)
                         if (p.second.size()>0)
+                        {
+                            //std::cout << "isend(" << p.first.address << ", " << p.first.tag << ", " << p.second.size() << ")" << std::endl;
                             m_futures.push_back(m_comm.isend(p.first.address, p.first.tag, p.second));
+                        }
                 for (auto& mm : m.recv_memory)
                     for (auto& p : mm.second)
                         if (p.second.size()>0)
+                        {
+                            //std::cout << "irecv(" << p.first.address << ", " << p.first.tag << ", " << p.second.size() << ")" << std::endl;
                             m_futures.push_back(m_comm.irecv(p.first.address, p.first.tag, p.second.data(), p.second.size()));
+                        }
             });
         }
 
@@ -157,11 +163,26 @@ namespace gridtools {
             using device_type = Device;
             using id_type = typename device_type::id_type;
             using vector_type = typename device_type::template vector_type<char>;
+
+            struct extended_domain_id_comp
+            {
+                bool operator()(const extended_domain_id_type& l, const extended_domain_id_type& r) const noexcept
+                {
+                    return 
+                        (l.id < r.id ?
+                            true :
+                            (l.id == r.id ?
+                                (l.tag < r.tag) :
+                                false));
+                }
+            };
+
             using memory_type = std::map<
                 id_type,
                 std::map<
                     extended_domain_id_type,
-                    vector_type
+                    vector_type,
+                    extended_domain_id_comp
                 >
             >;
             memory_type recv_memory;
@@ -196,9 +217,11 @@ namespace gridtools {
         template<typename... Devices, typename... Fields>
         [[nodiscard]] handle_type exchange(buffer_info_type<Devices,Fields>... buffer_infos)
         {
+            //using buffer_infos_t  = std::tuple<std::remove_reference_t<decltype(buffer_infos)>...>;
             using buffer_infos_ptr_t  = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
             using memory_t   = std::tuple<buffer_memory<Devices>*...>;
 
+            //buffer_infos_t buffer_info_tuple_r{buffer_infos...};
             buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
             handle_type h(*this,std::get<0>(buffer_info_tuple)->get_pattern().communicator(), sizeof...(Fields));
 
@@ -211,10 +234,11 @@ namespace gridtools {
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
                 auto& f     = h.m_fields[i];
                 f.m_pattern = &(bi->get_pattern());
-                f.m_pack    = [bi](void* buffer, const index_container_type& c) 
-                                  { bi->get_field().pack(reinterpret_cast<value_type*>(buffer),c); };
-                f.m_unpack  = [bi](const void* buffer, const index_container_type& c) 
-                                  { bi->get_field().unpack(reinterpret_cast<const value_type*>(buffer),c); };
+                auto field_ptr = &(bi->get_field());
+                f.m_pack    = [field_ptr](void* buffer, const index_container_type& c) 
+                                  { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c); };
+                f.m_unpack  = [field_ptr](const void* buffer, const index_container_type& c) 
+                                  { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c); };
                 f.m_recv_chunks.resize(f.m_pattern->recv_halos().size());
                 f.m_send_chunks.resize(f.m_pattern->send_halos().size());
                 auto& m_recv = mem->recv_memory[bi->device_id()];
@@ -256,8 +280,10 @@ namespace gridtools {
                 auto it = memory.find(p_id_c.first);
                 if (it == memory.end())
                     it = memory.insert(std::make_pair(p_id_c.first, Device::template make_vector<char>(device_id))).first;
-                chunks[j].m_offset = it->second.size();
-                it->second.resize(it->second.size() + alignof(ValueType) +
+                const auto prev_size = it->second.size();
+                chunks[j].m_offset = prev_size;
+                it->second.resize(0);
+                it->second.resize(prev_size + alignof(ValueType) +
                                   static_cast<std::size_t>(pattern_type::num_elements(p_id_c.second))*sizeof(ValueType));
                 ++j;
             }

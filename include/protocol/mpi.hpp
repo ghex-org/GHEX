@@ -56,6 +56,8 @@ namespace gridtools {
             /** @return size of communicator group*/
             size_type size() const { return m_comm.size(); }
 
+            void barrier() { m_comm.barrier(); }
+
             /**
              * @brief non-blocking send
              * @tparam T data type

@@ -13,7 +13,6 @@
 
 #include "protocol/setup.hpp"
 #include "protocol/mpi.hpp"
-//#include <vector>
 #include "buffer_info.hpp"
 
 namespace gridtools {
@@ -72,7 +71,9 @@ namespace gridtools {
         template<typename Field>
         buffer_info<value_type,typename Field::device_type,Field> operator()(Field& field) const
         {
-            return m_patterns[field.domain_id()](field);
+            for (auto& p : m_patterns)
+                if (p.domain_id()==field.domain_id()) return p(field);
+            throw std::runtime_error("field incompatible with available domains!");
         }
 
     private: // members
