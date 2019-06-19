@@ -187,12 +187,12 @@ namespace gridtools {
                                 iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
                                                 coordinate_type{d.last()} -coordinate_type{d.first()}},
                                 iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}}} );
-                    /*std::cout << "domain: \n"
-                              << "  local:  (" << my_domain_extents.back().local().first()[0] << "," << my_domain_extents.back().local().first()[1] << ")"
-                              <<       " -> (" << my_domain_extents.back().local().last()[0] << "," << my_domain_extents.back().local().last()[1] << ")\n"
-                              << "  global: (" << my_domain_extents.back().global().first()[0] << "," << my_domain_extents.back().global().first()[1] << ")"
-                              <<       " -> (" << my_domain_extents.back().global().last()[0] << "," << my_domain_extents.back().global().last()[1] << ")\n"
-                              << std::endl;*/
+                    std::cout << "domain: \n"
+                              << "  local:  (" << my_domain_extents.back().local().first()[0] << "," << my_domain_extents.back().local().first()[1] << "," << my_domain_extents.back().local().first()[2] << ")"
+                              <<       " -> (" << my_domain_extents.back().local().last()[0] << "," << my_domain_extents.back().local().last()[1] << "," << my_domain_extents.back().local().last()[2] << ")\n"
+                              << "  global: (" << my_domain_extents.back().global().first()[0] << "," << my_domain_extents.back().global().first()[1] << "," << my_domain_extents.back().global().first()[2] << ")"
+                              <<       " -> (" << my_domain_extents.back().global().last()[0] << "," << my_domain_extents.back().global().last()[1] << "," << my_domain_extents.back().global().last()[2] << ")\n"
+                              << std::endl;
                     my_patterns.emplace_back( new_comm, my_domain_extents.back(), my_domain_ids.back() );
                     my_generated_recv_halos.resize(my_generated_recv_halos.size()+1);
                     // generate recv halos
@@ -200,16 +200,22 @@ namespace gridtools {
                     // convert ghe recv halos to internal format
                     for (const auto& h : recv_halos)
                     {
-                        my_generated_recv_halos.back().push_back(iteration_space2{
+                        //my_generated_recv_halos.back().push_back(
+                        iteration_space2 is{
                             iteration_space{coordinate_type{h.local().first()},coordinate_type{h.local().last()}},
-                            iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}});
-                        /*std::cout << "  halo = \n"
-                                  << "  local:  (" << my_generated_recv_halos.back().back().local().first()[0] << "," << my_generated_recv_halos.back().back().local().first()[1] << ")"
-                              <<       " -> (" << my_generated_recv_halos.back().back().local().last()[0] << "," << my_generated_recv_halos.back().back().local().last()[1] << ")\n"
-                              << "  global: (" << my_generated_recv_halos.back().back().global().first()[0] << "," << my_generated_recv_halos.back().back().global().first()[1] << ")"
-                              <<       " -> (" << my_generated_recv_halos.back().back().global().last()[0] << "," << my_generated_recv_halos.back().back().global().last()[1] << ")\n"
-                              << std::endl;*/
+                            iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}};
+                        if (is.local().first()<=is.local().last())
+                        {
+                            my_generated_recv_halos.back().push_back(is);
+                        } else {
 
+                        std::cout << "  bad halo = \n"
+                                  << "  local:  (" << is.local().first()[0] << "," << is.local().first()[1] << "," << is.local().first()[2] << ")"
+                              <<       " -> (" << is.local().last()[0] << "," << is.local().last()[1] << "," << is.local().last()[2] << ")\n"
+                              << "  global: (" << is.global().first()[0] << "," << is.global().first()[1] << "," << is.global().first()[2] << ")"
+                              <<       " -> (" << is.global().last()[0] << "," << is.global().last()[1] << "," << is.global().last()[2] << ")\n"
+                              << std::endl;
+                        }
                     }
                 }
 

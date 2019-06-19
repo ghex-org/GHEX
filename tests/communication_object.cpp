@@ -78,6 +78,7 @@ struct my_domain_desc {
         const coordinate_type& first() const {return m_first;}
         const coordinate_type& last() const {return m_last;}
         const local_halo& local() const {return m_local_halo;}
+        const halo& global() const {return *this;}
 
     };
 
@@ -98,7 +99,7 @@ struct my_domain_desc {
     const coordinate_type& first() const {return m_first;}
     const coordinate_type& last() const {return m_last;}
     const local_domain& local() const {return m_local_domain;}
-    coordinate_type size() const {return coordinate_type{m_last[0]+1, m_last[1]+1, m_last[2]+1};}
+    coordinate_type size() const {return coordinate_type{m_local_domain.last()[0]+1, m_local_domain.last()[1]+1, m_local_domain.last()[2]+1};}
 
 };
 
@@ -138,6 +139,9 @@ public:
 
     template <typename IterationSpace>
     void set(const IterationSpace& is, const Byte* buffer) {
+        std::cout << "DEBUG: is.first()[2] = " << is.local().first()[2] << "\n";
+        std::cout << "DEBUG: is.last()[2] = " << is.local().last()[2] << "\n";
+        std::cout.flush();
         gridtools::detail::for_loop<3, 3, layout_map_type>::apply([this, &buffer](auto... indices){
             coordinate_type coords{indices...};
             std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
@@ -157,7 +161,7 @@ public:
             std::cout.flush();
             const T* tmp_ptr{&get(coords)};
             std::memcpy(buffer, tmp_ptr, sizeof(T));
-            std::cout << "DEBUG: just got value " << get(coords) << "\n";
+            std::cout << "DEBUG: just got value " << *(reinterpret_cast<T*>(buffer)) << "\n";
             std::cout.flush();
             buffer += sizeof(T);
         }, is.local().first(), is.local().last());
@@ -166,7 +170,55 @@ public:
 };
 
 
-/* 3D halo generator */
+/* 3D halo generator - 1 domain per rank */
+template<int H1m, int H1p, int H2m, int H2p, int H3m, int H3p>
+auto halo_gen = [](const my_domain_desc& d) {
+
+    using coordinate_type = my_domain_desc::coordinate_type;
+    using halo_type = my_domain_desc::halo;
+
+    std::vector<halo_type> halos;
+
+    halo_type bottom{
+        coordinate_type{((d.first()[0] - H1m) + d.size()[0]*2) % (d.size()[0]*2), d.first()[1], ((d.first()[2] - H3m) + d.size()[2]) % d.size()[2]},
+        coordinate_type{(d.last()[0] + H1p) % (d.size()[0]*2)                   , d.last()[1] , ((d.first()[2] - 1)   + d.size()[2]) % d.size()[2]},
+        coordinate_type{d.local().first()[0] - H1m, d.local().first()[1], d.local().first()[2] - H3m},
+        coordinate_type{d.local().last()[0] + H1p , d.local().last()[1] , d.local().first()[2] - 1}
+    };
+    halos.push_back(bottom);
+
+    halo_type top{
+        coordinate_type{((d.first()[0] - H1m) + d.size()[0]*2) % (d.size()[0]*2), d.first()[1], (d.last()[2] + 1) % d.size()[2]},
+        coordinate_type{(d.last()[0] + H1p) % (d.size()[0]*2)                   , d.last()[1] , (d.last()[2] + H3p) % d.size()[2]},
+        coordinate_type{d.local().first()[0] - H1m, d.local().first()[1], d.local().last()[2] + 1},
+        coordinate_type{d.local().last()[0] + H1p , d.local().last()[1] , d.local().last()[2] + H3p}
+    };
+    halos.push_back(top);
+
+    halo_type left{
+        coordinate_type{((d.first()[0] - H1m) + d.size()[0]*2) % (d.size()[0]*2), d.first()[1], d.first()[2]},
+        coordinate_type{((d.first()[0] - 1)   + d.size()[0]*2) % (d.size()[0]*2), d.last()[1], d.last()[2]},
+        coordinate_type{d.local().first()[0] - H1m, d.local().first()[1], d.local().first()[2]},
+        coordinate_type{d.local().first()[0] - 1  , d.local().last()[1] , d.local().last()[2]}
+    };
+    halos.push_back(left);
+
+    halo_type right{
+        coordinate_type{(d.last()[0] + 1)   % (d.size()[0]*2), d.first()[1], d.first()[2]},
+        coordinate_type{(d.last()[0] + H1p) % (d.size()[0]*2), d.last()[1] , d.last()[2]},
+        coordinate_type{d.local().last()[0] + 1  , d.local().first()[1], d.local().first()[2]},
+        coordinate_type{d.local().last()[0] + H1p, d.local().last()[1] , d.local().last()[2]}
+    };
+    halos.push_back(right);
+
+    return halos;
+
+};
+
+
+/*
+ * 3D halo generator - 2 domains per rank
+ *
 template<int H1m, int H1p, int H2m, int H2p, int H3m, int H3p>
 auto halo_gen = [](const my_domain_desc& d) {
 
@@ -210,6 +262,7 @@ auto halo_gen = [](const my_domain_desc& d) {
     return halos;
 
 };
+*/
 
 
 TEST(communication_object, constructor) {
@@ -223,7 +276,7 @@ TEST(communication_object, constructor) {
     const int DIM1 = 10;
     const int DIM2 = 15;
     const int DIM3 = 20;
-    const int H1m = 1;
+    const int H1m = 2;
     const int H1p = 1;
     const int H2m = 0;
     const int H2p = 0;
@@ -233,18 +286,31 @@ TEST(communication_object, constructor) {
     std::vector<my_domain_desc> local_domains;
 
     my_domain_desc my_domain_1{
+        comm.rank(),
+        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2) * DIM2      , 0},
+        coordinate_type{(comm.rank()%2) * DIM1 + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
+    };
+    local_domains.push_back(my_domain_1);
+
+    /*
+     * 2 domains per rank
+     *
+    my_domain_desc my_domain_1{
         comm.rank()*2,
         coordinate_type{(comm.rank()%2) * (DIM1*2)             , (comm.rank()/2) * DIM2      , 0},
         coordinate_type{(comm.rank()%2) * (DIM1*2) + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
+    */
 
+    /*
     my_domain_desc my_domain_2{
         comm.rank()*2+1,
         coordinate_type{(comm.rank()%2) * (DIM1*2) + DIM1      , (comm.rank()/2) * DIM2      , 0},
         coordinate_type{(comm.rank()%2) * (DIM1*2) + (DIM1*2-1), (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_2);
+    */
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
 
@@ -273,11 +339,11 @@ TEST(communication_object, exchange) {
 
     /* Problem sizes */
     int coords[3]{comm.rank()%2, comm.rank()/2, 0}; // rank in cartesian coordinates
-    const int DIM1 = 10;
-    const int DIM2 = 15;
-    const int DIM3 = 20;
-    const int H1m = 1;
-    const int H1p = 1;
+    const int DIM1 = 2;
+    const int DIM2 = 2;
+    const int DIM3 = 2;
+    const int H1m = 0;
+    const int H1p = 0;
     const int H2m = 0;
     const int H2p = 0;
     const int H3m = 1;
@@ -286,18 +352,31 @@ TEST(communication_object, exchange) {
     std::vector<my_domain_desc> local_domains;
 
     my_domain_desc my_domain_1{
+        comm.rank(),
+        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2) * DIM2      , 0},
+        coordinate_type{(comm.rank()%2) * DIM1 + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
+    };
+    local_domains.push_back(my_domain_1);
+
+    /*
+     * 2 domains per rank
+     *
+    my_domain_desc my_domain_1{
         comm.rank()*2,
         coordinate_type{(comm.rank()%2) * (DIM1*2)             , (comm.rank()/2) * DIM2      , 0},
         coordinate_type{(comm.rank()%2) * (DIM1*2) + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
+    */
 
+    /*
     my_domain_desc my_domain_2{
         comm.rank()*2+1,
         coordinate_type{(comm.rank()%2) * (DIM1*2) + DIM1      , (comm.rank()/2) * DIM2      , 0},
         coordinate_type{(comm.rank()%2) * (DIM1*2) + (DIM1*2-1), (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_2);
+    */
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
 
@@ -316,6 +395,7 @@ TEST(communication_object, exchange) {
         values_1
     };
 
+    /*
     triple_t<USE_DOUBLE, double>* _values_2 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
     array<triple_t<USE_DOUBLE, double>, layout_map_type> values_2(_values_2, (DIM1 + H1m + H1p), (DIM2 + H2m + H2p), (DIM3 + H3m + H3p));
     my_data_desc<triple_t<USE_DOUBLE, double>, my_domain_desc> data_2{
@@ -323,38 +403,39 @@ TEST(communication_object, exchange) {
         coordinate_type{H1m, H2m, H3m},
         values_2
     };
+    */
 
     /* Just an initialization */
     for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
-                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+                // values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
             }
     for (int ii = H1m; ii < DIM1 + H1m; ++ii)
         for (int jj = H2m; jj < DIM2 + H2m; ++jj)
             for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
                 values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>(ii - H1m + (DIM1)*coords[0], jj - H2m + (DIM2)*coords[1], kk - H3m + (DIM3)*coords[2]);
-                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(ii - H1m + (DIM1)*coords[0], jj - H2m + (DIM2)*coords[1], kk - H3m + (DIM3)*coords[2]);
+                // values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(ii - H1m + (DIM1)*coords[0], jj - H2m + (DIM2)*coords[1], kk - H3m + (DIM3)*coords[2]);
             }
 
     // CHECK IF THE USER CODE MAKES ANY SENSE FROM HERE!
 
-    std::vector<std::thread> threads;
+    // std::vector<std::thread> threads;
 
-    threads.push_back(std::thread([&cos, &data_1](){
+    // threads.push_back(std::thread([&cos, &data_1](){
         auto h = cos[0].exchange(data_1);
         h.wait();
-    }));
+    // }));
 
-    threads.push_back(std::thread([&cos, &data_2](){
-        auto h = cos[1].exchange(data_2);
-        h.wait();
-    }));
+    // threads.push_back(std::thread([&cos, &data_2](){
+    //     auto h = cos[1].exchange(data_2);
+    //     h.wait();
+    // }));
 
-    for (auto& t : threads) {
-        t.join();
-    }
+    // for (auto& t : threads) {
+    //     t.join();
+    // }
 
     // CHECK TESTS FROM HERE!
 
@@ -364,17 +445,20 @@ TEST(communication_object, exchange) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
 
-                triple_t<USE_DOUBLE, double> ta;
-                int tax, tay, taz;
+                triple_t<USE_DOUBLE, double> t1;
+                int t1x, t1y, t1z;
 
-                tax = modulus(ii - H1m + (DIM1)*coords[0], DIM1 * 2);
-                tay = modulus(jj - H2m + (DIM2)*coords[1], DIM2 * 2);
-                taz = modulus(kk - H3m + (DIM3)*coords[2], DIM3);
+                t1x = modulus(ii - H1m + (DIM1)*coords[0], DIM1 * 2);
+                t1y = modulus(jj - H2m + (DIM2)*coords[1], DIM2 * 2);
+                t1z = modulus(kk - H3m + (DIM3)*coords[2], DIM3);
 
-                ta = triple_t<USE_DOUBLE, double>(tax, tay, taz).floor();
+                t1 = triple_t<USE_DOUBLE, double>(t1x, t1y, t1z).floor();
 
-                if (values_1(ii, jj, kk) != ta) {
+                if (values_1(ii, jj, kk) != t1) {
                     passed = false;
+                    std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
+                         << "a " << values_1(ii, jj, kk) << " != " << t1 << "\n";
+
                 }
 
             }

@@ -27,7 +27,7 @@ namespace gridtools {
     class communication_object<Pattern, gridtools::cpu> {
 
         using Byte = unsigned char;
-        using IterationSpace = typename Pattern::iteration_space;
+        using IterationSpace = typename Pattern::iteration_space2;
         using MapType = typename Pattern::map_type;
         using Communicator = typename Pattern::communicator_type;
         using Future = typename Communicator::template future<void>;
@@ -60,7 +60,7 @@ namespace gridtools {
             std::size_t halo_index{0};
             for (const auto& halo : m_send_halos) {
 
-                auto iteration_spaces = halo.second;
+                const auto& iteration_spaces = halo.second;
 
                 send_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
                 std::size_t buffer_index{0};
@@ -69,11 +69,8 @@ namespace gridtools {
                  * in order to have as many data of the same type as possible in contiguos memory */
                 gridtools::detail::for_each(data_descriptors, [&iteration_spaces, &send_buffers, &halo_index, &buffer_index](const auto& dd) {
                     for (const auto& is : iteration_spaces) {
-                        std::cout << "DEBUG: packing: halo index = " << halo_index << "; buffer index = " << buffer_index << " \n";
-                        std::cout << "DEBUG: send buffer[halo_index][buffer_index] = " << send_buffers[halo_index][buffer_index] << " \n";
-                        std::cout.flush();
                         dd.get(is, &send_buffers[halo_index][buffer_index]);
-                        buffer_index += is.size();
+                        buffer_index += is.size() * dd.data_type_size();
                     }
                 });
 
@@ -107,7 +104,7 @@ namespace gridtools {
                     gridtools::detail::for_each(m_data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](auto& dd) {
                         for (const auto& is : iteration_spaces) {
                             dd.set(is, &m_receive_buffers[halo_index][buffer_index]);
-                            buffer_index += is.size();
+                            buffer_index += is.size() * dd.data_type_size();
                         }
                     });
 
@@ -175,7 +172,7 @@ namespace gridtools {
 
                 auto source = halo.first.address;
                 auto tag = halo.first.tag;
-                auto& iteration_spaces = halo.second;
+                const auto& iteration_spaces = halo.second;
 
                 receive_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
 
