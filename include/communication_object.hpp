@@ -27,18 +27,23 @@ namespace gridtools {
     class communication_object<Pattern, gridtools::cpu> {
 
         using byte_t = unsigned char;
+        using extended_domain_id_t = typename Pattern::extended_domain_id_type;
         using iteration_space_t = typename Pattern::iteration_space2;
         using map_t = typename Pattern::map_type;
         using communicator_t = typename Pattern::communicator_type;
         using future_t = typename communicator_t::template future<void>;
+        using s_buffer_t = std::vector<byte_t>;
+        using r_buffer_t = std::vector<byte_t>;
+        using s_request_t = future_t;
+        using r_request_t = std::tuple<std::size_t, extended_domain_id_t, future_t>;
 
         const Pattern& m_pattern;
         const map_t& m_send_halos;
         const map_t& m_receive_halos;
         std::size_t m_n_send_halos;
         std::size_t m_n_receive_halos;
-        std::vector<std::vector<byte_t>> m_send_buffers;
-        std::vector<std::vector<byte_t>> m_receive_buffers;
+        std::vector<s_buffer_t> m_send_buffers;
+        std::vector<r_buffer_t> m_receive_buffers;
         const communicator_t& m_communicator;
 
         template <typename... DataDescriptor>
@@ -89,39 +94,32 @@ namespace gridtools {
         class handle {
 
             const map_t& m_receive_halos;
-            std::vector<std::vector<byte_t>> m_receive_buffers;
-            std::vector<future_t> m_receive_requests;
+            std::vector<r_buffer_t> m_receive_buffers;
+            std::vector<r_request_t> m_receive_requests;
             std::tuple<DataDescriptor...> m_data_descriptors;
 
-            void unpack() {
+            void unpack(const std::size_t halo_index, const extended_domain_id_t& domain) {
 
-                std::size_t halo_index{0};
-                for (const auto& halo : m_receive_halos) {
+                const auto& iteration_spaces = m_receive_halos.at(domain);
 
-                    auto iteration_spaces = halo.second;
+                std::size_t buffer_index{0};
 
-                    std::size_t buffer_index{0};
-
-                    /* The two loops are performed with this order
-                     * in order to have as many data of the same type as possible in contiguos memory */
-                    gridtools::detail::for_each(m_data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](auto& dd) {
-                        for (const auto& is : iteration_spaces) {
-                            dd.set(is, &m_receive_buffers[halo_index][buffer_index]);
-                            buffer_index += is.size() * dd.data_type_size();
-                        }
-                    });
-
-                    ++halo_index;
-
-                }
+                /* The two loops are performed with this order
+                 * in order to have as many data of the same type as possible in contiguos memory */
+                gridtools::detail::for_each(m_data_descriptors, [this, &halo_index, &iteration_spaces, &buffer_index](auto& dd) {
+                    for (const auto& is : iteration_spaces) {
+                        dd.set(is, &m_receive_buffers[halo_index][buffer_index]);
+                        buffer_index += is.size() * dd.data_type_size();
+                    }
+                });
 
             }
 
         public:
 
             handle(const map_t& receive_halos,
-                   const std::vector<std::vector<byte_t>>& receive_buffers,
-                   std::vector<future_t>&& receive_requests,
+                   const std::vector<r_buffer_t>& receive_buffers,
+                   std::vector<r_request_t>&& receive_requests,
                    std::tuple<DataDescriptor...>&& data_descriptors) :
                 m_receive_halos{receive_halos},
                 m_receive_buffers{receive_buffers},
@@ -134,10 +132,9 @@ namespace gridtools {
                 for (auto& r : m_receive_requests) {
                     std::cout << "DEBUG: waititng for receive request n. " << i++ << " \n";
                     std::cout.flush();
-                    r.wait();
+                    std::get<2>(r).wait();
+                    unpack(std::get<0>(r), std::get<1>(r));
                 }
-
-                unpack();
 
             }
 
@@ -156,10 +153,10 @@ namespace gridtools {
         template <typename... DataDescriptor>
         handle<DataDescriptor...> exchange(DataDescriptor& ...dds) {
 
-            std::vector<future_t> send_requests;
+            std::vector<s_request_t> send_requests;
             send_requests.reserve(m_n_send_halos); // no default constructor
 
-            std::vector<future_t> receive_requests;
+            std::vector<r_request_t> receive_requests;
             receive_requests.reserve(m_n_receive_halos); // no default constructor
 
             auto data_descriptors = std::make_tuple(dds...);
@@ -171,8 +168,9 @@ namespace gridtools {
             halo_index = 0;
             for (const auto& halo : m_receive_halos) {
 
-                auto source = halo.first.address;
-                auto tag = halo.first.tag;
+                auto domain = halo.first;
+                auto source = domain.address;
+                auto tag = domain.tag;
                 const auto& iteration_spaces = halo.second;
 
                 m_receive_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
@@ -180,10 +178,11 @@ namespace gridtools {
                 std::cout << "DEBUG: Starting receive request for halo_index = " << halo_index << " \n";
                 std::cout.flush();
 
-                receive_requests.push_back(m_communicator.irecv(source,
-                        tag,
-                        &m_receive_buffers[halo_index][0],
-                        static_cast<int>(m_receive_buffers[halo_index].size())));
+                receive_requests.push_back(std::make_tuple(halo_index, domain, m_communicator.irecv(
+                                                              source,
+                                                              tag,
+                                                              &m_receive_buffers[halo_index][0],
+                                                              static_cast<int>(m_receive_buffers[halo_index].size()))));
 
                 ++halo_index;
 
