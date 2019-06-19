@@ -31,6 +31,7 @@ namespace gridtools {
 
     } // namespace detail
 
+    // forward declaration
     template<typename P, typename GridType, typename DomainIdType>
     class communication_object_erased;
 
@@ -41,17 +42,17 @@ namespace gridtools {
     template<typename P, typename GridType, typename DomainIdType>
     class communication_handle
     {
-    private: // member types
+    private: // friend class
         friend class communication_object_erased<P,GridType,DomainIdType>;
-        using co_t = communication_object_erased<P,GridType,DomainIdType>;
 
+    private: // member types
+        using co_t                    = communication_object_erased<P,GridType,DomainIdType>;
         using communicator_type       = protocol::communicator<P>;
         using pattern_type            = pattern<P,GridType,DomainIdType>;
         using index_container_type    = typename pattern_type::index_container_type;
         using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
-
-        using pack_function_type   = std::function<void(void*,const index_container_type&)>;
-        using unpack_function_type = std::function<void(const void*,const index_container_type&)>;
+        using pack_function_type      = std::function<void(void*,const index_container_type&)>;
+        using unpack_function_type    = std::function<void(const void*,const index_container_type&)>;
 
         // holds bookkeeping info for a data field
         // - type erased function pointers to pack and unpack methods
@@ -63,9 +64,7 @@ namespace gridtools {
                 std::size_t m_offset;
                 void* m_buffer;
             };
-
             using chunk_vector_type = std::vector<chunk_type>;
-
             const pattern_type* m_pattern;
             pack_function_type m_pack;
             unpack_function_type m_unpack;
@@ -148,12 +147,14 @@ namespace gridtools {
     template<typename P, typename GridType, typename DomainIdType>
     class communication_object_erased
     {
+    private: // friend class
+        friend class communication_handle<P,GridType,DomainIdType>;
+
     public: // member types
         /** @brief handle type returned by exhange operation */
         using handle_type             = communication_handle<P,GridType,DomainIdType>;
 
     private: // member types
-        friend class communication_handle<P,GridType,DomainIdType>;
         using communicator_type       = typename handle_type::communicator_type;
         using pattern_type            = typename handle_type::pattern_type;
         using index_container_type    = typename handle_type::index_container_type;
@@ -162,26 +163,25 @@ namespace gridtools {
         template<typename D, typename F>
         using buffer_info_type = buffer_info<pattern_type,D,F>;
 
+        // holds actual memory
+        // one instance will be created per device type
+        // memory is organized in a map:
+        // map( device_id -> 
+        //                   map( extended_domain_id ->
+        //                                               vector of chars (device specific) ))
         template<typename Device>
         struct buffer_memory
         {
             using device_type = Device;
             using id_type = typename device_type::id_type;
             using vector_type = typename device_type::template vector_type<char>;
-
             struct extended_domain_id_comp
             {
                 bool operator()(const extended_domain_id_type& l, const extended_domain_id_type& r) const noexcept
                 {
-                    return 
-                        (l.id < r.id ?
-                            true :
-                            (l.id == r.id ?
-                                (l.tag < r.tag) :
-                                false));
+                    return (l.id < r.id ? true : (l.id == r.id ? (l.tag < r.tag) : false));
                 }
             };
-
             using memory_type = std::map<
                 id_type,
                 std::map<
@@ -194,6 +194,7 @@ namespace gridtools {
             memory_type send_memory;
         };
 
+        // tuple type of buffer_memory (one element for each device in device::device_list)
         using memory_type = detail::transform<device::device_list>::with<buffer_memory>;
 
     private: // members
@@ -222,14 +223,11 @@ namespace gridtools {
         template<typename... Devices, typename... Fields>
         [[nodiscard]] handle_type exchange(buffer_info_type<Devices,Fields>... buffer_infos)
         {
-            //using buffer_infos_t  = std::tuple<std::remove_reference_t<decltype(buffer_infos)>...>;
             using buffer_infos_ptr_t  = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
             using memory_t   = std::tuple<buffer_memory<Devices>*...>;
 
-            //buffer_infos_t buffer_info_tuple_r{buffer_infos...};
             buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
             handle_type h(*this,std::get<0>(buffer_info_tuple)->get_pattern().communicator(), sizeof...(Fields));
-
             memory_t memory_tuple{&(std::get<buffer_memory<Devices>>(m_mem))...};
 
             int i = 0;

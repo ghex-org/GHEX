@@ -22,9 +22,13 @@
 
 namespace gridtools {
 
+    // forward declaration
     template<typename DomainIdType, int Dimension>
     class structured_halo_generator;
 
+    /** @brief implements domain descriptor concept for structured domains
+     * @tparam DomainIdType domain id type
+     * @tparam Dimension dimension of domain*/
     template<typename DomainIdType, int Dimension>
     class structured_domain_descriptor
     {
@@ -35,6 +39,11 @@ namespace gridtools {
         using halo_generator_type = structured_halo_generator<DomainIdType,Dimension>;
 
     public: // ctors
+        /** @brief construct a local domain
+         * @tparam Array coordinate-like type
+         * @param id domain id
+         * @param first first coordinate in domain (global coordinate)
+         * @param last last coordinate in domain (including, global coordinate) */
         template<typename Array>
         structured_domain_descriptor(domain_id_type id, const Array& first, const Array& last)
         : m_id{id}
@@ -54,6 +63,9 @@ namespace gridtools {
         coordinate_type m_last;
     };
 
+    /** @brief halo generator for structured domains
+     * @tparam DomainIdType domain id type
+     * @tparam Dimension dimension of domain*/
     template<typename DomainIdType, int Dimension>
     class structured_halo_generator
     {
@@ -85,11 +97,17 @@ namespace gridtools {
 
     public: // ctors
         
-        template<typename GlobalDomain>
+        /*template<typename GlobalDomain>
         structured_halo_generator(const GlobalDomain& gd, std::initializer_list<int> halos,std::initializer_list<bool> periodic)
         : structured_halo_generator(gd.first(), gd.last(), halos, periodic)
-        {}
+        {}*/
 
+        /** @brief construct a halo generator
+         * @tparam Array coordinate-like type
+         * @param g_first first global coordinate of total domain (used for periodicity)
+         * @param g_last last global coordinate of total domain (including, used for periodicity)
+         * @param halos list of halo sizes (dim0_dir-, dim0_dir+, dim1_dir-, dim1_dir+, ...)
+         * @param periodic list of bools indicating periodicity per dimension (true, true, false, ...) */
         template<typename Array>
         structured_halo_generator(const Array& g_first, const Array& g_last, std::initializer_list<int> halos,std::initializer_list<bool> periodic)
         {
@@ -101,6 +119,7 @@ namespace gridtools {
             std::copy(periodic.begin(), periodic.end(), m_periodic.begin());
         }
 
+        // construct without periodicity
         structured_halo_generator(std::initializer_list<int> halos)
         {
             m_halos.fill(0);
@@ -108,6 +127,9 @@ namespace gridtools {
             std::copy(halos.begin(), halos.end(), m_halos.begin());
         }
 
+        /** @brief generate halos
+         * @param dom local domain instance
+         * @return vector of halos of type box2 */
         auto operator()(const domain_type& dom) const
         {
             box2 left;

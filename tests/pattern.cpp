@@ -18,8 +18,8 @@
 #include <future>
 
 #define MULTI_THREADED_EXCHANGE
-#define MULTI_THREADED_EXCHANGE_THREADS
-//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
+//#define MULTI_THREADED_EXCHANGE_THREADS
+#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
 //#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
 //#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
@@ -222,6 +222,8 @@ bool test0(boost::mpi::communicator& mpi_comm)
         return co_.exchange(bis...);
     };
 #ifdef MULTI_THREADED_EXCHANGE_THREADS
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
     threads.push_back(std::thread{func, std::ref(co_1), 
         pattern1(field_1a), 
@@ -233,6 +235,8 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern1(field_3b)});
     for (auto& t : threads) t.join();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC) 
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func, std::ref(co_1),
         pattern1(field_1a), 
@@ -245,6 +249,8 @@ bool test0(boost::mpi::communicator& mpi_comm)
     future_1.wait();
     future_2.wait();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED) 
+    // packing and posting serially on current thread
+    // waiting and unpacking serially on current thread
     auto policy = std::launch::deferred;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
         pattern1(field_1a), 
@@ -254,11 +260,15 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern1(field_1b), 
         pattern2(field_2b), 
         pattern1(field_3b));
+    // deferred policy: essentially serial on current thread
     auto h1 = future_1.get();
     auto h2 = future_2.get();
+    // waiting and unpacking is serial here
     h1.wait();
     h2.wait();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT) 
+    // packing and posting may be done concurrently
+    // waiting and unpacking serially
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
         pattern1(field_1a), 

@@ -23,7 +23,6 @@ namespace gridtools {
     class pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>
     {
     public: // member types
-
         using grid_type               = detail::structured_grid<CoordinateArrayType>;
         using coordinate_type         = typename grid_type::coordinate_type;
         using coordinate_element_type = typename grid_type::coordinate_element_type;
@@ -91,7 +90,6 @@ namespace gridtools {
         }
 
     private: // members
-
         communicator_type m_comm;
         iteration_space2 m_domain;
         extended_domain_id_type m_id;
@@ -99,7 +97,6 @@ namespace gridtools {
         map_type m_recv_map;
 
     public: // ctors
-
         pattern(communicator_type& comm, const iteration_space2& domain, const extended_domain_id_type& id)
         :   m_comm(comm), m_domain(domain), m_id(id)
         {}
@@ -109,21 +106,13 @@ namespace gridtools {
         pattern(pattern&&) = default;
 
     public: // member functions
-
         map_type& send_halos() noexcept { return m_send_map; }
         const map_type& send_halos() const noexcept { return m_send_map; }
-
         map_type& recv_halos() noexcept { return m_recv_map; }
         const map_type& recv_halos() const noexcept { return m_recv_map; }
-
         domain_id_type domain_id() const noexcept { return m_id.id; }
         extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
 
-        /*template<typename Device, typename Field>
-        buffer_info<pattern, Device, Field> bind(Field& field, typename Device::id_type id) const
-        {
-            return {*this,field,id};
-        }*/
         template<typename Field>
         buffer_info<pattern, typename Field::device_type, Field> operator()(Field& field) const
         {

@@ -16,7 +16,6 @@
 namespace gridtools {
 
     namespace detail {
-        
         template<int D, int I>
         struct compute_strides_impl
         {
@@ -29,7 +28,6 @@ namespace gridtools {
                 compute_strides_impl<D,I-1>::template apply<Layout>(extents,strides);
             }
         };
-
         template<int D>
         struct compute_strides_impl<D,0>
         {
@@ -38,7 +36,6 @@ namespace gridtools {
             {
             }
         };
-
         template<int D>
         struct compute_strides
         {
@@ -50,16 +47,22 @@ namespace gridtools {
                 compute_strides_impl<D,D-1>::template apply<Layout>(extents,strides);
             }
         };
-
     } // namespace detail
 
+    // general template
     template<typename T, typename Device, typename DomainDescriptor, int... Order>
     class simple_field_wrapper {};
 
+    /** @brief wraps a contiguous N-dimensional array and implements the field descriptor concept
+     * @tparam T field value type
+     * @tparam Device device type the data lives on
+     * @tparam DomainIdType domain id type
+     * @tparam Dimension N
+     * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)*/
     template<typename T, typename Device, typename DomainIdType, int Dimension, int... Order>
     class simple_field_wrapper<T,Device,structured_domain_descriptor<DomainIdType,Dimension>, Order...>
     {
-    public:
+    public: // member types
         using value_type             = T;
         using device_type            = Device;
         using domain_descriptor_type = structured_domain_descriptor<DomainIdType,Dimension>;
@@ -68,11 +71,7 @@ namespace gridtools {
         using domain_id_type         = DomainIdType;
         using coordinate_type        = typename domain_descriptor_type::halo_generator_type::coordinate_type;
 
-    private:
-        //using halo_descriptor_type   = coordinate_type;
-        //using periodicity_type       = std::array<bool,dimension::value>;
-
-    private:
+    private: // members
         domain_id_type m_dom_id;
         value_type* m_data;
         coordinate_type m_strides;
@@ -80,7 +79,12 @@ namespace gridtools {
         coordinate_type m_extents;
 
     public: // ctors
-
+        /** @brief construcor 
+         * @tparam Array coordinate-like type
+         * @param dom_id local domain id
+         * @param data pointer to data
+         * @param offsets coordinate of first physical coordinate (not buffer) from the orign of the wrapped N-dimensional array
+         * @param extents extent of the wrapped N-dimensional array (including buffer regions)*/
         template<typename Array>
         simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents)
         : m_dom_id(dom_id), m_data(data), m_strides(1)
@@ -90,22 +94,26 @@ namespace gridtools {
             // compute strides
             detail::compute_strides<dimension::value>::template apply<layout_map>(m_extents,m_strides);
         }
+        simple_field_wrapper(simple_field_wrapper&&) noexcept = default;
+        simple_field_wrapper(const simple_field_wrapper&) noexcept = default;
 
-    public:
+    public: // member functions
         typename device_type::id_type device_id() const { return 0; }
-
         domain_id_type domain_id() const { return m_dom_id; }
 
-        value_type& operator()(const coordinate_type& x)
-        {
-            return m_data[dot(x,m_strides)];
-        }
+        /** @brief access operator
+         * @param x coordinate vector with respect to offset specified in constructor
+         * @return reference to value */
+        value_type& operator()(const coordinate_type& x) { return m_data[dot(x,m_strides)]; }
+        const value_type& operator()(const coordinate_type& x) const { return m_data[dot(x,m_strides)]; }
 
+        /** @brief access operator
+         * @param is coordinates with respect to offset specified in constructor
+         * @return reference to value */
         template<typename... Is>
-        value_type& operator()(Is&&... is)
-        {
-            return m_data[dot(coordinate_type{is...}+m_offsets,m_strides)];
-        }
+        value_type& operator()(Is&&... is) { return m_data[dot(coordinate_type{is...}+m_offsets,m_strides)]; }
+        template<typename... Is>
+        const value_type& operator()(Is&&... is) const { return m_data[dot(coordinate_type{is...}+m_offsets,m_strides)]; }
 
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c)
