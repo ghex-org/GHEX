@@ -18,6 +18,13 @@ namespace gridtools {
 
     namespace detail {
 
+        constexpr int ct_pow(int base, int exp)
+        {
+            return exp == 0 ? 
+                1 :
+                base*ct_pow(base, exp-1);
+        }
+
         /*template<std::size_t I = 0, typename Func, typename ...Args>
         typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>&, Func) {}
 

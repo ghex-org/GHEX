@@ -11,32 +11,33 @@
 #ifndef INCLUDED_STRUCTURED_PATTERN_HPP
 #define INCLUDED_STRUCTURED_PATTERN_HPP
 
+#include "structured_grid.hpp"
 #include "protocol/communicator_base.hpp"
 #include "pattern.hpp"
-#include "coordinate.hpp"
+//#include "coordinate.hpp"
 #include <map>
 
 namespace gridtools {
 
-    namespace detail {
+    //namespace detail {
 
-        template<typename CoordinateArrayType>
-        struct structured_grid 
-        {
-            using coordinate_base_type    = CoordinateArrayType;
-            using coordinate_type         = coordinate<coordinate_base_type>;
-            using coordinate_element_type = typename coordinate_type::element_type;
-            using dimension               = typename coordinate_type::dimension;    
-        };
+    //    template<typename CoordinateArrayType>
+    //    struct structured_grid 
+    //    {
+    //        using coordinate_base_type    = CoordinateArrayType;
+    //        using coordinate_type         = coordinate<coordinate_base_type>;
+    //        using coordinate_element_type = typename coordinate_type::element_type;
+    //        using dimension               = typename coordinate_type::dimension;    
+    //    };
 
-    } // namespace detail
+    //} // namespace detail
 
-    /** @brief type to indicate structured grids */
-    struct structured_grid 
-    {
-        template<typename Domain>
-        using type = detail::structured_grid<typename Domain::coordinate_type>;
-    };
+    ///** @brief type to indicate structured grids */
+    //struct structured_grid 
+    //{
+    //    template<typename Domain>
+    //    using type = detail::structured_grid<typename Domain::coordinate_type>;
+    //};
 
     /** @brief structured pattern */
     template<typename P, typename CoordinateArrayType, typename DomainIdType>
@@ -54,6 +55,7 @@ namespace gridtools {
 
         struct iteration_space
         {
+            //using typename pattern::coordinate_type;
                   coordinate_type& first()       noexcept { return _min; }
                   coordinate_type& last()        noexcept { return _max; }
             const coordinate_type& first() const noexcept { return _min; }
@@ -80,6 +82,8 @@ namespace gridtools {
 
         struct iteration_space2
         {
+            using pattern_type = pattern; 
+            //using pattern::coordinate_type;
             iteration_space& local() noexcept { return m_local; }
             const iteration_space& local() const noexcept { return m_local; }
             iteration_space& global() noexcept { return m_global; }

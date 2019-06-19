@@ -7,6 +7,7 @@
 // Please, refer to the LICENSE file in the root directory.
 // SPDX-License-Identifier: BSD-3-Clause
 // 
+#include "../include/simple_field.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/communication_object_erased.hpp"
 #include <boost/mpi/environment.hpp>
@@ -59,9 +60,9 @@ struct my_field
         for (const auto& is : c)
         {
             std::size_t counter=0;
-            for (int i=is.global().first()[0]; i<=is.global().last()[0]; ++i)
-            for (int j=is.global().first()[1]; j<=is.global().last()[1]; ++j)
-            for (int k=is.global().first()[2]; k<=is.global().last()[2]; ++k)
+            for (int i=is.local().first()[0]; i<=is.local().last()[0]; ++i)
+            for (int j=is.local().first()[1]; j<=is.local().last()[1]; ++j)
+            for (int k=is.local().first()[2]; k<=is.local().last()[2]; ++k)
             {
                 //std::cout << "packing [" << i << ", " << j << ", " << k << "] at " << (void*)(&(buffer[counter])) << std::endl;
                 buffer[counter++] = T(i);
@@ -76,11 +77,11 @@ struct my_field
         {
             //T res;
             std::size_t counter=0;
-            for (int i=is.global().first()[0]; i<=is.global().last()[0]; ++i)
-            for (int j=is.global().first()[1]; j<=is.global().last()[1]; ++j)
-            for (int k=is.global().first()[2]; k<=is.global().last()[2]; ++k)
+            for (int i=is.local().first()[0]; i<=is.local().last()[0]; ++i)
+            for (int j=is.local().first()[1]; j<=is.local().last()[1]; ++j)
+            for (int k=is.local().first()[2]; k<=is.local().last()[2]; ++k)
             {
-                //std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
+                std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
                 //T res = buffer[counter++];
                 ++counter;
             }
@@ -93,6 +94,66 @@ struct my_field
 bool test0(boost::mpi::communicator& mpi_comm)
 {
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
+
+    const std::array<int,3> g_first{0,0,0};
+    const std::array<int,3> g_last{39, ((comm.size()-1)/2+1)*15-1, 19};
+    const std::array<int,3> local_ext{10,15,20};
+    const std::array<int,3> offset{3,3,3};
+    const int max_memory = (local_ext[0]+2*offset[0])*(local_ext[1]+2*offset[1])*(local_ext[2]+2*offset[2]);
+
+    std::vector<double> field_1a_raw(max_memory);
+    std::vector<double> field_1b_raw(max_memory);
+    std::vector<int> field_2a_raw(max_memory);
+    std::vector<int> field_2b_raw(max_memory);
+
+    using domain_descriptor_type = gridtools::simple_domain_descriptor<int,3>;
+    std::vector<domain_descriptor_type> local_domains_;
+    local_domains_.push_back( domain_descriptor_type{
+        comm.rank()*2, 
+        std::array<int,3>{ (comm.rank()%2)*20,       (comm.rank()/2)*15,  0},
+        std::array<int,3>{ (comm.rank()%2)*20+9, (comm.rank()/2+1)*15-1, 19}});
+    local_domains_.push_back( domain_descriptor_type{
+        comm.rank()*2+1,
+        std::array<int,3>{ (comm.rank()%2)*20+10,     (comm.rank()/2)*15,  0},
+        std::array<int,3>{ (comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19}});
+
+    auto halo_gen1_ = domain_descriptor_type::halo_generator_type(
+        g_first, g_last,
+        {1,1,1,1,1,1}, 
+        {true,true,true});
+    auto halo_gen2_ = domain_descriptor_type::halo_generator_type(
+        g_first, g_last,
+        {2,2,2,2,2,2}, 
+        {true,true,true});
+    auto pattern1_ = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1_, local_domains_);
+    auto pattern2_ = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2_, local_domains_);
+
+    gridtools::simple_field_wrapper<double,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_1a_{
+        local_domains_[0].domain_id(),
+        field_1a_raw.data(),
+        offset,local_ext};
+    gridtools::simple_field_wrapper<double,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_1b_{
+        local_domains_[1].domain_id(),
+        field_1b_raw.data(),
+        offset,local_ext};
+    gridtools::simple_field_wrapper<int,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_2a_{
+        local_domains_[0].domain_id(),
+        field_2a_raw.data(),
+        offset,local_ext};
+    gridtools::simple_field_wrapper<int,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_2b_{
+        local_domains_[1].domain_id(),
+        field_2b_raw.data(),
+        offset,local_ext};
+
+    auto co_       = gridtools::make_communication_object(pattern1_,pattern2_);
+
+    co_.bexchange(
+        pattern1_(field_1a_),
+        pattern1_(field_1b_),
+        pattern2_(field_2a_),
+        pattern2_(field_2b_));
+
+
 
     std::vector<my_domain_desc> local_domains;
 
@@ -107,7 +168,6 @@ bool test0(boost::mpi::communicator& mpi_comm)
             comm.rank()*2+1,
             typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+10,     (comm.rank()/2)*15,  0},
             typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19} } );
-
 
     auto halo_gen1 = [&mpi_comm](const my_domain_desc& d)
         {
