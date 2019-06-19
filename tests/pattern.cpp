@@ -12,106 +12,72 @@
 #include "../include/communication_object_erased.hpp"
 #include <boost/mpi/environment.hpp>
 #include <array>
+#include <iomanip>
 
-struct my_domain_desc
-{
-    using coordinate_type = std::array<int,3>;
-    using domain_id_type  = int;
+#include <thread>
+#include <future>
 
-    struct box
-    {
-        const coordinate_type& first() const { return m_first; }
-        const coordinate_type& last() const { return m_last; }
-        coordinate_type m_first;
-        coordinate_type m_last;
-    };
-
-    struct box2
-    {
-        const box& local() const { return m_local; }
-        const box& global() const { return m_global; }
-        box m_local;
-        box m_global;
-    };
-
-    domain_id_type domain_id() const { return m_id; }
-    const coordinate_type& first() const { return m_first; }
-    const coordinate_type& last() const { return m_last; }
-
-    domain_id_type  m_id;
-    coordinate_type m_first;
-    coordinate_type m_last;
-};
-
-template<typename T, typename Device>
-struct my_field
-{
-    using value_type = T;
-    
-    using device_type = Device;
-
-    typename device_type::id_type device_id() const { return 0; }
-
-    int domain_id() const { return m_dom_id; }
-
-    template<typename IndexContainer>
-    void pack(T* buffer, const IndexContainer& c)
-    {
-        for (const auto& is : c)
-        {
-            std::size_t counter=0;
-            for (int i=is.local().first()[0]; i<=is.local().last()[0]; ++i)
-            for (int j=is.local().first()[1]; j<=is.local().last()[1]; ++j)
-            for (int k=is.local().first()[2]; k<=is.local().last()[2]; ++k)
-            {
-                //std::cout << "packing [" << i << ", " << j << ", " << k << "] at " << (void*)(&(buffer[counter])) << std::endl;
-                buffer[counter++] = T(i);
-            }
-        }
-    }
-
-    template<typename IndexContainer>
-    void unpack(const T* buffer, const IndexContainer& c)
-    {
-        for (const auto& is : c)
-        {
-            //T res;
-            std::size_t counter=0;
-            for (int i=is.local().first()[0]; i<=is.local().last()[0]; ++i)
-            for (int j=is.local().first()[1]; j<=is.local().last()[1]; ++j)
-            for (int k=is.local().first()[2]; k<=is.local().last()[2]; ++k)
-            {
-                std::cout << "unpacking [" << i << ", " << j << ", " << k << "] : " << buffer[counter] << std::endl;
-                //T res = buffer[counter++];
-                ++counter;
-            }
-        }
-    }
-
-    int m_dom_id;
-};
+#define MULTI_THREADED_EXCHANGE
+#define MULTI_THREADED_EXCHANGE_THREADS
+//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
+//#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
+//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
 template<typename T, long unsigned N>
 std::ostream& operator<<(std::ostream& os, const std::array<T,N>& arr)
 {
     os << "(";
-    for (unsigned int i=0; i<N-1; ++i) os << arr[i] << ", ";
-    os << arr[N-1] << ")";
+    for (unsigned int i=0; i<N-1; ++i) os << std::setw(2) << std::right << arr[i] << ",";
+    os << std::setw(2) << std::right << arr[N-1] << ")";
     return os;
 }
 
+
+using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
+template<typename T, typename Device, int... Is>
+using field_descriptor_type  = gridtools::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
+
 bool test0(boost::mpi::communicator& mpi_comm)
 {
+    // need communicator to decompose domain
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
 
+    // local portion per domain
     //const std::array<int,3> local_ext{10,15,20};
-    const std::array<int,3> local_ext{2,2,2};
+    const std::array<int,3> local_ext{4,3,2};
+
+    // decomposition: 4 domains in x-direction, 1 domain in z-direction, rest in y-direction
+    //                each MPI rank owns two domains: either first or last two domains in x-direction
+    //
+    //          +---------> x 
+    //          |
+    //          |     +------<0>------+------<1>------+
+    //          |     | +----+ +----+ | +----+ +----+ |
+    //          v     | |  0 | |  1 | | |  2 | |  3 | |
+    //                | +----+ +----+ | +----+ +----+ |
+    //          y     +------<2>------+------<3>------+
+    //                | +----+ +----+ | +----+ +----+ |
+    //                | |  5 | |  6 | | |  7 | |  8 | |
+    //                | +----+ +----+ | +----+ +----+ |
+    //                +------<4>------+------<5>------+
+    //                | +----+ +----+ | +----+ +----+ |
+    //                | |  9 | | 10 | | | 11 | | 12 | |
+    //                . .    . .    . . .    . .    . .
+    //                . .    . .    . . .    . .    . .
+    //
+
+
+    // compute total domain
     const std::array<int,3> g_first{               0,                                    0,              0};
     const std::array<int,3> g_last {local_ext[0]*4-1, ((comm.size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1};
+    // maximum halo
     const std::array<int,3> offset{3,3,3};
+    // local size including potential halos
     const std::array<int,3> local_ext_buffer{local_ext[0]+2*offset[0], local_ext[1]+2*offset[1], local_ext[2]+2*offset[2]};
+    // maximum number of elements per local domain
     const int max_memory = local_ext_buffer[0]*local_ext_buffer[1]*local_ext_buffer[2];
 
+    // allocate fields
     std::vector<double> field_1a_raw(max_memory);
     std::vector<double> field_1b_raw(max_memory);
     std::vector<int> field_2a_raw(max_memory);
@@ -119,74 +85,85 @@ bool test0(boost::mpi::communicator& mpi_comm)
     std::vector<std::array<int,3>> field_3a_raw(max_memory);
     std::vector<std::array<int,3>> field_3b_raw(max_memory);
 
-    using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
-    std::vector<domain_descriptor_type> local_domains_;
-    local_domains_.push_back( domain_descriptor_type{
+    // add local domains
+    std::vector<domain_descriptor_type> local_domains;
+    local_domains.push_back( domain_descriptor_type{
         comm.rank()*2, 
         std::array<int,3>{ ((comm.rank()%2)*2  )*local_ext[0],   (comm.rank()/2  )*local_ext[1],                0},
         std::array<int,3>{ ((comm.rank()%2)*2+1)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
-    local_domains_.push_back( domain_descriptor_type{
+    local_domains.push_back( domain_descriptor_type{
         comm.rank()*2+1,
         std::array<int,3>{ ((comm.rank()%2)*2+1)*local_ext[0],   (comm.rank()/2  )*local_ext[1],             0},
         std::array<int,3>{ ((comm.rank()%2)*2+2)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
 
-    auto halo_gen1_ = domain_descriptor_type::halo_generator_type(
+    // halo generators
+    auto halo_gen1 = domain_descriptor_type::halo_generator_type(
         g_first, g_last,
         {1,1,1,1,1,1}, 
         {true,true,true});
-    auto halo_gen2_ = domain_descriptor_type::halo_generator_type(
+    auto halo_gen2 = domain_descriptor_type::halo_generator_type(
         g_first, g_last,
         {2,2,2,2,2,2}, 
         {true,true,true});
-    auto pattern1_ = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1_, local_domains_);
-    auto pattern2_ = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2_, local_domains_);
+
+    // make patterns
+    auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
+    auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
     
-    gridtools::simple_field_wrapper<double,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_1a_{
-        local_domains_[0].domain_id(),
-        field_1a_raw.data(),
-        offset,local_ext_buffer};
-    gridtools::simple_field_wrapper<double,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_1b_{
-        local_domains_[1].domain_id(),
-        field_1b_raw.data(),
-        offset,local_ext_buffer};
-    gridtools::simple_field_wrapper<int,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_2a_{
-        local_domains_[0].domain_id(),
-        field_2a_raw.data(),
-        offset,local_ext_buffer};
-    gridtools::simple_field_wrapper<int,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_2b_{
-        local_domains_[1].domain_id(),
-        field_2b_raw.data(),
-        offset,local_ext_buffer};
-    gridtools::simple_field_wrapper<std::array<int,3>,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_3a_{
-        local_domains_[0].domain_id(),
-        field_3a_raw.data(),
-        offset,local_ext_buffer};
-    gridtools::simple_field_wrapper<std::array<int,3>,gridtools::device::cpu,domain_descriptor_type, 2,1,0> field_3b_{
-        local_domains_[1].domain_id(),
-        field_3b_raw.data(),
-        offset,local_ext_buffer};
+    // communication object
+    auto co = gridtools::make_communication_object(pattern1,pattern2);
+    auto co_1 = gridtools::make_communication_object(pattern1,pattern2);
+    auto co_2 = gridtools::make_communication_object(pattern1,pattern2);
+    
+    // wrap raw fields
+    field_descriptor_type<double, gridtools::device::cpu, 2, 1, 0> field_1a { 
+        local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer};
+    field_descriptor_type<double, gridtools::device::cpu, 2, 1, 0> field_1b { 
+        local_domains[1].domain_id(), field_1b_raw.data(), offset, local_ext_buffer};
+    
+    field_descriptor_type<int, gridtools::device::cpu, 2, 1, 0> field_2a { 
+        local_domains[0].domain_id(), field_2a_raw.data(), offset, local_ext_buffer};
+    field_descriptor_type<int, gridtools::device::cpu, 2, 1, 0> field_2b { 
+        local_domains[1].domain_id(), field_2b_raw.data(), offset, local_ext_buffer};
+    
+    field_descriptor_type<std::array<int,3>, gridtools::device::cpu, 2, 1, 0> field_3a { 
+        local_domains[0].domain_id(), field_3a_raw.data(), offset, local_ext_buffer};
+    field_descriptor_type<std::array<int,3>, gridtools::device::cpu, 2, 1, 0> field_3b { 
+        local_domains[1].domain_id(), field_3b_raw.data(), offset, local_ext_buffer};
 
     // fill arrays
-    { int xl = 0;
-    for (int x=local_domains_[0].first()[0]; x<=local_domains_[0].last()[0]; ++x, ++xl)
-    { int yl = 0;
-    for (int y=local_domains_[0].first()[1]; y<=local_domains_[0].last()[1]; ++y, ++yl)
-    { int zl = 0;
-    for (int z=local_domains_[0].first()[2]; z<=local_domains_[0].last()[2]; ++z, ++zl)
+    { 
+        int xl = 0;
+        for (int x=local_domains[0].first()[0]; x<=local_domains[0].last()[0]; ++x, ++xl)
+        { 
+            int yl = 0;
+            for (int y=local_domains[0].first()[1]; y<=local_domains[0].last()[1]; ++y, ++yl)
+            { 
+                int zl = 0;
+                for (int z=local_domains[0].first()[2]; z<=local_domains[0].last()[2]; ++z, ++zl)
+                {
+                    field_3a(xl,yl,zl) = std::array<int,3>{x,y,z};
+                }
+            }
+        }
+    }
     {
-        field_3a_(xl,yl,zl) = std::array<int,3>{x,y,z};
-    }}}}
-    { int xl = 0;
-    for (int x=local_domains_[1].first()[0]; x<=local_domains_[1].last()[0]; ++x, ++xl)
-    { int yl = 0;
-    for (int y=local_domains_[1].first()[1]; y<=local_domains_[1].last()[1]; ++y, ++yl)
-    { int zl = 0;
-    for (int z=local_domains_[1].first()[2]; z<=local_domains_[1].last()[2]; ++z, ++zl)
-    {
-        field_3b_(xl,yl,zl) = std::array<int,3>{x,y,z};
-    }}}}
-
+        int xl = 0;
+        for (int x=local_domains[1].first()[0]; x<=local_domains[1].last()[0]; ++x, ++xl)
+        {
+            int yl = 0;
+            for (int y=local_domains[1].first()[1]; y<=local_domains[1].last()[1]; ++y, ++yl)
+            {
+                int zl = 0;
+                for (int z=local_domains[1].first()[2]; z<=local_domains[1].last()[2]; ++z, ++zl)
+                {
+                    field_3b(xl,yl,zl) = std::array<int,3>{x,y,z};
+                }
+            }
+        }
+    }
     
+    // print arrays
     std::cout.flush();
     comm.barrier();
     for (int r=0; r<comm.size(); ++r)
@@ -199,39 +176,104 @@ bool test0(boost::mpi::communicator& mpi_comm)
         }
         std::cout << "rank " << r << std::endl;
         std::cout << std::endl;
-        std::cout << std::endl;
         for (int z=-1; z<local_ext[2]+1; ++z)
         {
-        for (int y=-1; y<local_ext[1]+1; ++y)
-        {
-            for (int x=-1; x<local_ext[0]+1; ++x)
+            std::cout << "z = " << z << std::endl; 
+            std::cout << std::endl;
+            for (int y=-1; y<local_ext[1]+1; ++y)
             {
-                std::cout << field_3a_(x,y,z);
-            }
-            std::cout << "      ";
-            for (int x=-1; x<local_ext[0]+1; ++x)
-            {
-                std::cout << field_3b_(x,y,z);
+                for (int x=-1; x<local_ext[0]+1; ++x)
+                {
+                    std::cout << field_3a(x,y,z) << " ";
+                }
+                std::cout << "      ";
+                for (int x=-1; x<local_ext[0]+1; ++x)
+                {
+                    std::cout << field_3b(x,y,z) << " ";
+                }
+                std::cout << std::endl;
             }
             std::cout << std::endl;
-        }
-        std::cout << std::endl;
         }
         std::cout.flush();
         comm.barrier();
     }
 
-    auto co_       = gridtools::make_communication_object(pattern1_,pattern2_);
+    // exchange
+#ifndef MULTI_THREADED_EXCHANGE
+    co.bexchange(
+        pattern1(field_1a),
+        pattern1(field_1b),
+        pattern2(field_2a),
+        pattern2(field_2b),
+        pattern1(field_3a),
+        pattern1(field_3b)
+    );
+#else
+    auto func = [](decltype(co)& co_, auto... bis) 
+    { 
+        co_.bexchange(bis...);
+        /*auto h = co_.exchange(bis...);
+        //std::this_thread::yield();
+        h.wait();*/
+    };
+    auto func_h = [](decltype(co)& co_, auto... bis) 
+    { 
+        return co_.exchange(bis...);
+    };
+#ifdef MULTI_THREADED_EXCHANGE_THREADS
+    std::vector<std::thread> threads;
+    threads.push_back(std::thread{func, std::ref(co_1), 
+        pattern1(field_1a), 
+        pattern2(field_2a), 
+        pattern1(field_3a)});
+    threads.push_back(std::thread{func, std::ref(co_2),
+        pattern1(field_1b), 
+        pattern2(field_2b), 
+        pattern1(field_3b)});
+    for (auto& t : threads) t.join();
+#elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC) 
+    auto policy = std::launch::async;
+    auto future_1 = std::async(policy, func, std::ref(co_1),
+        pattern1(field_1a), 
+        pattern2(field_2a), 
+        pattern1(field_3a));
+    auto future_2 = std::async(policy, func, std::ref(co_2),
+        pattern1(field_1b), 
+        pattern2(field_2b), 
+        pattern1(field_3b));
+    future_1.wait();
+    future_2.wait();
+#elif defined(MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED) 
+    auto policy = std::launch::deferred;
+    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+        pattern1(field_1a), 
+        pattern2(field_2a), 
+        pattern1(field_3a));
+    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+        pattern1(field_1b), 
+        pattern2(field_2b), 
+        pattern1(field_3b));
+    auto h1 = future_1.get();
+    auto h2 = future_2.get();
+    h1.wait();
+    h2.wait();
+#elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT) 
+    auto policy = std::launch::async;
+    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+        pattern1(field_1a), 
+        pattern2(field_2a), 
+        pattern1(field_3a));
+    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+        pattern1(field_1b), 
+        pattern2(field_2b), 
+        pattern1(field_3b));
+    future_1.get().wait();
+    future_2.get().wait();
+#endif
+#endif
 
-    co_.bexchange(
-        pattern1_(field_1a_),
-        pattern1_(field_1b_),
-        pattern2_(field_2a_),
-        pattern2_(field_2b_),
-        pattern1_(field_3a_),
-        pattern1_(field_3b_)
-        );
-
+    // print arrays
     std::cout.flush();
     comm.barrier();
     for (int r=0; r<comm.size(); ++r)
@@ -244,182 +286,28 @@ bool test0(boost::mpi::communicator& mpi_comm)
         }
         std::cout << "rank " << r << std::endl;
         std::cout << std::endl;
-        std::cout << std::endl;
         for (int z=-1; z<local_ext[2]+1; ++z)
         {
-        for (int y=-1; y<local_ext[1]+1; ++y)
-        {
-            for (int x=-1; x<local_ext[0]+1; ++x)
+            std::cout << "z = " << z << std::endl; 
+            std::cout << std::endl;
+            for (int y=-1; y<local_ext[1]+1; ++y)
             {
-                std::cout << field_3a_(x,y,z);
-            }
-            std::cout << "      ";
-            for (int x=-1; x<local_ext[0]+1; ++x)
-            {
-                std::cout << field_3b_(x,y,z);
+                for (int x=-1; x<local_ext[0]+1; ++x)
+                {
+                    std::cout << field_3a(x,y,z) << " ";
+                }
+                std::cout << "      ";
+                for (int x=-1; x<local_ext[0]+1; ++x)
+                {
+                    std::cout << field_3b(x,y,z) << " ";
+                }
+                std::cout << std::endl;
             }
             std::cout << std::endl;
-        }
-        std::cout << std::endl;
         }
         std::cout.flush();
         comm.barrier();
     }
-        
-    /*std::cout << "field 3a:" << std::endl;
-    std::cout << " ( 0, 0, 0) = " << field_3a_( 0, 0, 0) << std::endl;
-    std::cout << " ( 1, 0, 0) = " << field_3a_( 1, 0, 0) << std::endl;
-    std::cout << " ( 1, 1, 0) = " << field_3a_( 1, 1, 0) << std::endl;
-    std::cout << " ( 1, 1, 1) = " << field_3a_( 1, 1, 1) << std::endl;
-    std::cout << "field 3b:" << std::endl;
-    std::cout << " (-1, 0, 0) = " << field_3b_(-1, 0, 0) << std::endl;*/
-
-
-    //std::vector<my_domain_desc> local_domains;
-
-    //local_domains.push_back(
-    //    my_domain_desc{ 
-    //        comm.rank()*2,
-    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20,     (comm.rank()/2)*15,  0},
-    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+9, (comm.rank()/2+1)*15-1, 19} } );
-
-    //local_domains.push_back(
-    //    my_domain_desc{ 
-    //        comm.rank()*2+1,
-    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+10,     (comm.rank()/2)*15,  0},
-    //        typename my_domain_desc::coordinate_type{ (comm.rank()%2)*20+19, (comm.rank()/2+1)*15-1, 19} } );
-
-    //auto halo_gen1 = [&mpi_comm](const my_domain_desc& d)
-    //    {
-    //        std::vector<typename my_domain_desc::box2> halos;
-    //        /*typename my_domain_desc::box bottom{ d.first(), d.last() };
-
-    //        bottom.m_last[2]   = bottom.m_first[2]-1;
-    //        bottom.m_first[2] -= 2;
-    //        bottom.m_first[2]  = (bottom.m_first[2]+20)%20;
-    //        bottom.m_last[2]   = (bottom.m_last[2]+20)%20;
-
-    //        halos.push_back( bottom );
-
-    //        auto top{bottom};
-    //        top.m_first[2] = 0;
-    //        top.m_last[2]  = 1;
-
-    //        halos.push_back( top );*/
-
-    //        typename my_domain_desc::box left{ d.first(), d.last() };
-    //        left.m_last[0]   = left.m_first[0]-1; 
-    //        left.m_first[0] -= 2;
-    //        left.m_first[0]  = (left.m_first[0]+40)%40;
-    //        left.m_last[0]   = (left.m_last[0]+40)%40;
-    //        typename my_domain_desc::box left_l{left};
-    //        left_l.m_first[0] = -2;
-    //        left_l.m_last[0]  = -1;
-    //        left_l.m_first[1] =  0;
-    //        left_l.m_last[1]  =  d.last()[1]-d.first()[1];
-    //        left_l.m_first[2] =  0;
-    //        left_l.m_last[2]  =  d.last()[2]-d.first()[2];
-
-    //        halos.push_back( typename my_domain_desc::box2{left_l,left} );
-
-
-    //        typename my_domain_desc::box right{ d.first(), d.last() };
-    //        right.m_first[0]  = right.m_last[0]+1; 
-    //        right.m_last[0]  += 2;
-    //        right.m_first[0]  = (right.m_first[0]+40)%40;
-    //        right.m_last[0]   = (right.m_last[0]+40)%40;
-    //        typename my_domain_desc::box right_l{left};
-    //        right_l.m_first[0] =  d.last()[0]-d.first()[0]+1;
-    //        right_l.m_last[0]  =  d.last()[0]-d.first()[0]+2;
-    //        right_l.m_first[1] =  0;
-    //        right_l.m_last[1]  =  d.last()[1]-d.first()[1];
-    //        right_l.m_first[2] =  0;
-    //        right_l.m_last[2]  =  d.last()[2]-d.first()[2];
-
-    //        halos.push_back( typename my_domain_desc::box2{right_l,right} );
-
-
-    //        return halos;
-    //    };
-
-    ////auto halo_gen2 = halo_gen1;
-    //auto halo_gen2 = [&mpi_comm](const my_domain_desc& d)
-    //    {
-    //        std::vector<typename my_domain_desc::box2> halos;
-    //        typename my_domain_desc::box bottom{ d.first(), d.last() };
-    //        bottom.m_last[2]   = bottom.m_first[2]-1;
-    //        bottom.m_first[2] -= 2;
-    //        bottom.m_first[2]  = (bottom.m_first[2]+20)%20;
-    //        bottom.m_last[2]   = (bottom.m_last[2]+20)%20;
-    //        typename my_domain_desc::box bottom_l{bottom};
-    //        bottom_l.m_first[2] = -2;
-    //        bottom_l.m_last[2]  = -1;
-    //        bottom_l.m_first[0] =  0;
-    //        bottom_l.m_last[0]  =  d.last()[0]-d.first()[0];
-    //        bottom_l.m_first[1] =  0;
-    //        bottom_l.m_last[1]  =  d.last()[1]-d.first()[1];
-
-    //        halos.push_back( typename my_domain_desc::box2{bottom_l,bottom} );
-
-    //        auto top{bottom};
-    //        top.m_first[2] = 0;
-    //        top.m_last[2]  = 1;
-    //        typename my_domain_desc::box top_l{top};
-    //        top_l.m_first[2] =  d.last()[2]-d.first()[2]+1;
-    //        top_l.m_last[2]  =  d.last()[2]-d.first()[2]+2;
-    //        top_l.m_first[0] =  0;
-    //        top_l.m_last[0]  =  d.last()[0]-d.first()[0];
-    //        top_l.m_first[1] =  0;
-    //        top_l.m_last[1]  =  d.last()[1]-d.first()[1];
-
-    //        halos.push_back( typename my_domain_desc::box2{top_l,top} );
-    //        
-    //        /*typename my_domain_desc::box left{ d.first(), d.last() };
-    //        left.m_last[0]   = left.m_first[0]-1; 
-    //        left.m_first[0] -= 2;
-    //        left.m_first[0]  = (left.m_first[0]+40)%40;
-    //        left.m_last[0]   = (left.m_last[0]+40)%40;
-
-    //        halos.push_back( left );
-
-    //        typename my_domain_desc::box right{ d.first(), d.last() };
-    //        right.m_first[0]  = right.m_last[0]+1; 
-    //        right.m_last[0]  += 2;
-    //        right.m_first[0]  = (right.m_first[0]+40)%40;
-    //        right.m_last[0]   = (right.m_last[0]+40)%40;
-
-    //        halos.push_back( right );*/
-
-    //        return halos;
-    //    };
-
-    ////auto patterns = gridtools::make_pattern<gridtools::protocol::mpi, gridtools::structured_grid>(comm, halo_gen, local_domains);
-    //
-    //auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
-    //auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
-
-    //auto co       = gridtools::make_communication_object(pattern1,pattern2);
-
-    //my_field<double, gridtools::device::cpu> field1_a{0};
-    //my_field<double, gridtools::device::gpu> field1_b{1};
-
-    //my_field<int, gridtools::device::cpu> field2_a{0};
-    //my_field<int, gridtools::device::gpu> field2_b{1};
-
-    //co.bexchange(
-    //    pattern1(field1_a),
-    //    pattern1(field1_b),
-    //    pattern2(field2_a),
-    //    pattern2(field2_b));
-
-    ///*auto h = co.exchange(
-    //    pattern1(field1_a),
-    //    pattern1(field1_b),
-    //    pattern2(field2_a),
-    //    pattern2(field2_b)
-    //);
-
-    //h.wait();*/
 
     return true;
 }
@@ -427,12 +315,27 @@ bool test0(boost::mpi::communicator& mpi_comm)
 int main(int argc, char* argv[])
 {
     //MPI_Init(&argc,&argv);
+#ifdef MULTI_THREADED_EXCHANGE
+    int provided;
+    int res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    if (res == MPI_ERR_OTHER)
+    {
+        throw std::runtime_error("MPI init failed");
+    }
+    if (provided < MPI_THREAD_MULTIPLE)
+    {
+        throw std::runtime_error("MPI does not support threading");
+    }
+#else
     boost::mpi::environment env(argc, argv);
+#endif
+
     boost::mpi::communicator world;
-
-
     auto passed = test0(world);
-
+    
+#ifdef MULTI_THREADED_EXCHANGE
+    MPI_Finalize();
+#endif
     return 0;
 }
 

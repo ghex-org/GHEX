@@ -76,6 +76,10 @@ namespace gridtools {
     private: // private constructor
         communication_handle(co_t& co, const communicator_type& comm, std::size_t size) : m_co{&co}, m_comm{comm}, m_fields(size) {}
 
+    public: // copy and move ctors
+        communication_handle(communication_handle&&) = default;
+        communication_handle(const communication_handle&) = delete;
+
     public: // member function
         /** @brief  wait for communication to be finished*/
         void wait()
@@ -91,13 +95,6 @@ namespace gridtools {
             pack();
             detail::for_each(m_co->m_mem, [this](auto& m)
             {
-                for (auto& mm : m.send_memory)
-                    for (auto& p : mm.second)
-                        if (p.second.size()>0)
-                        {
-                            //std::cout << "isend(" << p.first.address << ", " << p.first.tag << ", " << p.second.size() << ")" << std::endl;
-                            m_futures.push_back(m_comm.isend(p.first.address, p.first.tag, p.second));
-                        }
                 for (auto& mm : m.recv_memory)
                     for (auto& p : mm.second)
                         if (p.second.size()>0)
@@ -105,11 +102,19 @@ namespace gridtools {
                             //std::cout << "irecv(" << p.first.address << ", " << p.first.tag << ", " << p.second.size() << ")" << std::endl;
                             m_futures.push_back(m_comm.irecv(p.first.address, p.first.tag, p.second.data(), p.second.size()));
                         }
+                for (auto& mm : m.send_memory)
+                    for (auto& p : mm.second)
+                        if (p.second.size()>0)
+                        {
+                            //std::cout << "isend(" << p.first.address << ", " << p.first.tag << ", " << p.second.size() << ")" << std::endl;
+                            m_futures.push_back(m_comm.isend(p.first.address, p.first.tag, p.second));
+                        }
             });
         }
 
         void pack()
         {
+            // should I try to use inverse map to pack buffer by buffer?
             for (auto& f : m_fields)
             {
                 std::size_t k=0;
