@@ -171,7 +171,7 @@ public:
 
 
 /* 3D halo generator - 1 domain per rank */
-template<int H1m, int H1p, int H2m, int H2p, int H3m, int H3p>
+template<int d1, int d2, int d3, int H1m, int H1p, int H2m, int H2p, int H3m, int H3p>
 auto halo_gen = [](const my_domain_desc& d) {
 
     using coordinate_type = my_domain_desc::coordinate_type;
@@ -179,37 +179,149 @@ auto halo_gen = [](const my_domain_desc& d) {
 
     std::vector<halo_type> halos;
 
-    halo_type bottom{
-        coordinate_type{((d.first()[0] - H1m) + d.size()[0]*2) % (d.size()[0]*2), d.first()[1], ((d.first()[2] - H3m) + d.size()[2]) % d.size()[2]},
-        coordinate_type{(d.last()[0] + H1p) % (d.size()[0]*2)                   , d.last()[1] , ((d.first()[2] - 1)   + d.size()[2]) % d.size()[2]},
-        coordinate_type{d.local().first()[0] - H1m, d.local().first()[1], d.local().first()[2] - H3m},
-        coordinate_type{d.local().last()[0] + H1p , d.local().last()[1] , d.local().first()[2] - 1}
+    halo_type halo_1m{
+        coordinate_type{
+            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
+            d.first()[1],
+            d.first()[2]
+        },
+        coordinate_type{
+            ((d.first()[0] - 1)   + d.size()[0]*d1) % (d.size()[0]*d1),
+            d.last()[1],
+            d.last()[2]
+        },
+        coordinate_type{
+            d.local().first()[0] - H1m,
+            d.local().first()[1],
+            d.local().first()[2]
+        },
+        coordinate_type{
+            d.local().first()[0] - 1,
+            d.local().last()[1],
+            d.local().last()[2]
+        }
     };
-    halos.push_back(bottom);
+    halos.push_back(halo_1m);
 
-    halo_type top{
-        coordinate_type{((d.first()[0] - H1m) + d.size()[0]*2) % (d.size()[0]*2), d.first()[1], (d.last()[2] + 1) % d.size()[2]},
-        coordinate_type{(d.last()[0] + H1p) % (d.size()[0]*2)                   , d.last()[1] , (d.last()[2] + H3p) % d.size()[2]},
-        coordinate_type{d.local().first()[0] - H1m, d.local().first()[1], d.local().last()[2] + 1},
-        coordinate_type{d.local().last()[0] + H1p , d.local().last()[1] , d.local().last()[2] + H3p}
+    halo_type halo_1p{
+        coordinate_type{
+            (d.last()[0] + 1)   % (d.size()[0]*d1),
+            d.first()[1],
+            d.first()[2]
+        },
+        coordinate_type{
+            (d.last()[0] + H1p) % (d.size()[0]*d1),
+            d.last()[1],
+            d.last()[2]
+        },
+        coordinate_type{
+            d.local().last()[0] + 1,
+            d.local().first()[1],
+            d.local().first()[2]
+        },
+        coordinate_type{
+            d.local().last()[0] + H1p,
+            d.local().last()[1],
+            d.local().last()[2]
+        }
     };
-    halos.push_back(top);
+    halos.push_back(halo_1p);
 
-    halo_type left{
-        coordinate_type{((d.first()[0] - H1m) + d.size()[0]*2) % (d.size()[0]*2), d.first()[1], d.first()[2]},
-        coordinate_type{((d.first()[0] - 1)   + d.size()[0]*2) % (d.size()[0]*2), d.last()[1], d.last()[2]},
-        coordinate_type{d.local().first()[0] - H1m, d.local().first()[1], d.local().first()[2]},
-        coordinate_type{d.local().first()[0] - 1  , d.local().last()[1] , d.local().last()[2]}
+    halo_type halo_2m{
+        coordinate_type{
+            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
+            ((d.first()[1] - H2m) + d.size()[1]*d2) % (d.size()[1]*d2),
+            d.first()[2]
+        },
+        coordinate_type{
+            (d.last()[0]   + H1p)                   % (d.size()[0]*d1),
+            ((d.first()[1] - 1  ) + d.size()[1]*d2) % (d.size()[1]*d2),
+            d.last()[2]
+        },
+        coordinate_type{
+            d.local().first()[0] - H1m,
+            d.local().first()[1] - H2m,
+            d.local().first()[2]
+        },
+        coordinate_type{
+            d.local().last()[0]  + H1p,
+            d.local().first()[1] - 1,
+            d.local().last()[2]
+        }
     };
-    halos.push_back(left);
+    halos.push_back(halo_2m);
 
-    halo_type right{
-        coordinate_type{(d.last()[0] + 1)   % (d.size()[0]*2), d.first()[1], d.first()[2]},
-        coordinate_type{(d.last()[0] + H1p) % (d.size()[0]*2), d.last()[1] , d.last()[2]},
-        coordinate_type{d.local().last()[0] + 1  , d.local().first()[1], d.local().first()[2]},
-        coordinate_type{d.local().last()[0] + H1p, d.local().last()[1] , d.local().last()[2]}
+    halo_type halo_2p{
+        coordinate_type{
+            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
+            (d.last()[1]   + 1  )                   % (d.size()[1]*d2),
+            d.first()[2]
+        },
+        coordinate_type{
+            (d.last()[0]   + H1p)                   % (d.size()[0]*d1),
+            (d.last()[1]   + H2p)                   % (d.size()[1]*d2),
+            d.last()[2]
+        },
+        coordinate_type{
+            d.local().first()[0] - H1m,
+            d.local().last()[1]  + 1,
+            d.local().first()[2]
+        },
+        coordinate_type{
+            d.local().last()[0]  + H1p,
+            d.local().last()[1]  + H2p,
+            d.local().last()[2]
+        }
     };
-    halos.push_back(right);
+    halos.push_back(halo_2p);
+
+    halo_type halo_3m{
+        coordinate_type{
+            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
+            ((d.first()[1] - H2m) + d.size()[1]*d2) % (d.size()[1]*d2),
+            ((d.first()[2] - H3m) + d.size()[2]*d3) % (d.size()[2]*d3)
+        },
+        coordinate_type{
+            (d.last()[0]   + H1p)                   % (d.size()[0]*d1),
+            (d.last()[1]   + H2p)                   % (d.size()[1]*d2),
+            ((d.first()[2] - 1  ) + d.size()[2]*d3) % (d.size()[2]*d3)
+        },
+        coordinate_type{
+            d.local().first()[0] - H1m,
+            d.local().first()[1] - H2m,
+            d.local().first()[2] - H3m
+        },
+        coordinate_type{
+            d.local().last()[0]  + H1p,
+            d.local().last()[1]  + H2p,
+            d.local().first()[2] - 1
+        }
+    };
+    halos.push_back(halo_3m);
+
+    halo_type halo_3p{
+        coordinate_type{
+            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
+            ((d.first()[1] - H2m) + d.size()[1]*d2) % (d.size()[1]*d2),
+            (d.last()[2]   + 1  )                   % (d.size()[2]*d3)
+        },
+        coordinate_type{
+            (d.last()[0] + H1p)                     % (d.size()[0]*d1),
+            (d.last()[1] + H2p)                     % (d.size()[1]*d2),
+            (d.last()[2] + H3p)                     % (d.size()[2]*d3)
+        },
+        coordinate_type{
+            d.local().first()[0] - H1m,
+            d.local().first()[1] - H2m,
+            d.local().last()[2]  + 1
+        },
+        coordinate_type{
+            d.local().last()[0] + H1p,
+            d.local().last()[1] + H2p,
+            d.local().last()[2] + H3p
+        }
+    };
+    halos.push_back(halo_3p);
 
     return halos;
 
@@ -273,13 +385,16 @@ TEST(communication_object, constructor) {
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
     /* Problem sizes */
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
     const int DIM1 = 10;
     const int DIM2 = 15;
     const int DIM3 = 20;
-    const int H1m = 2;
+    const int H1m = 1;
     const int H1p = 1;
-    const int H2m = 0;
-    const int H2p = 0;
+    const int H2m = 1;
+    const int H2p = 1;
     const int H3m = 1;
     const int H3p = 1;
 
@@ -287,7 +402,7 @@ TEST(communication_object, constructor) {
 
     my_domain_desc my_domain_1{
         comm.rank(),
-        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2) * DIM2      , 0},
+        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2)   * DIM2    , 0},
         coordinate_type{(comm.rank()%2) * DIM1 + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
@@ -312,7 +427,7 @@ TEST(communication_object, constructor) {
     local_domains.push_back(my_domain_2);
     */
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<d1, d2, d3, H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
 
     using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
 
@@ -339,13 +454,16 @@ TEST(communication_object, exchange) {
 
     /* Problem sizes */
     int coords[3]{comm.rank()%2, comm.rank()/2, 0}; // rank in cartesian coordinates
-    const int DIM1 = 2;
-    const int DIM2 = 2;
-    const int DIM3 = 2;
-    const int H1m = 0;
-    const int H1p = 0;
-    const int H2m = 0;
-    const int H2p = 0;
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 5;
+    const int DIM3 = 5;
+    const int H1m = 1;
+    const int H1p = 1;
+    const int H2m = 1;
+    const int H2p = 1;
     const int H3m = 1;
     const int H3p = 1;
 
@@ -353,7 +471,7 @@ TEST(communication_object, exchange) {
 
     my_domain_desc my_domain_1{
         comm.rank(),
-        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2) * DIM2      , 0},
+        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2)   * DIM2    , 0},
         coordinate_type{(comm.rank()%2) * DIM1 + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
@@ -378,7 +496,7 @@ TEST(communication_object, exchange) {
     local_domains.push_back(my_domain_2);
     */
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<d1, d2, d3, H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
 
     using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
 

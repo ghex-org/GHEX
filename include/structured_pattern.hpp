@@ -207,6 +207,14 @@ namespace gridtools {
                         if (is.local().first()<=is.local().last())
                         {
                             my_generated_recv_halos.back().push_back(is);
+
+                            std::cout << "  good halo = \n"
+                                      << "  local:  (" << is.local().first()[0] << "," << is.local().first()[1] << "," << is.local().first()[2] << ")"
+                                  <<       " -> (" << is.local().last()[0] << "," << is.local().last()[1] << "," << is.local().last()[2] << ")\n"
+                                  << "  global: (" << is.global().first()[0] << "," << is.global().first()[1] << "," << is.global().first()[2] << ")"
+                                  <<       " -> (" << is.global().last()[0] << "," << is.global().last()[1] << "," << is.global().last()[2] << ")\n"
+                                  << std::endl;
+
                         } else {
 
                         std::cout << "  bad halo = \n"
