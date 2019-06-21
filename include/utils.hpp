@@ -18,6 +18,13 @@ namespace gridtools {
 
     namespace detail {
 
+        constexpr int ct_pow(int base, int exp)
+        {
+            return exp == 0 ? 
+                1 :
+                base*ct_pow(base, exp-1);
+        }
+
         /*template<std::size_t I = 0, typename Func, typename ...Args>
         typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>&, Func) {}
 
@@ -224,25 +231,40 @@ namespace gridtools {
              * @param extent extent of multi-dimensional array of which [first, last] is a sub-region
              */
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent) noexcept
+            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset) noexcept
             {
                 std::size_t offset = 0;
                 std::size_t iter = 0;
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
                 {
-                    for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i, iter);
+                    for_loop_simple<D,I-1,layout_t>::apply(
+                        std::forward<Func>(f), 
+                        std::forward<Array>(first), 
+                        std::forward<Array>(last), 
+                        std::forward<Array2>(extent), 
+                        std::forward<Array2>(coordinate_offset), 
+                        offset+i+coordinate_offset[idx::value], 
+                        iter);
                 }
             }
 
             // implementation details
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, std::size_t offset, std::size_t iter) noexcept
+            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset, 
+                                     std::size_t offset, std::size_t iter) noexcept
             {
                 offset *= extent[idx::value];
                 iter   *= last[idx::value]-first[idx::value]+1;
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
                 {
-                    for_loop_simple<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), std::forward<Array2>(extent), offset+i, iter);
+                    for_loop_simple<D,I-1,layout_t>::apply(
+                        std::forward<Func>(f), 
+                        std::forward<Array>(first), 
+                        std::forward<Array>(last), 
+                        std::forward<Array2>(extent), 
+                        std::forward<Array2>(coordinate_offset), 
+                        offset+i+coordinate_offset[idx::value], 
+                        iter);
                 }
 
             }
@@ -253,7 +275,8 @@ namespace gridtools {
         struct for_loop_simple<D,0,gridtools::layout_map<Args...>>
         {
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&&, Array&&, Array2&&, std::size_t offset, std::size_t iter) noexcept
+            inline static void apply(Func&& f, Array&&, Array&&, Array2&&, Array2&&, 
+                                     std::size_t offset, std::size_t iter) noexcept
             {
                 // functor call with two arguments
                 // argument 1: offset in global multi-dimensional array

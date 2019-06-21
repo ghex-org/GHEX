@@ -31,6 +31,7 @@ namespace gridtools {
 
     } // namespace detail
 
+    // forward declaration
     template<typename P, typename GridType, typename DomainIdType>
     class communication_object_erased;
 
@@ -41,17 +42,17 @@ namespace gridtools {
     template<typename P, typename GridType, typename DomainIdType>
     class communication_handle
     {
-    private: // member types
+    private: // friend class
         friend class communication_object_erased<P,GridType,DomainIdType>;
-        using co_t = communication_object_erased<P,GridType,DomainIdType>;
 
+    private: // member types
+        using co_t                    = communication_object_erased<P,GridType,DomainIdType>;
         using communicator_type       = protocol::communicator<P>;
         using pattern_type            = pattern<P,GridType,DomainIdType>;
         using index_container_type    = typename pattern_type::index_container_type;
         using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
-
-        using pack_function_type   = std::function<void(void*,const index_container_type&)>;
-        using unpack_function_type = std::function<void(const void*,const index_container_type&)>;
+        using pack_function_type      = std::function<void(void*,const index_container_type&)>;
+        using unpack_function_type    = std::function<void(const void*,const index_container_type&)>;
 
         // holds bookkeeping info for a data field
         // - type erased function pointers to pack and unpack methods
@@ -63,9 +64,7 @@ namespace gridtools {
                 std::size_t m_offset;
                 void* m_buffer;
             };
-
             using chunk_vector_type = std::vector<chunk_type>;
-
             const pattern_type* m_pattern;
             pack_function_type m_pack;
             unpack_function_type m_unpack;
@@ -75,6 +74,10 @@ namespace gridtools {
 
     private: // private constructor
         communication_handle(co_t& co, const communicator_type& comm, std::size_t size) : m_co{&co}, m_comm{comm}, m_fields(size) {}
+
+    public: // copy and move ctors
+        communication_handle(communication_handle&&) = default;
+        communication_handle(const communication_handle&) = delete;
 
     public: // member function
         /** @brief  wait for communication to be finished*/
@@ -91,19 +94,26 @@ namespace gridtools {
             pack();
             detail::for_each(m_co->m_mem, [this](auto& m)
             {
-                for (auto& mm : m.send_memory)
-                    for (auto& p : mm.second)
-                        if (p.second.size()>0)
-                            m_futures.push_back(m_comm.isend(p.first.address, p.first.tag, p.second));
                 for (auto& mm : m.recv_memory)
                     for (auto& p : mm.second)
                         if (p.second.size()>0)
+                        {
+                            //std::cout << "irecv(" << p.first.address << ", " << p.first.tag << ", " << p.second.size() << ")" << std::endl;
                             m_futures.push_back(m_comm.irecv(p.first.address, p.first.tag, p.second.data(), p.second.size()));
+                        }
+                for (auto& mm : m.send_memory)
+                    for (auto& p : mm.second)
+                        if (p.second.size()>0)
+                        {
+                            //std::cout << "isend(" << p.first.address << ", " << p.first.tag << ", " << p.second.size() << ")" << std::endl;
+                            m_futures.push_back(m_comm.isend(p.first.address, p.first.tag, p.second));
+                        }
             });
         }
 
         void pack()
         {
+            // should I try to use inverse map to pack buffer by buffer?
             for (auto& f : m_fields)
             {
                 std::size_t k=0;
@@ -137,12 +147,14 @@ namespace gridtools {
     template<typename P, typename GridType, typename DomainIdType>
     class communication_object_erased
     {
+    private: // friend class
+        friend class communication_handle<P,GridType,DomainIdType>;
+
     public: // member types
         /** @brief handle type returned by exhange operation */
         using handle_type             = communication_handle<P,GridType,DomainIdType>;
 
     private: // member types
-        friend class communication_handle<P,GridType,DomainIdType>;
         using communicator_type       = typename handle_type::communicator_type;
         using pattern_type            = typename handle_type::pattern_type;
         using index_container_type    = typename handle_type::index_container_type;
@@ -151,23 +163,38 @@ namespace gridtools {
         template<typename D, typename F>
         using buffer_info_type = buffer_info<pattern_type,D,F>;
 
+        // holds actual memory
+        // one instance will be created per device type
+        // memory is organized in a map:
+        // map( device_id -> 
+        //                   map( extended_domain_id ->
+        //                                               vector of chars (device specific) ))
         template<typename Device>
         struct buffer_memory
         {
             using device_type = Device;
             using id_type = typename device_type::id_type;
             using vector_type = typename device_type::template vector_type<char>;
+            struct extended_domain_id_comp
+            {
+                bool operator()(const extended_domain_id_type& l, const extended_domain_id_type& r) const noexcept
+                {
+                    return (l.id < r.id ? true : (l.id == r.id ? (l.tag < r.tag) : false));
+                }
+            };
             using memory_type = std::map<
                 id_type,
                 std::map<
                     extended_domain_id_type,
-                    vector_type
+                    vector_type,
+                    extended_domain_id_comp
                 >
             >;
             memory_type recv_memory;
             memory_type send_memory;
         };
 
+        // tuple type of buffer_memory (one element for each device in device::device_list)
         using memory_type = detail::transform<device::device_list>::with<buffer_memory>;
 
     private: // members
@@ -201,7 +228,6 @@ namespace gridtools {
 
             buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
             handle_type h(*this,std::get<0>(buffer_info_tuple)->get_pattern().communicator(), sizeof...(Fields));
-
             memory_t memory_tuple{&(std::get<buffer_memory<Devices>>(m_mem))...};
 
             int i = 0;
@@ -211,10 +237,11 @@ namespace gridtools {
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
                 auto& f     = h.m_fields[i];
                 f.m_pattern = &(bi->get_pattern());
-                f.m_pack    = [bi](void* buffer, const index_container_type& c) 
-                                  { bi->get_field().pack(reinterpret_cast<value_type*>(buffer),c); };
-                f.m_unpack  = [bi](const void* buffer, const index_container_type& c) 
-                                  { bi->get_field().unpack(reinterpret_cast<const value_type*>(buffer),c); };
+                auto field_ptr = &(bi->get_field());
+                f.m_pack    = [field_ptr](void* buffer, const index_container_type& c) 
+                                  { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c); };
+                f.m_unpack  = [field_ptr](const void* buffer, const index_container_type& c) 
+                                  { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c); };
                 f.m_recv_chunks.resize(f.m_pattern->recv_halos().size());
                 f.m_send_chunks.resize(f.m_pattern->send_halos().size());
                 auto& m_recv = mem->recv_memory[bi->device_id()];
@@ -256,8 +283,10 @@ namespace gridtools {
                 auto it = memory.find(p_id_c.first);
                 if (it == memory.end())
                     it = memory.insert(std::make_pair(p_id_c.first, Device::template make_vector<char>(device_id))).first;
-                chunks[j].m_offset = it->second.size();
-                it->second.resize(it->second.size() + alignof(ValueType) +
+                const auto prev_size = it->second.size();
+                chunks[j].m_offset = prev_size;
+                it->second.resize(0);
+                it->second.resize(prev_size + alignof(ValueType) +
                                   static_cast<std::size_t>(pattern_type::num_elements(p_id_c.second))*sizeof(ValueType));
                 ++j;
             }
