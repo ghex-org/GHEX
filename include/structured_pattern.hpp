@@ -76,7 +76,9 @@ namespace gridtools {
             address_type   address;
             int            tag;
 
-            bool operator<(const extended_domain_id_type& other) const noexcept { return id < other.id; }
+            bool operator<(const extended_domain_id_type& other) const noexcept {
+                return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
+            }
         };
 
         using index_container_type = std::vector<iteration_space2>;
