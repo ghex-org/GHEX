@@ -1,12 +1,26 @@
-// 
-// GridTools
-// 
-// Copyright (c) 2014-2019, ETH Zurich
-// All rights reserved.
-// 
-// Please, refer to the LICENSE file in the root directory.
-// SPDX-License-Identifier: BSD-3-Clause
-// 
+/* 
+ * GridTools
+ * 
+ * Copyright (c) 2014-2019, ETH Zurich
+ * All rights reserved.
+ * 
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * 
+ */
+
+#define MULTI_THREADED_EXCHANGE
+
+#define MULTI_THREADED_EXCHANGE_THREADS
+//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
+//#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
+//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
+
+#ifdef MULTI_THREADED_EXCHANGE
+    #define GRIDTOOLS_COMM_OBJECT_THREAD_SAFE
+#endif
+
+
 #include "../include/simple_field.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/communication_object_erased.hpp"
@@ -17,11 +31,6 @@
 #include <thread>
 #include <future>
 
-#define MULTI_THREADED_EXCHANGE
-//#define MULTI_THREADED_EXCHANGE_THREADS
-#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
-//#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
-//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
 template<typename T, long unsigned N>
 std::ostream& operator<<(std::ostream& os, const std::array<T,N>& arr)
@@ -45,6 +54,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
     // local portion per domain
     //const std::array<int,3> local_ext{10,15,20};
     const std::array<int,3> local_ext{4,3,2};
+    const std::array<bool,3> periodic{true,true,true};
 
     // decomposition: 4 domains in x-direction, 1 domain in z-direction, rest in y-direction
     //                each MPI rank owns two domains: either first or last two domains in x-direction
@@ -97,14 +107,9 @@ bool test0(boost::mpi::communicator& mpi_comm)
         std::array<int,3>{ ((comm.rank()%2)*2+2)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
 
     // halo generators
-    auto halo_gen1 = domain_descriptor_type::halo_generator_type(
-        g_first, g_last,
-        {1,1,1,1,1,1}, 
-        {true,true,true});
-    auto halo_gen2 = domain_descriptor_type::halo_generator_type(
-        g_first, g_last,
-        {2,2,2,2,2,2}, 
-        {true,true,true});
+    std::array<int,6> halos{0,0,1,0,1,2};
+    auto halo_gen1 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos, periodic); 
+    auto halo_gen2 = domain_descriptor_type::halo_generator_type(g_first, g_last, std::array<int,6>{2,2,2,2,2,2}, periodic); 
 
     // make patterns
     auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
@@ -199,8 +204,12 @@ bool test0(boost::mpi::communicator& mpi_comm)
         comm.barrier();
     }
 
+
+
     // exchange
 #ifndef MULTI_THREADED_EXCHANGE
+    
+    // blocking variant
     co.bexchange(
         pattern1(field_1a),
         pattern1(field_1b),
@@ -209,6 +218,15 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern1(field_3a),
         pattern1(field_3b)
     );
+
+    // non-blocking variant
+    // auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
+    // auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
+    // ... overlap communication (packing, posting) with computation here
+    // wait and upack:
+    // h1.wait();
+    // h2.wait();
+
 #else
     auto func = [](decltype(co)& co_, auto... bis) 
     { 
@@ -233,6 +251,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern1(field_1b), 
         pattern2(field_2b), 
         pattern1(field_3b)});
+    // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC) 
     // packing and posting may be done concurrently
@@ -246,6 +265,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern1(field_1b), 
         pattern2(field_2b), 
         pattern1(field_3b));
+    // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED) 
@@ -263,6 +283,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
     // deferred policy: essentially serial on current thread
     auto h1 = future_1.get();
     auto h2 = future_2.get();
+    // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
     h1.wait();
     h2.wait();
@@ -278,6 +299,8 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern1(field_1b), 
         pattern2(field_2b), 
         pattern1(field_3b));
+    // ... overlap communication (packing, posting) with computation here
+    // waiting and unpacking is serial here
     future_1.get().wait();
     future_2.get().wait();
 #endif
@@ -319,7 +342,50 @@ bool test0(boost::mpi::communicator& mpi_comm)
         comm.barrier();
     }
 
-    return true;
+    bool passed = true;
+    { 
+        std::array<decltype(field_3a),2> field{field_3a, field_3b};
+        for (int i=0; i<2; ++i)
+        {
+            int xl = -halos[0];
+            for (int x=local_domains[i].first()[0]-halos[0]; x<=local_domains[i].last()[0]+halos[1]; ++x, ++xl)
+            {
+                if (x<local_domains[0].first()[0] && !periodic[0]) continue;
+                if (x>local_domains[0].last()[0]  && !periodic[0]) continue;
+                auto x_wrapped = (((x-g_first[0])+(g_last[0]-g_first[0]+1))%(g_last[0]-g_first[0]+1) + g_first[0]);
+                int yl = -halos[2];
+                for (int y=local_domains[i].first()[1]-halos[2]; y<=local_domains[i].last()[1]+halos[3]; ++y, ++yl)
+                { 
+                    if (y<local_domains[1].first()[1] && !periodic[1]) continue;
+                    if (y>local_domains[1].last()[1]  && !periodic[1]) continue;
+                    auto y_wrapped = (((y-g_first[1])+(g_last[1]-g_first[1]+1))%(g_last[1]-g_first[1]+1) + g_first[1]);
+                    int zl = -halos[4];
+                    for (int z=local_domains[i].first()[2]-halos[4]; z<=local_domains[i].last()[2]+halos[5]; ++z, ++zl)
+                    {
+                        if (z<local_domains[2].first()[2] && !periodic[2]) continue;
+                        if (z>local_domains[2].last()[2]  && !periodic[2]) continue;
+                        auto z_wrapped = (((z-g_first[2])+(g_last[2]-g_first[2]+1))%(g_last[2]-g_first[2]+1) + g_first[2]);
+
+                        const auto& value = field[i](xl,yl,zl);
+                        if(value[0]!=x_wrapped || value[1]!=y_wrapped || value[2]!=z_wrapped)
+                        {
+                            passed = false;
+                            std::cout 
+                            << "(" << xl << ", " << yl << ", " << zl << ") values found != expected: " 
+                            << "(" << value[0] << ", " << value[1] << ", " << value[2] << ") != "
+                            << "(" << x_wrapped << ", " << y_wrapped << ", " << z_wrapped << ")" << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (passed)
+        std::cout << "RESULT: PASSED" << std::endl;
+    else
+        std::cout << "RESULT: FAILED" << std::endl;
+    return passed;
 }
 
 int main(int argc, char* argv[])

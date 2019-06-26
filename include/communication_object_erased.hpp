@@ -11,6 +11,13 @@
 #ifndef INCLUDED_COMMUNICATION_OBJECT_ERASED_HPP
 #define INCLUDED_COMMUNICATION_OBJECT_ERASED_HPP
 
+
+#ifdef GRIDTOOLS_COMM_OBJECT_THREAD_SAFE
+    #define GRIDTOOLS_TAG_OFFSET 100
+#else
+    #define GRIDTOOLS_TAG_OFFSET 0
+#endif
+
 #include "utils.hpp"
 #include "buffer_info.hpp"
 #include "devices.hpp"
@@ -179,7 +186,26 @@ namespace gridtools {
             {
                 bool operator()(const extended_domain_id_type& l, const extended_domain_id_type& r) const noexcept
                 {
-                    return (l.id < r.id ? true : (l.id == r.id ? (l.tag < r.tag) : false));
+                    //return (l.id < r.id ? true : (l.id == r.id ? (l.tag < r.tag) : false));
+                    return (l.mpi_rank < r.mpi_rank ? true : (l.mpi_rank == r.mpi_rank ? (l.tag < r.tag) : false));
+                    /*return 
+                        (l.mpi_rank < r.mpi_rank ? 
+                            true 
+                        : 
+                            (l.mpi_rank == r.mpi_rank ? 
+                                (l.id < r.id ?
+                                    true        
+                                :
+                                    (l.id == r.id ?
+                                        (l.tag < r.tag)
+                                    : // l.mpi_rank == r.mpi_rank && l.id > r.id
+                                        false
+                                    )
+                                )
+                            : // l.mpi_rank > r.mpi_rank
+                                false
+                            )
+                        );*/
                 }
             };
             using memory_type = std::map<
@@ -246,8 +272,10 @@ namespace gridtools {
                 f.m_send_chunks.resize(f.m_pattern->send_halos().size());
                 auto& m_recv = mem->recv_memory[bi->device_id()];
                 auto& m_send = mem->send_memory[bi->device_id()];
-                allocate<device_type, value_type>(f.m_pattern->recv_halos(), m_recv, bi->device_id(), f.m_recv_chunks);
-                allocate<device_type, value_type>(f.m_pattern->send_halos(), m_send, bi->device_id(), f.m_send_chunks);
+                //std::cout << "allocating recv memory" << std::endl;
+                allocate<device_type, value_type>(f.m_pattern->recv_halos(), m_recv, bi->device_id(), f.m_recv_chunks,i*GRIDTOOLS_TAG_OFFSET);
+                //std::cout << "allocating send memory" << std::endl;
+                allocate<device_type, value_type>(f.m_pattern->send_halos(), m_send, bi->device_id(), f.m_send_chunks,i*GRIDTOOLS_TAG_OFFSET);
                 ++i;
             });
 
@@ -259,8 +287,8 @@ namespace gridtools {
                 auto& f     = h.m_fields[i];
                 auto& m_recv = mem->recv_memory[bi->device_id()];
                 auto& m_send = mem->send_memory[bi->device_id()];
-                align<device_type, value_type>(f.m_pattern->recv_halos(), m_recv, bi->device_id(), f.m_recv_chunks);
-                align<device_type, value_type>(f.m_pattern->send_halos(), m_send, bi->device_id(), f.m_send_chunks);
+                align<device_type, value_type>(f.m_pattern->recv_halos(), m_recv, bi->device_id(), f.m_recv_chunks,i*100);
+                align<device_type, value_type>(f.m_pattern->send_halos(), m_send, bi->device_id(), f.m_send_chunks,i*100);
                 ++i;
             });
 
@@ -275,14 +303,22 @@ namespace gridtools {
             const typename pattern_type::map_type& halos, 
             typename buffer_memory<Device>::memory_type::mapped_type& memory, 
             typename Device::id_type device_id, 
-            typename handle_type::field::chunk_vector_type& chunks)
+            typename handle_type::field::chunk_vector_type& chunks, int tag_offset)
         {
             std::size_t j=0;
             for (const auto& p_id_c : halos)
             {
-                auto it = memory.find(p_id_c.first);
+                auto key = p_id_c.first;
+                key.tag += tag_offset;
+                //auto it = memory.find(p_id_c.first);
+                auto it = memory.find(key);
                 if (it == memory.end())
-                    it = memory.insert(std::make_pair(p_id_c.first, Device::template make_vector<char>(device_id))).first;
+                {
+                    //std::cout << "allocating memory for key " << p_id_c.first << std::endl;
+                    //std::cout << "allocating memory for key " << key << std::endl;
+                    //it = memory.insert(std::make_pair(p_id_c.first, Device::template make_vector<char>(device_id))).first;
+                    it = memory.insert(std::make_pair(key, Device::template make_vector<char>(device_id))).first;
+                }
                 const auto prev_size = it->second.size();
                 chunks[j].m_offset = prev_size;
                 it->second.resize(0);
@@ -298,12 +334,15 @@ namespace gridtools {
             const typename pattern_type::map_type& halos, 
             typename buffer_memory<Device>::memory_type::mapped_type& memory, 
             typename Device::id_type device_id, 
-            typename handle_type::field::chunk_vector_type& chunks)
+            typename handle_type::field::chunk_vector_type& chunks, int tag_offset)
         {
             int j=0;
             for (const auto& p_id_c : halos)
             {
-                auto& vec = memory[p_id_c.first];
+                auto key = p_id_c.first;
+                key.tag += tag_offset;
+                //auto& vec = memory[p_id_c.first];
+                auto& vec = memory[key];
                 chunks[j].m_buffer = Device::template align<ValueType>(vec.data()+chunks[j].m_offset, device_id);
                 ++j;
             }

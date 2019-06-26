@@ -15,6 +15,7 @@
 #include "protocol/communicator_base.hpp"
 #include "pattern.hpp"
 #include <map>
+#include <iosfwd>
 
 namespace gridtools {
 
@@ -55,6 +56,12 @@ namespace gridtools {
 
             coordinate_type _min; 
             coordinate_type _max;
+            template< class CharT, class Traits>
+            friend std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os, const iteration_space& is)
+            {
+                os << "[" << is._min << ", " << is._max << "]";
+                return os;
+            }
         };
 
         struct iteration_space2
@@ -67,6 +74,12 @@ namespace gridtools {
             int size() const noexcept { return m_local.size(); } 
             iteration_space m_local;
             iteration_space m_global;
+            template< class CharT, class Traits>
+            friend std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os, const iteration_space2& is)
+            {
+                os << is.m_global << " (local: " << is.m_local << ")";
+                return os;
+            }
         };
 
         struct extended_domain_id_type
@@ -76,8 +89,17 @@ namespace gridtools {
             address_type   address;
             int            tag;
 
-            bool operator<(const extended_domain_id_type& other) const noexcept {
+            bool operator<(const extended_domain_id_type& other) const noexcept 
+            { 
+                //return id < other.id; 
                 return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
+            }
+            
+            template< class CharT, class Traits>
+            friend std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os, const extended_domain_id_type& dom_id)
+            {
+                os << "{id=" << dom_id.id << ", tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
+                return os;
             }
         };
 
@@ -142,6 +164,8 @@ namespace gridtools {
                 using coordinate_type           = typename pattern_type::coordinate_type;
                 using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
 
+                //using map_type                  = typename pattern_type::map_type;
+
                 // get this address from new communicator
                 auto my_address = new_comm.address();
                 
@@ -152,6 +176,7 @@ namespace gridtools {
                 std::vector<std::vector<iteration_space2>> my_generated_recv_halos;
                 for (const auto& d : d_range)
                 {
+                    //std::cout << "domain:" << std::endl;
                     my_domain_ids.push_back( extended_domain_id_type{d.domain_id(), comm.rank(), my_address, 0} );
                     my_domain_extents.push_back( 
                         iteration_space2{
@@ -169,7 +194,10 @@ namespace gridtools {
                             iteration_space{coordinate_type{h.local().first()},coordinate_type{h.local().last()}},
                             iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}};
                         if (is.local().first() <= is.local().last())
+                        {
                             my_generated_recv_halos.back().push_back( is );
+                            //std::cout << "  " << is << std::endl;
+                        }
                     }
                 }
 
@@ -213,6 +241,21 @@ namespace gridtools {
                     }
                 }
 
+                /*for (const auto& pat : my_patterns)
+                {
+                    std::cout << "pattern:" << std::endl;
+                    for (const auto& halo : pat.recv_halos())
+                    {
+                        std::cout << " " << halo.first << ": " << std::endl;
+                        for (const auto& is : halo.second)
+                        {
+                            std::cout << "    " << is << std::endl;
+                        }
+                    }
+                }
+                std::cout << std::endl;
+                std::cout << std::endl;*/
+
                 // set tags in order to disambiguate recvs from same processor but different domain
                 std::map<int,int> tag_map;
                 for (auto& p : my_patterns)
@@ -233,6 +276,23 @@ namespace gridtools {
                         }
                     }
                 }
+
+                // TODO: communicate max tag to be used for thread safety in communication object ?
+
+                /*for (const auto& pat : my_patterns)
+                {
+                    std::cout << "pattern:" << std::endl;
+                    for (const auto& halo : pat.recv_halos())
+                    {
+                        std::cout << " " << halo.first << ": " << std::endl;
+                        for (const auto& is : halo.second)
+                        {
+                            std::cout << "    " << is << std::endl;
+                        }
+                    }
+                }
+                std::cout << std::endl;
+                std::cout << std::endl;*/
                 
                 // translate to send halos
                 std::map<int,
@@ -423,6 +483,32 @@ namespace gridtools {
                         }
                     }
                 }
+
+                /*int q=0;
+                for (const auto& pat : my_patterns)
+                {
+                    std::cout << "pattern " << q++ << std::endl;
+                    std::cout << "  recv halos: " << std::endl;
+                    for (const auto& halo : pat.recv_halos())
+                    {
+                        std::cout << "    " << halo.first << ": " << std::endl;
+                        for (const auto& is : halo.second)
+                        {
+                            std::cout << "      " << is << std::endl;
+                        }
+                    }
+                    std::cout << "  send halos: " << std::endl;
+                    for (const auto& halo : pat.send_halos())
+                    {
+                        std::cout << "    " << halo.first << ": " << std::endl;
+                        for (const auto& is : halo.second)
+                        {
+                            std::cout << "      " << is << std::endl;
+                        }
+                    }
+                }
+                std::cout << std::endl;
+                std::cout << std::endl;*/
 
                 return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns));
             }
