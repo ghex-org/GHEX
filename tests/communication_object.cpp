@@ -22,105 +22,106 @@
 #include "../include/protocol/mpi.hpp"
 #include "../include/pattern.hpp"
 #include "../include/structured_pattern.hpp"
+#include "../include/structured_domain_descriptor.hpp"
 #include "triplet.hpp"
 #include "../include/utils.hpp"
 
 
-struct my_domain_desc {
+//struct my_domain_desc {
 
-    using coordinate_type = std::array<int, 3>;
-    using domain_id_type = int;
+//    using coordinate_type = std::array<int, 3>;
+//    using domain_id_type = int;
 
-    struct local_domain {
+//    struct local_domain {
 
-        coordinate_type m_first;
-        coordinate_type m_last;
+//        coordinate_type m_first;
+//        coordinate_type m_last;
 
-        local_domain(const coordinate_type& first,
-                     const coordinate_type& last) :
-            m_first{first},
-            m_last{last} {}
+//        local_domain(const coordinate_type& first,
+//                     const coordinate_type& last) :
+//            m_first{first},
+//            m_last{last} {}
 
-        const coordinate_type& first() const {return m_first;}
-        const coordinate_type& last() const {return m_last;}
+//        const coordinate_type& first() const {return m_first;}
+//        const coordinate_type& last() const {return m_last;}
 
-    };
+//    };
 
-    struct halo {
+//    struct halo {
 
-        struct local_halo {
+//        struct local_halo {
 
-            coordinate_type m_first;
-            coordinate_type m_last;
+//            coordinate_type m_first;
+//            coordinate_type m_last;
 
-            local_halo(const coordinate_type& first,
-                       const coordinate_type& last) :
-                m_first{first},
-                m_last{last} {}
+//            local_halo(const coordinate_type& first,
+//                       const coordinate_type& last) :
+//                m_first{first},
+//                m_last{last} {}
 
-            const coordinate_type& first() const {return m_first;}
-            const coordinate_type& last() const {return m_last;}
+//            const coordinate_type& first() const {return m_first;}
+//            const coordinate_type& last() const {return m_last;}
 
-        };
+//        };
 
-        coordinate_type m_first;
-        coordinate_type m_last;
-        local_halo m_local_halo;
+//        coordinate_type m_first;
+//        coordinate_type m_last;
+//        local_halo m_local_halo;
 
-        halo(const coordinate_type& first,
-             const coordinate_type& last,
-             const coordinate_type& local_first,
-             const coordinate_type& local_last) :
-            m_first{first},
-            m_last{last},
-            m_local_halo{local_first, local_last} {}
+//        halo(const coordinate_type& first,
+//             const coordinate_type& last,
+//             const coordinate_type& local_first,
+//             const coordinate_type& local_last) :
+//            m_first{first},
+//            m_last{last},
+//            m_local_halo{local_first, local_last} {}
 
-        const coordinate_type& first() const {return m_first;}
-        const coordinate_type& last() const {return m_last;}
-        const local_halo& local() const {return m_local_halo;}
-        const halo& global() const {return *this;}
+//        const coordinate_type& first() const {return m_first;}
+//        const coordinate_type& last() const {return m_last;}
+//        const local_halo& local() const {return m_local_halo;}
+//        const halo& global() const {return *this;}
 
-    };
+//    };
 
-    domain_id_type m_id;
-    coordinate_type m_first;
-    coordinate_type m_last;
-    local_domain m_local_domain;
+//    domain_id_type m_id;
+//    coordinate_type m_first;
+//    coordinate_type m_last;
+//    local_domain m_local_domain;
 
-    my_domain_desc(const domain_id_type id,
-                   const coordinate_type& first,
-                   const coordinate_type& last) :
-        m_id{id},
-        m_first{first},
-        m_last{last},
-        m_local_domain{coordinate_type{0, 0, 0}, coordinate_type{last[0]-first[0], last[1]-first[1], last[2]-first[2]}} {}
+//    my_domain_desc(const domain_id_type id,
+//                   const coordinate_type& first,
+//                   const coordinate_type& last) :
+//        m_id{id},
+//        m_first{first},
+//        m_last{last},
+//        m_local_domain{coordinate_type{0, 0, 0}, coordinate_type{last[0]-first[0], last[1]-first[1], last[2]-first[2]}} {}
 
-    domain_id_type domain_id() const {return m_id;}
-    const coordinate_type& first() const {return m_first;}
-    const coordinate_type& last() const {return m_last;}
-    const local_domain& local() const {return m_local_domain;}
-    coordinate_type size() const {return coordinate_type{m_local_domain.last()[0]+1, m_local_domain.last()[1]+1, m_local_domain.last()[2]+1};}
+//    domain_id_type domain_id() const {return m_id;}
+//    const coordinate_type& first() const {return m_first;}
+//    const coordinate_type& last() const {return m_last;}
+//    const local_domain& local() const {return m_local_domain;}
+//    coordinate_type size() const {return coordinate_type{m_local_domain.last()[0]+1, m_local_domain.last()[1]+1, m_local_domain.last()[2]+1};}
 
-};
+//};
 
 
 /* CPU data descriptor */
 template <typename T, typename DomainDescriptor>
 class my_data_desc {
 
-    using coordinate_type = typename DomainDescriptor::coordinate_type;
-    using layout_map_type = gridtools::layout_map<2, 1, 0>;
+    using coordinate_t = typename DomainDescriptor::coordinate_type;
+    using layout_map_t = gridtools::layout_map<2, 1, 0>;
     using Byte = unsigned char;
 
     const DomainDescriptor& m_domain;
-    coordinate_type m_halos_offset;
-    array<triple_t<USE_DOUBLE, double>, layout_map_type> m_values;
+    coordinate_t m_halos_offset;
+    array<T, layout_map_t> m_values;
 
 public:
 
     my_data_desc(const DomainDescriptor& domain,
-                 const coordinate_type& halos_offset,
-                 const array<triple_t<USE_DOUBLE, double>, layout_map_type>& values) :
+                 const coordinate_t& halos_offset,
+                 const array<T, layout_map_t>& values) :
         m_domain{domain},
         m_halos_offset{halos_offset},
         m_values{values} {}
@@ -129,11 +130,11 @@ public:
         return sizeof (T);
     }
 
-    void set(const T& value, const coordinate_type& coords) {
+    void set(const T& value, const coordinate_t& coords) {
         m_values(coords[0] + m_halos_offset[0], coords[1] + m_halos_offset[1], coords[2] + m_halos_offset[2]) = value;
     }
 
-    const T& get(const coordinate_type& coords) const {
+    const T& get(const coordinate_t& coords) const {
         return m_values(coords[0] + m_halos_offset[0], coords[1] + m_halos_offset[1], coords[2] + m_halos_offset[2]);
     }
 
@@ -142,8 +143,8 @@ public:
         std::cout << "DEBUG: is.first()[2] = " << is.local().first()[2] << "\n";
         std::cout << "DEBUG: is.last()[2] = " << is.local().last()[2] << "\n";
         std::cout.flush();
-        gridtools::detail::for_loop<3, 3, layout_map_type>::apply([this, &buffer](auto... indices){
-            coordinate_type coords{indices...};
+        gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
+            coordinate_t coords{indices...};
             std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
             std::cout.flush();
             set(*(reinterpret_cast<const T*>(buffer)), coords);
@@ -155,8 +156,8 @@ public:
 
     template <typename IterationSpace>
     void get(const IterationSpace& is, Byte* buffer) const {
-        gridtools::detail::for_loop<3, 3, layout_map_type>::apply([this, &buffer](auto... indices){
-            coordinate_type coords{indices...};
+        gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
+            coordinate_t coords{indices...};
             std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
             std::cout.flush();
             const T* tmp_ptr{&get(coords)};
@@ -170,216 +171,12 @@ public:
 };
 
 
-/* 3D halo generator - 1 domain per rank */
-template<int d1, int d2, int d3, int H1m, int H1p, int H2m, int H2p, int H3m, int H3p>
-auto halo_gen = [](const my_domain_desc& d) {
-
-    using coordinate_type = my_domain_desc::coordinate_type;
-    using halo_type = my_domain_desc::halo;
-
-    std::vector<halo_type> halos;
-
-    halo_type halo_1m{
-        coordinate_type{
-            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
-            d.first()[1],
-            d.first()[2]
-        },
-        coordinate_type{
-            ((d.first()[0] - 1)   + d.size()[0]*d1) % (d.size()[0]*d1),
-            d.last()[1],
-            d.last()[2]
-        },
-        coordinate_type{
-            d.local().first()[0] - H1m,
-            d.local().first()[1],
-            d.local().first()[2]
-        },
-        coordinate_type{
-            d.local().first()[0] - 1,
-            d.local().last()[1],
-            d.local().last()[2]
-        }
-    };
-    halos.push_back(halo_1m);
-
-    halo_type halo_1p{
-        coordinate_type{
-            (d.last()[0] + 1)   % (d.size()[0]*d1),
-            d.first()[1],
-            d.first()[2]
-        },
-        coordinate_type{
-            (d.last()[0] + H1p) % (d.size()[0]*d1),
-            d.last()[1],
-            d.last()[2]
-        },
-        coordinate_type{
-            d.local().last()[0] + 1,
-            d.local().first()[1],
-            d.local().first()[2]
-        },
-        coordinate_type{
-            d.local().last()[0] + H1p,
-            d.local().last()[1],
-            d.local().last()[2]
-        }
-    };
-    halos.push_back(halo_1p);
-
-    halo_type halo_2m{
-        coordinate_type{
-            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
-            ((d.first()[1] - H2m) + d.size()[1]*d2) % (d.size()[1]*d2),
-            d.first()[2]
-        },
-        coordinate_type{
-            (d.last()[0]   + H1p)                   % (d.size()[0]*d1),
-            ((d.first()[1] - 1  ) + d.size()[1]*d2) % (d.size()[1]*d2),
-            d.last()[2]
-        },
-        coordinate_type{
-            d.local().first()[0] - H1m,
-            d.local().first()[1] - H2m,
-            d.local().first()[2]
-        },
-        coordinate_type{
-            d.local().last()[0]  + H1p,
-            d.local().first()[1] - 1,
-            d.local().last()[2]
-        }
-    };
-    halos.push_back(halo_2m);
-
-    halo_type halo_2p{
-        coordinate_type{
-            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
-            (d.last()[1]   + 1  )                   % (d.size()[1]*d2),
-            d.first()[2]
-        },
-        coordinate_type{
-            (d.last()[0]   + H1p)                   % (d.size()[0]*d1),
-            (d.last()[1]   + H2p)                   % (d.size()[1]*d2),
-            d.last()[2]
-        },
-        coordinate_type{
-            d.local().first()[0] - H1m,
-            d.local().last()[1]  + 1,
-            d.local().first()[2]
-        },
-        coordinate_type{
-            d.local().last()[0]  + H1p,
-            d.local().last()[1]  + H2p,
-            d.local().last()[2]
-        }
-    };
-    halos.push_back(halo_2p);
-
-    halo_type halo_3m{
-        coordinate_type{
-            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
-            ((d.first()[1] - H2m) + d.size()[1]*d2) % (d.size()[1]*d2),
-            ((d.first()[2] - H3m) + d.size()[2]*d3) % (d.size()[2]*d3)
-        },
-        coordinate_type{
-            (d.last()[0]   + H1p)                   % (d.size()[0]*d1),
-            (d.last()[1]   + H2p)                   % (d.size()[1]*d2),
-            ((d.first()[2] - 1  ) + d.size()[2]*d3) % (d.size()[2]*d3)
-        },
-        coordinate_type{
-            d.local().first()[0] - H1m,
-            d.local().first()[1] - H2m,
-            d.local().first()[2] - H3m
-        },
-        coordinate_type{
-            d.local().last()[0]  + H1p,
-            d.local().last()[1]  + H2p,
-            d.local().first()[2] - 1
-        }
-    };
-    halos.push_back(halo_3m);
-
-    halo_type halo_3p{
-        coordinate_type{
-            ((d.first()[0] - H1m) + d.size()[0]*d1) % (d.size()[0]*d1),
-            ((d.first()[1] - H2m) + d.size()[1]*d2) % (d.size()[1]*d2),
-            (d.last()[2]   + 1  )                   % (d.size()[2]*d3)
-        },
-        coordinate_type{
-            (d.last()[0] + H1p)                     % (d.size()[0]*d1),
-            (d.last()[1] + H2p)                     % (d.size()[1]*d2),
-            (d.last()[2] + H3p)                     % (d.size()[2]*d3)
-        },
-        coordinate_type{
-            d.local().first()[0] - H1m,
-            d.local().first()[1] - H2m,
-            d.local().last()[2]  + 1
-        },
-        coordinate_type{
-            d.local().last()[0] + H1p,
-            d.local().last()[1] + H2p,
-            d.local().last()[2] + H3p
-        }
-    };
-    halos.push_back(halo_3p);
-
-    return halos;
-
-};
-
-
-/*
- * 3D halo generator - 2 domains per rank
- *
-template<int H1m, int H1p, int H2m, int H2p, int H3m, int H3p>
-auto halo_gen = [](const my_domain_desc& d) {
-
-    using coordinate_type = my_domain_desc::coordinate_type;
-    using halo_type = my_domain_desc::halo;
-
-    std::vector<halo_type> halos;
-
-    halo_type bottom{
-        coordinate_type{d.first()[0], d.first()[1], ((d.first()[2] - H3m) + d.size()[2]) % d.size()[2]},
-        coordinate_type{d.last()[0] , d.last()[1] , ((d.first()[2] - 1)   + d.size()[2]) % d.size()[2]},
-        coordinate_type{d.local().first()[0], d.local().first()[1], d.local().first()[2] - H3m},
-        coordinate_type{d.local().last()[0] , d.local().last()[1] , d.local().first()[2] - 1}
-    };
-    halos.push_back(bottom);
-
-    halo_type top{
-        coordinate_type{d.first()[0], d.first()[1], d.first()[2] + 1},
-        coordinate_type{d.last()[0] , d.last()[1] , d.first()[2] + H3p},
-        coordinate_type{d.local().first()[0], d.local().first()[1], d.local().last()[2] + 1},
-        coordinate_type{d.local().last()[0] , d.local().last()[1] , d.local().last()[2] + H3p}
-    };
-    halos.push_back(top);
-
-    halo_type left{
-        coordinate_type{((d.first()[0] - H1m) + d.size()[0]*4) % (d.size()[0]*4), d.first()[1], d.first()[2]},
-        coordinate_type{((d.first()[0] - 1)   + d.size()[0]*4) % (d.size()[0]*4), d.last()[1], d.last()[2]},
-        coordinate_type{d.local().first()[0] - H1m, d.local().first()[1], d.local().first()[2]},
-        coordinate_type{d.local().first()[0] - 1  , d.local().last()[1] , d.local().last()[2]}
-    };
-    halos.push_back(left);
-
-    halo_type right{
-        coordinate_type{(d.last()[0] + 1)   % (d.size()[0]*4), d.first()[1], d.first()[2]},
-        coordinate_type{(d.last()[0] + H1p) % (d.size()[0]*4), d.last()[1] , d.last()[2]},
-        coordinate_type{d.local().last()[0] + 1  , d.local().first()[1], d.local().first()[2]},
-        coordinate_type{d.local().last()[0] + H1p, d.local().last()[1] , d.local().last()[2]}
-    };
-    halos.push_back(right);
-
-    return halos;
-
-};
-*/
-
-
 TEST(communication_object, constructor) {
 
-    using coordinate_type = my_domain_desc::coordinate_type;
+    using domain_descriptor_t = gridtools::structured_domain_descriptor<int,3>;
+    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
+    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
 
     boost::mpi::communicator world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
@@ -397,44 +194,28 @@ TEST(communication_object, constructor) {
     const int H2p = 1;
     const int H3m = 1;
     const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1*DIM1-1, d2*DIM2-1, d3*DIM3-1};
 
-    std::vector<my_domain_desc> local_domains;
+    std::vector<domain_descriptor_t> local_domains;
 
-    my_domain_desc my_domain_1{
+    domain_descriptor_t my_domain_1{
         comm.rank(),
-        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2)   * DIM2    , 0},
-        coordinate_type{(comm.rank()%2) * DIM1 + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
+        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
+        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
-    /*
-     * 2 domains per rank
-     *
-    my_domain_desc my_domain_1{
-        comm.rank()*2,
-        coordinate_type{(comm.rank()%2) * (DIM1*2)             , (comm.rank()/2) * DIM2      , 0},
-        coordinate_type{(comm.rank()%2) * (DIM1*2) + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
-    };
-    local_domains.push_back(my_domain_1);
-    */
+    auto halo_gen = halo_generator_t{g_first, g_last, {H1m, H1p, H2m, H2p, H3m, H3p}, {true, true, true}};
 
-    /*
-    my_domain_desc my_domain_2{
-        comm.rank()*2+1,
-        coordinate_type{(comm.rank()%2) * (DIM1*2) + DIM1      , (comm.rank()/2) * DIM2      , 0},
-        coordinate_type{(comm.rank()%2) * (DIM1*2) + (DIM1*2-1), (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
-    };
-    local_domains.push_back(my_domain_2);
-    */
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<d1, d2, d3, H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
+    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
 
-    using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
-
-    std::vector<communication_object_type> cos;
+    std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
         EXPECT_NO_THROW(
-        cos.push_back(communication_object_type{p});
+        cos.push_back(communication_object_t{p});
         );
     }
 
@@ -443,17 +224,16 @@ TEST(communication_object, constructor) {
 
 TEST(communication_object, exchange) {
 
-    std::cout << "DEBUG: exchange test \n";
-    std::cout.flush();
-
-    using coordinate_type = my_domain_desc::coordinate_type;
+    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
+    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
+    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
     boost::mpi::communicator world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
     /* Problem sizes */
-    int coords[3]{comm.rank()%2, comm.rank()/2, 0}; // rank in cartesian coordinates
     const int d1 = 2;
     const int d2 = 2;
     const int d3 = 1;
@@ -466,13 +246,16 @@ TEST(communication_object, exchange) {
     const int H2p = 1;
     const int H3m = 1;
     const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1*DIM1-1, d2*DIM2-1, d3*DIM3-1};
+    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
 
-    std::vector<my_domain_desc> local_domains;
+    std::vector<domain_descriptor_t> local_domains;
 
-    my_domain_desc my_domain_1{
+    domain_descriptor_t my_domain_1{
         comm.rank(),
-        coordinate_type{(comm.rank()%2) * DIM1             , (comm.rank()/2)   * DIM2    , 0},
-        coordinate_type{(comm.rank()%2) * DIM1 + (DIM1-1)  , (comm.rank()/2+1) * DIM2 - 1, DIM3-1}
+        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
+        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
@@ -496,20 +279,22 @@ TEST(communication_object, exchange) {
     local_domains.push_back(my_domain_2);
     */
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen<d1, d2, d3, H1m, H1p, H2m, H2p, H3m, H3p>, local_domains);
+    auto halo_gen = halo_generator_t{g_first, g_last, {H1m, H1p, H2m, H2p, H3m, H3p}, {true, true, true}};
 
-    using communication_object_type = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    std::vector<communication_object_type> cos;
+    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+
+    std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_type{p});
+        cos.push_back(communication_object_t{p});
     }
 
     triple_t<USE_DOUBLE, double>* _values_1 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
     array<triple_t<USE_DOUBLE, double>, layout_map_type> values_1(_values_1, (DIM1 + H1m + H1p), (DIM2 + H2m + H2p), (DIM3 + H3m + H3p));
-    my_data_desc<triple_t<USE_DOUBLE, double>, my_domain_desc> data_1{
+    my_data_desc<triple_t<USE_DOUBLE, double>, domain_descriptor_t> data_1{
         local_domains[0],
-        coordinate_type{H1m, H2m, H3m},
+        coordinate_t{H1m, H2m, H3m},
         values_1
     };
 
@@ -528,22 +313,22 @@ TEST(communication_object, exchange) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
-                // values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
             }
     for (int ii = H1m; ii < DIM1 + H1m; ++ii)
         for (int jj = H2m; jj < DIM2 + H2m; ++jj)
             for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
-                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>(ii - H1m + (DIM1)*coords[0], jj - H2m + (DIM2)*coords[1], kk - H3m + (DIM3)*coords[2]);
-                // values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(ii - H1m + (DIM1)*coords[0], jj - H2m + (DIM2)*coords[1], kk - H3m + (DIM3)*coords[2]);
+                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
+                            ii - H1m + (DIM1)*coords[0],
+                            jj - H2m + (DIM2)*coords[1],
+                            kk - H3m + (DIM3)*coords[2]
+                        );
             }
-
-    // CHECK IF THE USER CODE MAKES ANY SENSE FROM HERE!
 
     // std::vector<std::thread> threads;
 
     // threads.push_back(std::thread([&cos, &data_1](){
-        auto h = cos[0].exchange(data_1);
-        h.wait();
+    auto h = cos[0].exchange(data_1);
+    h.wait();
     // }));
 
     // threads.push_back(std::thread([&cos, &data_2](){
@@ -554,8 +339,6 @@ TEST(communication_object, exchange) {
     // for (auto& t : threads) {
     //     t.join();
     // }
-
-    // CHECK TESTS FROM HERE!
 
     int passed = true;
 
@@ -584,3 +367,321 @@ TEST(communication_object, exchange) {
     EXPECT_TRUE(passed);
 
 }
+
+
+TEST(communication_object, exchange_multiple_fields) {
+
+    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
+    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
+    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using layout_map_type = gridtools::layout_map<2, 1, 0>;
+
+    boost::mpi::communicator world;
+    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+
+    /* Problem sizes */
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 5;
+    const int DIM3 = 5;
+    const int H1m = 1;
+    const int H1p = 1;
+    const int H2m = 1;
+    const int H2p = 1;
+    const int H3m = 1;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1*DIM1-1, d2*DIM2-1, d3*DIM3-1};
+    const int add = 1;
+    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+
+    std::vector<domain_descriptor_t> local_domains;
+
+    domain_descriptor_t my_domain_1{
+        comm.rank(),
+        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
+        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+    };
+    local_domains.push_back(my_domain_1);
+
+    auto halo_gen = halo_generator_t{g_first, g_last, {H1m, H1p, H2m, H2p, H3m, H3p}, {true, true, true}};
+
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+
+    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+
+    std::vector<communication_object_t> cos;
+    for (const auto& p : patterns) {
+        cos.push_back(communication_object_t{p});
+    }
+
+    triple_t<USE_DOUBLE, int>* _values_1 = new triple_t<USE_DOUBLE, int>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
+    array<triple_t<USE_DOUBLE, int>, layout_map_type> values_1(_values_1, (DIM1 + H1m + H1p), (DIM2 + H2m + H2p), (DIM3 + H3m + H3p));
+    my_data_desc<triple_t<USE_DOUBLE, int>, domain_descriptor_t> data_1{
+        local_domains[0],
+        coordinate_t{H1m, H2m, H3m},
+        values_1
+    };
+
+    triple_t<USE_DOUBLE, double>* _values_2 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
+    array<triple_t<USE_DOUBLE, double>, layout_map_type> values_2(_values_2, (DIM1 + H1m + H1p), (DIM2 + H2m + H2p), (DIM3 + H3m + H3p));
+    my_data_desc<triple_t<USE_DOUBLE, double>, domain_descriptor_t> data_2{
+        local_domains[0],
+        coordinate_t{H1m, H2m, H3m},
+        values_2
+    };
+
+    /* Just an initialization */
+    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, int>();
+            }
+    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
+        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
+            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
+                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, int>(
+                            ii - H1m + (DIM1)*coords[0],
+                            jj - H2m + (DIM2)*coords[1],
+                            kk - H3m + (DIM3)*coords[2]
+                        );
+            }
+    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+            }
+    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
+        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
+            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
+                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
+                            ii - H1m + (DIM1)*coords[0] + add,
+                            jj - H2m + (DIM2)*coords[1] + add,
+                            kk - H3m + (DIM3)*coords[2] + add
+                        );
+            }
+
+    auto h = cos[0].exchange(data_1, data_2);
+    h.wait();
+
+    int passed = true;
+
+    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+
+                triple_t<USE_DOUBLE, int> t1;
+                int tx, ty, tz;
+
+                tx = modulus(ii - H1m + (DIM1) * coords[0], DIM1 * 2);
+                ty = modulus(jj - H2m + (DIM2) * coords[1], DIM2 * 2);
+                tz = modulus(kk - H3m + (DIM3) * coords[2], DIM3);
+
+                t1 = triple_t<USE_DOUBLE, int>(tx, ty, tz).floor();
+
+                if (values_1(ii, jj, kk) != t1) {
+                    passed = false;
+                    std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
+                         << "values_1 " << values_1(ii, jj, kk) << " != " << t1 << "\n";
+
+                }
+
+            }
+
+    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+
+                triple_t<USE_DOUBLE, double> t2;
+                int tx, ty, tz;
+
+                tx = modulus(ii - H1m + (DIM1) * coords[0], DIM1 * 2) + add;
+                ty = modulus(jj - H2m + (DIM2) * coords[1], DIM2 * 2) + add;
+                tz = modulus(kk - H3m + (DIM3) * coords[2], DIM3)     + add;
+
+                t2 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
+
+                if (values_2(ii, jj, kk) != t2) {
+                    passed = false;
+                    std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
+                         << "values_2 " << values_2(ii, jj, kk) << " != " << t2 << "\n";
+
+                }
+
+            }
+
+    EXPECT_TRUE(passed);
+
+}
+
+
+//TEST(communication_object, multithreading) {
+
+//    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
+//    using domain_id_t = domain_descriptor_t::domain_id_type;
+//    using coordinate_t = domain_descriptor_t::coordinate_type;
+//    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+//    using layout_map_type = gridtools::layout_map<2, 1, 0>;
+
+//    boost::mpi::communicator world;
+//    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+
+//    /* Problem sizes */
+//    const int d1 = 2;
+//    const int d2 = 2;
+//    const int d3 = 1;
+//    const int DIM1 = 5;
+//    const int DIM2 = 5;
+//    const int DIM3 = 5;
+//    const int H1m = 1;
+//    const int H1p = 1;
+//    const int H2m = 1;
+//    const int H2p = 1;
+//    const int H3m = 1;
+//    const int H3p = 1;
+//    const std::array<int, 3> g_first{0, 0, 0};
+//    const std::array<int, 3> g_last{d1 * DIM1 * 2 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
+//    const int add = 1;
+//    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+
+//    std::vector<domain_descriptor_t> local_domains;
+
+//    domain_descriptor_t my_domain_1{
+//        comm.rank() * 2,
+//        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1    ) * DIM2    , 0     },
+//        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+//    };
+//    local_domains.push_back(my_domain_1);
+
+//    domain_descriptor_t my_domain_2{
+//        comm.rank() * 2 + 1,
+//        coordinate_t{(comm.rank() % d1 + 1) * DIM1    , (comm.rank() / d1    ) * DIM2    , 0     },
+//        coordinate_t{(comm.rank() % d1 + 2) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+//    };
+//    local_domains.push_back(my_domain_2);
+
+//    auto halo_gen = halo_generator_t{g_first, g_last, {H1m, H1p, H2m, H2p, H3m, H3p}, {true, true, true}};
+
+//    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+
+//    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+
+//    std::vector<communication_object_t> cos;
+//    for (const auto& p : patterns) {
+//        cos.push_back(communication_object_t{p});
+//    }
+
+//    triple_t<USE_DOUBLE, double>* _values_1 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
+//    array<triple_t<USE_DOUBLE, double>, layout_map_type> values_1(_values_1, (DIM1 + H1m + H1p), (DIM2 + H2m + H2p), (DIM3 + H3m + H3p));
+//    my_data_desc<triple_t<USE_DOUBLE, double>, domain_descriptor_t> data_1{
+//        local_domains[0],
+//        coordinate_t{H1m, H2m, H3m},
+//        values_1
+//    };
+
+//    triple_t<USE_DOUBLE, double>* _values_2 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
+//    array<triple_t<USE_DOUBLE, double>, layout_map_type> values_2(_values_2, (DIM1 + H1m + H1p), (DIM2 + H2m + H2p), (DIM3 + H3m + H3p));
+//    my_data_desc<triple_t<USE_DOUBLE, double>, domain_descriptor_t> data_2{
+//        local_domains[1],
+//        coordinate_t{H1m, H2m, H3m},
+//        values_2
+//    };
+
+//    /* Just an initialization */
+//    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+//        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+//            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+//                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+//            }
+//    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
+//        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
+//            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
+//                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
+//                            ii - H1m + DIM1 * 2 * coords[0],
+//                            jj - H2m + DIM2     * coords[1],
+//                            kk - H3m + DIM3     * coords[2]
+//                        );
+//            }
+//    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+//        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+//            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+//                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+//            }
+//    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
+//        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
+//            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
+//                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
+//                            ii - H1m + DIM1 * 2 * coords[0] + DIM1 + add,
+//                            jj - H2m + DIM2     * coords[1] + add,
+//                            kk - H3m + DIM3     * coords[2] + add
+//                        );
+//            }
+
+//    std::vector<std::thread> threads;
+
+//    threads.push_back(std::thread([&cos, &data_1](){
+//        auto h = cos[0].exchange(data_1);
+//        h.wait();
+//    }));
+
+//    threads.push_back(std::thread([&cos, &data_2](){
+//        auto h = cos[1].exchange(data_2);
+//        h.wait();
+//    }));
+
+//    for (auto& t : threads) {
+//        t.join();
+//    }
+
+//    int passed = true;
+
+//    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+//        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+//            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+
+//                triple_t<USE_DOUBLE, double> t1;
+//                int tx, ty, tz;
+
+//                tx = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
+//                ty = modulus(jj - H2m + DIM2     * coords[1], DIM2 * 2    );
+//                tz = modulus(kk - H3m + DIM3     * coords[2], DIM3        );
+
+//                t1 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
+
+//                if (values_1(ii, jj, kk) != t1) {
+//                    passed = false;
+//                    std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
+//                         << "values_1 " << values_1(ii, jj, kk) << " != " << t1 << "\n";
+
+//                }
+
+//            }
+
+//    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+//        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+//            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+
+//                triple_t<USE_DOUBLE, double> t2;
+//                int tx, ty, tz;
+
+//                tx = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2) + add;
+//                ty = modulus(jj - H2m + DIM2     * coords[1]       , DIM2 * 2    ) + add;
+//                tz = modulus(kk - H3m + DIM3     * coords[2]       , DIM3        ) + add;
+
+//                t2 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
+
+//                if (values_2(ii, jj, kk) != t2) {
+//                    passed = false;
+//                    std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
+//                         << "values_2 " << values_2(ii, jj, kk) << " != " << t2 << "\n";
+
+//                }
+
+//            }
+
+//    EXPECT_TRUE(passed);
+
+//}
