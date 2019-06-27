@@ -94,7 +94,7 @@ namespace gridtools {
         class handle {
 
             const map_t& m_receive_halos;
-            std::vector<r_buffer_t> m_receive_buffers;
+            const std::vector<r_buffer_t>& m_receive_buffers;
             std::vector<r_request_t> m_receive_requests;
             std::tuple<DataDescriptor...> m_data_descriptors;
 
