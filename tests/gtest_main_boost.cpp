@@ -16,11 +16,17 @@
 
 GTEST_API_ int main(int argc, char **argv) {
 
-    boost::mpi::environment env(argc, argv);
+    int provided;
+    int init_res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    // boost::mpi::environment env(argc, argv);
 
     printf("Running main() from %s\n", __FILE__);
     testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    auto res = RUN_ALL_TESTS();
+
+    MPI_Finalize();
+
+    return res;
 
 }
 
