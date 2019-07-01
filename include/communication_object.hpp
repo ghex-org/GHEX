@@ -82,32 +82,26 @@ namespace gridtools {
 
         }
 
+        // CHANGE COMMENTS HERE!
         /** @brief packs all the data for all the neighbors into one single buffer per neighbor
          * @tparam DataDescriptor list of data descriptors types
          * @param data_descriptors tuple of data descriptors*/
         template <typename... DataDescriptor>
-        void pack(const std::tuple<DataDescriptor...>& data_descriptors) {
+        void pack(const std::size_t halo_index, const extended_domain_id_t& domain, const std::tuple<DataDescriptor...>& data_descriptors) {
 
-            std::size_t halo_index{0};
-            for (const auto& halo : m_send_halos) {
+            const auto& iteration_spaces = m_send_halos.at(domain);
 
-                const auto& iteration_spaces = halo.second;
+            m_send_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
+            std::size_t buffer_index{0};
 
-                m_send_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
-                std::size_t buffer_index{0};
-
-                /* The two loops are performed with this order
-                 * in order to have as many data of the same type as possible in contiguos memory */
-                gridtools::detail::for_each(data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](const auto& dd) {
-                    for (const auto& is : iteration_spaces) {
-                        dd.get(is, &m_send_buffers[halo_index][buffer_index]);
-                        buffer_index += is.size() * dd.data_type_size();
-                    }
-                });
-
-                ++halo_index;
-
-            }
+            /* The two loops are performed with this order
+             * in order to have as many data of the same type as possible in contiguos memory */
+            gridtools::detail::for_each(data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](const auto& dd) {
+                for (const auto& is : iteration_spaces) {
+                    dd.get(is, &m_send_buffers[halo_index][buffer_index]);
+                    buffer_index += is.size() * dd.data_type_size();
+                }
+            });
 
         }
 
@@ -223,13 +217,14 @@ namespace gridtools {
 
             /* SEND */
 
-            pack(data_descriptors);
-
             halo_index = 0;
             for (const auto& halo : m_send_halos) {
 
-                auto dest = halo.first.address;
-                auto tag = halo.first.tag;
+                const auto& domain = halo.first;
+                auto dest = domain.address;
+                auto tag = domain.tag;
+
+                pack(halo_index, domain, data_descriptors);
 
                 send_requests.push_back(m_communicator.isend(dest,
                                                              tag,
