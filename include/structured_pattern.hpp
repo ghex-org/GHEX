@@ -31,6 +31,7 @@ namespace gridtools {
         using communicator_type       = protocol::communicator<P>;
         using address_type            = typename communicator_type::address_type;
         using domain_id_type          = DomainIdType;
+        using pattern_container_type  = pattern_container<P,grid_type,DomainIdType>;
 
         struct iteration_space
         {
@@ -138,9 +139,9 @@ namespace gridtools {
         extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
 
         template<typename Field>
-        buffer_info<pattern, typename Field::device_type, Field> operator()(Field& field) const
+        buffer_info<pattern, typename Field::device_type, Field> operator()(const pattern_container_type& pc, Field& field) const
         {
-            return {*this,field,field.device_id()};
+            return {pc,*this,field,field.device_id()};
         }
 
         communicator_type& communicator() noexcept { return m_comm; }
@@ -257,6 +258,7 @@ namespace gridtools {
                 std::cout << std::endl;*/
 
                 // set tags in order to disambiguate recvs from same processor but different domain
+                int my_max_tag = 0;
                 std::map<int,int> tag_map;
                 for (auto& p : my_patterns)
                 {
@@ -272,12 +274,16 @@ namespace gridtools {
                         else
                         {
                             ++it->second;
+                            my_max_tag = std::max(it->second,my_max_tag);
                             const_cast<extended_domain_id_type&>(id_is_pair.first).tag = it->second;
                         }
                     }
                 }
 
-                // TODO: communicate max tag to be used for thread safety in communication object ?
+                // communicate max tag to be used for thread safety in communication object 
+                auto max_tags  = comm.all_gather(my_max_tag).get();
+                for (auto x : max_tags)
+                    my_max_tag = std::max(x,my_max_tag);
 
                 /*for (const auto& pat : my_patterns)
                 {
@@ -510,7 +516,7 @@ namespace gridtools {
                 std::cout << std::endl;
                 std::cout << std::endl;*/
 
-                return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns));
+                return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns), my_max_tag);
             }
         };
 

@@ -18,6 +18,8 @@ namespace gridtools {
     // forward declaration
     template<typename P, typename GridType, typename DomainIdType>
     class pattern;
+    template<typename P, typename GridType, typename DomainIdType>
+    class pattern_container;
     
     // general template class
     template<typename Pattern, typename Device, typename Field>
@@ -34,6 +36,7 @@ namespace gridtools {
     {
     public: // member types
         using pattern_type             = pattern<P,GridType,DomainIdType>;
+        using pattern_container_type   = pattern_container<P,GridType,DomainIdType>;
         using device_type              = Device;
         using field_type               = Field;
         using device_id_type           = typename device_type::id_type;
@@ -43,8 +46,8 @@ namespace gridtools {
         friend class pattern<P,GridType,DomainIdType>;
 
     private: // private ctor
-        buffer_info(const pattern_type& p, field_type& field, device_id_type id) noexcept
-        :   m_p{p}, m_field{field}, m_id{id}
+        buffer_info(const pattern_container_type& pc, const pattern_type& p, field_type& field, device_id_type id) noexcept
+        :   m_pc{pc}, m_p{p}, m_field{field}, m_id{id}
         { }
 
     public: // copy and move ctors
@@ -54,9 +57,11 @@ namespace gridtools {
     public: // member functions
         device_id_type device_id() const noexcept { return m_id; }
         const pattern_type& get_pattern() const noexcept { return m_p; }
+        const pattern_container_type& get_pattern_container() const noexcept { return m_pc; }
         field_type& get_field() noexcept { return m_field; }
 
     private: // members
+        const pattern_container_type& m_pc;
         const pattern_type& m_p;
         field_type& m_field;
         device_id_type m_id;

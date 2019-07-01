@@ -12,6 +12,7 @@
 #define INCLUDED_SIMPLE_FIELD_HPP
 
 #include "structured_domain_descriptor.hpp"
+#include <iostream>
 
 namespace gridtools {
 
@@ -135,6 +136,7 @@ namespace gridtools {
                 detail::for_loop_simple<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
                     {
+                        //std::cout << "pack: buffer pos: " << o_buffer << std::endl;
                         buffer[o_buffer] = m_data[o_data]; 
                     }, 
                     is.local().first(), 
@@ -142,6 +144,7 @@ namespace gridtools {
                     m_extents,
                     m_offsets
                     );
+                buffer += is.size();
             }*/
         }
 
@@ -172,6 +175,7 @@ namespace gridtools {
                     m_extents,
                     m_offsets
                     );
+                buffer += is.size();
             }*/
         }
     };

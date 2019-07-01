@@ -53,13 +53,15 @@ namespace gridtools {
         pattern_container(pattern_container&&) noexcept = default;
 
     private: // private constructor called through make_pattern
-        pattern_container(data_type&& d) noexcept : m_patterns(d) {}
+        //pattern_container(data_type&& d) noexcept : m_patterns(d) {}
+        pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) {}
 
     public: // member functions
         int size() const noexcept { return m_patterns.size(); }
         const auto& operator[](int i) const noexcept { return m_patterns[i]; }
         auto begin() const noexcept { return m_patterns.cbegin(); }
         auto end() const noexcept { return m_patterns.cend(); }
+        int max_tag() const noexcept { return m_max_tag; }
 
         /** @brief bind a field to a pattern
          * @tparam Field field type
@@ -70,12 +72,13 @@ namespace gridtools {
         {
             // linear search here
             for (auto& p : m_patterns)
-                if (p.domain_id()==field.domain_id()) return p(field);
+                if (p.domain_id()==field.domain_id()) return p(*this,field);
             throw std::runtime_error("field incompatible with available domains!");
         }
 
     private: // members
         data_type m_patterns;
+        int m_max_tag;
     };
 
     namespace detail {
