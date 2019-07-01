@@ -20,21 +20,36 @@
 
 namespace gridtools {
 
+    /** @brief generic communication object for single pattern exchange
+     * @tparam Pattern pattern type to be used for the communication
+     * @tparam Arch architecture: cpu, gpu or others*/
     template <typename Pattern, typename Arch>
     class communication_object {};
 
+    /** @brief cpu template specialization of the communication object
+     * @tparam Pattern pattern type to be used for the communication*/
     template <typename Pattern>
     class communication_object<Pattern, gridtools::cpu> {
 
+        /** @brief buffer element type*/
         using byte_t = unsigned char;
+        /** @brief extended domain id type, deduced form Pattern*/
         using extended_domain_id_t = typename Pattern::extended_domain_id_type;
+        /** @brief iteration space type, deduced form Pattern*/
         using iteration_space_t = typename Pattern::iteration_space2;
+        /** @brief map type for send and receive halos, deduced form Pattern*/
         using map_t = typename Pattern::map_type;
+        /** @brief communication protocol, deduced form Pattern*/
         using communicator_t = typename Pattern::communicator_type;
+        /** @brief future type, deduced form communicator, of type void*/
         using future_t = typename communicator_t::template future<void>;
+        /** @brief send buffer type, for now set to vector of bytes*/
         using s_buffer_t = std::vector<byte_t>;
+        /** @brief receive buffer type, for now set to vector of bytes*/
         using r_buffer_t = std::vector<byte_t>;
+        /** @brief send request type, simply a future*/
         using s_request_t = future_t;
+        /** @brief receive request type, 1:1 mapping between receive halo index, domain and receive request*/
         using r_request_t = std::tuple<std::size_t, extended_domain_id_t, future_t>;
 
         const Pattern& m_pattern;
@@ -46,6 +61,11 @@ namespace gridtools {
         std::vector<r_buffer_t> m_receive_buffers;
         const communicator_t& m_communicator;
 
+        /** @brief sets the buffer size for a single buffer (single neighbor) using the halo sizes and the data type sizes
+         * @tparam DataDescriptor list of data descriptors types
+         * @param iteration_spaces list of iteration spaces (halos), can be more than one per neighbor
+         * @param data_descriptors list of data descriptors
+         * @return std::size_t buffer size*/
         template <typename... DataDescriptor>
         std::size_t buffer_size(const std::vector<iteration_space_t>& iteration_spaces,
                                 const std::tuple<DataDescriptor...>& data_descriptors) {
@@ -62,6 +82,9 @@ namespace gridtools {
 
         }
 
+        /** @brief packs all the data for all the neighbors into one single buffer per neighbor
+         * @tparam DataDescriptor list of data descriptors types
+         * @param data_descriptors tuple of data descriptors*/
         template <typename... DataDescriptor>
         void pack(const std::tuple<DataDescriptor...>& data_descriptors) {
 
@@ -90,6 +113,8 @@ namespace gridtools {
 
     public:
 
+        /** @brief handle to wait for and unpack the receive messages
+         * @tparam DataDescriptor list of data descriptors types*/
         template <typename... DataDescriptor>
         class handle {
 
@@ -98,6 +123,9 @@ namespace gridtools {
             std::vector<r_request_t> m_receive_requests;
             std::tuple<DataDescriptor...> m_data_descriptors;
 
+            /** @brief unpacks the buffer for one neighbor into all the data descriptors
+             * @param halo_index index of the neighbor, included in the receive request
+             * @param domain domain id, included in the receive request*/
             void unpack(const std::size_t halo_index, const extended_domain_id_t& domain) {
 
                 const auto& iteration_spaces = m_receive_halos.at(domain);
@@ -117,6 +145,11 @@ namespace gridtools {
 
         public:
 
+            /** @brief handle constructor
+             * @param receive_halos const reference to communication object's receive halos
+             * @param receive_buffers const reference to communication object's receive buffers
+             * @param receive_requests receive requests, moved from communication object' exchange()
+             * @param data_descriptors data descriptors, moved from communication object' exchange()*/
             handle(const map_t& receive_halos,
                    const std::vector<r_buffer_t>& receive_buffers,
                    std::vector<r_request_t>&& receive_requests,
@@ -126,6 +159,7 @@ namespace gridtools {
                 m_receive_requests{std::move(receive_requests)},
                 m_data_descriptors{std::move(data_descriptors)} {}
 
+            /** @brief waits for every receive request, and unpacks the corresponding data before moving to the next*/
             void wait() {
 
                 for (auto& r : m_receive_requests) {
@@ -137,6 +171,8 @@ namespace gridtools {
 
         };
 
+        /** @brief communication object constructor
+         * @param p pattern*/
         communication_object(const Pattern& p) :
             m_pattern{p},
             m_send_halos{m_pattern.send_halos()},
@@ -147,6 +183,9 @@ namespace gridtools {
             m_receive_buffers{m_n_receive_halos},
             m_communicator{m_pattern.communicator()} {}
 
+        /** @brief exchanges (receives, sends and waits for the send requests) halos for multiple data fields that shares the same pattern
+         * @tparam DataDescriptor list of data descriptors types
+         * @param dds list of data descriptors*/
         template <typename... DataDescriptor>
         handle<DataDescriptor...> exchange(DataDescriptor& ...dds) {
 
