@@ -140,16 +140,16 @@ public:
 
     template <typename IterationSpace>
     void set(const IterationSpace& is, const Byte* buffer) {
-        std::cout << "DEBUG: is.first()[2] = " << is.local().first()[2] << "\n";
-        std::cout << "DEBUG: is.last()[2] = " << is.local().last()[2] << "\n";
-        std::cout.flush();
+        //std::cout << "DEBUG: is.first()[2] = " << is.local().first()[2] << "\n";
+        //std::cout << "DEBUG: is.last()[2] = " << is.local().last()[2] << "\n";
+        //std::cout.flush();
         gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
-            std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
-            std::cout.flush();
+            //std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
+            //std::cout.flush();
             set(*(reinterpret_cast<const T*>(buffer)), coords);
-            std::cout << "DEBUG: just set value " << get(coords) << "\n";
-            std::cout.flush();
+            //std::cout << "DEBUG: just set value " << get(coords) << "\n";
+            //std::cout.flush();
             buffer += sizeof(T);
         }, is.local().first(), is.local().last());
     }
@@ -158,12 +158,12 @@ public:
     void get(const IterationSpace& is, Byte* buffer) const {
         gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
-            std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
-            std::cout.flush();
+            //std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
+            //std::cout.flush();
             const T* tmp_ptr{&get(coords)};
             std::memcpy(buffer, tmp_ptr, sizeof(T));
-            std::cout << "DEBUG: just got value " << *(reinterpret_cast<T*>(buffer)) << "\n";
-            std::cout.flush();
+            //std::cout << "DEBUG: just got value " << *(reinterpret_cast<T*>(buffer)) << "\n";
+            //std::cout.flush();
             buffer += sizeof(T);
         }, is.local().first(), is.local().last());
     }
