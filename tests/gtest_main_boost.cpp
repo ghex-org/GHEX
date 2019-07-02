@@ -19,8 +19,13 @@
 
 GTEST_API_ int main(int argc, char **argv) {
 
+    int required = MPI_THREAD_MULTIPLE;
     int provided;
-    int init_result = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
+    if (init_result == MPI_ERR_OTHER)
+        throw std::runtime_error("MPI init failed");
+    if (provided < required)
+        throw std::runtime_error("MPI does not support required threading level");
     // boost::mpi::environment env(argc, argv);
 
     // printf("Running main() from %s\n", __FILE__);

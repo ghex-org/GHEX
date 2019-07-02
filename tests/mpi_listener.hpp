@@ -110,7 +110,7 @@ class mpi_listener : public testing::EmptyTestEventListener {
                 test_case.name());
         } else {
             printf_helper(
-                "[ALL PASSED %3d; ] of %3d tests in %s\n\n", test_case_tests_, test_case_tests_, test_case.name());
+                "[ALL PASSED] of %3d tests in %s\n\n", test_case_tests_, test_case.name());
         }
     }
 
