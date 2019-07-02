@@ -23,7 +23,8 @@
 
 #include "../include/simple_field.hpp"
 #include "../include/structured_pattern.hpp"
-#include "../include/communication_object_erased.hpp"
+//#include "../include/communication_object_erased.hpp"
+#include "../include/communication_object_2.hpp"
 #include <boost/mpi/environment.hpp>
 #include <array>
 #include <iomanip>

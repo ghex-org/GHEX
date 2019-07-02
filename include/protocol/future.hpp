@@ -40,6 +40,11 @@ namespace gridtools {
                 m_handle.wait();
             }
 
+            bool test()
+            {
+                return (bool)m_handle.test();
+            }
+
             [[nodiscard]] value_type get() noexcept
             {
                 wait(); 
@@ -67,6 +72,11 @@ namespace gridtools {
             void wait()
             {
                 m_handle.wait();
+            }
+
+            bool test()
+            {
+                return (bool)m_handle.test();
             }
 
             void get() noexcept 
