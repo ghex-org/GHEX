@@ -47,6 +47,7 @@ using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
 template<typename T, typename Device, int... Is>
 using field_descriptor_type  = gridtools::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
 
+
 bool test0(boost::mpi::communicator& mpi_comm)
 {
     // need communicator to decompose domain
@@ -211,7 +212,7 @@ bool test0(boost::mpi::communicator& mpi_comm)
     // exchange
 #ifndef MULTI_THREADED_EXCHANGE
     
-    /*// blocking variant
+    // blocking variant
     co.bexchange(
         pattern1(field_1a),
         pattern1(field_1b),
@@ -219,23 +220,23 @@ bool test0(boost::mpi::communicator& mpi_comm)
         pattern2(field_2b),
         pattern1(field_3a),
         pattern1(field_3b)
-    );*/
+    );
 
-    // non-blocking variant
-    //auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
-    //auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
-    auto h1 = co_1.exchange(
-            //pattern2(field_1a), 
-            //pattern2(field_1b), 
-            pattern1(field_3a), 
-            pattern1(field_3b));
-    auto h2 = co_2.exchange(
-            pattern2(field_2a), 
-            pattern2(field_2b));
+    /*// non-blocking variant
+    auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
+    auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
+    //auto h1 = co_1.exchange(
+    //        //pattern2(field_1a), 
+    //        //pattern2(field_1b), 
+    //        pattern1(field_3a), 
+    //        pattern1(field_3b));
+    //auto h2 = co_2.exchange(
+    //        pattern2(field_2a), 
+    //        pattern2(field_2b));
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
     h1.wait();
-    h2.wait();
+    h2.wait();*/
 
 #else
     auto func = [](decltype(co)& co_, auto... bis) 
@@ -255,14 +256,12 @@ bool test0(boost::mpi::communicator& mpi_comm)
     std::vector<std::thread> threads;
     threads.push_back(std::thread{func, std::ref(co_1), 
         pattern2(field_1a), 
-        pattern2(field_1b), 
-        //pattern2(field_2a), 
-        pattern1(field_3a),
-        pattern1(field_3b)});
-    threads.push_back(std::thread{func, std::ref(co_2),
-        //pattern1(field_1b), 
         pattern2(field_2a), 
-        pattern2(field_2b)});
+        pattern1(field_3a)});
+    threads.push_back(std::thread{func, std::ref(co_2),
+        pattern1(field_1b), 
+        pattern2(field_2b), 
+        pattern2(field_3b)});
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC) 

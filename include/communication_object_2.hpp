@@ -194,7 +194,7 @@ namespace gridtools {
             int tag_offsets[sizeof...(Fields)] = { m_max_tag_map[&(buffer_infos.get_pattern_container())]... };
 
             int i = 0;
-            detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&h,&tag_offsets](auto mem, auto bi) 
+            detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&tag_offsets](auto mem, auto bi) 
             {
                 using device_type = typename std::remove_reference_t<decltype(*mem)>::device_type;
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
@@ -236,7 +236,7 @@ namespace gridtools {
                 {
                     for (auto& p1: p0.second)
                     {
-                        std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
+                        //std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
                         m_recv_futures.push_back(comm.irecv(
                             p1.second.address,
                             p1.second.tag,
@@ -255,7 +255,7 @@ namespace gridtools {
                     {
                         for (const auto& fb : p1.second.field_buffers)
                             fb.function( p1.second.buffer.data() + fb.offset, *fb.index_container);
-                        std::cout << "isend(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
+                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
                         m_send_futures.push_back(comm.isend(
                             p1.second.address,
                             p1.second.tag,
@@ -340,10 +340,10 @@ namespace gridtools {
                 auto it = memory.find(d_p);
                 if (it == memory.end())
                 {
-                    if (receive)
-                        std::cout << "new recv pair found: " << left << " " << right << std::endl;
-                    else
-                        std::cout << "new send pair found: " << left << " " << right << std::endl;
+                    //if (receive)
+                    //    std::cout << "new recv pair found: " << left << " " << right << std::endl;
+                    //else
+                    //    std::cout << "new send pair found: " << left << " " << right << std::endl;
                     it = memory.insert(std::make_pair(
                         d_p,
                         BufferType{
