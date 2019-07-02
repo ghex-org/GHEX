@@ -70,3 +70,4 @@ set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
 set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
 add_subdirectory(tests)
+add_subdirectory(benchmarks)
