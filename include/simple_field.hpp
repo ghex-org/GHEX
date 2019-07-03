@@ -102,6 +102,11 @@ namespace gridtools {
         typename device_type::id_type device_id() const { return 0; }
         domain_id_type domain_id() const { return m_dom_id; }
 
+        const coordinate_type& extents() const noexcept { return m_extents; }
+        const coordinate_type& offsets() const noexcept { return m_offsets; }
+
+        value_type* data() const { return m_data; }
+
         /** @brief access operator
          * @param x coordinate vector with respect to offset specified in constructor
          * @return reference to value */
@@ -119,24 +124,22 @@ namespace gridtools {
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c)
         {
-            /*std::size_t b=0;
+            std::size_t b=0;
             for (const auto& is : c)
             {
                 detail::for_loop<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer,&b](auto... indices)
                     {
-                        //buffer[b++] = this->operator()(coordinate_type{indices...}+m_offsets);
                         buffer[b++] = this->operator()(indices...);
                     }, 
                     is.local().first(), 
                     is.local().last());
-            }*/
-            for (const auto& is : c)
+            }
+            /*for (const auto& is : c)
             {
                 detail::for_loop_simple<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
                     {
-                        //std::cout << "pack: buffer pos: " << o_buffer << std::endl;
                         buffer[o_buffer] = m_data[o_data]; 
                     }, 
                     is.local().first(), 
@@ -145,25 +148,24 @@ namespace gridtools {
                     m_offsets
                     );
                 buffer += is.size();
-            }
+            }*/
         }
 
         template<typename IndexContainer>
         void unpack(const T* buffer, const IndexContainer& c)
         {
-            /*std::size_t b=0;
+            std::size_t b=0;
             for (const auto& is : c)
             {
                 detail::for_loop<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer,&b](auto... indices)
                     {
-                        //this->operator()(coordinate_type{indices...}+m_offsets) = buffer[b++];
                         this->operator()(indices...) = buffer[b++];
                     }, 
                     is.local().first(), 
                     is.local().last());
-            }*/
-            for (const auto& is : c)
+            }
+            /*for (const auto& is : c)
             {
                 detail::for_loop_simple<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
@@ -176,7 +178,7 @@ namespace gridtools {
                     m_offsets
                     );
                 buffer += is.size();
-            }
+            }*/
         }
     };
 

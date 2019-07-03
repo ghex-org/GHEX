@@ -14,13 +14,14 @@
 #include "utils.hpp"
 #include "buffer_info.hpp"
 #include "devices.hpp"
+#include "protocol/communicator_base.hpp"
 
 namespace gridtools {
 
     namespace detail {
 
         template<typename Tuple>
-        struct transform {};
+        struct transform;
 
         template<template<typename...> typename Tuple, typename... Ts>
         struct transform<Tuple<Ts...>>

@@ -18,9 +18,9 @@
 namespace gridtools {
 
     namespace detail {
-        // forward declaration
+        // foward declaration
         template<typename GridType>
-        struct make_pattern_impl {};
+        struct make_pattern_impl;
     } // namespace detail
 
     /** @brief generic communication pattern
