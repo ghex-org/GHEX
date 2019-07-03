@@ -305,7 +305,7 @@ namespace halo_exchange_3D_generic_full {
         accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_6;
 #endif
         const int k_start = 5;
-        for (int k=0; k<10; ++k)
+        for (int k=0; k<20; ++k)
         {
             accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_0;
             accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_1;
