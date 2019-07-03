@@ -12,6 +12,7 @@
 #define INCLUDED_COMMUNICATION_OBJECT_HPP
 
 #include <vector>
+#include <map>
 #include <tuple>
 #include <iostream>
 #include "gridtools_arch.hpp"
@@ -52,6 +53,20 @@ namespace gridtools {
         /** @brief receive request type, 1:1 mapping between receive halo index, domain and receive request*/
         using r_request_t = std::tuple<std::size_t, extended_domain_id_t, future_t>;
 
+        /* Additional types used for buffer ordering */
+        struct ordered_domain_id_t {
+
+            extended_domain_id_t m_domain_id;
+            std::size_t m_size;
+
+            bool operator < (const ordered_domain_id_t& other) const noexcept {
+                return (m_size < other.m_size ? true : (m_domain_id < other.m_domain_id));
+            }
+
+        };
+        using ordered_map_t = std::map<ordered_domain_id_t, typename map_t::mapped_type>;
+        using ordered_r_request_t = std::tuple<std::size_t, ordered_domain_id_t, future_t>;
+
         const Pattern& m_pattern;
         const map_t& m_send_halos;
         const map_t& m_receive_halos;
@@ -60,6 +75,22 @@ namespace gridtools {
         std::vector<s_buffer_t> m_send_buffers;
         std::vector<r_buffer_t> m_receive_buffers;
         const communicator_t& m_communicator;
+
+        /* Additional members used for buffer ordering */
+        ordered_map_t m_ordered_send_halos;
+        ordered_map_t m_ordered_receive_halos;
+
+        /* Additional member function used for buffer ordering */
+        std::size_t iteration_spaces_size(const std::vector<iteration_space_t>& iteration_spaces) {
+
+            std::size_t size{0};
+            for (const auto& is : iteration_spaces) {
+                size += is.size();
+            }
+
+            return size;
+
+        }
 
         /** @brief sets the buffer size for a single buffer (single neighbor) using the halo sizes and the data type sizes
          * @tparam DataDescriptor list of data descriptors types
@@ -114,7 +145,7 @@ namespace gridtools {
 
             const map_t& m_receive_halos;
             const std::vector<r_buffer_t>& m_receive_buffers;
-            std::vector<r_request_t> m_receive_requests;
+            std::vector<ordered_r_request_t> m_receive_requests;
             std::tuple<DataDescriptor...> m_data_descriptors;
 
             /** @brief unpacks the buffer for one neighbor into all the data descriptors
@@ -146,7 +177,7 @@ namespace gridtools {
              * @param data_descriptors data descriptors, moved from communication object' exchange()*/
             handle(const map_t& receive_halos,
                    const std::vector<r_buffer_t>& receive_buffers,
-                   std::vector<r_request_t>&& receive_requests,
+                   std::vector<ordered_r_request_t>&& receive_requests,
                    std::tuple<DataDescriptor...>&& data_descriptors) :
                 m_receive_halos{receive_halos},
                 m_receive_buffers{receive_buffers},
@@ -158,7 +189,7 @@ namespace gridtools {
 
                 for (auto& r : m_receive_requests) {
                     std::get<2>(r).wait();
-                    unpack(std::get<0>(r), std::get<1>(r));
+                    unpack(std::get<0>(r), std::get<1>(r).m_domain_id);
                 }
 
             }
@@ -175,7 +206,42 @@ namespace gridtools {
             m_n_receive_halos(m_receive_halos.size()),
             m_send_buffers{m_n_send_halos},
             m_receive_buffers{m_n_receive_halos},
-            m_communicator{m_pattern.communicator()} {}
+            m_communicator{m_pattern.communicator()} {
+
+            for (const auto& halo : m_send_halos) {
+                const auto& domain_id = halo.first;
+                const auto& iteration_spaces = halo.second; // maybe not using a reference?
+                ordered_domain_id_t ordered_domain_id{domain_id, iteration_spaces_size(iteration_spaces)};
+                m_ordered_send_halos.insert(std::make_pair(ordered_domain_id, iteration_spaces));
+            }
+
+            for (const auto& halo : m_receive_halos) {
+                const auto& domain_id = halo.first;
+                const auto& iteration_spaces = halo.second;  // maybe not using a reference?
+                ordered_domain_id_t ordered_domain_id{domain_id, iteration_spaces_size(iteration_spaces)};
+                m_ordered_receive_halos.insert(std::make_pair(ordered_domain_id, iteration_spaces));
+            }
+
+            /*
+            std::cout << "DEBUG: ordered send halos:\n";
+            for (const auto& halo : m_ordered_send_halos) {
+                std::cout << "\t" << "domain: " << halo.first.m_domain_id << ", size: " << halo.first.m_size << ",\n"
+                          << "\t" << "iteration spaces:\n";
+                for (const auto& is : halo.second) {
+                    std::cout << "\t\t" << is << "\n";
+                }
+            }
+            std::cout << "DEBUG: ordered receive halos:\n";
+            for (const auto& halo : m_ordered_receive_halos) {
+                std::cout << "\t" << "domain: " << halo.first.m_domain_id << ", size: " << halo.first.m_size << ",\n"
+                          << "\t" << "iteration spaces:\n";
+                for (const auto& is : halo.second) {
+                    std::cout << "\t\t" << is << "\n";
+                }
+            }
+            */
+
+        }
 
         /** @brief exchanges (receives, sends and waits for the send requests) halos for multiple data fields that shares the same pattern
          * @tparam DataDescriptor list of data descriptors types
@@ -189,6 +255,9 @@ namespace gridtools {
             std::vector<r_request_t> receive_requests;
             receive_requests.reserve(m_n_receive_halos); // no default constructor
 
+            std::vector<ordered_r_request_t> ordered_receive_requests;
+            ordered_receive_requests.reserve(m_n_receive_halos); // no default constructor
+
             auto data_descriptors = std::make_tuple(dds...);
 
             std::size_t halo_index;
@@ -196,16 +265,17 @@ namespace gridtools {
             /* RECEIVE */
 
             halo_index = 0;
-            for (const auto& halo : m_receive_halos) {
+            for (const auto& halo : m_ordered_receive_halos) {
 
-                const auto& domain = halo.first;
-                auto source = domain.address;
-                auto tag = domain.tag;
+                const auto& ordered_domain_id = halo.first;
+                const auto& domain_id = ordered_domain_id.m_domain_id;
+                auto source = domain_id.address;
+                auto tag = domain_id.tag;
                 const auto& iteration_spaces = halo.second;
 
                 m_receive_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
 
-                receive_requests.push_back(std::make_tuple(halo_index, domain, m_communicator.irecv(
+                ordered_receive_requests.push_back(std::make_tuple(halo_index, ordered_domain_id, m_communicator.irecv(
                                                               source,
                                                               tag,
                                                               &m_receive_buffers[halo_index][0],
@@ -218,13 +288,14 @@ namespace gridtools {
             /* SEND */
 
             halo_index = 0;
-            for (const auto& halo : m_send_halos) {
+            for (const auto& halo : m_ordered_send_halos) {
 
-                const auto& domain = halo.first;
-                auto dest = domain.address;
-                auto tag = domain.tag;
+                const auto& ordered_domain_id = halo.first;
+                const auto& domain_id = ordered_domain_id.m_domain_id;
+                auto dest = domain_id.address;
+                auto tag = domain_id.tag;
 
-                pack(halo_index, domain, data_descriptors);
+                pack(halo_index, domain_id, data_descriptors);
 
                 send_requests.push_back(m_communicator.isend(dest,
                                                              tag,
@@ -241,7 +312,7 @@ namespace gridtools {
                 r.wait();
             }
 
-            return {m_receive_halos, m_receive_buffers, std::move(receive_requests), std::move(data_descriptors)};
+            return {m_receive_halos, m_receive_buffers, std::move(ordered_receive_requests), std::move(data_descriptors)};
 
         }
 
