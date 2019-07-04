@@ -100,8 +100,8 @@ namespace gridtools {
 
             template<typename T>
             //using allocator_type = std::allocator<T>;
-            //using allocator_type = default_init_allocator<T>;
-            using allocator_type = mpi_allocator<T>;
+            using allocator_type = default_init_allocator<T>;
+            //using allocator_type = mpi_allocator<T>;
 
             template<typename T>
             using aligned_allocator_type = boost::alignment::aligned_allocator_adaptor<allocator_type<T>, 64>;

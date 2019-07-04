@@ -307,7 +307,7 @@ namespace halo_exchange_3D_generic_full {
         accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_1;
         accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global;
         const int k_start = 5;
-        for (int k=0; k<20; ++k)
+        for (int k=0; k<25; ++k)
         {
             accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_0;
             accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_1;
@@ -339,13 +339,14 @@ namespace halo_exchange_3D_generic_full {
 
             const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
             const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
+            const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
 
             std::vector<typename microseconds::rep> tmp_0;
             boost::mpi::all_gather(world, d0, tmp_0); 
             std::vector<typename microseconds::rep> tmp_1;
             boost::mpi::all_gather(world, d1, tmp_1); 
             std::vector<typename microseconds::rep> tmp;
-            boost::mpi::all_gather(world, d0+d1, tmp); 
+            boost::mpi::all_gather(world, d01, tmp); 
             for (unsigned int i=0; i<tmp_0.size(); ++i)
             {
                 acc_global_0(tmp_0[i]);
@@ -395,7 +396,7 @@ namespace halo_exchange_3D_generic_full {
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_max/1000.0
                 << std::endl;
             file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d0+d1)/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_mean/1000.0 
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_std_dev/1000.0
@@ -2220,7 +2221,11 @@ int main(int argc, char **argv) {
 }
 #else
 TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
+#ifndef GHEX_1_PATTERN_BENCHMARK
     bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+#else
+    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+#endif
     EXPECT_TRUE(passed);
 }
 #endif

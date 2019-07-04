@@ -150,8 +150,10 @@ namespace halo_exchange_3D_generic_full {
 
         // halos
         const std::array<int,6> halo_1{H1m1,H1p1,H2m1,H2p1,H3m1,H3p1};
+#ifndef GHEX_1_PATTERN_BENCHMARK
         const std::array<int,6> halo_2{H1m2,H1p2,H2m2,H2p2,H3m2,H3p2};
         const std::array<int,6> halo_3{H1m3,H1p3,H2m3,H2p3,H3m3,H3p3};
+#endif
 
         // define local domain
         domain_descriptor_type local_domain{
@@ -175,16 +177,24 @@ namespace halo_exchange_3D_generic_full {
 
         // make halo generators
         auto halo_gen_1 = domain_descriptor_type::halo_generator_type(g_first, g_last, halo_1, periodic);
+#ifndef GHEX_1_PATTERN_BENCHMARK
         auto halo_gen_2 = domain_descriptor_type::halo_generator_type(g_first, g_last, halo_2, periodic);
         auto halo_gen_3 = domain_descriptor_type::halo_generator_type(g_first, g_last, halo_3, periodic);
+#endif
 
         // make patterns
         auto pattern_1 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_1, local_domains);
+#ifndef GHEX_1_PATTERN_BENCHMARK
         auto pattern_2 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_2, local_domains);
         auto pattern_3 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_3, local_domains);
+#endif
         
         // communication object
+#ifndef GHEX_1_PATTERN_BENCHMARK
         auto co = gridtools::make_communication_object(pattern_1, pattern_2, pattern_3);
+#else
+        auto co = gridtools::make_communication_object(pattern_1);
+#endif
 
 
         file << "Proc: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
@@ -327,9 +337,15 @@ namespace halo_exchange_3D_generic_full {
 #ifdef GRIDTOOLS_GHEX_TIMINGS
                 timings,
 #endif
+#ifndef GHEX_1_PATTERN_BENCHMARK
                 pattern_1(field1),
                 pattern_2(field2),
                 pattern_3(field3));
+#else
+                pattern_1(field1),
+                pattern_1(field2),
+                pattern_1(field3));
+#endif
             const auto t1 = clock_type::now();
             h.wait();
             const auto t2 = clock_type::now();
@@ -337,6 +353,7 @@ namespace halo_exchange_3D_generic_full {
 
             const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
             const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
+            const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
 #ifdef GRIDTOOLS_GHEX_TIMINGS
             const auto d2 = std::chrono::duration_cast<microseconds>(timings.t1-timings.t0).count();
             const auto d3 = std::chrono::duration_cast<microseconds>(timings.t2-timings.t1).count();
@@ -350,7 +367,7 @@ namespace halo_exchange_3D_generic_full {
             std::vector<typename microseconds::rep> tmp_1;
             boost::mpi::all_gather(world, d1, tmp_1); 
             std::vector<typename microseconds::rep> tmp;
-            boost::mpi::all_gather(world, d0+d1, tmp); 
+            boost::mpi::all_gather(world, d01, tmp); 
 #ifdef GRIDTOOLS_GHEX_TIMINGS
             std::vector<typename microseconds::rep> tmp_2;
             boost::mpi::all_gather(world, d2, tmp_2); 
@@ -393,7 +410,7 @@ namespace halo_exchange_3D_generic_full {
             {
                 time_acc_local_0(d0);
                 time_acc_local_1(d1);
-                time_acc_local(d0+d1);
+                time_acc_local(d01);
 #ifdef GRIDTOOLS_GHEX_TIMINGS
                 time_acc_local_2(d2);
                 time_acc_local_3(d3);
@@ -475,7 +492,7 @@ namespace halo_exchange_3D_generic_full {
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_max/1000.0
                 << std::endl;
             file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d0+d1)/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_mean/1000.0 
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_std_dev/1000.0
@@ -2330,7 +2347,12 @@ int main(int argc, char **argv)
 }
 #else
 TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
+#ifndef GHEX_1_PATTERN_BENCHMARK
     bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+#else
+    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+#endif
+
     EXPECT_TRUE(passed);
 }
 #endif

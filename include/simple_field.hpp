@@ -124,7 +124,7 @@ namespace gridtools {
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c)
         {
-            std::size_t b=0;
+            /*std::size_t b=0;
             for (const auto& is : c)
             {
                 detail::for_loop<dimension::value,dimension::value,layout_map>::apply(
@@ -134,8 +134,8 @@ namespace gridtools {
                     }, 
                     is.local().first(), 
                     is.local().last());
-            }
-            /*for (const auto& is : c)
+            }*/
+            for (const auto& is : c)
             {
                 detail::for_loop_simple<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
@@ -148,13 +148,13 @@ namespace gridtools {
                     m_offsets
                     );
                 buffer += is.size();
-            }*/
+            }
         }
 
         template<typename IndexContainer>
         void unpack(const T* buffer, const IndexContainer& c)
         {
-            std::size_t b=0;
+            /*std::size_t b=0;
             for (const auto& is : c)
             {
                 detail::for_loop<dimension::value,dimension::value,layout_map>::apply(
@@ -164,8 +164,8 @@ namespace gridtools {
                     }, 
                     is.local().first(), 
                     is.local().last());
-            }
-            /*for (const auto& is : c)
+            }*/
+            for (const auto& is : c)
             {
                 detail::for_loop_simple<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
@@ -178,7 +178,7 @@ namespace gridtools {
                     m_offsets
                     );
                 buffer += is.size();
-            }*/
+            }
         }
     };
 
