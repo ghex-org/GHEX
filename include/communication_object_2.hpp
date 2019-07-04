@@ -235,7 +235,7 @@ namespace gridtools {
 
 #ifdef GRIDTOOLS_GHEX_TIMINGS
                 const auto t0 = clock_type::now();
-                allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
+                this->allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
                     timings,
                     mem->recv_memory[bi->device_id()],
                     bi->get_pattern().recv_halos(),
@@ -245,7 +245,7 @@ namespace gridtools {
                     bi->device_id(),
                     tag_offsets[i],
                     true);
-                allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
+                this->allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
                     timings,
                     mem->send_memory[bi->device_id()],
                     bi->get_pattern().send_halos(),
@@ -258,7 +258,7 @@ namespace gridtools {
                 const auto t1 = clock_type::now();
                 timings.allocation_part += duration_type(t1-t0);
 #else
-                allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
+                this->allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
                     mem->recv_memory[bi->device_id()],
                     bi->get_pattern().recv_halos(),
                     [field_ptr](const void* buffer, const index_container_type& c) 
@@ -267,7 +267,7 @@ namespace gridtools {
                     bi->device_id(),
                     tag_offsets[i],
                     true);
-                allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
+                this->allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
                     mem->send_memory[bi->device_id()],
                     bi->get_pattern().send_halos(),
                     [field_ptr](void* buffer, const index_container_type& c) 
