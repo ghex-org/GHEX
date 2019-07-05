@@ -27,84 +27,6 @@
 #include "../include/utils.hpp"
 
 
-//struct my_domain_desc {
-
-//    using coordinate_type = std::array<int, 3>;
-//    using domain_id_type = int;
-
-//    struct local_domain {
-
-//        coordinate_type m_first;
-//        coordinate_type m_last;
-
-//        local_domain(const coordinate_type& first,
-//                     const coordinate_type& last) :
-//            m_first{first},
-//            m_last{last} {}
-
-//        const coordinate_type& first() const {return m_first;}
-//        const coordinate_type& last() const {return m_last;}
-
-//    };
-
-//    struct halo {
-
-//        struct local_halo {
-
-//            coordinate_type m_first;
-//            coordinate_type m_last;
-
-//            local_halo(const coordinate_type& first,
-//                       const coordinate_type& last) :
-//                m_first{first},
-//                m_last{last} {}
-
-//            const coordinate_type& first() const {return m_first;}
-//            const coordinate_type& last() const {return m_last;}
-
-//        };
-
-//        coordinate_type m_first;
-//        coordinate_type m_last;
-//        local_halo m_local_halo;
-
-//        halo(const coordinate_type& first,
-//             const coordinate_type& last,
-//             const coordinate_type& local_first,
-//             const coordinate_type& local_last) :
-//            m_first{first},
-//            m_last{last},
-//            m_local_halo{local_first, local_last} {}
-
-//        const coordinate_type& first() const {return m_first;}
-//        const coordinate_type& last() const {return m_last;}
-//        const local_halo& local() const {return m_local_halo;}
-//        const halo& global() const {return *this;}
-
-//    };
-
-//    domain_id_type m_id;
-//    coordinate_type m_first;
-//    coordinate_type m_last;
-//    local_domain m_local_domain;
-
-//    my_domain_desc(const domain_id_type id,
-//                   const coordinate_type& first,
-//                   const coordinate_type& last) :
-//        m_id{id},
-//        m_first{first},
-//        m_last{last},
-//        m_local_domain{coordinate_type{0, 0, 0}, coordinate_type{last[0]-first[0], last[1]-first[1], last[2]-first[2]}} {}
-
-//    domain_id_type domain_id() const {return m_id;}
-//    const coordinate_type& first() const {return m_first;}
-//    const coordinate_type& last() const {return m_last;}
-//    const local_domain& local() const {return m_local_domain;}
-//    coordinate_type size() const {return coordinate_type{m_local_domain.last()[0]+1, m_local_domain.last()[1]+1, m_local_domain.last()[2]+1};}
-
-//};
-
-
 /* CPU data descriptor */
 template <typename T, typename DomainDescriptor>
 class my_data_desc {
@@ -140,16 +62,9 @@ public:
 
     template <typename IterationSpace>
     void set(const IterationSpace& is, const Byte* buffer) {
-        //std::cout << "DEBUG: is.first()[2] = " << is.local().first()[2] << "\n";
-        //std::cout << "DEBUG: is.last()[2] = " << is.local().last()[2] << "\n";
-        //std::cout.flush();
         gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
-            //std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
-            //std::cout.flush();
             set(*(reinterpret_cast<const T*>(buffer)), coords);
-            //std::cout << "DEBUG: just set value " << get(coords) << "\n";
-            //std::cout.flush();
             buffer += sizeof(T);
         }, is.local().first(), is.local().last());
     }
@@ -158,12 +73,8 @@ public:
     void get(const IterationSpace& is, Byte* buffer) const {
         gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
-            //std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
-            //std::cout.flush();
             const T* tmp_ptr{&get(coords)};
             std::memcpy(buffer, tmp_ptr, sizeof(T));
-            //std::cout << "DEBUG: just got value " << *(reinterpret_cast<T*>(buffer)) << "\n";
-            //std::cout.flush();
             buffer += sizeof(T);
         }, is.local().first(), is.local().last());
     }
@@ -212,7 +123,7 @@ TEST(communication_object, constructor) {
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -267,7 +178,7 @@ TEST(communication_object, exchange) {
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -374,7 +285,7 @@ TEST(communication_object, exchange_multiple_fields) {
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -531,7 +442,7 @@ TEST(communication_object, multithreading) {
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -701,7 +612,7 @@ TEST(communication_object, multithreading_multiple_fileds) {
 
     auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<std::remove_reference_t<decltype(*(patterns.begin()))>, gridtools::cpu>;
+    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
