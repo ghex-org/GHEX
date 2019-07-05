@@ -53,7 +53,7 @@ namespace gridtools {
      * @tparam Pattern pattern type to be used for the communication
      * @tparam Arch architecture: cpu, gpu or others*/
     template <typename Pattern, typename Arch>
-    class communication_object {};
+    class communication_object;
 
     /** @brief cpu template specialization of the communication object
      * @tparam Pattern pattern type to be used for the communication*/
