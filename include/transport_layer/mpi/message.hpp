@@ -156,4 +156,87 @@ namespace mpi {
         }
     };
 
+    template <typename Allocator = std::allocator<unsigned char> >
+    struct shared_message {
+        std::shared_ptr<message<Allocator>> m_s_message;
+
+        shared_message(size_t capacity, Allocator allc = Allocator{})
+            : m_s_message{std::make_shared<message<Allocator>>(capacity, allc)}
+            {}
+
+        shared_message(size_t capacity, size_t size, Allocator allc = Allocator{})
+            : m_s_message{std::make_shared<message<Allocator>>(capacity, size, allc)}
+            {}
+
+        /* Showing these to highlight the semantics */
+        shared_message(shared_message const& ) = default;
+        shared_message(shared_message && ) = default;
+
+        /** This is the main function used by the communicator to access the
+         * message to send or receive data. This is done so that a std::vector
+         * could be used as message.
+         *
+         * @return Pointer to the beginning of the message
+         */
+        unsigned char* data() const {
+            return (*m_s_message).data();
+        }
+
+        long use_count() const { return m_s_message.use_count(); }
+        /** This is the main function used by the communicator to access the
+         * size of the message to send or receive. This is done so that a std::vector
+         * could be used as message.
+         *
+         * @return current size
+         */
+        size_t size() const {
+            return (*m_s_message).size();
+        }
+
+
+        /** Reset the size of the message to 0 */
+        void empty() {
+            (*m_s_message).empty();
+        }
+
+        size_t capacity() const { return (*m_s_message).data(); }
+
+        /** Simple iterator facility to read the bytes out of the message */
+        unsigned char* begin() { return (*m_s_message).begin(); }
+        unsigned char* end() const { return (*m_s_message).end(); }
+
+        /** Function to resize a message to a new capacity. Size is unchanged */
+        void resize(size_t new_capacity) {
+            (*m_s_message).resize(new_capacity);
+        }
+
+        /** Function to add an element of type T at the end of the message.
+         * Size will be updated. In debug mode a check is performed to ensure the
+         * address where the insertion is done is aligned with for T.
+         *
+         * @tparam T Type of the value to be added (deduced)
+         *
+         * @param x Value to be added
+         */
+        template <typename T>
+        void enqueue(T x) {
+            (*m_s_message).enqueue(x);
+        }
+
+        /** Function to access an element of type T at position pos in the message.
+         * Size will be updated. In debug mode a check is performed to ensure the
+         * in-bound access, anf to check that the address is aligned properly
+         * for type T.
+         *
+         * @tparam T Type of the value to be added (not deduced)
+         *
+         * @param pos Position (in bytes) in the message
+         *
+         * @return Reference to an element of type T
+         */
+        template <typename T>
+        T& at(size_t pos /* in bytes */ ) const {
+            return (*m_s_message). template at<T>(pos);
+        }
+    };
 } //namespace mpi

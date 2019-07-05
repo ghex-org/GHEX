@@ -37,7 +37,7 @@ namespace mpi {
 
 
     #ifdef NDEBUG
-    #define CHECK_MPI_ERROR(x) if x;
+    #define CHECK_MPI_ERROR(x) x;
     #else
     #define CHECK_MPI_ERROR(x) if (x != MPI_SUCCESS) throw std::runtime_error("MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":"  +  std::to_string(__LINE__));
     #endif
