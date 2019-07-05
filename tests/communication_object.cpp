@@ -48,18 +48,25 @@ public:
         m_halos_offset{halos_offset},
         m_values{values} {}
 
+    /** @brief data type size, mandatory*/
     std::size_t data_type_size() const {
         return sizeof (T);
     }
 
+    /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
     void set(const T& value, const coordinate_t& coords) {
         m_values(coords[0] + m_halos_offset[0], coords[1] + m_halos_offset[1], coords[2] + m_halos_offset[2]) = value;
     }
 
+    /** @brief single access get function, not mandatory but used by the corresponding multiple access operator*/
     const T& get(const coordinate_t& coords) const {
         return m_values(coords[0] + m_halos_offset[0], coords[1] + m_halos_offset[1], coords[2] + m_halos_offset[2]);
     }
 
+    /** @brief multiple access set function, needed by GHEX in order to perform the unpacking
+     * @tparam IterationSpace iteration space type
+     * @param is iteration space which to loop through in order to retrieve the coordinates at which to set back the buffer values
+     * @param buffer buffer with the data to be set back*/
     template <typename IterationSpace>
     void set(const IterationSpace& is, const Byte* buffer) {
         gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
@@ -69,6 +76,10 @@ public:
         }, is.local().first(), is.local().last());
     }
 
+    /** @brief multiple access get function, needed by GHEX in order to perform the packing
+     * @tparam IterationSpace iteration space type
+     * @param is iteration space which to loop through in order to retrieve the coordinates at which to get the data
+     * @param buffer buffer to be filled*/
     template <typename IterationSpace>
     void get(const IterationSpace& is, Byte* buffer) const {
         gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
@@ -313,6 +324,7 @@ TEST(communication_object, exchange_multiple_fields) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 values_1(ii, jj, kk) = triple_t<USE_DOUBLE, int>();
+                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
             }
     for (int ii = H1m; ii < DIM1 + H1m; ++ii)
         for (int jj = H2m; jj < DIM2 + H2m; ++jj)
@@ -322,15 +334,6 @@ TEST(communication_object, exchange_multiple_fields) {
                             jj - H2m + DIM2 * coords[1],
                             kk - H3m + DIM3 * coords[2]
                         );
-            }
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
-                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
-            }
-    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
-        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
-            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
                 values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
                             ii - H1m + DIM1 * coords[0] + add,
                             jj - H2m + DIM2 * coords[1] + add,
@@ -348,13 +351,13 @@ TEST(communication_object, exchange_multiple_fields) {
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
 
                 triple_t<USE_DOUBLE, int> t1;
-                int tx, ty, tz;
+                int tx1, ty1, tz1;
 
-                tx = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2);
-                ty = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
-                tz = modulus(kk - H3m + DIM3 * coords[2], DIM3);
+                tx1 = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2);
+                ty1 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
+                tz1 = modulus(kk - H3m + DIM3 * coords[2], DIM3);
 
-                t1 = triple_t<USE_DOUBLE, int>(tx, ty, tz).floor();
+                t1 = triple_t<USE_DOUBLE, int>(tx1, ty1, tz1).floor();
 
                 if (values_1(ii, jj, kk) != t1) {
                     passed = false;
@@ -363,20 +366,14 @@ TEST(communication_object, exchange_multiple_fields) {
 
                 }
 
-            }
-
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
-
                 triple_t<USE_DOUBLE, double> t2;
-                int tx, ty, tz;
+                int tx2, ty2, tz2;
 
-                tx = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2) + add;
-                ty = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2) + add;
-                tz = modulus(kk - H3m + DIM3 * coords[2], DIM3)     + add;
+                tx2 = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2) + add;
+                ty2 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2) + add;
+                tz2 = modulus(kk - H3m + DIM3 * coords[2], DIM3)     + add;
 
-                t2 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
+                t2 = triple_t<USE_DOUBLE, double>(tx2, ty2, tz2).floor();
 
                 if (values_2(ii, jj, kk) != t2) {
                     passed = false;
@@ -470,6 +467,7 @@ TEST(communication_object, multithreading) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
             }
     for (int ii = H1m; ii < DIM1 + H1m; ++ii)
         for (int jj = H2m; jj < DIM2 + H2m; ++jj)
@@ -479,15 +477,6 @@ TEST(communication_object, multithreading) {
                             jj - H2m + DIM2     * coords[1],
                             kk - H3m + DIM3     * coords[2]
                         );
-            }
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
-                values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
-            }
-    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
-        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
-            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
                 values_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
                             ii - H1m + DIM1 * 2 * coords[0] + DIM1,
                             jj - H2m + DIM2     * coords[1]       ,
@@ -518,13 +507,13 @@ TEST(communication_object, multithreading) {
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
 
                 triple_t<USE_DOUBLE, double> t1;
-                int tx, ty, tz;
+                int tx1, ty1, tz1;
 
-                tx = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
-                ty = modulus(jj - H2m + DIM2     * coords[1], DIM2     * 2);
-                tz = modulus(kk - H3m + DIM3     * coords[2], DIM3        );
+                tx1 = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
+                ty1 = modulus(jj - H2m + DIM2     * coords[1], DIM2     * 2);
+                tz1 = modulus(kk - H3m + DIM3     * coords[2], DIM3        );
 
-                t1 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
+                t1 = triple_t<USE_DOUBLE, double>(tx1, ty1, tz1).floor();
 
                 if (values_1(ii, jj, kk) != t1) {
                     passed = false;
@@ -533,20 +522,14 @@ TEST(communication_object, multithreading) {
 
                 }
 
-            }
-
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
-
                 triple_t<USE_DOUBLE, double> t2;
-                int tx, ty, tz;
+                int tx2, ty2, tz2;
 
-                tx = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
-                ty = modulus(jj - H2m + DIM2     * coords[1]       , DIM2     * 2);
-                tz = modulus(kk - H3m + DIM3     * coords[2]       , DIM3        );
+                tx2 = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
+                ty2 = modulus(jj - H2m + DIM2     * coords[1]       , DIM2     * 2);
+                tz2 = modulus(kk - H3m + DIM3     * coords[2]       , DIM3        );
 
-                t2 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
+                t2 = triple_t<USE_DOUBLE, double>(tx2, ty2, tz2).floor();
 
                 if (values_2(ii, jj, kk) != t2) {
                     passed = false;
@@ -554,6 +537,7 @@ TEST(communication_object, multithreading) {
                               << "values_2 " << values_2(ii, jj, kk) << " != " << t2 << "\n";
 
                 }
+
 
             }
 
@@ -656,6 +640,9 @@ TEST(communication_object, multithreading_multiple_fileds) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 values_1_1(ii, jj, kk) = triple_t<USE_DOUBLE, int>();
+                values_1_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+                values_2_1(ii, jj, kk) = triple_t<USE_DOUBLE, int>();
+                values_2_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
             }
     for (int ii = H1m; ii < DIM1 + H1m; ++ii)
         for (int jj = H2m; jj < DIM2 + H2m; ++jj)
@@ -665,43 +652,16 @@ TEST(communication_object, multithreading_multiple_fileds) {
                             jj - H2m + DIM2     * coords[1],
                             kk - H3m + DIM3     * coords[2]
                         );
-            }
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
-                values_1_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
-            }
-    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
-        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
-            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
                 values_1_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
                             ii - H1m + DIM1 * 2 * coords[0],
                             jj - H2m + DIM2     * coords[1],
                             kk - H3m + DIM3     * coords[2]
                         );
-            }
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
-                values_2_1(ii, jj, kk) = triple_t<USE_DOUBLE, int>();
-            }
-    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
-        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
-            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
                 values_2_1(ii, jj, kk) = triple_t<USE_DOUBLE, int>(
                             ii - H1m + DIM1 * 2 * coords[0] + DIM1,
                             jj - H2m + DIM2     * coords[1]       ,
                             kk - H3m + DIM3     * coords[2]
                         );
-            }
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
-                values_2_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
-            }
-    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
-        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
-            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
                 values_2_2(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
                             ii - H1m + DIM1 * 2 * coords[0] + DIM1,
                             jj - H2m + DIM2     * coords[1]       ,
@@ -731,85 +691,67 @@ TEST(communication_object, multithreading_multiple_fileds) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
 
-                triple_t<USE_DOUBLE, int> t1;
-                int tx, ty, tz;
+                triple_t<USE_DOUBLE, int> t11;
+                int tx11, ty11, tz11;
 
-                tx = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
-                ty = modulus(jj - H2m + DIM2     * coords[1], DIM2     * 2);
-                tz = modulus(kk - H3m + DIM3     * coords[2], DIM3        );
+                tx11 = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
+                ty11 = modulus(jj - H2m + DIM2     * coords[1], DIM2     * 2);
+                tz11 = modulus(kk - H3m + DIM3     * coords[2], DIM3        );
 
-                t1 = triple_t<USE_DOUBLE, int>(tx, ty, tz).floor();
+                t11 = triple_t<USE_DOUBLE, int>(tx11, ty11, tz11).floor();
 
-                if (values_1_1(ii, jj, kk) != t1) {
+                if (values_1_1(ii, jj, kk) != t11) {
                     passed = false;
                     std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
-                              << "values_1_1 " << values_1_1(ii, jj, kk) << " != " << t1 << "\n";
+                              << "values_1_1 " << values_1_1(ii, jj, kk) << " != " << t11 << "\n";
 
                 }
 
-            }
+                triple_t<USE_DOUBLE, double> t12;
+                int tx12, ty12, tz12;
 
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+                tx12 = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
+                ty12 = modulus(jj - H2m + DIM2     * coords[1], DIM2     * 2);
+                tz12 = modulus(kk - H3m + DIM3     * coords[2], DIM3        );
 
-                triple_t<USE_DOUBLE, double> t1;
-                int tx, ty, tz;
+                t12 = triple_t<USE_DOUBLE, double>(tx12, ty12, tz12).floor();
 
-                tx = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
-                ty = modulus(jj - H2m + DIM2     * coords[1], DIM2     * 2);
-                tz = modulus(kk - H3m + DIM3     * coords[2], DIM3        );
-
-                t1 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
-
-                if (values_1_2(ii, jj, kk) != t1) {
+                if (values_1_2(ii, jj, kk) != t12) {
                     passed = false;
                     std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
-                              << "values_1_2 " << values_1_2(ii, jj, kk) << " != " << t1 << "\n";
+                              << "values_1_2 " << values_1_2(ii, jj, kk) << " != " << t12 << "\n";
 
                 }
 
-            }
+                triple_t<USE_DOUBLE, int> t21;
+                int tx21, ty21, tz21;
 
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+                tx21 = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
+                ty21 = modulus(jj - H2m + DIM2     * coords[1]       , DIM2     * 2);
+                tz21 = modulus(kk - H3m + DIM3     * coords[2]       , DIM3        );
 
-                triple_t<USE_DOUBLE, int> t2;
-                int tx, ty, tz;
+                t21 = triple_t<USE_DOUBLE, int>(tx21, ty21, tz21).floor();
 
-                tx = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
-                ty = modulus(jj - H2m + DIM2     * coords[1]       , DIM2     * 2);
-                tz = modulus(kk - H3m + DIM3     * coords[2]       , DIM3        );
-
-                t2 = triple_t<USE_DOUBLE, int>(tx, ty, tz).floor();
-
-                if (values_2_1(ii, jj, kk) != t2) {
+                if (values_2_1(ii, jj, kk) != t21) {
                     passed = false;
                     std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
-                              << "values_2_1 " << values_2_1(ii, jj, kk) << " != " << t2 << "\n";
+                              << "values_2_1 " << values_2_1(ii, jj, kk) << " != " << t21 << "\n";
 
                 }
 
-            }
+                triple_t<USE_DOUBLE, double> t22;
+                int tx22, ty22, tz22;
 
-    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
-        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
-            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+                tx22 = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
+                ty22 = modulus(jj - H2m + DIM2     * coords[1]       , DIM2     * 2);
+                tz22 = modulus(kk - H3m + DIM3     * coords[2]       , DIM3        );
 
-                triple_t<USE_DOUBLE, double> t2;
-                int tx, ty, tz;
+                t22 = triple_t<USE_DOUBLE, double>(tx22, ty22, tz22).floor();
 
-                tx = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
-                ty = modulus(jj - H2m + DIM2     * coords[1]       , DIM2     * 2);
-                tz = modulus(kk - H3m + DIM3     * coords[2]       , DIM3        );
-
-                t2 = triple_t<USE_DOUBLE, double>(tx, ty, tz).floor();
-
-                if (values_2_2(ii, jj, kk) != t2) {
+                if (values_2_2(ii, jj, kk) != t22) {
                     passed = false;
                     std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
-                              << "values_2 " << values_2_2(ii, jj, kk) << " != " << t2 << "\n";
+                              << "values_2 " << values_2_2(ii, jj, kk) << " != " << t22 << "\n";
 
                 }
 
