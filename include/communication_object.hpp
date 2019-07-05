@@ -21,15 +21,18 @@
 
 namespace gridtools {
 
-    // Allocator adaptor that interposes construct() calls to
-    // convert value initialization into default initialization.
+    /** @brief Allocator adaptor that interposes construct() calls
+     ** to convert value initialization into default initialization.*/
     template <typename T, typename A=std::allocator<T>>
     class default_init_allocator : public A {
+
         typedef std::allocator_traits<A> a_t;
+
     public:
-        template <typename U> struct rebind {
-            using other =
-            default_init_allocator<U, typename a_t::template rebind_alloc<U>>;
+
+        template <typename U>
+        struct rebind {
+            using other = default_init_allocator<U, typename a_t::template rebind_alloc<U>>;
         };
 
         using A::A;
@@ -38,10 +41,12 @@ namespace gridtools {
         void construct(U* ptr) noexcept (std::is_nothrow_default_constructible<U>::value) {
             ::new(static_cast<void*>(ptr)) U;
         }
+
         template <typename U, typename...Args>
         void construct(U* ptr, Args&&... args) {
             a_t::construct(static_cast<A&>(*this), ptr, std::forward<Args>(args)...);
         }
+
     };
 
     /** @brief generic communication object for single pattern exchange
@@ -76,7 +81,7 @@ namespace gridtools {
         /** @brief receive request type, 1:1 mapping between receive halo index, domain and receive request*/
         using r_request_t = std::tuple<std::size_t, extended_domain_id_t, future_t>;
 
-        /* Additional types used for buffer ordering */
+        /** @brief domain id with size information, used for buffer ordering */
         struct ordered_domain_id_t {
 
             extended_domain_id_t m_domain_id;
@@ -87,7 +92,10 @@ namespace gridtools {
             }
 
         };
+
+        /** @brief map type for send and receive halos with ordered domain id */
         using ordered_map_t = std::map<ordered_domain_id_t, typename map_t::mapped_type>;
+        /** @brief receive request type with ordered domain id */
         using ordered_r_request_t = std::tuple<std::size_t, ordered_domain_id_t, future_t>;
 
         const Pattern& m_pattern;
@@ -98,12 +106,12 @@ namespace gridtools {
         std::vector<s_buffer_t> m_send_buffers;
         std::vector<r_buffer_t> m_receive_buffers;
         const communicator_t& m_communicator;
-
-        /* Additional members used for buffer ordering */
         ordered_map_t m_ordered_send_halos;
         ordered_map_t m_ordered_receive_halos;
 
-        /* Additional member function used for buffer ordering */
+        /** @brief sets the number of elements of a single buffer (single neighbor) given the halo sizes
+         * @param iteration_spaces list of iteration spaces (halos), can be more than one per neighbor
+         * @return std::size_t number of elements*/
         std::size_t iteration_spaces_size(const std::vector<iteration_space_t>& iteration_spaces) {
 
             std::size_t size{0};
@@ -115,7 +123,7 @@ namespace gridtools {
 
         }
 
-        /** @brief sets the buffer size for a single buffer (single neighbor) using the halo sizes and the data type sizes
+        /** @brief sets the size of a single buffer (single neighbor) given the halo sizes and the data type sizes
          * @tparam DataDescriptor list of data descriptors types
          * @param iteration_spaces list of iteration spaces (halos), can be more than one per neighbor
          * @param data_descriptors list of data descriptors
@@ -136,9 +144,10 @@ namespace gridtools {
 
         }
 
-        // CHANGE COMMENTS HERE!
-        /** @brief packs all the data for all the neighbors into one single buffer per neighbor
+        /** @brief packs the data for one neighbor into one single buffer per neighbor
          * @tparam DataDescriptor list of data descriptors types
+         * @param halo_index neighbor index
+         * @param domain neighbor extended domain id
          * @param data_descriptors tuple of data descriptors*/
         template <typename... DataDescriptor>
         void pack(const std::size_t halo_index, const extended_domain_id_t& domain, const std::tuple<DataDescriptor...>& data_descriptors) {
@@ -172,8 +181,8 @@ namespace gridtools {
             std::tuple<DataDescriptor...> m_data_descriptors;
 
             /** @brief unpacks the buffer for one neighbor into all the data descriptors
-             * @param halo_index index of the neighbor, included in the receive request
-             * @param domain domain id, included in the receive request*/
+             * @param halo_index neighbor index, included in the receive request
+             * @param domain neighbor extended domain id, included in the receive request*/
             void unpack(const std::size_t halo_index, const extended_domain_id_t& domain) {
 
                 const auto& iteration_spaces = m_receive_halos.at(domain);
@@ -245,25 +254,6 @@ namespace gridtools {
                 m_ordered_receive_halos.insert(std::make_pair(ordered_domain_id, iteration_spaces));
             }
 
-            /*
-            std::cout << "DEBUG: ordered send halos:\n";
-            for (const auto& halo : m_ordered_send_halos) {
-                std::cout << "\t" << "domain: " << halo.first.m_domain_id << ", size: " << halo.first.m_size << ",\n"
-                          << "\t" << "iteration spaces:\n";
-                for (const auto& is : halo.second) {
-                    std::cout << "\t\t" << is << "\n";
-                }
-            }
-            std::cout << "DEBUG: ordered receive halos:\n";
-            for (const auto& halo : m_ordered_receive_halos) {
-                std::cout << "\t" << "domain: " << halo.first.m_domain_id << ", size: " << halo.first.m_size << ",\n"
-                          << "\t" << "iteration spaces:\n";
-                for (const auto& is : halo.second) {
-                    std::cout << "\t\t" << is << "\n";
-                }
-            }
-            */
-
         }
 
         /** @brief exchanges (receives, sends and waits for the send requests) halos for multiple data fields that shares the same pattern
@@ -273,13 +263,13 @@ namespace gridtools {
         handle<DataDescriptor...> exchange(DataDescriptor& ...dds) {
 
             std::vector<s_request_t> send_requests;
-            send_requests.reserve(m_n_send_halos); // no default constructor
+            send_requests.reserve(m_n_send_halos);
 
             std::vector<r_request_t> receive_requests;
-            receive_requests.reserve(m_n_receive_halos); // no default constructor
+            receive_requests.reserve(m_n_receive_halos);
 
             std::vector<ordered_r_request_t> ordered_receive_requests;
-            ordered_receive_requests.reserve(m_n_receive_halos); // no default constructor
+            ordered_receive_requests.reserve(m_n_receive_halos);
 
             auto data_descriptors = std::make_tuple(dds...);
 
