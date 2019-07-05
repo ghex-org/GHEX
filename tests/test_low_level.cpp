@@ -4,7 +4,7 @@
 int rank;
 
 void test1() {
-    mpi::communicator<int, int> sr;
+    mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
     std::vector<unsigned char> rmsg(10);
@@ -28,7 +28,7 @@ void test1() {
 }
 
 void test2() {
-    mpi::communicator<int, int> sr;
+    mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
     std::vector<unsigned char> rmsg(10);
@@ -59,7 +59,7 @@ void test2() {
 }
 
 void test1_mesg() {
-    mpi::communicator<int, int> sr;
+    mpi::communicator sr;
 
     mpi::message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
@@ -92,7 +92,7 @@ void test1_mesg() {
 }
 
 void test2_mesg() {
-    mpi::communicator<int, int> sr;
+    mpi::communicator sr;
 
     mpi::message<> smsg{10};
     for (int i = 0; i < 10; ++i) {

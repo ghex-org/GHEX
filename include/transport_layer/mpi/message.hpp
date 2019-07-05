@@ -78,6 +78,8 @@ namespace mpi {
         /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector
          * could be used as message.
+         *
+         * @return Pointer to the beginning of the message
          */
         unsigned char* data() const {
             return m_payload;
@@ -86,6 +88,8 @@ namespace mpi {
         /** This is the main function used by the communicator to access the
          * size of the message to send or receive. This is done so that a std::vector
          * could be used as message.
+         *
+         * @return current size
          */
         size_t size() const {
             return m_size;
@@ -141,6 +145,8 @@ namespace mpi {
          * @tparam T Type of the value to be added (not deduced)
          *
          * @param pos Position (in bytes) in the message
+         *
+         * @return Reference to an element of type T
          */
         template <typename T>
         T& at(size_t pos /* in bytes */ ) const {
