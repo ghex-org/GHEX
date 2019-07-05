@@ -44,7 +44,7 @@ target_link_libraries(pattern ${exe_LIBS} GridTools::gridtools GridTools::gcl Bo
 
 enable_testing()
 
-set(GTEST_DIR "./tools/googletest")
+set(GTEST_DIR ${GridTools_DIR}/_deps/googletest-src)
 
 find_path(GTEST_INC_DIR
     "gtest/gtest.h"
