@@ -25,15 +25,6 @@ namespace gridtools {
                 base*ct_pow(base, exp-1);
         }
 
-        /*template<std::size_t I = 0, typename Func, typename ...Args>
-        typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>&, Func) {}
-
-        template<std::size_t I = 0, typename Func, typename ...Args>
-        typename std::enable_if<(I < sizeof...(Args))>::type for_each(std::tuple<Args...>& t, Func f) {
-                f(std::get<I>(t));
-                for_each<I+1, Func, Args...>(t, f);
-        }*/
-
         template<typename Func>
         void invoke_with_arg(Func&&)
         {}
