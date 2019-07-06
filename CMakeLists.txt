@@ -10,7 +10,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 find_package(MPI REQUIRED)
 
-find_package(GridTools 0.20 REQUIRED)
+find_package(GridTools REQUIRED)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 
@@ -53,3 +53,7 @@ target_link_libraries(generic_interfaces1D ${exe_LIBS}  ${MPI_CXX_LIBRARIES} Gri
 
 add_executable( generic_interfaces1D_mt tests/generic_interfaces1D_mt.cpp )
 target_link_libraries(generic_interfaces1D_mt ${exe_LIBS}  ${MPI_CXX_LIBRARIES} GridTools::gridtools GridTools::gcl)
+
+add_subdirectory(tests/transport)
+
+
