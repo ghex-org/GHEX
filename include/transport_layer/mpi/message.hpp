@@ -27,12 +27,14 @@ namespace mpi {
         byte* m_payload;
         size_t m_size;
 
+        static constexpr bool can_be_shared = false;
+
         /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
          * @param alloc Allocator instance
          */
-        message(size_t capacity, Allocator alloc = Allocator{})
+        message(size_t capacity = 0, Allocator alloc = Allocator{})
             : m_alloc{alloc}
             , m_capacity{capacity}
             , m_payload(nullptr)
@@ -75,6 +77,9 @@ namespace mpi {
             if (m_payload) m_alloc.deallocate(m_payload, m_capacity);
         }
 
+        constexpr bool is_shared() { return false; }
+        size_t use_count() const { return 1; }
+
         /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector
          * could be used as message.
@@ -111,12 +116,18 @@ namespace mpi {
         void resize(size_t new_capacity) {
             assert(new_capacity >= m_size);
 
-            byte* new_storage = m_alloc.allocate(new_capacity);
-            std::memcpy((void*)new_storage, (void*)m_payload, m_size);
+            if (m_payload) {
+                byte* new_storage = m_alloc.allocate(new_capacity);
+                std::memcpy((void*)new_storage, (void*)m_payload, m_size);
 
-            m_alloc.deallocate(m_payload, m_capacity);
-            m_payload = new_storage;
-            m_capacity = new_capacity;
+                m_alloc.deallocate(m_payload, m_capacity);
+                m_payload = new_storage;
+                m_capacity = new_capacity;
+            } else {
+                byte* new_storage = m_alloc.allocate(new_capacity);
+                m_payload = new_storage;
+                m_capacity = new_capacity;
+            }
         }
 
         /** Function to add an element of type T at the end of the message.
@@ -178,6 +189,9 @@ namespace mpi {
     struct shared_message {
         std::shared_ptr<message<Allocator>> m_s_message;
 
+        static constexpr bool can_be_shared = true;
+
+
         /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
@@ -211,6 +225,8 @@ namespace mpi {
         unsigned char* data() const {
             return m_s_message->data();
         }
+
+        bool is_shared() { return use_count() > 1; }
 
         /** Returns the number of owners of this shared_message */
         long use_count() const { return m_s_message.use_count(); }

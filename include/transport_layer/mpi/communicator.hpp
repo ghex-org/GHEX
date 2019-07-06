@@ -15,6 +15,7 @@ namespace mpi {
     struct my_dull_future {
         MPI_Request m_req;
 
+        my_dull_future() = default;
         my_dull_future(MPI_Request req) : m_req{req} {}
 
         /** Function to wait until the operation completed */
@@ -51,6 +52,9 @@ namespace mpi {
 
         using tag_type = int;
         using rank_type = int;
+        using send_future = my_dull_future;
+        using recv_future = my_dull_future;
+        using common_future = my_dull_future;
 
         std::unordered_map<MPI_Request, std::tuple<std::function<void(rank_type, tag_type)>, rank_type, tag_type>> m_call_backs;
 
