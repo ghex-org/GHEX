@@ -248,12 +248,6 @@ bool check_msg(std::vector<unsigned char> msg) {
     return ok;
 }
 
-template <typename Msg>
-struct can_be_shared { static constexpr bool value = false; };
-
-template <typename A>
-struct can_be_shared<mpi::shared_message<A>> { static constexpr bool value = true; };
-
 template <typename Test>
 void run_test(Test&& test) {
     bool ok;

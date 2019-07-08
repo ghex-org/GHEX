@@ -163,12 +163,25 @@ namespace mpi {
             m_call_backs.emplace(std::make_pair(request, std::make_tuple(cb, src, tag) ));
         }
 
+        template <typename Allc, typename Neighs>
+        void send_multi(shared_message<Allc> msg, Neighs const& neighs, int tag) {
+            auto keep_message = [&msg] (int, int) {};
+            for (auto id : neighs) {
+                std::cout << "Sending to " << id << "\n";
+                send(msg, id, tag, keep_message);
+            }
+        }
+
+
         /** Function to invoke to poll the transport layer and check for the completions
          * of the operations without a future associated to them (that is, they are associated
          * to a call-back). When an operation completes, the corresponfing call-back is invoked
          * with the rank and tag associated with that request.
+         *
+         * @return bool True if there are pending requests, false otherwise
          */
-        void progress() {
+        bool progress() {
+
             for (auto & i : m_call_backs) {
                 int res;
                 MPI_Status status;
@@ -180,6 +193,7 @@ namespace mpi {
                     m_call_backs.erase(i.first); // must use i.first andnot r, since r is modified
                 }
             }
+            return !(m_call_backs.size() == 0);
         }
     };
 
