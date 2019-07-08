@@ -15,6 +15,7 @@
 #include "buffer_info.hpp"
 #include "devices.hpp"
 #include "protocol/communicator_base.hpp"
+//#include <unordered_map>
 
 #ifdef GRIDTOOLS_GHEX_TIMINGS
 #include <chrono>
@@ -114,7 +115,21 @@ namespace gridtools {
                 return (first_id < other.first_id ? true : 
                         (first_id > other.first_id ? false : (second_id < other.second_id)));
             }
+            //bool operator==(const domain_id_pair& other) const noexcept
+            //{
+            //    return first_id == other.first_id && second_id == other.second_id;
+            //}
         };
+
+        //struct domain_id_pair_hash
+        //{
+        //    std::size_t operator()(const domain_id_pair& d) const noexcept
+        //    {
+        //        std::size_t h1 = std::hash<domain_id_type>{}(d.first_id);
+        //        std::size_t h2 = std::hash<domain_id_type>{}(d.second_id);
+        //        return h1 ^ (h2 << 1);
+        //    }
+        //};
 
         template<typename Function>
         struct field_buffer
@@ -131,6 +146,7 @@ namespace gridtools {
             address_type address;
             int tag;
             Vector buffer;
+            std::size_t size;
             std::vector<field_buffer_type> field_buffers;
         };
 
@@ -147,6 +163,8 @@ namespace gridtools {
             using recv_buffer_type = buffer<vector_type,unpack_function_type>; 
             using send_memory_type = std::map<id_type, std::map<domain_id_pair,send_buffer_type>>;
             using recv_memory_type = std::map<id_type, std::map<domain_id_pair,recv_buffer_type>>;
+            //using send_memory_type = std::map<id_type, std::unordered_map<domain_id_pair,send_buffer_type,domain_id_pair_hash>>;
+            //using recv_memory_type = std::map<id_type, std::unordered_map<domain_id_pair,recv_buffer_type,domain_id_pair_hash>>;
 
             send_memory_type send_memory;
             recv_memory_type recv_memory;
@@ -299,14 +317,18 @@ namespace gridtools {
                 {
                     for (auto& p1: p0.second)
                     {
-                        //std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
-                        m_recv_futures.push_back(comm.irecv(
-                            p1.second.address,
-                            p1.second.tag,
-                            p1.second.buffer.data(),
-                            p1.second.buffer.size()));
-                        m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_buffers))); 
-                        m_completed_hooks.push_back(false);
+                        if (p1.second.size > 0u)
+                        {
+                            //std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
+                            p1.second.buffer.resize(p1.second.size);
+                            m_recv_futures.push_back(comm.irecv(
+                                p1.second.address,
+                                p1.second.tag,
+                                p1.second.buffer.data(),
+                                p1.second.buffer.size()));
+                            m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_buffers))); 
+                            m_completed_hooks.push_back(false);
+                        }
                     }
                 }
             });
@@ -316,13 +338,17 @@ namespace gridtools {
                 {
                     for (auto& p1: p0.second)
                     {
-                        for (const auto& fb : p1.second.field_buffers)
-                            fb.function( p1.second.buffer.data() + fb.offset, *fb.index_container);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
-                        m_send_futures.push_back(comm.isend(
-                            p1.second.address,
-                            p1.second.tag,
-                            p1.second.buffer));
+                        if (p1.second.size > 0u)
+                        {
+                            p1.second.buffer.resize(p1.second.size);
+                            for (const auto& fb : p1.second.field_buffers)
+                                fb.function( p1.second.buffer.data() + fb.offset, *fb.index_container);
+                            //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
+                            m_send_futures.push_back(comm.isend(
+                                p1.second.address,
+                                p1.second.tag,
+                                p1.second.buffer));
+                        }
                     }
                 }
             });
@@ -367,12 +393,14 @@ namespace gridtools {
                     for (auto& p1 : p0.second)
                     {
                         p1.second.buffer.resize(0);
+                        p1.second.size = 0;
                         p1.second.field_buffers.resize(0);
                     }
                 for (auto& p0 : m.recv_memory)
                     for (auto& p1 : p0.second)
                     {
                         p1.second.buffer.resize(0);
+                        p1.second.size = 0;
                         p1.second.field_buffers.resize(0);
                     }
             });
@@ -419,29 +447,34 @@ namespace gridtools {
                             remote_address,
                             p_id_c.first.tag+tag_offset,
                             Device::template make_vector<char>(device_id),
+                            0,
                             std::vector<typename BufferType::field_buffer_type>()
                         })).first;
                 }
-                else if (it->second.buffer.size()==0)
+                //else if (it->second.buffer.size()==0)
+                else if (it->second.size==0)
                 {
                     it->second.address = remote_address;
                     it->second.tag = p_id_c.first.tag+tag_offset;
                     it->second.field_buffers.resize(0);
                 }
-                const auto prev_size = it->second.buffer.size();
+                //const auto prev_size = it->second.buffer.size();
+                const auto prev_size = it->second.size;
                 const auto padding = ((prev_size+alignof(ValueType)-1)/alignof(ValueType))*alignof(ValueType) - prev_size;
                 it->second.field_buffers.push_back(
                     typename BufferType::field_buffer_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding});
 #ifdef GRIDTOOLS_GHEX_TIMINGS
                 const auto t0 = clock_type::now();
 #endif
-                it->second.buffer.resize(0);
+                //it->second.buffer.resize(0);
                 //std::cout << "capacity = " << it->second.buffer.capacity() << std::endl;
 #ifdef GRIDTOOLS_GHEX_TIMINGS
                 const auto t2 = clock_type::now();
                 timings.resize_part += duration_type(t2-t0);
 #endif
-                it->second.buffer.resize(prev_size + padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType));
+                //it->second.buffer.resize(prev_size + padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType));
+                it->second.size += padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
+
                 //const auto new_size = prev_size + padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
                 //if (new_size > it->second.buffer.capacity())
                   //  it->second.buffer.resize(new_size);

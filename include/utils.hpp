@@ -266,9 +266,25 @@ namespace gridtools {
                         offset+i+coordinate_offset[idx::value], 
                         iter);
                 }
-
             }
         };
+
+        //// implementation details
+        //template<int D, int... Args>
+        //struct for_loop_simple<D,1,gridtools::layout_map<Args...>>
+        //{
+        //    using layout_t = gridtools::layout_map<Args...>;
+        //    using idx = std::integral_constant<int, layout_t::template find<D-1>()>;
+
+        //    template<typename Func, typename Array, typename Array2>
+        //    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset, 
+        //                             std::size_t offset, std::size_t iter) noexcept
+        //    {
+        //        offset *= extent[idx::value];
+        //        iter   *= last[idx::value]-first[idx::value]+1;
+        //        f(offset + first[idx::value] + coordinate_offset[idx::value], iter, last[idx::value]-first[idx::value]+1);
+        //    }
+        //};
 
         // implementation details
         template<int D, int... Args>

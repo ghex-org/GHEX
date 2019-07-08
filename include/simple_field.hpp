@@ -13,6 +13,7 @@
 
 #include "structured_domain_descriptor.hpp"
 #include <iostream>
+#include <cstring>
 
 namespace gridtools {
 
@@ -142,6 +143,10 @@ namespace gridtools {
                     {
                         buffer[o_buffer] = m_data[o_data]; 
                     }, 
+                    //[this,buffer](auto o_data, auto o_buffer, auto size)
+                    //{
+                    //    std::memcpy( buffer+o_buffer, m_data+o_data, size*sizeof(T) );
+                    //}, 
                     is.local().first(), 
                     is.local().last(),
                     m_extents,
@@ -172,6 +177,10 @@ namespace gridtools {
                     {
                         m_data[o_data] = buffer[o_buffer];
                     }, 
+                    //[this,buffer](auto o_data, auto o_buffer, auto size)
+                    //{
+                    //    std::memcpy( m_data+o_data, buffer+o_buffer, size*sizeof(T) );
+                    //},
                     is.local().first(), 
                     is.local().last(),
                     m_extents,
