@@ -152,16 +152,10 @@ namespace gridtools {
             for (int i=0; i<size(); ++i) m_coord[i] -= scalar;
             return *this;
         }
-        /*coordinate operator%=(const coordinate& c) noexcept
-            for (int i=0; i<D; ++i) m_coord[i] %= c.m_coord[i];
-            return *this;
-        }
-        coordinate& operator%=(I scalar) noexcept
-        {
-            for (int i=0; i<D; ++i) m_coord[i] %= scalar;
-            return *this;
-        }*/
     };
+
+    template<typename T>
+    using is_coordinate = std::is_same<coordinate<typename T::array_type>, T>;
 
     // free binary operators
     template<typename A>
@@ -211,41 +205,23 @@ namespace gridtools {
         return std::move(l);
     }
 
-    template<typename A>
-    auto dot(const coordinate<A>& l, const coordinate<A>& r) noexcept
+    template<typename A1, typename A2>
+    auto dot(A1&& l, A2&& r) noexcept
     {
-        auto res = l[0]*r[0];
-        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        using A1_t = typename std::remove_cv<typename std::remove_reference<A1>::type>::type;
+        using A2_t = typename std::remove_cv<typename std::remove_reference<A2>::type>::type;
+        static_assert(is_coordinate<A1_t>::value, "Type in dot function should be coordinate<T>");
+        static_assert(is_coordinate<A2_t>::value, "Type in dot function should be coordinate<T>");
+        static_assert(A1_t::size() == A2_t::size(), "Types do not match in size"); // if size if constexpr...
+
+        auto res = std::forward<A1>(l)[0]*std::forward<A2>(r)[0];
+        for (int i=1; i<A1_t::size(); ++i) res += std::forward<A1>(l)[i]*std::forward<A2>(r)[i];
         return res;
     }
-    template<typename A>
-    auto dot(coordinate<A>&& l, const coordinate<A>& r) noexcept
-    {
-        auto res = l[0]*r[0];
-        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
-        return res;
-    }
-    template<typename A>
-    auto dot(const coordinate<A>& l, coordinate<A>&& r) noexcept
-    {
-        auto res = l[0]*r[0];
-        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
-        return res;
-    }
-    template<typename A>
-    auto dot(coordinate<A>&& l, coordinate<A>&& r) noexcept
-    {
-        auto res = l[0]*r[0];
-        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
-        return res;
-    }
+
 
 } // namespace gridtools
 
 
 #endif /* INCLUDED_COORDINATE_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 

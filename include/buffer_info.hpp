@@ -72,7 +72,3 @@ namespace gridtools {
 
 #endif /* INCLUDED_BUFFER_INFO_HPP */
 
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
-

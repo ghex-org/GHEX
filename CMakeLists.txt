@@ -34,9 +34,9 @@ add_executable( mpi_all_to_all tests/mpi_allgather.cpp )
 target_compile_options(mpi_all_to_all PRIVATE -DOS_MPI)
 target_link_libraries(mpi_all_to_all ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
 
-add_executable( pattern tests/pattern.cpp )
-target_compile_options(pattern PRIVATE -DOS_MPI)
-target_link_libraries(pattern ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
+#add_executable( pattern tests/pattern.cpp )
+#target_compile_options(pattern PRIVATE -DOS_MPI)
+#target_link_libraries(pattern ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
 
 #add_executable( co tests/communication_object.cpp )
 #target_compile_options(co PRIVATE -DOS_MPI)

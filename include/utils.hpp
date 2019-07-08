@@ -13,6 +13,7 @@
 #include <utility>
 #include <tuple>
 #include <gridtools/common/layout_map.hpp>
+#include <gridtools/common/host_device.hpp>
 
 namespace gridtools {
 
@@ -129,7 +130,7 @@ namespace gridtools {
              * @param last end coordinate (inclusive)
              */
             template<typename Func, typename Array>
-            inline static void apply(Func&& f, Array&& first, Array&& last) noexcept
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last) noexcept
             {
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
                 {
@@ -141,7 +142,7 @@ namespace gridtools {
 
             // implementation details
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
             {
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
                 {
@@ -157,13 +158,13 @@ namespace gridtools {
         struct for_loop<D,0,Layout>
         {
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept
+            GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept
             {
                 apply_impl(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
             }
 
             template<typename Func, typename Array, std::size_t... Is>
-            inline static void apply_impl(Func&& f, Array&& x, std::index_sequence<Is...>)
+            GT_FORCE_INLINE static void apply_impl(Func&& f, Array&& x, std::index_sequence<Is...>)
             {
                 // functor is called with expanded coordinates
                 f(x[Is]...);
@@ -178,7 +179,7 @@ namespace gridtools {
             using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
 
             template<typename Func, typename Array>
-            inline static void apply(Func&& f, Array&& first, Array&& last) noexcept
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last) noexcept
             {
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
                 {
@@ -189,7 +190,7 @@ namespace gridtools {
             }
 
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
             {
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
                 {
@@ -231,7 +232,7 @@ namespace gridtools {
              * @param extent extent of multi-dimensional array of which [first, last] is a sub-region
              */
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset) noexcept
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset) noexcept
             {
                 std::size_t offset = 0;
                 std::size_t iter = 0;
@@ -250,7 +251,7 @@ namespace gridtools {
 
             // implementation details
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset, 
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset, 
                                      std::size_t offset, std::size_t iter) noexcept
             {
                 offset *= extent[idx::value];
@@ -269,29 +270,12 @@ namespace gridtools {
             }
         };
 
-        //// implementation details
-        //template<int D, int... Args>
-        //struct for_loop_simple<D,1,gridtools::layout_map<Args...>>
-        //{
-        //    using layout_t = gridtools::layout_map<Args...>;
-        //    using idx = std::integral_constant<int, layout_t::template find<D-1>()>;
-
-        //    template<typename Func, typename Array, typename Array2>
-        //    inline static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset, 
-        //                             std::size_t offset, std::size_t iter) noexcept
-        //    {
-        //        offset *= extent[idx::value];
-        //        iter   *= last[idx::value]-first[idx::value]+1;
-        //        f(offset + first[idx::value] + coordinate_offset[idx::value], iter, last[idx::value]-first[idx::value]+1);
-        //    }
-        //};
-
         // implementation details
         template<int D, int... Args>
         struct for_loop_simple<D,0,gridtools::layout_map<Args...>>
         {
             template<typename Func, typename Array, typename Array2>
-            inline static void apply(Func&& f, Array&&, Array&&, Array2&&, Array2&&, 
+            GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&&, Array2&&, 
                                      std::size_t offset, std::size_t iter) noexcept
             {
                 // functor call with two arguments
@@ -307,6 +291,3 @@ namespace gridtools {
 
 #endif /* INCLUDED_UTILS_HPP */
 
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix:

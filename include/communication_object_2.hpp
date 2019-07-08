@@ -15,7 +15,6 @@
 #include "buffer_info.hpp"
 #include "devices.hpp"
 #include "protocol/communicator_base.hpp"
-//#include <unordered_map>
 
 #ifdef GRIDTOOLS_GHEX_TIMINGS
 #include <chrono>
@@ -115,21 +114,7 @@ namespace gridtools {
                 return (first_id < other.first_id ? true : 
                         (first_id > other.first_id ? false : (second_id < other.second_id)));
             }
-            //bool operator==(const domain_id_pair& other) const noexcept
-            //{
-            //    return first_id == other.first_id && second_id == other.second_id;
-            //}
         };
-
-        //struct domain_id_pair_hash
-        //{
-        //    std::size_t operator()(const domain_id_pair& d) const noexcept
-        //    {
-        //        std::size_t h1 = std::hash<domain_id_type>{}(d.first_id);
-        //        std::size_t h2 = std::hash<domain_id_type>{}(d.second_id);
-        //        return h1 ^ (h2 << 1);
-        //    }
-        //};
 
         template<typename Function>
         struct field_buffer
@@ -163,8 +148,6 @@ namespace gridtools {
             using recv_buffer_type = buffer<vector_type,unpack_function_type>; 
             using send_memory_type = std::map<id_type, std::map<domain_id_pair,send_buffer_type>>;
             using recv_memory_type = std::map<id_type, std::map<domain_id_pair,recv_buffer_type>>;
-            //using send_memory_type = std::map<id_type, std::unordered_map<domain_id_pair,send_buffer_type,domain_id_pair_hash>>;
-            //using recv_memory_type = std::map<id_type, std::unordered_map<domain_id_pair,recv_buffer_type,domain_id_pair_hash>>;
 
             send_memory_type send_memory;
             recv_memory_type recv_memory;
@@ -299,7 +282,6 @@ namespace gridtools {
             });
 #ifdef GRIDTOOLS_GHEX_TIMINGS
             timings.t1 = clock_type::now();
-            //timings.allocation_part += duration_type(timings.t1-timings.t0);
 #endif
             post(h.m_comm);
 #ifdef GRIDTOOLS_GHEX_TIMINGS
@@ -437,10 +419,6 @@ namespace gridtools {
                 auto it = memory.find(d_p);
                 if (it == memory.end())
                 {
-                    //if (receive)
-                    //    std::cout << "new recv pair found: " << left << " " << right << std::endl;
-                    //else
-                    //    std::cout << "new send pair found: " << left << " " << right << std::endl;
                     it = memory.insert(std::make_pair(
                         d_p,
                         BufferType{
@@ -467,17 +445,12 @@ namespace gridtools {
                 const auto t0 = clock_type::now();
 #endif
                 //it->second.buffer.resize(0);
-                //std::cout << "capacity = " << it->second.buffer.capacity() << std::endl;
 #ifdef GRIDTOOLS_GHEX_TIMINGS
                 const auto t2 = clock_type::now();
                 timings.resize_part += duration_type(t2-t0);
 #endif
                 //it->second.buffer.resize(prev_size + padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType));
                 it->second.size += padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
-
-                //const auto new_size = prev_size + padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
-                //if (new_size > it->second.buffer.capacity())
-                  //  it->second.buffer.resize(new_size);
 #ifdef GRIDTOOLS_GHEX_TIMINGS
                 const auto t1 = clock_type::now();
                 timings.malloc_part += duration_type(t1-t0);
@@ -540,8 +513,4 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_COMMUNICATION_OBJECT_2_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 
