@@ -62,7 +62,7 @@ namespace mpi {
 
         ~communicator() {
             if (m_call_backs.size() != 0) {
-                std::cout << "There are " << m_call_backs.size() << " pending requests that have not been serviced\n";
+                if (rank == 0) std::cout  << "There are " << m_call_backs.size() << " pending requests that have not been serviced\n";
                 std::terminate();
             }
         }
@@ -104,7 +104,8 @@ namespace mpi {
             MPI_Request req;
             MPI_Status status;
             CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
-            m_call_backs.emplace(std::make_pair(req, std::make_tuple(cb, dst, tag) ));
+            if (rank == 0) std::cout  << "SENT Req: " << req << "\n"; if (rank == 0) std::cout .flush();
+            m_call_backs.emplace(std::make_pair(req, std::make_tuple(std::forward<CallBack>(cb), dst, tag) ));
         }
 
         /** Send a message to a destination with the given tag. This function blocks until the message has been sent and
@@ -160,15 +161,16 @@ namespace mpi {
             MPI_Request request;
             CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
 
-            m_call_backs.emplace(std::make_pair(request, std::make_tuple(cb, src, tag) ));
+            m_call_backs.emplace(std::make_pair(request, std::make_tuple(std::forward<CallBack>(cb), src, tag) ));
         }
 
         template <typename Allc, typename Neighs>
-        void send_multi(shared_message<Allc> msg, Neighs const& neighs, int tag) {
-            auto keep_message = [&msg] (int, int) {};
+        void send_multi(shared_message<Allc>& msg, Neighs const& neighs, int tag) {
             for (auto id : neighs) {
-                std::cout << "Sending to " << id << "\n";
-                send(msg, id, tag, keep_message);
+                auto keep_message = [msg] (int p, int t) { if (rank == 0) std::cout  << "DST " << p << ", TAG " << t << " USE COUNT " << msg.use_count() << "\n";};
+                if (rank == 0) std::cout  << "Sending loop DST " << id << ", TAG " << tag << " USE COUNT " << msg.use_count() << "\n";
+                if (rank == 0) std::cout  << "Sending to " << id << "\n";
+                send(msg, id, tag, std::move(keep_message));
             }
         }
 
@@ -182,15 +184,19 @@ namespace mpi {
          */
         bool progress() {
 
-            for (auto & i : m_call_backs) {
+            auto i = m_call_backs.begin();
+            while (i != m_call_backs.end()) {
                 int res;
                 MPI_Status status;
-                MPI_Request r = i.first;
+                MPI_Request r = i->first;
                 CHECK_MPI_ERROR(MPI_Test(&r, &res, &status));
 
                 if (res) {
-                    std::get<0>(i.second)(std::get<1>(i.second), std::get<2>(i.second));
-                    m_call_backs.erase(i.first); // must use i.first andnot r, since r is modified
+                    std::get<0>(i->second)(std::get<1>(i->second), std::get<2>(i->second));
+                    i = m_call_backs.erase(i); // must use i.first andnot r, since r is modified
+                    break;
+                } else {
+                    ++i;
                 }
             }
             return !(m_call_backs.size() == 0);

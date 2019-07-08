@@ -40,8 +40,10 @@ namespace mpi {
             , m_payload(nullptr)
             , m_size{0}
         {
-        if (m_capacity > 0)
+            if (m_capacity > 0)
                 m_payload = m_alloc.allocate(m_capacity);
+            auto pp = m_payload;
+            if (rank == 0) std::cout  << "PTR: " << std::hex << reinterpret_cast<unsigned long long>(pp) << std::dec << "\n";
         }
 
         /** Constructor that take capacity size and allocator.
@@ -74,7 +76,11 @@ namespace mpi {
         }
 
         ~message() {
+            if (rank == 0) std::cout  << "Destruction of message\n";
+            auto pp = m_payload;
+            if (rank == 0) std::cout  << "PTR: " << std::hex << reinterpret_cast<unsigned long long>(pp) << std::dec << "\n";
             if (m_payload) m_alloc.deallocate(m_payload, m_capacity);
+            m_payload = nullptr;
         }
 
         constexpr bool is_shared() { return false; }
@@ -199,7 +205,7 @@ namespace mpi {
          */
         shared_message(size_t capacity, Allocator allc = Allocator{})
             : m_s_message{std::make_shared<message<Allocator>>(capacity, allc)}
-            {}
+        { }
 
         /** Constructor that take capacity size and allocator.
          * The size elements are un-initialzed. Requires size>=capacity.

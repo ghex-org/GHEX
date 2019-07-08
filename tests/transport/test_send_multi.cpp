@@ -1,8 +1,8 @@
+int rank;
+
 #include <transport_layer/mpi/communicator.hpp>
 #include <iostream>
 #include <iomanip>
-
-int rank;
 
 
 const int SIZE = 4000000;
@@ -32,22 +32,25 @@ int main(int argc, char** argv) {
 
         bool ok = true;
         for (int i = 0; i < rmsg.size()/sizeof(int); ++i) {
-            //std::cout << rmsg. template at<int>(i*sizeof(int)) << ", ";
+            //if (rank == 0) std::cout  << rmsg. template at<int>(i*sizeof(int)) << ", ";
             if ( rmsg. template at<int>(i*sizeof(int)) != i )
                 ok = false;
         }
-        std::cout << "\nResult: " << (ok?"PASSED\n":"FAILED\n");
+        if (rank == 0) std::cout  << "\nResult: " << (ok?"PASSED\n":"FAILED\n");
 
     }
 
+
+    if (rank==0) if (rank == 0) std::cout  << "Check completion\n";
     int c = 0;
     while (comm.progress()) { c++; };
     if (rank == 0) {
-        std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
-        std::cout << "***********\n";
+        if (rank == 0) std::cout  << "\n***********\n";
+        if (rank == 0) std::cout  <<   "*" << std::setw(8) << c << " *\n";
+        if (rank == 0) std::cout  << "***********\n";
     }
 
+    if (rank==0) if (rank == 0) std::cout  << "Finished completion";
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 
