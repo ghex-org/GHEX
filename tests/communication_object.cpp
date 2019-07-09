@@ -252,6 +252,112 @@ TEST(communication_object, exchange) {
 }
 
 
+TEST(communication_object, exchange_asymmetric_halos) {
+
+    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
+    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
+    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using layout_map_type = gridtools::layout_map<2, 1, 0>;
+
+    boost::mpi::communicator world;
+    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+
+    /* Problem sizes */
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 10;
+    const int DIM3 = 15;
+    const int H1m = 0;
+    const int H1p = 1;
+    const int H2m = 2;
+    const int H2p = 3;
+    const int H3m = 2;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1*DIM1-1, d2*DIM2-1, d3*DIM3-1};
+    const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
+    const std::array<bool, 3> periodic{true, true, true};
+    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+
+    std::vector<domain_descriptor_t> local_domains;
+
+    domain_descriptor_t my_domain_1{
+        comm.rank(),
+        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
+        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+    };
+    local_domains.push_back(my_domain_1);
+
+    auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
+
+    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+
+    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+
+    std::vector<communication_object_t> cos;
+    for (const auto& p : patterns) {
+        cos.push_back(communication_object_t{p});
+    }
+
+    triple_t<USE_DOUBLE, double>* _values_1 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
+    array<triple_t<USE_DOUBLE, double>, layout_map_type> values_1(_values_1, (DIM1 + H1m + H1p), (DIM2 + H2m + H2p), (DIM3 + H3m + H3p));
+    my_data_desc<triple_t<USE_DOUBLE, double>, domain_descriptor_t> data_1{
+        local_domains[0],
+        coordinate_t{H1m, H2m, H3m},
+        values_1
+    };
+
+    /* Just an initialization */
+    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>();
+            }
+    for (int ii = H1m; ii < DIM1 + H1m; ++ii)
+        for (int jj = H2m; jj < DIM2 + H2m; ++jj)
+            for (int kk = H3m; kk < DIM3 + H3m; ++kk) {
+                values_1(ii, jj, kk) = triple_t<USE_DOUBLE, double>(
+                            ii - H1m + DIM1 * coords[0],
+                            jj - H2m + DIM2 * coords[1],
+                            kk - H3m + DIM3 * coords[2]
+                        );
+            }
+
+    auto h = cos[0].exchange(data_1);
+    h.wait();
+
+    int passed = true;
+
+    for (int ii = 0; ii < DIM1 + H1m + H1p; ++ii)
+        for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
+            for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
+
+                triple_t<USE_DOUBLE, double> t1;
+                int t1x, t1y, t1z;
+
+                t1x = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2);
+                t1y = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
+                t1z = modulus(kk - H3m + DIM3 * coords[2], DIM3);
+
+                t1 = triple_t<USE_DOUBLE, double>(t1x, t1y, t1z).floor();
+
+                if (values_1(ii, jj, kk) != t1) {
+                    passed = false;
+                    std::cout << ii << ", " << jj << ", " << kk << " values found != expected: "
+                              << "values_1 " << values_1(ii, jj, kk) << " != " << t1 << "\n";
+
+                }
+
+            }
+
+    EXPECT_TRUE(passed);
+
+}
+
+
 TEST(communication_object, exchange_multiple_fields) {
 
     using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
