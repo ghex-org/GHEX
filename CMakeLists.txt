@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
@@ -44,7 +44,7 @@ target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
 
 enable_testing()
 
-set(GTEST_DIR "./tools/googletest")
+set(GTEST_DIR ${GridTools_DIR}/_deps/googletest-src)
 
 find_path(GTEST_INC_DIR
     "gtest/gtest.h"
