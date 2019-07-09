@@ -257,7 +257,7 @@ namespace mpi {
             m_s_message->empty();
         }
 
-        size_t capacity() const { return m_s_message->data(); }
+        size_t capacity() const { return m_s_message->capacity(); }
 
         /** Simple iterator facility to read the bytes out of the message */
         unsigned char* begin() { return m_s_message->begin(); }
