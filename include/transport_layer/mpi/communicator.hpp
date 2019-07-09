@@ -9,6 +9,13 @@
 
 namespace mpi {
 
+
+    #ifdef NDEBUG
+    #define CHECK_MPI_ERROR(x) x;
+    #else
+    #define CHECK_MPI_ERROR(x) if (x != MPI_SUCCESS) throw std::runtime_error("MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":"  +  std::to_string(__LINE__));
+    #endif
+
     /** Ironic name (ha! ha!) for the future returned by the send and receive
      * operations of a communicator object to check or wait on their status.
      */
@@ -21,7 +28,7 @@ namespace mpi {
         /** Function to wait until the operation completed */
         void wait() {
             MPI_Status status;
-            MPI_Wait(&m_req, &status);
+            CHECK_MPI_ERROR(MPI_Wait(&m_req, &status));
         }
 
         /** Function to test if the operation completed
@@ -31,17 +38,24 @@ namespace mpi {
         bool ready() {
             MPI_Status status;
             int res;
-            MPI_Test(&m_req, &res, &status);
+            CHECK_MPI_ERROR(MPI_Test(&m_req, &res, &status));
             return !res;
         }
+
+
+        /** Cancel the future.
+         *
+         * @return True if the request was successfully canceled
+        */
+        bool cancel() {
+            CHECK_MPI_ERROR(MPI_Cancel(&m_req));
+            MPI_Status st;
+            int flag = false;
+            CHECK_MPI_ERROR(MPI_Wait(&m_req, &st));
+            CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
+            return flag;
+        }
     };
-
-
-    #ifdef NDEBUG
-    #define CHECK_MPI_ERROR(x) x;
-    #else
-    #define CHECK_MPI_ERROR(x) if (x != MPI_SUCCESS) throw std::runtime_error("MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":"  +  std::to_string(__LINE__));
-    #endif
 
     /** Class that provides the functions to send and receive messages. A message
      * is an object with .data() that returns a pointer to `unsigned char`
@@ -200,6 +214,26 @@ namespace mpi {
                 }
             }
             return !(m_call_backs.size() == 0);
+        }
+
+        bool cancel_call_backs() {
+
+            int result = true;
+
+            auto i = m_call_backs.begin();
+            while (i != m_call_backs.end()) {
+                MPI_Request r = i->first;
+                if (rank == 0) std::cout  << "CANCELING Req: " << r << "\n"; if (rank == 0) std::cout .flush();
+                CHECK_MPI_ERROR(MPI_Cancel(&r));
+                MPI_Status st;
+                int flag = false;
+                CHECK_MPI_ERROR(MPI_Wait(&r, &st));
+                CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
+                result &= flag;
+                i = m_call_backs.erase(i); // must use i.first andnot r, since r is modified
+            }
+
+            return result;
         }
     };
 
