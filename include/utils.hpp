@@ -19,25 +19,14 @@ namespace gridtools {
 
     namespace detail {
 
+        /** @brief compile-time exponentiation of an integer base with positive integer exponent */
         constexpr int ct_pow(int base, int exp)
         {
-            return exp == 0 ? 
-                1 :
-                base*ct_pow(base, exp-1);
+            return exp == 0 ? 1 : base*ct_pow(base, exp-1);
         }
 
-        /*template<std::size_t I = 0, typename Func, typename ...Args>
-        typename std::enable_if<I == sizeof...(Args)>::type for_each(std::tuple<Args...>&, Func) {}
-
-        template<std::size_t I = 0, typename Func, typename ...Args>
-        typename std::enable_if<(I < sizeof...(Args))>::type for_each(std::tuple<Args...>& t, Func f) {
-                f(std::get<I>(t));
-                for_each<I+1, Func, Args...>(t, f);
-        }*/
-
         template<typename Func>
-        void invoke_with_arg(Func&&)
-        {}
+        void invoke_with_arg(Func&&) {}
 
         template<typename Func, typename Arg0, typename... Args>
         void invoke_with_arg(Func&& f, Arg0&& a0, Args&&... as)
@@ -112,15 +101,28 @@ namespace gridtools {
             );
         }
 
-        /** @brief compile time recursive generation of loop nest
+        // forward declaration
+        template<int D, int I, typename Layout=void>
+        struct for_loop;
+
+        /** @brief compile time recursive generation of loop nest for a D-dimensional array
+         *
+         * This template class provides compile time recursive nesting of D for-loops
+         * and calls a function at the end of the iteration with the current D-dimensional coordinate
+         * of the loop iteration.
+         *
          * @tparam D dimensionality of loop nest
          * @tparam I I==D to start recursion
          * @tparam Layout template meta function which determines order of nesting */
-        template<int D, int I, typename Layout=void>
-        struct for_loop
+        template<int D, int I, int... Args>
+        struct for_loop<D,I,gridtools::layout_map<Args...>>
         {
-            using idx = std::integral_constant<int,D-I>;
+        private: // member types
+            using layout_t = gridtools::layout_map<Args...>;
+            using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
+            friend class for_loop<D,I+1,layout_t>;
 
+        public: // static member functions
             /**
              * @brief generate loop nest
              * @tparam Func functor with signature void(x_0,x_1,...) where x_i are coordinates
@@ -136,11 +138,11 @@ namespace gridtools {
                 {
                     std::remove_const_t<std::remove_reference_t<Array>> x{};
                     x[idx::value] = i;
-                    for_loop<D,I-1,Layout>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+                    for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
                 }
             }
 
-            // implementation details
+        private: // implementation details
             template<typename Func, typename Array, typename Array2>
             GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
             {
@@ -148,79 +150,57 @@ namespace gridtools {
                 {
                     std::remove_const_t<std::remove_reference_t<Array2>> x{y};
                     x[idx::value] = i;
-                    for_loop<D,I-1,Layout>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+                    for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
                 }
             }
         };
-    
-        // implementation details
-        template<int D,typename Layout>
-        struct for_loop<D,0,Layout>
+
+        // end of recursion
+        template<int D, int... Args>
+        struct for_loop<D,0,gridtools::layout_map<Args...>>
         {
+        private: // member types
+            using layout_t = gridtools::layout_map<Args...>;
+            friend class for_loop<D,1,layout_t>;
+
+        private: // implementation details
             template<typename Func, typename Array, typename Array2>
             GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept
             {
-                apply_impl(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
+                apply(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
             }
 
             template<typename Func, typename Array, std::size_t... Is>
-            GT_FORCE_INLINE static void apply_impl(Func&& f, Array&& x, std::index_sequence<Is...>)
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& x, std::index_sequence<Is...>)
             {
                 // functor is called with expanded coordinates
                 f(x[Is]...);
             }
         };
 
-        // specialization when Layout==gridtools::layout_map
-        template<int D, int I, int... Args>
-        struct for_loop<D,I,gridtools::layout_map<Args...>>
-        {
-            using layout_t = gridtools::layout_map<Args...>;
-            using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
-
-            template<typename Func, typename Array>
-            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last) noexcept
-            {
-                for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
-                {
-                    std::remove_const_t<std::remove_reference_t<Array>> x{};
-                    x[idx::value] = i;
-                    for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
-                }
-            }
-
-            template<typename Func, typename Array, typename Array2>
-            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
-            {
-                for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
-                {
-                    std::remove_const_t<std::remove_reference_t<Array2>> x{y};
-                    x[idx::value] = i;
-                    for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
-                }
-            }
-
-        };
-
-        template<int D, int... Args>
-        struct for_loop<D,0,gridtools::layout_map<Args...>> : for_loop<D,0,void> {};
-
-
-
-        // simpler for loop nest
+        // forward declaration
         template<int D, int I, typename Layout>
-        struct for_loop_simple {};
+        struct for_loop_pointer_arithmetic;
 
-        /** @brief generation of loop nest assuming contiguous memory 
+        /** @brief generation of loop nest for an D-dimensional array assuming contiguous memory 
+         *
+         * This template class provides compile time recursive nesting of D for-loops
+         * and calls a function at the end of the iteration with the following 2 argments
+         * - offset in a global D-dimensional array
+         * - offset in a flattened buffer of the size of the accumulated iteration space the loop nest spans.
+         *
          * @tparam D dimensionality of loop nest
          * @tparam I I==D to start recursion
          * @tparam Args compile time list of integral constants indicating order of loop nest*/
         template<int D, int I, int... Args>
-        struct for_loop_simple<D,I,gridtools::layout_map<Args...>>
+        struct for_loop_pointer_arithmetic<D,I,gridtools::layout_map<Args...>>
         {
+        private: // member types
             using layout_t = gridtools::layout_map<Args...>;
             using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
+            friend class for_loop_pointer_arithmetic<D,I+1,layout_t>;
 
+        public: // static member functions
             /**
              * @brief generate loop nest
              * @tparam Func functor type with signature void(std::size_t, std::size_t)
@@ -230,6 +210,8 @@ namespace gridtools {
              * @param first first coordinate in loop nest
              * @param last last coordinate in loop nest
              * @param extent extent of multi-dimensional array of which [first, last] is a sub-region
+             * @param coordinate_offset distance from first coordinate in the multi-dimensional array to the origin (0,0,...). 
+             * An array without buffer zones has a coordinate offset of (0,0,...), while the offset is (1,1,...) for an array with buffer zone of 1.
              */
             template<typename Func, typename Array, typename Array2>
             GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset) noexcept
@@ -238,7 +220,7 @@ namespace gridtools {
                 std::size_t iter = 0;
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
                 {
-                    for_loop_simple<D,I-1,layout_t>::apply(
+                    for_loop_pointer_arithmetic<D,I-1,layout_t>::apply(
                         std::forward<Func>(f), 
                         std::forward<Array>(first), 
                         std::forward<Array>(last), 
@@ -249,7 +231,7 @@ namespace gridtools {
                 }
             }
 
-            // implementation details
+        private: // implementation details
             template<typename Func, typename Array, typename Array2>
             GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset, 
                                      std::size_t offset, std::size_t iter) noexcept
@@ -258,7 +240,7 @@ namespace gridtools {
                 iter   *= last[idx::value]-first[idx::value]+1;
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
                 {
-                    for_loop_simple<D,I-1,layout_t>::apply(
+                    for_loop_pointer_arithmetic<D,I-1,layout_t>::apply(
                         std::forward<Func>(f), 
                         std::forward<Array>(first), 
                         std::forward<Array>(last), 
@@ -270,9 +252,9 @@ namespace gridtools {
             }
         };
 
-        // implementation details
+        // end of recursion
         template<int D, int... Args>
-        struct for_loop_simple<D,0,gridtools::layout_map<Args...>>
+        struct for_loop_pointer_arithmetic<D,0,gridtools::layout_map<Args...>>
         {
             template<typename Func, typename Array, typename Array2>
             GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&&, Array2&&, 

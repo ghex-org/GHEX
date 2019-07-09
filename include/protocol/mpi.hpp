@@ -11,7 +11,7 @@
 #ifndef INCLUDED_MPI_HPP
 #define INCLUDED_MPI_HPP
 
-#include "communicator_base.hpp"
+#include "./communicator_base.hpp"
 #include <boost/mpi/communicator.hpp>
 
 namespace gridtools {
@@ -26,7 +26,6 @@ namespace gridtools {
         class communicator<mpi>
         {
         public:
-
             using protocol_type = mpi;
             using handle_type = boost::mpi::request;
             using address_type = int;
@@ -35,7 +34,6 @@ namespace gridtools {
             using size_type = int;
 
         public:
-
             /**
              * @brief construct from MPI_Comm object
              * @param comm MPI_Comm communicator
@@ -125,7 +123,6 @@ namespace gridtools {
             }
 
         private:
-
             boost::mpi::communicator m_comm;
         };
 

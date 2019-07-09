@@ -9,56 +9,60 @@
 // 
 
 #include "../include/protocol/setup.hpp"
-#include <boost/mpi/environment.hpp>
+#include <boost/mpi/communicator.hpp>
+#include <gtest/gtest.h>
+#include "gtest_main_boost.cpp"
 
-template<typename T>
-bool test_0(boost::mpi::communicator& mpi_comm)
+TEST(all_gather, all_gather_fixed)
 {
+    using T = double;
+    boost::mpi::communicator mpi_comm;
     gridtools::protocol::setup_communicator comm{mpi_comm};
+
     std::vector<T> values;
     {
         auto f = comm.all_gather( static_cast<T>(comm.address()) );
         values = f.get();
     }
+    bool passed = true;
+    int i = 0;
     for (const auto& v : values)
-        std::cout << v << " ";
-    std::cout << std::endl;
-    return true;
+    {
+        if (v != static_cast<T>(i)) 
+            passed = false;
+        ++i;
+    }
+    EXPECT_TRUE(passed);
 }
 
-template<typename T>
-bool test_1(boost::mpi::communicator& mpi_comm)
+TEST(all_gather, all_gather_vector)
 {
+    using T = double;
+    boost::mpi::communicator mpi_comm;
     gridtools::protocol::setup_communicator comm{mpi_comm};
+
     int my_num_values = (comm.address()+1)*2;
     std::vector<T> my_values(my_num_values);
     for (int i=0; i<my_num_values; ++i)
         my_values[i] = (comm.address()+1)*1000 + i;
+
     auto num_values = comm.all_gather(my_num_values).get();
     auto values = comm.all_gather(my_values, num_values).get();
+
+    bool passed = true;
+    if (values.size() != (unsigned)mpi_comm.size()) passed =  false;;
+    int i = 0;
     for (const auto& vec : values)
+    {
+        if (vec.size() != (unsigned)((i+1)*2)) passed = false;
+        int j = 0;
         for (const auto& v : vec)
-            std::cout << v << " ";
-    std::cout << std::endl;
-    return true; 
+        {
+            if (v != static_cast<T>((i+1)*1000+j)) passed = false;
+            ++j;
+        }
+        ++i;
+    }
+    EXPECT_TRUE(passed);
 }
-
-int main(int argc, char* argv[])
-{
-    //MPI_Init(&argc,&argv);
-    boost::mpi::environment env(argc, argv);
-    boost::mpi::communicator world;
-
-    auto passed = test_0<int>(world);
-    passed = passed && test_0<double>(world);
-
-    passed = passed && test_1<int>(world);
-    passed = passed && test_1<double>(world);
-
-    return 0;
-}
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 

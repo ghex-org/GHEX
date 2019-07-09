@@ -21,7 +21,6 @@ namespace gridtools {
     struct coordinate
     {
     public: // member types
-
         using array_type     = Array;
         using iterator       = typename array_type::iterator;
         using const_iterator = typename array_type::const_iterator;
@@ -29,11 +28,9 @@ namespace gridtools {
         using element_type   = typename array_type::value_type;
 
     public: // static members
-
         static constexpr int size() noexcept { return dimension::value; }
 
     private: // members
-
         array_type m_coord;
 
     public: // print
@@ -47,7 +44,6 @@ namespace gridtools {
         }
 
     public: // ctors
-
         coordinate() noexcept = default;
         coordinate(const coordinate&) noexcept = default;
         coordinate(coordinate&&) noexcept = default;
@@ -58,17 +54,14 @@ namespace gridtools {
         template<typename I>
         coordinate(I scalar) noexcept
         {
-            //for (int i=0; i<size(); ++i) m_coord[i]=scalar;
             for (auto& x : m_coord) x = scalar;
         }
 
     public: // assignment
-
         coordinate& operator=(const coordinate&) noexcept = default;
         coordinate& operator=(coordinate&&) noexcept = default;
 
     public: // comparison
-
         bool operator==(const coordinate& other) const noexcept
         {
             for (int i=0; i<size(); ++i) 
@@ -110,16 +103,13 @@ namespace gridtools {
         }
 
     public: // implicit conversion
-
         operator array_type() const noexcept { return m_coord; }
 
     public: // access
-
         const auto& operator[](int i) const noexcept { return m_coord[i]; }
         auto& operator[](int i) noexcept { return m_coord[i]; }
 
     public: // iterators
-
         iterator begin() noexcept { return m_coord.begin(); }
         const_iterator begin() const noexcept { return m_coord.cbegin(); }
         const_iterator cbegin() const noexcept { return m_coord.cbegin(); }
@@ -129,7 +119,6 @@ namespace gridtools {
         const_iterator cend() const noexcept { return m_coord.cend(); }
 
     public: // arithmentic operators
-
         coordinate& operator+=(const coordinate& c) noexcept
         {
             for (int i=0; i<size(); ++i) m_coord[i] += c.m_coord[i];
@@ -219,9 +208,7 @@ namespace gridtools {
         return res;
     }
 
-
 } // namespace gridtools
-
 
 #endif /* INCLUDED_COORDINATE_HPP */
 

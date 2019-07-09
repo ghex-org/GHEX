@@ -12,7 +12,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 find_package(MPI REQUIRED)
@@ -30,9 +30,9 @@ target_include_directories(GHEX_libs INTERFACE
     )
 target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
 
-add_executable( mpi_all_to_all tests/mpi_allgather.cpp )
-target_compile_options(mpi_all_to_all PRIVATE -DOS_MPI)
-target_link_libraries(mpi_all_to_all ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
+#add_executable( mpi_all_to_all tests/mpi_allgather.cpp )
+#target_compile_options(mpi_all_to_all PRIVATE -DOS_MPI)
+#target_link_libraries(mpi_all_to_all ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
 
 #add_executable( pattern tests/pattern.cpp )
 #target_compile_options(pattern PRIVATE -DOS_MPI)

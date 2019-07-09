@@ -1,4 +1,4 @@
-set(_tests communication_object communication_object_2)
+set(_tests mpi_allgather communication_object communication_object_2)
 
 foreach (_t ${_tests})
     add_executable(${_t} ${_t}.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})

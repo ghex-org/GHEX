@@ -13,10 +13,8 @@
 #include <fstream>
 #include <mpi.h>
 #include "gtest/gtest.h"
-//#include "mpi_listener.hpp"
 #include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
 //#include <boost/mpi/environment.hpp>
-
 
 GTEST_API_ int main(int argc, char **argv) {
 
@@ -58,3 +56,4 @@ GTEST_API_ int main(int argc, char **argv) {
 }
 
 #endif /* INCLUDED_GTEST_MAIN_BOOST_CPP */
+

@@ -11,9 +11,9 @@
 #ifndef INCLUDED_PATTERN_HPP
 #define INCLUDED_PATTERN_HPP
 
-#include "protocol/setup.hpp"
-#include "protocol/mpi.hpp"
-#include "buffer_info.hpp"
+#include "./protocol/setup.hpp"
+#include "./protocol/mpi.hpp"
+#include "./buffer_info.hpp"
 
 namespace gridtools {
 
@@ -23,13 +23,9 @@ namespace gridtools {
         struct make_pattern_impl;
     } // namespace detail
 
-    /** @brief generic communication pattern
-     * @tparam P transport protocol
-     * @tparam GridType indicates structured/unstructured grids
-     * @tparam DomainIdType type to uniquely identify partial (local) domains*/
+    // forward declaration
     template<typename P, typename GridType, typename DomainIdType>
-    class pattern
-    {};
+    class pattern;
 
     /** @brief an iterable holding communication patterns (one pattern per domain)
      * @tparam P transport protocol
@@ -39,7 +35,6 @@ namespace gridtools {
     class pattern_container
     {
     public: // member tyes
-
         /** @brief pattern type this object is holding */
         using value_type = pattern<P,GridType,DomainIdType>;
 

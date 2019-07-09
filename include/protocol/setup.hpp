@@ -11,7 +11,7 @@
 #ifndef INCLUDED_SETUP_HPP
 #define INCLUDED_SETUP_HPP
 
-#include "communicator_base.hpp"
+#include "./communicator_base.hpp"
 #include <boost/mpi/communicator.hpp>
 #include <vector>
 
@@ -23,14 +23,12 @@ namespace gridtools {
         class setup_communicator
         {
         public:
-
             using handle_type = boost::mpi::request;
             using address_type = int;
             template<typename T>
             using future = future_base<handle_type,T>;
 
         public:
-
             setup_communicator(const MPI_Comm& comm)
             :   m_comm(comm, boost::mpi::comm_attach) {}
 
@@ -120,7 +118,6 @@ namespace gridtools {
             } 
 
         private:
-
             boost::mpi::communicator m_comm;
         };
 

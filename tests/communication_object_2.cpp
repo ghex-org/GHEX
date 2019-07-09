@@ -17,7 +17,7 @@
 //#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
 //#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
-#include "../include/simple_field.hpp"
+#include "../include/simple_field_wrapper.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/communication_object_2.hpp"
 #include <boost/mpi/environment.hpp>
@@ -207,23 +207,15 @@ bool test0()
     auto co   = gridtools::make_communication_object(pattern1,pattern2);
     auto co_1 = gridtools::make_communication_object(pattern1,pattern2);
     auto co_2 = gridtools::make_communication_object(pattern1,pattern2);
-    
-    // wrap raw fields
-    field_descriptor_type<TT1, gridtools::device::cpu, 2, 1, 0> field_1a { 
-        local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer};
-    field_descriptor_type<TT1, gridtools::device::cpu, 2, 1, 0> field_1b { 
-        local_domains[1].domain_id(), field_1b_raw.data(), offset, local_ext_buffer};
-    
-    field_descriptor_type<TT2, gridtools::device::cpu, 2, 1, 0> field_2a { 
-        local_domains[0].domain_id(), field_2a_raw.data(), offset, local_ext_buffer};
-    field_descriptor_type<TT2, gridtools::device::cpu, 2, 1, 0> field_2b { 
-        local_domains[1].domain_id(), field_2b_raw.data(), offset, local_ext_buffer};
-    
-    field_descriptor_type<TT3, gridtools::device::cpu, 2, 1, 0> field_3a { 
-        local_domains[0].domain_id(), field_3a_raw.data(), offset, local_ext_buffer};
-    field_descriptor_type<TT3, gridtools::device::cpu, 2, 1, 0> field_3b { 
-        local_domains[1].domain_id(), field_3b_raw.data(), offset, local_ext_buffer};
 
+    // wrap raw fields
+    auto field_1a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer);
+    auto field_1b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_1b_raw.data(), offset, local_ext_buffer);
+    auto field_2a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_2a_raw.data(), offset, local_ext_buffer);
+    auto field_2b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_2b_raw.data(), offset, local_ext_buffer);
+    auto field_3a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_3a_raw.data(), offset, local_ext_buffer);
+    auto field_3b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_3b_raw.data(), offset, local_ext_buffer);
+    
     // fill arrays
     fill_values<T1>(local_domains[0], field_1a);
     fill_values<T1>(local_domains[1], field_1b);

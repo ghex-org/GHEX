@@ -11,7 +11,7 @@
 #ifndef INCLUDED_COMMUNICATOR_BASE_HPP
 #define INCLUDED_COMMUNICATOR_BASE_HPP
 
-#include "future.hpp"
+#include "./future.hpp"
 
 namespace gridtools {
 

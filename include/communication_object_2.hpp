@@ -11,31 +11,24 @@
 #ifndef INCLUDED_COMMUNICATION_OBJECT_2_HPP
 #define INCLUDED_COMMUNICATION_OBJECT_2_HPP
 
-#include "utils.hpp"
-#include "buffer_info.hpp"
-#include "devices.hpp"
-#include "protocol/communicator_base.hpp"
-
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-#include <chrono>
-namespace gridtools {
-    using clock_type = std::chrono::high_resolution_clock;
-    using duration_type = typename clock_type::duration;
-    using time_point_type = typename clock_type::time_point;
-    using microseconds = std::chrono::microseconds;
-}
-#endif
+#include "./utils.hpp"
+#include "./buffer_info.hpp"
+#include "./devices.hpp"
+#include "./protocol/communicator_base.hpp"
 
 namespace gridtools {
 
     namespace detail {
 
+        // forward declaration
         template<typename Tuple>
         struct transform;
 
+        // transform a tuple of types into another tuple of types
         template<template<typename...> typename Tuple, typename... Ts>
         struct transform<Tuple<Ts...>>
         {
+            // by applying the compile-time transform CT
             template<template<typename> typename CT>
             using with = Tuple<CT<Ts>...>;
         };
@@ -124,6 +117,7 @@ namespace gridtools {
             std::size_t offset;
         };
 
+        // holds actual memory
         template<class Vector, class Function>
         struct buffer
         {
@@ -135,7 +129,6 @@ namespace gridtools {
             std::vector<field_buffer_type> field_buffers;
         };
 
-        // holds actual memory
         // one instance will be created per device type, memory is organized in a map
         template<typename Device>
         struct buffer_memory
@@ -178,19 +171,11 @@ namespace gridtools {
          * @tparam Fields list of field types
          * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
          */
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-        template<typename Timings, typename... Devices, typename... Fields>
-        void bexchange(Timings& timings, buffer_info_type<Devices,Fields>... buffer_infos)
-        {
-            exchange(timings, buffer_infos...).wait();
-        }
-#else
         template<typename... Devices, typename... Fields>
         void bexchange(buffer_info_type<Devices,Fields>... buffer_infos)
         {
             exchange(buffer_infos...).wait();
         }
-#endif
 
         /**
          * @brief non-blocking exchange of halo data
@@ -199,17 +184,9 @@ namespace gridtools {
          * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
          * @return handle to await communication
          */
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-        template<typename Timings, typename... Devices, typename... Fields>
-        [[nodiscard]] handle_type exchange(Timings& timings, buffer_info_type<Devices,Fields>... buffer_infos)
-#else
         template<typename... Devices, typename... Fields>
         [[nodiscard]] handle_type exchange(buffer_info_type<Devices,Fields>... buffer_infos)
-#endif
         {
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            timings.t0 = clock_type::now();
-#endif
             if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
             m_valid = true;
 
@@ -222,11 +199,7 @@ namespace gridtools {
             int tag_offsets[sizeof...(Fields)] = { m_max_tag_map[&(buffer_infos.get_pattern_container())]... };
 
             int i = 0;
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&tag_offsets,&timings](auto mem, auto bi) 
-#else
             detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&tag_offsets](auto mem, auto bi) 
-#endif
             {
                 using device_type = typename std::remove_reference_t<decltype(*mem)>::device_type;
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
@@ -234,31 +207,6 @@ namespace gridtools {
                 auto field_ptr = &(bi->get_field());
                 const domain_id_type my_dom_id = bi->get_field().domain_id();
 
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                const auto t0 = clock_type::now();
-                this->allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
-                    timings,
-                    mem->recv_memory[bi->device_id()],
-                    bi->get_pattern().recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c) 
-                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c); },
-                    my_dom_id,
-                    bi->device_id(),
-                    tag_offsets[i],
-                    true);
-                this->allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
-                    timings,
-                    mem->send_memory[bi->device_id()],
-                    bi->get_pattern().send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c) 
-                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c); },
-                    my_dom_id,
-                    bi->device_id(),
-                    tag_offsets[i],
-                    false);
-                const auto t1 = clock_type::now();
-                timings.allocation_part += duration_type(t1-t0);
-#else
                 this->allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
                     mem->recv_memory[bi->device_id()],
                     bi->get_pattern().recv_halos(),
@@ -277,16 +225,9 @@ namespace gridtools {
                     bi->device_id(),
                     tag_offsets[i],
                     false);
-#endif
                 ++i;
             });
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            timings.t1 = clock_type::now();
-#endif
             post(h.m_comm);
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            timings.t2 = clock_type::now();
-#endif
             return std::move(h);
         }
 
@@ -301,7 +242,8 @@ namespace gridtools {
                     {
                         if (p1.second.size > 0u)
                         {
-                            //std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
+                            //std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag 
+                            //<< ", " << p1.second.buffer.size() << ")" << std::endl;
                             p1.second.buffer.resize(p1.second.size);
                             m_recv_futures.push_back(comm.irecv(
                                 p1.second.address,
@@ -325,7 +267,8 @@ namespace gridtools {
                             p1.second.buffer.resize(p1.second.size);
                             for (const auto& fb : p1.second.field_buffers)
                                 fb.function( p1.second.buffer.data() + fb.offset, *fb.index_container);
-                            //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag << ", " << p1.second.buffer.size() << ")" << std::endl;
+                            //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+                            //<< ", " << p1.second.buffer.size() << ")" << std::endl;
                             m_send_futures.push_back(comm.isend(
                                 p1.second.address,
                                 p1.second.tag,
@@ -365,8 +308,8 @@ namespace gridtools {
         void clear()
         {
             m_valid = false;
-            m_send_futures.clear();//resize(0);
-            m_recv_futures.clear();//resize(0);
+            m_send_futures.clear();
+            m_recv_futures.clear();
             m_recv_hooks.resize(0);
             m_completed_hooks.resize(0);
             detail::for_each(m_mem, [this](auto& m)
@@ -388,15 +331,9 @@ namespace gridtools {
             });
         }
 
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-        template<typename Device, typename ValueType, typename BufferType, typename Timings, typename Memory, typename Halos, typename Function, typename DeviceIdType>
-        void allocate(Timings& timings, Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id, DeviceIdType device_id, 
-                      int tag_offset, bool receive)
-#else
         template<typename Device, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType>
         void allocate(Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id, DeviceIdType device_id, 
                       int tag_offset, bool receive)
-#endif
         {
             for (const auto& p_id_c : halos)
             {
@@ -429,34 +366,18 @@ namespace gridtools {
                             std::vector<typename BufferType::field_buffer_type>()
                         })).first;
                 }
-                //else if (it->second.buffer.size()==0)
                 else if (it->second.size==0)
                 {
                     it->second.address = remote_address;
                     it->second.tag = p_id_c.first.tag+tag_offset;
                     it->second.field_buffers.resize(0);
                 }
-                //const auto prev_size = it->second.buffer.size();
                 const auto prev_size = it->second.size;
                 const auto padding = ((prev_size+alignof(ValueType)-1)/alignof(ValueType))*alignof(ValueType) - prev_size;
                 it->second.field_buffers.push_back(
                     typename BufferType::field_buffer_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding});
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                const auto t0 = clock_type::now();
-#endif
-                //it->second.buffer.resize(0);
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                const auto t2 = clock_type::now();
-                timings.resize_part += duration_type(t2-t0);
-#endif
-                //it->second.buffer.resize(prev_size + padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType));
                 it->second.size += padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                const auto t1 = clock_type::now();
-                timings.malloc_part += duration_type(t1-t0);
-#endif
             }
-            
         }
     };
 
@@ -479,12 +400,10 @@ namespace gridtools {
 
     } // namespace detail
 
-    /**
-     * @brief creates a communication object based on the patterns involved
+    /** @brief creates a communication object based on the patterns involved
      * @tparam Patterns list of pattern types
      * @param ... unnamed list of pattern_holder objects
-     * @return communication object
-     */
+     * @return communication object */
     template<typename... Patterns>
     auto make_communication_object(const Patterns&... patterns)
     {
@@ -497,6 +416,8 @@ namespace gridtools {
         using test_t = pattern_container<protocol_type,grid_type,domain_id_type>;
         static_assert(detail::test_eq_t<test_t,Patterns...>::value, "patterns are incompatible");
 
+        // test for repeating patterns by looking at the patterns address
+        // if repetitions are found, the tag offset is not increased
         const test_t* ptrs[sizeof...(Patterns)] = { &patterns... };
         std::map<const test_t*,int> pat_ptr_map;
         int max_tag = 0;

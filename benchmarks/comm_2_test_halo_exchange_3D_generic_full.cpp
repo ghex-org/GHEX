@@ -9,9 +9,6 @@
  * 
  */
 
-#define GRIDTOOLS_GHEX_TIMINGS
-
-
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
@@ -28,7 +25,7 @@
 #include "../include/communication_object_2.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/structured_domain_descriptor.hpp"
-#include "../include/simple_field.hpp"
+#include "../include/simple_field_wrapper.hpp"
 #include <array>
 
 #include "triplet.hpp"
@@ -52,18 +49,6 @@ namespace halo_exchange_3D_generic_full {
     using duration_type = typename clock_type::duration;
     using time_point_type = typename clock_type::time_point;
     using microseconds = std::chrono::microseconds;
-
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-    struct timings_type
-    {
-        time_point_type t0;
-        time_point_type t1;
-        time_point_type t2;
-        duration_type allocation_part = duration_type(0);
-        duration_type malloc_part     = duration_type(0);
-        duration_type resize_part     = duration_type(0);
-    };
-#endif
 
     MPI_Comm CartComm;
     int dims[3] = {0, 0, 0};
@@ -133,10 +118,6 @@ namespace halo_exchange_3D_generic_full {
         triple_t<USE_DOUBLE, T2> *_b,
         triple_t<USE_DOUBLE, T3> *_c) 
     {
-        using TT1 = triple_t<USE_DOUBLE, T1>;
-        using TT2 = triple_t<USE_DOUBLE, T2>;
-        using TT3 = triple_t<USE_DOUBLE, T3>;
-
         // mpi communicator
         //boost::mpi::communicator comm(CartComm,boost::mpi::comm_attach);
         boost::mpi::communicator world;
@@ -163,15 +144,13 @@ namespace halo_exchange_3D_generic_full {
         std::vector<domain_descriptor_type> local_domains{local_domain};
         
         // wrap raw fields
-        field_descriptor_type<TT1, gridtools::device::cpu, I1, I2, I3> a(local_domain.domain_id(), _a, 
+        auto a = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
             std::array<int,3>{H1m1,H2m1,H3m1},
             std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-
-        field_descriptor_type<TT2, gridtools::device::cpu, I1, I2, I3> b(local_domain.domain_id(), _b, 
+        auto b = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
             std::array<int,3>{H1m2,H2m2,H3m2},
             std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-
-        field_descriptor_type<TT3, gridtools::device::cpu, I1, I2, I3> c(local_domain.domain_id(), _c, 
+        auto c = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
             std::array<int,3>{H1m3,H2m3,H3m3},
             std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -276,18 +255,15 @@ namespace halo_exchange_3D_generic_full {
             cudaMemcpyHostToDevice));
 
         // wrap raw fields
-        field_descriptor_type<TT1, gridtools::device::gpu, I1, I2, I3> field1(local_domain.domain_id(), gpu_a, 
+        auto field1 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_a,
             std::array<int,3>{H1m1,H2m1,H3m1},
             std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-
-        field_descriptor_type<TT2, gridtools::device::gpu, I1, I2, I3> field2(local_domain.domain_id(), gpu_b, 
+        auto field2 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_b,
             std::array<int,3>{H1m2,H2m2,H3m2},
             std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-
-        field_descriptor_type<TT3, gridtools::device::gpu, I1, I2, I3> field3(local_domain.domain_id(), gpu_c, 
+        auto field3 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_c,
             std::array<int,3>{H1m3,H2m3,H3m3},
             std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
-
 #else
         auto field1 = a;
         auto field2 = b;
@@ -302,41 +278,15 @@ namespace halo_exchange_3D_generic_full {
         accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_0;
         accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_1;
         accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global;
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_2;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_3;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_2;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_3;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_4;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_5;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_6;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_4;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_5;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_6;
-#endif
         const int k_start = 5;
         for (int k=0; k<25; ++k)
         {
             accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_0;
             accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_1;
             accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global;
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_2;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_3;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_4;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_5;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_6;
-            timings_type timings;
-            timings.allocation_part = duration_type(0);
-            timings.malloc_part = duration_type(0);
-            timings.resize_part = duration_type(0);
-#endif
             world.barrier();
             const auto t0 = clock_type::now();
             auto h = co.exchange(
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                timings,
-#endif
 #ifndef GHEX_1_PATTERN_BENCHMARK
                 pattern_1(field1),
                 pattern_2(field2),
@@ -354,13 +304,6 @@ namespace halo_exchange_3D_generic_full {
             const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
             const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
             const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            const auto d2 = std::chrono::duration_cast<microseconds>(timings.t1-timings.t0).count();
-            const auto d3 = std::chrono::duration_cast<microseconds>(timings.t2-timings.t1).count();
-            const auto d4 = std::chrono::duration_cast<microseconds>(timings.allocation_part).count();
-            const auto d5 = std::chrono::duration_cast<microseconds>(timings.malloc_part).count();
-            const auto d6 = std::chrono::duration_cast<microseconds>(timings.resize_part).count();
-#endif
 
             std::vector<typename microseconds::rep> tmp_0;
             boost::mpi::all_gather(world, d0, tmp_0); 
@@ -368,42 +311,16 @@ namespace halo_exchange_3D_generic_full {
             boost::mpi::all_gather(world, d1, tmp_1); 
             std::vector<typename microseconds::rep> tmp;
             boost::mpi::all_gather(world, d01, tmp); 
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            std::vector<typename microseconds::rep> tmp_2;
-            boost::mpi::all_gather(world, d2, tmp_2); 
-            std::vector<typename microseconds::rep> tmp_3;
-            boost::mpi::all_gather(world, d3, tmp_3); 
-            std::vector<typename microseconds::rep> tmp_4;
-            boost::mpi::all_gather(world, d4, tmp_4); 
-            std::vector<typename microseconds::rep> tmp_5;
-            boost::mpi::all_gather(world, d5, tmp_5); 
-            std::vector<typename microseconds::rep> tmp_6;
-            boost::mpi::all_gather(world, d6, tmp_6); 
-#endif
             for (unsigned int i=0; i<tmp_0.size(); ++i)
             {
                 acc_global_0(tmp_0[i]);
                 acc_global_1(tmp_1[i]);
                 acc_global(tmp[i]);
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                acc_global_2(tmp_2[i]);
-                acc_global_3(tmp_3[i]);
-                acc_global_4(tmp_4[i]);
-                acc_global_5(tmp_5[i]);
-                acc_global_6(tmp_6[i]);
-#endif
                 if (k >= k_start)
                 {
                     time_acc_global_0(tmp_0[i]);
                     time_acc_global_1(tmp_1[i]);
                     time_acc_global(tmp[i]);
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                    time_acc_global_2(tmp_2[i]);
-                    time_acc_global_3(tmp_3[i]);
-                    time_acc_global_4(tmp_4[i]);
-                    time_acc_global_5(tmp_5[i]);
-                    time_acc_global_6(tmp_6[i]);
-#endif
                 }
             }
             if (k >= k_start)
@@ -411,13 +328,6 @@ namespace halo_exchange_3D_generic_full {
                 time_acc_local_0(d0);
                 time_acc_local_1(d1);
                 time_acc_local(d01);
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-                time_acc_local_2(d2);
-                time_acc_local_3(d3);
-                time_acc_local_4(d4);
-                time_acc_local_5(d5);
-                time_acc_local_6(d6);
-#endif
             }
 
             const auto global_0_mean    = mean(acc_global_0);
@@ -441,48 +351,6 @@ namespace halo_exchange_3D_generic_full {
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_min/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_max/1000.0
                 << std::endl;
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-            file << "  TIME SETUP:     " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d2/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(acc_global_2)/1000.0
-                << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(acc_global_2))/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(acc_global_2)/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(acc_global_2)/1000.0
-                << std::endl;
-            file << "    TIME ALLOCAT: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d4/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(acc_global_4)/1000.0
-                << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(acc_global_4))/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(acc_global_4)/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(acc_global_4)/1000.0
-                << std::endl;
-            file << "    TIME MALLOC:  " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d5/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(acc_global_5)/1000.0
-                << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(acc_global_5))/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(acc_global_5)/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(acc_global_5)/1000.0
-                << std::endl;
-            file << "      TIME RESIZ: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d6/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(acc_global_6)/1000.0
-                << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(acc_global_6))/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(acc_global_6)/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(acc_global_6)/1000.0
-                << std::endl;
-            file << "  TIME PACK:      " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d3/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(acc_global_3)/1000.0
-                << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(acc_global_3))/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(acc_global_3)/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(acc_global_3)/1000.0
-                << std::endl;
-#endif
             file << "TIME WAIT/UNPACK: " 
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0 
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_mean/1000.0 
@@ -511,48 +379,6 @@ namespace halo_exchange_3D_generic_full {
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_0)/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_0)/1000.0
             << std::endl;
-#ifdef GRIDTOOLS_GHEX_TIMINGS
-        file << "  TIME SETUP:     " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_2)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_2)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_2))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_2)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_2)/1000.0
-            << std::endl;
-        file << "    TIME ALLOCAT: " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_4)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_4)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_4))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_4)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_4)/1000.0
-            << std::endl;
-        file << "    TIME MALLOC:  " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_5)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_5)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_5))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_5)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_5)/1000.0
-            << std::endl;
-        file << "      TIME RESIZ: " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_6)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_6)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_6))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_6)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_6)/1000.0
-            << std::endl;
-        file << "  TIME PACK:      " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_3)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_3)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_3))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_3)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_3)/1000.0
-            << std::endl;
-#endif
         file << "TIME WAIT/UNPACK: " 
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_1)/1000.0 
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_1)/1000.0
@@ -2356,8 +2182,4 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     EXPECT_TRUE(passed);
 }
 #endif
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 

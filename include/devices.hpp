@@ -11,84 +11,40 @@
 #ifndef INCLUDED_DEVICES_HPP
 #define INCLUDED_DEVICES_HPP
 
+//#include "./protocol/mpi_allocator.hpp"
 #include <tuple>
 #include <boost/align/aligned_allocator_adaptor.hpp>
-#include <mpi.h>
 
 namespace gridtools {
 
     namespace device {
-        
-    template <class T>
-    struct mpi_allocator {
-        
-        typedef T value_type;
 
-        mpi_allocator() = default;
-        
-        template <class U> constexpr mpi_allocator(const mpi_allocator<U>&) noexcept {}
-        
-        [[nodiscard]] T* allocate(std::size_t n) 
+        // Allocator adaptor that interposes construct() calls to
+        // convert value initialization into default initialization.
+        template <typename T, typename A=std::allocator<T>>
+        class default_init_allocator : public A 
         {
-            if(n > std::size_t(-1) / sizeof(T)) throw std::bad_alloc();
-            //if(auto p = static_cast<T*>(std::malloc(n*sizeof(T)))) return p;
-            void* baseptr;
-            // MPI_Info info;
-            // MPI_Info_create(&info);
-            if (MPI_SUCCESS == MPI_Alloc_mem(n*sizeof(T), MPI_INFO_NULL, &baseptr)) 
-                return static_cast<T*>(baseptr);
-            // MPI_Info_free(&info);
-            throw std::bad_alloc();
-        }
-        void deallocate(T* p, std::size_t) noexcept 
-        { 
-            // std::free(p); 
-            MPI_Free_mem(p);
-        }
+            typedef std::allocator_traits<A> a_t;
 
-        template <typename U>
-        void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) 
-        {
-            ::new(static_cast<void*>(ptr)) U;
-        }
-      
-        template <typename U, typename...Args>
-        void construct(U* ptr, Args&&... args) 
-        {
-            ::new (static_cast<void*>(ptr)) U(std::forward<Args>(args)...);
-        }
-    };
-    template <class T, class U>
-    bool operator==(const mpi_allocator<T>&, const mpi_allocator<U>&) { return true; }
-    template <class T, class U>
-    bool operator!=(const mpi_allocator<T>&, const mpi_allocator<U>&) { return false; }
+        public:
+            template <typename U> struct rebind {
+                using other = default_init_allocator<U, typename a_t::template rebind_alloc<U>>;
+            };
 
-    // Allocator adaptor that interposes construct() calls to
-    // convert value initialization into default initialization.
-    template <typename T, typename A=std::allocator<T>>
-    class default_init_allocator : public A 
-    {
-        typedef std::allocator_traits<A> a_t;
+            using A::A;
 
-    public:
-        template <typename U> struct rebind {
-            using other = default_init_allocator<U, typename a_t::template rebind_alloc<U>>;
+            template <typename U>
+            void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) 
+            {
+                ::new(static_cast<void*>(ptr)) U;
+            }
+          
+            template <typename U, typename...Args>
+            void construct(U* ptr, Args&&... args) 
+            {
+                a_t::construct(static_cast<A&>(*this), ptr, std::forward<Args>(args)...);
+            }
         };
-
-        using A::A;
-
-        template <typename U>
-        void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) 
-        {
-            ::new(static_cast<void*>(ptr)) U;
-        }
-      
-        template <typename U, typename...Args>
-        void construct(U* ptr, Args&&... args) 
-        {
-            a_t::construct(static_cast<A&>(*this), ptr, std::forward<Args>(args)...);
-        }
-    };
 
         struct cpu
         {
@@ -101,7 +57,7 @@ namespace gridtools {
             template<typename T>
             //using allocator_type = std::allocator<T>;
             using allocator_type = default_init_allocator<T>;
-            //using allocator_type = mpi_allocator<T>;
+            //using allocator_type = protocol::mpi_allocator<T>;
 
             template<typename T>
             using aligned_allocator_type = boost::alignment::aligned_allocator_adaptor<allocator_type<T>, 64>;

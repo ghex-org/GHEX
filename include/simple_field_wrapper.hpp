@@ -8,10 +8,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_SIMPLE_FIELD_HPP
-#define INCLUDED_SIMPLE_FIELD_HPP
+#ifndef INCLUDED_SIMPLE_FIELD_WRAPPER_HPP
+#define INCLUDED_SIMPLE_FIELD_WRAPPER_HPP
 
-#include "structured_domain_descriptor.hpp"
+#include "./structured_domain_descriptor.hpp"
 #include <iostream>
 #include <cstring>
 
@@ -51,9 +51,9 @@ namespace gridtools {
         };
     } // namespace detail
 
-    // general template
+    // forward declaration
     template<typename T, typename Device, typename DomainDescriptor, int... Order>
-    class simple_field_wrapper {};
+    class simple_field_wrapper;
 
     /** @brief wraps a contiguous N-dimensional array and implements the field descriptor concept
      * @tparam T field value type
@@ -125,20 +125,9 @@ namespace gridtools {
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c)
         {
-            /*std::size_t b=0;
             for (const auto& is : c)
             {
-                detail::for_loop<dimension::value,dimension::value,layout_map>::apply(
-                    [this,buffer,&b](auto... indices)
-                    {
-                        buffer[b++] = this->operator()(indices...);
-                    }, 
-                    is.local().first(), 
-                    is.local().last());
-            }*/
-            for (const auto& is : c)
-            {
-                detail::for_loop_simple<dimension::value,dimension::value,layout_map>::apply(
+                detail::for_loop_pointer_arithmetic<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
                     {
                         buffer[o_buffer] = m_data[o_data]; 
@@ -155,20 +144,9 @@ namespace gridtools {
         template<typename IndexContainer>
         void unpack(const T* buffer, const IndexContainer& c)
         {
-            /*std::size_t b=0;
             for (const auto& is : c)
             {
-                detail::for_loop<dimension::value,dimension::value,layout_map>::apply(
-                    [this,buffer,&b](auto... indices)
-                    {
-                        this->operator()(indices...) = buffer[b++];
-                    }, 
-                    is.local().first(), 
-                    is.local().last());
-            }*/
-            for (const auto& is : c)
-            {
-                detail::for_loop_simple<dimension::value,dimension::value,layout_map>::apply(
+                detail::for_loop_pointer_arithmetic<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
                     {
                         m_data[o_data] = buffer[o_buffer];
@@ -183,7 +161,24 @@ namespace gridtools {
         }
     };
 
+    /** @brief wrap a N-dimensional array (field) of contiguous memory 
+     * @tparam Device device type the data lives on
+     * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)
+     * @tparam DomainIdType domain id type
+     * @tparam T field value type
+     * @tparam Array coordinate-like type
+     * @param dom_id local domain id
+     * @param data pointer to data
+     * @param offsets coordinate of first physical coordinate (not buffer) from the orign of the wrapped N-dimensional array
+     * @param extents extent of the wrapped N-dimensional array (including buffer regions)
+     * @return wrapped field*/
+    template<typename Device, int... Order, typename DomainIdType, typename T, typename Array>
+    simple_field_wrapper<T,Device,structured_domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
+    wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents)
+    {
+        return {dom_id, data, offsets, extents};     
+    }
 } // namespace gridtools
 
-#endif /* INCLUDED_SIMPLE_FIELD_HPP */
+#endif /* INCLUDED_SIMPLE_FIELD_WRAPPER_HPP */
 

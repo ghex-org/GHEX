@@ -2229,3 +2229,4 @@ TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
     EXPECT_TRUE(passed);
 }
 #endif
+

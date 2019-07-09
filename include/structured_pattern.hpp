@@ -11,15 +11,22 @@
 #ifndef INCLUDED_STRUCTURED_PATTERN_HPP
 #define INCLUDED_STRUCTURED_PATTERN_HPP
 
-#include "structured_grid.hpp"
-#include "protocol/communicator_base.hpp"
-#include "pattern.hpp"
+#include "./structured_grid.hpp"
+#include "./protocol/communicator_base.hpp"
+#include "./pattern.hpp"
 #include <map>
 #include <iosfwd>
 
 namespace gridtools {
 
-    /** @brief structured pattern */
+    /** @brief structured pattern specialization
+     *
+     * This class provides access to the receive and send iteration spaces, determined by the halos, and holds
+     * all connections to the neighbors.
+     *
+     * @tparam P transport protocol
+     * @tparam CoordinateArrayType coordinate-like array type
+     * @tparam DomainIdType domain id type*/
     template<typename P, typename CoordinateArrayType, typename DomainIdType>
     class pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>
     {
@@ -44,15 +51,6 @@ namespace gridtools {
             const coordinate_type& first() const noexcept { return _min; }
             const coordinate_type& last()  const noexcept { return _max; }
 
-            /*// intersect a hypercube with another and return intersection
-            iteration_space intersect(iteration_space x, bool& found) const noexcept
-            {
-                x.first() = max(x.first(), first());
-                x.last()  = min(x.last(),  last());
-                found = (x.first <= x.last());
-                return std::move(x);
-            }*/
-
             // number of elements in hypercube
             int size() const noexcept 
             {
@@ -76,7 +74,7 @@ namespace gridtools {
 
         // this struct combines local and global representation of a hypercube
         // and is a compostion of 2 iteration_space objects
-        struct iteration_space2
+        struct iteration_space_pair
         {
         public: // member types
             using pattern_type = pattern; 
@@ -94,7 +92,7 @@ namespace gridtools {
 
         public: // print
             template< class CharT, class Traits>
-            friend std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os, const iteration_space2& is)
+            friend std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os, const iteration_space_pair& is)
             {
                 os << is.m_global << " (local: " << is.m_local << ")";
                 return os;
@@ -112,9 +110,9 @@ namespace gridtools {
             int            tag;
 
         public: // member functions
+            // unique ordering given by id and tag
             bool operator<(const extended_domain_id_type& other) const noexcept 
             { 
-                //return id < other.id; 
                 return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
             }
 
@@ -127,8 +125,8 @@ namespace gridtools {
             }
         };
 
-        // indices are stored as vector of iteration_space2 objects
-        using index_container_type = std::vector<iteration_space2>;
+        // indices are stored as vector of iteration_space_pair objects
+        using index_container_type = std::vector<iteration_space_pair>;
         // halo map type
         using map_type = std::map<extended_domain_id_type, index_container_type>;
 
@@ -143,13 +141,13 @@ namespace gridtools {
 
     private: // members
         communicator_type       m_comm;
-        iteration_space2        m_domain;
+        iteration_space_pair    m_domain;
         extended_domain_id_type m_id;
         map_type                m_send_map;
         map_type                m_recv_map;
 
     public: // ctors
-        pattern(communicator_type& comm, const iteration_space2& domain, const extended_domain_id_type& id)
+        pattern(communicator_type& comm, const iteration_space_pair& domain, const extended_domain_id_type& id)
         : m_comm(comm), m_domain(domain), m_id(id) {}
         pattern(const pattern&) = default;
         pattern(pattern&&) = default;
@@ -191,7 +189,7 @@ namespace gridtools {
                 using grid_type                 = detail::structured_grid<CoordinateArrayType>;
                 using pattern_type              = pattern<P, grid_type, domain_id_type>;
                 using iteration_space           = typename pattern_type::iteration_space;
-                using iteration_space2          = typename pattern_type::iteration_space2;
+                using iteration_space_pair          = typename pattern_type::iteration_space_pair;
                 using coordinate_type           = typename pattern_type::coordinate_type;
                 using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
 
@@ -199,10 +197,10 @@ namespace gridtools {
                 auto my_address = new_comm.address();
                 
                 // set up domain ids, extents and recv halos
-                std::vector<iteration_space2>              my_domain_extents;
+                std::vector<iteration_space_pair>              my_domain_extents;
                 std::vector<extended_domain_id_type>       my_domain_ids;
                 std::vector<pattern_type>                  my_patterns;
-                std::vector<std::vector<iteration_space2>> my_generated_recv_halos;
+                std::vector<std::vector<iteration_space_pair>> my_generated_recv_halos;
                 // loop over domains and fill vectors with
                 // - extended domain ids
                 // - domain extents (local an global coordinates)
@@ -213,7 +211,7 @@ namespace gridtools {
                     // fill data structures with domain related info
                     my_domain_ids.push_back( extended_domain_id_type{d.domain_id(), comm.rank(), my_address, 0} );
                     my_domain_extents.push_back( 
-                        iteration_space2{
+                        iteration_space_pair{
                             iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
                                             coordinate_type{d.last()} -coordinate_type{d.first()}},
                             iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}}} );
@@ -225,7 +223,7 @@ namespace gridtools {
                     // convert the recv halos to internal format
                     for (const auto& h : recv_halos)
                     {
-                        iteration_space2 is{
+                        iteration_space_pair is{
                             iteration_space{coordinate_type{h.local().first()},coordinate_type{h.local().last()}},
                             iteration_space{coordinate_type{h.global().first()},coordinate_type{h.global().last()}}};
                         // check that invariant is fullfilled (halos are not empty)
@@ -277,7 +275,7 @@ namespace gridtools {
                                     iteration_space h{left, right};
                                     iteration_space hl{leftl, rightl};
                                     // add halo to respective extended domain id key
-                                    my_patterns[i].recv_halos()[domain_id].push_back(iteration_space2{hl,h});
+                                    my_patterns[i].recv_halos()[domain_id].push_back(iteration_space_pair{hl,h});
                                 }
                             }
                         }
@@ -327,7 +325,7 @@ namespace gridtools {
                 // by a detour over the following nested map
                 std::map<int,
                     std::map<domain_id_type,
-                        std::map<extended_domain_id_type, std::vector<iteration_space2> > > > send_halos_map;
+                        std::map<extended_domain_id_type, std::vector<iteration_space_pair> > > > send_halos_map;
                 // which maps: rank -> remote domain id -> my domain's extended domain id -> vector of iteration spaces
                 // loop over my patterns/domains
                 for (const auto& p : my_patterns)
@@ -515,7 +513,7 @@ namespace gridtools {
                                     {
                                         int num_is;
                                         comm.recv(rank, 0, num_is);
-                                        std::vector<iteration_space2> is(num_is);
+                                        std::vector<iteration_space_pair> is(num_is);
                                         comm.recv(rank, 0, &is[0], num_is);
                                         auto& vec = pat.send_halos()[did];
                                         vec.insert(vec.end(), is.begin(), is.end());
