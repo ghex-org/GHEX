@@ -47,7 +47,7 @@ namespace mpi {
         }
 
         /** Constructor that take capacity size and allocator.
-         * The size elements are un-initialzed. Requires size>=capacity.
+         * The size elements are un-initialzed. Requires size<=capacity.
          *
          * @param capacity Capacity
          * @param size
