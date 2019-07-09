@@ -305,6 +305,8 @@ namespace gridtools {
             clear();
         }
 
+        // clear the internal flags so that a new exchange can be started
+        // important: does not deallocate
         void clear()
         {
             m_valid = false;
@@ -331,6 +333,7 @@ namespace gridtools {
             });
         }
 
+        // compute memory requirements to be allocated on the device
         template<typename Device, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType>
         void allocate(Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id, DeviceIdType device_id, 
                       int tag_offset, bool receive)

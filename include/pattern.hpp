@@ -18,7 +18,7 @@
 namespace gridtools {
 
     namespace detail {
-        // foward declaration
+        // forward declaration
         template<typename GridType>
         struct make_pattern_impl;
     } // namespace detail
@@ -48,7 +48,6 @@ namespace gridtools {
         pattern_container(pattern_container&&) noexcept = default;
 
     private: // private constructor called through make_pattern
-        //pattern_container(data_type&& d) noexcept : m_patterns(d) {}
         pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) {}
 
     public: // member functions
