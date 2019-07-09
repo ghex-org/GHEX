@@ -67,6 +67,7 @@ namespace gridtools {
     public: // member types
         using value_type             = T;
         using device_type            = Device;
+        using device_id_type         = typename device_type::id_type;
         using domain_descriptor_type = structured_domain_descriptor<DomainIdType,Dimension>;
         using dimension              = typename domain_descriptor_type::dimension;
         using layout_map             = gridtools::layout_map<Order...>;
@@ -74,11 +75,12 @@ namespace gridtools {
         using coordinate_type        = typename domain_descriptor_type::halo_generator_type::coordinate_type;
 
     private: // members
-        domain_id_type m_dom_id;
-        value_type* m_data;
+        domain_id_type  m_dom_id;
+        value_type*     m_data;
         coordinate_type m_strides;
         coordinate_type m_offsets;
         coordinate_type m_extents;
+        device_id_type  m_device_id;
 
     public: // ctors
         /** @brief construcor 
@@ -88,8 +90,8 @@ namespace gridtools {
          * @param offsets coordinate of first physical coordinate (not buffer) from the orign of the wrapped N-dimensional array
          * @param extents extent of the wrapped N-dimensional array (including buffer regions)*/
         template<typename Array>
-        simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents)
-        : m_dom_id(dom_id), m_data(data), m_strides(1)
+        simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, device_id_type d_id = 0)
+        : m_dom_id(dom_id), m_data(data), m_strides(1), m_device_id(d_id)
         { 
             std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
             std::copy(extents.begin(), extents.end(), m_extents.begin());
@@ -100,7 +102,7 @@ namespace gridtools {
         simple_field_wrapper(const simple_field_wrapper&) noexcept = default;
 
     public: // member functions
-        typename device_type::id_type device_id() const { return 0; }
+        typename device_type::id_type device_id() const { return m_device_id; }
         domain_id_type domain_id() const { return m_dom_id; }
 
         const coordinate_type& extents() const noexcept { return m_extents; }
@@ -174,9 +176,9 @@ namespace gridtools {
      * @return wrapped field*/
     template<typename Device, int... Order, typename DomainIdType, typename T, typename Array>
     simple_field_wrapper<T,Device,structured_domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
-    wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents)
+    wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents, typename Device::id_type device_id = 0)
     {
-        return {dom_id, data, offsets, extents};     
+        return {dom_id, data, offsets, extents, device_id};     
     }
 } // namespace gridtools
 
