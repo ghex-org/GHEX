@@ -32,6 +32,7 @@ namespace gridtools {
             using address_type = int;
             template<typename T>
             using future = future_base<handle_type,T>;
+            using size_type = int;
 
         public:
 
@@ -51,6 +52,11 @@ namespace gridtools {
             
             /** @return rank of this process */
             address_type rank() const { return m_comm.rank(); }
+
+            /** @return size of communicator group*/
+            size_type size() const { return m_comm.size(); }
+
+            void barrier() { m_comm.barrier(); }
 
             /**
              * @brief non-blocking send

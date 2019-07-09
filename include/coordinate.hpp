@@ -13,6 +13,7 @@
 
 #include <array>
 #include <algorithm>
+#include <iosfwd>
 
 namespace gridtools {
 
@@ -35,6 +36,16 @@ namespace gridtools {
 
         array_type m_coord;
 
+    public: // print
+        template< class CharT, class Traits>
+        friend std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os, const coordinate& c)
+        {
+            os << "{";
+            for (int i=0; i<size()-1; ++i) os << c.m_coord[i] << ", ";
+            os << c.m_coord[size()-1] << "}";
+            return os;
+        }
+
     public: // ctors
 
         coordinate() noexcept = default;
@@ -42,7 +53,8 @@ namespace gridtools {
         coordinate(coordinate&&) noexcept = default;
         coordinate(const array_type& a) noexcept : m_coord(a) {}
         coordinate(array_type&& a) noexcept : m_coord(std::move(a)) {}
-        
+        template<typename I0, typename I1, typename... Is>
+        coordinate(I0&& i0, I1&& i1, Is&&... components) noexcept : m_coord{i0,i1,components...} {}
         template<typename I>
         coordinate(I scalar) noexcept
         {
@@ -197,6 +209,35 @@ namespace gridtools {
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = std::max(l[i],r[i]);
         return std::move(l);
+    }
+
+    template<typename A>
+    auto dot(const coordinate<A>& l, const coordinate<A>& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        return res;
+    }
+    template<typename A>
+    auto dot(coordinate<A>&& l, const coordinate<A>& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        return res;
+    }
+    template<typename A>
+    auto dot(const coordinate<A>& l, coordinate<A>&& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        return res;
+    }
+    template<typename A>
+    auto dot(coordinate<A>&& l, coordinate<A>&& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<coordinate<A>::size(); ++i) res += l[i]*r[i];
+        return res;
     }
 
 } // namespace gridtools
