@@ -156,7 +156,7 @@ namespace mpi {
 
         /** Function to access an element of type T at position pos in the message.
          * Size will be updated. In debug mode a check is performed to ensure the
-         * in-bound access, anf to check that the address is aligned properly
+         * in-bound access, and to check that the address is aligned properly
          * for type T.
          *
          * @tparam T Type of the value to be added (not deduced)
