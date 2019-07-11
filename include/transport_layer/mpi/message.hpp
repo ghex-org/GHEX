@@ -106,6 +106,17 @@ namespace mpi {
             return m_size;
         }
 
+        /** Function to set the size. Condition is that  the new size must be
+         * smaller than the capacity (no resize). The main use of this is when the
+         * user uses memcpy from .data() pointer and then set the size for sending.
+         *
+         * @param s New size
+        */
+        void size(size_t s) {
+            assert(s <= capacity);
+            m_size = s;
+        }
+
 
         /** Reset the size of the message to 0 */
         void empty() {
@@ -249,6 +260,16 @@ namespace mpi {
          */
         size_t size() const {
             return m_s_message->size();
+        }
+
+        /** Function to set the size. Condition is that  the new size must be
+         * smaller than the capacity (no resize). The main use of this is when the
+         * user uses memcpy from .data() pointer and then set the size for sending.
+         *
+         * @param s New size
+        */
+        void set_size(size_t s) {
+            return m_s_message->set_size(s);
         }
 
 
