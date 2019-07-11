@@ -112,7 +112,7 @@ namespace gridtools {
         template<typename Function>
         struct field_buffer
         {
-            Function function;
+            Function call_back;
             const typename pattern_type::map_type::mapped_type* index_container;
             std::size_t offset;
         };
@@ -159,8 +159,12 @@ namespace gridtools {
         std::vector<bool> m_completed_hooks;
 
     public: // ctors
+        /** @brief construct a communication object from a message tag map
+         * @param max_tag_map a map which holds the maximum global message tag for each distinct pattern_container 
+         * instance */
         communication_object(const std::map<const typename pattern_type::pattern_container_type*, int>& max_tag_map)
         : m_valid(false), m_max_tag_map(max_tag_map) {}
+
         communication_object(const communication_object&) = delete;
         communication_object(communication_object&&) = default;
 
@@ -228,7 +232,8 @@ namespace gridtools {
                 ++i;
             });
             post(h.m_comm);
-            return std::move(h);
+            return h; 
+            //return std::move(h);
         }
 
     private:
@@ -266,7 +271,7 @@ namespace gridtools {
                         {
                             p1.second.buffer.resize(p1.second.size);
                             for (const auto& fb : p1.second.field_buffers)
-                                fb.function( p1.second.buffer.data() + fb.offset, *fb.index_container);
+                                fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container);
                             //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
                             //<< ", " << p1.second.buffer.size() << ")" << std::endl;
                             m_send_futures.push_back(comm.isend(
@@ -294,7 +299,7 @@ namespace gridtools {
                         {
                             m_completed_hooks[k] = true;
                             for (const auto& fb : *m_recv_hooks[k].second)
-                                fb.function(m_recv_hooks[k].first + fb.offset, *fb.index_container);
+                                fb.call_back(m_recv_hooks[k].first + fb.offset, *fb.index_container);
                             if (++completed == m_recv_futures.size()) break;
                         }
                     }
@@ -431,7 +436,7 @@ namespace gridtools {
                 max_tag += ptrs[k]->max_tag()+1;
         }
 
-        return std::move(communication_object<protocol_type,grid_type,domain_id_type>(pat_ptr_map));
+        return communication_object<protocol_type,grid_type,domain_id_type>(pat_ptr_map);
     }
         
 } // namespace gridtools

@@ -10,9 +10,9 @@
  */
 //#define STANDALONE
 
+//#define SERIAL_SPLIT
 //#define MULTI_THREADED_EXCHANGE
-
-#define MULTI_THREADED_EXCHANGE_THREADS
+//#define MULTI_THREADED_EXCHANGE_THREADS
 //#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
 //#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
 //#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
@@ -29,7 +29,7 @@
 
 #ifndef STANDALONE
 #include <gtest/gtest.h>
-#include "gtest_main_boost.cpp"
+#include "gtest_main.cpp"
 #endif
 
 template<typename T, long unsigned N>
@@ -264,7 +264,7 @@ bool test0()
 
     // exchange
 #ifndef MULTI_THREADED_EXCHANGE
-    
+#ifndef SERIAL_SPLIT
     // blocking variant
     co.bexchange(
         pattern1(field_1a),
@@ -274,25 +274,21 @@ bool test0()
         pattern1(field_3a),
         pattern1(field_3b)
     );
-
-    /*// non-blocking variant
+#else
+    // non-blocking variant
     auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
     auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
     h1.wait();
-    h2.wait();*/
-
+    h2.wait();
+#endif
 #else
+#ifdef MULTI_THREADED_EXCHANGE_THREADS
     auto func = [](decltype(co)& co_, auto... bis) 
     { 
         co_.bexchange(bis...);
     };
-    auto func_h = [](decltype(co)& co_, auto... bis) 
-    { 
-        return co_.exchange(bis...);
-    };
-#ifdef MULTI_THREADED_EXCHANGE_THREADS
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
@@ -307,6 +303,10 @@ bool test0()
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC) 
+    auto func = [](decltype(co)& co_, auto... bis) 
+    { 
+        co_.bexchange(bis...);
+    };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
@@ -322,6 +322,10 @@ bool test0()
     future_1.wait();
     future_2.wait();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED) 
+    auto func_h = [](decltype(co)& co_, auto... bis) 
+    { 
+        return co_.exchange(bis...);
+    };
     // packing and posting serially on current thread
     // waiting and unpacking serially on current thread
     auto policy = std::launch::deferred;
@@ -341,6 +345,10 @@ bool test0()
     h1.wait();
     h2.wait();
 #elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT) 
+    auto func_h = [](decltype(co)& co_, auto... bis) 
+    { 
+        return co_.exchange(bis...);
+    };
     // packing and posting may be done concurrently
     // waiting and unpacking serially
     auto policy = std::launch::async;

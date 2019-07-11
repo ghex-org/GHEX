@@ -45,10 +45,15 @@ namespace gridtools {
         friend class detail::make_pattern_impl<GridType>;
 
     public: // copy constructor
+        pattern_container(const pattern_container&) noexcept = delete;
         pattern_container(pattern_container&&) noexcept = default;
 
     private: // private constructor called through make_pattern
-        pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) {}
+        pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) 
+        {
+            for (auto& p : m_patterns)
+                p.m_container = this;
+        }
 
     public: // member functions
         int size() const noexcept { return m_patterns.size(); }
@@ -66,7 +71,7 @@ namespace gridtools {
         {
             // linear search here
             for (auto& p : m_patterns)
-                if (p.domain_id()==field.domain_id()) return p(*this,field);
+                if (p.domain_id()==field.domain_id()) return p(field);
             throw std::runtime_error("field incompatible with available domains!");
         }
 

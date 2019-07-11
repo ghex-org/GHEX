@@ -15,7 +15,7 @@
 
 namespace gridtools {
 
-    namespace protocol {
+    namespace allocator {
 
         template <class T>
         struct mpi_allocator {
@@ -57,7 +57,7 @@ namespace gridtools {
         template <class T, class U>
         bool operator!=(const mpi_allocator<T>&, const mpi_allocator<U>&) { return false; }
 
-    } // namespace protocol
+    } // namespace allocator
 
 } // namespace gridtools
 

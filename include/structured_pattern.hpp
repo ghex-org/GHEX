@@ -139,12 +139,15 @@ namespace gridtools {
             return s;
         }
 
+        friend class pattern_container<P,grid_type,DomainIdType>;
+
     private: // members
         communicator_type       m_comm;
         iteration_space_pair    m_domain;
         extended_domain_id_type m_id;
         map_type                m_send_map;
         map_type                m_recv_map;
+        pattern_container_type* m_container;
 
     public: // ctors
         pattern(communicator_type& comm, const iteration_space_pair& domain, const extended_domain_id_type& id)
@@ -161,6 +164,7 @@ namespace gridtools {
         extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
         communicator_type& communicator() noexcept { return m_comm; }
         const communicator_type& communicator() const noexcept { return m_comm; }
+        const pattern_container_type& container() const noexcept { return *m_container; }
 
         /** @brief tie pattern to field
          * @tparam Field field type
@@ -168,9 +172,9 @@ namespace gridtools {
          * @param field field instance
          * @return buffer_info object which holds a refernce to the field, the pattern and the pattern container */
         template<typename Field>
-        buffer_info<pattern, typename Field::device_type, Field> operator()(const pattern_container_type& pc, Field& field) const
+        buffer_info<pattern, typename Field::device_type, Field> operator()(Field& field) const
         {
-            return {pc,*this,field,field.device_id()};
+            return {*this,field,field.device_id()};
         }
     };
 
@@ -284,7 +288,7 @@ namespace gridtools {
 
                 // set tags in order to disambiguate receives from same the PE
                 // when dealing with multiple domains per PE
-                int my_max_tag = 0;
+                int m_max_tag = 0;
                 // map between MPI rank and maximum required tag
                 std::map<int,int> tag_map;
                 // loop over all patterns/domains
@@ -307,7 +311,7 @@ namespace gridtools {
                         {
                             // if neighbor rank is already present: increase the tag by 1
                             ++it->second;
-                            my_max_tag = std::max(it->second,my_max_tag);
+                            m_max_tag = std::max(it->second,m_max_tag);
                             // set tag in the receive halo data structure
                             const_cast<extended_domain_id_type&>(id_is_pair.first).tag = it->second;
                         }
@@ -316,10 +320,10 @@ namespace gridtools {
 
                 // communicate max tag to be used for thread safety in communication object 
                 // use all_gather
-                auto max_tags  = comm.all_gather(my_max_tag).get();
-                // compute maximum tag and store in my_max_tag
+                auto max_tags  = comm.all_gather(m_max_tag).get();
+                // compute maximum tag and store in m_max_tag
                 for (auto x : max_tags)
-                    my_max_tag = std::max(x,my_max_tag);
+                    m_max_tag = std::max(x,m_max_tag);
                 
                 // translate my receive halos to (remote) send halos
                 // by a detour over the following nested map
@@ -526,7 +530,7 @@ namespace gridtools {
                     }
                 }
 
-                return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns), my_max_tag);
+                return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
             }
         };
 

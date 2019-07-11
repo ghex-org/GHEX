@@ -11,7 +11,7 @@
 #include "../include/protocol/setup.hpp"
 #include <boost/mpi/communicator.hpp>
 #include <gtest/gtest.h>
-#include "gtest_main_boost.cpp"
+#include "gtest_main.cpp"
 
 TEST(all_gather, all_gather_fixed)
 {
