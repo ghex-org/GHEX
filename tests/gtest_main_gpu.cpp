@@ -13,6 +13,7 @@
 
 #include <fstream>
 #include <mpi.h>
+//#include "mpi_init.hpp"
 #include "gtest/gtest.h"
 #include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
 
@@ -25,8 +26,8 @@
 
 GTEST_API_ int main(int argc, char **argv) 
 {
-    MPI_Init(&argc,&argv);
-    /*int required = MPI_THREAD_MULTIPLE;
+    //MPI_Init(&argc,&argv);
+    int required = MPI_THREAD_MULTIPLE;
     //int required = MPI_THREAD_SINGLE;
     int provided;
     int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
@@ -34,7 +35,8 @@ GTEST_API_ int main(int argc, char **argv)
         throw std::runtime_error("MPI init failed");
     if (provided < required)
         throw std::runtime_error("MPI does not support required threading level");
-    */
+    
+    //my_mpi_init(&argc,&argv);
 
     testing::InitGoogleTest(&argc, argv);
     
@@ -57,6 +59,7 @@ GTEST_API_ int main(int argc, char **argv)
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
+    //my_mpi_free();
     return global_result;
 }
 

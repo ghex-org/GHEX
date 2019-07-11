@@ -14,8 +14,26 @@
 #include "./structured_domain_descriptor.hpp"
 #include <iostream>
 #include <cstring>
+#include <gridtools/common/array.hpp>
+#include "devices.hpp"
 
 namespace gridtools {
+
+    template <typename T, size_t D>
+    GT_FUNCTION
+    array<T,D> operator+(array<T,D> a, const array<T,D>& b)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] += b[i];
+        return std::move(a);
+    }
+    template <typename T, size_t D>
+    GT_FUNCTION
+    T dot(const array<T,D>& a, const array<T,D>& b)
+    {
+        T res = a[0]*b[0];
+        for (std::size_t i=1u; i<D; ++i) res+=a[i]*b[i];
+        return res;
+    }
 
     namespace detail {
         template<int D, int I>
@@ -51,6 +69,53 @@ namespace gridtools {
         };
     } // namespace detail
 
+    template<typename Device, typename Dimension, typename Layout>
+    struct serialization;
+
+    template<typename Dimension, typename Layout>
+    struct serialization<device::cpu, Dimension, Layout>
+    {
+        template<typename T, typename IndexContainer, typename Array>
+        GT_FUNCTION_HOST
+        static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, const Array& m_offsets)
+        {
+            for (const auto& is : c)
+            {
+                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                    [m_data,buffer](auto o_data, auto o_buffer)
+                    {
+                        buffer[o_buffer] = m_data[o_data]; 
+                    }, 
+                    is.local().first(), 
+                    is.local().last(),
+                    m_extents,
+                    m_offsets
+                    );
+                buffer += is.size();
+            }
+        }
+
+        template<typename T, typename IndexContainer, typename Array>
+        GT_FUNCTION_HOST
+        static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, const Array& m_offsets)
+        {
+            for (const auto& is : c)
+            {
+                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                    [m_data,buffer](auto o_data, auto o_buffer)
+                    {
+                        m_data[o_data] = buffer[o_buffer];
+                    }, 
+                    is.local().first(), 
+                    is.local().last(),
+                    m_extents,
+                    m_offsets
+                    );
+                buffer += is.size();
+            }
+        }
+    };
+
     // forward declaration
     template<typename T, typename Device, typename DomainDescriptor, int... Order>
     class simple_field_wrapper;
@@ -72,7 +137,8 @@ namespace gridtools {
         using dimension              = typename domain_descriptor_type::dimension;
         using layout_map             = gridtools::layout_map<Order...>;
         using domain_id_type         = DomainIdType;
-        using coordinate_type        = typename domain_descriptor_type::halo_generator_type::coordinate_type;
+        //using coordinate_type        = typename domain_descriptor_type::halo_generator_type::coordinate_type;
+        using coordinate_type        = array<typename domain_descriptor_type::halo_generator_type::coordinate_type::element_type, dimension::value>;
 
     private: // members
         domain_id_type  m_dom_id;
@@ -90,44 +156,56 @@ namespace gridtools {
          * @param offsets coordinate of first physical coordinate (not buffer) from the orign of the wrapped N-dimensional array
          * @param extents extent of the wrapped N-dimensional array (including buffer regions)*/
         template<typename Array>
+        GT_FUNCTION_HOST
         simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, device_id_type d_id = 0)
-        : m_dom_id(dom_id), m_data(data), m_strides(1), m_device_id(d_id)
+        : m_dom_id(dom_id), m_data(data), /*m_strides(1),*/ m_device_id(d_id)
         { 
             std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
             std::copy(extents.begin(), extents.end(), m_extents.begin());
             // compute strides
             detail::compute_strides<dimension::value>::template apply<layout_map>(m_extents,m_strides);
         }
+        GT_FUNCTION_HOST
         simple_field_wrapper(simple_field_wrapper&&) noexcept = default;
+        GT_FUNCTION_HOST
         simple_field_wrapper(const simple_field_wrapper&) noexcept = default;
 
     public: // member functions
+        GT_FUNCTION
         typename device_type::id_type device_id() const { return m_device_id; }
+        GT_FUNCTION
         domain_id_type domain_id() const { return m_dom_id; }
 
+        GT_FUNCTION
         const coordinate_type& extents() const noexcept { return m_extents; }
+        GT_FUNCTION
         const coordinate_type& offsets() const noexcept { return m_offsets; }
 
+        GT_FUNCTION
         value_type* data() const { return m_data; }
 
         /** @brief access operator
          * @param x coordinate vector with respect to offset specified in constructor
          * @return reference to value */
+        GT_FUNCTION
         value_type& operator()(const coordinate_type& x) { return m_data[dot(x,m_strides)]; }
+        GT_FUNCTION
         const value_type& operator()(const coordinate_type& x) const { return m_data[dot(x,m_strides)]; }
 
         /** @brief access operator
          * @param is coordinates with respect to offset specified in constructor
          * @return reference to value */
         template<typename... Is>
+        GT_FUNCTION
         value_type& operator()(Is&&... is) { return m_data[dot(coordinate_type{is...}+m_offsets,m_strides)]; }
         template<typename... Is>
+        GT_FUNCTION
         const value_type& operator()(Is&&... is) const { return m_data[dot(coordinate_type{is...}+m_offsets,m_strides)]; }
 
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c)
         {
-            for (const auto& is : c)
+            /*for (const auto& is : c)
             {
                 detail::for_loop_pointer_arithmetic<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
@@ -140,13 +218,14 @@ namespace gridtools {
                     m_offsets
                     );
                 buffer += is.size();
-            }
+            }*/
+            serialization<Device,dimension,layout_map>::pack(buffer, c, m_data, m_extents, m_offsets);
         }
 
         template<typename IndexContainer>
         void unpack(const T* buffer, const IndexContainer& c)
         {
-            for (const auto& is : c)
+            /*for (const auto& is : c)
             {
                 detail::for_loop_pointer_arithmetic<dimension::value,dimension::value,layout_map>::apply(
                     [this,buffer](auto o_data, auto o_buffer)
@@ -159,7 +238,8 @@ namespace gridtools {
                     m_offsets
                     );
                 buffer += is.size();
-            }
+            }*/
+            serialization<Device,dimension,layout_map>::unpack(buffer, c, m_data, m_extents, m_offsets);
         }
     };
 

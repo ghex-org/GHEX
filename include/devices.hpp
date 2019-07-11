@@ -77,15 +77,16 @@ namespace gridtools {
                 return vector_type<T>{aligned_allocator_type<T>()}; 
             }
 
-            template<typename T>
+            /*template<typename T>
             static void* align(void* ptr, id_type index = default_id()) 
             {
                 static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
                 std::size_t space = alignof(T);
                 return std::align(alignof(T), 1, ptr, space); 
-            }
+            }*/
         };
 
+#ifdef __CUDACC__
         struct gpu
         {
             using id_type = int;
@@ -95,14 +96,42 @@ namespace gridtools {
             static id_type default_id() { return 0; }
 
             template<typename T>
-            using allocator_type = std::allocator<T>;
+            struct vector_type
+            {
+                T* m_data = nullptr;
+                std::size_t m_size = 0;
+                std::size_t m_capacity = 0;
+                const T* data() const { return m_data; }
+                T* data() { return m_data; }
+                std::size_t size() const { return m_size; }
+                std::size_t capacity() const { return m_capacity; }
 
-            template<typename T>
-            using aligned_allocator_type = boost::alignment::aligned_allocator_adaptor<allocator_type<T>, 64>;
+                void resize(std::size_t new_size)
+                {
+                    if (new_size <= m_capacity)
+                    {
+                        m_size = new_size;
+                    }
+                    else
+                    {
+                        cudaFree(m_data);
+                        std::size_t new_capacity = std::max(new_size, (std::size_t)(m_capacity*1.6));
+                        cudaMalloc((void**)&m_data, new_capacity*sizeof(T));
+                        m_capacity = new_capacity;
+                        m_size = new_size;
+                    }
+                }
+
+                ~vector_type()
+                {
+                    if (m_capacity > 0u)
+                    {
+                        cudaFree(m_data);
+                    }
+                }
+
+            };
             
-            template<typename T>
-            using vector_type = std::vector<T, aligned_allocator_type<T>>;
-
             /*struct handle
             {
                 void wait() {}
@@ -112,19 +141,22 @@ namespace gridtools {
             static vector_type<T> make_vector(id_type index = default_id()) 
             { 
                 static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
-                return vector_type<T>{aligned_allocator_type<T>()}; 
+                return {}; 
             }
 
-            template<typename T>
+            /*template<typename T>
             static void* align(void* ptr, id_type index = default_id()) 
             {
                 static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
                 std::size_t space = alignof(T);
                 return std::align(alignof(T), 1, ptr, space); 
-            }
+            }*/
         };
 
         using device_list = std::tuple<cpu,gpu>;
+#else
+        using device_list = std::tuple<cpu>;
+#endif
 
     } // namespace device
 
