@@ -69,6 +69,93 @@ namespace gridtools {
         co_t* m_co;
         communicator_type m_comm;
     };
+
+
+    template<typename Device>
+    struct packer
+    {
+        template<typename Map, typename Futures, typename Communicator>
+        static void pack(Map& map, Futures& send_futures,Communicator& comm)
+        {
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.buffer.resize(p1.second.size);
+                        for (const auto& fb : p1.second.field_buffers)
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)0);
+                        Device::sync();
+                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                        send_futures.push_back(comm.isend(
+                            p1.second.address,
+                            p1.second.tag,
+                            p1.second.buffer));
+                    }
+                }
+            }
+        }
+    };
+
+#ifdef __CUDACC__
+    template<>
+    struct packer<device::gpu>
+    {
+        template<typename Map, typename Futures, typename Communicator>
+        static void pack(Map& map, Futures& send_futures,Communicator& comm)
+        {
+            std::size_t num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.buffer.resize(p1.second.size);
+                        ++num_streams;
+                    }
+                }
+            }
+            std::vector<cudaStream_t> streams(num_streams);
+            for (auto& x : streams) 
+                cudaStreamCreate(&x);
+            num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        for (const auto& fb : p1.second.field_buffers)
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
+                    }
+                }
+            }
+            num_streams=0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        cudaStreamSynchronize(streams[num_streams]);
+                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                        send_futures.push_back(comm.isend(
+                            p1.second.address,
+                            p1.second.tag,
+                            p1.second.buffer));
+                        ++num_streams;
+                    }
+                }
+            }
+            for (auto& x : streams) 
+                cudaStreamDestroy(x);
+        }
+    };
+#endif
     
     /** @brief communication object responsible for exchanging halo data. Allocates storage depending on the 
      * device type and device id of involved fields.
@@ -92,8 +179,8 @@ namespace gridtools {
 
         using pattern_type            = pattern<P,GridType,DomainIdType>;
         using index_container_type    = typename pattern_type::index_container_type;
-        using pack_function_type      = std::function<void(void*,const index_container_type&)>;
-        using unpack_function_type    = std::function<void(const void*,const index_container_type&)>;
+        using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;
+        using unpack_function_type    = std::function<void(const void*,const index_container_type&, void*)>;
 
         template<typename D, typename F>
         using buffer_info_type        = buffer_info<pattern_type,D,F>;
@@ -214,8 +301,8 @@ namespace gridtools {
                 this->allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
                     mem->recv_memory[bi->device_id()],
                     bi->get_pattern().recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c) 
-                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c); },
+                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) 
+                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c,arg); },
                     my_dom_id,
                     bi->device_id(),
                     tag_offsets[i],
@@ -223,8 +310,8 @@ namespace gridtools {
                 this->allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
                     mem->send_memory[bi->device_id()],
                     bi->get_pattern().send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c) 
-                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c); },
+                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
+                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c,arg); },
                     my_dom_id,
                     bi->device_id(),
                     tag_offsets[i],
@@ -263,7 +350,8 @@ namespace gridtools {
             detail::for_each(m_mem, [this,&comm](auto& m)
             {
                 using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
-                for (auto& p0 : m.send_memory)
+                packer<device_type>::pack(m,m_send_futures,comm);
+                /*for (auto& p0 : m.send_memory)
                 {
                     for (auto& p1: p0.second)
                     {
@@ -281,7 +369,7 @@ namespace gridtools {
                                 p1.second.buffer));
                         }
                     }
-                }
+                }*/
             });
         }
 
@@ -300,7 +388,7 @@ namespace gridtools {
                         {
                             m_completed_hooks[k] = true;
                             for (const auto& fb : *m_recv_hooks[k].second)
-                                fb.call_back(m_recv_hooks[k].first + fb.offset, *fb.index_container);
+                                fb.call_back(m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
                             if (++completed == m_recv_futures.size()) break;
                         }
                     }
