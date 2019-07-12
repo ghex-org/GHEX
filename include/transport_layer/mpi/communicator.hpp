@@ -173,6 +173,7 @@ namespace mpi {
         template <typename MsgType, typename CallBack>
         void recv(MsgType& msg, rank_type src, tag_type tag, CallBack&& cb) {
             MPI_Request request;
+            if (rank==1) std::cout << "TAGGGGGGGGG " << tag << "\n\n\n\n";
             CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
 
             m_call_backs.emplace(std::make_pair(request, std::make_tuple(std::forward<CallBack>(cb), src, tag) ));
