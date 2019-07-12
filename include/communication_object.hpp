@@ -17,36 +17,9 @@
 #include <iostream>
 #include "./gridtools_arch.hpp"
 #include "./utils.hpp"
+#include "./allocator/default_init_allocator.hpp"
 
 namespace gridtools {
-
-    /** @brief Allocator adaptor that interposes construct() calls
-     ** to convert value initialization into default initialization.*/
-    template <typename T, typename A=std::allocator<T>>
-    class default_init_allocator : public A {
-
-        typedef std::allocator_traits<A> a_t;
-
-    public:
-
-        template <typename U>
-        struct rebind {
-            using other = default_init_allocator<U, typename a_t::template rebind_alloc<U>>;
-        };
-
-        using A::A;
-
-        template <typename U>
-        void construct(U* ptr) noexcept (std::is_nothrow_default_constructible<U>::value) {
-            ::new(static_cast<void*>(ptr)) U;
-        }
-
-        template <typename U, typename...Args>
-        void construct(U* ptr, Args&&... args) {
-            a_t::construct(static_cast<A&>(*this), ptr, std::forward<Args>(args)...);
-        }
-
-    };
 
     /** @brief generic communication object for single pattern exchange
      * @tparam Pattern pattern type to be used for the communication
@@ -72,9 +45,9 @@ namespace gridtools {
         /** @brief future type, deduced form communicator, of type void*/
         using future_t = typename communicator_t::template future<void>;
         /** @brief send buffer type, for now set to vector of bytes*/
-        using s_buffer_t = std::vector<byte_t, default_init_allocator<byte_t>>;
+        using s_buffer_t = std::vector<byte_t, allocator::default_init_allocator<byte_t>>;
         /** @brief receive buffer type, for now set to vector of bytes*/
-        using r_buffer_t = std::vector<byte_t, default_init_allocator<byte_t>>;
+        using r_buffer_t = std::vector<byte_t, allocator::default_init_allocator<byte_t>>;
         /** @brief send request type, simply a future*/
         using s_request_t = future_t;
         /** @brief receive request type, 1:1 mapping between receive halo index, domain and receive request*/

@@ -14,7 +14,6 @@
 #include <mpi.h>
 #include "gtest/gtest.h"
 #include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
-//#include <boost/mpi/environment.hpp>
 
 GTEST_API_ int main(int argc, char **argv) {
 
@@ -25,7 +24,6 @@ GTEST_API_ int main(int argc, char **argv) {
         throw std::runtime_error("MPI init failed");
     if (provided < required)
         throw std::runtime_error("MPI does not support required threading level");
-    // boost::mpi::environment env(argc, argv);
 
     // printf("Running main() from %s\n", __FILE__);
     testing::InitGoogleTest(&argc, argv);
