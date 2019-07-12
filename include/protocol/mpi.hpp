@@ -96,8 +96,8 @@ namespace gridtools {
              * @param vec source vector
              * @return completion handle
              */
-            template<typename T, template<typename, typename> typename Vector, typename Allocator> 
-            future<void> isend(address_type dest, int tag, const Vector<T,Allocator>& vec) const
+            template<typename T, template<typename, typename> typename Vector, typename... Args> 
+            future<void> isend(address_type dest, int tag, const Vector<T,Args...>& vec) const
             {
                 return {std::move(m_comm.isend(dest, tag, reinterpret_cast<const char*>(vec.data()), sizeof(T)*vec.size()))};
             }

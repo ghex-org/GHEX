@@ -236,6 +236,7 @@ namespace gridtools {
         {
             detail::for_each(m_mem, [this,&comm](auto& m)
             {
+                //using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
                 for (auto& p0 : m.recv_memory)
                 {
                     for (auto& p1: p0.second)
@@ -258,6 +259,7 @@ namespace gridtools {
             });
             detail::for_each(m_mem, [this,&comm](auto& m)
             {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
                 for (auto& p0 : m.send_memory)
                 {
                     for (auto& p1: p0.second)
@@ -267,6 +269,7 @@ namespace gridtools {
                             p1.second.buffer.resize(p1.second.size);
                             for (const auto& fb : p1.second.field_buffers)
                                 fb.function( p1.second.buffer.data() + fb.offset, *fb.index_container);
+                            device_type::sync();
                             //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
                             //<< ", " << p1.second.buffer.size() << ")" << std::endl;
                             m_send_futures.push_back(comm.isend(
@@ -302,6 +305,12 @@ namespace gridtools {
                 }
             }
             for (auto& f : m_send_futures) f.wait();
+                //using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+            /*detail::for_each(m_mem, [](auto& m)
+            {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                device_type::sync();
+            });*/
             clear();
         }
 
@@ -316,6 +325,8 @@ namespace gridtools {
             m_completed_hooks.resize(0);
             detail::for_each(m_mem, [this](auto& m)
             {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                device_type::sync();
                 for (auto& p0 : m.send_memory)
                     for (auto& p1 : p0.second)
                     {

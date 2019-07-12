@@ -32,8 +32,26 @@
 #include "gtest_main_boost.cpp"
 #endif
 
+#include <gridtools/common/array.hpp>
+#ifdef __CUDACC__
+#include <gridtools/common/cuda_util.hpp>
+#include <gridtools/common/host_device.hpp>
+#endif
+
+template<typename T, std::size_t N>
+using array_type = gridtools::array<T,N>;
+
 template<typename T, long unsigned N>
 std::ostream& operator<<(std::ostream& os, const std::array<T,N>& arr)
+{
+    os << "(";
+    for (unsigned int i=0; i<N-1; ++i) os << std::setw(2) << std::right << arr[i] << ",";
+    os << std::setw(2) << std::right << arr[N-1] << ")";
+    return os;
+}
+
+template<typename T, long unsigned N>
+std::ostream& operator<<(std::ostream& os, const array_type<T,N>& arr)
 {
     os << "(";
     for (unsigned int i=0; i<N-1; ++i) os << std::setw(2) << std::right << arr[i] << ",";
@@ -59,7 +77,7 @@ void fill_values(const Domain& d, Field& f)
             int zl = 0;
             for (int z=d.first()[2]; z<=d.last()[2]; ++z, ++zl)
             {
-                f(xl,yl,zl) = std::array<T,3>{(T)x,(T)y,(T)z};
+                f(xl,yl,zl) = array_type<T,3>{(T)x,(T)y,(T)z};
             }
         }
     }
@@ -129,6 +147,21 @@ bool test0()
 {
     boost::mpi::communicator mpi_comm;
 
+#ifdef __CUDACC__
+    int num_devices_per_node;
+    cudaGetDeviceCount(&num_devices_per_node);
+    MPI_Comm raw_local_comm;
+    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
+    boost::mpi::communicator local_comm(raw_local_comm, boost::mpi::comm_take_ownership);
+    if (local_comm.rank()<num_devices_per_node)
+    {
+        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
+        << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        //std::cout << "gpu is invoked!" << std::endl;
+    }
+#endif
+
     // need communicator to decompose domain
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
 
@@ -172,9 +205,9 @@ bool test0()
     using T1 = double;
     using T2 = float;
     using T3 = int;
-    using TT1 = std::array<T1,3>;
-    using TT2 = std::array<T2,3>;
-    using TT3 = std::array<T3,3>;
+    using TT1 = array_type<T1,3>;
+    using TT2 = array_type<T2,3>;
+    using TT3 = array_type<T3,3>;
     std::vector<TT1> field_1a_raw(max_memory);
     std::vector<TT1> field_1b_raw(max_memory);
     std::vector<TT2> field_2a_raw(max_memory);
@@ -223,6 +256,7 @@ bool test0()
     fill_values<T2>(local_domains[1], field_2b);
     fill_values<T3>(local_domains[0], field_3a);
     fill_values<T3>(local_domains[1], field_3b);
+
     
     //// print arrays
     //std::cout.flush();
@@ -260,7 +294,70 @@ bool test0()
     //    comm.barrier();
     //}
 
+#ifdef __CUDACC__
 
+    if (local_comm.rank()<num_devices_per_node)
+    {
+        // allocate on the gpu
+        TT1* gpu_1a_raw;
+        TT1* gpu_1b_raw;
+        TT2* gpu_2a_raw;
+        TT2* gpu_2b_raw;
+        TT3* gpu_3a_raw;
+        TT3* gpu_3b_raw;
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1a_raw, max_memory*sizeof(TT1)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1b_raw, max_memory*sizeof(TT1)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2a_raw, max_memory*sizeof(TT2)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2b_raw, max_memory*sizeof(TT2)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_3a_raw, max_memory*sizeof(TT3)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_3b_raw, max_memory*sizeof(TT3)));
+
+        // wrap raw fields
+        auto field_1a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_1a_raw, offset, local_ext_buffer);
+        auto field_1b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_1b_raw, offset, local_ext_buffer);
+        auto field_2a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_2a_raw, offset, local_ext_buffer);
+        auto field_2b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_2b_raw, offset, local_ext_buffer);
+        auto field_3a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_3a_raw, offset, local_ext_buffer);
+        auto field_3b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_3b_raw, offset, local_ext_buffer);
+
+        // copy
+        GT_CUDA_CHECK(cudaMemcpy(field_1a_gpu.data(), field_1a.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_1b_gpu.data(), field_1b.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_2a_gpu.data(), field_2a.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_2b_gpu.data(), field_2b.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_3a_gpu.data(), field_3a.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_3b_gpu.data(), field_3b.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice));
+        
+        // exchange
+        // blocking variant
+        co.bexchange(
+            pattern1(field_1a_gpu),
+            pattern1(field_1b_gpu),
+            pattern2(field_2a_gpu),
+            pattern2(field_2b_gpu),
+            pattern1(field_3a_gpu),
+            pattern1(field_3b_gpu)
+        );
+
+        // copy back
+        GT_CUDA_CHECK(cudaMemcpy(field_1a.data(), field_1a_gpu.data(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_1b.data(), field_1b_gpu.data(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_2a.data(), field_2a_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_2b.data(), field_2b_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_3a.data(), field_3a_gpu.data(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_3b.data(), field_3b_gpu.data(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost));
+
+        // free
+        cudaFree(gpu_1a_raw);
+        cudaFree(gpu_1b_raw);
+        cudaFree(gpu_2a_raw);
+        cudaFree(gpu_2b_raw);
+        cudaFree(gpu_3a_raw);
+        cudaFree(gpu_3b_raw);
+    }
+    else
+#endif
+    {
 
     // exchange
 #ifndef MULTI_THREADED_EXCHANGE
@@ -358,6 +455,7 @@ bool test0()
     future_2.get().wait();
 #endif
 #endif
+    }
 
     //// print arrays
     //std::cout.flush();

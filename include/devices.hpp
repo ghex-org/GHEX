@@ -77,6 +77,11 @@ namespace gridtools {
                 return vector_type<T>{aligned_allocator_type<T>()}; 
             }
 
+            static void sync(id_type index = default_id()) 
+            { 
+                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
+            }
+
             /*template<typename T>
             static void* align(void* ptr, id_type index = default_id()) 
             {
@@ -95,8 +100,8 @@ namespace gridtools {
 
             static id_type default_id() { return 0; }
 
-            template<typename T>
-            struct vector_type
+            template<typename T,typename X>
+            struct vector_type_
             {
                 T* m_data = nullptr;
                 std::size_t m_size = 0;
@@ -122,7 +127,7 @@ namespace gridtools {
                     }
                 }
 
-                ~vector_type()
+                ~vector_type_()
                 {
                     if (m_capacity > 0u)
                     {
@@ -131,6 +136,10 @@ namespace gridtools {
                 }
 
             };
+
+
+            template<typename T>
+            using vector_type = vector_type_<T, void>;
             
             /*struct handle
             {
@@ -142,6 +151,12 @@ namespace gridtools {
             { 
                 static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
                 return {}; 
+            }
+
+            static void sync(id_type index = default_id()) 
+            { 
+                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
+                cudaDeviceSynchronize();
             }
 
             /*template<typename T>
