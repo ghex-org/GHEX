@@ -65,7 +65,7 @@ bool test_send_10(mpi::communicator &comm, int rank) {
         }
         while (comm.progress()) {}
         return true;
-    } else if (rank == 1) {
+    } else {
         int value = -11111111;
 
         mpi::message<> rmsg{sizeof(int), sizeof(int)};
@@ -81,7 +81,7 @@ bool test_send_10(mpi::communicator &comm, int rank) {
         return ok;
 
     }
-    return true;
+    return false;
 }
 
 #define TEST(x) std::cout << #x << ": " << std::boolalpha << x << "\n";
