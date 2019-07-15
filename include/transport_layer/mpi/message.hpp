@@ -43,7 +43,6 @@ namespace mpi {
             if (m_capacity > 0)
                 m_payload = m_alloc.allocate(m_capacity);
             auto pp = m_payload;
-            if (rank == 0) std::cout  << "PTR: " << std::hex << reinterpret_cast<unsigned long long>(pp) << std::dec << "\n";
         }
 
         /** Constructor that take capacity size and allocator.
@@ -76,9 +75,7 @@ namespace mpi {
         }
 
         ~message() {
-            if (rank == 0) std::cout  << "Destruction of message\n";
             auto pp = m_payload;
-            if (rank == 0) std::cout  << "PTR: " << std::hex << reinterpret_cast<unsigned long long>(pp) << std::dec << "\n";
             if (m_payload) m_alloc.deallocate(m_payload, m_capacity);
             m_payload = nullptr;
         }
