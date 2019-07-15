@@ -47,13 +47,15 @@ public:
 
     void operator()(int, int) {
         m_value = m_msg.at<int>(0);
+        MPI_Barrier(MPI_COMM_WORLD);
         std::cout << "\n\n\n\n\n\n\nRECEIVED VALUE " << m_value << "<--------------\n\n";
-        m_comm.recv(m_msg, 0, 42+m_value+1, *this/* call_back{m_value, m_comm, m_msg}*/);
+        m_comm.recv(m_msg, 0, 42+m_value+1, /**this*/call_back{m_value, m_comm, m_msg});
     }
 };
 
 bool test_send_10(mpi::communicator &comm, int rank) {
     while (comm.progress()) {}
+    MPI_Barrier(MPI_COMM_WORLD);
 
     if (rank == 0) {
         mpi::shared_message<> smsg{sizeof(int), sizeof(int)};
@@ -63,11 +65,16 @@ bool test_send_10(mpi::communicator &comm, int rank) {
 
             std::array<int, 3> dsts = {1,2,3};
 
-            comm.send_multi(smsg, dsts, 42+v);
-            while (comm.progress()) {}
+            comm.send(smsg, 1, 42+v).wait();
+            MPI_Barrier(MPI_COMM_WORLD);
+            //comm.send(smsg, 2, 42+v).wait();
+            //comm.send(smsg, 3, 42+v).wait();
+//            comm.send_multi(smsg, dsts, 42+v);
+//            while (comm.progress()) {}
         }
+        std::cout << "Sent ALL\n";
         return true;
-    } else {
+    } else if (rank == 1) {
         int value = -11111111;
 
         mpi::message<> rmsg{sizeof(int), sizeof(int)};
@@ -75,13 +82,15 @@ bool test_send_10(mpi::communicator &comm, int rank) {
         if (rank==1) std::cout << "Posting recv";
         comm.recv(rmsg, 0, 42+666, call_back{value, comm, rmsg});
 
-        while (value < 9) {
+        while (value < 9+666) {
             int before = value;
-            if (rank==1) std::cout << "REACHED VALUE BEFORE:" << std::setw(16) << value << " ";
+//            if (rank==1) std::cout << "REACHED VALUE BEFORE:" << std::setw(16) << value << " ";
             comm.progress();
+            std::cout << "................................. " << value << "\n";
             int after = value;
-            if (rank==1) std::cout << "REACHED VALUE AFTER:" << std::setw(16) << value << ((before!=after)?"\n":"\r");
+//            if (rank==1) std::cout << "REACHED VALUE AFTER:" << std::setw(16) << value << ((before!=after)?"\n":"\r");
         }
+        std::cout << "Am I  here?\n";
 
         bool ok = comm.cancel_call_backs();
 
@@ -89,6 +98,7 @@ bool test_send_10(mpi::communicator &comm, int rank) {
         return ok;
 
     }
+    return true;
 }
 
 int main(int argc, char** argv) {

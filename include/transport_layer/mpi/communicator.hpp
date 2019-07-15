@@ -37,9 +37,9 @@ namespace mpi {
         */
         bool ready() {
             MPI_Status status;
-            int res;
-            CHECK_MPI_ERROR(MPI_Test(&m_req, &res, &status));
-            return !res;
+            int flag;
+            CHECK_MPI_ERROR(MPI_Test(&m_req, &flag, &status));
+            return !flag;
         }
 
 
@@ -97,6 +97,7 @@ namespace mpi {
         my_dull_future send(MsgType const& msg, rank_type dst, tag_type tag) {
             MPI_Request req;
             MPI_Status status;
+            std::cout << "Future Send to " << dst << ", tag " << tag << "\n";
             CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
             return req;
         }
@@ -182,7 +183,7 @@ namespace mpi {
         template <typename Allc, typename Neighs>
         void send_multi(shared_message<Allc>& msg, Neighs const& neighs, int tag) {
             for (auto id : neighs) {
-                auto keep_message = [msg] (int p, int t) { if (rank == 0) std::cout  << "DST " << p << ", TAG " << t << " USE COUNT " << msg.use_count() << "\n";};
+                auto keep_message = [msg] (int p, int t) { if (rank == 0) std::cout  << "KM DST " << p << ", TAG " << t << " USE COUNT " << msg.use_count() << "\n";};
                 if (rank == 0) std::cout  << "Sending loop DST " << id << ", TAG " << tag << " USE COUNT " << msg.use_count() << "\n";
                 if (rank == 0) std::cout  << "Sending to " << id << "\n";
                 send(msg, id, tag, std::move(keep_message));
@@ -199,14 +200,30 @@ namespace mpi {
          */
         bool progress() {
 
+            std::cout << "progressing (pending = " << m_call_backs.size() << ")\r";
             auto i = m_call_backs.begin();
             while (i != m_call_backs.end()) {
-                int res;
+                std::cout <<"ECCO\n";
+                {
+                    int flag;
+                    MPI_Status st;
+                    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &st);
+                    if (flag) {
+                        int count;
+                        MPI_Get_count(&st, MPI_CHAR, &count);
+                        std::cout << "\t\t\t\t\t\t\t\t\t\t\t\tA message has been found: " << st.MPI_TAG << "\n";
+                    } else {
+                        std::cout << "\t\t\t\t\t\t\t\t\t\t\t\tNo message has been found:\n";
+                    }
+                }
+                int flag;
                 MPI_Status status;
                 MPI_Request r = i->first;
-                CHECK_MPI_ERROR(MPI_Test(&r, &res, &status));
+                std::cout << "before test";
+                CHECK_MPI_ERROR(MPI_Test(&r, &flag, &status));
+                std::cout << "after test";
 
-                if (res) {
+                if (flag) {
                     std::get<0>(i->second)(std::get<1>(i->second), std::get<2>(i->second));
                     i = m_call_backs.erase(i); // must use i.first andnot r, since r is modified
                     break;
