@@ -184,7 +184,9 @@ namespace gridtools {
             const auto memory_coordinate = local_coordinate + local_first + offsets;
             // multiply with memory strides
             const auto idx = dot(memory_coordinate, strides);
-            buffer[index] = data[idx];
+            const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
+            const auto idx2 = idx < mm ? idx : mm;
+            buffer[index] = data[idx2];
         }
     }
     template<typename Layout, typename T, std::size_t D, typename I>
@@ -201,19 +203,21 @@ namespace gridtools {
             for (std::size_t i=0; i<D; ++i)  
                 local_extents[i] = 1 + local_last[i] - local_first[i];
             detail::compute_strides<D>::template apply<Layout>(local_extents, local_strides);
-            std::cout << "index         = " << index << std::endl;
-            std::cout << "local_extents = " << local_extents[0] << ", " << local_extents[1] << ", " << local_extents[2] << std::endl;
-            std::cout << "local_strides = " << local_strides[0] << ", " << local_strides[1] << ", " << local_strides[2] << std::endl;
+            //std::cout << "index         = " << index << std::endl;
+            //std::cout << "local_extents = " << local_extents[0] << ", " << local_extents[1] << ", " << local_extents[2] << std::endl;
+            //std::cout << "local_strides = " << local_strides[0] << ", " << local_strides[1] << ", " << local_strides[2] << std::endl;
             // compute local coordinate
             array<I,D> local_coordinate;
             detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
-            std::cout << "local_coord   = " << local_coordinate[0] << ", " << local_coordinate[1] << ", " << local_coordinate[2] << std::endl;
+            //std::cout << "local_coord   = " << local_coordinate[0] << ", " << local_coordinate[1] << ", " << local_coordinate[2] << std::endl;
             // add offset
             const auto memory_coordinate = local_coordinate + local_first + offsets;
-            std::cout << "memory_coord  = " << memory_coordinate[0] << ", " << memory_coordinate[1] << ", " << memory_coordinate[2] << std::endl;
+            //std::cout << "memory_coord  = " << memory_coordinate[0] << ", " << memory_coordinate[1] << ", " << memory_coordinate[2] << std::endl;
             // multiply with memory strides
             const auto idx = dot(memory_coordinate, strides);
-            std::cout << "idx           = " << idx << std::endl;
+            const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
+            if (idx < 0 || idx > mm) std::cout << "access out of bounds!!! " << idx << std::endl;
+            //std::cout << "idx           = " << idx << std::endl;
         }
     }
 
@@ -237,7 +241,9 @@ namespace gridtools {
             const auto memory_coordinate = local_coordinate + local_first + offsets;
             // multiply with memory strides
             const auto idx = dot(memory_coordinate, strides);
-            data[idx] = buffer[index];
+            const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
+            const auto idx2 = idx < mm ? idx : mm;
+            data[idx2] = buffer[index];
         }
     }
 #define NCTIS 128
@@ -248,18 +254,19 @@ namespace gridtools {
         GT_FUNCTION_HOST
         static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, const Array& m_offsets, const Array& m_strides, void* arg)
         {
-            auto stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
+            //auto stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
             for (const auto& is : c)
             {
                 Array local_first, local_last;
                 std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
                 std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
                 int size = is.size();
-                /*for (int blockIdx=0; blockIdx<(size+511)/512; ++blockIdx)
-                    for (int threadIdx=0; threadIdx<512;++threadIdx)
-                        pack_kernel_emulate<Layout>(blockIdx,512,threadIdx,size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
-                */
-                pack_kernel<Layout><<<(size+NCTIS)/NCTIS,NCTIS,0,*stream_ptr>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
+                for (int blockIdx=0; blockIdx<(size+NCTIS-1)/NCTIS; ++blockIdx)
+                    for (int threadIdx=0; threadIdx<NCTIS;++threadIdx)
+                        pack_kernel_emulate<Layout>(blockIdx,NCTIS,threadIdx,size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
+                
+                //pack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS,0,*stream_ptr>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
+                pack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
                 buffer += size;
             }
         }
@@ -268,7 +275,7 @@ namespace gridtools {
         GT_FUNCTION_HOST
         static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, const Array& m_offsets, const Array& m_strides, void* arg)
         {
-            auto stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
+            //auto stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
             for (const auto& is : c)
             {
                 Array local_first, local_last;
@@ -276,7 +283,7 @@ namespace gridtools {
                 std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
                 int size = is.size();
 
-                unpack_kernel<Layout><<<(size+NCTIS)/NCTIS,NCTIS,0,*stream_ptr>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
+                unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
                 buffer += size;
             }
         }

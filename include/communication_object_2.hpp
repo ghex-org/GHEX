@@ -106,7 +106,6 @@ namespace gridtools {
         template<typename Map, typename Futures, typename Communicator>
         static void pack(Map& map, Futures& send_futures,Communicator& comm)
         {
-            std::size_t num_streams = 0;
             for (auto& p0 : map.send_memory)
             {
                 for (auto& p1: p0.second)
@@ -114,14 +113,9 @@ namespace gridtools {
                     if (p1.second.size > 0u)
                     {
                         p1.second.buffer.resize(p1.second.size);
-                        ++num_streams;
                     }
                 }
             }
-            std::vector<cudaStream_t> streams(num_streams);
-            for (auto& x : streams) 
-                cudaStreamCreate(&x);
-            num_streams = 0;
             for (auto& p0 : map.send_memory)
             {
                 for (auto& p1: p0.second)
@@ -129,34 +123,82 @@ namespace gridtools {
                     if (p1.second.size > 0u)
                     {
                         for (const auto& fb : p1.second.field_buffers)
-                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)0);
                     }
                 }
             }
-            num_streams=0;
+            device::gpu::sync();
             for (auto& p0 : map.send_memory)
             {
                 for (auto& p1: p0.second)
                 {
                     if (p1.second.size > 0u)
                     {
-                        cudaStreamSynchronize(streams[num_streams]);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
                         send_futures.push_back(comm.isend(
                             p1.second.address,
                             p1.second.tag,
                             p1.second.buffer));
-                        ++num_streams;
                     }
                 }
             }
-            for (auto& x : streams) 
-                cudaStreamDestroy(x);
+
+           // std::size_t num_streams = 0;
+           // for (auto& p0 : map.send_memory)
+           // {
+           //     for (auto& p1: p0.second)
+           //     {
+           //         if (p1.second.size > 0u)
+           //         {
+           //             p1.second.buffer.resize(p1.second.size);
+           //             ++num_streams;
+           //         }
+           //     }
+           // }
+           // //std::vector<cudaStream_t> streams(num_streams);
+           // //for (auto& x : streams) 
+           // //    cudaStreamCreate(&x);
+           // num_streams = 0;
+           // for (auto& p0 : map.send_memory)
+           // {
+           //     for (auto& p1: p0.second)
+           //     {
+           //         if (p1.second.size > 0u)
+           //         {
+           //             for (const auto& fb : p1.second.field_buffers)
+           //                 //fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
+           //                 fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)0);
+           //         }
+           //     }
+           // }
+           // //for (auto& x : streams) 
+           // //    cudaStreamSynchronize(x);
+           // //for (auto& x : streams) 
+           // //    cudaStreamDestroy(x);
+           // device::gpu::sync();
+           // num_streams=0;
+           // for (auto& p0 : map.send_memory)
+           // {
+           //     for (auto& p1: p0.second)
+           //     {
+           //         if (p1.second.size > 0u)
+           //         {
+           //             //cudaStreamSynchronize(streams[num_streams]);
+           //             //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+           //             //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+           //             send_futures.push_back(comm.isend(
+           //                 p1.second.address,
+           //                 p1.second.tag,
+           //                 p1.second.buffer));
+           //             ++num_streams;
+           //         }
+           //     }
+           // }
+           // //for (auto& x : streams) 
+           // //    cudaStreamDestroy(x);
         }
     };
 #endif
-    
+ 
     /** @brief communication object responsible for exchanging halo data. Allocates storage depending on the 
      * device type and device id of involved fields.
      * @tparam P message protocol type
@@ -327,6 +369,7 @@ namespace gridtools {
         {
             detail::for_each(m_mem, [this,&comm](auto& m)
             {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
                 for (auto& p0 : m.recv_memory)
                 {
                     for (auto& p1: p0.second)
@@ -346,6 +389,8 @@ namespace gridtools {
                         }
                     }
                 }
+                device_type::sync();
+                device_type::check_error("error after posting receives");
             });
             detail::for_each(m_mem, [this,&comm](auto& m)
             {
@@ -370,6 +415,8 @@ namespace gridtools {
                         }
                     }
                 }*/
+                device_type::sync();
+                device_type::check_error("error after packing/sending receives");
             });
         }
 
@@ -395,8 +442,20 @@ namespace gridtools {
                     ++k;
                 }
             }
+
+            detail::for_each(m_mem, [this](auto& m)
+            {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                device_type::sync();
+            });
             for (auto& f : m_send_futures) f.wait();
             clear();
+            detail::for_each(m_mem, [this](auto& m)
+            {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                device_type::sync();
+                device_type::check_error("error after waiting receives");
+            });
         }
 
         // clear the internal flags so that a new exchange can be started
@@ -410,8 +469,8 @@ namespace gridtools {
             m_completed_hooks.resize(0);
             detail::for_each(m_mem, [this](auto& m)
             {
-                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
-                device_type::sync();
+                //using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                //device_type::sync();
                 for (auto& p0 : m.send_memory)
                     for (auto& p1 : p0.second)
                     {

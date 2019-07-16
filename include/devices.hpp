@@ -47,6 +47,9 @@ namespace gridtools {
             { 
                 static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
             }
+            static void check_error(const std::string& msg)
+            {
+            }
 
             /*template<typename T>
             static void* align(void* ptr, id_type index = default_id()) 
@@ -72,10 +75,20 @@ namespace gridtools {
                 T* m_data = nullptr;
                 std::size_t m_size = 0;
                 std::size_t m_capacity = 0;
+
                 const T* data() const { return m_data; }
                 T* data() { return m_data; }
                 std::size_t size() const { return m_size; }
                 std::size_t capacity() const { return m_capacity; }
+
+                vector_type_() = default;
+                vector_type_(const vector_type_&) = delete;
+                vector_type_(vector_type_&& other)
+                : m_data(other.m_data), m_size(other.m_size), m_capacity(other.m_capacity)
+                {
+                    other.m_size = 0u;
+                    other.m_capacity = 0u;
+                }
 
                 void resize(std::size_t new_size)
                 {
@@ -97,7 +110,10 @@ namespace gridtools {
                 {
                     if (m_capacity > 0u)
                     {
+                        int* ptr;
+                        cudaMalloc((void**)&ptr, 32*sizeof(int));
                         cudaFree(m_data);
+                        cudaFree(ptr);
                     }
                 }
 
@@ -123,6 +139,13 @@ namespace gridtools {
             { 
                 static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
                 cudaDeviceSynchronize();
+            }
+
+            static void check_error(const std::string& msg)
+            {
+                auto last_error = cudaPeekAtLastError();
+                if (last_error != cudaSuccess)
+                    throw std::runtime_error(msg);
             }
 
             /*template<typename T>
