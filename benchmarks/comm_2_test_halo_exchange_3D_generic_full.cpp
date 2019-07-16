@@ -40,7 +40,7 @@
 #include <boost/accumulators/statistics/variance.hpp>
 #include <boost/accumulators/statistics/max.hpp>
 #include <boost/accumulators/statistics/min.hpp>*/
-#include "../src/accumulator.hpp"
+#include "../include/accumulator.hpp"
 
 #include <gridtools/common/array.hpp>
 #ifdef __CUDACC__
@@ -123,8 +123,8 @@ namespace halo_exchange_3D_generic_full {
         triple_t<USE_DOUBLE, T2> *_b,
         triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, boost::mpi::communicator& world) 
     {
-        gridtools::device::gpu::sync();
-        gridtools::device::gpu::check_error("error at begin of run");
+        //gridtools::device::gpu::sync();
+        //gridtools::device::gpu::check_error("error at begin of run");
         file << "enter run" << std::endl;
         // mpi communicator
         //boost::mpi::communicator comm(CartComm,boost::mpi::comm_attach);
@@ -232,7 +232,7 @@ namespace halo_exchange_3D_generic_full {
         printbuff(file, c);
         file.flush();
 
-#ifdef __CUDACC__
+//#ifdef __CUDACC__
 
         if (use_gpu)
         {
@@ -241,6 +241,7 @@ namespace halo_exchange_3D_generic_full {
             triple_t<USE_DOUBLE, T3>::data_type *gpu_c = 0;
             file << "***** GPU ON *****\n";
 
+#ifdef __CUDACC__
             GT_CUDA_CHECK(cudaMalloc(&gpu_a,
                 (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
                     sizeof(triple_t<USE_DOUBLE, T1>::data_type)));
@@ -268,15 +269,27 @@ namespace halo_exchange_3D_generic_full {
                 (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
                     sizeof(triple_t<USE_DOUBLE, T3>::data_type),
                 cudaMemcpyHostToDevice));
+#else
+            gpu_a = new triple_t<USE_DOUBLE, T1>[(DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1)];
+            gpu_b = new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
+            gpu_c = new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
+
+            std::memcpy((void*)gpu_a, (const void*)a.data(), 
+                (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) * sizeof(triple_t<USE_DOUBLE, T1>::data_type));
+            std::memcpy((void*)gpu_b, (const void*)b.data(), 
+                (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) * sizeof(triple_t<USE_DOUBLE, T2>::data_type));
+            std::memcpy((void*)gpu_c, (const void*)c.data(), 
+                (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) * sizeof(triple_t<USE_DOUBLE, T3>::data_type));
+#endif
 
             // wrap raw fields
-            auto field1 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_a,
+            auto field1 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
                 std::array<int,3>{H1m1,H2m1,H3m1},
                 std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-            auto field2 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_b,
+            auto field2 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
                 std::array<int,3>{H1m2,H2m2,H3m2},
                 std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-            auto field3 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_c,
+            auto field3 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
                 std::array<int,3>{H1m3,H2m3,H3m3},
                 std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -395,8 +408,7 @@ namespace halo_exchange_3D_generic_full {
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.max()/1000.0
                 << std::endl;
 
-
-
+#ifdef __CUDACC__
             GT_CUDA_CHECK(cudaMemcpy(a.data(),
                 gpu_a,
                 (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
@@ -418,23 +430,36 @@ namespace halo_exchange_3D_generic_full {
             GT_CUDA_CHECK(cudaFree(gpu_a));
             GT_CUDA_CHECK(cudaFree(gpu_b));
             GT_CUDA_CHECK(cudaFree(gpu_c));
+#else
+            std::memcpy((void*)a.data(), (const void*)gpu_a, 
+                (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) * sizeof(triple_t<USE_DOUBLE, T1>::data_type));
+            std::memcpy((void*)b.data(), (const void*)gpu_b, 
+                (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) * sizeof(triple_t<USE_DOUBLE, T2>::data_type));
+            std::memcpy((void*)c.data(), (const void*)gpu_c, 
+                (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) * sizeof(triple_t<USE_DOUBLE, T3>::data_type));
+            
+            delete[] gpu_a;
+            delete[] gpu_b;
+            delete[] gpu_c;
+#endif
 
-            gridtools::device::gpu::sync();
-            gridtools::device::gpu::check_error("error before leaving");
+            world.barrier();
+            arch_type::sync();
+            arch_type::check_error("error before leaving");
             //cudaDeviceReset();
             //gridtools::device::gpu::check_error("error after reset");
 
         }
         else
         {
+//        auto field1 = a;
+//        auto field2 = b;
+//        auto field3 = c;
+//#else
         auto field1 = a;
         auto field2 = b;
         auto field3 = c;
-#else
-        auto field1 = a;
-        auto field2 = b;
-        auto field3 = c;
-#endif
+//#endif
 
         file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
         gridtools::accumulator time_acc_local_0;
@@ -550,9 +575,9 @@ namespace halo_exchange_3D_generic_full {
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.max()/1000.0
             << std::endl;
         //file << std::endl << std::endl;
-#ifdef __CUDACC__
+//#ifdef __CUDACC__
         }
-#endif
+//#endif
         
 
         file << "\n********************************************************************************\n";
@@ -784,7 +809,7 @@ namespace halo_exchange_3D_generic_full {
                 "_b, "
                 "_c)\n";
 
-        passed = run<std::ostream, 0, 1, 2, true, true, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -813,7 +838,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 0, 1, 2, true, true, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -835,7 +860,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -843,7 +867,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,1,2, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 0, 1, 2, true, false, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -865,7 +889,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -873,7 +896,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 0,1,2, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 0, 1, 2, true, false, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -895,7 +918,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -903,7 +925,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,1,2, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 0, 1, 2, false, true, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -925,7 +947,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -933,7 +954,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 0,1,2, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 0, 1, 2, false, true, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -955,7 +976,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -963,7 +983,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 0,1,2, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 0, 1, 2, false, false, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -985,7 +1005,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -993,7 +1012,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,1,2, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = run<std::ostream, 0, 1, 2, false, false, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1015,7 +1034,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1026,7 +1044,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,2,1, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 0, 2, 1, true, true, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1048,7 +1066,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1056,7 +1073,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,2,1, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 0, 2, 1, true, true, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1078,7 +1095,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1086,7 +1102,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,2,1, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 0, 2, 1, true, false, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1108,7 +1124,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1116,7 +1131,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 0,2,1, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 0, 2, 1, true, false, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1138,7 +1153,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1146,7 +1160,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,2,1, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 0, 2, 1, false, true, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1168,7 +1182,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1176,7 +1189,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 0,2,1, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 0, 2, 1, false, true, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1198,7 +1211,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1206,7 +1218,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 0,2,1, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 0, 2, 1, false, false, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1228,7 +1240,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1236,7 +1247,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,2,1, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = run<std::ostream, 0, 2, 1, false, false, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1258,7 +1269,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1269,7 +1279,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,0,2, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 0, 2, true, true, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1291,7 +1301,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1299,7 +1308,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,0,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 0, 2, true, true, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1321,7 +1330,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1329,7 +1337,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,0,2, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 0, 2, true, false, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1351,7 +1359,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1359,7 +1366,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 1,0,2, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 1, 0, 2, true, false, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1381,7 +1388,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1389,7 +1395,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,0,2, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 0, 2, false, true, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1411,7 +1417,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1419,7 +1424,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 1,0,2, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 1, 0, 2, false, true, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1441,7 +1446,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1449,7 +1453,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 1,0,2, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 1, 0, 2, false, false, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1471,7 +1475,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1479,7 +1482,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,0,2, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = run<std::ostream, 1, 0, 2, false, false, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1501,7 +1504,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1512,7 +1514,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,2,0, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 2, 0, true, true, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1541,7 +1543,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,2,0, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 2, 0, true, true, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1570,7 +1572,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,2,0, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 2, 0, true, false, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1599,7 +1601,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 1,2,0, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 1, 2, 0, true, false, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1628,7 +1630,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,2,0, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 1, 2, 0, false, true, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1657,7 +1659,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 1,2,0, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 1, 2, 0, false, true, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1686,7 +1688,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 1,2,0, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 1, 2, 0, false, false, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1715,7 +1717,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,2,0, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H31, "
                 "_a, "
                 "_b, _c)\n";
-        passed = run<std::ostream, 1, 2, 0, false, false, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1747,7 +1749,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,0,1, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 0, 1, true, true, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1776,7 +1778,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,0,1, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 0, 1, true, true, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1805,7 +1807,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,0,1, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 0, 1, true, false, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1834,7 +1836,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 2,0,1, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 2, 0, 1, true, false, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1863,7 +1865,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,0,1, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 0, 1, false, true, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1892,7 +1894,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 2,0,1, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 2, 0, 1, false, true, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1914,7 +1916,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1922,7 +1923,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 2,0,1, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 2, 0, 1, false, false, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1944,7 +1945,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1952,7 +1952,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,0,1, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = run<std::ostream, 2, 0, 1, false, false, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1974,7 +1974,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -1985,7 +1984,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,1,0, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 1, 0, true, true, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2007,7 +2006,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -2015,7 +2013,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,1,0, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 1, 0, true, true, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2037,7 +2035,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -2045,7 +2042,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,1,0, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 1, 0, true, false, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2067,7 +2064,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -2075,7 +2071,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 2,1,0, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 2, 1, 0, true, false, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2097,7 +2093,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -2105,7 +2100,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,1,0, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = run<std::ostream, 2, 1, 0, false, true, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2134,7 +2129,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 2,1,0, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 2, 1, 0, false, true, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2163,7 +2158,7 @@ namespace halo_exchange_3D_generic_full {
         file
             << "run<std::ostream, 2,1,0, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = run<std::ostream, 2, 1, 0, false, false, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2192,7 +2187,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,1,0, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = run<std::ostream, 2, 1, 0, false, false, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2214,7 +2209,6 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
                                 _c, use_gpu, world);
@@ -2339,9 +2333,9 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
 #endif
 
 #ifndef GHEX_1_PATTERN_BENCHMARK
-    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+    passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
 #endif
 #ifdef __CUDACC__
     }

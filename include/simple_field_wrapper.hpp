@@ -17,6 +17,9 @@
 #include <gridtools/common/array.hpp>
 #include "devices.hpp"
 
+
+#define NCTIS 128
+
 namespace gridtools {
 
     template <typename T, size_t D>
@@ -113,57 +116,9 @@ namespace gridtools {
             }
         };
     } // namespace detail
-
-    template<typename Device, typename Dimension, typename Layout>
-    struct serialization;
-
-    template<typename Dimension, typename Layout>
-    struct serialization<device::cpu, Dimension, Layout>
-    {
-        template<typename T, typename IndexContainer, typename Array>
-        GT_FUNCTION_HOST
-        static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, const Array& m_offsets, const Array&, void*)
-        {
-            for (const auto& is : c)
-            {
-                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
-                    [m_data,buffer](auto o_data, auto o_buffer)
-                    {
-                        buffer[o_buffer] = m_data[o_data]; 
-                    }, 
-                    is.local().first(), 
-                    is.local().last(),
-                    m_extents,
-                    m_offsets
-                    );
-                buffer += is.size();
-            }
-        }
-
-        template<typename T, typename IndexContainer, typename Array>
-        GT_FUNCTION_HOST
-        static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, const Array& m_offsets, const Array&, void*)
-        {
-            for (const auto& is : c)
-            {
-                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
-                    [m_data,buffer](auto o_data, auto o_buffer)
-                    {
-                        m_data[o_data] = buffer[o_buffer];
-                    }, 
-                    is.local().first(), 
-                    is.local().last(),
-                    m_extents,
-                    m_offsets
-                    );
-                buffer += is.size();
-            }
-        }
-    };
-
+    
 
 #ifdef __CUDACC__
-
     template<typename Layout, typename T, std::size_t D, typename I>
     __global__ void pack_kernel(int size, const T* data, T* buffer, 
                                 array<I,D> local_first, array<I,D> local_last, 
@@ -187,37 +142,6 @@ namespace gridtools {
             const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
             const auto idx2 = idx < mm ? idx : mm;
             buffer[index] = data[idx2];
-        }
-    }
-    template<typename Layout, typename T, std::size_t D, typename I>
-    void pack_kernel_emulate(int blockIdx,int blockDim, int threadIdx,
-            int size, const T* data, T* buffer, 
-                                array<I,D> local_first, array<I,D> local_last, 
-                                array<I,D> extents, array<I,D> offsets, array<I,D> strides)
-    {
-        const auto index = blockIdx*blockDim + threadIdx;
-        if (index < size)
-        {
-            // compute local strides
-            array<I,D> local_extents, local_strides;
-            for (std::size_t i=0; i<D; ++i)  
-                local_extents[i] = 1 + local_last[i] - local_first[i];
-            detail::compute_strides<D>::template apply<Layout>(local_extents, local_strides);
-            //std::cout << "index         = " << index << std::endl;
-            //std::cout << "local_extents = " << local_extents[0] << ", " << local_extents[1] << ", " << local_extents[2] << std::endl;
-            //std::cout << "local_strides = " << local_strides[0] << ", " << local_strides[1] << ", " << local_strides[2] << std::endl;
-            // compute local coordinate
-            array<I,D> local_coordinate;
-            detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
-            //std::cout << "local_coord   = " << local_coordinate[0] << ", " << local_coordinate[1] << ", " << local_coordinate[2] << std::endl;
-            // add offset
-            const auto memory_coordinate = local_coordinate + local_first + offsets;
-            //std::cout << "memory_coord  = " << memory_coordinate[0] << ", " << memory_coordinate[1] << ", " << memory_coordinate[2] << std::endl;
-            // multiply with memory strides
-            const auto idx = dot(memory_coordinate, strides);
-            const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
-            if (idx < 0 || idx > mm) std::cout << "access out of bounds!!! " << idx << std::endl;
-            //std::cout << "idx           = " << idx << std::endl;
         }
     }
 
@@ -246,7 +170,145 @@ namespace gridtools {
             data[idx2] = buffer[index];
         }
     }
-#define NCTIS 128
+#endif
+
+    template<typename Layout, typename T, std::size_t D, typename I>
+    void pack_kernel_emulate(int blockIdx,int blockDim, int threadIdx,
+            int size, const T* data, T* buffer, 
+                                array<I,D> local_first, array<I,D> local_last, 
+                                array<I,D> extents, array<I,D> offsets, array<I,D> strides)
+    {
+        const auto index = blockIdx*blockDim + threadIdx;
+        if (index < size)
+        {
+            // compute local strides
+            array<I,D> local_extents, local_strides;
+            for (std::size_t i=0; i<D; ++i)  
+                local_extents[i] = 1 + local_last[i] - local_first[i];
+            detail::compute_strides<D>::template apply<Layout>(local_extents, local_strides);
+            //std::cout << "index         = " << index << std::endl;
+            //std::cout << "local_extents = " << local_extents[0] << ", " << local_extents[1] << ", " << local_extents[2] << std::endl;
+            //std::cout << "local_strides = " << local_strides[0] << ", " << local_strides[1] << ", " << local_strides[2] << std::endl;
+            // compute local coordinate
+            array<I,D> local_coordinate;
+            detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
+            //std::cout << "local_coord   = " << local_coordinate[0] << ", " << local_coordinate[1] << ", " << local_coordinate[2] << std::endl;
+            // add offset
+            const auto memory_coordinate = local_coordinate + local_first + offsets;
+            //std::cout << "memory_coord  = " << memory_coordinate[0] << ", " << memory_coordinate[1] << ", " << memory_coordinate[2] << std::endl;
+            // multiply with memory strides
+            const auto idx = dot(memory_coordinate, strides);
+            const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
+            if (idx < 0 || idx > mm) std::cout << "access out of bounds!!! " << idx << std::endl;
+            buffer[index] = data[idx];
+            //std::cout << "idx           = " << idx << std::endl;
+        }
+    }
+
+    template<typename Layout, typename T, std::size_t D, typename I>
+    void unpack_kernel_emulate(int blockIdx,int blockDim, int threadIdx,
+            int size, T* data, const T* buffer, 
+                                array<I,D> local_first, array<I,D> local_last, 
+                                array<I,D> extents, array<I,D> offsets, array<I,D> strides)
+    {
+        const auto index = blockIdx*blockDim + threadIdx;
+        if (index < size)
+        {
+            // compute local strides
+            array<I,D> local_extents, local_strides;
+            for (std::size_t i=0; i<D; ++i)  
+                local_extents[i] = 1 + local_last[i] - local_first[i];
+            detail::compute_strides<D>::template apply<Layout>(local_extents, local_strides);
+            //std::cout << "index         = " << index << std::endl;
+            // compute local coordinate
+            array<I,D> local_coordinate;
+            detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
+            // add offset
+            const auto memory_coordinate = local_coordinate + local_first + offsets;
+            // multiply with memory strides
+            const auto idx = dot(memory_coordinate, strides);
+            const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
+            if (idx < 0 || idx > mm) std::cout << "access out of bounds!!! " << idx << std::endl;
+            //const auto idx2 = idx < mm ? idx : mm;
+            data[idx] = buffer[index];
+        }
+    }
+
+    template<typename Device, typename Dimension, typename Layout>
+    struct serialization;
+
+    template<typename Dimension, typename Layout>
+    struct serialization<device::cpu, Dimension, Layout>
+    {
+        template<typename T, typename IndexContainer, typename Array>
+        GT_FUNCTION_HOST
+        static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, const Array& m_offsets, const Array& m_strides, void*)
+        {
+            for (const auto& is : c)
+            {
+                Array local_first, local_last;
+                std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
+                std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
+                const int size = is.size();
+                for (int blockIdx=0; blockIdx<(size+NCTIS-1)/NCTIS; ++blockIdx)
+                    for (int threadIdx=0; threadIdx<NCTIS;++threadIdx)
+                        pack_kernel_emulate<Layout>(
+                            blockIdx, NCTIS, threadIdx, 
+                            size, m_data, buffer, 
+                            local_first, local_last, 
+                            m_extents, m_offsets, m_strides);
+                buffer += size;
+    
+                /*detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                    [m_data,buffer](auto o_data, auto o_buffer)
+                    {
+                        buffer[o_buffer] = m_data[o_data]; 
+                    }, 
+                    is.local().first(), 
+                    is.local().last(),
+                    m_extents,
+                    m_offsets
+                    );
+                buffer += is.size();*/
+            }
+        }
+
+        template<typename T, typename IndexContainer, typename Array>
+        GT_FUNCTION_HOST
+        static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, const Array& m_offsets, const Array& m_strides, void*)
+        {
+            for (const auto& is : c)
+            {
+                Array local_first, local_last;
+                std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
+                std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
+                const int size = is.size();
+                for (int blockIdx=0; blockIdx<(size+NCTIS-1)/NCTIS; ++blockIdx)
+                    for (int threadIdx=0; threadIdx<NCTIS;++threadIdx)
+                        unpack_kernel_emulate<Layout>(
+                            blockIdx, NCTIS, threadIdx, 
+                            size, m_data, buffer, 
+                            local_first, local_last, 
+                            m_extents, m_offsets, m_strides);
+                buffer += size;
+
+                /*detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                    [m_data,buffer](auto o_data, auto o_buffer)
+                    {
+                        m_data[o_data] = buffer[o_buffer];
+                    }, 
+                    is.local().first(), 
+                    is.local().last(),
+                    m_extents,
+                    m_offsets
+                    );
+                buffer += is.size();*/
+            }
+        }
+    };
+
+
+#ifdef __CUDACC__
     template<typename Dimension, typename Layout>
     struct serialization<device::gpu, Dimension, Layout>
     {
@@ -260,7 +322,7 @@ namespace gridtools {
                 Array local_first, local_last;
                 std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
                 std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
-                int size = is.size();
+                const int size = is.size();
                 for (int blockIdx=0; blockIdx<(size+NCTIS-1)/NCTIS; ++blockIdx)
                     for (int threadIdx=0; threadIdx<NCTIS;++threadIdx)
                         pack_kernel_emulate<Layout>(blockIdx,NCTIS,threadIdx,size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
@@ -281,7 +343,7 @@ namespace gridtools {
                 Array local_first, local_last;
                 std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
                 std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
-                int size = is.size();
+                const int size = is.size();
 
                 unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
                 buffer += size;
@@ -379,40 +441,12 @@ namespace gridtools {
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c, void* arg)
         {
-            /*for (const auto& is : c)
-            {
-                detail::for_loop_pointer_arithmetic<dimension::value,dimension::value,layout_map>::apply(
-                    [this,buffer](auto o_data, auto o_buffer)
-                    {
-                        buffer[o_buffer] = m_data[o_data]; 
-                    }, 
-                    is.local().first(), 
-                    is.local().last(),
-                    m_extents,
-                    m_offsets
-                    );
-                buffer += is.size();
-            }*/
             serialization<Device,dimension,layout_map>::pack(buffer, c, m_data, m_extents, m_offsets, m_strides, arg);
         }
 
         template<typename IndexContainer>
         void unpack(const T* buffer, const IndexContainer& c, void* arg)
         {
-            /*for (const auto& is : c)
-            {
-                detail::for_loop_pointer_arithmetic<dimension::value,dimension::value,layout_map>::apply(
-                    [this,buffer](auto o_data, auto o_buffer)
-                    {
-                        m_data[o_data] = buffer[o_buffer];
-                    }, 
-                    is.local().first(), 
-                    is.local().last(),
-                    m_extents,
-                    m_offsets
-                    );
-                buffer += is.size();
-            }*/
             serialization<Device,dimension,layout_map>::unpack(buffer, c, m_data, m_extents, m_offsets, m_strides, arg);
         }
     };

@@ -1,6 +1,6 @@
 
 
-#include "accumulator.hpp"
+#include "../include/accumulator.hpp"
 
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
