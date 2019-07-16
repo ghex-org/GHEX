@@ -2,7 +2,13 @@ cmake_minimum_required(VERSION 3.12.4)
 
 cmake_policy(SET CMP0048 NEW)
 
+set(USE_GPU "OFF" CACHE BOOL "use cuda")
+
+if(USE_GPU)
+    project(GHEX VERSION 0.1 LANGUAGES CXX CUDA)
+else()
 project(GHEX VERSION 0.1 LANGUAGES CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 14)
 
