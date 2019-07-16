@@ -9,3 +9,4 @@ foreach (_t ${_tests})
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
     )
 endforeach()
+

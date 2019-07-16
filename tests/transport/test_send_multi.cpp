@@ -1,57 +1,74 @@
-int rank;
-
 #include <transport_layer/mpi/communicator.hpp>
 #include <iostream>
 #include <iomanip>
 
+#include <gtest/gtest.h>
+#include "../gtest_main_boost.cpp"
 
 const int SIZE = 4000000;
-int main(int argc, char** argv) {
-    int p;
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &p);
+int mpi_rank;
 
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+TEST(transport, send_multi) {
+
+    {
+        int size;
+        MPI_Comm_size(MPI_COMM_WORLD, &size);
+        EXPECT_EQ(size, 4);
+    }
+
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     mpi::communicator comm;
 
-    if (rank == 0) {
+    if (mpi_rank == 0) {
 
 
         mpi::shared_message<> smsg{SIZE};
-        for (int i = 0; i < SIZE/sizeof(int); ++i) {
+        for (int i = 0; i < SIZE/(int)sizeof(int); ++i) {
             smsg.enqueue(i);
         }
 
         std::array<int, 3> dsts = {1,2,3};
 
         comm.send_multi(smsg, dsts, 42);
+
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+    int c = 0;
+#endif
+    while (comm.progress()) {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+        c++;
+#endif
+    }
+
+    EXPECT_EQ(smsg.use_count(), 1);
+
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+    std::cout  << "\n***********\n";
+    std::cout  <<   "*" << std::setw(8) << c << " *\n";
+    std::cout  << "***********\n";
+#endif
+
+
     } else {
         mpi::message<> rmsg{SIZE, SIZE};
         auto fut = comm.recv(rmsg, 0, 42);
         fut.wait();
 
         bool ok = true;
-        for (int i = 0; i < rmsg.size()/sizeof(int); ++i) {
-            //if (rank == 0) std::cout  << rmsg. template at<int>(i*sizeof(int)) << ", ";
+        for (int i = 0; i < (int)rmsg.size()/(int)sizeof(int); ++i) {
             if ( rmsg. template at<int>(i*sizeof(int)) != i )
                 ok = false;
         }
-        if (rank == 0) std::cout  << "\nResult: " << (ok?"PASSED\n":"FAILED\n");
 
+        EXPECT_TRUE(ok);
     }
 
 
-    if (rank==0) if (rank == 0) std::cout  << "Check completion\n";
-    int c = 0;
-    while (comm.progress()) { c++; };
-    if (rank == 0) {
-        if (rank == 0) std::cout  << "\n***********\n";
-        if (rank == 0) std::cout  <<   "*" << std::setw(8) << c << " *\n";
-        if (rank == 0) std::cout  << "***********\n";
-    }
-
-    if (rank==0) if (rank == 0) std::cout  << "Finished completion";
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+    EXPECT_FALSE(comm.progress());
 
 }

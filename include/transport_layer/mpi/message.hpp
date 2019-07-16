@@ -42,7 +42,6 @@ namespace mpi {
         {
             if (m_capacity > 0)
                 m_payload = m_alloc.allocate(m_capacity);
-            auto pp = m_payload;
         }
 
         /** Constructor that take capacity size and allocator.
@@ -75,7 +74,6 @@ namespace mpi {
         }
 
         ~message() {
-            auto pp = m_payload;
             if (m_payload) m_alloc.deallocate(m_payload, m_capacity);
             m_payload = nullptr;
         }

@@ -20,7 +20,7 @@
 GTEST_API_ int main(int argc, char **argv) {
 
     int provided;
-    int init_result = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
     // boost::mpi::environment env(argc, argv);
 
     // printf("Running main() from %s\n", __FILE__);

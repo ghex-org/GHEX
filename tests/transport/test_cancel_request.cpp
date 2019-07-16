@@ -1,29 +1,31 @@
-int rank;
-
 #include <transport_layer/mpi/communicator.hpp>
 #include <iostream>
 #include <iomanip>
 #include <functional>
 
-const int SIZE = 1<<22;
+
+#include <gtest/gtest.h>
+#include "../gtest_main_boost.cpp"
+
+int rank;
+const int SIZE = 1<<12;
 
 bool test_simple(mpi::communicator &comm, int rank) {
+
     if (rank == 0) {
-
-
         mpi::shared_message<> smsg{SIZE};
-        for (int i = 0; i < SIZE/sizeof(int); ++i) {
+        for (int i = 0; i < SIZE/static_cast<int>(sizeof(int)); ++i) {
             smsg.enqueue(i);
         }
 
         std::array<int, 3> dsts = {1,2,3};
 
-        comm.send_multi(smsg, dsts, 42+42);
+        comm.send_multi(smsg, dsts, 42+42); // ~wrong tag to then cancel the calls
         bool ok = comm.cancel_call_backs();
         return ok;
     } else {
         mpi::message<> rmsg{SIZE, SIZE};
-        auto fut = comm.recv(rmsg, 0, 42);
+        auto fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
 
         bool ok = fut.cancel();
         return ok;
@@ -56,7 +58,7 @@ bool test_send_10(mpi::communicator &comm, int rank) {
     if (rank == 0) {
         mpi::shared_message<> smsg{sizeof(int), sizeof(int)};
         for (int i = 0; i < 10; ++i) {
-            int v = i+666;
+            int v = i;
             smsg.at<int>(0) = v;
 
             std::array<int, 3> dsts = {1,2,3};
@@ -70,9 +72,9 @@ bool test_send_10(mpi::communicator &comm, int rank) {
 
         mpi::message<> rmsg{sizeof(int), sizeof(int)};
 
-        comm.recv(rmsg, 0, 42+666, call_back{value, comm, rmsg});
+        comm.recv(rmsg, 0, 42, call_back{value, comm, rmsg});
 
-        while (value < 9+666) {
+        while (value < 9) {
             comm.progress();
         }
 
@@ -84,21 +86,28 @@ bool test_send_10(mpi::communicator &comm, int rank) {
     return false;
 }
 
-#define TEST(x) std::cout << #x << ": " << std::boolalpha << x << "\n";
+TEST(transport, check_mpi_ranks_eq_4) {
+    int size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    EXPECT_EQ(size, 4);
+}
 
-int main(int argc, char** argv) {
-    int p;
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &p);
+TEST(transport, cancel_requests_reposting) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     mpi::communicator comm;
 
-    TEST(test_simple(comm, rank));
+    EXPECT_TRUE(test_send_10(comm, rank));
 
-    TEST(test_send_10(comm, rank));
+}
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+TEST(transport, cancel_requests_simple) {
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    mpi::communicator comm;
+
+    EXPECT_TRUE(test_simple(comm, rank));
 
 }

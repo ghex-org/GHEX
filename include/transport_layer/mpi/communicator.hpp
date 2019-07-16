@@ -95,7 +95,6 @@ namespace mpi {
         template <typename MsgType>
         my_dull_future send(MsgType const& msg, rank_type dst, tag_type tag) {
             MPI_Request req;
-            MPI_Status status;
             CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
             return req;
         }
@@ -115,7 +114,6 @@ namespace mpi {
         template <typename MsgType, typename CallBack>
         void send(MsgType const& msg, rank_type dst, tag_type tag, CallBack&& cb) {
             MPI_Request req;
-            MPI_Status status;
             CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
             m_call_backs.emplace(std::make_pair(req, std::make_tuple(std::forward<CallBack>(cb), dst, tag) ));
         }
@@ -176,10 +174,20 @@ namespace mpi {
             m_call_backs.emplace(std::make_pair(request, std::make_tuple(std::forward<CallBack>(cb), src, tag) ));
         }
 
+        /** Send a message (shared_message type) to a set of destinations listed in
+         * a container, with a same tag.
+         *
+         * @tparam Allc   Allocator of the dshared_message (deduced)
+         * @tparam Neighs Container with the neighbor IDs
+         *
+         * @param msg    The message to send (must be shared_message<Allc> type
+         * @param neighs Container of the IDs of the recipients
+         * @param tag    Tag of the message
+         */
         template <typename Allc, typename Neighs>
         void send_multi(shared_message<Allc>& msg, Neighs const& neighs, int tag) {
             for (auto id : neighs) {
-                auto keep_message = [msg] (int p, int t) {
+                auto keep_message = [msg] (int, int) {
                     /*if (rank == 0) std::cout  << "KM DST " << p << ", TAG " << t << " USE COUNT " << msg.use_count() << "\n";*/
                 };
                 send(msg, id, tag, std::move(keep_message));

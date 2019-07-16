@@ -72,3 +72,5 @@ set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/
 add_subdirectory(tests)
 
 add_subdirectory(benchmarks)
+
+add_subdirectory(tests/transport)

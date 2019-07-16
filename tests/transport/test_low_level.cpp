@@ -2,7 +2,14 @@
 #include <vector>
 #include <iomanip>
 
+#include <gtest/gtest.h>
+#include "../gtest_main_boost.cpp"
+
 int rank;
+
+/**
+ * Simple Send recv on two ranks. P0 sends a message, P1 receives it and check the content.
+ */
 
 void test1() {
     mpi::communicator sr;
@@ -12,23 +19,32 @@ void test1() {
 
     if ( rank == 0 ) {
         sr.send(smsg, 1, 1);
-    } else {
+    } else if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
+#endif
         do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
+#endif
          } while (fut.ready());
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
+#endif
 
+        int j = 1;
         for (auto i : rmsg) {
-            std::cout << static_cast<int>(i) << ", ";
+            EXPECT_EQ(static_cast<int>(i), j);
+            ++j;
         }
-        std::cout << "\ndone\n";
     }
+
+    EXPECT_FALSE(sr.progress());
 }
 
 void test2() {
@@ -42,27 +58,36 @@ void test2() {
     if ( rank == 0 ) {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
-    } else {
-        sr.recv(rmsg, 0, 1, [ &arrived](int src, int tag) {
-            std::cout << src << ", " << tag << "\n";
+    } else if (rank == 1) {
+        sr.recv(rmsg, 0, 1, [ &arrived](int /*src*/, int /* tag */) {
             arrived = true;
         });
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
+#endif
         do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
+#endif
             sr.progress();
          } while (!arrived);
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
+#endif
 
+        int j = 1;
         for (auto i : rmsg) {
-            std::cout << static_cast<int>(i) << ", ";
+            EXPECT_EQ(static_cast<int>(i), j);
+            ++j;
         }
-        std::cout << "\ndone\n";
     }
+
+    EXPECT_FALSE(sr.progress());
+
 }
 
 void test1_mesg() {
@@ -77,28 +102,31 @@ void test1_mesg() {
 
     if ( rank == 0 ) {
         sr.send(smsg, 1, 1);
-    } else {
+    } else if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
+#endif
         do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
+#endif
          } while (fut.ready());
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
+#endif
 
-        for (auto i : rmsg) {
-            std::cout << static_cast<int>(i) << ", ";
-        }
-        std::cout << "\nPrint as int:\n";
         for (int i = 0; i < 10; ++i) {
-            std::cout << rmsg.at<int>(i*sizeof(int)) << ", ";
+            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
         }
-
-        std::cout << "\ndone\n";
     }
+
+    EXPECT_FALSE(sr.progress());
+
 }
 
 void test2_mesg() {
@@ -116,34 +144,37 @@ void test2_mesg() {
     if ( rank == 0 ) {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
-    } else {
-        sr.recv(rmsg, 0, 1, [ &arrived](int src, int tag) {
-            std::cout << src << ", " << tag << "\n";
+    } else if (rank == 1) {
+        sr.recv(rmsg, 0, 1, [ &arrived](int /* src */, int /* tag */) {
             arrived = true;
         });
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
+#endif
         do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
+#endif
             sr.progress();
          } while (!arrived);
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
+#endif
 
-        for (auto i : rmsg) {
-            std::cout << static_cast<int>(i) << ", ";
-        }
-        std::cout << "\nPrint as int:\n";
         for (int i = 0; i < 10; ++i) {
-            std::cout << rmsg.at<int>(i*sizeof(int)) << ", ";
+            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
         }
-        std::cout << "\ndone\n";
     }
+
+    EXPECT_FALSE(sr.progress());
+
 }
 
-auto test1_shared_mesg() {
+void test1_shared_mesg() {
     mpi::communicator sr;
 
     mpi::shared_message<> smsg{10};
@@ -155,33 +186,33 @@ auto test1_shared_mesg() {
 
     if ( rank == 0 ) {
         sr.send(smsg, 1, 1);
-    } else {
+    } else if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
+#endif
         do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
+#endif
          } while (fut.ready());
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
+#endif
 
-        for (auto i : rmsg) {
-            std::cout << static_cast<int>(i) << ", ";
-        }
-        std::cout << "\nPrint as int:\n";
         for (int i = 0; i < 10; ++i) {
-            std::cout << rmsg.at<int>(i*sizeof(int)) << ", ";
+            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
         }
-
-        std::cout << "\ndone\n";
     }
 
-    return rmsg;
+    EXPECT_FALSE(sr.progress());
 }
 
-auto test2_shared_mesg() {
+void test2_shared_mesg() {
     mpi::communicator sr;
 
     mpi::shared_message<> smsg{10};
@@ -196,77 +227,84 @@ auto test2_shared_mesg() {
     if ( rank == 0 ) {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
-    } else {
+    } else if (rank == 1) {
         sr.recv(rmsg, 0, 1, [ &arrived](int src, int tag) {
             std::cout << src << ", " << tag << "\n";
             arrived = true;
         });
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
+#endif
         do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
+#endif
             sr.progress();
          } while (!arrived);
 
+#ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
-        for (auto i : rmsg) {
-            std::cout << static_cast<int>(i) << ", ";
-        }
-        std::cout << "\nPrint as int:\n";
+#endif
+
         for (int i = 0; i < 10; ++i) {
-            std::cout << rmsg.at<int>(i*sizeof(int)) << ", ";
+            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
         }
-        std::cout << "\ndone\n";
     }
 
-    return rmsg;
+    EXPECT_FALSE(sr.progress());
+
 }
 
 template <typename Msg>
 void print_msg(Msg const msg) {
     std::cout << "Reference count " << msg.use_count() << " (size: " << msg.size() << ")\n";
-    for (int i = 0; i < msg.size()/sizeof(int); ++i) {
+    for (int i = 0; i < (int)(msg.size()/sizeof(int)); ++i) {
         std::cout << msg. template at<int>(i*sizeof(int)) << ", ";
     }
     std::cout << "\n";
 }
 
-int main(int argc, char** argv) {
-    int p;
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &p);
+TEST(transport, basic) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     test1();
+}
 
-    MPI_Barrier(MPI_COMM_WORLD);
+TEST(transport, basic_call_back) {
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     test2();
+}
 
-    MPI_Barrier(MPI_COMM_WORLD);
+TEST(transport, basic_msg) {
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     test1_mesg();
+}
 
-    MPI_Barrier(MPI_COMM_WORLD);
+TEST(transport, basic_msg_call_back) {
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     test2_mesg();
+}
 
-    MPI_Barrier(MPI_COMM_WORLD);
+TEST(transport, basic_shared_msg) {
 
-    auto msg1 = test1_shared_mesg();
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    std::cout << "\nPrint as int from main:\n";
-    if (rank==1)
-        print_msg(msg1);
+    test1_shared_mesg();
+}
 
-    MPI_Barrier(MPI_COMM_WORLD);
+TEST(transport, basic_shared_message_call_back) {
 
-    auto msg2 = test2_shared_mesg();
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank==1)
-        print_msg(msg2);
-
-    MPI_Finalize();
+    test2_shared_mesg();
 }
