@@ -96,7 +96,7 @@ namespace gridtools {
              * @param vec source vector
              * @return completion handle
              */
-            template<typename T, template<typename, typename> typename Vector, typename... Args> 
+            template<typename T, template<typename, typename> /*typename*/class Vector, typename... Args> 
             future<void> isend(address_type dest, int tag, const Vector<T,Args...>& vec) const
             {
                 return {std::move(m_comm.isend(dest, tag, reinterpret_cast<const char*>(vec.data()), sizeof(T)*vec.size()))};
@@ -113,7 +113,7 @@ namespace gridtools {
              * @param a allocator instance
              * @return future with vector of data
              */
-            template<typename T, template<typename, typename> typename Vector = std::vector, typename Allocator = std::allocator<T>> 
+            template<typename T, template<typename, typename> /*typename*/class Vector = std::vector, typename Allocator = std::allocator<T>> 
             [[nodiscard]] future<Vector<T,Allocator>> irecv(address_type source, int tag, int n, const Allocator& a = Allocator()) const
             {
                 using vector_type = Vector<T,Allocator>;

@@ -25,11 +25,11 @@ namespace gridtools {
         struct transform;
 
         // transform a tuple of types into another tuple of types
-        template<template<typename...> typename Tuple, typename... Ts>
+        template<template<typename...> class Tuple, typename... Ts>
         struct transform<Tuple<Ts...>>
         {
             // by applying the compile-time transform CT
-            template<template<typename> typename CT>
+            template<template<typename> class CT>
             using with = Tuple<CT<Ts>...>;
         };
 
@@ -134,6 +134,8 @@ namespace gridtools {
                 {
                     if (p1.second.size > 0u)
                     {
+                        std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+                        << ", " << p1.second.buffer.size() << ")" << std::endl;
                         send_futures.push_back(comm.isend(
                             p1.second.address,
                             p1.second.tag,
@@ -376,8 +378,8 @@ namespace gridtools {
                     {
                         if (p1.second.size > 0u)
                         {
-                            //std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag 
-                            //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                            std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag 
+                            << ", " << p1.second.buffer.size() << ")" << std::endl;
                             p1.second.buffer.resize(p1.second.size);
                             m_recv_futures.push_back(comm.irecv(
                                 p1.second.address,
