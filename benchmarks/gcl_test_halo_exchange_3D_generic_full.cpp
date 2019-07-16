@@ -7,6 +7,9 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
+//#define GHEX_1_PATTERN_BENCHMARK
+
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI

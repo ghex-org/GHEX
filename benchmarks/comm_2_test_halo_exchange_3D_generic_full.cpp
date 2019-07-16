@@ -9,7 +9,7 @@
  * 
  */
 
-#define GHEX_1_PATTERN_BENCHMARK
+//#define GHEX_1_PATTERN_BENCHMARK
 
 #ifndef STANDALONE
     #include "gtest/gtest.h"
@@ -23,24 +23,14 @@
 #include <fstream>
 #include <iomanip>
 #include <chrono>
+#include <array>
 
 #include "../include/communication_object_2.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/structured_domain_descriptor.hpp"
 #include "../include/simple_field_wrapper.hpp"
-#include <array>
-
-#include "triplet.hpp"
-//#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
-
-/*#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-#include <boost/accumulators/statistics/mean.hpp>
-#include <boost/accumulators/statistics/moment.hpp>
-#include <boost/accumulators/statistics/variance.hpp>
-#include <boost/accumulators/statistics/max.hpp>
-#include <boost/accumulators/statistics/min.hpp>*/
 #include "../include/accumulator.hpp"
+#include "triplet.hpp"
 
 #include <gridtools/common/array.hpp>
 #ifdef __CUDACC__
@@ -2329,9 +2319,9 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
 #endif
 
 #ifndef GHEX_1_PATTERN_BENCHMARK
-    passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-    passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
 #endif
 #ifdef __CUDACC__
     }

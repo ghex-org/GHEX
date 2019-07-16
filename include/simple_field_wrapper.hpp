@@ -242,11 +242,11 @@ namespace gridtools {
     {
         template<typename T, typename IndexContainer, typename Array>
         GT_FUNCTION_HOST
-        static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, const Array& m_offsets, const Array& m_strides, void*)
+        static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, const Array& m_offsets, const Array& /*m_strides*/, void*)
         {
             for (const auto& is : c)
             {
-                Array local_first, local_last;
+                /*Array local_first, local_last;
                 std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
                 std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
                 const int size = is.size();
@@ -257,9 +257,8 @@ namespace gridtools {
                             size, m_data, buffer, 
                             local_first, local_last, 
                             m_extents, m_offsets, m_strides);
-                buffer += size;
-    
-                /*detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                buffer += size;*/
+                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
                     [m_data,buffer](auto o_data, auto o_buffer)
                     {
                         buffer[o_buffer] = m_data[o_data]; 
@@ -269,17 +268,17 @@ namespace gridtools {
                     m_extents,
                     m_offsets
                     );
-                buffer += is.size();*/
+                buffer += is.size();
             }
         }
 
         template<typename T, typename IndexContainer, typename Array>
         GT_FUNCTION_HOST
-        static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, const Array& m_offsets, const Array& m_strides, void*)
+        static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, const Array& m_offsets, const Array& /*m_strides*/, void*)
         {
             for (const auto& is : c)
             {
-                Array local_first, local_last;
+                /*Array local_first, local_last;
                 std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
                 std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
                 const int size = is.size();
@@ -290,9 +289,8 @@ namespace gridtools {
                             size, m_data, buffer, 
                             local_first, local_last, 
                             m_extents, m_offsets, m_strides);
-                buffer += size;
-
-                /*detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                buffer += size;*/
+                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
                     [m_data,buffer](auto o_data, auto o_buffer)
                     {
                         m_data[o_data] = buffer[o_buffer];
@@ -302,7 +300,7 @@ namespace gridtools {
                     m_extents,
                     m_offsets
                     );
-                buffer += is.size();*/
+                buffer += is.size();
             }
         }
     };
@@ -323,10 +321,10 @@ namespace gridtools {
                 std::copy(&is.local().first()[0], &is.local().first()[Dimension::value], local_first.data());
                 std::copy(&is.local().last()[0], &is.local().last()[Dimension::value], local_last.data());
                 const int size = is.size();
-                for (int blockIdx=0; blockIdx<(size+NCTIS-1)/NCTIS; ++blockIdx)
+                /*for (int blockIdx=0; blockIdx<(size+NCTIS-1)/NCTIS; ++blockIdx)
                     for (int threadIdx=0; threadIdx<NCTIS;++threadIdx)
                         pack_kernel_emulate<Layout>(blockIdx,NCTIS,threadIdx,size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
-                
+                */
                 //pack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS,0,*stream_ptr>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
                 pack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
                 buffer += size;
