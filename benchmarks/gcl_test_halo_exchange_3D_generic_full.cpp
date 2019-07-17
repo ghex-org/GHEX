@@ -9,8 +9,6 @@
  */
 #ifndef STANDALONE
     #include "gtest/gtest.h"
-//#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "../utils/gtest_main_bench.cpp"
 #endif
 #include <fstream>
 #include <gridtools/common/boollist.hpp>
@@ -2229,4 +2227,3 @@ TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
     EXPECT_TRUE(passed);
 }
 #endif
-
