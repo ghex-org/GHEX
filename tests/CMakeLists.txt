@@ -14,6 +14,7 @@ endforeach()
 add_executable(communication_object_2_serial communication_object_2.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
 target_include_directories(communication_object_2_serial PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(communication_object_2_serial MPI::MPI_CXX GridTools::gridtools Boost::mpi)
+target_compile_definitions(communication_object_2_serial PUBLIC GHEX_EMULATE_GPU) 
 add_test(
     NAME communication_object_2_serial
     COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} communication_object_2_serial ${MPIEXEC_POSTFLAGS}

@@ -96,6 +96,30 @@ namespace gridtools {
                 }
             }
         }
+
+        template<typename BufferMem>
+        static void unpack(BufferMem& m)
+        {
+            unsigned int completed = 0;
+            while(completed < m.m_recv_futures.size())
+            {
+                std::size_t k = 0;
+                for (auto& f : m.m_recv_futures)
+                {
+                    if (!m.m_completed_hooks[k])
+                    {
+                        if (f.test())
+                        {
+                            m.m_completed_hooks[k] = true;
+                            for (const auto& fb : *m.m_recv_hooks[k].second)
+                                fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
+                            if (++completed == m.m_recv_futures.size()) break;
+                        }
+                    }
+                    ++k;
+                }
+            }
+        }
     };
 
 #ifdef __CUDACC__
@@ -152,6 +176,38 @@ namespace gridtools {
             }
             for (auto& x : streams) 
                 cudaStreamDestroy(x);
+        }
+
+        template<typename BufferMem>
+        static void unpack(BufferMem& m)
+        {
+            std::vector<cudaStream_t> streams(m.recv_futures.size());
+            for (auto& x : streams) 
+                cudaStreamCreate(&x);
+            unsigned int completed = 0;
+            while(completed < m.m_recv_futures.size())
+            {
+                std::size_t k = 0;
+                for (auto& f : m.m_recv_futures)
+                {
+                    if (!m.m_completed_hooks[k])
+                    {
+                        if (f.test())
+                        {
+                            m.m_completed_hooks[k] = true;
+                            for (const auto& fb : *m.m_recv_hooks[k].second)
+                                fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k])); // (void*)0);
+                            if (++completed == m.m_recv_futures.size()) break;
+                        }
+                    }
+                    ++k;
+                }
+            }
+            for (auto& x : streams) 
+            {
+                cudaStreamSynchronize(x);
+                cudaStreamDestroy(x);
+            }
         }
     };
 #endif
@@ -230,6 +286,10 @@ namespace gridtools {
 
             send_memory_type send_memory;
             recv_memory_type recv_memory;
+
+            std::vector<typename communicator_type::template future<void>> m_recv_futures;
+            std::vector<std::pair<char*,std::vector<field_buffer<unpack_function_type>>*>> m_recv_hooks;
+            std::vector<bool> m_completed_hooks;
         };
         
         // tuple type of buffer_memory (one element for each device in device::device_list)
@@ -240,9 +300,9 @@ namespace gridtools {
         std::map<const typename pattern_type::pattern_container_type*, int> m_max_tag_map;
         memory_type m_mem;
         std::vector<typename communicator_type::template future<void>> m_send_futures;
-        std::vector<typename communicator_type::template future<void>> m_recv_futures;
-        std::vector<std::pair<char*,std::vector<field_buffer<unpack_function_type>>*>> m_recv_hooks;
-        std::vector<bool> m_completed_hooks;
+        //std::vector<typename communicator_type::template future<void>> m_recv_futures;
+        //std::vector<std::pair<char*,std::vector<field_buffer<unpack_function_type>>*>> m_recv_hooks;
+        //std::vector<bool> m_completed_hooks;
 
     public: // ctors
         /** @brief construct a communication object from a message tag map
@@ -335,13 +395,13 @@ namespace gridtools {
                             p1.second.buffer.resize(p1.second.size);
                             //std::cout << "rank " << comm.rank() << ": irecv(" << p1.second.address << ", " << p1.second.tag 
                             //<< ", " << p1.second.buffer.size() << ")" << std::endl;
-                            m_recv_futures.push_back(comm.irecv(
+                            m.m_recv_futures.push_back(comm.irecv(
                                 p1.second.address,
                                 p1.second.tag,
                                 p1.second.buffer.data(),
                                 p1.second.buffer.size()));
-                            m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_buffers))); 
-                            m_completed_hooks.push_back(false);
+                            m.m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_buffers))); 
+                            m.m_completed_hooks.push_back(false);
                         }
                     }
                 }
@@ -358,34 +418,39 @@ namespace gridtools {
         {
             if (!m_valid) return;
 
-            unsigned int completed = 0;
-            while(completed < m_recv_futures.size())
+            detail::for_each(m_mem, [this](auto& m)
             {
-                std::size_t k = 0;
-                for (auto& f : m_recv_futures)
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                packer<device_type>::unpack(m);
+                /*unsigned int completed = 0;
+                while(completed < m.m_recv_futures.size())
                 {
-                    if (!m_completed_hooks[k])
+                    std::size_t k = 0;
+                    for (auto& f : m.m_recv_futures)
                     {
-                        if (f.test())
+                        if (!m.m_completed_hooks[k])
                         {
-                            m_completed_hooks[k] = true;
-                            for (const auto& fb : *m_recv_hooks[k].second)
-                                fb.call_back(m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
-                            if (++completed == m_recv_futures.size()) break;
+                            if (f.test())
+                            {
+                                m.m_completed_hooks[k] = true;
+                                for (const auto& fb : *m.m_recv_hooks[k].second)
+                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
+                                if (++completed == m.m_recv_futures.size()) break;
+                            }
                         }
+                        ++k;
                     }
-                    ++k;
-                }
-            }
+                }*/
+            });
 
             for (auto& f : m_send_futures) f.wait();
 
-            detail::for_each(m_mem, [this](auto& m)
+            /*detail::for_each(m_mem, [this](auto& m)
             {
                 using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
                 device_type::sync();
                 device_type::check_error("error after waiting receives");
-            });
+            });*/
             clear();
         }
 
@@ -395,11 +460,14 @@ namespace gridtools {
         {
             m_valid = false;
             m_send_futures.clear();
-            m_recv_futures.clear();
-            m_recv_hooks.resize(0);
-            m_completed_hooks.resize(0);
+            //m_recv_futures.clear();
+            //m_recv_hooks.resize(0);
+            //m_completed_hooks.resize(0);
             detail::for_each(m_mem, [this](auto& m)
             {
+                m.m_recv_futures.clear();
+                m.m_recv_hooks.resize(0);
+                m.m_completed_hooks.resize(0);
                 for (auto& p0 : m.send_memory)
                     for (auto& p1 : p0.second)
                     {

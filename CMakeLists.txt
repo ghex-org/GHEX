@@ -21,7 +21,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 find_package(MPI REQUIRED)
-find_package(GridTools REQUIRED)
+find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
 find_package(Boost COMPONENTS mpi REQUIRED)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
@@ -36,7 +36,7 @@ target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
 
 enable_testing()
 
-set(GTEST_DIR ${GridTools_DIR}/_deps/googletest-src)
+set(GTEST_DIR ${GridTools_DIR}/_deps/googletest-src CACHE FILEPATH "Place where to find googletest installation")
 
 find_path(GTEST_INC_DIR
     "gtest/gtest.h"

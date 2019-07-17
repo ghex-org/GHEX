@@ -173,10 +173,9 @@ namespace gridtools {
 #endif
 
     template<typename Device, typename Dimension, typename Layout>
-    struct serialization;
-
-    template<typename Dimension, typename Layout>
-    struct serialization<device::cpu, Dimension, Layout>
+    struct serialization
+    //template<typename Dimension, typename Layout>
+    //struct serialization<device::cpu, Dimension, Layout>
     {
         template<typename T, typename IndexContainer, typename Array>
         GT_FUNCTION_HOST
@@ -251,7 +250,7 @@ namespace gridtools {
         GT_FUNCTION_HOST
         static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, const Array& m_offsets, const Array& m_strides, void* arg)
         {
-            //auto stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
+            auto stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
             for (const auto& is : c)
             {
                 Array local_first, local_last;
@@ -264,7 +263,9 @@ namespace gridtools {
                 const int size = is.size();
                 //unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(
                 //  size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
-                unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(
+                //unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(
+                //        size, m_data, buffer, local_first, local_strides, m_extents, m_offsets, m_strides);
+                unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS,0,*stream_ptr>>>(
                         size, m_data, buffer, local_first, local_strides, m_extents, m_offsets, m_strides);
                 buffer += size;
             }

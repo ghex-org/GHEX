@@ -144,7 +144,15 @@ namespace gridtools {
 
         using device_list = std::tuple<cpu,gpu>;
 #else
+#ifdef GHEX_EMULATE_GPU
+        struct gpu : public cpu
+        {
+        };
+
+        using device_list = std::tuple<cpu,gpu>;
+#else
         using device_list = std::tuple<cpu>;
+#endif
 #endif
 
     } // namespace device
