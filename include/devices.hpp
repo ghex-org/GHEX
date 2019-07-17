@@ -50,14 +50,6 @@ namespace gridtools {
             static void check_error(const std::string&)
             {
             }
-
-            /*template<typename T>
-            static void* align(void* ptr, id_type index = default_id()) 
-            {
-                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
-                std::size_t space = alignof(T);
-                return std::align(alignof(T), 1, ptr, space); 
-            }*/
         };
 
 #ifdef __CUDACC__
@@ -98,7 +90,7 @@ namespace gridtools {
                     }
                     else
                     {
-                        cudaFree(m_data);
+                        //cudaFree(m_data);
                         std::size_t new_capacity = std::max(new_size, (std::size_t)(m_capacity*1.6));
                         cudaMalloc((void**)&m_data, new_capacity*sizeof(T));
                         m_capacity = new_capacity;
@@ -110,10 +102,10 @@ namespace gridtools {
                 {
                     if (m_capacity > 0u)
                     {
-                        int* ptr;
-                        cudaMalloc((void**)&ptr, 32*sizeof(int));
-                        cudaFree(m_data);
-                        cudaFree(ptr);
+                        //int* ptr;
+                        //cudaMalloc((void**)&ptr, 32*sizeof(int));
+                        //cudaFree(m_data);
+                        //cudaFree(ptr);
                     }
                 }
 
@@ -147,14 +139,6 @@ namespace gridtools {
                 if (last_error != cudaSuccess)
                     throw std::runtime_error(msg);
             }
-
-            /*template<typename T>
-            static void* align(void* ptr, id_type index = default_id()) 
-            {
-                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
-                std::size_t space = alignof(T);
-                return std::align(alignof(T), 1, ptr, space); 
-            }*/
         };
 
         using device_list = std::tuple<cpu,gpu>;

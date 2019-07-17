@@ -2201,9 +2201,9 @@ int main(int argc, char **argv) {
 #else
 TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
 #ifndef GHEX_1_PATTERN_BENCHMARK
-    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+    bool passed = halo_exchange_3D_generic_full::test(98*2, 54*3, 87*2, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    bool passed = halo_exchange_3D_generic_full::test(98*2, 54*3, 87*2, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
 #endif
     EXPECT_TRUE(passed);
 }

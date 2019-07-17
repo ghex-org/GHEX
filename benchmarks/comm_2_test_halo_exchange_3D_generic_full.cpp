@@ -298,7 +298,6 @@ namespace halo_exchange_3D_generic_full {
                 gridtools::accumulator acc_global_0;
                 gridtools::accumulator acc_global_1;
                 gridtools::accumulator acc_global;
-                file << "  -- step " << k << std::endl; 
                 world.barrier();
                 const auto t0 = clock_type::now();
                 auto h = co.exchange(
@@ -434,10 +433,6 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
             world.barrier();
-            arch_type::sync();
-            arch_type::check_error("error before leaving");
-            //cudaDeviceReset();
-            //gridtools::device::gpu::check_error("error after reset");
 
         }
         else
@@ -461,7 +456,6 @@ namespace halo_exchange_3D_generic_full {
                 gridtools::accumulator acc_global_0;
                 gridtools::accumulator acc_global_1;
                 gridtools::accumulator acc_global;
-                file << "  -- step " << k << std::endl; 
                 world.barrier();
                 const auto t0 = clock_type::now();
                 auto h = co.exchange(
@@ -2289,9 +2283,9 @@ int main(int argc, char **argv)
 TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     bool passed = true;
 
-    const int Nx = 98;
-    const int Ny = 54;
-    const int Nz = 87;
+    const int Nx = 98*2;
+    const int Ny = 54*3;
+    const int Nz = 87*2;
     //const int Nx = 40;
     //const int Ny = 41;
     //const int Nz = 42;
