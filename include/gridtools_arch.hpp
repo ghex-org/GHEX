@@ -9,7 +9,6 @@
  */
 #ifndef INCLUDED_GRIDTOOLS_ARCH_HPP
 #define INCLUDED_GRIDTOOLS_ARCH_HPP
-//#pragma once
 
 namespace gridtools {
 
@@ -20,8 +19,4 @@ namespace gridtools {
 }
 
 #endif /* INCLUDED_GRIDTOOLS_ARCH_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 

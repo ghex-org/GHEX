@@ -17,8 +17,8 @@
 #include <vector>
 #include <algorithm>
 
-#include "utils.hpp"
-#include "structured_grid.hpp"
+#include "./utils.hpp"
+#include "./structured_grid.hpp"
 
 namespace gridtools {
 
@@ -96,28 +96,14 @@ namespace gridtools {
         };
 
     public: // ctors
-        
-        /*template<typename GlobalDomain>
-        structured_halo_generator(const GlobalDomain& gd, std::initializer_list<int> halos,std::initializer_list<bool> periodic)
-        : structured_halo_generator(gd.first(), gd.last(), halos, periodic)
-        {}*/
-
         /** @brief construct a halo generator
          * @tparam Array coordinate-like type
+         * @tparam RangeHalos range type holding halos
+         * @tparam RangePeriodic range type holding periodicity info
          * @param g_first first global coordinate of total domain (used for periodicity)
          * @param g_last last global coordinate of total domain (including, used for periodicity)
          * @param halos list of halo sizes (dim0_dir-, dim0_dir+, dim1_dir-, dim1_dir+, ...)
          * @param periodic list of bools indicating periodicity per dimension (true, true, false, ...) */
-        /*template<typename Array>
-        structured_halo_generator(const Array& g_first, const Array& g_last, std::initializer_list<int> halos,std::initializer_list<bool> periodic)
-        {
-            std::copy(g_first.begin(), g_first.end(), m_first.begin());
-            std::copy(g_last.begin(), g_last.end(), m_last.begin());
-            m_halos.fill(0);
-            m_periodic.fill(true);
-            std::copy(halos.begin(), halos.end(), m_halos.begin());
-            std::copy(periodic.begin(), periodic.end(), m_periodic.begin());
-        }*/
         template<typename Array, typename RangeHalos, typename RangePeriodic>
         structured_halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic)
         {
@@ -198,7 +184,6 @@ namespace gridtools {
         }
 
     private: // member functions
-        
         template<typename Box, typename Spaces>
         std::vector<Box> compute_spaces(const Spaces& spaces) const
         {
@@ -248,8 +233,4 @@ namespace gridtools {
 } // namespac gridtools
 
 #endif /* INCLUDED_STRUCTURED_DOMAIN_DESCRIPTOR_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 

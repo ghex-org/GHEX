@@ -11,7 +11,7 @@
 #ifndef INCLUDED_STRUCTURED_GRID_HPP
 #define INCLUDED_STRUCTURED_GRID_HPP
 
-#include "coordinate.hpp"
+#include "./coordinate.hpp"
 
 namespace gridtools {
 
@@ -38,8 +38,4 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_STRUCTURED_GRID_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 

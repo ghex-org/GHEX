@@ -13,15 +13,26 @@
 #include <fstream>
 #include <mpi.h>
 #include "gtest/gtest.h"
-#include "gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp"
-//#include <boost/mpi/environment.hpp>
+//#include "mpi_listener.hpp"
+#include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
+
+#ifndef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
+#include <boost/mpi/environment.hpp>
+#endif
 
 
 GTEST_API_ int main(int argc, char **argv) {
-
+#ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
+    int required = MPI_THREAD_MULTIPLE;
     int provided;
-    int init_result = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
-    // boost::mpi::environment env(argc, argv);
+    int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
+    if (init_result == MPI_ERR_OTHER)
+        throw std::runtime_error("MPI init failed");
+    if (provided < required)
+        throw std::runtime_error("MPI does not support required threading level");
+#else
+    boost::mpi::environment env(argc, argv);
+#endif
 
     // printf("Running main() from %s\n", __FILE__);
     testing::InitGoogleTest(&argc, argv);
@@ -31,7 +42,7 @@ GTEST_API_ int main(int argc, char **argv) {
     // first delete the original printer
     delete listeners.Release(listeners.default_result_printer());
     // now add our custom printer
-    listeners.Append(new mpi_listener("results_global_communication"));
+    listeners.Append(new mpi_listener("results_benchmarks"));
 
     // record the local return value for tests run on this mpi rank
     //      0 : success
@@ -45,7 +56,9 @@ GTEST_API_ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
+#ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
     MPI_Finalize();
+#endif
 
     return global_result;
 
