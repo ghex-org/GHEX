@@ -16,7 +16,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 find_package(MPI REQUIRED)
-find_package(GridTools REQUIRED)
+find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
 #find_package(Boost REQUIRED)
 find_package(Boost COMPONENTS mpi REQUIRED)
 
@@ -44,33 +44,35 @@ target_link_libraries(pattern ${exe_LIBS} GridTools::gridtools GridTools::gcl Bo
 
 enable_testing()
 
-set(GTEST_DIR ${GridTools_DIR}/_deps/googletest-src)
+set(GHEX_GTEST_DIR ${GridTools_DIR}/_deps/googletest-src CACHE FILEPATH "Place where to find googletest installation")
 
 find_path(GTEST_INC_DIR
     "gtest/gtest.h"
     HINTS
-    ${GTEST_DIR}/include
-    ${GTEST_DIR}/googletest/include)
+    ${GHEX_GTEST_DIR}/include
+    ${GHEX_GTEST_DIR}/googletest/include)
 if(NOT GTEST_INC_DIR)
-    message(FATAL_ERROR "Couldn't find gtest/gtest.h under folder GTEST_DIR = " ${GTEST_DIR})
+    message(FATAL_ERROR "Couldn't find gtest/gtest.h under folder GHEX_GTEST_DIR = " ${GHEX_GTEST_DIR})
 endif()
 
 find_path(GTEST_SOURCE_DIR
     gtest-all.cc
     HINTS
-    ${GTEST_DIR}/src
-    ${GTEST_DIR}/googletest/src
+    ${GHEX_GTEST_DIR}/src
+    ${GHEX_GTEST_DIR}/googletest/src
 )
 if(NOT GTEST_SOURCE_DIR)
-    message(FATAL_ERROR "Couldn't find gtest-all.cc under folder GTEST_DIR = " ${GTEST_DIR})
+    message(FATAL_ERROR "Couldn't find gtest-all.cc under folder GHEX_TEST_DIR = " ${GHEX_GTEST_DIR})
 endif()
 
 set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
 # set(GTEST_MAIN_SOURCES ${GTEST_SOURCE_DIR}/gtest_main.cc)
 set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
+add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+target_include_directories(gtest_main_mt PRIVATE ${GTEST_INCLUDE_DIRS})
+
 add_subdirectory(tests)
 
 add_subdirectory(benchmarks)
 
-add_subdirectory(tests/transport)
