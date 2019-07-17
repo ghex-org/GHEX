@@ -15,6 +15,8 @@
 #include "./buffer_info.hpp"
 #include "./devices.hpp"
 #include "./protocol/communicator_base.hpp"
+#include <thread>
+#include <future>
 
 namespace gridtools {
 
@@ -100,7 +102,35 @@ namespace gridtools {
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
-            unsigned int completed = 0;
+            auto policy = std::launch::async;
+            std::vector<std::future<void>> futures(m.m_recv_futures.size());
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            for (std::size_t i = 0; i < index_list.size(); ++i)
+                index_list[i] = i;
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        futures[k] = std::async(
+                            policy,
+                            [k](BufferMem& m){
+                                for (const auto& fb : *m.m_recv_hooks[k].second)
+                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
+                            }, 
+                            std::ref(m));
+                    }
+                }
+            }
+            for (auto& f: futures)
+                f.get();
+
+            /*unsigned int completed = 0;
             while(completed < m.m_recv_futures.size())
             {
                 std::size_t k = 0;
@@ -118,7 +148,7 @@ namespace gridtools {
                     }
                     ++k;
                 }
-            }
+            }*/
         }
     };
 
@@ -181,10 +211,39 @@ namespace gridtools {
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
+            auto policy = std::launch::async;
+            std::vector<std::future<void>> futures(m.m_recv_futures.size());
             std::vector<cudaStream_t> streams(m.m_recv_futures.size());
-            for (auto& x : streams) 
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            std::size_t i = 0;
+            for (auto& x : streams)
+            {
                 cudaStreamCreate(&x);
-            unsigned int completed = 0;
+                index_list[i] = i;
+                ++i;
+            }
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        futures[k] = std::async(
+                            policy,
+                            [k](BufferMem& m, cudaStream_t& s){
+                                for (const auto& fb : *m.m_recv_hooks[k].second)
+                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); // (void*)0);
+                            }, 
+                            std::ref(m), std::ref(streams[k]));
+                    }
+                }
+            }
+
+            /*unsigned int completed = 0;
             while(completed < m.m_recv_futures.size())
             {
                 std::size_t k = 0;
@@ -195,16 +254,23 @@ namespace gridtools {
                         if (f.test())
                         {
                             m.m_completed_hooks[k] = true;
+
+                            futures[k] = std::async(
+                                policy,
+                                [k](BufferMem& m, cudaStream_t& s){
                             for (const auto& fb : *m.m_recv_hooks[k].second)
-                                fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k])); // (void*)0);
+                                fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); // (void*)0);
+                                }, std::ref(m), std::ref(streams[k]));
                             if (++completed == m.m_recv_futures.size()) break;
                         }
                     }
                     ++k;
                 }
-            }
+            }*/
+            int k = 0;
             for (auto& x : streams) 
             {
+                futures[k++].get();
                 cudaStreamSynchronize(x);
                 cudaStreamDestroy(x);
             }
