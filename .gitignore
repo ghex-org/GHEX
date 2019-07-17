@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+# Temporaries
+*.swp
+*.swo
+*~
+
+CMakeCache.txt
+CMakeFiles
+.vscode
+build
