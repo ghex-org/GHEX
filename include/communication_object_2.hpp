@@ -25,11 +25,11 @@ namespace gridtools {
         struct transform;
 
         // transform a tuple of types into another tuple of types
-        template<template<typename...> typename Tuple, typename... Ts>
+        template<template<typename...> class Tuple, typename... Ts>
         struct transform<Tuple<Ts...>>
         {
             // by applying the compile-time transform CT
-            template<template<typename> typename CT>
+            template<template<typename> class CT>
             using with = Tuple<CT<Ts>...>;
         };
 

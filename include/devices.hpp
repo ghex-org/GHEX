@@ -39,14 +39,14 @@ namespace gridtools {
             template<typename T>
             static vector_type<T> make_vector(id_type index = default_id()) 
             { 
-                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
+                static_assert(std::is_same<decltype(index),id_type>::value, "trick to prevent warnings"); // trick to prevent warnings
                 return vector_type<T>{aligned_allocator_type<T>()}; 
             }
 
             template<typename T>
             static void* align(void* ptr, id_type index = default_id()) 
             {
-                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
+                static_assert(std::is_same<decltype(index),id_type>::value, "trick to prevent warnings"); // trick to prevent warnings
                 std::size_t space = alignof(T);
                 return std::align(alignof(T), 1, ptr, space); 
             }
@@ -77,14 +77,14 @@ namespace gridtools {
             template<typename T>
             static vector_type<T> make_vector(id_type index = default_id()) 
             { 
-                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
+                static_assert(std::is_same<decltype(index),id_type>::value, "trick to prevent warnings"); // trick to prevent warnings
                 return vector_type<T>{aligned_allocator_type<T>()}; 
             }
 
             template<typename T>
             static void* align(void* ptr, id_type index = default_id()) 
             {
-                static_assert(std::is_same<decltype(index),id_type>::value); // trick to prevent warnings
+                static_assert(std::is_same<decltype(index),id_type>::value, "trick to prevent warnings"); // trick to prevent warnings
                 std::size_t space = alignof(T);
                 return std::align(alignof(T), 1, ptr, space); 
             }

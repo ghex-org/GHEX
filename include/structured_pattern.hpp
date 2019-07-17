@@ -63,6 +63,20 @@ namespace gridtools {
             coordinate_type _min; 
             coordinate_type _max;
 
+        public: // ctors
+            iteration_space() noexcept = default;
+            template<typename A, typename B>
+            iteration_space(A&& a, B&& b)
+            : _min(std::forward<A>(a)), _max(std::forward<B>(b))
+            {
+                if (!(a<=b)) throw std::runtime_error("iteration_space: first coordinate needs to be smaller or equal to the last coordinate");
+            }
+            iteration_space(const iteration_space&) = default;
+            iteration_space(iteration_space&&) = default;
+
+            iteration_space& operator=(const iteration_space& other) noexcept = default;
+            iteration_space& operator=(iteration_space&& other) noexcept = default;
+
         public: // print
             template< class CharT, class Traits>
             friend std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& os, const iteration_space& is)
