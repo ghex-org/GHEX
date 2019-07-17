@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 
 #define GHEX_1_PATTERN_BENCHMARK
@@ -14,7 +14,7 @@
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main_boost.cpp"
+    #include "../utils/gtest_main_bench.cpp"
 #endif
 #include <boost/mpi/communicator.hpp>
 #include <boost/mpi/collectives.hpp>
@@ -30,7 +30,7 @@
 #include "../include/simple_field_wrapper.hpp"
 #include <array>
 
-#include "triplet.hpp"
+#include "../utils/triplet.hpp"
 #include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
 
 #include <boost/accumulators/accumulators.hpp>
@@ -72,7 +72,7 @@ namespace halo_exchange_3D_generic_full {
 #else
     using arch_type = gridtools::device::cpu;
 #endif
-    
+
     template<typename T, typename Device, typename DomainDescriptor, int... Order>
     void printbuff(std::ostream& file, const gridtools::simple_field_wrapper<T,Device,DomainDescriptor, Order...>& field)
     {
@@ -118,12 +118,12 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c) 
+        triple_t<USE_DOUBLE, T3> *_c)
     {
         // mpi communicator
         //boost::mpi::communicator comm(CartComm,boost::mpi::comm_attach);
         boost::mpi::communicator world;
-        
+
         // compute total domain
         const std::array<int,3> g_first{             0,              0,              0};
         const std::array<int,3> g_last {dims[0]*DIM1-1, dims[1]*DIM2-1, dims[2]*DIM3-1};
@@ -144,7 +144,7 @@ namespace halo_exchange_3D_generic_full {
             std::array<int,3>{coords[0]*DIM1,coords[1]*DIM2,coords[2]*DIM3},
             std::array<int,3>{(coords[0]+1)*DIM1-1,(coords[1]+1)*DIM2-1,(coords[2]+1)*DIM3-1}};
         std::vector<domain_descriptor_type> local_domains{local_domain};
-        
+
         // wrap raw fields
         auto a = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
             std::array<int,3>{H1m1,H2m1,H3m1},
@@ -169,7 +169,7 @@ namespace halo_exchange_3D_generic_full {
         auto pattern_2 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_2, local_domains);
         auto pattern_3 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_3, local_domains);
 #endif
-        
+
         // communication object
 #ifndef GHEX_1_PATTERN_BENCHMARK
         auto co = gridtools::make_communication_object(pattern_1, pattern_2, pattern_3);
@@ -198,19 +198,19 @@ namespace halo_exchange_3D_generic_full {
 
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     a(ii, jj, kk) = triple_t<USE_DOUBLE, T1>(
                         ii + (DIM1)*coords[0], jj + (DIM2)*coords[1], kk + (DIM3)*coords[2]);
 
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     b(ii, jj, kk) = triple_t<USE_DOUBLE, T2>(
                         ii + (DIM1)*coords[0] + B_ADD, jj + (DIM2)*coords[1] + B_ADD, kk + (DIM3)*coords[2] + B_ADD);
-        
+
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     c(ii, jj, kk) = triple_t<USE_DOUBLE, T3>(
                         ii + (DIM1)*coords[0] + C_ADD, jj + (DIM2)*coords[1] + C_ADD, kk + (DIM3)*coords[2] + C_ADD);
 
@@ -308,11 +308,11 @@ namespace halo_exchange_3D_generic_full {
             const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
 
             std::vector<typename microseconds::rep> tmp_0;
-            boost::mpi::all_gather(world, d0, tmp_0); 
+            boost::mpi::all_gather(world, d0, tmp_0);
             std::vector<typename microseconds::rep> tmp_1;
-            boost::mpi::all_gather(world, d1, tmp_1); 
+            boost::mpi::all_gather(world, d1, tmp_1);
             std::vector<typename microseconds::rep> tmp;
-            boost::mpi::all_gather(world, d01, tmp); 
+            boost::mpi::all_gather(world, d01, tmp);
             for (unsigned int i=0; i<tmp_0.size(); ++i)
             {
                 acc_global_0(tmp_0[i]);
@@ -345,25 +345,25 @@ namespace halo_exchange_3D_generic_full {
             const auto global_1_min     = min(acc_global_1);
             const auto global_min       = min(acc_global);
 
-            file << "TIME PACK/POST:   " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d0/1000.0 
+            file << "TIME PACK/POST:   "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d0/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_mean/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_0_std_dev/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_min/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_max/1000.0
                 << std::endl;
-            file << "TIME WAIT/UNPACK: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_mean/1000.0 
+            file << "TIME WAIT/UNPACK: "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_mean/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_1_std_dev/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_min/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_max/1000.0
                 << std::endl;
-            file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_mean/1000.0 
+            file << "TIME ALL:         "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_mean/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_std_dev/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_min/1000.0
@@ -373,24 +373,24 @@ namespace halo_exchange_3D_generic_full {
         }
 
         file << std::endl << "-----------------" << std::endl;
-        file << "TIME PACK/POST:   " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_0)/1000.0 
+        file << "TIME PACK/POST:   "
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_0)/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_0)/1000.0
             << " ±"
             << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_0))/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_0)/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_0)/1000.0
             << std::endl;
-        file << "TIME WAIT/UNPACK: " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_1)/1000.0 
+        file << "TIME WAIT/UNPACK: "
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_1)/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_1)/1000.0
             << " ±"
             << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_1))/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_1)/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_1)/1000.0
             << std::endl;
-        file << "TIME ALL:         " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local)/1000.0 
+        file << "TIME ALL:         "
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local)/1000.0
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global)/1000.0
             << " ±"
             << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global))/1000.0
@@ -398,7 +398,7 @@ namespace halo_exchange_3D_generic_full {
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global)/1000.0
             << std::endl;
         //file << std::endl << std::endl;
-        
+
 #ifdef __CUDACC__
         GT_CUDA_CHECK(cudaMemcpy(a.data(),
             gpu_a,
@@ -565,7 +565,7 @@ namespace halo_exchange_3D_generic_full {
 
         return passed;
     }
-    
+
     bool test(
         int DIM1,
         int DIM2,
@@ -587,11 +587,11 @@ namespace halo_exchange_3D_generic_full {
         int H2m3,
         int H2p3,
         int H3m3,
-        int H3p3) 
+        int H3p3)
     {
         boost::mpi::communicator world;
         //std::cout << world.rank() << " " << world.size() << "\n";
-        
+
         std::stringstream ss;
         ss << world.rank();
         std::string filename = "comm_2_out" + ss.str() + ".txt";
@@ -599,7 +599,7 @@ namespace halo_exchange_3D_generic_full {
         std::ofstream file(filename.c_str());
 
         file << world.rank() << "  " << world.size() << "\n";
-        
+
         MPI_Dims_create(world.size(), 3, dims);
         int period[3] = {1, 1, 1};
 
@@ -643,7 +643,7 @@ namespace halo_exchange_3D_generic_full {
             new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
         triple_t<USE_DOUBLE, T3> *_c =
             new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
-        
+
         bool passed = true;
 
         file << "Permutation 0,1,2\n";
@@ -2087,8 +2087,8 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c);
         file << "---------------------------------------------------\n";
-        
-        
+
+
         delete[] _a;
         delete[] _b;
         delete[] _c;
@@ -2099,7 +2099,7 @@ namespace halo_exchange_3D_generic_full {
 } // namespace halo_exchange_3D_generic_full
 
 #ifdef STANDALONE
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
 #ifdef GT_USE_GPU
     device_binding();

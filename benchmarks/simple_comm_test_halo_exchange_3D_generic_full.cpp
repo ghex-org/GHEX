@@ -31,7 +31,7 @@
 #include "../include/pattern.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/structured_domain_descriptor.hpp"
-#include "triplet.hpp"
+#include "../utils/triplet.hpp"
 #include "../include/utils.hpp"
 
 

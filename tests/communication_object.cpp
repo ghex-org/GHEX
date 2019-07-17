@@ -9,7 +9,6 @@
  */
 
 #include <gtest/gtest.h>
-#include "gtest_main.cpp"
 #include <vector>
 #include <array>
 #include <utility>
@@ -23,7 +22,7 @@
 #include "../include/pattern.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/structured_domain_descriptor.hpp"
-#include "triplet.hpp"
+#include "../utils/triplet.hpp"
 #include "../include/utils.hpp"
 
 

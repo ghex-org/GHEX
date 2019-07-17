@@ -22,7 +22,6 @@
 
 #ifndef STANDALONE
 #include <gtest/gtest.h>
-#include "gtest_main.cpp"
 #endif
 
 template<typename T, long unsigned N>
