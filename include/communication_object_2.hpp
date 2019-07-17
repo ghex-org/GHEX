@@ -181,7 +181,7 @@ namespace gridtools {
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
-            std::vector<cudaStream_t> streams(m.recv_futures.size());
+            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
             for (auto& x : streams) 
                 cudaStreamCreate(&x);
             unsigned int completed = 0;
