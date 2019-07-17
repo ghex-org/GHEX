@@ -1,21 +1,14 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 //#define STANDALONE
-
-//#define SERIAL_SPLIT
-//#define MULTI_THREADED_EXCHANGE
-//#define MULTI_THREADED_EXCHANGE_THREADS
-//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
-//#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
-//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
 #include "../include/simple_field_wrapper.hpp"
 #include "../include/structured_pattern.hpp"
@@ -49,13 +42,13 @@ using field_descriptor_type  = gridtools::simple_field_wrapper<T,Device,domain_d
 
 template<typename T, typename Domain, typename Field>
 void fill_values(const Domain& d, Field& f)
-{ 
+{
     int xl = 0;
     for (int x=d.first()[0]; x<=d.last()[0]; ++x, ++xl)
-    { 
+    {
         int yl = 0;
         for (int y=d.first()[1]; y<=d.last()[1]; ++y, ++yl)
-        { 
+        {
             int zl = 0;
             for (int z=d.first()[2]; z<=d.last()[2]; ++z, ++zl)
             {
@@ -66,7 +59,7 @@ void fill_values(const Domain& d, Field& f)
 }
 
 template<typename T, typename Domain, typename Halos, typename Periodic, typename Global, typename Field, typename Communicator>
-bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, const Global& g_first, const Global& g_last, 
+bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, const Global& g_first, const Global& g_last,
         const Field& f, Communicator& comm)
 {
     bool passed = true;
@@ -76,12 +69,12 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
     int hxl = halos[0];
     int hxr = halos[1];
     // hack begin: make it work with 1 rank (works with even number of ranks otherwise)
-    if (i==0 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size()) 
+    if (i==0 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
     {
         xl = 0;
         hxl = 0;
     }
-    if (i==1 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size()) 
+    if (i==1 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
     {
         hxr = 0;
     }
@@ -93,7 +86,7 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
         T x_wrapped = (((x-g_first[0])+(g_last[0]-g_first[0]+1))%(g_last[0]-g_first[0]+1) + g_first[0]);
         int yl = -halos[2];
         for (int y=d.first()[1]-halos[2]; y<=d.last()[1]+halos[3]; ++y, ++yl)
-        { 
+        {
             if (d.domain_id()<2 &&             y<d.first()[1] && !periodic[1]) continue;
             if (d.domain_id()>comm.size()-3 && y>d.last()[1]  && !periodic[1]) continue;
             T y_wrapped = (((y-g_first[1])+(g_last[1]-g_first[1]+1))%(g_last[1]-g_first[1]+1) + g_first[1]);
@@ -108,8 +101,8 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
                 if(value[0]!=x_wrapped || value[1]!=y_wrapped || value[2]!=z_wrapped)
                 {
                     passed = false;
-                    std::cout 
-                    << "(" << xl << ", " << yl << ", " << zl << ") values found != expected: " 
+                    std::cout
+                    << "(" << xl << ", " << yl << ", " << zl << ") values found != expected: "
                     << "(" << value[0] << ", " << value[1] << ", " << value[2] << ") != "
                     << "(" << x_wrapped << ", " << y_wrapped << ", " << z_wrapped << ") " //<< std::endl;
                     << i << "  " << comm.rank() << std::endl;
@@ -140,7 +133,7 @@ bool test0()
     // decomposition: 4 domains in x-direction, 1 domain in z-direction, rest in y-direction
     //                each MPI rank owns two domains: either first or last two domains in x-direction
     //
-    //          +---------> x 
+    //          +---------> x
     //          |
     //          |     +------<0>------+------<1>------+
     //          |     | +----+ +----+ | +----+ +----+ |
@@ -185,7 +178,7 @@ bool test0()
     // add local domains
     std::vector<domain_descriptor_type> local_domains;
     local_domains.push_back( domain_descriptor_type{
-        comm.rank()*2, 
+        comm.rank()*2,
         std::array<int,3>{ ((comm.rank()%2)*2  )*local_ext[0],   (comm.rank()/2  )*local_ext[1],                0},
         std::array<int,3>{ ((comm.rank()%2)*2+1)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
     local_domains.push_back( domain_descriptor_type{
@@ -196,13 +189,13 @@ bool test0()
     // halo generators
     std::array<int,6> halos1{0,0,1,0,1,2};
     std::array<int,6> halos2{2,2,2,2,2,2};
-    auto halo_gen1 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos1, periodic); 
-    auto halo_gen2 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos2, periodic); 
+    auto halo_gen1 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos1, periodic);
+    auto halo_gen2 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos2, periodic);
 
     // make patterns
     auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
     auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
-    
+
     // communication object
     auto co   = gridtools::make_communication_object(pattern1,pattern2);
     auto co_1 = gridtools::make_communication_object(pattern1,pattern2);
@@ -215,7 +208,7 @@ bool test0()
     auto field_2b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_2b_raw.data(), offset, local_ext_buffer);
     auto field_3a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_3a_raw.data(), offset, local_ext_buffer);
     auto field_3b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_3b_raw.data(), offset, local_ext_buffer);
-    
+
     // fill arrays
     fill_values<T1>(local_domains[0], field_1a);
     fill_values<T1>(local_domains[1], field_1b);
@@ -223,7 +216,7 @@ bool test0()
     fill_values<T2>(local_domains[1], field_2b);
     fill_values<T3>(local_domains[0], field_3a);
     fill_values<T3>(local_domains[1], field_3b);
-    
+
     //// print arrays
     //std::cout.flush();
     //comm.barrier();
@@ -239,7 +232,7 @@ bool test0()
     //    std::cout << std::endl;
     //    for (int z=-1; z<local_ext[2]+1; ++z)
     //    {
-    //        std::cout << "z = " << z << std::endl; 
+    //        std::cout << "z = " << z << std::endl;
     //        std::cout << std::endl;
     //        for (int y=-1; y<local_ext[1]+1; ++y)
     //        {
@@ -260,11 +253,22 @@ bool test0()
     //    comm.barrier();
     //}
 
-
+#ifndef GHEX_TEST_SERIAL
+#ifndef GHEX_TEST_SERIAL_SPLIT
+#ifndef GHEX_TEST_THREADS
+#ifndef GHEX_TEST_ASYNC_ASYNC
+#ifndef GHEX_TEST_ASYNC_DEFERRED
+#ifndef GHEX_TEST_ASYNC_ASYNC_WAIT
+#error "At least one of the following macros should be defined: GHEX_TEST_SERIAL GHEX_TEST_SERIAL_SPLIT GHEX_TEST_EXCHANGE_THREADS GHEX_TEST_ASYNC_ASYNC GHEX_TEST_ASYNC_DEFERRED GHEX_TEST_ASYNC_ASYNC_WAIT"
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
 
     // exchange
-#ifndef MULTI_THREADED_EXCHANGE
-#ifndef SERIAL_SPLIT
+#ifdef GHEX_TEST_SERIAL
     // blocking variant
     co.bexchange(
         pattern1(field_1a),
@@ -274,7 +278,9 @@ bool test0()
         pattern1(field_3a),
         pattern1(field_3b)
     );
-#else
+#endif
+
+#ifdef GHEX_TEST_SERIAL_SPLIT
     // non-blocking variant
     auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
     auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
@@ -283,59 +289,63 @@ bool test0()
     h1.wait();
     h2.wait();
 #endif
-#else
-#ifdef MULTI_THREADED_EXCHANGE_THREADS
-    auto func = [](decltype(co)& co_, auto... bis) 
-    { 
+
+#ifdef GHEX_TEST_THREADS
+    auto func = [](decltype(co)& co_, auto... bis)
+    {
         co_.bexchange(bis...);
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
-    threads.push_back(std::thread{func, std::ref(co_1), 
-        pattern1(field_1a), 
-        pattern2(field_2a), 
+    threads.push_back(std::thread{func, std::ref(co_1),
+        pattern1(field_1a),
+        pattern2(field_2a),
         pattern1(field_3a)});
     threads.push_back(std::thread{func, std::ref(co_2),
-        pattern1(field_1b), 
-        pattern2(field_2b), 
+        pattern1(field_1b),
+        pattern2(field_2b),
         pattern1(field_3b)});
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
-#elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC) 
-    auto func = [](decltype(co)& co_, auto... bis) 
-    { 
+#endif
+
+#ifdef GHEX_TEST_ASYNC_ASYNC
+    auto func = [](decltype(co)& co_, auto... bis)
+    {
         co_.bexchange(bis...);
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func, std::ref(co_1),
-        pattern1(field_1a), 
-        pattern2(field_2a), 
+        pattern1(field_1a),
+        pattern2(field_2a),
         pattern1(field_3a));
     auto future_2 = std::async(policy, func, std::ref(co_2),
-        pattern1(field_1b), 
-        pattern2(field_2b), 
+        pattern1(field_1b),
+        pattern2(field_2b),
         pattern1(field_3b));
     // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
-#elif defined(MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED) 
-    auto func_h = [](decltype(co)& co_, auto... bis) 
-    { 
+#endif
+
+#ifdef GHEX_TEST_ASYNC_DEFERRED
+    auto func_h = [](decltype(co)& co_, auto... bis)
+    {
         return co_.exchange(bis...);
     };
     // packing and posting serially on current thread
     // waiting and unpacking serially on current thread
     auto policy = std::launch::deferred;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
-        pattern1(field_1a), 
-        pattern2(field_2a), 
+        pattern1(field_1a),
+        pattern2(field_2a),
         pattern1(field_3a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b), 
-        pattern2(field_2b), 
+        pattern1(field_1b),
+        pattern2(field_2b),
         pattern1(field_3b));
     // deferred policy: essentially serial on current thread
     auto h1 = future_1.get();
@@ -344,28 +354,30 @@ bool test0()
     // waiting and unpacking is serial here
     h1.wait();
     h2.wait();
-#elif defined(MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT) 
-    auto func_h = [](decltype(co)& co_, auto... bis) 
-    { 
+#endif
+
+#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
+    auto func_h = [](decltype(co)& co_, auto... bis)
+    {
         return co_.exchange(bis...);
     };
     // packing and posting may be done concurrently
     // waiting and unpacking serially
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
-        pattern1(field_1a), 
-        pattern2(field_2a), 
+        pattern1(field_1a),
+        pattern2(field_2a),
         pattern1(field_3a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b), 
-        pattern2(field_2b), 
+        pattern1(field_1b),
+        pattern2(field_2b),
         pattern1(field_3b));
     // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
     future_1.get().wait();
     future_2.get().wait();
 #endif
-#endif
+
 
     //// print arrays
     //std::cout.flush();
@@ -382,7 +394,7 @@ bool test0()
     //    std::cout << std::endl;
     //    for (int z=-1; z<local_ext[2]+1; ++z)
     //    {
-    //        std::cout << "z = " << z << std::endl; 
+    //        std::cout << "z = " << z << std::endl;
     //        std::cout << std::endl;
     //        for (int y=-1; y<local_ext[1]+1; ++y)
     //        {
@@ -410,7 +422,7 @@ bool test0()
     passed = passed && test_values<T2>(local_domains[1], halos2, periodic, g_first, g_last, field_2b, comm);
     passed = passed && test_values<T3>(local_domains[0], halos1, periodic, g_first, g_last, field_3a, comm);
     passed = passed && test_values<T3>(local_domains[1], halos1, periodic, g_first, g_last, field_3b, comm);
-    
+
 #ifdef STANDALONE
     if (passed)
         std::cout << "RESULT: PASSED" << std::endl;
@@ -442,7 +454,7 @@ int main(int argc, char* argv[])
 #endif
 
     auto passed = test0();
-    
+
 #ifdef MULTI_THREADED_EXCHANGE
     MPI_Finalize();
 #endif

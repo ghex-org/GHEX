@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_COORDINATE_HPP
 #define INCLUDED_COORDINATE_HPP
@@ -64,7 +64,7 @@ namespace gridtools {
     public: // comparison
         bool operator==(const coordinate& other) const noexcept
         {
-            for (int i=0; i<size(); ++i) 
+            for (int i=0; i<size(); ++i)
                 if (m_coord[i] != other.m_coord[i])
                     return false;
             return true;
@@ -75,28 +75,28 @@ namespace gridtools {
         }
         bool operator<(const coordinate& other) const noexcept
         {
-            for (int i=0; i<size(); ++i) 
+            for (int i=0; i<size(); ++i)
                 if (m_coord[i] >= other.m_coord[i])
                     return false;
             return true;
         }
         bool operator>(const coordinate& other) const noexcept
         {
-            for (int i=0; i<size(); ++i) 
+            for (int i=0; i<size(); ++i)
                 if (m_coord[i] <= other.m_coord[i])
                     return false;
             return true;
         }
         bool operator<=(const coordinate& other) const noexcept
         {
-            for (int i=0; i<size(); ++i) 
+            for (int i=0; i<size(); ++i)
                 if (m_coord[i] > other.m_coord[i])
                     return false;
             return true;
         }
         bool operator>=(const coordinate& other) const noexcept
         {
-            for (int i=0; i<size(); ++i) 
+            for (int i=0; i<size(); ++i)
                 if (m_coord[i] < other.m_coord[i])
                     return false;
             return true;
@@ -171,7 +171,7 @@ namespace gridtools {
     coordinate<A> operator%(coordinate<A> l, const coordinate<A>& r) noexcept
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = l[i]%r[i];
-        return std::move(l);
+        return l;
     }
     template<typename A, typename I>
     coordinate<A> operator%(coordinate<A> l, I scalar) noexcept
@@ -185,13 +185,13 @@ namespace gridtools {
     coordinate<A> min(coordinate<A> l, const coordinate<A>& r) noexcept
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = std::min(l[i],r[i]);
-        return std::move(l);
+        return l;
     }
     template<typename A>
     coordinate<A> max(coordinate<A> l, const coordinate<A>& r) noexcept
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = std::max(l[i],r[i]);
-        return std::move(l);
+        return l;
     }
 
     template<typename A1, typename A2>

@@ -4,7 +4,7 @@
 #include <utility>
 
 #include <gtest/gtest.h>
-#include "../gtest_main_boost.cpp"
+#include "../gtest_main.cpp"
 
 /**
  * Simple Send recv on two ranks.

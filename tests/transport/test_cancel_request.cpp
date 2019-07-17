@@ -5,7 +5,7 @@
 
 
 #include <gtest/gtest.h>
-#include "../gtest_main_boost.cpp"
+#include "../gtest_main.cpp"
 
 int rank;
 const int SIZE = 1<<12;

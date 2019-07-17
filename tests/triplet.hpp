@@ -78,7 +78,14 @@ struct triple_t</*use_double=*/false, VT> {
     GT_FUNCTION triple_t(VT a, VT b, VT c) : _x(a), _y(b), _z(c) {}
     GT_FUNCTION triple_t() : _x(-1), _y(-1), _z(-1) {}
 
-    GT_FUNCTION triple_t(triple_t<false, VT> const &t) : _x(t._x), _y(t._y), _z(t._z) {}
+    GT_FUNCTION triple_t(triple_t const &t) : _x(t._x), _y(t._y), _z(t._z) {}
+
+    GT_FUNCTION triple_t& operator=(const triple_t& other) {
+        _x = other._x;
+        _y = other._y;
+        _z = other._z;
+        return *this;
+    }
 
     triple_t<false, VT> floor() {
         VT m = std::min(_x, std::min(_y, _z));
@@ -95,7 +102,7 @@ template <typename VT>
 struct triple_t</*use_double=*/true, VT> {
 
     typedef double data_type;
-
+    using this_type = triple_t<true, VT>;
     double value;
 
     GT_FUNCTION triple_t(int a, int b, int c)
@@ -104,11 +111,16 @@ struct triple_t</*use_double=*/true, VT> {
 
     GT_FUNCTION triple_t() : value(999999999999) {}
 
-    GT_FUNCTION triple_t(triple_t<true, VT> const &t) : value(t.value) {}
+    GT_FUNCTION triple_t(this_type const &t) : value(t.value) {}
 
-    triple_t<true, VT> floor() {
+    GT_FUNCTION this_type& operator=(const this_type& other) {
+        value = other.value;
+        return *this;
+    }
+
+    this_type floor() {
         if (x() == 9999 || y() == 9999 || z() == 9999) {
-            return triple_t<true, VT>();
+            return this_type();
         } else {
             return *this;
         }
@@ -121,13 +133,6 @@ struct triple_t</*use_double=*/true, VT> {
 
     int y() const {
         long long int cast = static_cast<long long int>(value);
-        return static_cast<int>((cast / 10000) % 10000);
-    }
-
-    template <typename T>
-    int y(T &file) const {
-        long long int cast = static_cast<long long int>(value);
-        file << "$#$@%! " << cast << " " << static_cast<int>((cast / 10000) % 10000) << std::endl;
         return static_cast<int>((cast / 10000) % 10000);
     }
 

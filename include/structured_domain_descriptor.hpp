@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_STRUCTURED_DOMAIN_DESCRIPTOR_HPP
 #define INCLUDED_STRUCTURED_DOMAIN_DESCRIPTOR_HPP
@@ -180,7 +180,7 @@ namespace gridtools {
                 }
             }
 
-            return std::move(halos);
+            return halos;
         }
 
     private: // member functions
@@ -191,7 +191,7 @@ namespace gridtools {
             x.reserve(detail::ct_pow(3,dimension::value));
             Box b;
             compute_spaces<Box>(0, spaces, b, x);
-            return std::move(x);
+            return x;
         }
 
         template<typename Box, typename Spaces, typename Container>
@@ -214,7 +214,7 @@ namespace gridtools {
                 current_box.local().last()[d]   = spaces[1].local().last()[d];
                 current_box.global().last()[d]  = spaces[1].global().last()[d];
                 compute_spaces(d+1, spaces, current_box, c);
-                
+
                 current_box.local().first()[d]  = spaces[2].local().first()[d];
                 current_box.global().first()[d] = spaces[2].global().first()[d];
                 current_box.local().last()[d]   = spaces[2].local().last()[d];
