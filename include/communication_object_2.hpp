@@ -15,6 +15,8 @@
 #include "./buffer_info.hpp"
 #include "./devices.hpp"
 #include "./protocol/communicator_base.hpp"
+#include <thread>
+#include <future>
 
 namespace gridtools {
 
@@ -181,6 +183,8 @@ namespace gridtools {
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
+            auto policy = std::launch::async;
+            std::vector<std::futures<void>> futures(m.recv_futures.size());
             std::vector<cudaStream_t> streams(m.recv_futures.size());
             for (auto& x : streams) 
                 cudaStreamCreate(&x);
@@ -195,16 +199,23 @@ namespace gridtools {
                         if (f.test())
                         {
                             m.m_completed_hooks[k] = true;
+
+                            futures[k] = std::async(
+                                policy,
+                                [k](BufferMem& m, cudaStream_t& s){
                             for (const auto& fb : *m.m_recv_hooks[k].second)
-                                fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k])); // (void*)0);
+                                fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); // (void*)0);
+                                }, std::ref(m), std::ref(streams[k]));
                             if (++completed == m.m_recv_futures.size()) break;
                         }
                     }
                     ++k;
                 }
             }
+            int k = 0;
             for (auto& x : streams) 
             {
+                futures[k++].get();
                 cudaStreamSynchronize(x);
                 cudaStreamDestroy(x);
             }
