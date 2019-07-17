@@ -47,6 +47,7 @@ namespace gridtools {
             { 
                 static_assert(std::is_same<decltype(index),id_type>::value, "trick to prevent warnings"); // trick to prevent warnings
             }
+
             static void check_error(const std::string&)
             {
             }

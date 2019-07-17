@@ -9,8 +9,6 @@
  * 
  */
 
-//#define GHEX_1_PATTERN_BENCHMARK
-
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
