@@ -11,7 +11,7 @@
 #ifndef INCLUDED_MPI_HPP
 #define INCLUDED_MPI_HPP
 
-#include "communicator_base.hpp"
+#include "./communicator_base.hpp"
 #include <boost/mpi/communicator.hpp>
 
 namespace gridtools {
@@ -26,7 +26,6 @@ namespace gridtools {
         class communicator<mpi>
         {
         public:
-
             using protocol_type = mpi;
             using handle_type = boost::mpi::request;
             using address_type = int;
@@ -35,7 +34,6 @@ namespace gridtools {
             using size_type = int;
 
         public:
-
             /**
              * @brief construct from MPI_Comm object
              * @param comm MPI_Comm communicator
@@ -98,7 +96,7 @@ namespace gridtools {
              * @param vec source vector
              * @return completion handle
              */
-            template<typename T, template<typename, typename> typename Vector, typename Allocator> 
+            template<typename T, template<typename, typename> class Vector, typename Allocator> 
             future<void> isend(address_type dest, int tag, const Vector<T,Allocator>& vec) const
             {
                 return {std::move(m_comm.isend(dest, tag, reinterpret_cast<const char*>(vec.data()), sizeof(T)*vec.size()))};
@@ -115,7 +113,7 @@ namespace gridtools {
              * @param a allocator instance
              * @return future with vector of data
              */
-            template<typename T, template<typename, typename> typename Vector = std::vector, typename Allocator = std::allocator<T>> 
+            template<typename T, template<typename, typename> class Vector = std::vector, typename Allocator = std::allocator<T>> 
             [[nodiscard]] future<Vector<T,Allocator>> irecv(address_type source, int tag, int n, const Allocator& a = Allocator()) const
             {
                 using vector_type = Vector<T,Allocator>;
@@ -125,7 +123,6 @@ namespace gridtools {
             }
 
         private:
-
             boost::mpi::communicator m_comm;
         };
 
@@ -134,8 +131,4 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_MPI_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 

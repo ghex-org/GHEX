@@ -11,25 +11,21 @@
 #ifndef INCLUDED_PATTERN_HPP
 #define INCLUDED_PATTERN_HPP
 
-#include "protocol/setup.hpp"
-#include "protocol/mpi.hpp"
-#include "buffer_info.hpp"
+#include "./protocol/setup.hpp"
+#include "./protocol/mpi.hpp"
+#include "./buffer_info.hpp"
 
 namespace gridtools {
 
     namespace detail {
         // forward declaration
         template<typename GridType>
-        struct make_pattern_impl {};
+        struct make_pattern_impl;
     } // namespace detail
 
-    /** @brief generic communication pattern
-     * @tparam P transport protocol
-     * @tparam GridType indicates structured/unstructured grids
-     * @tparam DomainIdType type to uniquely identify partial (local) domains*/
+    // forward declaration
     template<typename P, typename GridType, typename DomainIdType>
-    class pattern
-    {};
+    class pattern;
 
     /** @brief an iterable holding communication patterns (one pattern per domain)
      * @tparam P transport protocol
@@ -39,7 +35,6 @@ namespace gridtools {
     class pattern_container
     {
     public: // member tyes
-
         /** @brief pattern type this object is holding */
         using value_type = pattern<P,GridType,DomainIdType>;
 
@@ -50,16 +45,22 @@ namespace gridtools {
         friend class detail::make_pattern_impl<GridType>;
 
     public: // copy constructor
+        pattern_container(const pattern_container&) noexcept = delete;
         pattern_container(pattern_container&&) noexcept = default;
 
     private: // private constructor called through make_pattern
-        pattern_container(data_type&& d) noexcept : m_patterns(d) {}
+        pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) 
+        {
+            for (auto& p : m_patterns)
+                p.m_container = this;
+        }
 
     public: // member functions
         int size() const noexcept { return m_patterns.size(); }
         const auto& operator[](int i) const noexcept { return m_patterns[i]; }
         auto begin() const noexcept { return m_patterns.cbegin(); }
         auto end() const noexcept { return m_patterns.cend(); }
+        int max_tag() const noexcept { return m_max_tag; }
 
         /** @brief bind a field to a pattern
          * @tparam Field field type
@@ -76,6 +77,7 @@ namespace gridtools {
 
     private: // members
         data_type m_patterns;
+        int m_max_tag;
     };
 
     namespace detail {
@@ -119,8 +121,4 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_PATTERN_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 
