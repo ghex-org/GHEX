@@ -4,15 +4,14 @@ cmake_policy(SET CMP0048 NEW)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 
-#set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wno-deprecated-copy") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 find_package(MPI REQUIRED)
@@ -29,18 +28,6 @@ target_include_directories(GHEX_libs INTERFACE
     $<INSTALL_INTERFACE:include>
     )
 target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
-
-add_executable( mpi_all_to_all tests/mpi_allgather.cpp )
-target_compile_options(mpi_all_to_all PRIVATE -DOS_MPI)
-target_link_libraries(mpi_all_to_all ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
-
-add_executable( pattern tests/pattern.cpp )
-target_compile_options(pattern PRIVATE -DOS_MPI)
-target_link_libraries(pattern ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
-
-#add_executable( co tests/communication_object.cpp )
-#target_compile_options(co PRIVATE -DOS_MPI)
-#target_link_libraries(co ${exe_LIBS} GridTools::gridtools GridTools::gcl Boost::mpi )
 
 enable_testing()
 
@@ -66,13 +53,11 @@ if(NOT GTEST_SOURCE_DIR)
 endif()
 
 set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
-# set(GTEST_MAIN_SOURCES ${GTEST_SOURCE_DIR}/gtest_main.cc)
 set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
 add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
 target_include_directories(gtest_main_mt PRIVATE ${GTEST_INCLUDE_DIRS})
 
 add_subdirectory(tests)
-
 add_subdirectory(benchmarks)
 

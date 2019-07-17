@@ -15,9 +15,8 @@
 #include <map>
 #include <tuple>
 #include <iostream>
-#include "gridtools_arch.hpp"
-#include "utils.hpp"
-
+#include "./gridtools_arch.hpp"
+#include "./utils.hpp"
 
 namespace gridtools {
 
@@ -65,7 +64,7 @@ namespace gridtools {
         /** @brief extended domain id type, deduced form Pattern*/
         using extended_domain_id_t = typename Pattern::extended_domain_id_type;
         /** @brief iteration space type, deduced form Pattern*/
-        using iteration_space_t = typename Pattern::iteration_space2;
+        using iteration_space_t = typename Pattern::iteration_space_pair;
         /** @brief map type for send and receive halos, deduced form Pattern*/
         using map_t = typename Pattern::map_type;
         /** @brief communication protocol, deduced form Pattern*/
@@ -335,6 +334,3 @@ namespace gridtools {
 
 #endif /* INCLUDED_COMMUNICATION_OBJECT_HPP */
 
-// modelines	// modelines
-// vim: set ts=4 sw=4 sts=4 et:
-// vim: ff=unix:

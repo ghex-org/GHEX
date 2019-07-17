@@ -40,6 +40,11 @@ namespace gridtools {
                 m_handle.wait();
             }
 
+            bool test()
+            {
+                return (bool)m_handle.test();
+            }
+
             [[nodiscard]] value_type get() noexcept
             {
                 wait(); 
@@ -69,6 +74,11 @@ namespace gridtools {
                 m_handle.wait();
             }
 
+            bool test()
+            {
+                return (bool)m_handle.test();
+            }
+
             void get() noexcept 
             {
                 wait(); 
@@ -82,8 +92,4 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_FUTURE_HPP */
-
-// modelines
-// vim: set ts=4 sw=4 sts=4 et: 
-// vim: ff=unix: 
 
