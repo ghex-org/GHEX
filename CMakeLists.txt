@@ -66,7 +66,6 @@ target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include 
 
 
 add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
-target_include_directories(gtest_main_bench_mt PRIVATE ${GTEST_INCLUDE_DIRS})
 target_link_libraries(gtest_main_bench_mt Boost::mpi MPI::MPI_CXX GridTools::gridtools )
 target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
