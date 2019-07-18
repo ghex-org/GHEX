@@ -61,7 +61,6 @@ target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${G
 target_link_libraries(gtest_main_mt Boost::mpi MPI::MPI_CXX GridTools::gridtools )
 
 add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
-target_include_directories(gtest_main_bench PRIVATE ${GTEST_INCLUDE_DIRS})
 target_link_libraries(gtest_main_bench Boost::mpi MPI::MPI_CXX GridTools::gridtools )
 target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 
