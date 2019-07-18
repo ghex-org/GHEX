@@ -66,6 +66,10 @@ namespace gridtools {
     public: // member functions
         /** @brief  wait for communication to be finished*/
         void wait() { m_co->wait(); }
+#ifdef GHEX_COMM_2_TIMINGS
+        template<typename Timings>
+        void wait(Timings& t) { m_co->wait(t); }
+#endif
 
     private: // members
         co_t* m_co;
@@ -99,8 +103,13 @@ namespace gridtools {
             }
         }
 
+#ifndef GHEX_COMM_2_TIMINGS
         template<typename BufferMem>
         static void unpack(BufferMem& m)
+#else
+        template<typename BufferMem,typename... Args>
+        static void unpack(BufferMem& m, Args&&...)
+#endif
         {
             auto policy = std::launch::async;
             std::vector<std::future<void>> futures(m.m_recv_futures.size());
@@ -188,11 +197,16 @@ namespace gridtools {
                 cudaStreamDestroy(x);
         }
 
+#ifndef GHEX_COMM_2_TIMINGS
         template<typename BufferMem>
         static void unpack(BufferMem& m)
+#else
+        template<typename BufferMem,typename Timings>
+        static void unpack(BufferMem& m, Timings& t)
+#endif
         {
             auto policy = std::launch::async;
-            std::vector<std::future<void>> futures(m.m_recv_futures.size());
+            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
             std::vector<cudaStream_t> streams(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
             std::size_t i = 0;
@@ -212,20 +226,29 @@ namespace gridtools {
                     {
                         if (j < --size)
                             index_list[j--] = index_list[size];
-                        futures[k] = std::async(
-                            policy,
-                            [k](BufferMem& m, cudaStream_t& s){
-                                for (const auto& fb : *m.m_recv_hooks[k].second)
-                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); // (void*)0);
-                            }, 
-                            std::ref(m), std::ref(streams[k]));
+                        //futures[k] = std::async(
+                        //    policy,
+                        //    [k](BufferMem& m, cudaStream_t& s){
+                        //        for (const auto& fb : *m.m_recv_hooks[k].second)
+                        //            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); 
+                        //    }, 
+                        //    std::ref(m), std::ref(streams[k]));
+#ifdef GHEX_COMM_2_TIMINGS
+                        auto t0 = Timings::clock_type::now(); 
+#endif
+                        for (const auto& fb : *m.m_recv_hooks[k].second)
+                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
+#ifdef GHEX_COMM_2_TIMINGS
+                        auto t1 = Timings::clock_type::now(); 
+                        t.unpack_launch_time += t1-t0;
+#endif
                     }
                 }
             }
-            int k = 0;
+            //int k = 0;
             for (auto& x : streams) 
             {
-                futures[k++].get();
+                //futures[k++].get();
                 cudaStreamSynchronize(x);
                 cudaStreamDestroy(x);
             }
@@ -321,9 +344,6 @@ namespace gridtools {
         std::map<const typename pattern_type::pattern_container_type*, int> m_max_tag_map;
         memory_type m_mem;
         std::vector<typename communicator_type::template future<void>> m_send_futures;
-        //std::vector<typename communicator_type::template future<void>> m_recv_futures;
-        //std::vector<std::pair<char*,std::vector<field_buffer<unpack_function_type>>*>> m_recv_hooks;
-        //std::vector<bool> m_completed_hooks;
 
     public: // ctors
         /** @brief construct a communication object from a message tag map
@@ -434,7 +454,6 @@ namespace gridtools {
             });
         }
 
-        //void wait()
         void wait()
         {
             if (!m_valid) return;
@@ -443,37 +462,31 @@ namespace gridtools {
             {
                 using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
                 packer<device_type>::unpack(m);
-                /*unsigned int completed = 0;
-                while(completed < m.m_recv_futures.size())
-                {
-                    std::size_t k = 0;
-                    for (auto& f : m.m_recv_futures)
-                    {
-                        if (!m.m_completed_hooks[k])
-                        {
-                            if (f.test())
-                            {
-                                m.m_completed_hooks[k] = true;
-                                for (const auto& fb : *m.m_recv_hooks[k].second)
-                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
-                                if (++completed == m.m_recv_futures.size()) break;
-                            }
-                        }
-                        ++k;
-                    }
-                }*/
             });
 
-            for (auto& f : m_send_futures) f.wait();
+            for (auto& f : m_send_futures) 
+                f.wait();
 
-            /*detail::for_each(m_mem, [this](auto& m)
-            {
-                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
-                device_type::sync();
-                device_type::check_error("error after waiting receives");
-            });*/
             clear();
         }
+#ifdef GHEX_COMM_2_TIMINGS
+        template<typename Timings>
+        void wait(Timings& t)
+        {
+            if (!m_valid) return;
+
+            detail::for_each(m_mem, [this, t](auto& m)
+            {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                packer<device_type>::unpack(m, t);
+            });
+
+            for (auto& f : m_send_futures) 
+                f.wait();
+
+            clear();
+        }
+#endif
 
         // clear the internal flags so that a new exchange can be started
         // important: does not deallocate
@@ -481,9 +494,6 @@ namespace gridtools {
         {
             m_valid = false;
             m_send_futures.clear();
-            //m_recv_futures.clear();
-            //m_recv_hooks.resize(0);
-            //m_completed_hooks.resize(0);
             detail::for_each(m_mem, [this](auto& m)
             {
                 m.m_recv_futures.clear();
