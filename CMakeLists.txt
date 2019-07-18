@@ -56,7 +56,6 @@ set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
 set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
 add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main.cpp )
-target_include_directories(gtest_main_mt PRIVATE ${GTEST_INCLUDE_DIRS})
 target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(gtest_main_mt Boost::mpi MPI::MPI_CXX GridTools::gridtools )
 
