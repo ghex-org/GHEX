@@ -6,7 +6,7 @@ project(GHEX VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 14)
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wno-deprecated-copy") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
@@ -55,9 +55,20 @@ endif()
 set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
 set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
-add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main.cpp )
 target_include_directories(gtest_main_mt PRIVATE ${GTEST_INCLUDE_DIRS})
+target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+target_link_libraries(gtest_main_mt Boost::mpi MPI::MPI_CXX GridTools::gridtools )
+
+add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
+target_link_libraries(gtest_main_bench Boost::mpi MPI::MPI_CXX GridTools::gridtools )
+target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+
+
+add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
+target_link_libraries(gtest_main_bench_mt Boost::mpi MPI::MPI_CXX GridTools::gridtools )
+target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
 
 add_subdirectory(tests)
 add_subdirectory(benchmarks)
-

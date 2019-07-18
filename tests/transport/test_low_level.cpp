@@ -3,7 +3,6 @@
 #include <iomanip>
 
 #include <gtest/gtest.h>
-#include "../gtest_main.cpp"
 
 int rank;
 
