@@ -640,6 +640,7 @@ namespace halo_exchange_3D_generic_full {
 
         file << pid << "  " << nprocs << "\n";
 
+        dims[2]=1;
         MPI_Dims_create(nprocs, 3, dims);
         int period[3] = {1, 1, 1};
 
@@ -2200,10 +2201,17 @@ int main(int argc, char **argv) {
 }
 #else
 TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
+    //const int Nx = 98*2;
+    //const int Ny = 54*3;
+    //const int Nz = 87*2;
+    const int Nx = 260;
+    const int Ny = 260;
+    const int Nz = 80;
 #ifndef GHEX_1_PATTERN_BENCHMARK
-    bool passed = halo_exchange_3D_generic_full::test(98*2, 54*3, 87*2, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+    bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-    bool passed = halo_exchange_3D_generic_full::test(98*2, 54*3, 87*2, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    //bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
 #endif
     EXPECT_TRUE(passed);
 }

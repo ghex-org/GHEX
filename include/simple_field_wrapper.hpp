@@ -14,6 +14,7 @@
 #include "./structured_domain_descriptor.hpp"
 #include <iostream>
 #include <cstring>
+#include <cstdint>
 #include <gridtools/common/array.hpp>
 #include "devices.hpp"
 
@@ -273,6 +274,8 @@ namespace gridtools {
     };
 #endif
 
+    struct padding_256 {};
+
     // forward declaration
     template<typename T, typename Device, typename DomainDescriptor, int... Order>
     class simple_field_wrapper;
@@ -321,6 +324,29 @@ namespace gridtools {
             std::copy(extents.begin(), extents.end(), m_extents.begin());
             // compute strides
             detail::compute_strides<dimension::value>::template apply<layout_map>(m_extents,m_strides);
+        }
+
+        template<typename Array>
+        GT_FUNCTION_HOST
+        simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, padding_256, device_id_type d_id = 0)
+        : m_dom_id(dom_id), m_data(data), m_device_id(d_id)
+        { 
+            std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
+            std::copy(extents.begin(), extents.end(), m_extents.begin());
+            // pad stride 1 dimension
+            auto ext_1 = m_extents[layout_map::template find<dimension::value-1>()];
+            ext_1 = (((sizeof(value_type)*ext_1+255)/256) * 256)/sizeof(value_type);
+            m_extents[layout_map::template find<dimension::value-1>()] = ext_1;
+            // compute strides
+            detail::compute_strides<dimension::value>::template apply<layout_map>(m_extents,m_strides);
+            // compute index of the first physical point
+            auto stride_origin = dot(m_offsets, m_strides);
+            // compute pointer value of first physical point 
+            auto ptr_origin = reinterpret_cast<std::uintptr_t>((void*)data) + stride_origin*sizeof(value_type); 
+            // compute delta
+            const auto delta = ((ptr_origin + 255)/256) * 256 - ptr_origin;
+            // adjust base pointer
+            m_data = reinterpret_cast<value_type*>(reinterpret_cast<char*>(m_data)+delta);
         }
         GT_FUNCTION_HOST
         simple_field_wrapper(simple_field_wrapper&&) noexcept = default;

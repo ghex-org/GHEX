@@ -797,6 +797,7 @@ namespace halo_exchange_3D_generic_full {
 
         file << world.rank() << "  " << world.size() << "\n";
         
+        dims[2] = 1;
         MPI_Dims_create(world.size(), 3, dims);
         int period[3] = {1, 1, 1};
 
@@ -2343,12 +2344,12 @@ int main(int argc, char **argv)
 TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     bool passed = true;
 
-    const int Nx = 98*2;
-    const int Ny = 54*3;
-    const int Nz = 87*2;
-    //const int Nx = 40;
-    //const int Ny = 41;
-    //const int Nz = 42;
+    //const int Nx = 98*2;
+    //const int Ny = 54*3;
+    //const int Nz = 87*2;
+    const int Nx = 260;
+    const int Ny = 260;
+    const int Nz = 80;
 
 #ifdef __CUDACC__
     boost::mpi::communicator mpi_comm;
@@ -2365,7 +2366,8 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
 #ifndef GHEX_1_PATTERN_BENCHMARK
         passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-        passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+        //passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+        passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
 #endif
     }
     else
@@ -2375,7 +2377,8 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
 #ifndef GHEX_1_PATTERN_BENCHMARK
     passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    //passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
 #endif
 #ifdef __CUDACC__
     }
