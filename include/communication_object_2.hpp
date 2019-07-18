@@ -129,26 +129,6 @@ namespace gridtools {
             }
             for (auto& f: futures)
                 f.get();
-
-            /*unsigned int completed = 0;
-            while(completed < m.m_recv_futures.size())
-            {
-                std::size_t k = 0;
-                for (auto& f : m.m_recv_futures)
-                {
-                    if (!m.m_completed_hooks[k])
-                    {
-                        if (f.test())
-                        {
-                            m.m_completed_hooks[k] = true;
-                            for (const auto& fb : *m.m_recv_hooks[k].second)
-                                fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
-                            if (++completed == m.m_recv_futures.size()) break;
-                        }
-                    }
-                    ++k;
-                }
-            }*/
         }
     };
 
