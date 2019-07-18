@@ -111,8 +111,8 @@ namespace gridtools {
         static void unpack(BufferMem& m, Args&&...)
 #endif
         {
-            auto policy = std::launch::async;
-            std::vector<std::future<void>> futures(m.m_recv_futures.size());
+            //auto policy = std::launch::async;
+            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
             for (std::size_t i = 0; i < index_list.size(); ++i)
                 index_list[i] = i;
@@ -126,18 +126,18 @@ namespace gridtools {
                     {
                         if (j < --size)
                             index_list[j--] = index_list[size];
-                        futures[k] = std::async(
-                            policy,
-                            [k](BufferMem& m){
+                        //futures[k] = std::async(
+                        //    policy,
+                        //    [k](BufferMem& m){
                                 for (const auto& fb : *m.m_recv_hooks[k].second)
                                     fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
-                            }, 
-                            std::ref(m));
+                        //    }, 
+                        //    std::ref(m));
                     }
                 }
             }
-            for (auto& f: futures)
-                f.get();
+            //for (auto& f: futures)
+            //    f.get();
         }
     };
 
@@ -172,6 +172,7 @@ namespace gridtools {
                     {
                         for (const auto& fb : p1.second.field_buffers)
                             fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
+                        ++num_streams;
                     }
                 }
             }
@@ -197,15 +198,10 @@ namespace gridtools {
                 cudaStreamDestroy(x);
         }
 
-#ifndef GHEX_COMM_2_TIMINGS
         template<typename BufferMem>
         static void unpack(BufferMem& m)
-#else
-        template<typename BufferMem,typename Timings>
-        static void unpack(BufferMem& m, Timings& t)
-#endif
         {
-            auto policy = std::launch::async;
+            //auto policy = std::launch::async;
             //std::vector<std::future<void>> futures(m.m_recv_futures.size());
             std::vector<cudaStream_t> streams(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
@@ -233,15 +229,8 @@ namespace gridtools {
                         //            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); 
                         //    }, 
                         //    std::ref(m), std::ref(streams[k]));
-#ifdef GHEX_COMM_2_TIMINGS
-                        auto t0 = Timings::clock_type::now(); 
-#endif
                         for (const auto& fb : *m.m_recv_hooks[k].second)
                             fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
-#ifdef GHEX_COMM_2_TIMINGS
-                        auto t1 = Timings::clock_type::now(); 
-                        t.unpack_launch_time += t1-t0;
-#endif
                     }
                 }
             }
@@ -253,6 +242,59 @@ namespace gridtools {
                 cudaStreamDestroy(x);
             }
         }
+
+#ifdef GHEX_COMM_2_TIMINGS
+        template<typename BufferMem,typename Timings>
+        static void unpack(BufferMem& m, Timings& t)
+        {
+            //auto policy = std::launch::async;
+            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
+            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            std::size_t i = 0;
+            for (auto& x : streams)
+            {
+                cudaStreamCreate(&x);
+                index_list[i] = i;
+                ++i;
+            }
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        //futures[k] = std::async(
+                        //    policy,
+                        //    [k](BufferMem& m, cudaStream_t& s){
+                        //        for (const auto& fb : *m.m_recv_hooks[k].second)
+                        //            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); 
+                        //    }, 
+                        //    std::ref(m), std::ref(streams[k]));
+                        const auto t0 = Timings::clock_type::now(); 
+                        for (const auto& fb : *m.m_recv_hooks[k].second)
+                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
+                        const auto t1 = Timings::clock_type::now(); 
+                        t.unpack_launch_time += t1-t0;
+                    }
+                }
+            }
+            const auto t0 = Timings::clock_type::now(); 
+            //int k = 0;
+            for (auto& x : streams) 
+            {
+                //futures[k++].get();
+                cudaStreamSynchronize(x);
+                cudaStreamDestroy(x);
+            }
+            const auto t1 = Timings::clock_type::now(); 
+            t.unpack_launch_time += t1-t0;
+        }
+#endif
     };
 #endif
  
@@ -475,7 +517,7 @@ namespace gridtools {
         {
             if (!m_valid) return;
 
-            detail::for_each(m_mem, [this, t](auto& m)
+            detail::for_each(m_mem, [this, &t](auto& m)
             {
                 using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
                 packer<device_type>::unpack(m, t);

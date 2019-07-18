@@ -9,7 +9,7 @@
  * 
  */
 
-#define GHEX_COMM_2_TIMINGS
+//#define GHEX_COMM_2_TIMINGS
 
 #ifndef STANDALONE
     #include "gtest/gtest.h"
@@ -50,7 +50,8 @@ namespace halo_exchange_3D_generic_full {
     struct timings
     {
         using clock_type    = ::halo_exchange_3D_generic_full::clock_type;
-        using duration_type = ::halo_exchange_3D_generic_full::duration_type;
+        //using duration_type = ::halo_exchange_3D_generic_full::duration_type;
+        using duration_type = typename clock_type::duration;
         
         duration_type unpack_launch_time = duration_type(0);
     };
@@ -360,6 +361,9 @@ namespace halo_exchange_3D_generic_full {
                     acc_global_0(tmp_0[i]);
                     acc_global_1(tmp_1[i]);
                     acc_global(tmp[i]);
+#ifdef GHEX_COMM_2_TIMINGS
+                    acc_global_2(tmp_2[i]);
+#endif
                     if (k >= k_start)
                     {
                         time_acc_global_0(tmp_0[i]);
