@@ -17,6 +17,7 @@ endif()
 find_package(MPI REQUIRED)
 find_package(GridTools REQUIRED)
 find_package(Boost COMPONENTS mpi REQUIRED)
+find_package(Atlas REQUIRED)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
