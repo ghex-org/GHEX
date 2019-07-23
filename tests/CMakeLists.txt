@@ -20,7 +20,7 @@ add_test(
 )
 
 add_executable(communication_object_2_serial_2 communication_object_2.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
-target_compile_definitions(communication_object_2_serial_2 PUBLIC SERIAL_SPLIT) 
+target_compile_definitions(communication_object_2_serial_2 PUBLIC SERIAL_SPLIT)
 target_include_directories(communication_object_2_serial_2 PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(communication_object_2_serial_2 MPI::MPI_CXX GridTools::gridtools Boost::mpi)
 add_test(
@@ -29,8 +29,8 @@ add_test(
 )
 
 add_executable(communication_object_2_threads communication_object_2.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
-target_compile_definitions(communication_object_2_threads PUBLIC MULTI_THREADED_EXCHANGE) 
-target_compile_definitions(communication_object_2_threads PUBLIC MULTI_THREADED_EXCHANGE_THREADS) 
+target_compile_definitions(communication_object_2_threads PUBLIC MULTI_THREADED_EXCHANGE)
+target_compile_definitions(communication_object_2_threads PUBLIC MULTI_THREADED_EXCHANGE_THREADS)
 target_include_directories(communication_object_2_threads PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(communication_object_2_threads MPI::MPI_CXX GridTools::gridtools Boost::mpi)
 add_test(
@@ -39,8 +39,8 @@ add_test(
 )
 
 add_executable(communication_object_2_async_async communication_object_2.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
-target_compile_definitions(communication_object_2_async_async PUBLIC MULTI_THREADED_EXCHANGE) 
-target_compile_definitions(communication_object_2_async_async PUBLIC MULTI_THREADED_EXCHANGE_ASYNC_ASYNC) 
+target_compile_definitions(communication_object_2_async_async PUBLIC MULTI_THREADED_EXCHANGE)
+target_compile_definitions(communication_object_2_async_async PUBLIC MULTI_THREADED_EXCHANGE_ASYNC_ASYNC)
 target_include_directories(communication_object_2_async_async PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(communication_object_2_async_async MPI::MPI_CXX GridTools::gridtools Boost::mpi)
 add_test(
@@ -49,8 +49,8 @@ add_test(
 )
 
 add_executable(communication_object_2_async_deferred communication_object_2.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
-target_compile_definitions(communication_object_2_async_deferred PUBLIC MULTI_THREADED_EXCHANGE) 
-target_compile_definitions(communication_object_2_async_deferred PUBLIC MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED) 
+target_compile_definitions(communication_object_2_async_deferred PUBLIC MULTI_THREADED_EXCHANGE)
+target_compile_definitions(communication_object_2_async_deferred PUBLIC MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED)
 target_include_directories(communication_object_2_async_deferred PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(communication_object_2_async_deferred MPI::MPI_CXX GridTools::gridtools Boost::mpi)
 add_test(
@@ -59,11 +59,19 @@ add_test(
 )
 
 add_executable(communication_object_2_async_async_wait communication_object_2.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
-target_compile_definitions(communication_object_2_async_async_wait PUBLIC MULTI_THREADED_EXCHANGE) 
-target_compile_definitions(communication_object_2_async_async_wait PUBLIC MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT) 
+target_compile_definitions(communication_object_2_async_async_wait PUBLIC MULTI_THREADED_EXCHANGE)
+target_compile_definitions(communication_object_2_async_async_wait PUBLIC MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT)
 target_include_directories(communication_object_2_async_async_wait PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(communication_object_2_async_async_wait MPI::MPI_CXX GridTools::gridtools Boost::mpi)
 add_test(
     NAME communication_object_2_async_async_wait
     COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} communication_object_2_async_async_wait ${MPIEXEC_POSTFLAGS}
+)
+
+add_executable(atlas_integration atlas_integration.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+target_include_directories(atlas_integration PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+target_link_libraries(atlas_integration MPI::MPI_CXX GridTools::gridtools atlas)
+add_test(
+    NAME atlas_integration.cpp
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} atlas_integration ${MPIEXEC_POSTFLAGS}
 )

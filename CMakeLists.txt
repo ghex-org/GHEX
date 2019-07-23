@@ -17,7 +17,11 @@ endif()
 find_package(MPI REQUIRED)
 find_package(GridTools REQUIRED)
 find_package(Boost COMPONENTS mpi REQUIRED)
+
+find_package(eckit REQUIRED)
 find_package(Atlas REQUIRED)
+# Temporary workaround to fix missing dependency in Atlas target: eckit
+target_link_libraries(atlas INTERFACE eckit)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
