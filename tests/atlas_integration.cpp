@@ -21,6 +21,7 @@
 #include "atlas/output/Gmsh.h"
 
 #include "../include/utils.hpp"
+#include "../include/unstructured_pattern.hpp"
 
 
 /* CPU data descriptor */
