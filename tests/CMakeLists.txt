@@ -75,3 +75,29 @@ add_test(
     NAME communication_object_2_async_async_wait
     COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} communication_object_2_async_async_wait ${MPIEXEC_POSTFLAGS}
 )
+
+
+
+set(_tests_gt data_store_test)
+
+foreach (_t ${_tests_gt})
+    add_executable(${_t} ${_t}.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+    target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+    target_link_libraries(${_t} MPI::MPI_CXX GridTools::gridtools Boost::mpi)
+    add_test(
+        NAME ${_t}.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} ${_t} ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+if (USE_GPU)
+    foreach (_t ${_tests_gt})
+        add_executable(${_t} ${_t}.cu ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+        target_compile_definitions(${_t} PUBLIC GT_USE_GPU) 
+        target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+        target_link_libraries(${_t} MPI::MPI_CXX GridTools::gridtools Boost::mpi)
+        add_test(
+            NAME ${_t}.cu
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} ${_t} ${MPIEXEC_POSTFLAGS}
+        )
+    endforeach()
+endif()

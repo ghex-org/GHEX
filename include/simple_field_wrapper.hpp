@@ -387,6 +387,16 @@ namespace gridtools {
             detail::compute_strides<dimension::value>::template apply<layout_map,value_type>(m_extents,m_byte_strides,0u);
         }
 
+        template<typename Array0, typename Array1, typename Array2>
+        GT_FUNCTION_HOST
+        simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array0& offsets, const Array1& extents, const Array2& byte_strides, device_id_type d_id = 0)
+        : m_dom_id(dom_id), m_data(data), m_device_id(d_id)
+        { 
+            std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
+            std::copy(extents.begin(), extents.end(), m_extents.begin());
+            std::copy(byte_strides.begin(), byte_strides.end(), m_byte_strides.begin());
+        }
+
         template<typename Array>
         GT_FUNCTION_HOST
         simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, padding_256, device_id_type d_id = 0)

@@ -17,6 +17,7 @@
 #include "./protocol/communicator_base.hpp"
 #include <thread>
 #include <future>
+#include <map>
 
 namespace gridtools {
 
