@@ -11,8 +11,6 @@
 #ifndef INCLUDED_ATLAS_DOMAIN_DESCRIPTOR_HPP
 #define INCLUDED_ATLAS_DOMAIN_DESCRIPTOR_HPP
 
-// Check includes!
-
 #include <vector>
 #include <cassert>
 
