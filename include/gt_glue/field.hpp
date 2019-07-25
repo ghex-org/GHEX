@@ -16,7 +16,7 @@
 #include <gridtools/storage/data_store.hpp>
 #include <gridtools/meta/list_to_iseq.hpp>
 #ifdef __CUDACC__
-#include <gridtools/storage/cuda_storage/cuda_storage.hpp>
+#include <gridtools/storage/storage_cuda/cuda_storage.hpp>
 #endif
 
 namespace gridtools {
