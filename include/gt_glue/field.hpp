@@ -75,7 +75,7 @@ namespace gridtools {
     } // namespace _impl
 
     template <typename Grid, typename Storage, typename StorageInfo>
-    auto wrap_gt_field(Grid& grid, data_store<Storage,StorageInfo>& ds, typename _impl::get_device<Storage>::type::id_type device_id = 0)
+    auto wrap_gt_field(Grid& grid, const data_store<Storage,StorageInfo>& ds, typename _impl::get_device<Storage>::type::id_type device_id = 0)
     {
         using domain_id_type    = typename Grid::domain_id_type;
         //using data_store_t      = data_store<mc_storage<DataType>,StorageInfo>;

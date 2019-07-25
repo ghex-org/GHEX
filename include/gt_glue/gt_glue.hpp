@@ -12,9 +12,9 @@
 #define INCLUDED_GT_GLUE_HPP
 
 
-#include "./gt_glue/processor_grid.hpp"
-#include "./gt_glue/pattern.hpp"
-#include "./gt_glue/field.hpp"
+#include "./processor_grid.hpp"
+#include "./pattern.hpp"
+#include "./field.hpp"
 
 
 #endif /* INCLUDED_GT_GLUE_HPP */
