@@ -15,13 +15,14 @@
 #include <cassert>
 
 #include "atlas/field/Field.h"
+#include "atlas/array.h"
 
 #include "./unstructured_grid.hpp"
 
 namespace gridtools {
 
     // forward declaration
-    template<typename P, typename DomainId>
+    template<typename DomainId>
     class atlas_halo_generator;
 
     /** @brief implements domain descriptor concept for Atlas domains
@@ -69,9 +70,20 @@ namespace gridtools {
 
             // member functions
             domain_id_type domain_id() const { return m_id; }
-            const atlas::Field& partition() { return m_partition; }
-            const atlas::Field& remote_index() { return m_remote_index; }
+            const atlas::Field& partition() const { return m_partition; }
+            const atlas::Field& remote_index() const { return m_remote_index; }
             atlas::idx_t size() const { return m_size; }
+
+            // print
+            /** @brief print */
+            template<class CharT, class Traits>
+            friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const atlas_domain_descriptor& domain) {
+                os << "domain id = " << domain.domain_id() << ";\n"
+                   << "size = " << domain.size() << ";\n"
+                   << "partition indexes: [" << domain.partition() << "]\n"
+                   << "remote indexes: [" << domain.remote_index() << "]\n";
+                return os;
+            }
 
     };
 
@@ -79,40 +91,38 @@ namespace gridtools {
      * An Atlas domain has already the notion of halos.
      * The purpose of the Atlas halo generator is to fill a container
      * with indexes referring to remote partitions.
-     * @tparam P transport protocol
      * @tparam DomainId domain id type*/
-    template<typename P, typename DomainId>
+    template<typename DomainId>
     class atlas_halo_generator {
 
         public:
 
             // member types
-            using communicator_type = typename P::communicator;
             using domain_type = atlas_domain_descriptor<DomainId>;
 
         private:
 
             //members
-            communicator_type m_comm;
+            int m_rank;
 
         public:
 
             // ctors
             /** @brief construct a halo generator*/
-            atlas_halo_generator(const communicator_type& comm) :
-                m_comm{comm} {}
+            atlas_halo_generator(const int rank) :
+                m_rank{rank} {}
 
             // member functions
             /** @brief generate halos
-             * @param d local domain instance
-             * @return */
+             * @param domain local domain instance
+             * @return halo (vector of halo indexes)*/
             auto operator()(const domain_type& domain) const {
 
                 std::vector<atlas::idx_t> halo{};
-                const auto rank = m_comm.rank();
+                const int* partition_data = atlas::array::make_view<int, 1>(domain.partition()).data();
 
-                for (atlas::idx_t idx = 0; idx < domain.size(); ++idx) {
-                    if (domain.partition()[idx] != rank) halo.push_back(idx);
+                for (auto idx = 0; idx < domain.size(); ++idx) {
+                    if (partition_data[idx] != m_rank) halo.push_back(idx);
                 }
 
                 return halo;

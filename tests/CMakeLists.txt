@@ -70,7 +70,7 @@ add_test(
 
 add_executable(atlas_integration atlas_integration.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
 target_include_directories(atlas_integration PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-target_link_libraries(atlas_integration MPI::MPI_CXX GridTools::gridtools atlas)
+target_link_libraries(atlas_integration MPI::MPI_CXX Boost::mpi GridTools::gridtools atlas)
 add_test(
     NAME atlas_integration.cpp
     COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} atlas_integration ${MPIEXEC_POSTFLAGS}

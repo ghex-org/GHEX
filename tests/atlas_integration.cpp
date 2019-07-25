@@ -9,19 +9,25 @@
  */
 
 #include <vector>
-#include <gridtools/common/layout_map.hpp>
 
 #include <gtest/gtest.h>
 #include "gtest_main_atlas.cpp"
 
+#include <boost/mpi/communicator.hpp>
+
+#include <gridtools/common/layout_map.hpp>
+
+//#include "atlas/parallel/mpi/mpi.h"
 #include "atlas/grid.h"
 #include "atlas/mesh.h"
 #include "atlas/meshgenerator.h"
 #include "atlas/functionspace/NodeColumns.h"
 #include "atlas/output/Gmsh.h"
 
+#include "../include/protocol/mpi.hpp"
 #include "../include/utils.hpp"
 #include "../include/unstructured_pattern.hpp"
+#include "../include/atlas_domain_descriptor.hpp"
 
 
 /* CPU data descriptor */
@@ -90,7 +96,7 @@ public:
 };
 
 
-TEST(atlas_integration, halo_exchange) {
+TEST(atlas_integration, dependencies) {
 
     // Generate global classic reduced Gaussian grid
     atlas::StructuredGrid grid("N32");
@@ -99,13 +105,81 @@ TEST(atlas_integration, halo_exchange) {
     atlas::StructuredMeshGenerator meshgenerator;
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
-    atlas::output::Gmsh gmsh("N32.msh");
-    gmsh.write(mesh);
+    // Number of vertical levels required
+    std::size_t nb_levels = 10;
+
+    // Generate functionspace associated to mesh
+    EXPECT_NO_THROW(
+        atlas::functionspace::NodeColumns fs_nodes(mesh,
+                                                   atlas::option::levels(nb_levels) | atlas::option::halo(1));
+    );
+
+}
+
+
+TEST(atlas_integration, domain_descriptor) {
+
+    // Generate global classic reduced Gaussian grid
+    atlas::StructuredGrid grid("N32");
+
+    // Generate mesh associated to structured grid
+    atlas::StructuredMeshGenerator meshgenerator;
+    atlas::Mesh mesh = meshgenerator.generate(grid);
 
     // Number of vertical levels required
     std::size_t nb_levels = 10;
 
     // Generate functionspace associated to mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    std::stringstream ss;
+    atlas::idx_t nb_nodes;
+    ss << "nb_nodes_including_halo[" << 1 << "]";
+    mesh.metadata().get( ss.str(), nb_nodes );
+
+    EXPECT_NO_THROW(
+        gridtools::atlas_domain_descriptor<int> d(0,
+                                                  mesh.nodes().partition(),
+                                                  mesh.nodes().remote_index(),
+                                                  nb_nodes);
+    );
+
+}
+
+
+TEST(atlas_integration, halo_generator) {
+
+    // Using atlas communicator
+    // int rank = static_cast<int>(atlas::mpi::comm().rank());
+    // Using our communicator
+    boost::mpi::communicator world;
+    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    int rank = comm.rank();
+
+    // Generate global classic reduced Gaussian grid
+    atlas::StructuredGrid grid("N32");
+
+    // Generate mesh associated to structured grid
+    atlas::StructuredMeshGenerator meshgenerator;
+    atlas::Mesh mesh = meshgenerator.generate(grid);
+
+    // Number of vertical levels required
+    std::size_t nb_levels = 10;
+
+    // Generate functionspace associated to mesh
+    atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    std::stringstream ss;
+    atlas::idx_t nb_nodes;
+    ss << "nb_nodes_including_halo[" << 1 << "]";
+    mesh.metadata().get( ss.str(), nb_nodes );
+
+    gridtools::atlas_domain_descriptor<int> d{0,
+                                              mesh.nodes().partition(),
+                                              mesh.nodes().remote_index(),
+                                              nb_nodes};
+
+    gridtools::atlas_halo_generator<int> hg{rank};
+    EXPECT_NO_THROW(auto halo = hg(d););
 
 }

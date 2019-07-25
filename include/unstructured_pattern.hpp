@@ -11,6 +11,9 @@
 #ifndef INCLUDED_UNSTRUCTURED_PATTERN_HPP
 #define INCLUDED_UNSTRUCTURED_PATTERN_HPP
 
+#include <vector>
+#include <cassert>
+
 #include "./protocol/communicator_base.hpp"
 #include "./pattern.hpp"
 #include "./unstructured_grid.hpp"
@@ -34,38 +37,53 @@ namespace gridtools {
 
             using communicator_type = protocol::communicator<P>;
             using address_type = typename communicator_type::address_type;
-            using grid_type = detail::unstructured_grid<Index>;
+            using index_type = Index;
+            using grid_type = detail::unstructured_grid<index_type>;
             using domain_id_type = DomainId;
             using pattern_container_type = pattern_container<P, grid_type, domain_id_type>;
 
             friend class pattern_container<P, grid_type, domain_id_type>;
 
-            struct iteration_space {
+            /** @brief essentially a sequence of partition indexes and a sequence of remote indexes*/
+            class iteration_space {
 
-                // members
+                private:
 
-                // ctors
-                iteration_space() noexcept = default;
-                iteration_space(const iteration_space&) = default;
-                iteration_space(iteration_space&&) = default;
+                    std::vector<index_type> m_partition;
+                    std::vector<index_type> m_remote_index;
+                    std::size_t m_size;
 
-                // operators
-                iteration_space& operator = (const iteration_space& other) noexcept = default;
-                iteration_space& operator = (iteration_space&& other) noexcept = default;
+                public:
 
-                // member functions
+                    // ctors
+                    iteration_space() noexcept = default;
+                    iteration_space(const std::vector<index_type>& partition, const std::vector<index_type>& remote_index) :
+                        m_partition{partition},
+                        m_remote_index{remote_index} {
+                        assert(partition.size() == remote_index.size());
+                    }
 
-                /** @brief number of elements*/
-                int size() const noexcept {
-                    return 0;
-                }
+                    // member functions
 
-                /** @brief print */
-                template<class CharT, class Traits>
-                friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const iteration_space& is) {
-                    // ...
-                    return os;
-                }
+                    std::vector<index_type>& partition() { return m_partition; }
+                    std::vector<index_type>& remote_index() { return m_remote_index; }
+                    const std::vector<index_type>& partition() const { return m_partition; }
+                    const std::vector<index_type>& remote_index() const { return m_remote_index; }
+
+                    /** @brief number of elements*/
+                    std::size_t size() const noexcept {
+                        return m_partition.size();
+                    }
+
+                    // print
+                    /** @brief print */
+                    template<class CharT, class Traits>
+                    friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const iteration_space& is) {
+                        os << "size = " << is.size() << ";\n"
+                           << "partition indexes: [" << is.partition() << "]\n"
+                           << "remote indexes: [" << is.remote_index() << "]\n";
+                        return os;
+                    }
 
             };
 
@@ -82,16 +100,16 @@ namespace gridtools {
                 int tag;
 
                 // member functions
-
                 /** @brief unique ordering given by id and tag*/
                 bool operator < (const extended_domain_id_type& other) const noexcept {
                     return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
                 }
 
+                // print
                 /** @brief print*/
                 template<class CharT, class Traits>
                     friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id) {
-                        // ...
+                        os << "{id=" << dom_id.id << ", tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
                         return os;
                     }
 
