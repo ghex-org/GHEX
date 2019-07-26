@@ -118,7 +118,7 @@ namespace gridtools {
                 return {std::move(res), std::move(h)};
             }
 
-            /** @brief just a helper function to be used when send/recv counts can be deduced*/
+            /** @brief just a helper function using custom types to be used when send/recv counts can be deduced*/
             template<typename T>
             void allToAll(const std::vector<T>& send_buf, std::vector<T>& recv_buf) const
             {
@@ -132,6 +132,7 @@ namespace gridtools {
                     (send_buf.data(), send_count, MPI_BYTE, recv_buf.data(), recv_count, MPI_BYTE, m_comm));
             }
 
+            /** @brief just a wrapper using custom types*/
             template<typename T>
             void allToAllv(const T* send_buf, const int* send_counts, const int* send_displs,
                            T* recv_buf, const int* recv_counts, const int* recv_displs) const
