@@ -52,6 +52,11 @@ namespace mpi {
          * @param alloc Allocator instance
          */
         message(size_t capacity, size_t size, Allocator alloc = Allocator{})
+            : message(capacity, alloc)
+            , m_size{size}
+        {
+            assert(m_size <= m_capacity);
+        }
             : m_alloc{alloc}
             , m_capacity{capacity}
             , m_payload(nullptr)
