@@ -71,11 +71,11 @@ namespace mpi {
         }
 
         ~message() {
-            if (m_payload) m_alloc.deallocate(m_payload, m_capacity);
+            if (m_payload) std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
             m_payload = nullptr;
         }
 
-        constexpr bool is_shared() { return false; }
+        constexpr bool is_shared() { return can_be_shared; }
         size_t use_count() const { return 1; }
 
         /** This is the main function used by the communicator to access the
@@ -126,14 +126,14 @@ namespace mpi {
             assert(new_capacity >= m_size);
 
             if (m_payload) {
-                byte* new_storage = m_alloc.allocate(new_capacity);
+                byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
                 std::memcpy((void*)new_storage, (void*)m_payload, m_size);
 
-                m_alloc.deallocate(m_payload, m_capacity);
+                std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
                 m_payload = new_storage;
                 m_capacity = new_capacity;
             } else {
-                byte* new_storage = m_alloc.allocate(new_capacity);
+                byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
                 m_payload = new_storage;
                 m_capacity = new_capacity;
             }
