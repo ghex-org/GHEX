@@ -14,19 +14,19 @@
 int rank;
 
 auto test1() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     std::vector<unsigned char> rmsg(40, 40);
 
-    mpi::communicator::common_future fut;
+    gridtools::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
         sr.send_safe(smsg, 1, 1);
-        fut = sr.recv(rmsg, 1, 2);
+        rfut = sr.recv(rmsg, 1, 2);
     } else if (rank == 1) {
         sr.send_safe(smsg, 0, 2);
-        fut = sr.recv(rmsg, 0, 1);
+        rfut = sr.recv(rmsg, 0, 1);
     }
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -36,7 +36,7 @@ auto test1() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-     } while (fut.ready());
+     } while (rfut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     std::cout << "\n***********\n";
@@ -51,7 +51,7 @@ auto test1() {
 }
 
 auto test2() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     std::vector<unsigned char> rmsg(40, 40);
@@ -95,23 +95,23 @@ auto test2() {
 }
 
 auto test1_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::message<> rmsg{40, 40};
+    gridtools::mpi::message<> rmsg{40, 40};
 
-    mpi::communicator::common_future fut;
+    gridtools::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
         sr.send_safe(smsg, 1, 1);
-        fut = sr.recv(rmsg, 1, 2);
+        rfut = sr.recv(rmsg, 1, 2);
     } else if (rank == 1) {
         sr.send(smsg, 0, 2);
-        fut = sr.recv(rmsg, 0, 1);
+        rfut = sr.recv(rmsg, 0, 1);
     }
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -121,7 +121,7 @@ auto test1_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-    } while (fut.ready());
+    } while (rfut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     std::cout << "\n***********\n";
@@ -136,14 +136,14 @@ auto test1_mesg() {
 }
 
 auto test2_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::message<> rmsg{40, 40};
+    gridtools::mpi::message<> rmsg{40, 40};
 
     bool arrived = false;
 
@@ -184,24 +184,24 @@ auto test2_mesg() {
 }
 
 auto test1_shared_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::shared_message<> smsg{10};
+    gridtools::mpi::shared_message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::shared_message<> rmsg{40, 40};
+    gridtools::mpi::shared_message<> rmsg{40, 40};
 
-    mpi::communicator::common_future fut;
+    gridtools::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
         auto sf = sr.send(smsg, 1, 1);
-        fut = sr.recv(rmsg, 1, 2);
+        rfut = sr.recv(rmsg, 1, 2);
         sf.wait();
     } else if (rank == 1) {
         auto sf = sr.send(smsg, 0, 2);
-        fut = sr.recv(rmsg, 0, 1);
+        rfut = sr.recv(rmsg, 0, 1);
         sf.wait();
     }
 
@@ -212,7 +212,7 @@ auto test1_shared_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-     } while (fut.ready());
+     } while (rfut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     std::cout << "\n***********\n";
@@ -227,14 +227,14 @@ auto test1_shared_mesg() {
 }
 
 auto test2_shared_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::shared_message<> smsg{10};
+    gridtools::mpi::shared_message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::shared_message<> rmsg{40, 40};
+    gridtools::mpi::shared_message<> rmsg{40, 40};
 
     bool arrived = false;
 

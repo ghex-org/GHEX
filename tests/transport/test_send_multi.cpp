@@ -21,12 +21,12 @@ TEST(transport, send_multi) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    mpi::communicator comm;
+    gridtools::mpi::communicator comm;
 
     if (mpi_rank == 0) {
 
 
-        mpi::shared_message<> smsg{SIZE};
+        gridtools::mpi::shared_message<> smsg{SIZE};
         for (int i = 0; i < SIZE/(int)sizeof(int); ++i) {
             smsg.enqueue(i);
         }
@@ -54,7 +54,7 @@ TEST(transport, send_multi) {
 
 
     } else {
-        mpi::message<> rmsg{SIZE, SIZE};
+        gridtools::mpi::message<> rmsg{SIZE, SIZE};
         auto fut = comm.recv(rmsg, 0, 42);
         fut.wait();
 

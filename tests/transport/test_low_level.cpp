@@ -11,7 +11,7 @@ int rank;
  */
 
 void test1() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
     std::vector<unsigned char> rmsg(10);
@@ -47,7 +47,7 @@ void test1() {
 }
 
 void test2() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
     std::vector<unsigned char> rmsg(10);
@@ -90,14 +90,14 @@ void test2() {
 }
 
 void test1_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::message<> rmsg{40, 40};
+    gridtools::mpi::message<> rmsg{40, 40};
 
     if ( rank == 0 ) {
         sr.send(smsg, 1, 1);
@@ -129,14 +129,14 @@ void test1_mesg() {
 }
 
 void test2_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::message<> rmsg{40, 40};
+    gridtools::mpi::message<> rmsg{40, 40};
 
     bool arrived = false;
 
@@ -174,14 +174,14 @@ void test2_mesg() {
 }
 
 void test1_shared_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::shared_message<> smsg{10};
+    gridtools::mpi::shared_message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::shared_message<> rmsg{40, 40};
+    gridtools::mpi::shared_message<> rmsg{40, 40};
 
     if ( rank == 0 ) {
         sr.send(smsg, 1, 1);
@@ -212,14 +212,14 @@ void test1_shared_mesg() {
 }
 
 void test2_shared_mesg() {
-    mpi::communicator sr;
+    gridtools::mpi::communicator sr;
 
-    mpi::shared_message<> smsg{10};
+    gridtools::mpi::shared_message<> smsg{10};
     for (int i = 0; i < 10; ++i) {
         smsg.enqueue(i);
     }
 
-    mpi::shared_message<> rmsg{40, 40};
+    gridtools::mpi::shared_message<> rmsg{40, 40};
 
     bool arrived = false;
 

@@ -9,10 +9,10 @@
 int rank;
 const int SIZE = 1<<12;
 
-bool test_simple(mpi::communicator &comm, int rank) {
+bool test_simple(gridtools::mpi::communicator &comm, int rank) {
 
     if (rank == 0) {
-        mpi::shared_message<> smsg{SIZE};
+        gridtools::mpi::shared_message<> smsg{SIZE};
         for (int i = 0; i < SIZE/static_cast<int>(sizeof(int)); ++i) {
             smsg.enqueue(i);
         }
@@ -23,7 +23,7 @@ bool test_simple(mpi::communicator &comm, int rank) {
         bool ok = comm.cancel_call_backs();
         return ok;
     } else {
-        mpi::message<> rmsg{SIZE, SIZE};
+        gridtools::mpi::message<> rmsg{SIZE, SIZE};
         auto fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
 
         bool ok = fut.cancel();
@@ -34,11 +34,11 @@ bool test_simple(mpi::communicator &comm, int rank) {
 
 class call_back {
     int & m_value;
-    mpi::communicator& m_comm;
-    mpi::message<>& m_msg;
+    gridtools::mpi::communicator& m_comm;
+    gridtools::mpi::message<>& m_msg;
 
 public:
-    call_back(int& a, mpi::communicator& c, mpi::message<>& m)
+    call_back(int& a, gridtools::mpi::communicator& c, gridtools::mpi::message<>& m)
     : m_value(a)
     , m_comm{c}
     , m_msg{m}
@@ -50,12 +50,12 @@ public:
     }
 };
 
-bool test_send_10(mpi::communicator &comm, int rank) {
+bool test_send_10(gridtools::mpi::communicator &comm, int rank) {
     while (comm.progress()) {}
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (rank == 0) {
-        mpi::shared_message<> smsg{sizeof(int), sizeof(int)};
+        gridtools::mpi::shared_message<> smsg{sizeof(int), sizeof(int)};
         for (int i = 0; i < 10; ++i) {
             int v = i;
             smsg.at<int>(0) = v;
@@ -69,7 +69,7 @@ bool test_send_10(mpi::communicator &comm, int rank) {
     } else {
         int value = -11111111;
 
-        mpi::message<> rmsg{sizeof(int), sizeof(int)};
+        gridtools::mpi::message<> rmsg{sizeof(int), sizeof(int)};
 
         comm.recv(rmsg, 0, 42, call_back{value, comm, rmsg});
 
@@ -95,7 +95,7 @@ TEST(transport, cancel_requests_reposting) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    mpi::communicator comm;
+    gridtools::mpi::communicator comm;
 
     EXPECT_TRUE(test_send_10(comm, rank));
 
@@ -105,7 +105,7 @@ TEST(transport, cancel_requests_simple) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    mpi::communicator comm;
+    gridtools::mpi::communicator comm;
 
     EXPECT_TRUE(test_simple(comm, rank));
 

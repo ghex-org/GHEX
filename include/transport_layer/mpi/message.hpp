@@ -2,6 +2,7 @@
 #include <cstring>
 #include <memory>
 
+namespace gridtools {
 namespace mpi {
 
     /** message is a class that represents a buffer of bytes. Each transport
@@ -313,4 +314,5 @@ namespace mpi {
             return m_s_message-> template at<T>(pos);
         }
     };
-} //namespace mpi
+} // namespace mpi
+} // namespace gridtools
