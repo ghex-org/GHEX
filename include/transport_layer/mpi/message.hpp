@@ -134,7 +134,7 @@ namespace mpi {
             assert(new_capacity >= m_size);
 
             if (m_payload) {
-                byte* new_storage = m_alloc.allocate(new_capacity);
+                byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
                 std::memcpy((void*)new_storage, (void*)m_payload, m_size);
 
                 m_alloc.deallocate(m_payload, m_capacity);
