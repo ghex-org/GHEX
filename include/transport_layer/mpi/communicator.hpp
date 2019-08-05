@@ -41,7 +41,7 @@ namespace mpi {
             MPI_Status status;
             int flag;
             CHECK_MPI_ERROR(MPI_Test(&m_req, &flag, &status));
-            return !flag;
+            return flag;
         }
 
 
@@ -157,11 +157,11 @@ namespace mpi {
         }
 
         /** Receive a message from a source with the given tag. When the message arrives, and
-         * the message ready to be read, the given call-back is invoked with the destination
+         * the message ready to be read, the given call-back is invoked with the source
          *  and tag of the message sent.
          *
          * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-         * @tparam CallBack Funciton to call when the message has been sent and the message ready for reuse
+         * @tparam CallBack Funciton to call when the message has been sent and the message ready to be read
          *
          * @param msg Const reference to a message that will contain the data
          * @param src Source of the message
@@ -216,9 +216,9 @@ namespace mpi {
                     if (flag) {
                         int count;
                         MPI_Get_count(&st, MPI_CHAR, &count);
-                        std::cout << "\t\t\t\t\t\t\t\t\t\t\t\tA message has been found: " << st.MPI_TAG << "\n";
+                        std::cout << "A message has been found with TAG " << st.MPI_TAG << " and size " << count << "bytes\n";
                     } else {
-                        std::cout << "\t\t\t\t\t\t\t\t\t\t\t\tNo message has been found:\n";
+                        std::cout << "No message has been found\n";
                     }
                 }
 #endif
@@ -254,7 +254,7 @@ namespace mpi {
                 CHECK_MPI_ERROR(MPI_Wait(&r, &st));
                 CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
                 result &= flag;
-                i = m_call_backs.erase(i); // must use i.first andnot r, since r is modified
+                i = m_call_backs.erase(i);
             }
 
             return result;

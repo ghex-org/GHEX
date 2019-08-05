@@ -28,7 +28,7 @@ void test1() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-         } while (fut.ready());
+         } while (!fut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
@@ -111,7 +111,7 @@ void test1_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-         } while (fut.ready());
+         } while (!fut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
@@ -195,7 +195,7 @@ void test1_shared_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-         } while (fut.ready());
+         } while (!fut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";

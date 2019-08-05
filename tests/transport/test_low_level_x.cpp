@@ -36,7 +36,7 @@ auto test1() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-     } while (rfut.ready());
+     } while (!rfut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     std::cout << "\n***********\n";
@@ -121,7 +121,7 @@ auto test1_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-    } while (rfut.ready());
+    } while (!rfut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     std::cout << "\n***********\n";
@@ -212,7 +212,7 @@ auto test1_shared_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-     } while (rfut.ready());
+     } while (!rfut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     std::cout << "\n***********\n";
