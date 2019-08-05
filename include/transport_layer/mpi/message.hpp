@@ -54,18 +54,9 @@ namespace mpi {
          */
         message(size_t capacity, size_t size, Allocator alloc = Allocator{})
             : message(capacity, alloc)
-            , m_size{size}
         {
+            m_size = size;
             assert(m_size <= m_capacity);
-        }
-            : m_alloc{alloc}
-            , m_capacity{capacity}
-            , m_payload(nullptr)
-            , m_size{size}
-        {
-            assert(m_size <= m_capacity);
-            if (m_capacity > 0)
-                m_payload = m_alloc.allocate(m_capacity);
         }
 
         message(message const&) = delete;
@@ -113,8 +104,8 @@ namespace mpi {
          *
          * @param s New size
         */
-        void size(size_t s) {
-            assert(s <= capacity);
+        void resize(size_t s) {
+            assert(s <= m_capacity);
             m_size = s;
         }
 
@@ -130,8 +121,8 @@ namespace mpi {
         unsigned char* begin() { return m_payload; }
         unsigned char* end() const { return m_payload + m_size; }
 
-        /** Function to resize a message to a new capacity. Size is unchanged */
-        void resize(size_t new_capacity) {
+        /** Function to set a message to a new capacity. Size is unchanged */
+        void reserve(size_t new_capacity) {
             assert(new_capacity >= m_size);
 
             if (m_payload) {
@@ -269,10 +260,15 @@ namespace mpi {
          *
          * @param s New size
         */
-        void set_size(size_t s) {
-            return m_s_message->set_size(s);
+        void resize(size_t s) {
+            m_s_message->resize(s);
         }
 
+
+        /** Function to set a message to a new capacity. Size is unchanged */
+        void reserve(size_t new_capacity) {
+            m_s_message->reserve(new_capacity);
+        }
 
         /** Reset the size of the message to 0 */
         void empty() {
@@ -284,11 +280,6 @@ namespace mpi {
         /** Simple iterator facility to read the bytes out of the message */
         unsigned char* begin() { return m_s_message->begin(); }
         unsigned char* end() const { return m_s_message->end(); }
-
-        /** Function to resize a message to a new capacity. Size is unchanged */
-        void resize(size_t new_capacity) {
-            m_s_message->resize(new_capacity);
-        }
 
         /** Function to add an element of type T at the end of the message.
          * Size will be updated. In debug mode a check is performed to ensure the
