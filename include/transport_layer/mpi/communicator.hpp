@@ -229,7 +229,7 @@ namespace mpi {
                     auto f = std::move(std::get<0>(i->second));
                     auto x = std::get<1>(i->second);
                     auto y = std::get<2>(i->second);
-                    i = m_call_backs.erase(i); i = m_call_backs.end(); // must use i.first andnot r, since r is modified
+                    i = m_call_backs.erase(i); i = m_call_backs.end();
                     f(x, y);
                     break;
                 } else {
