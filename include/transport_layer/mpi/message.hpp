@@ -79,7 +79,7 @@ namespace mpi {
         }
 
         ~message() {
-            if (m_payload) m_alloc.deallocate(m_payload, m_capacity);
+            if (m_payload) std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
             m_payload = nullptr;
         }
 
