@@ -41,7 +41,7 @@ namespace mpi {
             , m_size{0}
         {
             if (m_capacity > 0)
-                m_payload = m_alloc.allocate(m_capacity);
+                m_payload = std::allocator_traits<Allocator>::allocate(m_alloc, m_capacity);
         }
 
         /** Constructor that take capacity size and allocator.
