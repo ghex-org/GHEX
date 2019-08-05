@@ -150,7 +150,7 @@ namespace mpi {
         template <typename T>
         void enqueue(T x) {
             if (m_size + sizeof(T) > m_capacity) {
-                resize((m_capacity+1)*1.2);
+                reserve((m_capacity+1)*1.2);
             }
             unsigned char* payload_T = m_payload + m_size;
             *reinterpret_cast<T*>(payload_T) = x;
