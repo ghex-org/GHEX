@@ -44,44 +44,37 @@ namespace gridtools {
 
             friend class pattern_container<P, grid_type, domain_id_type>;
 
-            /** @brief essentially a sequence of partition indexes and a sequence of remote indexes*/
+            /** @brief essentially a partition index and a sequence of remote indexes*/
             class iteration_space {
 
                 private:
 
-                    std::vector<index_type> m_partition;
+                    int m_partition;
                     std::vector<index_type> m_remote_index;
-                    std::size_t m_size;
 
                 public:
 
                     // ctors
                     iteration_space() noexcept = default;
-                    iteration_space(const std::vector<index_type>& partition, const std::vector<index_type>& remote_index) :
+                    iteration_space(const int partition, const std::vector<index_type>& remote_index) noexcept :
                         m_partition{partition},
-                        m_remote_index{remote_index} {
-                        assert(partition.size() == remote_index.size());
-                    }
+                        m_remote_index{remote_index} {}
 
                     // member functions
-
-                    std::vector<index_type>& partition() { return m_partition; }
-                    std::vector<index_type>& remote_index() { return m_remote_index; }
-                    const std::vector<index_type>& partition() const { return m_partition; }
-                    const std::vector<index_type>& remote_index() const { return m_remote_index; }
-
-                    /** @brief number of elements*/
-                    std::size_t size() const noexcept {
-                        return m_partition.size();
-                    }
+                    int partition() const noexcept { return m_partition; }
+                    std::vector<index_type>& remote_index() noexcept { return m_remote_index; }
+                    const std::vector<index_type>& remote_index() const noexcept { return m_remote_index; }
+                    std::size_t size() const noexcept { return m_remote_index.size(); }
 
                     // print
                     /** @brief print */
                     template<class CharT, class Traits>
                     friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const iteration_space& is) {
                         os << "size = " << is.size() << ";\n"
-                           << "partition indexes: [" << is.partition() << "]\n"
-                           << "remote indexes: [" << is.remote_index() << "]\n";
+                           << "partition = " << is.partition() << ";\n"
+                           << "remote indexes: [ ";
+                        for (auto idx : is.remote_index()) { os << idx << " "; }
+                        os << "]\n";
                         return os;
                     }
 
@@ -183,7 +176,9 @@ namespace gridtools {
                 // needed with multiple domains per PE
                 int m_max_tag = 0;
 
-                // ...
+                for (const auto& d : d_range) {
+
+                }
 
                 return pattern_container<P, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);
 

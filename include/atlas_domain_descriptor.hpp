@@ -30,6 +30,7 @@ namespace gridtools {
      * It has to be istantiated using a mesh which has already grown the required halo layer
      * due to the creation of a function space with a halo.
      * Null halo is fine too, provided that the mesh is in its final state.
+     * Be careful: domain size includes halos!
      * @tparam DomainId domain id type*/
     template<typename DomainId>
     class atlas_domain_descriptor {
@@ -69,10 +70,10 @@ namespace gridtools {
             }
 
             // member functions
-            domain_id_type domain_id() const { return m_id; }
-            const atlas::Field& partition() const { return m_partition; }
-            const atlas::Field& remote_index() const { return m_remote_index; }
-            atlas::idx_t size() const { return m_size; }
+            domain_id_type domain_id() const noexcept { return m_id; }
+            const atlas::Field& partition() const noexcept { return m_partition; }
+            const atlas::Field& remote_index() const noexcept { return m_remote_index; }
+            atlas::idx_t size() const noexcept { return m_size; }
 
             // print
             /** @brief print */
@@ -100,32 +101,91 @@ namespace gridtools {
             // member types
             using domain_type = atlas_domain_descriptor<DomainId>;
 
+            /** @brief essentially a partition index and a sequence of remote indexes;
+             * conceptually, it is similar to an iteration space
+             * (only differences are that here it is already specialized for atlas
+             * and provides an insert method as well),
+             * and this is why the two concepts could potentially coincide*/
+            class halo {
+
+                private:
+
+                    int m_partition;
+                    std::vector<atlas::idx_t> m_remote_index;
+
+                public:
+
+                    // ctors
+                    halo() noexcept = default;
+                    halo(const int partition) noexcept :
+                        m_partition{partition},
+                        m_remote_index{} {}
+                    halo(const int partition, const std::vector<atlas::idx_t>& remote_index) noexcept :
+                        m_partition{partition},
+                        m_remote_index{remote_index} {}
+
+                    // member functions
+                    int partition() const noexcept { return m_partition; }
+                    std::vector<atlas::idx_t>& remote_index() noexcept { return m_remote_index; }
+                    const std::vector<atlas::idx_t>& remote_index() const noexcept { return m_remote_index; }
+                    std::size_t size() const noexcept { return m_remote_index.size(); }
+                    void push_back(const atlas::idx_t remote_index_idx) {
+                        m_remote_index.push_back(remote_index_idx);
+                    }
+
+                    // print
+                    /** @brief print */
+                    template<class CharT, class Traits>
+                    friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const halo& h) {
+                        os << "size = " << h.size() << ";\n"
+                           << "partition = " << h.partition() << ";\n"
+                           << "remote indexes: [ ";
+                        for (auto idx : h.remote_index()) { os << idx << " "; }
+                        os << "]\n";
+                        return os;
+                    }
+
+            };
+
         private:
 
             //members
             int m_rank;
+            int m_size;
 
         public:
 
             // ctors
-            /** @brief construct a halo generator*/
-            atlas_halo_generator(const int rank) :
-                m_rank{rank} {}
+            /** @brief construct a halo generator
+             * @param rank PE rank
+             * @param size number of PEs*/
+            atlas_halo_generator(const int rank, const int size) noexcept :
+                m_rank{rank},
+                m_size{size} {}
 
             // member functions
             /** @brief generate halos
              * @param domain local domain instance
-             * @return halo (vector of halo indexes)*/
+             * @return vector of receive halos, one for each PE*/
             auto operator()(const domain_type& domain) const {
 
-                std::vector<atlas::idx_t> halo{};
-                const int* partition_data = atlas::array::make_view<int, 1>(domain.partition()).data();
-
-                for (auto idx = 0; idx < domain.size(); ++idx) {
-                    if (partition_data[idx] != m_rank) halo.push_back(idx);
+                std::vector<halo> halos{};
+                for (int rank = 0; rank < m_size; ++rank) {
+                    halos.push_back({rank});
                 }
 
-                return halo;
+                const int* partition_data = atlas::array::make_view<int, 1>(domain.partition()).data();
+                const atlas::idx_t* remote_index_data = atlas::array::make_view<atlas::idx_t, 1>(domain.remote_index()).data();
+
+                // if the index refers to another rank, or even to the same rank but as a halo point,
+                // corresponding halo is updated
+                for (auto domain_idx = 0; domain_idx < domain.size(); ++domain_idx) {
+                    if ((partition_data[domain_idx] != m_rank) || (remote_index_data[domain_idx] != domain_idx)) {
+                        halos[partition_data[domain_idx]].push_back(remote_index_data[domain_idx]);
+                    }
+                }
+
+                return halos;
 
             }
 
