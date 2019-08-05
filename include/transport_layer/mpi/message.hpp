@@ -141,7 +141,7 @@ namespace mpi {
                 m_payload = new_storage;
                 m_capacity = new_capacity;
             } else {
-                byte* new_storage = m_alloc.allocate(new_capacity);
+                byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
                 m_payload = new_storage;
                 m_capacity = new_capacity;
             }
