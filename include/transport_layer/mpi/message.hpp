@@ -42,7 +42,7 @@ namespace mpi {
             , m_size{0}
         {
             if (m_capacity > 0)
-                m_payload = m_alloc.allocate(m_capacity);
+                m_payload = std::allocator_traits<Allocator>::allocate(m_alloc, m_capacity);
         }
 
         /** Constructor that take capacity size and allocator.
@@ -53,6 +53,11 @@ namespace mpi {
          * @param alloc Allocator instance
          */
         message(size_t capacity, size_t size, Allocator alloc = Allocator{})
+            : message(capacity, alloc)
+            , m_size{size}
+        {
+            assert(m_size <= m_capacity);
+        }
             : m_alloc{alloc}
             , m_capacity{capacity}
             , m_payload(nullptr)
@@ -162,7 +167,7 @@ namespace mpi {
         }
 
         /** Function to access an element of type T at position pos in the message.
-         * Size will be updated. In debug mode a check is performed to ensure the
+         * In debug mode a check is performed to ensure the
          * in-bound access, and to check that the address is aligned properly
          * for type T.
          *
