@@ -22,10 +22,10 @@ auto test1() {
     gridtools::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
-        sr.send_safe(smsg, 1, 1);
+        sr.blocking_send(smsg, 1, 1);
         rfut = sr.recv(rmsg, 1, 2);
     } else if (rank == 1) {
-        sr.send_safe(smsg, 0, 2);
+        sr.blocking_send(smsg, 0, 2);
         rfut = sr.recv(rmsg, 0, 1);
     }
 
@@ -107,7 +107,7 @@ auto test1_mesg() {
     gridtools::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
-        sr.send_safe(smsg, 1, 1);
+        sr.blocking_send(smsg, 1, 1);
         rfut = sr.recv(rmsg, 1, 2);
     } else if (rank == 1) {
         sr.send(smsg, 0, 2);

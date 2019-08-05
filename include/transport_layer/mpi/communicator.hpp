@@ -133,7 +133,7 @@ namespace mpi {
          * @param tag Tag associated with the message
          */
         template <typename MsgType>
-        void send_safe(MsgType const& msg, rank_type dst, tag_type tag) {
+        void blocking_send(MsgType const& msg, rank_type dst, tag_type tag) {
             CHECK_MPI_ERROR(MPI_Send(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm));
         }
 
