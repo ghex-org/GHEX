@@ -83,7 +83,7 @@ namespace mpi {
             m_payload = nullptr;
         }
 
-        constexpr bool is_shared() { return false; }
+        constexpr bool is_shared() { return can_be_shared; }
         size_t use_count() const { return 1; }
 
         /** This is the main function used by the communicator to access the
