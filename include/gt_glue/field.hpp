@@ -33,12 +33,12 @@ namespace gridtools {
         template<typename Seq>
         struct get_layout_map;
 
-        template<typename I, I... Is>
-        struct get_layout_map<std::integer_sequence<I, Is...>>
+        template<template <class T, T...> class Seq, typename I, I... Is>
+        struct get_layout_map<Seq<I, Is...>>
         {
             using type = layout_map<Is...>;
         };
-    
+
         template<typename Layout>
         struct get_unmasked_layout_map;
 
@@ -54,8 +54,8 @@ namespace gridtools {
         template<typename T, typename Device, typename DomainDescriptor, typename Seq>
         struct get_simple_field_wrapper_type;
 
-        template<typename T, typename Device, typename DomainDescriptor, typename I, I... Is>
-        struct get_simple_field_wrapper_type<T,Device,DomainDescriptor, std::integer_sequence<I, Is...>>
+        template<typename T, typename Device, typename DomainDescriptor, template <class J, J...> class Seq, typename I, I... Is>
+        struct get_simple_field_wrapper_type<T,Device,DomainDescriptor, Seq<I, Is...>>
         {
             using type = simple_field_wrapper<T,Device,DomainDescriptor,Is...>;
         };

@@ -158,6 +158,8 @@ namespace gridtools {
     private: // members
         communicator_type       m_comm;
         iteration_space_pair    m_domain;
+        coordinate_type         m_global_first;
+        coordinate_type         m_global_last;
         extended_domain_id_type m_id;
         map_type                m_send_map;
         map_type                m_recv_map;
@@ -179,6 +181,10 @@ namespace gridtools {
         communicator_type& communicator() noexcept { return m_comm; }
         const communicator_type& communicator() const noexcept { return m_comm; }
         const pattern_container_type& container() const noexcept { return *m_container; }
+        coordinate_type& global_first() noexcept { return m_global_first; }
+        coordinate_type& global_last()  noexcept { return m_global_last; }
+        const coordinate_type& global_first() const noexcept { return m_global_first; }
+        const coordinate_type& global_last()  const noexcept { return m_global_last; }
 
         /** @brief tie pattern to field
          * @tparam Field field type
@@ -216,8 +222,8 @@ namespace gridtools {
                 
                 // set up domain ids, extents and recv halos
                 std::vector<iteration_space_pair>              my_domain_extents;
-                std::vector<extended_domain_id_type>       my_domain_ids;
-                std::vector<pattern_type>                  my_patterns;
+                std::vector<extended_domain_id_type>           my_domain_ids;
+                std::vector<pattern_type>                      my_patterns;
                 std::vector<std::vector<iteration_space_pair>> my_generated_recv_halos;
                 // loop over domains and fill vectors with
                 // - extended domain ids
@@ -258,6 +264,21 @@ namespace gridtools {
                 auto domain_ids      = comm.all_gather(my_domain_ids, num_domain_ids).get();
                 auto domain_extents  = comm.all_gather(my_domain_extents, num_domain_ids).get();
                 const int world_size = num_domain_ids.size();
+
+                // find global extents
+                auto global_min = my_domain_extents[0].global().first();
+                auto global_max = my_domain_extents[0].global().last();
+                for (const auto& vec : domain_extents)
+                    for (const auto& it_space_pair : vec)
+                    {
+                        global_min = min(global_min, it_space_pair.global().first());
+                        global_max = max(global_max, it_space_pair.global().last());
+                    }
+                for (auto& pat : my_patterns)
+                {
+                    pat.global_first() = global_min;
+                    pat.global_last()  = global_max;
+                }
                 
                 // check my receive halos against all existing domains (i.e. intersection check)
                 // in order to decide from which domain I shall be receiving from.
