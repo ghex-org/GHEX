@@ -56,6 +56,10 @@ namespace gridtools {
         using co_t              = communication_object<P,GridType,DomainIdType>;
         using communicator_type = protocol::communicator<P>;
 
+    public: // public constructor
+        communication_handle(const communicator_type& comm) 
+        : m_comm{comm} {}
+
     private: // private constructor
         communication_handle(co_t& co, const communicator_type& comm) 
         : m_co{&co}, m_comm{comm} {}
@@ -64,16 +68,19 @@ namespace gridtools {
         communication_handle(communication_handle&&) = default;
         communication_handle(const communication_handle&) = delete;
 
+        communication_handle& operator=(communication_handle&&) = default;
+        communication_handle& operator=(const communication_handle&) = delete;
+
     public: // member functions
         /** @brief  wait for communication to be finished*/
-        void wait() { m_co->wait(); }
+        void wait() { if (m_co) m_co->wait(); }
 #ifdef GHEX_COMM_2_TIMINGS
         template<typename Timings>
-        void wait(Timings& t) { m_co->wait(t); }
+        void wait(Timings& t) { if (m_co) m_co->wait(t); }
 #endif
 
     private: // members
-        co_t* m_co;
+        co_t* m_co = nullptr;
         communicator_type m_comm;
     };
 
@@ -314,12 +321,12 @@ namespace gridtools {
         /** @brief handle type returned by exhange operation */
         using handle_type             = communication_handle<P,GridType,DomainIdType>;
         using domain_id_type          = DomainIdType;
+        using pattern_type            = pattern<P,GridType,DomainIdType>;
+        using pattern_container_type  = pattern_container<P,GridType,DomainIdType>;
 
     private: // member types
         using communicator_type       = typename handle_type::communicator_type;
         using address_type            = typename communicator_type::address_type;
-
-        using pattern_type            = pattern<P,GridType,DomainIdType>;
         using index_container_type    = typename pattern_type::index_container_type;
         using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;
         using unpack_function_type    = std::function<void(const void*,const index_container_type&, void*)>;
@@ -395,10 +402,17 @@ namespace gridtools {
         communication_object(const std::map<const typename pattern_type::pattern_container_type*, int>& max_tag_map)
         : m_valid(false), m_max_tag_map(max_tag_map) {}
 
+        communication_object()
+        : m_valid(false) {}
+
         communication_object(const communication_object&) = delete;
         communication_object(communication_object&&) = default;
 
     public: // member functions
+
+        auto& tag_map() noexcept { return m_max_tag_map; }
+        const auto& tag_map() const noexcept { return m_max_tag_map; }
+
         /**
          * @brief blocking variant of halo exchange
          * @tparam Devices list of device types
@@ -463,6 +477,50 @@ namespace gridtools {
             });
             post(h.m_comm);
             return h; 
+        }
+
+        template<typename Device, typename Field>
+        [[nodiscard]] handle_type exchange(buffer_info_type<Device,Field>* first, std::size_t length)
+        {
+            if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
+            m_valid = true;
+            
+            using memory_t               = buffer_memory<Device>*;
+            using value_type             = typename buffer_info_type<Device,Field>::value_type;
+
+            handle_type h(*this, first->get_pattern().communicator());
+            memory_t mem{&(std::get<buffer_memory<Device>>(m_mem))};
+            std::vector<int> tag_offsets(length);
+            for (std::size_t k=0; k<length; ++k)
+                tag_offsets[k] = m_max_tag_map[&((first+k)->get_pattern_container())];
+
+
+            for (std::size_t k=0; k<length; ++k)
+            {
+                auto field_ptr = &((first+k)->get_field());
+                const auto my_dom_id  =(first+k)->get_field().domain_id();
+
+                this->allocate<Device,value_type,typename buffer_memory<Device>::recv_buffer_type>(
+                    mem->recv_memory[(first+k)->device_id()],
+                    (first+k)->get_pattern().recv_halos(),
+                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) 
+                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c,arg); },
+                    my_dom_id,
+                    (first+k)->device_id(),
+                    tag_offsets[k],
+                    true);
+                this->allocate<Device,value_type,typename buffer_memory<Device>::send_buffer_type>(
+                    mem->send_memory[(first+k)->device_id()],
+                    (first+k)->get_pattern().send_halos(),
+                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
+                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c,arg); },
+                    my_dom_id,
+                    (first+k)->device_id(),
+                    tag_offsets[k],
+                    false);
+            }
+            post(h.m_comm);
+            return h;
         }
 
     private:

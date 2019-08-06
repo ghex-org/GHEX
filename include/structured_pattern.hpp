@@ -185,6 +185,7 @@ namespace gridtools {
         coordinate_type& global_last()  noexcept { return m_global_last; }
         const coordinate_type& global_first() const noexcept { return m_global_first; }
         const coordinate_type& global_last()  const noexcept { return m_global_last; }
+        const iteration_space& global_domain() const noexcept { return m_domain.global(); }
 
         /** @brief tie pattern to field
          * @tparam Field field type
@@ -213,7 +214,7 @@ namespace gridtools {
                 using grid_type                 = detail::structured_grid<CoordinateArrayType>;
                 using pattern_type              = pattern<P, grid_type, domain_id_type>;
                 using iteration_space           = typename pattern_type::iteration_space;
-                using iteration_space_pair          = typename pattern_type::iteration_space_pair;
+                using iteration_space_pair      = typename pattern_type::iteration_space_pair;
                 using coordinate_type           = typename pattern_type::coordinate_type;
                 using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
 

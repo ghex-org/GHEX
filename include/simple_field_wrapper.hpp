@@ -369,6 +369,9 @@ namespace gridtools {
         strides_type    m_byte_strides;
 
     public: // ctors
+        
+        simple_field_wrapper() noexcept = default;
+
         /** @brief construcor 
          * @tparam Array coordinate-like type
          * @param dom_id local domain id
@@ -422,6 +425,11 @@ namespace gridtools {
         simple_field_wrapper(simple_field_wrapper&&) noexcept = default;
         GT_FUNCTION_HOST
         simple_field_wrapper(const simple_field_wrapper&) noexcept = default;
+
+        GT_FUNCTION_HOST
+        simple_field_wrapper& operator=(simple_field_wrapper&&) noexcept = default;
+        GT_FUNCTION_HOST
+        simple_field_wrapper& operator=(const simple_field_wrapper&) noexcept = default;
 
     public: // member functions
         GT_FUNCTION
