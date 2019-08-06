@@ -47,6 +47,8 @@ namespace gridtools {
             atlas::Field m_partition;
             atlas::Field m_remote_index;
             atlas::idx_t m_size;
+            atlas::idx_t m_first;
+            atlas::idx_t m_last;
 
         public:
 
@@ -56,17 +58,41 @@ namespace gridtools {
             /** @brief construct a local domain
              * @param id domain id
              * @param partition field with partition indexes
-             * @param remote_index field with local indexes in remote partition*/
+             * @param remote_index field with local indexes in remote partition
+             * @param size size of the domain + all required halo points
+             * @param rank PE rank*/
             atlas_domain_descriptor(domain_id_type id,
                                     const atlas::Field& partition,
                                     const atlas::Field& remote_index,
-                                    const atlas::idx_t size) :
+                                    const atlas::idx_t size,
+                                    const int rank) :
                 m_id{id},
                 m_partition{partition},
                 m_remote_index{remote_index},
                 m_size{size} {
-                assert(size == m_partition.size());
+
+                // Asserts
+                assert(size > 0);
+                assert(size == partition.size());
                 assert(size == remote_index.size());
+
+                // Setup first and last (with the assumption that first/last coincides with min/max)
+                const int* partition_data = atlas::array::make_view<int, 1>(m_partition).data();
+                const atlas::idx_t* remote_index_data = atlas::array::make_view<atlas::idx_t, 1>(m_remote_index).data();
+                atlas::idx_t first = remote_index_data[0];
+                atlas::idx_t last = remote_index_data[0];
+                for (auto idx = 1; idx < m_size; ++idx) {
+                    if (partition_data[idx] == rank) {
+                        if (remote_index_data[idx] < first) {
+                            first = remote_index_data[idx];
+                        } else if (remote_index_data[idx] > last) {
+                            last = remote_index_data[idx];
+                        }
+                    }
+                }
+                m_first = first;
+                m_last = last;
+
             }
 
             // member functions
@@ -74,6 +100,10 @@ namespace gridtools {
             const atlas::Field& partition() const noexcept { return m_partition; }
             const atlas::Field& remote_index() const noexcept { return m_remote_index; }
             atlas::idx_t size() const noexcept { return m_size; }
+            /** @brief first local index, excluding halo points*/
+            atlas::idx_t first() const noexcept { return m_first; }
+            /** @brief last local index, excluding halo points*/
+            atlas::idx_t last() const noexcept { return m_last; }
 
             // print
             /** @brief print */

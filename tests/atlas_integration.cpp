@@ -118,8 +118,16 @@ TEST(atlas_integration, dependencies) {
 
 TEST(atlas_integration, domain_descriptor) {
 
+    // Using atlas communicator
+    // int rank = static_cast<int>(atlas::mpi::comm().rank());
+    // int size = ...
+    // Using our communicator
+    boost::mpi::communicator world;
+    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    int rank = comm.rank();
+
     // Generate global classic reduced Gaussian grid
-    atlas::StructuredGrid grid("N32");
+    atlas::StructuredGrid grid("N16");
 
     // Generate mesh associated to structured grid
     atlas::StructuredMeshGenerator meshgenerator;
@@ -137,11 +145,23 @@ TEST(atlas_integration, domain_descriptor) {
     mesh.metadata().get( ss.str(), nb_nodes );
 
     EXPECT_NO_THROW(
-        gridtools::atlas_domain_descriptor<int> d(0,
-                                                  mesh.nodes().partition(),
-                                                  mesh.nodes().remote_index(),
-                                                  nb_nodes);
+        gridtools::atlas_domain_descriptor<int> _d(0,
+                                                   mesh.nodes().partition(),
+                                                   mesh.nodes().remote_index(),
+                                                   nb_nodes,
+                                                   rank);
     );
+
+    gridtools::atlas_domain_descriptor<int> d{0,
+                                              mesh.nodes().partition(),
+                                              mesh.nodes().remote_index(),
+                                              nb_nodes,
+                                              rank};
+
+    if (rank == 0) {
+        EXPECT_TRUE(d.first() == 0);
+        EXPECT_TRUE(d.last() == 421);
+    }
 
 }
 
@@ -178,7 +198,8 @@ TEST(atlas_integration, halo_generator) {
     gridtools::atlas_domain_descriptor<int> d{0,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
-                                              nb_nodes_1};
+                                              nb_nodes_1,
+                                              rank};
 
     // Instantate halo generator
     gridtools::atlas_halo_generator<int> hg{rank, size};
