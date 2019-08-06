@@ -98,7 +98,7 @@ namespace mpi {
          * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
          */
         template <typename MsgType>
-        mpi_future send(MsgType const& msg, rank_type dst, tag_type tag) {
+        [[nodiscard]] mpi_future send(MsgType const& msg, rank_type dst, tag_type tag) {
             MPI_Request req;
             CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
             return req;
@@ -150,7 +150,7 @@ namespace mpi {
          * @return A future that will be ready when the message can be read
          */
         template <typename MsgType>
-        mpi_future recv(MsgType& msg, rank_type src, tag_type tag) {
+        [[nodiscard]] mpi_future recv(MsgType& msg, rank_type src, tag_type tag) {
             MPI_Request request;
             CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
             return request;
