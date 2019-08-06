@@ -22,7 +22,6 @@
 #include "atlas/mesh.h"
 #include "atlas/meshgenerator.h"
 #include "atlas/functionspace/NodeColumns.h"
-#include "atlas/output/Gmsh.h"
 
 #include "../include/protocol/mpi.hpp"
 #include "../include/utils.hpp"
@@ -151,13 +150,15 @@ TEST(atlas_integration, halo_generator) {
 
     // Using atlas communicator
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
+    // int size = ...
     // Using our communicator
     boost::mpi::communicator world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
     int rank = comm.rank();
+    int size = comm.size();
 
     // Generate global classic reduced Gaussian grid
-    atlas::StructuredGrid grid("N32");
+    atlas::StructuredGrid grid("N16");
 
     // Generate mesh associated to structured grid
     atlas::StructuredMeshGenerator meshgenerator;
@@ -169,17 +170,20 @@ TEST(atlas_integration, halo_generator) {
     // Generate functionspace associated to mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
 
-    std::stringstream ss;
-    atlas::idx_t nb_nodes;
-    ss << "nb_nodes_including_halo[" << 1 << "]";
-    mesh.metadata().get( ss.str(), nb_nodes );
-
+    // Instantiate domain descriptor with halo size = 1
+    std::stringstream ss_1;
+    atlas::idx_t nb_nodes_1;
+    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
+    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     gridtools::atlas_domain_descriptor<int> d{0,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
-                                              nb_nodes};
+                                              nb_nodes_1};
 
-    gridtools::atlas_halo_generator<int> hg{rank};
-    EXPECT_NO_THROW(auto halo = hg(d););
+    // Instantate halo generator
+    gridtools::atlas_halo_generator<int> hg{rank, size};
+
+    // 1) test: halo generator exceptions
+    EXPECT_NO_THROW(auto halos_ = hg(d););
 
 }
