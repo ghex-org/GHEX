@@ -26,11 +26,11 @@ TEST(transport, send_multi) {
     if (mpi_rank == 0) {
 
 
-        gridtools::mpi::shared_message<> smsg{SIZE};
+        gridtools::mpi::shared_message<> smsg{SIZE, SIZE};
 
         int * data = smsg.data<int>();
 
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < SIZE/(int)sizeof(int); ++i) {
             data[i] = i;
         }
 

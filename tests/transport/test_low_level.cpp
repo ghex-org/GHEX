@@ -92,7 +92,7 @@ void test2() {
 void test1_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{40};
+    gridtools::mpi::message<> smsg{40, 40};
 
     int * data = smsg.data<int>();
 
@@ -135,7 +135,7 @@ void test1_mesg() {
 void test2_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{40};
+    gridtools::mpi::message<> smsg{40, 40};
 
     int * data = smsg.data<int>();
 
@@ -184,7 +184,7 @@ void test2_mesg() {
 void test1_shared_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{40};
+    gridtools::mpi::message<> smsg{40, 40};
 
     int * data = smsg.data<int>();
 
@@ -226,7 +226,7 @@ void test1_shared_mesg() {
 void test2_shared_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{40};
+    gridtools::mpi::message<> smsg{40, 40};
 
     int * data = smsg.data<int>();
 
