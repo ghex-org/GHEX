@@ -328,46 +328,52 @@ TEST(low_level, basic_x) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank < 2)
+    if (rank < 2) {
         EXPECT_TRUE(run_test(test1));
+    }
 }
 
 TEST(low_level, basic_x_call_back) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank < 2)
+    if (rank < 2) {
         EXPECT_TRUE(run_test(test2));
+    }
 }
 
 TEST(low_level, basic_x_msg) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank < 2)
+    if (rank < 2) {
         EXPECT_TRUE(run_test(test1_mesg));
+    }
 }
 
 TEST(low_level, basic_x_msg_call_back) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank < 2)
+    if (rank < 2) {
         EXPECT_TRUE(run_test(test2_mesg));
+    }
 }
 
 TEST(low_level, basic_x_shared_msg) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank < 2)
+    if (rank < 2) {
         EXPECT_TRUE(run_test(test1_shared_mesg));
+    }
 }
 
 TEST(low_level, basic_x_shared_msg_call_back) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank < 2)
+    if (rank < 2) {
         EXPECT_TRUE(run_test(test2_shared_mesg));
+    }
 }

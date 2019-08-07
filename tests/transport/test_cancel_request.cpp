@@ -23,7 +23,7 @@ bool test_simple(gridtools::mpi::communicator &comm, int rank) {
         std::array<int, 3> dsts = {1,2,3};
 
         comm.send_multi(smsg, dsts, 42+42); // ~wrong tag to then cancel the calls
-        bool ok = comm.cancel_call_backs();
+        bool ok = comm.cancel_callbacks();
         return ok;
     } else {
         gridtools::mpi::message<> rmsg{SIZE, SIZE};
@@ -34,6 +34,42 @@ bool test_simple(gridtools::mpi::communicator &comm, int rank) {
     }
 
 }
+
+bool test_single(gridtools::mpi::communicator &comm, int rank) {
+
+    if (rank == 0) {
+        gridtools::mpi::shared_message<> smsg{SIZE};
+
+        int* data = smsg.data<int>();
+
+        for (int i = 0; i < SIZE/static_cast<int>(sizeof(int)); ++i) {
+            data[i] = i;
+        }
+
+        std::array<int, 3> dsts = {1,2,3};
+        std::array<gridtools::mpi::communicator::request_type, 3> reqs;
+
+        int i = 0;
+        for (int dst : dsts) {
+            reqs[i++] = comm.send(smsg, dst, 42, [](int, int) {});
+        }
+
+        bool ok = true;
+        for (auto req : reqs) {
+            ok &= comm.cancel_callback(req);
+        }
+
+        return ok;
+
+    } else {
+        gridtools::mpi::message<> rmsg{SIZE, SIZE};
+        auto req = comm.recv(rmsg, 0, 43, [](int, int) {});
+        bool ok = comm.cancel_callback(req);
+        return ok;
+    }
+
+}
+
 
 class call_back {
     int & m_value;
@@ -80,7 +116,7 @@ bool test_send_10(gridtools::mpi::communicator &comm, int rank) {
             comm.progress();
         }
 
-        bool ok = comm.cancel_call_backs();
+        bool ok = comm.cancel_callbacks();
 
         return ok;
 
@@ -111,5 +147,15 @@ TEST(transport, cancel_requests_simple) {
     gridtools::mpi::communicator comm;
 
     EXPECT_TRUE(test_simple(comm, rank));
+
+}
+
+TEST(transport, cancel_single_request) {
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    gridtools::mpi::communicator comm;
+
+    EXPECT_TRUE(test_single(comm, rank));
 
 }
