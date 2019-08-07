@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <cassert>
+#include <numeric>
 
 #include "./protocol/communicator_base.hpp"
 #include "./pattern.hpp"
@@ -59,6 +60,21 @@ namespace gridtools {
                     iteration_space(const int partition, const std::vector<index_type>& remote_index) noexcept :
                         m_partition{partition},
                         m_remote_index{remote_index} {}
+                    iteration_space(const int partition, std::vector<index_type>&& remote_index) noexcept :
+                        m_partition{partition},
+                        m_remote_index{std::move(remote_index)} {}
+                    // less safe but maybe preferable
+                    // template<typename V>
+                    // iteration_space(const int partition, V&& remote_index) noexcept :
+                    //     m_partition{partition},
+                    //     m_remote_index{std::forward<V>(remote_index)} {}
+                    iteration_space(const int partition, const index_type first, const index_type last) noexcept :
+                        m_partition{partition},
+                        m_remote_index{static_cast<std::size_t>(last - first + 1)} {
+                        for (index_type idx = first; idx <= last; ++idx) {
+                            m_remote_index[static_cast<std::size_t>(idx)] = idx;
+                        }
+                    }
 
                     // member functions
                     int partition() const noexcept { return m_partition; }
@@ -83,28 +99,39 @@ namespace gridtools {
             using iteration_space_pair = iteration_space;
             using index_container_type = std::vector<iteration_space_pair>;
 
-            /** @brief extended domain id, including rank and tag information used as key in halo lookup map*/
+            /** @brief extended domain id, including rank and tag information
+             * WARN: does not include actual domain id, differently from structured pattern case*/
             struct extended_domain_id_type {
 
                 // members
-                domain_id_type id;
+                // domain_id_type id;
                 int mpi_rank;
                 address_type address;
                 int tag;
 
                 // member functions
-                /** @brief unique ordering given by id and tag*/
+                // /** @brief unique ordering given by id and tag*/
+                // bool operator < (const extended_domain_id_type& other) const noexcept {
+                //     return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
+                // }
+                /** @brief unique ordering given by address and tag*/
                 bool operator < (const extended_domain_id_type& other) const noexcept {
-                    return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
+                    return (address < other.address ? true : (address == other.address ? (tag < other.tag) : false));
                 }
 
                 // print
+                // /** @brief print*/
+                // template<class CharT, class Traits>
+                // friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id) {
+                //     os << "{id=" << dom_id.id << ", tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
+                //     return os;
+                // }
                 /** @brief print*/
                 template<class CharT, class Traits>
-                    friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id) {
-                        os << "{id=" << dom_id.id << ", tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
-                        return os;
-                    }
+                friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id) {
+                    os << "{tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
+                    return os;
+                }
 
             };
 
@@ -167,16 +194,98 @@ namespace gridtools {
                 using domain_id_type = typename domain_type::domain_id_type;
                 using grid_type = detail::unstructured_grid<Index>;
                 using pattern_type = pattern<P, grid_type, domain_id_type>;
+                using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
+                using index_container_type = typename pattern_type::index_container_type;
+                using index_t = typename pattern_type::index_t;
 
-                // get this address from new communicator
+                // get this rank, address and size from new communicator
+                auto my_rank = new_comm.rank(); // WARN: comm or new_comm?
                 auto my_address = new_comm.address();
+                size_t size = static_cast<std::size_t>(new_comm.size());
 
                 std::vector<pattern_type> my_patterns;
+
+                std::vector<int> recv_counts{};
+                recv_counts.resize(size);
+                std::vector<int> send_counts{};
+                send_counts.resize(size);
+                int recv_count;
+                int send_count;
+                std::vector<int> recv_displs{};
+                recv_displs.resize(size);
+                std::vector<int> send_displs{};
+                send_displs.resize(size);
+                std::vector<index_t> recv_indexes{};
+                std::vector<index_t> send_indexes{};
 
                 // needed with multiple domains per PE
                 int m_max_tag = 0;
 
-                for (const auto& d : d_range) {
+                for (const auto& d : d_range) { // WARN: so far, multiple domains are not fully supported
+
+                    // setup pattern
+                    pattern_type p{new_comm, {my_rank, d.first(), d.last()}, {my_rank, my_address, 0}};
+
+                    std::fill(recv_counts.begin(), recv_counts.end(), 0);
+                    std::fill(send_counts.begin(), send_counts.end(), 0);
+                    std::fill(recv_displs.begin(), recv_displs.end(), 0);
+                    std::fill(send_displs.begin(), send_displs.end(), 0);
+
+                    // set up receive halos
+                    auto generated_recv_halos = hgen(d);
+                    for (const auto& h : generated_recv_halos) {
+                        // WARN: very simplified definition of extended domain id;
+                        // a more complex one is needed for multiple domains
+                        auto tag = (h.partition() << 5) + my_address; // WARN: maximum address = 2^5 - 1
+                        extended_domain_id_type id{h.partition(), h.partition(), tag}; // WARN: address is not obtained from the other domain
+                        index_container_type ic{ {h.partition(), h.remote_index()} };
+                        p.recv_halos().insert(std::make_pair(id, ic));
+                        recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
+                    }
+
+                    // set up all-to-all communication, receive side
+                    recv_count = std::accumulate(recv_counts.begin(), recv_counts.end(), 0);
+                    recv_indexes.resize(recv_count);
+                    recv_displs[0] = 0;
+                    for (std::size_t rank = 1; rank < size; ++rank) {
+                        recv_displs[rank] = recv_displs[rank - 1] + recv_counts[rank - 1];
+                    }
+                    for (const auto& h : generated_recv_halos) {
+                        std::memcpy(&recv_indexes[static_cast<std::size_t>(recv_displs[static_cast<std::size_t>(h.partition())])],
+                                &h.remote_index(),
+                                h.size());
+                    }
+
+                    // set up all-to-all communication, send side
+                    comm.allToAll(recv_counts, send_counts);
+                    send_count = std::accumulate(send_counts.begin(), send_counts.end(), 0);
+                    send_indexes.resize(send_count);
+                    send_displs[0] = 0;
+                    for (std::size_t rank = 1; rank < size; ++rank) {
+                        send_displs[rank] = send_displs[rank - 1] + send_counts[rank - 1];
+                    }
+
+                    // set up send halos
+                    comm.allToAllv(&recv_indexes[0], &recv_counts[0], &recv_displs[0],
+                            &send_indexes[0], &send_counts[0], &send_displs[0]);
+                    for (std::size_t rank = 0; rank < size; ++rank) {
+                        if (send_counts[rank]) {
+                            // WARN: very simplified definition of extended domain id;
+                            // a more complex one is needed for multiple domains
+                            auto tag = (my_address << 5) + rank; // WARN: maximum rank = 2^5 - 1
+                            extended_domain_id_type id{rank, rank, tag};
+                            std::vector<index_t> remote_index{};
+                            remote_index.resize(send_counts[rank]);
+                            std::memcpy(&remote_index[0],
+                                    &send_indexes[static_cast<std::size_t>(send_displs[rank])],
+                                    static_cast<std::size_t>(send_counts[rank]));
+                            index_container_type ic{ {rank, std::move(remote_index)} };
+                            p.send_halos().insert(std::make_pair(id, ic));
+                        }
+                    }
+
+                    // update patterns list
+                    my_patterns.push_back(p);
 
                 }
 
