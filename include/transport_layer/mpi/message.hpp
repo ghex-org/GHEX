@@ -91,6 +91,18 @@ namespace mpi {
         }
 
         /** This is the main function used by the communicator to access the
+         * message to send or receive data as a C-array of type T
+         *
+         * @tparam T Type of the value that should the pointer returned point to
+         * @return Pointer to the beginning of the message as a T*
+         */
+        template <typename T>
+        T* data() const {
+            assert(reinterpret_cast<std::uintptr_t>(m_payload) % alignof(T) == 0);
+            return reinterpret_cast<T*>(m_payload);
+        }
+
+        /** This is the main function used by the communicator to access the
          * size of the message to send or receive. This is done so that a std::vector
          * could be used as message.
          *
@@ -127,55 +139,14 @@ namespace mpi {
         void reserve(size_t new_capacity) {
             assert(new_capacity >= m_size);
 
-            if (m_payload) {
-                byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
-                std::memcpy((void*)new_storage, (void*)m_payload, m_size);
-
-                std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
-                m_payload = new_storage;
-                m_capacity = new_capacity;
-            } else {
-                byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
-                m_payload = new_storage;
-                m_capacity = new_capacity;
-            }
+            if (m_payload)
+               std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
+            byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
+            m_payload = new_storage;
+            m_capacity = new_capacity;
+            m_size = 0;
         }
 
-        /** Function to add an element of type T at the end of the message.
-         * Size will be updated. In debug mode a check is performed to ensure the
-         * address where the insertion is done is aligned with for T.
-         *
-         * @tparam T Type of the value to be added (deduced)
-         *
-         * @param x Value to be added
-         */
-        template <typename T>
-        void enqueue(T x) {
-            if (m_size + sizeof(T) > m_capacity) {
-                reserve((m_capacity+1)*1.2);
-            }
-            unsigned char* payload_T = m_payload + m_size;
-            *reinterpret_cast<T*>(payload_T) = x;
-            m_size += sizeof(T);
-        }
-
-        /** Function to access an element of type T at position pos in the message.
-         * In debug mode a check is performed to ensure the
-         * in-bound access, and to check that the address is aligned properly
-         * for type T.
-         *
-         * @tparam T Type of the value to be added (not deduced)
-         *
-         * @param pos Position (in bytes) in the message
-         *
-         * @return Reference to an element of type T
-         */
-        template <typename T>
-        T& at(size_t pos /* in bytes */ ) const {
-            assert(pos < m_size);
-            assert(reinterpret_cast<std::uintptr_t>(m_payload+pos) % alignof(T) == 0);
-            return *(reinterpret_cast<T*>(m_payload + pos));
-        }
     };
 
 
@@ -237,6 +208,17 @@ namespace mpi {
             return m_s_message->data();
         }
 
+        /** This is the main function used by the communicator to access the
+         * message to send or receive data as a C-array of type T
+         *
+         * @tparam T Type of the value that should the pointer returned point to
+         * @return Pointer to the beginning of the message as a T*
+         */
+        template <typename T>
+        T* data() const {
+            return m_s_message->template data<T>();
+        }
+
         bool is_shared() { return use_count() > 1; }
 
         /** Returns the number of owners of this shared_message */
@@ -283,34 +265,6 @@ namespace mpi {
         unsigned char* begin() { return m_s_message->begin(); }
         unsigned char* end() const { return m_s_message->end(); }
 
-        /** Function to add an element of type T at the end of the message.
-         * Size will be updated. In debug mode a check is performed to ensure the
-         * address where the insertion is done is aligned with for T.
-         *
-         * @tparam T Type of the value to be added (deduced)
-         *
-         * @param x Value to be added
-         */
-        template <typename T>
-        void enqueue(T x) {
-            m_s_message->enqueue(x);
-        }
-
-        /** Function to access an element of type T at position pos in the message.
-         * Size will be updated. In debug mode a check is performed to ensure the
-         * in-bound access, anf to check that the address is aligned properly
-         * for type T.
-         *
-         * @tparam T Type of the value to be added (not deduced)
-         *
-         * @param pos Position (in bytes) in the message
-         *
-         * @return Reference to an element of type T
-         */
-        template <typename T>
-        T& at(size_t pos /* in bytes */ ) const {
-            return m_s_message-> template at<T>(pos);
-        }
     };
 } // namespace mpi
 } // namespace gridtools

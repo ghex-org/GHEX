@@ -27,8 +27,11 @@ TEST(transport, send_multi) {
 
 
         gridtools::mpi::shared_message<> smsg{SIZE};
-        for (int i = 0; i < SIZE/(int)sizeof(int); ++i) {
-            smsg.enqueue(i);
+
+        int * data = smsg.data<int>();
+
+        for (int i = 0; i < 10; ++i) {
+            data[i] = i;
         }
 
         std::array<int, 3> dsts = {1,2,3};
@@ -60,7 +63,8 @@ TEST(transport, send_multi) {
 
         bool ok = true;
         for (int i = 0; i < (int)rmsg.size()/(int)sizeof(int); ++i) {
-            if ( rmsg. template at<int>(i*sizeof(int)) != i )
+            int * data = rmsg.data<int>();
+            if ( data[i] != i )
                 ok = false;
         }
 

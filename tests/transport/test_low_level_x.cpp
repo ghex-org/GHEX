@@ -97,9 +97,12 @@ auto test2() {
 auto test1_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{40};
+
+    int* data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::message<> rmsg{40, 40};
@@ -138,9 +141,12 @@ auto test1_mesg() {
 auto test2_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{40};
+
+    int* data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::message<> rmsg{40, 40};
@@ -186,9 +192,11 @@ auto test2_mesg() {
 auto test1_shared_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::shared_message<> smsg{10};
+    gridtools::mpi::shared_message<> smsg{40};
+    int* data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::shared_message<> rmsg{40, 40};
@@ -229,9 +237,11 @@ auto test1_shared_mesg() {
 auto test2_shared_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::shared_message<> smsg{10};
+    gridtools::mpi::shared_message<> smsg{40};
+    int* data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::shared_message<> rmsg{40, 40};
@@ -281,8 +291,9 @@ bool check_msg(M const& msg) {
     if (rank > 1)
         return ok;
 
+    int* data = msg.template data<int>();
     for (size_t i = 0; i < msg.size()/sizeof(int); ++i) {
-        if ( msg. template at<int>(i*sizeof(int)) != static_cast<int>(i) )
+        if ( data[i] != static_cast<int>(i) )
             ok = false;
     }
     return ok;

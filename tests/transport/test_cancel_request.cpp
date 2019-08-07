@@ -13,8 +13,11 @@ bool test_simple(gridtools::mpi::communicator &comm, int rank) {
 
     if (rank == 0) {
         gridtools::mpi::shared_message<> smsg{SIZE};
+
+        int* data = smsg.data<int>();
+
         for (int i = 0; i < SIZE/static_cast<int>(sizeof(int)); ++i) {
-            smsg.enqueue(i);
+            data[i] = i;
         }
 
         std::array<int, 3> dsts = {1,2,3};
@@ -45,7 +48,7 @@ public:
     { }
 
     void operator()(int, int) {
-        m_value = m_msg.at<int>(0);
+        m_value = m_msg.data<int>()[0];
         m_comm.recv(m_msg, 0, 42+m_value+1, *this);
     }
 };
@@ -58,7 +61,7 @@ bool test_send_10(gridtools::mpi::communicator &comm, int rank) {
         gridtools::mpi::shared_message<> smsg{sizeof(int), sizeof(int)};
         for (int i = 0; i < 10; ++i) {
             int v = i;
-            smsg.at<int>(0) = v;
+            smsg.data<int>()[0] = v;
 
             std::array<int, 3> dsts = {1,2,3};
 

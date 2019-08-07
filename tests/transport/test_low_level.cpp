@@ -92,9 +92,12 @@ void test2() {
 void test1_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{40};
+
+    int * data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::message<> rmsg{40, 40};
@@ -119,8 +122,9 @@ void test1_mesg() {
         std::cout << "***********\n";
 #endif
 
+        int* data = rmsg.data<int>();
         for (int i = 0; i < 10; ++i) {
-            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
+            EXPECT_EQ(data[i], i);
         }
     }
 
@@ -131,9 +135,12 @@ void test1_mesg() {
 void test2_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{10};
+    gridtools::mpi::message<> smsg{40};
+
+    int * data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::message<> rmsg{40, 40};
@@ -164,8 +171,9 @@ void test2_mesg() {
         std::cout << "***********\n";
 #endif
 
+        int* data = rmsg.data<int>();
         for (int i = 0; i < 10; ++i) {
-            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
+            EXPECT_EQ(data[i], i);
         }
     }
 
@@ -176,9 +184,12 @@ void test2_mesg() {
 void test1_shared_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::shared_message<> smsg{10};
+    gridtools::mpi::message<> smsg{40};
+
+    int * data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::shared_message<> rmsg{40, 40};
@@ -203,8 +214,9 @@ void test1_shared_mesg() {
         std::cout << "***********\n";
 #endif
 
+        int* data = rmsg.data<int>();
         for (int i = 0; i < 10; ++i) {
-            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
+            EXPECT_EQ(data[i], i);
         }
     }
 
@@ -214,9 +226,12 @@ void test1_shared_mesg() {
 void test2_shared_mesg() {
     gridtools::mpi::communicator sr;
 
-    gridtools::mpi::shared_message<> smsg{10};
+    gridtools::mpi::message<> smsg{40};
+
+    int * data = smsg.data<int>();
+
     for (int i = 0; i < 10; ++i) {
-        smsg.enqueue(i);
+        data[i] = i;
     }
 
     gridtools::mpi::shared_message<> rmsg{40, 40};
@@ -248,8 +263,10 @@ void test2_shared_mesg() {
         std::cout << "***********\n";
 #endif
 
+        int* data = rmsg.data<int>();
+
         for (int i = 0; i < 10; ++i) {
-            EXPECT_EQ(rmsg.at<int>(i*sizeof(int)), i);
+            EXPECT_EQ(data[i], i);
         }
     }
 
@@ -260,8 +277,9 @@ void test2_shared_mesg() {
 template <typename Msg>
 void print_msg(Msg const msg) {
     std::cout << "Reference count " << msg.use_count() << " (size: " << msg.size() << ")\n";
+    int * data = msg.template data<int>();
     for (int i = 0; i < (int)(msg.size()/sizeof(int)); ++i) {
-        std::cout << msg. template at<int>(i*sizeof(int)) << ", ";
+        std::cout << data[i] << ", ";
     }
     std::cout << "\n";
 }
