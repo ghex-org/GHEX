@@ -25,6 +25,7 @@
 
 #include "../include/protocol/mpi.hpp"
 #include "../include/utils.hpp"
+#include "../include/unstructured_grid.hpp"
 #include "../include/unstructured_pattern.hpp"
 #include "../include/atlas_domain_descriptor.hpp"
 
@@ -206,5 +207,52 @@ TEST(atlas_integration, halo_generator) {
 
     // 1) test: halo generator exceptions
     EXPECT_NO_THROW(auto halos_ = hg(d););
+
+}
+
+
+TEST(atlas_integration, make_pattern) {
+
+    // Using atlas communicator
+    // int rank = static_cast<int>(atlas::mpi::comm().rank());
+    // int size = ...
+    // Using our communicator
+    boost::mpi::communicator world;
+    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    int rank = comm.rank();
+    int size = comm.size();
+
+    // Generate global classic reduced Gaussian grid
+    atlas::StructuredGrid grid("N16");
+
+    // Generate mesh associated to structured grid
+    atlas::StructuredMeshGenerator meshgenerator;
+    atlas::Mesh mesh = meshgenerator.generate(grid);
+
+    // Number of vertical levels required
+    std::size_t nb_levels = 10;
+
+    // Generate functionspace associated to mesh
+    atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    // Instantiate vector of local domains
+    std::vector<gridtools::atlas_domain_descriptor<int>> local_domains{};
+
+    // Instantiate domain descriptor with halo size = 1 and add it to local domains
+    std::stringstream ss_1;
+    atlas::idx_t nb_nodes_1;
+    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
+    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
+    gridtools::atlas_domain_descriptor<int> d{0,
+                                              mesh.nodes().partition(),
+                                              mesh.nodes().remote_index(),
+                                              nb_nodes_1,
+                                              rank};
+    local_domains.push_back(d);
+
+    // Instantate halo generator
+    gridtools::atlas_halo_generator<int> hg{rank, size};
+
+    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
 
 }
