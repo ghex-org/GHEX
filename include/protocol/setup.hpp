@@ -122,11 +122,11 @@ namespace gridtools {
             template<typename T>
             void allToAll(const std::vector<T>& send_buf, std::vector<T>& recv_buf) const
             {
-                std::size_t comm_size = m_comm.size();
+                int comm_size = m_comm.size();
                 assert(send_buf.size() % comm_size == 0);
                 assert(recv_buf.size() % comm_size == 0);
-                size_t send_count = send_buf.size() / comm_size * sizeof(T);
-                size_t recv_count = recv_buf.size() / comm_size * sizeof(T);
+                int send_count = send_buf.size() / comm_size * sizeof(T);
+                int recv_count = recv_buf.size() / comm_size * sizeof(T);
                 BOOST_MPI_CHECK_RESULT(
                     MPI_Alltoall,
                     (send_buf.data(), send_count, MPI_BYTE, recv_buf.data(), recv_count, MPI_BYTE, m_comm));
@@ -137,7 +137,7 @@ namespace gridtools {
             void allToAllv(const T* send_buf, const int* send_counts, const int* send_displs,
                            T* recv_buf, const int* recv_counts, const int* recv_displs) const
             {
-                std::size_t comm_size = m_comm.size();
+                int comm_size = m_comm.size();
                 std::vector<int> send_counts_b(comm_size), send_displs_b(comm_size), recv_counts_b(comm_size), recv_displs_b(comm_size);
                 for (auto i=0; i<comm_size; ++i) send_counts_b[i] = send_counts[i] * sizeof(T);
                 for (auto i=0; i<comm_size; ++i) send_displs_b[i] = send_displs[i] * sizeof(T);
