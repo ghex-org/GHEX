@@ -70,7 +70,8 @@ namespace gridtools {
                     //     m_remote_index{std::forward<V>(remote_index)} {}
                     iteration_space(const int partition, const index_type first, const index_type last) noexcept :
                         m_partition{partition},
-                        m_remote_index{static_cast<std::size_t>(last - first + 1)} {
+                        m_remote_index{} {
+                        m_remote_index.resize(static_cast<std::size_t>(last - first + 1));
                         for (index_type idx = first; idx <= last; ++idx) {
                             m_remote_index[static_cast<std::size_t>(idx)] = idx;
                         }
@@ -196,7 +197,8 @@ namespace gridtools {
                 using pattern_type = pattern<P, grid_type, domain_id_type>;
                 using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
                 using index_container_type = typename pattern_type::index_container_type;
-                using index_t = typename pattern_type::index_t;
+                using index_type = typename pattern_type::index_type;
+                using address_type = typename pattern_type::address_type;
 
                 // get this rank, address and size from new communicator
                 auto my_rank = new_comm.rank(); // WARN: comm or new_comm?
@@ -215,8 +217,8 @@ namespace gridtools {
                 recv_displs.resize(size);
                 std::vector<int> send_displs{};
                 send_displs.resize(size);
-                std::vector<index_t> recv_indexes{};
-                std::vector<index_t> send_indexes{};
+                std::vector<index_type> recv_indexes{};
+                std::vector<index_type> send_indexes{};
 
                 // needed with multiple domains per PE
                 int m_max_tag = 0;
@@ -236,8 +238,8 @@ namespace gridtools {
                     for (const auto& h : generated_recv_halos) {
                         // WARN: very simplified definition of extended domain id;
                         // a more complex one is needed for multiple domains
-                        auto tag = (h.partition() << 5) + my_address; // WARN: maximum address = 2^5 - 1
-                        extended_domain_id_type id{h.partition(), h.partition(), tag}; // WARN: address is not obtained from the other domain
+                        int tag = (h.partition() << 5) + my_address; // WARN: maximum address = 2^5 - 1
+                        extended_domain_id_type id{h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
                         index_container_type ic{ {h.partition(), h.remote_index()} };
                         p.recv_halos().insert(std::make_pair(id, ic));
                         recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
@@ -272,14 +274,14 @@ namespace gridtools {
                         if (send_counts[rank]) {
                             // WARN: very simplified definition of extended domain id;
                             // a more complex one is needed for multiple domains
-                            auto tag = (my_address << 5) + rank; // WARN: maximum rank = 2^5 - 1
-                            extended_domain_id_type id{rank, rank, tag};
-                            std::vector<index_t> remote_index{};
+                            int tag = (my_address << 5) + rank; // WARN: maximum rank = 2^5 - 1
+                            extended_domain_id_type id{static_cast<int>(rank), static_cast<address_type>(rank), tag};
+                            std::vector<index_type> remote_index{};
                             remote_index.resize(send_counts[rank]);
                             std::memcpy(&remote_index[0],
                                     &send_indexes[static_cast<std::size_t>(send_displs[rank])],
                                     static_cast<std::size_t>(send_counts[rank]));
-                            index_container_type ic{ {rank, std::move(remote_index)} };
+                            index_container_type ic{ {static_cast<int>(rank), std::move(remote_index)} };
                             p.send_halos().insert(std::make_pair(id, ic));
                         }
                     }
