@@ -60,11 +60,13 @@ namespace mpi {
         }
 
         message(message const&) = delete;
-        message(message&& other) {
-            m_alloc = std::move(other.m_alloc);
-            m_capacity = other.m_capacity;
-            m_payload = other.m_payload;
-            m_size = other.m_size;
+
+        message(message&& other)
+        : m_alloc{std::move(other.m_alloc)}
+        , m_capacity{other.m_capacity}
+        , m_payload{other.m_payload}
+        , m_size(other.m_size)
+        {
             other.m_capacity = 0;
             other.m_payload = nullptr;
             other.m_size = 0;
