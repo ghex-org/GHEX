@@ -110,7 +110,7 @@ auto test1_mesg() {
         sr.blocking_send(smsg, 1, 1);
         rfut = sr.recv(rmsg, 1, 2);
     } else if (rank == 1) {
-        sr.send(smsg, 0, 2);
+        sr.blocking_send(smsg, 0, 2);
         rfut = sr.recv(rmsg, 0, 1);
     }
 

@@ -17,7 +17,7 @@ void test1() {
     std::vector<unsigned char> rmsg(10);
 
     if ( rank == 0 ) {
-        sr.send(smsg, 1, 1);
+        sr.blocking_send(smsg, 1, 1);
     } else if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
@@ -100,7 +100,7 @@ void test1_mesg() {
     gridtools::mpi::message<> rmsg{40, 40};
 
     if ( rank == 0 ) {
-        sr.send(smsg, 1, 1);
+        sr.blocking_send(smsg, 1, 1);
     } else if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
@@ -184,7 +184,7 @@ void test1_shared_mesg() {
     gridtools::mpi::shared_message<> rmsg{40, 40};
 
     if ( rank == 0 ) {
-        sr.send(smsg, 1, 1);
+        sr.blocking_send(smsg, 1, 1);
     } else if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
