@@ -32,70 +32,84 @@
 #include "../include/unstructured_grid.hpp"
 #include "../include/unstructured_pattern.hpp"
 #include "../include/atlas_domain_descriptor.hpp"
+#include "../include/communication_object.hpp"
 
 
-/* CPU data descriptor */
+/** @brief CPU data descriptor
+ * WARN: so far full support to multiple vertical layers is still not provided*/
 template <typename T, typename DomainDescriptor>
 class my_data_desc {
 
-    using coordinate_t = typename DomainDescriptor::coordinate_type;
-    using layout_map_t = gridtools::layout_map<0, 1, 2>;
-    using Byte = unsigned char;
+    public:
 
-    const DomainDescriptor& m_domain;
-    coordinate_t m_halos_offset;
-    std::vector<T> m_values;
+        using index_t = typename DomainDescriptor::index_t;
+        using Byte = unsigned char;
 
-public:
+    private:
 
-    my_data_desc(const DomainDescriptor& domain,
-                 const coordinate_t& halos_offset,
-                 const std::vector<T>& values) :
-        m_domain{domain},
-        m_halos_offset{halos_offset},
-        m_values{values} {}
+        const DomainDescriptor& m_domain;
+        const int* m_partition_data; // WARN: this should not be needed with a richer iteration spaces
+        atlas::array::ArrayView<T, 2> m_values;
 
-    /** @brief data type size, mandatory*/
-    std::size_t data_type_size() const {
-        return sizeof (T);
-    }
+    public:
 
-    /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
-    void set(const T& value, const coordinate_t& coords) {
-        m_values[coords] = value;
-    }
+        my_data_desc(const DomainDescriptor& domain,
+                     const atlas::Field& field) :
+            m_domain{domain},
+            m_partition_data{atlas::array::make_view<int, 1>(domain.partition()).data()},
+            m_values{atlas::array::make_view<T, 2>(field)} {}
 
-    /** @brief single access get function, not mandatory but used by the corresponding multiple access operator*/
-    const T& get(const coordinate_t& coords) const {
-        return m_values[coords];
-    }
+        /** @brief data type size, mandatory*/
+        std::size_t data_type_size() const {
+            return sizeof (T);
+        }
 
-    /** @brief multiple access set function, needed by GHEX in order to perform the unpacking
-     * @tparam IterationSpace iteration space type
-     * @param is iteration space which to loop through in order to retrieve the coordinates at which to set back the buffer values
-     * @param buffer buffer with the data to be set back*/
-    template <typename IterationSpace>
-    void set(const IterationSpace& is, const Byte* buffer) {
-        gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
-            coordinate_t coords{indices...};
-            set(*(reinterpret_cast<const T*>(buffer)), coords);
-            buffer += sizeof(T);
-        }, is.local().first(), is.local().last());
-    }
+        /** @brief single access set function, not mandatory but used by the corresponding multiple access operator.
+         * WARN: sets the whole column to the same value, full support to multiple vertical layers is not provided yet*/
+        void set(const T& value, const index_t idx) {
+            for (std::size_t level = 0; level < m_domain.levels(); ++level) {
+                m_values(idx, level) = value;
+            }
+        }
 
-    /** @brief multiple access get function, needed by GHEX in order to perform the packing
-     * @tparam IterationSpace iteration space type
-     * @param is iteration space which to loop through in order to retrieve the coordinates at which to get the data
-     * @param buffer buffer to be filled*/
-    template <typename IterationSpace>
-    void get(const IterationSpace& is, Byte* buffer) const {
-        gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
-            coordinate_t coords{indices...};
-            const T* tmp_ptr{&get(coords)};
-            std::memcpy(buffer, tmp_ptr, sizeof(T));
-            buffer += sizeof(T);
-        }, is.local().first(), is.local().last());
-    }
+        /** @brief single access get function, not mandatory but used by the corresponding multiple access operator.
+         * WARN: returns the value of the first layer, full support to multiple vertical layers is not provided yet*/
+        const T& get(const index_t idx) const {
+            return m_values(idx, 0);
+        }
+
+        /** @brief multiple access set function, needed by GHEX in order to perform the unpacking.
+         * WARN: it could be more efficient if the iteration space includes also the indexes on this domain;
+         * in order to do so, iteration space needs to include an additional set of indices;
+         * for now, the needed indices are retrieved by looping over the whole doamin,
+         * and filtering out all the indices by those on the desired remote partition;
+         * For now, the iteration space is used only to retrieve the right partition index.
+         * @tparam IterationSpace iteration space type
+         * @param is iteration space which to loop through in order to retrieve the coordinates at which to set back the buffer values
+         * @param buffer buffer with the data to be set back*/
+        template <typename IterationSpace>
+        void set(const IterationSpace& is, const Byte* buffer) {
+            int partition = is.partition();
+            for (index_t idx = 0; idx < m_domain.size(); ++idx) {
+                if (m_partition_data[idx] == partition) { // WARN: needed static cast here?
+                    set(*(reinterpret_cast<const T*>(buffer)), idx);
+                    buffer += sizeof(T);
+                }
+            }
+        }
+
+        /** @brief multiple access get function, needed by GHEX in order to perform the packing
+         * @tparam IterationSpace iteration space type
+         * @param is iteration space which to loop through in order to retrieve the coordinates at which to get the data
+         * @param buffer buffer to be filled*/
+        template <typename IterationSpace>
+        void get(const IterationSpace& is, Byte* buffer) const {
+            for (index_t idx : is.remote_index()) {
+                const T* tmp_ptr{&get(idx)};
+                std::memcpy(buffer, tmp_ptr, sizeof(T));
+                buffer += sizeof(T);
+            }
+        }
 
 };
 
@@ -153,6 +167,7 @@ TEST(atlas_integration, domain_descriptor) {
         gridtools::atlas_domain_descriptor<int> _d(0,
                                                    mesh.nodes().partition(),
                                                    mesh.nodes().remote_index(),
+                                                   nb_levels,
                                                    nb_nodes,
                                                    rank);
     );
@@ -160,6 +175,7 @@ TEST(atlas_integration, domain_descriptor) {
     gridtools::atlas_domain_descriptor<int> d{0,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
+                                              nb_levels,
                                               nb_nodes,
                                               rank};
 
@@ -203,6 +219,7 @@ TEST(atlas_integration, halo_generator) {
     gridtools::atlas_domain_descriptor<int> d{0,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
+                                              nb_levels,
                                               nb_nodes_1,
                                               rank};
 
@@ -250,6 +267,7 @@ TEST(atlas_integration, make_pattern) {
     gridtools::atlas_domain_descriptor<int> d{0,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
+                                              nb_levels,
                                               nb_nodes_1,
                                               rank};
     local_domains.push_back(d);
@@ -262,7 +280,9 @@ TEST(atlas_integration, make_pattern) {
 }
 
 
-TEST(atlas_integration, data_descriptor) {
+TEST(atlas_integration, halo_exchange) {
+
+    using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
 
     // Using atlas communicator
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
@@ -272,6 +292,8 @@ TEST(atlas_integration, data_descriptor) {
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
     int rank = comm.rank();
     int size = comm.size();
+
+    // ==================== Atlas code ====================
 
     // Generate global classic reduced Gaussian grid
     atlas::StructuredGrid grid("N16");
@@ -286,6 +308,18 @@ TEST(atlas_integration, data_descriptor) {
     // Generate functionspace associated to mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
 
+    // Field creation and initialization
+    atlas::FieldSet fields;
+    fields.add(fs_nodes.createField<double>(atlas::option::name("field_1")));
+    auto field_1_data = atlas::array::make_view<double, 2>(fields["field_1"]);
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            field_1_data(node, level) = static_cast<double>(rank);
+        }
+    }
+
+    // ==================== GHEX code ====================
+
     // Instantiate vector of local domains
     std::vector<gridtools::atlas_domain_descriptor<int>> local_domains{};
 
@@ -297,44 +331,53 @@ TEST(atlas_integration, data_descriptor) {
     gridtools::atlas_domain_descriptor<int> d{0,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
+                                              nb_levels,
                                               nb_nodes_1,
                                               rank};
     local_domains.push_back(d);
 
-    // Following tests not needed, just a template code to play with fields
+    // Instantate halo generator
+    gridtools::atlas_halo_generator<int> hg{rank, size};
 
-    // Few initial debugging info
-    if (rank == 0) {
-        std::cout << "Metadatafor rank 0: " << mesh.metadata() << "\n";
-        std::cout << "number of nodes for functionspace, rank 0: " << fs_nodes.nb_nodes() << "\n";
+    // Make patterns
+    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
+
+    // Istantiate communication object
+    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    std::vector<communication_object_t> cos;
+    for (const auto& p : patterns) {
+        cos.push_back(communication_object_t{p});
     }
 
-    // Field creation and initialization
-    atlas::FieldSet fields;
-    // Field field_scalar2 = fs_nodes.createField<double>( option::name( "scalar2" ) );
-    fields.add(fs_nodes.createField<double>(atlas::option::name("temperature")));
-    auto temperature = atlas::array::make_view<double, 2>(fields["temperature"]);
-    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            temperature(node, level) = static_cast<double>(rank);
-        }
-    }
+    // Istantiate data descriptor
+    my_data_desc<double, domain_descriptor_t> data_1{local_domains.front(), fields["field_1"]};
+
+    // Exchange
+    auto h = cos.front().exchange(data_1);
+    h.wait();
+
+    // ==================== Useful code snippets ====================
+
+    // if (rank == 0) {
+    //     std::cout << "Metadatafor rank 0: " << mesh.metadata() << "\n";
+    //     std::cout << "number of nodes for functionspace, rank 0: " << fs_nodes.nb_nodes() << "\n";
+    // }
 
     // Write mesh and field in gmsh format before halo exchange (step 0)
-    atlas::output::Gmsh gmsh_0("temperature_step_0.msh");
-    gmsh_0.write(mesh);
-    gmsh_0.write(fields["temperature"]);
+    // atlas::output::Gmsh gmsh_0("temperature_step_0.msh");
+    // gmsh_0.write(mesh);
+    // gmsh_0.write(fields["temperature"]);
 
     // Halo exchange
-    fs_nodes.haloExchange(fields["temperature"]);
+    // fs_nodes.haloExchange(fields["temperature"]);
 
     // Write mesh and field in gmsh format after halo exchange (step 1)
-    atlas::output::Gmsh gmsh_1("temperature_step_1.msh");
-    gmsh_1.write(mesh);
-    gmsh_1.write(fields["temperature"]);
+    // atlas::output::Gmsh gmsh_1("temperature_step_1.msh");
+    // gmsh_1.write(mesh);
+    // gmsh_1.write(fields["temperature"]);
 
     // Write final checksum
-    std::string checksum = fs_nodes.checksum(fields["temperature"]);
-    atlas::Log::info() << checksum << std::endl;
+    // std::string checksum = fs_nodes.checksum(fields["temperature"]);
+    // atlas::Log::info() << checksum << std::endl;
 
 }
