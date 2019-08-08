@@ -45,7 +45,9 @@ namespace gridtools {
 
             friend class pattern_container<P, grid_type, domain_id_type>;
 
-            /** @brief essentially a partition index and a sequence of remote indexes*/
+            /** @brief essentially a partition index and a sequence of remote indexes
+             * WARN: a second index, and therefore a more complex iteration space,
+             * is needed to handle correctly multiple vertical layers*/
             class iteration_space {
 
                 private:
