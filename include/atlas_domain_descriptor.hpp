@@ -47,6 +47,7 @@ namespace gridtools {
             domain_id_type m_id;
             atlas::Field m_partition;
             atlas::Field m_remote_index;
+            std::size_t m_levels; // WARN: should it be of index_t ?
             index_t m_size;
             index_t m_first;
             index_t m_last;
@@ -65,11 +66,13 @@ namespace gridtools {
             atlas_domain_descriptor(domain_id_type id,
                                     const atlas::Field& partition,
                                     const atlas::Field& remote_index,
+                                    const std::size_t levels,
                                     const index_t size,
                                     const int rank) :
                 m_id{id},
                 m_partition{partition},
                 m_remote_index{remote_index},
+                m_levels{levels},
                 m_size{size} {
 
                 // Asserts
@@ -100,6 +103,7 @@ namespace gridtools {
             domain_id_type domain_id() const noexcept { return m_id; }
             const atlas::Field& partition() const noexcept { return m_partition; }
             const atlas::Field& remote_index() const noexcept { return m_remote_index; }
+            std::size_t levels() const noexcept { return m_levels; }
             index_t size() const noexcept { return m_size; }
             /** @brief first local index, excluding halo points*/
             index_t first() const noexcept { return m_first; }
