@@ -253,6 +253,6 @@ TEST(atlas_integration, make_pattern) {
     // Instantate halo generator
     gridtools::atlas_halo_generator<int> hg{rank, size};
 
-    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
+    EXPECT_NO_THROW(auto patterns_ = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains););
 
 }
