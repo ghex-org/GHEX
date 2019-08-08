@@ -22,6 +22,10 @@
 #include "atlas/mesh.h"
 #include "atlas/meshgenerator.h"
 #include "atlas/functionspace/NodeColumns.h"
+#include "atlas/field.h"
+#include "atlas/array/ArrayView.h"
+#include "atlas/output/Gmsh.h" // needed only for debug, should be removed later
+#include "atlas/runtime/Log.h" // needed only for debug, should be removed later
 
 #include "../include/protocol/mpi.hpp"
 #include "../include/utils.hpp"
@@ -254,5 +258,83 @@ TEST(atlas_integration, make_pattern) {
     gridtools::atlas_halo_generator<int> hg{rank, size};
 
     EXPECT_NO_THROW(auto patterns_ = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains););
+
+}
+
+
+TEST(atlas_integration, data_descriptor) {
+
+    // Using atlas communicator
+    // int rank = static_cast<int>(atlas::mpi::comm().rank());
+    // int size = ...
+    // Using our communicator
+    boost::mpi::communicator world;
+    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    int rank = comm.rank();
+    int size = comm.size();
+
+    // Generate global classic reduced Gaussian grid
+    atlas::StructuredGrid grid("N16");
+
+    // Generate mesh associated to structured grid
+    atlas::StructuredMeshGenerator meshgenerator;
+    atlas::Mesh mesh = meshgenerator.generate(grid);
+
+    // Number of vertical levels required
+    std::size_t nb_levels = 10;
+
+    // Generate functionspace associated to mesh
+    atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    // Instantiate vector of local domains
+    std::vector<gridtools::atlas_domain_descriptor<int>> local_domains{};
+
+    // Instantiate domain descriptor with halo size = 1 and add it to local domains
+    std::stringstream ss_1;
+    atlas::idx_t nb_nodes_1;
+    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
+    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
+    gridtools::atlas_domain_descriptor<int> d{0,
+                                              mesh.nodes().partition(),
+                                              mesh.nodes().remote_index(),
+                                              nb_nodes_1,
+                                              rank};
+    local_domains.push_back(d);
+
+    // Following tests not needed, just a template code to play with fields
+
+    // Few initial debugging info
+    if (rank == 0) {
+        std::cout << "Metadatafor rank 0: " << mesh.metadata() << "\n";
+        std::cout << "number of nodes for functionspace, rank 0: " << fs_nodes.nb_nodes() << "\n";
+    }
+
+    // Field creation and initialization
+    atlas::FieldSet fields;
+    // Field field_scalar2 = fs_nodes.createField<double>( option::name( "scalar2" ) );
+    fields.add(fs_nodes.createField<double>(atlas::option::name("temperature")));
+    auto temperature = atlas::array::make_view<double, 2>(fields["temperature"]);
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            temperature(node, level) = static_cast<double>(rank);
+        }
+    }
+
+    // Write mesh and field in gmsh format before halo exchange (step 0)
+    atlas::output::Gmsh gmsh_0("temperature_step_0.msh");
+    gmsh_0.write(mesh);
+    gmsh_0.write(fields["temperature"]);
+
+    // Halo exchange
+    fs_nodes.haloExchange(fields["temperature"]);
+
+    // Write mesh and field in gmsh format after halo exchange (step 1)
+    atlas::output::Gmsh gmsh_1("temperature_step_1.msh");
+    gmsh_1.write(mesh);
+    gmsh_1.write(fields["temperature"]);
+
+    // Write final checksum
+    std::string checksum = fs_nodes.checksum(fields["temperature"]);
+    atlas::Log::info() << checksum << std::endl;
 
 }
