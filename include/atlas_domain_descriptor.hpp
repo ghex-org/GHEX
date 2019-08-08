@@ -14,8 +14,8 @@
 #include <vector>
 #include <cassert>
 
-#include "atlas/field/Field.h"
-#include "atlas/array.h"
+#include "atlas/field.h"
+#include "atlas/array/ArrayView.h"
 
 #include "./unstructured_grid.hpp"
 
