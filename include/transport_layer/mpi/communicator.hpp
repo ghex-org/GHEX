@@ -15,7 +15,7 @@ namespace mpi {
     #ifdef NDEBUG
     #define CHECK_MPI_ERROR(x) x;
     #else
-    #define CHECK_MPI_ERROR(x) if (x != MPI_SUCCESS) throw std::runtime_error("MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":"  +  std::to_string(__LINE__));
+    #define CHECK_MPI_ERROR(x) if (x != MPI_SUCCESS) throw std::runtime_error("GHEX Error: MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":"  +  std::to_string(__LINE__));
     #endif
 
     /** Ironic name (ha! ha!) for the future returned by the send and receive
@@ -263,15 +263,16 @@ namespace mpi {
             return result;
         }
 
-        bool cancel_callback(request_type r) {
+        bool cancel_callback(request_type req) {
 
-            if (m_callbacks.count(r) > 0u) {
+            if (m_callbacks.count(req) > 0u) {
+                MPI_Request r = req;
                 CHECK_MPI_ERROR(MPI_Cancel(&r));
                 MPI_Status st;
                 int flag = false;
                 CHECK_MPI_ERROR(MPI_Wait(&r, &st));
                 CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
-                m_callbacks.erase(r);
+                m_callbacks.erase(req);
                 return flag;
             } else {
                 return true;
