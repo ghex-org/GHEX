@@ -14,12 +14,12 @@
 int rank;
 
 auto test1() {
-    gridtools::mpi::communicator sr;
+    gridtools::ghex::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     std::vector<unsigned char> rmsg(40, 40);
 
-    gridtools::mpi::communicator::recv_future rfut;
+    gridtools::ghex::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
         sr.blocking_send(smsg, 1, 1);
@@ -51,7 +51,7 @@ auto test1() {
 }
 
 auto test2() {
-    gridtools::mpi::communicator sr;
+    gridtools::ghex::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     std::vector<unsigned char> rmsg(40, 40);
@@ -95,9 +95,9 @@ auto test2() {
 }
 
 auto test1_mesg() {
-    gridtools::mpi::communicator sr;
+    gridtools::ghex::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{40, 40};
+    gridtools::ghex::mpi::message<> smsg{40, 40};
 
     int* data = smsg.data<int>();
 
@@ -105,9 +105,9 @@ auto test1_mesg() {
         data[i] = i;
     }
 
-    gridtools::mpi::message<> rmsg{40, 40};
+    gridtools::ghex::mpi::message<> rmsg{40, 40};
 
-    gridtools::mpi::communicator::recv_future rfut;
+    gridtools::ghex::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
         sr.blocking_send(smsg, 1, 1);
@@ -139,9 +139,9 @@ auto test1_mesg() {
 }
 
 auto test2_mesg() {
-    gridtools::mpi::communicator sr;
+    gridtools::ghex::mpi::communicator sr;
 
-    gridtools::mpi::message<> smsg{40, 40};
+    gridtools::ghex::mpi::message<> smsg{40, 40};
 
     int* data = smsg.data<int>();
 
@@ -149,7 +149,7 @@ auto test2_mesg() {
         data[i] = i;
     }
 
-    gridtools::mpi::message<> rmsg{40, 40};
+    gridtools::ghex::mpi::message<> rmsg{40, 40};
 
     bool arrived = false;
 
@@ -190,18 +190,18 @@ auto test2_mesg() {
 }
 
 auto test1_shared_mesg() {
-    gridtools::mpi::communicator sr;
+    gridtools::ghex::mpi::communicator sr;
 
-    gridtools::mpi::shared_message<> smsg{40, 40};
+    gridtools::ghex::mpi::shared_message<> smsg{40, 40};
     int* data = smsg.data<int>();
 
     for (int i = 0; i < 10; ++i) {
         data[i] = i;
     }
 
-    gridtools::mpi::shared_message<> rmsg{40, 40};
+    gridtools::ghex::mpi::shared_message<> rmsg{40, 40};
 
-    gridtools::mpi::communicator::recv_future rfut;
+    gridtools::ghex::mpi::communicator::recv_future rfut;
 
     if ( rank == 0 ) {
         auto sf = sr.send(smsg, 1, 1);
@@ -235,16 +235,16 @@ auto test1_shared_mesg() {
 }
 
 auto test2_shared_mesg() {
-    gridtools::mpi::communicator sr;
+    gridtools::ghex::mpi::communicator sr;
 
-    gridtools::mpi::shared_message<> smsg{40, 40};
+    gridtools::ghex::mpi::shared_message<> smsg{40, 40};
     int* data = smsg.data<int>();
 
     for (int i = 0; i < 10; ++i) {
         data[i] = i;
     }
 
-    gridtools::mpi::shared_message<> rmsg{40, 40};
+    gridtools::ghex::mpi::shared_message<> rmsg{40, 40};
 
     bool arrived = false;
 

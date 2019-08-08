@@ -2,10 +2,14 @@
 #include <cstring>
 #include <memory>
 
-namespace gridtools {
-namespace mpi {
+namespace gridtools
+{
+namespace ghex
+{
+namespace mpi
+{
 
-    /** message is a class that represents a buffer of bytes. Each transport
+/** message is a class that represents a buffer of bytes. Each transport
      *  layer will need (potentially) a different type of message.
      *
      * A message can be resized.
@@ -20,137 +24,137 @@ namespace mpi {
      *
      * @tparam Allocator Allocator used by the message
      */
-    template <typename Allocator = std::allocator<unsigned char> >
-    struct message {
-        using byte = unsigned char;
-        Allocator m_alloc;
-        size_t m_capacity;
-        byte* m_payload;
-        size_t m_size;
+template <typename Allocator = std::allocator<unsigned char>>
+struct message
+{
+    using byte = unsigned char;
+    Allocator m_alloc;
+    size_t m_capacity;
+    byte *m_payload;
+    size_t m_size;
 
-        static constexpr bool can_be_shared = false;
+    static constexpr bool can_be_shared = false;
 
-        /** Constructor that take capacity and allocator. Size is kept to 0
+    /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
          * @param alloc Allocator instance
          */
-        message(size_t capacity = 0, Allocator alloc = Allocator{})
-            : m_alloc{alloc}
-            , m_capacity{capacity}
-            , m_payload(nullptr)
-            , m_size{0}
-        {
-            if (m_capacity > 0)
-                m_payload = std::allocator_traits<Allocator>::allocate(m_alloc, m_capacity);
-        }
+    message(size_t capacity = 0, Allocator alloc = Allocator{})
+        : m_alloc{alloc}, m_capacity{capacity}, m_payload(nullptr), m_size{0}
+    {
+        if (m_capacity > 0)
+            m_payload = std::allocator_traits<Allocator>::allocate(m_alloc, m_capacity);
+    }
 
-        /** Constructor that take capacity size and allocator.
+    /** Constructor that take capacity size and allocator.
          * The size elements are un-initialzed. Requires size<=capacity.
          *
          * @param capacity Capacity
          * @param size
          * @param alloc Allocator instance
          */
-        message(size_t capacity, size_t size, Allocator alloc = Allocator{})
-            : message(capacity, alloc)
-        {
-            m_size = size;
-            assert(m_size <= m_capacity);
-        }
+    message(size_t capacity, size_t size, Allocator alloc = Allocator{})
+        : message(capacity, alloc)
+    {
+        m_size = size;
+        assert(m_size <= m_capacity);
+    }
 
-        message(message const&) = delete;
+    message(message const &) = delete;
 
-        message(message&& other)
-        : m_alloc{std::move(other.m_alloc)}
-        , m_capacity{other.m_capacity}
-        , m_payload{other.m_payload}
-        , m_size(other.m_size)
-        {
-            other.m_capacity = 0;
-            other.m_payload = nullptr;
-            other.m_size = 0;
-        }
+    message(message &&other)
+        : m_alloc{std::move(other.m_alloc)}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
+    {
+        other.m_capacity = 0;
+        other.m_payload = nullptr;
+        other.m_size = 0;
+    }
 
-        ~message() {
-            if (m_payload) std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
-            m_payload = nullptr;
-        }
+    ~message()
+    {
+        if (m_payload)
+            std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
+        m_payload = nullptr;
+    }
 
-        constexpr bool is_shared() { return can_be_shared; }
-        size_t use_count() const { return 1; }
+    constexpr bool is_shared() { return can_be_shared; }
+    size_t use_count() const { return 1; }
 
-        /** This is the main function used by the communicator to access the
+    /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector
          * could be used as message.
          *
          * @return Pointer to the beginning of the message
          */
-        unsigned char* data() const {
-            return m_payload;
-        }
+    unsigned char *data() const
+    {
+        return m_payload;
+    }
 
-        /** This is the main function used by the communicator to access the
+    /** This is the main function used by the communicator to access the
          * message to send or receive data as a C-array of type T
          *
          * @tparam T Type of the value that should the pointer returned point to
          * @return Pointer to the beginning of the message as a T*
          */
-        template <typename T>
-        T* data() const {
-            assert(reinterpret_cast<std::uintptr_t>(m_payload) % alignof(T) == 0);
-            return reinterpret_cast<T*>(m_payload);
-        }
+    template <typename T>
+    T *data() const
+    {
+        assert(reinterpret_cast<std::uintptr_t>(m_payload) % alignof(T) == 0);
+        return reinterpret_cast<T *>(m_payload);
+    }
 
-        /** This is the main function used by the communicator to access the
+    /** This is the main function used by the communicator to access the
          * size of the message to send or receive. This is done so that a std::vector
          * could be used as message.
          *
          * @return current size
          */
-        size_t size() const {
-            return m_size;
-        }
+    size_t size() const
+    {
+        return m_size;
+    }
 
-        /** Function to set the size. Condition is that  the new size must be
+    /** Function to set the size. Condition is that  the new size must be
          * smaller than the capacity (no resize). The main use of this is when the
          * user uses memcpy from .data() pointer and then set the size for sending.
          *
          * @param s New size
         */
-        void resize(size_t s) {
-            assert(s <= m_capacity);
-            m_size = s;
-        }
+    void resize(size_t s)
+    {
+        assert(s <= m_capacity);
+        m_size = s;
+    }
 
+    /** Reset the size of the message to 0 */
+    void empty()
+    {
+        m_size == 0;
+    }
 
-        /** Reset the size of the message to 0 */
-        void empty() {
-            m_size == 0;
-        }
+    size_t capacity() const { return m_capacity; }
 
-        size_t capacity() const { return m_capacity; }
+    /** Simple iterator facility to read the bytes out of the message */
+    unsigned char *begin() { return m_payload; }
+    unsigned char *end() const { return m_payload + m_size; }
 
-        /** Simple iterator facility to read the bytes out of the message */
-        unsigned char* begin() { return m_payload; }
-        unsigned char* end() const { return m_payload + m_size; }
+    /** Function to set a message to a new capacity. Size is unchanged */
+    void reserve(size_t new_capacity)
+    {
+        assert(new_capacity >= m_size);
 
-        /** Function to set a message to a new capacity. Size is unchanged */
-        void reserve(size_t new_capacity) {
-            assert(new_capacity >= m_size);
+        if (m_payload)
+            std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
+        byte *new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
+        m_payload = new_storage;
+        m_capacity = new_capacity;
+        m_size = 0;
+    }
+};
 
-            if (m_payload)
-               std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
-            byte* new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
-            m_payload = new_storage;
-            m_capacity = new_capacity;
-            m_size = 0;
-        }
-
-    };
-
-
-    /** shared_message is a class that represents a buffer of bytes. Each transport
+/** shared_message is a class that represents a buffer of bytes. Each transport
      *  layer will need (potentially) a different type of message.
      *
      * A shared_message can be resized.
@@ -167,104 +171,110 @@ namespace mpi {
      *
      * @tparam Allocator Allocator used by the message
      */
-    template <typename Allocator = std::allocator<unsigned char> >
-    struct shared_message {
-        std::shared_ptr<message<Allocator>> m_s_message;
+template <typename Allocator = std::allocator<unsigned char>>
+struct shared_message
+{
+    std::shared_ptr<message<Allocator>> m_s_message;
 
-        static constexpr bool can_be_shared = true;
+    static constexpr bool can_be_shared = true;
 
-
-        /** Constructor that take capacity and allocator. Size is kept to 0
+    /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
          * @param alloc Allocator instance
          */
-        shared_message(size_t capacity, Allocator allc = Allocator{})
-            : m_s_message{std::make_shared<message<Allocator>>(capacity, allc)}
-        { }
+    shared_message(size_t capacity, Allocator allc = Allocator{})
+        : m_s_message{std::make_shared<message<Allocator>>(capacity, allc)}
+    {
+    }
 
-        /** Constructor that take capacity size and allocator.
+    /** Constructor that take capacity size and allocator.
          * The size elements are un-initialzed. Requires size>=capacity.
          *
          * @param capacity Capacity
          * @param size
          * @param alloc Allocator instance
          */
-         shared_message(size_t capacity, size_t size, Allocator allc = Allocator{})
-            : m_s_message{std::make_shared<message<Allocator>>(capacity, size, allc)}
-            {}
+    shared_message(size_t capacity, size_t size, Allocator allc = Allocator{})
+        : m_s_message{std::make_shared<message<Allocator>>(capacity, size, allc)}
+    {
+    }
 
-        /* Showing these to highlight the semantics */
-        shared_message(shared_message const& ) = default;
-        shared_message(shared_message && ) = default;
+    /* Showing these to highlight the semantics */
+    shared_message(shared_message const &) = default;
+    shared_message(shared_message &&) = default;
 
-        /** This is the main function used by the communicator to access the
+    /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector
          * could be used as message.
          *
          * @return Pointer to the beginning of the message
          */
-        unsigned char* data() const {
-            return m_s_message->data();
-        }
+    unsigned char *data() const
+    {
+        return m_s_message->data();
+    }
 
-        /** This is the main function used by the communicator to access the
+    /** This is the main function used by the communicator to access the
          * message to send or receive data as a C-array of type T
          *
          * @tparam T Type of the value that should the pointer returned point to
          * @return Pointer to the beginning of the message as a T*
          */
-        template <typename T>
-        T* data() const {
-            return m_s_message->template data<T>();
-        }
+    template <typename T>
+    T *data() const
+    {
+        return m_s_message->template data<T>();
+    }
 
-        bool is_shared() { return use_count() > 1; }
+    bool is_shared() { return use_count() > 1; }
 
-        /** Returns the number of owners of this shared_message */
-        long use_count() const { return m_s_message.use_count(); }
+    /** Returns the number of owners of this shared_message */
+    long use_count() const { return m_s_message.use_count(); }
 
-        /** Checks if the message contains a message or if it has beed deallocated */
-        bool is_valid() const { return m_s_message; }
+    /** Checks if the message contains a message or if it has beed deallocated */
+    bool is_valid() const { return m_s_message; }
 
-
-        /** This is the main function used by the communicator to access the
+    /** This is the main function used by the communicator to access the
          * size of the message to send or receive. This is done so that a std::vector
          * could be used as message.
          *
          * @return current size
          */
-        size_t size() const {
-            return m_s_message->size();
-        }
+    size_t size() const
+    {
+        return m_s_message->size();
+    }
 
-        /** Function to set the size. Condition is that  the new size must be
+    /** Function to set the size. Condition is that  the new size must be
          * smaller than the capacity (no resize). The main use of this is when the
          * user uses memcpy from .data() pointer and then set the size for sending.
          *
          * @param s New size
         */
-        void resize(size_t s) {
-            m_s_message->resize(s);
-        }
+    void resize(size_t s)
+    {
+        m_s_message->resize(s);
+    }
 
+    /** Function to set a message to a new capacity. Size is unchanged */
+    void reserve(size_t new_capacity)
+    {
+        m_s_message->reserve(new_capacity);
+    }
 
-        /** Function to set a message to a new capacity. Size is unchanged */
-        void reserve(size_t new_capacity) {
-            m_s_message->reserve(new_capacity);
-        }
+    /** Reset the size of the message to 0 */
+    void empty()
+    {
+        m_s_message->empty();
+    }
 
-        /** Reset the size of the message to 0 */
-        void empty() {
-            m_s_message->empty();
-        }
+    size_t capacity() const { return m_s_message->capacity(); }
 
-        size_t capacity() const { return m_s_message->capacity(); }
-
-        /** Simple iterator facility to read the bytes out of the message */
-        unsigned char* begin() { return m_s_message->begin(); }
-        unsigned char* end() const { return m_s_message->end(); }
-
-    };
+    /** Simple iterator facility to read the bytes out of the message */
+    unsigned char *begin() { return m_s_message->begin(); }
+    unsigned char *end() const { return m_s_message->end(); }
+};
 } // namespace mpi
+} // namespace ghex
 } // namespace gridtools

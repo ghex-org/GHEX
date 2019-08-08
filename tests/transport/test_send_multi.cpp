@@ -21,12 +21,12 @@ TEST(transport, send_multi) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    gridtools::mpi::communicator comm;
+    gridtools::ghex::mpi::communicator comm;
 
     if (mpi_rank == 0) {
 
 
-        gridtools::mpi::shared_message<> smsg{SIZE, SIZE};
+        gridtools::ghex::mpi::shared_message<> smsg{SIZE, SIZE};
 
         int * data = smsg.data<int>();
 
@@ -57,7 +57,7 @@ TEST(transport, send_multi) {
 
 
     } else {
-        gridtools::mpi::message<> rmsg{SIZE, SIZE};
+        gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
         auto fut = comm.recv(rmsg, 0, 42);
         fut.wait();
 

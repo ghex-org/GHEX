@@ -3,25 +3,33 @@
 
 #include <mpi.h>
 
-namespace gridtools {
-    namespace mpi {
+namespace gridtools
+{
+namespace ghex
+{
+namespace mpi
+{
 
-        class communicator_traits {
-            MPI_Comm m_comm;
+class communicator_traits
+{
+    MPI_Comm m_comm;
 
-        public:
-            communicator_traits(MPI_Comm comm)
-            : m_comm{comm}
-            {}
+public:
+    communicator_traits(MPI_Comm comm)
+        : m_comm{comm}
+    {
+    }
 
-            communicator_traits()
-            : m_comm{MPI_COMM_WORLD}
-            {}
+    communicator_traits()
+        : m_comm{MPI_COMM_WORLD}
+    {
+    }
 
-            MPI_Comm communicator() const { return m_comm; }
-        };
+    MPI_Comm communicator() const { return m_comm; }
+};
 
-    } // namespace mpi
+} // namespace mpi
+} // namespace ghex
 } // namespace gridtools
 
 #endif
