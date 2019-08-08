@@ -116,6 +116,8 @@ namespace mpi {
          * @param dst Destination of the message
          * @param tag Tag associated with the message
          * @param cb  Call-back function with signature void(int, int)
+         *
+         * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
         template <typename MsgType, typename CallBack>
         request_type send(MsgType const& msg, rank_type dst, tag_type tag, CallBack&& cb) {
@@ -169,6 +171,8 @@ namespace mpi {
          * @param src Source of the message
          * @param tag Tag associated with the message
          * @param cb  Call-back function with signature void(int, int)
+         *
+         * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
         template <typename MsgType, typename CallBack>
         request_type recv(MsgType& msg, rank_type src, tag_type tag, CallBack&& cb) {
@@ -244,6 +248,13 @@ namespace mpi {
             return !(m_callbacks.size() == 0);
         }
 
+        /**
+         * @brief Function to cancel all pending requests for send/recv with callbacks.
+         * This cancel also the calls to `send_multi`. Canceling is an expensive operation
+         * and should be used in exceptional cases.
+         *
+         * @return True if all the pending requests are canceled, false otherwise.
+         */
         bool cancel_callbacks() {
 
             int result = true;
@@ -263,6 +274,19 @@ namespace mpi {
             return result;
         }
 
+        /**
+         * @brief Function to cancel a given operation (send/recv) requiring a callback.
+         *
+         * When a send or receive is requested with a callback, the function returns a
+         * handle of type `request_type`. The value can then be used to cancel the request.
+         * Canceling should be an exceptional case, and should not be the main motif of
+         * the application.
+         *
+         * @param req The request value returned by a previous send/recv call with callback.
+         *
+         * @retrun True if the request was cancelled, of if there was not such request.
+         *         False if the request cannot be canceled.
+         */
         bool cancel_callback(request_type req) {
 
             if (m_callbacks.count(req) > 0u) {
