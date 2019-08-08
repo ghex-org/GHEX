@@ -1,5 +1,7 @@
+#ifndef GHEX_MPI_MESSAGE_HPP
+#define GHEX_MPI_MESSAGE_HPP
+
 #include <cassert>
-#include <cstring>
 #include <memory>
 
 namespace gridtools
@@ -278,3 +280,5 @@ struct shared_message
 } // namespace mpi
 } // namespace ghex
 } // namespace gridtools
+
+#endif

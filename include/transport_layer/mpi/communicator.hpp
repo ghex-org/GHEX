@@ -1,3 +1,6 @@
+#ifndef GHEX_MPI_COMMUNICATOR_HPP
+#define GHEX_MPI_COMMUNICATOR_HPP
+
 #include <iostream>
 #include <mpi.h>
 #include <future>
@@ -337,3 +340,5 @@ public:
 } //namespace mpi
 } // namespace ghex
 } // namespace gridtools
+
+#endif
