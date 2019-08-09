@@ -151,6 +151,10 @@ struct message
         m_size = 0;
     }
 
+    /** This function returns the capacity of the message
+         *
+         * @return current capacity
+         */
     size_t capacity() const { return m_capacity; }
 
     /** Simple iterator facility to read the bytes out of the message */
