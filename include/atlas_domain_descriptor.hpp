@@ -45,6 +45,7 @@ namespace gridtools {
 
             // members
             domain_id_type m_id;
+            int m_rank;
             atlas::Field m_partition;
             atlas::Field m_remote_index;
             std::size_t m_levels; // WARN: should it be of index_t ?
@@ -64,12 +65,13 @@ namespace gridtools {
              * @param size size of the domain + all required halo points
              * @param rank PE rank*/
             atlas_domain_descriptor(domain_id_type id,
+                                    const int rank,
                                     const atlas::Field& partition,
                                     const atlas::Field& remote_index,
                                     const std::size_t levels,
-                                    const index_t size,
-                                    const int rank) :
+                                    const index_t size) :
                 m_id{id},
+                m_rank{rank},
                 m_partition{partition},
                 m_remote_index{remote_index},
                 m_levels{levels},
@@ -101,6 +103,7 @@ namespace gridtools {
 
             // member functions
             domain_id_type domain_id() const noexcept { return m_id; }
+            int rank() const noexcept { return m_rank; }
             const atlas::Field& partition() const noexcept { return m_partition; }
             const atlas::Field& remote_index() const noexcept { return m_remote_index; }
             std::size_t levels() const noexcept { return m_levels; }
