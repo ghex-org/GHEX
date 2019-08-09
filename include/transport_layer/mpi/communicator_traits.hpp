@@ -1,3 +1,13 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2019, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #ifndef GHEX_MPI_COMMUNICATOR_TRAITS_HPP
 #define GHEX_MPI_COMMUNICATOR_TRAITS_HPP
 

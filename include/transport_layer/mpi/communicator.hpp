@@ -1,3 +1,13 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2019, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #ifndef GHEX_MPI_COMMUNICATOR_HPP
 #define GHEX_MPI_COMMUNICATOR_HPP
 
@@ -21,6 +31,7 @@ namespace mpi
 #ifdef NDEBUG
 #define CHECK_MPI_ERROR(x) x;
 #else
+
 #define CHECK_MPI_ERROR(x) \
     if (x != MPI_SUCCESS)  \
         throw std::runtime_error("GHEX Error: MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":" + std::to_string(__LINE__));
@@ -113,7 +124,7 @@ public:
          * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
          */
     template <typename MsgType>
-    [[nodiscard]] mpi_future send(MsgType const &msg, rank_type dst, tag_type tag) {
+    [[nodiscard]] mpi_future send(MsgType const &msg, rank_type dst, tag_type tag) const {
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
         return req;
@@ -152,7 +163,7 @@ public:
          * @param tag Tag associated with the message
          */
     template <typename MsgType>
-    void blocking_send(MsgType const &msg, rank_type dst, tag_type tag)
+    void blocking_send(MsgType const &msg, rank_type dst, tag_type tag) const
     {
         CHECK_MPI_ERROR(MPI_Send(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm));
     }
@@ -170,7 +181,7 @@ public:
          * @return A future that will be ready when the message can be read
          */
     template <typename MsgType>
-    [[nodiscard]] mpi_future recv(MsgType &msg, rank_type src, tag_type tag) {
+    [[nodiscard]] mpi_future recv(MsgType &msg, rank_type src, tag_type tag) const {
         MPI_Request request;
         CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
         return request;

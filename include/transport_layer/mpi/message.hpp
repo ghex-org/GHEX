@@ -1,3 +1,13 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2019, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #ifndef GHEX_MPI_MESSAGE_HPP
 #define GHEX_MPI_MESSAGE_HPP
 
@@ -63,7 +73,12 @@ struct message
         assert(m_size <= m_capacity);
     }
 
-    message(message const &) = delete;
+    /** Copy constructor only does shallo copy, and it should only be used
+     * to put messages in a container, like std::vector
+     */
+    message(message const& other)
+        : m_alloc{other.m_alloc}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
+    {}
 
     message(message &&other)
         : m_alloc{std::move(other.m_alloc)}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
@@ -145,7 +160,8 @@ struct message
     /** Function to set a message to a new capacity. Size is unchanged */
     void reserve(size_t new_capacity)
     {
-        assert(new_capacity >= m_size);
+        if (new_capacity <= m_capacity)
+            return;
 
         if (m_payload)
             std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
