@@ -308,18 +308,21 @@ TEST(atlas_integration, halo_exchange) {
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
     // Number of vertical levels required
-    std::size_t nb_levels = 10;
+    std::size_t nb_levels = 1; // WARN: changed to 1 because not fully supported for now
 
     // Generate functionspace associated to mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
 
-    // Field creation and initialization
+    // Fields creation and initialization
     atlas::FieldSet fields;
-    fields.add(fs_nodes.createField<double>(atlas::option::name("field_1")));
-    auto field_1_data = atlas::array::make_view<double, 2>(fields["field_1"]);
+    fields.add(fs_nodes.createField<int>(atlas::option::name("atlas_field_1")));
+    fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1")));
+    auto atlas_field_1_data = atlas::array::make_view<int, 2>(fields["atlas_field_1"]);
+    auto GHEX_field_1_data = atlas::array::make_view<int, 2>(fields["GHEX_field_1"]);
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            field_1_data(node, level) = static_cast<double>(rank);
+            atlas_field_1_data(node, level) = rank;
+            GHEX_field_1_data(node, level) = rank;
         }
     }
 
@@ -355,11 +358,24 @@ TEST(atlas_integration, halo_exchange) {
     }
 
     // Istantiate data descriptor
-    my_data_desc<double, domain_descriptor_t> data_1{local_domains.front(), fields["field_1"]};
+    my_data_desc<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
-    // Exchange
+    // ==================== atlas halo exchange ====================
+
+    fs_nodes.haloExchange(fields["atlas_field_1"]);
+
+    // ==================== GHEX halo exchange ====================
+
     auto h = cos.front().exchange(data_1);
     h.wait();
+
+    // ==================== test for correctness ====================
+
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
+        }
+    }
 
     // ==================== Useful code snippets ====================
 
