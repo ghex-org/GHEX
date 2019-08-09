@@ -145,8 +145,8 @@ namespace gridtools {
                 for (auto i=0; i<comm_size; ++i) recv_displs_b[i] = recv_displs[i] * sizeof(T);
                 BOOST_MPI_CHECK_RESULT(
                     MPI_Alltoallv,
-                    (send_buf, &send_counts_b[0], &send_displs_b[0], MPI_BYTE,
-                     recv_buf, &recv_counts_b[0], &recv_displs_b[0], MPI_BYTE,
+                    (reinterpret_cast<const char*>(send_buf), &send_counts_b[0], &send_displs_b[0], MPI_BYTE,
+                     reinterpret_cast<char*>(recv_buf), &recv_counts_b[0], &recv_displs_b[0], MPI_BYTE,
                      m_comm)
                 );
             }
