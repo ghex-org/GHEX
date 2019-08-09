@@ -133,6 +133,15 @@ int main(int argc, char **argv) {
     int rank = comm.rank();
     int size = comm.size();
 
+    struct timeval start_atlas;
+    struct timeval stop_atlas;
+    double lapse_time_atlas;
+    struct timeval start_GHEX;
+    struct timeval stop_GHEX;
+    double lapse_time_GHEX;
+
+    const std::size_t n_iter = 100;
+
     // ==================== Atlas code ====================
 
     // Generate global classic reduced Gaussian grid
@@ -197,12 +206,51 @@ int main(int argc, char **argv) {
 
     // ==================== atlas halo exchange ====================
 
+    MPI_Barrier(world);
+
     fs_nodes.haloExchange(fields["atlas_field_1"]);
+
+    MPI_Barrier(world);
+
+    gettimeofday(&start_atlas, nullptr);
+
+    for (auto i = 0; i < n_iter; ++i) {
+        fs_nodes.haloExchange(fields["atlas_field_1"]);
+    }
+
+    gettimeofday(&stop_atlas, nullptr);
+
+    MPI_Barrier(world);
+
+    lapse_time_atlas =
+            ((static_cast<double>(stop_atlas.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop_atlas.tv_usec)) -
+             (static_cast<double>(start_atlas.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_atlas.tv_usec))) *
+            1000.0 / n_iter;
 
     // ==================== GHEX halo exchange ====================
 
+    MPI_Barrier(world);
+
     auto h = cos.front().exchange(data_1);
     h.wait();
+
+    MPI_Barrier(world);
+
+    gettimeofday(&start_GHEX, nullptr);
+
+    for (auto i = 0; i < n_iter; ++i) {
+        auto h_ = cos.front().exchange(data_1);
+        h_.wait();
+    }
+
+    gettimeofday(&stop_GHEX, nullptr);
+
+    MPI_Barrier(world);
+
+    lapse_time_GHEX =
+            ((static_cast<double>(stop_GHEX.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop_GHEX.tv_usec)) -
+             (static_cast<double>(start_GHEX.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_GHEX.tv_usec))) *
+            1000.0 / n_iter;
 
     // ==================== test for correctness ====================
 
@@ -214,8 +262,9 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (!passed) {
+    if (passed) {
         std::cout << "RESULT: PASSED!\n";
+        std::cout << "rank = " << rank << "; atlas time = " << lapse_time_atlas << "ms; GHEX time = " << lapse_time_GHEX << "ms\n";
     } else {
         std::cout << "RESULT: FAILED!\n";
     }
@@ -224,6 +273,6 @@ int main(int argc, char **argv) {
 
     MPI_Finalize();
 
-    return passed;
+    return 0;
 
 }
