@@ -89,11 +89,17 @@ class my_data_desc {
          * @param buffer buffer with the data to be set back*/
         template <typename IterationSpace>
         void set(const IterationSpace& is, const Byte* buffer) {
-            int partition = is.partition();
-            for (index_t idx = 0; idx < m_domain.size(); ++idx) {
-                if (m_partition_data[idx] == partition) { // WARN: needed static cast here?
+            if (is.partition() == m_domain.rank()) {
+                for (index_t idx : is.remote_index()) {
                     set(*(reinterpret_cast<const T*>(buffer)), idx);
                     buffer += sizeof(T);
+                }
+            } else {
+                for (index_t idx = 0; idx < m_domain.size(); ++idx) {
+                    if (m_partition_data[idx] == is.partition()) { // WARN: needed static cast here?
+                        set(*(reinterpret_cast<const T*>(buffer)), idx);
+                        buffer += sizeof(T);
+                    }
                 }
             }
         }
@@ -105,8 +111,7 @@ class my_data_desc {
         template <typename IterationSpace>
         void get(const IterationSpace& is, Byte* buffer) const {
             for (index_t idx : is.remote_index()) {
-                const T* tmp_ptr{&get(idx)};
-                std::memcpy(buffer, tmp_ptr, sizeof(T));
+                std::memcpy(buffer, &get(idx), sizeof(T));
                 buffer += sizeof(T);
             }
         }
@@ -165,19 +170,19 @@ TEST(atlas_integration, domain_descriptor) {
 
     EXPECT_NO_THROW(
         gridtools::atlas_domain_descriptor<int> _d(0,
+                                                   rank,
                                                    mesh.nodes().partition(),
                                                    mesh.nodes().remote_index(),
                                                    nb_levels,
-                                                   nb_nodes,
-                                                   rank);
+                                                   nb_nodes);
     );
 
     gridtools::atlas_domain_descriptor<int> d{0,
+                                              rank,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
                                               nb_levels,
-                                              nb_nodes,
-                                              rank};
+                                              nb_nodes};
 
     if (rank == 0) {
         EXPECT_TRUE(d.first() == 0);
@@ -217,11 +222,11 @@ TEST(atlas_integration, halo_generator) {
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     gridtools::atlas_domain_descriptor<int> d{0,
+                                              rank,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
                                               nb_levels,
-                                              nb_nodes_1,
-                                              rank};
+                                              nb_nodes_1};
 
     // Instantate halo generator
     gridtools::atlas_halo_generator<int> hg{rank, size};
@@ -265,11 +270,11 @@ TEST(atlas_integration, make_pattern) {
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     gridtools::atlas_domain_descriptor<int> d{0,
+                                              rank,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
                                               nb_levels,
-                                              nb_nodes_1,
-                                              rank};
+                                              nb_nodes_1};
     local_domains.push_back(d);
 
     // Instantate halo generator
@@ -329,11 +334,11 @@ TEST(atlas_integration, halo_exchange) {
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     gridtools::atlas_domain_descriptor<int> d{0,
+                                              rank,
                                               mesh.nodes().partition(),
                                               mesh.nodes().remote_index(),
                                               nb_levels,
-                                              nb_nodes_1,
-                                              rank};
+                                              nb_nodes_1};
     local_domains.push_back(d);
 
     // Instantate halo generator
