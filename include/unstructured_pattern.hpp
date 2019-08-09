@@ -238,13 +238,15 @@ namespace gridtools {
                     // set up receive halos
                     auto generated_recv_halos = hgen(d);
                     for (const auto& h : generated_recv_halos) {
-                        // WARN: very simplified definition of extended domain id;
-                        // a more complex one is needed for multiple domains
-                        int tag = (h.partition() << 5) + my_address; // WARN: maximum address = 2^5 - 1
-                        extended_domain_id_type id{h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
-                        index_container_type ic{ {h.partition(), h.remote_index()} };
-                        p.recv_halos().insert(std::make_pair(id, ic));
-                        recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
+                        if (h.size()) {
+                            // WARN: very simplified definition of extended domain id;
+                            // a more complex one is needed for multiple domains
+                            int tag = (h.partition() << 5) + my_address; // WARN: maximum address = 2^5 - 1
+                            extended_domain_id_type id{h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
+                            index_container_type ic{ {h.partition(), h.remote_index()} };
+                            p.recv_halos().insert(std::make_pair(id, ic));
+                            recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
+                        }
                     }
 
                     // set up all-to-all communication, receive side
@@ -255,9 +257,11 @@ namespace gridtools {
                         recv_displs[rank] = recv_displs[rank - 1] + recv_counts[rank - 1];
                     }
                     for (const auto& h : generated_recv_halos) {
-                        std::memcpy(&recv_indexes[static_cast<std::size_t>(recv_displs[static_cast<std::size_t>(h.partition())])],
-                                &h.remote_index(),
-                                h.size());
+                        if (h.size()) {
+                            std::memcpy(&recv_indexes[static_cast<std::size_t>(recv_displs[static_cast<std::size_t>(h.partition())])],
+                                    &h.remote_index()[0],
+                                    h.size() * sizeof(index_type));
+                        }
                     }
 
                     // set up all-to-all communication, send side
@@ -282,7 +286,7 @@ namespace gridtools {
                             remote_index.resize(send_counts[rank]);
                             std::memcpy(&remote_index[0],
                                     &send_indexes[static_cast<std::size_t>(send_displs[rank])],
-                                    static_cast<std::size_t>(send_counts[rank]));
+                                    static_cast<std::size_t>(send_counts[rank]) * sizeof(index_type));
                             index_container_type ic{ {static_cast<int>(rank), std::move(remote_index)} };
                             p.send_halos().insert(std::make_pair(id, ic));
                         }
