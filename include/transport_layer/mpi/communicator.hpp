@@ -39,73 +39,77 @@ namespace mpi
 
 class communicator;
 
-namespace _impl {
-    /** The future returned by the send and receive
+namespace _impl
+{
+/** The future returned by the send and receive
          * operations of a communicator object to check or wait on their status.
         */
-    struct mpi_future
+struct mpi_future
+{
+    MPI_Request m_req;
+
+    mpi_future() = default;
+    mpi_future(MPI_Request req) : m_req{req} {}
+
+    /** Function to wait until the operation completed */
+    void wait()
     {
-        MPI_Request m_req;
+        MPI_Status status;
+        CHECK_MPI_ERROR(MPI_Wait(&m_req, &status));
+    }
 
-        mpi_future() = default;
-        mpi_future(MPI_Request req) : m_req{req} {}
-
-        /** Function to wait until the operation completed */
-        void wait()
-        {
-            MPI_Status status;
-            CHECK_MPI_ERROR(MPI_Wait(&m_req, &status));
-        }
-
-        /** Function to test if the operation completed
+    /** Function to test if the operation completed
              *
             * @return True if the operation is completed
             */
-        bool ready()
-        {
-            MPI_Status status;
-            int flag;
-            CHECK_MPI_ERROR(MPI_Test(&m_req, &flag, &status));
-            return flag;
-        }
+    bool ready()
+    {
+        MPI_Status status;
+        int flag;
+        CHECK_MPI_ERROR(MPI_Test(&m_req, &flag, &status));
+        return flag;
+    }
 
-        /** Cancel the future.
+    /** Cancel the future.
              *
             * @return True if the request was successfully canceled
             */
-        bool cancel()
-        {
-            CHECK_MPI_ERROR(MPI_Cancel(&m_req));
-            MPI_Status st;
-            int flag = false;
-            CHECK_MPI_ERROR(MPI_Wait(&m_req, &st));
-            CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
-            return flag;
-        }
-    };
+    bool cancel()
+    {
+        CHECK_MPI_ERROR(MPI_Cancel(&m_req));
+        MPI_Status st;
+        int flag = false;
+        CHECK_MPI_ERROR(MPI_Wait(&m_req, &st));
+        CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
+        return flag;
+    }
+};
 
-    class cb_request_t {
-        MPI_Request m_req;
+class cb_request_t
+{
+    MPI_Request m_req;
 
-    public:
-        cb_request_t(MPI_Request r)
+public:
+    cb_request_t(MPI_Request r)
         : m_req{r}
-        {}
+    {
+    }
 
-        cb_request_t() : m_req{0} {}
+    cb_request_t() : m_req{0} {}
 
-        cb_request_t(cb_request_t const&) = default;
-        cb_request_t(cb_request_t&&) = default;
+    cb_request_t(cb_request_t const &) = default;
+    cb_request_t(cb_request_t &&) = default;
 
-        cb_request_t& operator=(cb_request_t const& oth) {
-            m_req = oth.m_req;
-            return *this;
-        }
+    cb_request_t &operator=(cb_request_t const &oth)
+    {
+        m_req = oth.m_req;
+        return *this;
+    }
 
-    protected:
-        friend class ::gridtools::ghex::mpi::communicator;
-        MPI_Request operator()() const { return m_req; }
-    };
+protected:
+    friend class ::gridtools::ghex::mpi::communicator;
+    MPI_Request operator()() const { return m_req; }
+};
 
 } // namespace _impl
 
@@ -375,8 +379,9 @@ public:
         }
     }
 
-        /**
-         * @brief Function to cancel a given operation (send/recv) requiring a callback.
+    /**
+         * @brief Function to wait on a given operation (send/recv) requiring a callback.
+         * The callback is invoked after the wait is finished.
          *
          * When a send or receive is requested with a callback, the function returns a
          * handle of type `request_type`. The value can then be used to cancel the request.
@@ -384,9 +389,6 @@ public:
          * the application.
          *
          * @param req The request value returned by a previous send/recv call with callback.
-         *
-         * @retrun True if the request was cancelled, of if there was not such request.
-         *         False if the request cannot be canceled.
          */
     void wait_on_callback(_impl::cb_request_t req)
     {
@@ -404,8 +406,38 @@ public:
             m_callbacks.erase(it);
             f(x, y);
         }
-   }
+    }
 
+    /**
+         * @brief Function to check if a given operation (send/recv) requiring a callback
+         * is ready for the callback to be called.
+         *
+         * When a send or receive is requested with a callback, the function returns a
+         * handle of type `request_type`. The value can then be used to cancel the request.
+         * Canceling should be an exceptional case, and should not be the main motif of
+         * the application. An unexistent request is ready by default.
+         *
+         * @param req The request value returned by a previous send/recv call with callback.
+         *
+         * @retrun True if the request is ready, of if there was not such request.
+         *         False if the request is not ready yet.
+         */
+    bool ready_on_callback(_impl::cb_request_t req)
+    {
+
+        if (m_callbacks.count(req()) > 0u)
+        {
+            MPI_Request r = req();
+            MPI_Status st;
+            int flag = false;
+            CHECK_MPI_ERROR(MPI_Test(&r, &flag, &st));
+            return flag;
+        }
+        else
+        {
+            return true;
+        }
+    }
 };
 
 } //namespace mpi
