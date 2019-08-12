@@ -37,56 +37,84 @@ namespace mpi
         throw std::runtime_error("GHEX Error: MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":" + std::to_string(__LINE__));
 #endif
 
-/** Ironic name (ha! ha!) for the future returned by the send and receive
-     * operations of a communicator object to check or wait on their status.
-     */
-struct mpi_future
-{
-    MPI_Request m_req;
+class communicator;
 
-    mpi_future() = default;
-    mpi_future(MPI_Request req) : m_req{req} {}
-
-    /** Function to wait until the operation completed */
-    void wait()
-    {
-        MPI_Status status;
-        CHECK_MPI_ERROR(MPI_Wait(&m_req, &status));
-    }
-
-    /** Function to test if the operation completed
-         *
-         * @return True if the operation is completed
+namespace _impl {
+    /** The future returned by the send and receive
+         * operations of a communicator object to check or wait on their status.
         */
-    bool ready()
+    struct mpi_future
     {
-        MPI_Status status;
-        int flag;
-        CHECK_MPI_ERROR(MPI_Test(&m_req, &flag, &status));
-        return flag;
-    }
+        MPI_Request m_req;
 
-    /** Cancel the future.
-         *
-         * @return True if the request was successfully canceled
-        */
-    bool cancel()
-    {
-        CHECK_MPI_ERROR(MPI_Cancel(&m_req));
-        MPI_Status st;
-        int flag = false;
-        CHECK_MPI_ERROR(MPI_Wait(&m_req, &st));
-        CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
-        return flag;
-    }
-};
+        mpi_future() = default;
+        mpi_future(MPI_Request req) : m_req{req} {}
+
+        /** Function to wait until the operation completed */
+        void wait()
+        {
+            MPI_Status status;
+            CHECK_MPI_ERROR(MPI_Wait(&m_req, &status));
+        }
+
+        /** Function to test if the operation completed
+             *
+            * @return True if the operation is completed
+            */
+        bool ready()
+        {
+            MPI_Status status;
+            int flag;
+            CHECK_MPI_ERROR(MPI_Test(&m_req, &flag, &status));
+            return flag;
+        }
+
+        /** Cancel the future.
+             *
+            * @return True if the request was successfully canceled
+            */
+        bool cancel()
+        {
+            CHECK_MPI_ERROR(MPI_Cancel(&m_req));
+            MPI_Status st;
+            int flag = false;
+            CHECK_MPI_ERROR(MPI_Wait(&m_req, &st));
+            CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
+            return flag;
+        }
+    };
+
+    class cb_request_t {
+        MPI_Request m_req;
+
+    public:
+        cb_request_t(MPI_Request r)
+        : m_req{r}
+        {}
+
+        cb_request_t() : m_req{0} {}
+
+        cb_request_t(cb_request_t const&) = default;
+        cb_request_t(cb_request_t&&) = default;
+
+        cb_request_t& operator=(cb_request_t const& oth) {
+            m_req = oth.m_req;
+            return *this;
+        }
+
+    protected:
+        friend class ::gridtools::ghex::mpi::communicator;
+        MPI_Request operator()() const { return m_req; }
+    };
+
+} // namespace _impl
 
 /** Class that provides the functions to send and receive messages. A message
      * is an object with .data() that returns a pointer to `unsigned char`
      * and .size(), with the same behavior of std::vector<unsigned char>.
      * Each message will be sent and received with a tag, bot of type int
      */
-struct communicator
+class communicator
 {
 private:
     using tag_type = int;
@@ -97,9 +125,9 @@ private:
     MPI_Comm m_mpi_comm;
 
 public:
-    using send_future = mpi_future;
-    using recv_future = mpi_future;
-    using request_type = typename decltype(m_callbacks)::key_type;
+    using send_future = _impl::mpi_future;
+    using recv_future = _impl::mpi_future;
+    using request_type = _impl::cb_request_t;
 
     communicator(communicator_traits const &ct = communicator_traits{}) : m_mpi_comm{ct.communicator()} {}
 
@@ -124,7 +152,7 @@ public:
          * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
          */
     template <typename MsgType>
-    [[nodiscard]] mpi_future send(MsgType const &msg, rank_type dst, tag_type tag) const {
+    [[nodiscard]] send_future send(MsgType const &msg, rank_type dst, tag_type tag) const {
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
         return req;
@@ -145,7 +173,7 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    request_type send(MsgType const &msg, rank_type dst, tag_type tag, CallBack &&cb)
+    _impl::cb_request_t send(MsgType const &msg, rank_type dst, tag_type tag, CallBack &&cb)
     {
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
@@ -181,7 +209,7 @@ public:
          * @return A future that will be ready when the message can be read
          */
     template <typename MsgType>
-    [[nodiscard]] mpi_future recv(MsgType &msg, rank_type src, tag_type tag) const {
+    [[nodiscard]] recv_future recv(MsgType &msg, rank_type src, tag_type tag) const {
         MPI_Request request;
         CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
         return request;
@@ -202,7 +230,7 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    request_type recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
+    _impl::cb_request_t recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
     {
         MPI_Request request;
         CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
@@ -327,18 +355,18 @@ public:
          * @retrun True if the request was cancelled, of if there was not such request.
          *         False if the request cannot be canceled.
          */
-    bool cancel_callback(request_type req)
+    bool cancel_callback(_impl::cb_request_t req)
     {
 
-        if (m_callbacks.count(req) > 0u)
+        if (m_callbacks.count(req()) > 0u)
         {
-            MPI_Request r = req;
+            MPI_Request r = req();
             CHECK_MPI_ERROR(MPI_Cancel(&r));
             MPI_Status st;
             int flag = false;
             CHECK_MPI_ERROR(MPI_Wait(&r, &st));
             CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
-            m_callbacks.erase(req);
+            m_callbacks.erase(req());
             return flag;
         }
         else
@@ -346,6 +374,38 @@ public:
             return true;
         }
     }
+
+        /**
+         * @brief Function to cancel a given operation (send/recv) requiring a callback.
+         *
+         * When a send or receive is requested with a callback, the function returns a
+         * handle of type `request_type`. The value can then be used to cancel the request.
+         * Canceling should be an exceptional case, and should not be the main motif of
+         * the application.
+         *
+         * @param req The request value returned by a previous send/recv call with callback.
+         *
+         * @retrun True if the request was cancelled, of if there was not such request.
+         *         False if the request cannot be canceled.
+         */
+    void wait_on_callback(_impl::cb_request_t req)
+    {
+
+        if (m_callbacks.count(req()) > 0u)
+        {
+            MPI_Request r = req();
+            MPI_Status st;
+            CHECK_MPI_ERROR(MPI_Wait(&r, &st));
+
+            auto it = m_callbacks.find(req());
+            auto f = std::move(std::get<0>(it->second));
+            auto x = std::get<1>(it->second);
+            auto y = std::get<2>(it->second);
+            m_callbacks.erase(it);
+            f(x, y);
+        }
+   }
+
 };
 
 } //namespace mpi
