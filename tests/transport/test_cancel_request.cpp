@@ -43,15 +43,15 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         std::array<int, 3> dsts = {1,2,3};
         std::array<gridtools::ghex::mpi::communicator::request_type, 3> reqs;
 
-        int i = 0;
         for (int dst : dsts) {
-            reqs[i++] = comm.send(smsg, dst, 45, [smsg](int,int) {} );
+            comm.send(smsg, dst, 45, [smsg](int,int) {} );
         }
 
         bool ok = true;
 
-        for (auto req : reqs) {
-            ok &= comm.cancel_callback(req);
+        for (auto dst : dsts) {
+            auto fut = comm.detach(dst, 45);
+            ok &= fut.cancel();
         }
 
 
@@ -61,8 +61,9 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
 
     } else {
         gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
-        auto req = comm.recv(rmsg, 0, 43, [](int, int) {}); // unmatching tag
-        bool ok = comm.cancel_callback(req);
+        comm.recv(rmsg, 0, 43, [](int, int) {}); // unmatching tag
+        auto fut = comm.detach(0,43);
+        bool ok = fut.cancel();
 
         while (comm.progress()) {}
 

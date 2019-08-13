@@ -20,6 +20,7 @@
 #include <cassert>
 #include "./message.hpp"
 #include "./communicator_traits.hpp"
+#include <algorithm>
 
 namespace gridtools
 {
@@ -83,6 +84,10 @@ struct mpi_future
         CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
         return flag;
     }
+
+    private:
+        friend ::gridtools::ghex::mpi::communicator;
+        MPI_Request request() const { return m_req; }
 };
 
 class cb_request_t
@@ -129,8 +134,7 @@ private:
     MPI_Comm m_mpi_comm;
 
 public:
-    using send_future = _impl::mpi_future;
-    using recv_future = _impl::mpi_future;
+    using future_type = _impl::mpi_future;
     using request_type = _impl::cb_request_t;
 
     communicator(communicator_traits const &ct = communicator_traits{}) : m_mpi_comm{ct.communicator()} {}
@@ -156,7 +160,7 @@ public:
          * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
          */
     template <typename MsgType>
-    [[nodiscard]] send_future send(MsgType const &msg, rank_type dst, tag_type tag) const {
+    [[nodiscard]] future_type send(MsgType const &msg, rank_type dst, tag_type tag) const {
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
         return req;
@@ -177,12 +181,11 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    _impl::cb_request_t send(MsgType const &msg, rank_type dst, tag_type tag, CallBack &&cb)
+    void send(MsgType const &msg, rank_type dst, tag_type tag, CallBack &&cb)
     {
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
         m_callbacks.emplace(std::make_pair(req, std::make_tuple(std::forward<CallBack>(cb), dst, tag)));
-        return req;
     }
 
     /** Send a message to a destination with the given tag. This function blocks until the message has been sent and
@@ -213,7 +216,7 @@ public:
          * @return A future that will be ready when the message can be read
          */
     template <typename MsgType>
-    [[nodiscard]] recv_future recv(MsgType &msg, rank_type src, tag_type tag) const {
+    [[nodiscard]] future_type recv(MsgType &msg, rank_type src, tag_type tag) const {
         MPI_Request request;
         CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
         return request;
@@ -234,13 +237,12 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    _impl::cb_request_t recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
+    void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
     {
         MPI_Request request;
         CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
 
         m_callbacks.emplace(std::make_pair(request, std::make_tuple(std::forward<CallBack>(cb), src, tag)));
-        return request;
     }
 
     /** Send a message (shared_message type) to a set of destinations listed in
@@ -318,6 +320,44 @@ public:
         return !(m_callbacks.size() == 0);
     }
 
+
+    future_type detach(rank_type rank, tag_type tag) {
+
+        auto it = std::find_if(m_callbacks.begin(), m_callbacks.end(),
+        [rank, tag](auto const& x) {
+            if (std::get<1>(x.second) == rank && std::get<2>(x.second) == tag) {
+                return true;
+            }
+            return false;
+        });
+
+        if (it != m_callbacks.end()) {
+            auto req = it->first;
+            m_callbacks.erase(it);
+            return future_type{req};
+        } else {
+            throw std::runtime_error("GHEX ERROR: There is not such request in line");
+        }
+    }
+
+    template <typename Callback>
+    void attach(future_type const& fut, rank_type rank, tag_type tag, Callback&& cb) {
+
+        auto it = std::find_if(m_callbacks.begin(), m_callbacks.end(),
+            [rank, tag](auto const& x) {
+                if (std::get<1>(x.second) == rank && std::get<2>(x.second) == tag) {
+                    return true;
+                }
+                return false;
+            });
+
+        if (it == m_callbacks.end()) {
+            m_callbacks.emplace(std::make_pair(fut.request(), std::make_tuple(std::forward<Callback>(cb), rank, tag)));
+        } else {
+            throw std::runtime_error("GHEX ERROR: There is already such a request in line");
+        }
+    }
+
     /**
          * @brief Function to cancel all pending requests for send/recv with callbacks.
          * This cancel also the calls to `send_multi`. Canceling is an expensive operation
@@ -346,98 +386,6 @@ public:
         return result;
     }
 
-    /**
-         * @brief Function to cancel a given operation (send/recv) requiring a callback.
-         *
-         * When a send or receive is requested with a callback, the function returns a
-         * handle of type `request_type`. The value can then be used to cancel the request.
-         * Canceling should be an exceptional case, and should not be the main motif of
-         * the application.
-         *
-         * @param req The request value returned by a previous send/recv call with callback.
-         *
-         * @retrun True if the request was cancelled, of if there was not such request.
-         *         False if the request cannot be canceled.
-         */
-    bool cancel_callback(_impl::cb_request_t req)
-    {
-
-        if (m_callbacks.count(req()) > 0u)
-        {
-            MPI_Request r = req();
-            CHECK_MPI_ERROR(MPI_Cancel(&r));
-            MPI_Status st;
-            int flag = false;
-            CHECK_MPI_ERROR(MPI_Wait(&r, &st));
-            CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
-            m_callbacks.erase(req());
-            return flag;
-        }
-        else
-        {
-            return true;
-        }
-    }
-
-    /**
-         * @brief Function to wait on a given operation (send/recv) requiring a callback.
-         * The callback is invoked after the wait is finished.
-         *
-         * When a send or receive is requested with a callback, the function returns a
-         * handle of type `request_type`. The value can then be used to cancel the request.
-         * Canceling should be an exceptional case, and should not be the main motif of
-         * the application.
-         *
-         * @param req The request value returned by a previous send/recv call with callback.
-         */
-    void wait_on_callback(_impl::cb_request_t req)
-    {
-
-        if (m_callbacks.count(req()) > 0u)
-        {
-            MPI_Request r = req();
-            MPI_Status st;
-            CHECK_MPI_ERROR(MPI_Wait(&r, &st));
-
-            auto it = m_callbacks.find(req());
-            auto f = std::move(std::get<0>(it->second));
-            auto x = std::get<1>(it->second);
-            auto y = std::get<2>(it->second);
-            m_callbacks.erase(it);
-            f(x, y);
-        }
-    }
-
-    /**
-         * @brief Function to check if a given operation (send/recv) requiring a callback
-         * is ready for the callback to be called.
-         *
-         * When a send or receive is requested with a callback, the function returns a
-         * handle of type `request_type`. The value can then be used to cancel the request.
-         * Canceling should be an exceptional case, and should not be the main motif of
-         * the application. An unexistent request is ready by default.
-         *
-         * @param req The request value returned by a previous send/recv call with callback.
-         *
-         * @retrun True if the request is ready, of if there was not such request.
-         *         False if the request is not ready yet.
-         */
-    bool ready_on_callback(_impl::cb_request_t req)
-    {
-
-        if (m_callbacks.count(req()) > 0u)
-        {
-            MPI_Request r = req();
-            MPI_Status st;
-            int flag = false;
-            CHECK_MPI_ERROR(MPI_Test(&r, &flag, &st));
-            return flag;
-        }
-        else
-        {
-            return true;
-        }
-    }
 };
 
 } //namespace mpi

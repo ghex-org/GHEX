@@ -19,7 +19,7 @@ auto test1() {
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     std::vector<unsigned char> rmsg(40, 40);
 
-    gridtools::ghex::mpi::communicator::recv_future rfut;
+    gridtools::ghex::mpi::communicator::future_type rfut;
 
     if ( rank == 0 ) {
         sr.blocking_send(smsg, 1, 1);
@@ -107,7 +107,7 @@ auto test1_mesg() {
 
     gridtools::ghex::mpi::message<> rmsg{40, 40};
 
-    gridtools::ghex::mpi::communicator::recv_future rfut;
+    gridtools::ghex::mpi::communicator::future_type rfut;
 
     if ( rank == 0 ) {
         sr.blocking_send(smsg, 1, 1);
@@ -201,7 +201,7 @@ auto test1_shared_mesg() {
 
     gridtools::ghex::mpi::shared_message<> rmsg{40, 40};
 
-    gridtools::ghex::mpi::communicator::recv_future rfut;
+    gridtools::ghex::mpi::communicator::future_type rfut;
 
     if ( rank == 0 ) {
         auto sf = sr.send(smsg, 1, 1);
