@@ -309,7 +309,7 @@ TEST(atlas_integration, halo_exchange) {
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
     // Number of vertical levels required
-    std::size_t nb_levels = 1; // WARN: changed to 1 because not fully supported for now
+    std::size_t nb_levels = 10;
 
     // Generate functionspace associated to mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
