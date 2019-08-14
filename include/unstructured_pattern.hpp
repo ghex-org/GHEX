@@ -90,7 +90,7 @@ namespace gridtools {
                     std::vector<index_type>& remote_index() noexcept { return m_remote_index; }
                     const std::vector<index_type>& remote_index() const noexcept { return m_remote_index; }
                     std::size_t levels() const noexcept { return m_levels; }
-                    std::size_t size() const noexcept { return m_remote_index.size(); }
+                    std::size_t size() const noexcept { return m_remote_index.size() * m_levels; }
 
                     // print
                     /** @brief print */
@@ -154,7 +154,7 @@ namespace gridtools {
             /** @brief compute number of elements in an object of type index_container_type */
             static int num_elements(const index_container_type& c) noexcept {
                 std::size_t s{0};
-                for (const auto& is : c) s += is.size() * is.levels();
+                for (const auto& is : c) s += is.size();
                 return s;
             }
 
