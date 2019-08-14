@@ -45,7 +45,9 @@ namespace gridtools {
 
             friend class pattern_container<P, grid_type, domain_id_type>;
 
-            /** @brief essentially a partition index and a sequence of remote indexes
+            /** @brief essentially a partition index and a sequence of remote indexes;
+             * number of levels is provided as well, defaul is 1 (2D case):
+             * the assumption is that each 2D element is a column, with 'levels' vertical elements.
              * WARN: a second index, and therefore a more complex iteration space,
              * is needed to handle correctly multiple vertical layers*/
             class iteration_space {
@@ -54,25 +56,29 @@ namespace gridtools {
 
                     int m_partition;
                     std::vector<index_type> m_remote_index;
+                    std::size_t m_levels;
 
                 public:
 
                     // ctors
                     iteration_space() noexcept = default;
-                    iteration_space(const int partition, const std::vector<index_type>& remote_index) noexcept :
+                    iteration_space(const int partition, const std::vector<index_type>& remote_index, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{remote_index} {}
-                    iteration_space(const int partition, std::vector<index_type>&& remote_index) noexcept :
+                        m_remote_index{remote_index},
+                        m_levels{levels} {}
+                    iteration_space(const int partition, std::vector<index_type>&& remote_index, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{std::move(remote_index)} {}
+                        m_remote_index{std::move(remote_index)},
+                        m_levels{levels} {}
                     // less safe but maybe preferable
                     // template<typename V>
                     // iteration_space(const int partition, V&& remote_index) noexcept :
                     //     m_partition{partition},
                     //     m_remote_index{std::forward<V>(remote_index)} {}
-                    iteration_space(const int partition, const index_type first, const index_type last) noexcept :
+                    iteration_space(const int partition, const index_type first, const index_type last, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{} {
+                        m_remote_index{},
+                        m_levels{levels} {
                         m_remote_index.resize(static_cast<std::size_t>(last - first + 1));
                         for (index_type idx = first; idx <= last; ++idx) {
                             m_remote_index[static_cast<std::size_t>(idx)] = idx;
@@ -83,6 +89,7 @@ namespace gridtools {
                     int partition() const noexcept { return m_partition; }
                     std::vector<index_type>& remote_index() noexcept { return m_remote_index; }
                     const std::vector<index_type>& remote_index() const noexcept { return m_remote_index; }
+                    std::size_t levels() const noexcept { return m_levels; }
                     std::size_t size() const noexcept { return m_remote_index.size(); }
 
                     // print
@@ -90,6 +97,7 @@ namespace gridtools {
                     template<class CharT, class Traits>
                     friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const iteration_space& is) {
                         os << "size = " << is.size() << ";\n"
+                           << "# levels = " << is.levels() << ";\n"
                            << "partition = " << is.partition() << ";\n"
                            << "remote indexes: [ ";
                         for (auto idx : is.remote_index()) { os << idx << " "; }
@@ -146,7 +154,7 @@ namespace gridtools {
             /** @brief compute number of elements in an object of type index_container_type */
             static int num_elements(const index_container_type& c) noexcept {
                 std::size_t s{0};
-                for (const auto& is : c) s += is.size();
+                for (const auto& is : c) s += is.size() * is.levels();
                 return s;
             }
 
@@ -185,7 +193,8 @@ namespace gridtools {
 
     namespace detail {
 
-        /** @brief construct pattern with the help of all to all communication*/
+        /** @brief construct pattern with the help of all to all communication.
+         * WARN: strong assumption: halo can be factorized into horizontal dimension and vertical layers*/
         template<typename Index>
         struct make_pattern_impl<detail::unstructured_grid<Index>> {
 
@@ -221,6 +230,10 @@ namespace gridtools {
                 send_displs.resize(size);
                 std::vector<index_type> recv_indexes{};
                 std::vector<index_type> send_indexes{};
+                std::vector<std::size_t> recv_levels{};
+                recv_levels.resize(size);
+                std::vector<std::size_t> send_levels{};
+                send_levels.resize(size);
 
                 // needed with multiple domains per PE
                 int m_max_tag = 0;
@@ -228,7 +241,7 @@ namespace gridtools {
                 for (const auto& d : d_range) { // WARN: so far, multiple domains are not fully supported
 
                     // setup pattern
-                    pattern_type p{new_comm, {my_rank, d.first(), d.last()}, {my_rank, my_address, 0}};
+                    pattern_type p{new_comm, {my_rank, d.first(), d.last(), d.levels()}, {my_rank, my_address, 0}};
 
                     std::fill(recv_counts.begin(), recv_counts.end(), 0);
                     std::fill(send_counts.begin(), send_counts.end(), 0);
@@ -241,11 +254,12 @@ namespace gridtools {
                         if (h.size()) {
                             // WARN: very simplified definition of extended domain id;
                             // a more complex one is needed for multiple domains
-                            int tag = (h.partition() << 5) + my_address; // WARN: maximum address = 2^5 - 1
+                            int tag = (h.partition() << 16) + my_address; // WARN: maximum address / rank = 2^16 - 1
                             extended_domain_id_type id{h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
-                            index_container_type ic{ {h.partition(), h.remote_index()} };
+                            index_container_type ic{ {h.partition(), h.remote_index(), h.levels()} };
                             p.recv_halos().insert(std::make_pair(id, ic));
                             recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
+                            recv_levels[static_cast<std::size_t>(h.partition())] = h.levels();
                         }
                     }
 
@@ -266,6 +280,7 @@ namespace gridtools {
 
                     // set up all-to-all communication, send side
                     comm.allToAll(recv_counts, send_counts);
+                    comm.allToAll(recv_levels, send_levels);
                     send_count = std::accumulate(send_counts.begin(), send_counts.end(), 0);
                     send_indexes.resize(send_count);
                     send_displs[0] = 0;
@@ -280,14 +295,14 @@ namespace gridtools {
                         if (send_counts[rank]) {
                             // WARN: very simplified definition of extended domain id;
                             // a more complex one is needed for multiple domains
-                            int tag = (my_address << 5) + rank; // WARN: maximum rank = 2^5 - 1
+                            int tag = (my_address << 16) + rank; // WARN: maximum rank / address = 2^16 - 1
                             extended_domain_id_type id{static_cast<int>(rank), static_cast<address_type>(rank), tag};
                             std::vector<index_type> remote_index{};
                             remote_index.resize(send_counts[rank]);
                             std::memcpy(&remote_index[0],
                                     &send_indexes[static_cast<std::size_t>(send_displs[rank])],
                                     static_cast<std::size_t>(send_counts[rank]) * sizeof(index_type));
-                            index_container_type ic{ {static_cast<int>(rank), std::move(remote_index)} };
+                            index_container_type ic{ {static_cast<int>(rank), std::move(remote_index), send_levels[rank]} };
                             p.send_halos().insert(std::make_pair(id, ic));
                         }
                     }

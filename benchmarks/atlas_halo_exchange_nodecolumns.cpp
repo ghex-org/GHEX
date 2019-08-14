@@ -61,26 +61,21 @@ class my_data_desc {
             return sizeof (T);
         }
 
-        /** @brief single access set function, not mandatory but used by the corresponding multiple access operator.
-         * WARN: sets the whole column to the same value, full support to multiple vertical layers is not provided yet*/
-        void set(const T& value, const index_t idx) {
-            for (std::size_t level = 0; level < m_domain.levels(); ++level) {
-                m_values(idx, level) = value;
-            }
+        /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
+        void set(const T& value, const index_t idx, const std::size_t level) {
+            m_values(idx, level) = value;
         }
 
-        /** @brief single access get function, not mandatory but used by the corresponding multiple access operator.
-         * WARN: returns the value of the first layer, full support to multiple vertical layers is not provided yet*/
-        const T& get(const index_t idx) const {
-            return m_values(idx, 0);
+        /** @brief single access get function, not mandatory but used by the corresponding multiple access operator*/
+        const T& get(const index_t idx, const std::size_t level) const {
+            return m_values(idx, level);
         }
 
         /** @brief multiple access set function, needed by GHEX in order to perform the unpacking.
          * WARN: it could be more efficient if the iteration space includes also the indexes on this domain;
-         * in order to do so, iteration space needs to include an additional set of indices;
+         * in order to do so, iteration space needs to include an additional set of indexes;
          * for now, the needed indices are retrieved by looping over the whole doamin,
-         * and filtering out all the indices by those on the desired remote partition;
-         * For now, the iteration space is used only to retrieve the right partition index.
+         * and filtering out all the indices by those on the desired remote partition.
          * @tparam IterationSpace iteration space type
          * @param is iteration space which to loop through in order to retrieve the coordinates at which to set back the buffer values
          * @param buffer buffer with the data to be set back*/
@@ -88,14 +83,18 @@ class my_data_desc {
         void set(const IterationSpace& is, const Byte* buffer) {
             if (is.partition() == m_domain.rank()) {
                 for (index_t idx : is.remote_index()) {
-                    set(*(reinterpret_cast<const T*>(buffer)), idx);
-                    buffer += sizeof(T);
+                    for (std::size_t level = 0; level < is.levels(); ++level) {
+                        set(*(reinterpret_cast<const T*>(buffer)), idx, level);
+                        buffer += sizeof(T);
+                    }
                 }
             } else {
                 for (index_t idx = 0; idx < m_domain.size(); ++idx) {
                     if (m_partition_data[idx] == is.partition()) { // WARN: needed static cast here?
-                        set(*(reinterpret_cast<const T*>(buffer)), idx);
-                        buffer += sizeof(T);
+                        for (std::size_t level = 0; level < is.levels(); ++level) {
+                            set(*(reinterpret_cast<const T*>(buffer)), idx, level);
+                            buffer += sizeof(T);
+                        }
                     }
                 }
             }
@@ -108,8 +107,10 @@ class my_data_desc {
         template <typename IterationSpace>
         void get(const IterationSpace& is, Byte* buffer) const {
             for (index_t idx : is.remote_index()) {
-                std::memcpy(buffer, &get(idx), sizeof(T));
-                buffer += sizeof(T);
+                for (std::size_t level = 0; level < is.levels(); ++level) {
+                    std::memcpy(buffer, &get(idx, level), sizeof(T));
+                    buffer += sizeof(T);
+                }
             }
         }
 

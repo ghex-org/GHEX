@@ -63,6 +63,7 @@ namespace gridtools {
              * @param partition field with partition indexes
              * @param remote_index field with local indexes in remote partition
              * @param size size of the domain + all required halo points
+             * @param levels number of vertical levels
              * @param rank PE rank*/
             atlas_domain_descriptor(domain_id_type id,
                                     const int rank,
@@ -119,6 +120,7 @@ namespace gridtools {
             friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const atlas_domain_descriptor& domain) {
                 os << "domain id = " << domain.domain_id() << ";\n"
                    << "size = " << domain.size() << ";\n"
+                   << "# levels = " << domain.levels() << ";\n"
                    << "partition indexes: [" << domain.partition() << "]\n"
                    << "remote indexes: [" << domain.remote_index() << "]\n";
                 return os;
@@ -144,29 +146,34 @@ namespace gridtools {
              * conceptually, it is similar to an iteration space
              * (only differences are that here it is already specialized for atlas
              * and provides an insert method as well),
-             * and this is why the two concepts could potentially coincide*/
+             * and this is why the two concepts could potentially coincide.
+             * WARN: size() gives only horizontal size.*/
             class halo {
 
                 private:
 
                     int m_partition;
                     std::vector<index_t> m_remote_index;
+                    std::size_t m_levels;
 
                 public:
 
                     // ctors
                     halo() noexcept = default;
-                    halo(const int partition) noexcept :
+                    halo(const int partition, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{} {}
-                    halo(const int partition, const std::vector<index_t>& remote_index) noexcept :
+                        m_remote_index{},
+                        m_levels{levels} {}
+                    halo(const int partition, const std::vector<index_t>& remote_index, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{remote_index} {}
+                        m_remote_index{remote_index},
+                        m_levels{levels} {}
 
                     // member functions
                     int partition() const noexcept { return m_partition; }
                     std::vector<index_t>& remote_index() noexcept { return m_remote_index; }
                     const std::vector<index_t>& remote_index() const noexcept { return m_remote_index; }
+                    std::size_t levels() const noexcept { return m_levels; }
                     std::size_t size() const noexcept { return m_remote_index.size(); }
                     void push_back(const index_t remote_index_idx) {
                         m_remote_index.push_back(remote_index_idx);
@@ -177,6 +184,7 @@ namespace gridtools {
                     template<class CharT, class Traits>
                     friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const halo& h) {
                         os << "size = " << h.size() << ";\n"
+                           << "# levels = " << h.levels() << ";\n"
                            << "partition = " << h.partition() << ";\n"
                            << "remote indexes: [ ";
                         for (auto idx : h.remote_index()) { os << idx << " "; }
@@ -210,7 +218,7 @@ namespace gridtools {
 
                 std::vector<halo> halos{};
                 for (int rank = 0; rank < m_size; ++rank) {
-                    halos.push_back({rank});
+                    halos.push_back({rank, domain.levels()});
                 }
 
                 const int* partition_data = atlas::array::make_view<int, 1>(domain.partition()).data();
