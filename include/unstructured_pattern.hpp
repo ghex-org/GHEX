@@ -254,7 +254,7 @@ namespace gridtools {
                         if (h.size()) {
                             // WARN: very simplified definition of extended domain id;
                             // a more complex one is needed for multiple domains
-                            int tag = (h.partition() << 16) + my_address; // WARN: maximum address / rank = 2^16 - 1
+                            int tag = (h.partition() << 7) + my_address; // WARN: maximum address / rank = 2^7 - 1
                             extended_domain_id_type id{h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
                             index_container_type ic{ {h.partition(), h.remote_index(), h.levels()} };
                             p.recv_halos().insert(std::make_pair(id, ic));
@@ -295,7 +295,7 @@ namespace gridtools {
                         if (send_counts[rank]) {
                             // WARN: very simplified definition of extended domain id;
                             // a more complex one is needed for multiple domains
-                            int tag = (my_address << 16) + rank; // WARN: maximum rank / address = 2^16 - 1
+                            int tag = (my_address << 7) + rank; // WARN: maximum rank / address = 2^7 - 1
                             extended_domain_id_type id{static_cast<int>(rank), static_cast<address_type>(rank), tag};
                             std::vector<index_type> remote_index{};
                             remote_index.resize(send_counts[rank]);
