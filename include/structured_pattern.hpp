@@ -31,6 +31,7 @@ namespace gridtools {
     class pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>
     {
     public: // member types
+        using this_type               = pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>;
         using grid_type               = detail::structured_grid<CoordinateArrayType>;
         using coordinate_type         = typename grid_type::coordinate_type;
         using coordinate_element_type = typename grid_type::coordinate_element_type;
@@ -45,6 +46,7 @@ namespace gridtools {
         // Invariant: first <= last
         struct iteration_space
         {
+            using dimension = typename this_type::dimension;
         public: // member functions
                   coordinate_type& first()       noexcept { return _min; }
                   coordinate_type& last()        noexcept { return _max; }
@@ -92,6 +94,7 @@ namespace gridtools {
         {
         public: // member types
             using pattern_type = pattern; 
+            using dimension = typename this_type::dimension;
 
         public: // member functions
             iteration_space& local() noexcept { return m_local; }

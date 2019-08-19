@@ -441,6 +441,8 @@ namespace gridtools {
         const coordinate_type& extents() const noexcept { return m_extents; }
         GT_FUNCTION
         const coordinate_type& offsets() const noexcept { return m_offsets; }
+        GT_FUNCTION
+        const strides_type& byte_strides() const noexcept { return m_byte_strides; }
 
         GT_FUNCTION
         value_type* data() const { return m_data; }
