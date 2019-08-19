@@ -153,6 +153,7 @@ namespace gridtools {
                 private:
 
                     int m_partition;
+                    std::vector<index_t> m_local_index;
                     std::vector<index_t> m_remote_index;
                     std::size_t m_levels;
 
@@ -162,20 +163,30 @@ namespace gridtools {
                     halo() noexcept = default;
                     halo(const int partition, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
+                        m_local_index{},
                         m_remote_index{},
                         m_levels{levels} {}
-                    halo(const int partition, const std::vector<index_t>& remote_index, const std::size_t levels = 1) noexcept :
+                    halo(const int partition,
+                         const std::vector<index_t>& local_index,
+                         const std::vector<index_t>& remote_index,
+                         const std::size_t levels = 1) noexcept :
                         m_partition{partition},
+                        m_local_index{local_index},
                         m_remote_index{remote_index},
-                        m_levels{levels} {}
+                        m_levels{levels} {
+                        assert(local_index.size() == remote_index.size());
+                    }
 
                     // member functions
                     int partition() const noexcept { return m_partition; }
+                    std::vector<index_t>& local_index() noexcept { return m_local_index; }
+                    const std::vector<index_t>& local_index() const noexcept { return m_local_index; }
                     std::vector<index_t>& remote_index() noexcept { return m_remote_index; }
                     const std::vector<index_t>& remote_index() const noexcept { return m_remote_index; }
                     std::size_t levels() const noexcept { return m_levels; }
-                    std::size_t size() const noexcept { return m_remote_index.size(); }
-                    void push_back(const index_t remote_index_idx) {
+                    std::size_t size() const noexcept { return m_local_index.size(); }
+                    void push_back(const index_t local_index_idx, const index_t remote_index_idx) {
+                        m_local_index.push_back(local_index_idx);
                         m_remote_index.push_back(remote_index_idx);
                     }
 
@@ -186,7 +197,9 @@ namespace gridtools {
                         os << "size = " << h.size() << ";\n"
                            << "# levels = " << h.levels() << ";\n"
                            << "partition = " << h.partition() << ";\n"
-                           << "remote indexes: [ ";
+                           << "local indexes: [ ";
+                        for (auto idx : h.local_index()) { os << idx << " "; }
+                        os << "]\nremote indexes: [ ";
                         for (auto idx : h.remote_index()) { os << idx << " "; }
                         os << "]\n";
                         return os;
@@ -228,7 +241,7 @@ namespace gridtools {
                 // corresponding halo is updated
                 for (auto domain_idx = 0; domain_idx < domain.size(); ++domain_idx) {
                     if ((partition_data[domain_idx] != m_rank) || (remote_index_data[domain_idx] != domain_idx)) {
-                        halos[partition_data[domain_idx]].push_back(remote_index_data[domain_idx]);
+                        halos[partition_data[domain_idx]].push_back(domain_idx, remote_index_data[domain_idx]);
                     }
                 }
 

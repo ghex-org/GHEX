@@ -84,21 +84,10 @@ class my_data_desc {
          * @param buffer buffer with the data to be set back*/
         template <typename IterationSpace>
         void set(const IterationSpace& is, const Byte* buffer) {
-            if (is.partition() == m_domain.rank()) {
-                for (index_t idx : is.remote_index()) {
-                    for (std::size_t level = 0; level < is.levels(); ++level) {
-                        set(*(reinterpret_cast<const T*>(buffer)), idx, level);
-                        buffer += sizeof(T);
-                    }
-                }
-            } else {
-                for (index_t idx = 0; idx < m_domain.size(); ++idx) {
-                    if (m_partition_data[idx] == is.partition()) { // WARN: needed static cast here?
-                        for (std::size_t level = 0; level < is.levels(); ++level) {
-                            set(*(reinterpret_cast<const T*>(buffer)), idx, level);
-                            buffer += sizeof(T);
-                        }
-                    }
+            for (index_t idx : is.local_index()) {
+                for (std::size_t level = 0; level < is.levels(); ++level) {
+                    set(*(reinterpret_cast<const T*>(buffer)), idx, level);
+                    buffer += sizeof(T);
                 }
             }
         }
@@ -109,7 +98,7 @@ class my_data_desc {
          * @param buffer buffer to be filled*/
         template <typename IterationSpace>
         void get(const IterationSpace& is, Byte* buffer) const {
-            for (index_t idx : is.remote_index()) {
+            for (index_t idx : is.local_index()) {
                 for (std::size_t level = 0; level < is.levels(); ++level) {
                     std::memcpy(buffer, &get(idx, level), sizeof(T));
                     buffer += sizeof(T);
@@ -322,8 +311,9 @@ TEST(atlas_integration, halo_exchange) {
     auto GHEX_field_1_data = atlas::array::make_view<int, 2>(fields["GHEX_field_1"]);
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            atlas_field_1_data(node, level) = rank;
-            GHEX_field_1_data(node, level) = rank;
+            auto value = (rank << 15) + (node << 7) + level;
+            atlas_field_1_data(node, level) = value;
+            GHEX_field_1_data(node, level) = value;
         }
     }
 

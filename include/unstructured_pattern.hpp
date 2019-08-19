@@ -55,20 +55,20 @@ namespace gridtools {
                 private:
 
                     int m_partition;
-                    std::vector<index_type> m_remote_index;
+                    std::vector<index_type> m_local_index;
                     std::size_t m_levels;
 
                 public:
 
                     // ctors
                     iteration_space() noexcept = default;
-                    iteration_space(const int partition, const std::vector<index_type>& remote_index, const std::size_t levels = 1) noexcept :
+                    iteration_space(const int partition, const std::vector<index_type>& local_index, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{remote_index},
+                        m_local_index{local_index},
                         m_levels{levels} {}
-                    iteration_space(const int partition, std::vector<index_type>&& remote_index, const std::size_t levels = 1) noexcept :
+                    iteration_space(const int partition, std::vector<index_type>&& local_index, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{std::move(remote_index)},
+                        m_local_index{std::move(local_index)},
                         m_levels{levels} {}
                     // less safe but maybe preferable
                     // template<typename V>
@@ -77,20 +77,20 @@ namespace gridtools {
                     //     m_remote_index{std::forward<V>(remote_index)} {}
                     iteration_space(const int partition, const index_type first, const index_type last, const std::size_t levels = 1) noexcept :
                         m_partition{partition},
-                        m_remote_index{},
+                        m_local_index{},
                         m_levels{levels} {
-                        m_remote_index.resize(static_cast<std::size_t>(last - first + 1));
+                        m_local_index.resize(static_cast<std::size_t>(last - first + 1));
                         for (index_type idx = first; idx <= last; ++idx) {
-                            m_remote_index[static_cast<std::size_t>(idx)] = idx;
+                            m_local_index[static_cast<std::size_t>(idx)] = idx;
                         }
                     }
 
                     // member functions
                     int partition() const noexcept { return m_partition; }
-                    std::vector<index_type>& remote_index() noexcept { return m_remote_index; }
-                    const std::vector<index_type>& remote_index() const noexcept { return m_remote_index; }
+                    std::vector<index_type>& local_index() noexcept { return m_local_index; }
+                    const std::vector<index_type>& local_index() const noexcept { return m_local_index; }
                     std::size_t levels() const noexcept { return m_levels; }
-                    std::size_t size() const noexcept { return m_remote_index.size() * m_levels; }
+                    std::size_t size() const noexcept { return m_local_index.size() * m_levels; }
 
                     // print
                     /** @brief print */
@@ -99,8 +99,8 @@ namespace gridtools {
                         os << "size = " << is.size() << ";\n"
                            << "# levels = " << is.levels() << ";\n"
                            << "partition = " << is.partition() << ";\n"
-                           << "remote indexes: [ ";
-                        for (auto idx : is.remote_index()) { os << idx << " "; }
+                           << "local indexes: [ ";
+                        for (auto idx : is.local_index()) { os << idx << " "; }
                         os << "]\n";
                         return os;
                     }
@@ -256,7 +256,7 @@ namespace gridtools {
                             // a more complex one is needed for multiple domains
                             int tag = (h.partition() << 7) + my_address; // WARN: maximum address / rank = 2^7 - 1
                             extended_domain_id_type id{h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
-                            index_container_type ic{ {h.partition(), h.remote_index(), h.levels()} };
+                            index_container_type ic{ {h.partition(), h.local_index(), h.levels()} };
                             p.recv_halos().insert(std::make_pair(id, ic));
                             recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
                             recv_levels[static_cast<std::size_t>(h.partition())] = h.levels();
