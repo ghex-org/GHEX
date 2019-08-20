@@ -63,8 +63,13 @@ namespace gridtools {
         : m_comm{comm} {}
 
     private: // private constructor
-        communication_handle(co_t& co, const communicator_type& comm) 
-        : m_co{&co}, m_comm{comm} {}
+        /*communication_handle(co_t& co, const communicator_type& comm) 
+        : m_co{&co}, m_comm{comm} {}*/
+
+        //using wait_fct_t = void (co_t::*)();
+        template<typename Func>
+        communication_handle(co_t& co, const communicator_type& comm, Func&& wait_fct) 
+        : m_co{&co}, m_comm{comm}, m_wait_fct(std::forward<Func>(wait_fct)) {}
 
     public: // copy and move ctors
         communication_handle(communication_handle&&) = default;
@@ -75,7 +80,7 @@ namespace gridtools {
 
     public: // member functions
         /** @brief  wait for communication to be finished*/
-        void wait() { if (m_co) m_co->wait(); }
+        void wait() { /*if (m_co) m_co->wait();*/ if (m_wait_fct) m_wait_fct(); }
 #ifdef GHEX_COMM_2_TIMINGS
         template<typename Timings>
         void wait(Timings& t) { if (m_co) m_co->wait(t); }
@@ -84,6 +89,9 @@ namespace gridtools {
     private: // members
         co_t* m_co = nullptr;
         communicator_type m_comm;
+        //wait_fct_t m_wait_fct = nullptr; 
+        //std::function<void(co_t&, void)> m_wait_fct;
+        std::function<void()> m_wait_fct;
     };
 
 
@@ -150,66 +158,72 @@ namespace gridtools {
             //    f.get();
         }
     };
-
+	
 #ifdef __CUDACC__
     
+    template<class T, unsigned int N>
+    struct pack_arg_t
+    {
+        T m_data[N];
 
-    template<typename T, typename Array, typename Field>
+        __host__ pack_arg_t& fill(const T* data, unsigned int size)
+        {
+            if (size > N) throw std::runtime_error("static space too small " + std::to_string(N) + " < " + std::to_string(size));
+            for (unsigned int i=0; i<size; ++i) m_data[i] = data[i];
+            return *this;
+        }
+        GT_FUNCTION T &operator[](unsigned int i) { return m_data[i]; }
+
+        GT_FUNCTION T const &operator[](unsigned int i) const { return m_data[i]; }
+    };
+
+    template<typename T, typename Array, typename Field, unsigned int N>
     __global__ void pack_kernel_u(
-        const int* sizes, 
-        T** buffers, 
-        const Array* firsts, 
-        const Array* local_strides,
-        //const Array* lasts,
-        const Field* fields,
-        const int* block_index_map,
-        const int* block_index_origin
-        //, const Array* offsets,
-        //, const Array* byte_strides,
-        //, const T** data 
-        )
+        pack_arg_t<int,   N> sizes, 
+        pack_arg_t<T*,    N> buffers, 
+        pack_arg_t<Array, N> firsts, 
+        pack_arg_t<Array, N> local_strides,
+        pack_arg_t<Field, N> fields)
     {
         using layout_t = typename Field::layout_map;
+        const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
+        const int data_lu_index = blockIdx.y;
 
-        const int blockIdx_origin = block_index_origin[blockIdx.x];
-        const int block_index  = blockIdx.x-blockIdx_origin;
-        const int thread_index = block_index*blockDim.x + threadIdx.x;
-        const int data_lu_index = block_index_map[blockIdx.x];
-
-        const int size = sizes[data_lu_index+1]-sizes[data_lu_index];
+        const int size = sizes[data_lu_index];
         if (thread_index < size)
         {
-            /*Array local_extents, local_strides;
-            for (std::size_t i=0; i<Array::size(); ++i)  
-                    local_extents[i] = 1 + lasts[data_lu_index][i] - firsts[data_lu_index][i];
-            detail::compute_strides<Array::size()>::template apply<layout_t>(local_extents, local_strides);
-            //const int size = sizes[data_lu_index]; */
-
             Array local_coordinate;
-            //detail::compute_coordinate<Array::size()>::template apply<layout_t>(local_strides,local_coordinate,thread_index);
             detail::compute_coordinate<Array::size()>::template apply<layout_t>(local_strides[data_lu_index],local_coordinate,thread_index);
             // add offset
             const auto memory_coordinate = local_coordinate + firsts[data_lu_index] + fields[data_lu_index].offsets();
-
             // multiply with memory strides
-            //const auto idx = dot(memory_coordinate, strides);
             const auto idx = dot(memory_coordinate, fields[data_lu_index].byte_strides());
-            //(reinterpret_cast<T*>(buffers[data_lu_index]))[thread_index] = *reinterpret_cast<const T*>((const char*)fields[data_lu_index].data() + idx);
-            //const auto value_in_buffer = buffers[data_lu_index][thread_index];
-            //const auto new_value = *reinterpret_cast<const T*>((const char*)fields[data_lu_index].data() + idx);
-
-            /*if (value_in_buffer != new_value)
-            {
-                printf("packed values not equal: %f != %f, lu_index = %d, block = %d, thread = %d\n", value_in_buffer, new_value, data_lu_index, block_index, thread_index);
-            }*/
-            /*if (thread_index == 0)
-            {
-                printf("Hello from block %d, thread %d: thread_index = %d, mem_coordinate = %d, %d, %d, buffer location = %d, element = %f\n", 
-                        blockIdx.x, threadIdx.x, thread_index, memory_coordinate[0], memory_coordinate[1], memory_coordinate[2], 
-                        reinterpret_cast<std::uintptr_t>(buffers[data_lu_index]),
-                        *reinterpret_cast<const T*>((const char*)fields[data_lu_index].data() + idx));
-            }*/
             buffers[data_lu_index][thread_index] = *reinterpret_cast<const T*>((const char*)fields[data_lu_index].data() + idx);
+        }
+    }
+
+    template<typename T, typename Array, typename Field, unsigned int N>
+    __global__ void unpack_kernel_u(
+        pack_arg_t<int,      N> sizes, 
+        pack_arg_t<const T*, N> buffers, 
+        pack_arg_t<Array,    N> firsts, 
+        pack_arg_t<Array,    N> local_strides,
+        pack_arg_t<Field,    N> fields)
+    {
+        using layout_t = typename Field::layout_map;
+        const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
+        const int data_lu_index = blockIdx.y;
+
+        const int size = sizes[data_lu_index];
+        if (thread_index < size)
+        {
+            Array local_coordinate;
+            detail::compute_coordinate<Array::size()>::template apply<layout_t>(local_strides[data_lu_index],local_coordinate,thread_index);
+            // add offset
+            const auto memory_coordinate = local_coordinate + firsts[data_lu_index] + fields[data_lu_index].offsets();
+            // multiply with memory strides
+            const auto idx = dot(memory_coordinate, fields[data_lu_index].byte_strides());
+            *reinterpret_cast<T*>((char*)fields[data_lu_index].data() + idx) = buffers[data_lu_index][thread_index];
         }
     }
 
@@ -219,42 +233,17 @@ namespace gridtools {
         template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
         static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
         {
-            //static std::vector<typename Map::send_buffer_type::field_buffer_type::index_container_type> index_containers;
             using send_buffer_type     = typename Map::send_buffer_type;
             using field_buffer_type    = typename send_buffer_type::field_buffer_type;
             using index_container_type = typename field_buffer_type::index_container_type;
             using dimension            = typename index_container_type::value_type::dimension;
-            using array_t = array<int, dimension::value>;
+            using array_t              = array<int, dimension::value>;
 
             static std::vector<array_t> firsts;
             static std::vector<array_t> lasts;
             static std::vector<int>     sizes;
-            //static std::vector<char*> buffer_offsets;
             static std::vector<T*> buffer_offsets;
-
             static std::vector<FieldType> fields;
-            static std::vector<int> block_index_map;
-            static std::vector<int> block_index_origin;
-            static std::vector<int> num_blocks_per_message;
-
-            static std::vector<array_t*>   array_gpu_ptrs;
-            //static std::vector<int>        array_gpu_sizes;
-            static std::vector<int*>       int_gpu_ptrs;
-            //static std::vector<int>        int_gpu_sizes;
-            //static std::vector<char**>     char_ptr_gpu_ptrs;
-            static std::vector<T**>     char_ptr_gpu_ptrs;
-            //static std::vector<int>        char_ptr_gpu_sizes;
-            static std::vector<FieldType*> field_gpu_ptrs;
-            //static std::vector<int>        field_gpu_sizes;
-
-            array_gpu_ptrs.clear();
-            //array_gpu_sizes.clear();
-            int_gpu_ptrs.clear();
-            //int_gpu_sizes.clear();
-            char_ptr_gpu_ptrs.clear();
-            //char_ptr_gpu_sizes.clear();
-            field_gpu_ptrs.clear();
-            //field_gpu_sizes.clear();
 
             std::size_t num_streams = 0;
             for (auto& p0 : map.send_memory)
@@ -272,7 +261,6 @@ namespace gridtools {
             for (auto& x : streams) 
                 cudaStreamCreate(&x);
             const int block_size = 128;
-            num_blocks_per_message.clear();
             num_streams = 0;
             for (auto& p0 : map.send_memory)
             {
@@ -280,164 +268,102 @@ namespace gridtools {
                 {
                     if (p1.second.size > 0u)
                     {
-                        //std::cout << "packing buffer..." << std::endl;
                         firsts.clear();
                         lasts.clear();
                         sizes.clear();
-                        sizes.push_back(0);
                         buffer_offsets.clear();
                         fields.clear();
-                        block_index_map.clear();
-                        block_index_origin.clear();
-                        num_blocks_per_message.push_back(0);
+                        int num_blocks_y = 0;
+                        int max_size = 0;
                         for (const auto& fb : p1.second.field_buffers)
                         {
-                            //char* buffer_address = p1.second.buffer.data()+fb.offset;
                             T* buffer_address = reinterpret_cast<T*>(p1.second.buffer.data()+fb.offset);
                             for (const auto& it_space_pair : *fb.index_container)
                             {
+                                ++num_blocks_y;
                                 const int size = it_space_pair.size();
+                                max_size = std::max(size,max_size);
                                 array_t first, last;
                                 std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
                                 std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
                                 firsts.push_back(first);
-                                //lasts.push_back(last);
-                                //buffer_offsets.push_back(p1.second.buffer.data() + sizes.back()*sizeof(T));
                                 buffer_offsets.push_back(buffer_address);
-                                //buffer_address += size*sizeof(T);
                                 buffer_address += size;
-                                sizes.push_back(sizes.back() + size);
-                                //buffer_offsets.push_back(p1.second.buffer.data() + fb.offset +);
-                                //index_containers.push_back(*fb.index_container);
+                                sizes.push_back(size);
                                 fields.push_back(*reinterpret_cast<FieldType*>(fb.field_ptr));
-                                const int num_blocks = (size+block_size-1)/block_size;
-                                const int origin =  block_index_map.size();
-                                for (int i=0; i<num_blocks; ++i)
-                                {
-                                    block_index_map.push_back(fields.size()-1);
-                                    block_index_origin.push_back(origin);
-                                }
-                                num_blocks_per_message.back() += num_blocks;
-                                
                                 array_t local_extents, local_strides;
                                 for (std::size_t i=0; i<dimension::value; ++i)  
                                     local_extents[i] = 1 + last[i] - first[i];
                                 detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
                                 lasts.push_back(local_strides);
-
-                                //array_t local_coordinate;
-                                //detail::compute_coordinate<dimension::value>::template apply<typename FieldType::layout_map>(local_strides,local_coordinate,0);
-                                //const auto f_offsets = reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-                                //const auto bytes = reinterpret_cast<FieldType*>(fb.field_ptr)->byte_strides();
-                                //const auto f_extents = reinterpret_cast<FieldType*>(fb.field_ptr)->extents();
-                                //// add offset
-                                //const auto memory_coordinate = local_coordinate + first + reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-                                //const auto memory_first = first + reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-                                //const auto memory_last = last + reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-                                //// multiply with memory strides
-                                //const auto idx = dot(memory_coordinate, reinterpret_cast<FieldType*>(fb.field_ptr)->byte_strides());
-                                //const char* gpu_ptr_element = reinterpret_cast<const char*>(reinterpret_cast<FieldType*>(fb.field_ptr)->data()) + idx;
-                                //T element;
-                                //cudaMemcpy(&element, gpu_ptr_element, sizeof(T), cudaMemcpyDeviceToHost);
-                                //T first_element;
-                                //cudaMemcpy(&first_element, reinterpret_cast<FieldType*>(fb.field_ptr)->data(), sizeof(T), cudaMemcpyDeviceToHost);
-                                //T first_p_element;
-                                //cudaMemcpy(&first_p_element, reinterpret_cast<FieldType*>(fb.field_ptr)->data()+195, sizeof(T), cudaMemcpyDeviceToHost);
-                                //
-                                //std::cout << "  iteration space size: " << size << std::endl;
-                                //std::cout << "    field ptr:          " << reinterpret_cast<FieldType*>(fb.field_ptr) << std::endl;
-                                //std::cout << "    data ptr:           " << reinterpret_cast<FieldType*>(fb.field_ptr)->data() << std::endl;
-                                //std::cout << "    buffer address:     " << reinterpret_cast<T*>(buffer_offsets.back()) << std::endl;
-                                //std::cout << "    buffer address 10:  " << reinterpret_cast<std::uintptr_t>(buffer_offsets.back()) << std::endl;
-                                //std::cout << "    required space:     " << size*sizeof(T) << std::endl;
-                                //std::cout << "    first:              " << first[0] << ", " << first[1] << ", " << first[2] << " - "
-                                //<<  memory_first[0] << ", " << memory_first[1] << ", " << memory_first[2] << std::endl;
-                                //std::cout << "    last:               " << last[0] << ", " << last[1] << ", " << last[2] << " - "
-                                //<<  memory_last[0] << ", " << memory_last[1] << ", " << memory_last[2] << std::endl;
-                                //std::cout << "    local extents:      " << local_extents[0] << ", " << local_extents[1] << ", " << local_extents[2] << std::endl;
-                                //std::cout << "    local strides:      " << local_strides[0] << ", " << local_strides[1] << ", " << local_strides[2] << std::endl;
-                                //std::cout << "    local coord:        " << local_coordinate[0] << ", " << local_coordinate[1] << ", " << local_coordinate[2] << std::endl;
-                                //std::cout << "    num blocks:         " << num_blocks << std::endl;
-                                //std::cout << "    block index map:    ";
-                                //for (int i=0; i<num_blocks; ++i)
-                                //{
-                                //    std::cout << block_index_map[block_index_map.size()-1-i] << " ";
-                                //}
-                                //std::cout << std::endl;
-                                //std::cout << "    block index origin: ";
-                                //for (int i=0; i<num_blocks; ++i)
-                                //{
-                                //    std::cout << block_index_origin[block_index_map.size()-1-i] << " ";
-                                //}
-                                //std::cout << std::endl;
-                                //std::cout << "    num blocks per msg: " << num_blocks_per_message.back() << std::endl;
-                                //std::cout << "    field offsets:      " << f_offsets[0] << ", " << f_offsets[1] << ", " << f_offsets[2] << std::endl;
-                                //std::cout << "    field extents:      " << f_extents[0] << ", " << f_extents[1] << ", " << f_extents[2] << std::endl;
-                                //std::cout << "    field strides:      " << bytes[0] << ", " << bytes[1] << ", " << bytes[2] << std::endl;
-                                //std::cout << "    field coord:        " << memory_coordinate[0] << ", " << memory_coordinate[1] << ", " << memory_coordinate[2] << std::endl;
-                                //std::cout << "    first_element   =   " << first_element << std::endl;
-                                //std::cout << "    first_p_element =   " << first_p_element << std::endl;
-                                //std::cout << "    element         =   " << element << std::endl;
                             }
                         }
-                        //for (const auto& fb : p1.second.field_buffers)
-                        //    fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
-                        //const int num_blocks = block_index_map.size();
-
-                        array_gpu_ptrs.resize(array_gpu_ptrs.size()+1);
-                        cudaMalloc((void**)&array_gpu_ptrs.back(), firsts.size()*sizeof(array_t));
-                        cudaMemcpy(array_gpu_ptrs.back(), firsts.data(), firsts.size()*sizeof(array_t), cudaMemcpyHostToDevice);
-
-                        array_gpu_ptrs.resize(array_gpu_ptrs.size()+1);
-                        cudaMalloc((void**)&array_gpu_ptrs.back(), lasts.size()*sizeof(array_t));
-                        cudaMemcpy(array_gpu_ptrs.back(), lasts.data(), lasts.size()*sizeof(array_t), cudaMemcpyHostToDevice);
-
-                        char_ptr_gpu_ptrs.resize(char_ptr_gpu_ptrs.size()+1);
-                        //cudaMalloc((void**)&char_ptr_gpu_ptrs.back(), buffer_offsets.size()*sizeof(char*));
-                        cudaMalloc((void**)&char_ptr_gpu_ptrs.back(), buffer_offsets.size()*sizeof(T*));
-                        //cudaMemcpy(char_ptr_gpu_ptrs.back(), buffer_offsets.data(), buffer_offsets.size()*sizeof(char*), cudaMemcpyHostToDevice);
-                        cudaMemcpy(char_ptr_gpu_ptrs.back(), buffer_offsets.data(), buffer_offsets.size()*sizeof(T*), cudaMemcpyHostToDevice);
-                        
-                        int_gpu_ptrs.resize(int_gpu_ptrs.size()+1);
-                        cudaMalloc((void**)&int_gpu_ptrs.back(), sizes.size()*sizeof(int));
-                        cudaMemcpy(int_gpu_ptrs.back(), sizes.data(), sizes.size()*sizeof(int), cudaMemcpyHostToDevice);
-
-                        field_gpu_ptrs.resize(field_gpu_ptrs.size()+1);
-                        cudaMalloc((void**)&field_gpu_ptrs.back(), fields.size()*sizeof(FieldType));
-                        cudaMemcpy(field_gpu_ptrs.back(), fields.data(), fields.size()*sizeof(FieldType), cudaMemcpyHostToDevice);
-
-                        int_gpu_ptrs.resize(int_gpu_ptrs.size()+1);
-                        cudaMalloc((void**)&int_gpu_ptrs.back(), block_index_map.size()*sizeof(int));
-                        cudaMemcpy(int_gpu_ptrs.back(), block_index_map.data(), block_index_map.size()*sizeof(int), cudaMemcpyHostToDevice);
-
-                        int_gpu_ptrs.resize(int_gpu_ptrs.size()+1);
-                        cudaMalloc((void**)&int_gpu_ptrs.back(), block_index_origin.size()*sizeof(int));
-                        cudaMemcpy(int_gpu_ptrs.back(), block_index_origin.data(), block_index_origin.size()*sizeof(int), cudaMemcpyHostToDevice);
-
-                        ++num_streams;
-                    }
-                }
-            }
-
-            
-            //std::cout << "calling combined kernels...." << std::endl;
-            num_streams = 0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        pack_kernel_u<T><<<num_blocks_per_message[num_streams],block_size,0,streams[num_streams]>>>(
-                        //pack_kernel_u<T><<<num_blocks_per_message[num_streams],block_size>>>(
-                            int_gpu_ptrs[num_streams*3],      // sizes
-                            char_ptr_gpu_ptrs[num_streams],   // buffers
-                            array_gpu_ptrs[num_streams*2],    // firsts
-                            array_gpu_ptrs[num_streams*2+1],  // lasts
-                            field_gpu_ptrs[num_streams],      // fields
-                            int_gpu_ptrs[num_streams*3+1],    // block_index_map
-                            int_gpu_ptrs[num_streams*3+2]     // block_index_origin
-                        );
+                        const int num_blocks_x = (max_size+block_size-1)/block_size;
+                        unsigned int count = 0;
+                        while (num_blocks_y)
+                        {
+                            if (num_blocks_y > 36)
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, 36);
+                                pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                    pack_arg_t<int,       36>().fill(sizes.data()+count, 36),
+                                    pack_arg_t<T*,        36>().fill(buffer_offsets.data()+count, 36),
+                                    pack_arg_t<array_t,   36>().fill(firsts.data()+count, 36),
+                                    pack_arg_t<array_t,   36>().fill(lasts.data()+count, 36),
+                                    pack_arg_t<FieldType, 36>().fill(fields.data()+count, 36)
+                                );
+                                count += 36;
+                                num_blocks_y -= 36;
+                            }
+                            else 
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, num_blocks_y);
+                                if (num_blocks_y < 7)
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        pack_arg_t<int,       6>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<T*,        6>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,   6>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,   6>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType, 6>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 13)
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        pack_arg_t<int,      12>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<T*,       12>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,  12>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,  12>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType,12>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 25)
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        pack_arg_t<int,      24>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<T*,       24>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,  24>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,  24>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType,24>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        pack_arg_t<int,      36>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<T*,       36>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,  36>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,  36>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType,36>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                count += num_blocks_y;
+                                num_blocks_y = 0;
+                            }
+                        }
                         ++num_streams;
                     }
                 }
@@ -462,45 +388,11 @@ namespace gridtools {
                     }
                 }
             }
-            //for (auto& x : streams) 
-            //    cudaStreamDestroy(x);
-            //cudaDeviceSynchronize();
-
-            for (auto ptr : array_gpu_ptrs) cudaFree(ptr);
-            for (auto ptr : char_ptr_gpu_ptrs) cudaFree(ptr);
-            for (auto ptr : int_gpu_ptrs) cudaFree(ptr);
-            for (auto ptr : field_gpu_ptrs) cudaFree(ptr);
         }
 
         template<typename Map, typename Futures, typename Communicator>
         static void pack(Map& map, Futures& send_futures,Communicator& comm)
         {
-            /*using T = double;
-            using dimension = std::integral_constant<int,3>;
-            using array_t = array<int, dimension::value>;
-            using FieldType = 
-                simple_field_wrapper<
-                    T,
-                    device::gpu,
-                    structured_domain_descriptor<
-                        int, 
-                        3
-                    >, 
-                    2,1,0
-                >;
-            static std::vector<array_t> firsts;
-            static std::vector<array_t> lasts;
-            static std::vector<int>     sizes;
-            //static std::vector<char*> buffer_offsets;
-            static std::vector<T*> buffer_offsets;
-
-            static std::vector<FieldType> fields;
-            static std::vector<int> block_index_map;
-            static std::vector<int> block_index_origin;
-            static std::vector<int> num_blocks_per_message;*/
-
-
-
             std::size_t num_streams = 0;
             for (auto& p0 : map.send_memory)
             {
@@ -516,121 +408,6 @@ namespace gridtools {
             std::vector<cudaStream_t> streams(num_streams);
             for (auto& x : streams) 
                 cudaStreamCreate(&x);
-            //const int block_size = 128;
-            //num_blocks_per_message.clear();
-            //num_streams = 0;
-            //for (auto& p0 : map.send_memory)
-            //{
-            //    for (auto& p1: p0.second)
-            //    {
-            //        if (p1.second.size > 0u)
-            //        {
-            //            std::cout << "packing buffer in actual pack..." << std::endl;
-            //            firsts.clear();
-            //            lasts.clear();
-            //            sizes.clear();
-            //            sizes.push_back(0);
-            //            buffer_offsets.clear();
-            //            fields.clear();
-            //            block_index_map.clear();
-            //            block_index_origin.clear();
-            //            num_blocks_per_message.push_back(0);
-            //            for (const auto& fb : p1.second.field_buffers)
-            //            {
-            //                //char* buffer_address = p1.second.buffer.data()+fb.offset;
-            //                T* buffer_address = reinterpret_cast<T*>(p1.second.buffer.data()+fb.offset);
-            //                for (const auto& it_space_pair : *fb.index_container)
-            //                {
-            //                    const int size = it_space_pair.size();
-            //                    array_t first, last;
-            //                    std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
-            //                    std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
-            //                    firsts.push_back(first);
-            //                    //lasts.push_back(last);
-            //                    //buffer_offsets.push_back(p1.second.buffer.data() + sizes.back()*sizeof(T));
-            //                    buffer_offsets.push_back(buffer_address);
-            //                    //buffer_address += size*sizeof(T);
-            //                    buffer_address += size;
-            //                    sizes.push_back(sizes.back() + size);
-            //                    //buffer_offsets.push_back(p1.second.buffer.data() + fb.offset +);
-            //                    //index_containers.push_back(*fb.index_container);
-            //                    fields.push_back(*reinterpret_cast<FieldType*>(fb.field_ptr));
-            //                    const int num_blocks = (size+block_size-1)/block_size;
-            //                    const int origin =  block_index_map.size();
-            //                    for (int i=0; i<num_blocks; ++i)
-            //                    {
-            //                        block_index_map.push_back(fields.size()-1);
-            //                        block_index_origin.push_back(origin);
-            //                    }
-            //                    num_blocks_per_message.back() += num_blocks;
-            //                    
-            //                    array_t local_extents, local_strides;
-            //                    for (std::size_t i=0; i<dimension::value; ++i)  
-            //                        local_extents[i] = 1 + last[i] - first[i];
-            //                    detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
-            //                    lasts.push_back(local_strides);
-
-            //                    array_t local_coordinate;
-            //                    detail::compute_coordinate<dimension::value>::template apply<typename FieldType::layout_map>(local_strides,local_coordinate,0);
-            //                    const auto f_offsets = reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-            //                    const auto bytes = reinterpret_cast<FieldType*>(fb.field_ptr)->byte_strides();
-            //                    const auto f_extents = reinterpret_cast<FieldType*>(fb.field_ptr)->extents();
-            //                    // add offset
-            //                    const auto memory_coordinate = local_coordinate + first + reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-            //                    const auto memory_first = first + reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-            //                    const auto memory_last = last + reinterpret_cast<FieldType*>(fb.field_ptr)->offsets();
-            //                    // multiply with memory strides
-            //                    const auto idx = dot(memory_coordinate, reinterpret_cast<FieldType*>(fb.field_ptr)->byte_strides());
-            //                    const char* gpu_ptr_element = reinterpret_cast<const char*>(reinterpret_cast<FieldType*>(fb.field_ptr)->data()) + idx;
-            //                    T element;
-            //                    cudaMemcpy(&element, gpu_ptr_element, sizeof(T), cudaMemcpyDeviceToHost);
-            //                    T first_element;
-            //                    cudaMemcpy(&first_element, reinterpret_cast<FieldType*>(fb.field_ptr)->data(), sizeof(T), cudaMemcpyDeviceToHost);
-            //                    T first_p_element;
-            //                    cudaMemcpy(&first_p_element, reinterpret_cast<FieldType*>(fb.field_ptr)->data()+195, sizeof(T), cudaMemcpyDeviceToHost);
-
-            //                    std::cout << "  iteration space size: " << size << std::endl;
-            //                    std::cout << "    field ptr:          " << reinterpret_cast<FieldType*>(fb.field_ptr) << std::endl;
-            //                    std::cout << "    data ptr:           " << reinterpret_cast<FieldType*>(fb.field_ptr)->data() << std::endl;
-            //                    std::cout << "    buffer address:     " << reinterpret_cast<T*>(buffer_offsets.back()) << std::endl;
-            //                    std::cout << "    buffer address 10:  " << reinterpret_cast<std::uintptr_t>(buffer_offsets.back()) << std::endl;
-            //                    std::cout << "    required space:     " << size*sizeof(T) << std::endl;
-            //                    std::cout << "    first:              " << first[0] << ", " << first[1] << ", " << first[2] << " - "
-            //                    <<  memory_first[0] << ", " << memory_first[1] << ", " << memory_first[2] << std::endl;
-            //                    std::cout << "    last:               " << last[0] << ", " << last[1] << ", " << last[2] << " - "
-            //                    <<  memory_last[0] << ", " << memory_last[1] << ", " << memory_last[2] << std::endl;
-            //                    std::cout << "    local extents:      " << local_extents[0] << ", " << local_extents[1] << ", " << local_extents[2] << std::endl;
-            //                    std::cout << "    local strides:      " << local_strides[0] << ", " << local_strides[1] << ", " << local_strides[2] << std::endl;
-            //                    std::cout << "    local coord:        " << local_coordinate[0] << ", " << local_coordinate[1] << ", " << local_coordinate[2] << std::endl;
-            //                    std::cout << "    num blocks:         " << num_blocks << std::endl;
-            //                    std::cout << "    block index map:    ";
-            //                    for (int i=0; i<num_blocks; ++i)
-            //                    {
-            //                        std::cout << block_index_map[block_index_map.size()-1-i] << " ";
-            //                    }
-            //                    std::cout << std::endl;
-            //                    std::cout << "    block index origin: ";
-            //                    for (int i=0; i<num_blocks; ++i)
-            //                    {
-            //                        std::cout << block_index_origin[block_index_map.size()-1-i] << " ";
-            //                    }
-            //                    std::cout << std::endl;
-            //                    std::cout << "    num blocks per msg: " << num_blocks_per_message.back() << std::endl;
-            //                    std::cout << "    field offsets:      " << f_offsets[0] << ", " << f_offsets[1] << ", " << f_offsets[2] << std::endl;
-            //                    std::cout << "    field extents:      " << f_extents[0] << ", " << f_extents[1] << ", " << f_extents[2] << std::endl;
-            //                    std::cout << "    field strides:      " << bytes[0] << ", " << bytes[1] << ", " << bytes[2] << std::endl;
-            //                    std::cout << "    field coord:        " << memory_coordinate[0] << ", " << memory_coordinate[1] << ", " << memory_coordinate[2] << std::endl;
-            //                    std::cout << "    first_element   =   " << first_element << std::endl;
-            //                    std::cout << "    first_p_element =   " << first_p_element << std::endl;
-            //                    std::cout << "    element         =   " << element << std::endl;
-            //                }
-
-            //                //fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
-            //            }
-            //            ++num_streams;
-            //        }
-            //    }
-            //}
             num_streams = 0;
             for (auto& p0 : map.send_memory)
             {
@@ -666,6 +443,150 @@ namespace gridtools {
             }
             for (auto& x : streams) 
                 cudaStreamDestroy(x);
+        }
+
+        template<typename T, typename FieldType, typename BufferMem>
+        static void unpack_u(BufferMem& m)
+        {
+            using recv_buffer_type     = typename BufferMem::recv_buffer_type;
+            using field_buffer_type    = typename recv_buffer_type::field_buffer_type;
+            using index_container_type = typename field_buffer_type::index_container_type;
+            using dimension            = typename index_container_type::value_type::dimension;
+            using array_t              = array<int, dimension::value>;
+
+            static std::vector<array_t> firsts;
+            static std::vector<array_t> lasts;
+            static std::vector<int>     sizes;
+            static std::vector<const T*> buffer_offsets;
+            static std::vector<FieldType> fields;
+
+            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            std::size_t i = 0;
+            for (auto& x : streams)
+            {
+                cudaStreamCreate(&x);
+                index_list[i] = i;
+                ++i;
+            }
+            const int block_size = 128;
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        //for (const auto& fb : *m.m_recv_hooks[k].second)
+                        //    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
+                        
+                        firsts.clear();
+                        lasts.clear();
+                        sizes.clear();
+                        buffer_offsets.clear();
+                        fields.clear();
+                        int num_blocks_y = 0;
+                        int max_size = 0;
+                        for (const auto& fb : *m.m_recv_hooks[k].second)
+                        {
+                            const T* buffer_address = reinterpret_cast<const T*>(m.m_recv_hooks[k].first+fb.offset);
+                            for (const auto& it_space_pair : *fb.index_container)
+                            {
+                                ++num_blocks_y;
+                                const int size = it_space_pair.size();
+                                max_size = std::max(size,max_size);
+                                array_t first, last;
+                                std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
+                                std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
+                                firsts.push_back(first);
+                                buffer_offsets.push_back(buffer_address);
+                                buffer_address += size;
+                                sizes.push_back(size);
+                                fields.push_back(*reinterpret_cast<FieldType*>(fb.field_ptr));
+                                array_t local_extents, local_strides;
+                                for (std::size_t i=0; i<dimension::value; ++i)  
+                                    local_extents[i] = 1 + last[i] - first[i];
+                                detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
+                                lasts.push_back(local_strides);
+                            }
+                        }
+                        const int num_blocks_x = (max_size+block_size-1)/block_size;
+                        unsigned int count = 0;
+                        while (num_blocks_y)
+                        {
+                            if (num_blocks_y > 36)
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, 36);
+                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                    pack_arg_t<int,       36>().fill(sizes.data()+count, 36),
+                                    pack_arg_t<const T*,  36>().fill(buffer_offsets.data()+count, 36),
+                                    pack_arg_t<array_t,   36>().fill(firsts.data()+count, 36),
+                                    pack_arg_t<array_t,   36>().fill(lasts.data()+count, 36),
+                                    pack_arg_t<FieldType, 36>().fill(fields.data()+count, 36)
+                                );
+                                count += 36;
+                                num_blocks_y -= 36;
+                            }
+                            else 
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, num_blocks_y);
+                                if (num_blocks_y < 7)
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        pack_arg_t<int,       6>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<const T*,  6>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,   6>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,   6>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType, 6>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 13)
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        pack_arg_t<int,      12>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<const T*, 12>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,  12>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,  12>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType,12>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 25)
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        pack_arg_t<int,      24>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<const T*, 24>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,  24>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,  24>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType,24>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        pack_arg_t<int,      36>().fill(sizes.data()+count,          num_blocks_y),
+                                        pack_arg_t<const T*, 36>().fill(buffer_offsets.data()+count, num_blocks_y),
+                                        pack_arg_t<array_t,  36>().fill(firsts.data()+count,         num_blocks_y),
+                                        pack_arg_t<array_t,  36>().fill(lasts.data()+count,          num_blocks_y),
+                                        pack_arg_t<FieldType,36>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                count += num_blocks_y;
+                                num_blocks_y = 0;
+                            }
+                        }
+                    }
+                }
+            }
+            for (auto& x : streams) 
+            {
+                cudaStreamSynchronize(x);
+                cudaStreamDestroy(x);
+            }
         }
 
         template<typename BufferMem>
@@ -712,6 +633,7 @@ namespace gridtools {
                 cudaStreamDestroy(x);
             }
         }
+
 
 #ifdef GHEX_COMM_2_TIMINGS
         template<typename BufferMem,typename Timings>
@@ -785,6 +707,7 @@ namespace gridtools {
         using domain_id_type          = DomainIdType;
         using pattern_type            = pattern<P,GridType,DomainIdType>;
         using pattern_container_type  = pattern_container<P,GridType,DomainIdType>;
+        using this_type               = communication_object<P,GridType,DomainIdType>;
 
         template<typename D, typename F>
         using buffer_info_type        = buffer_info<pattern_type,D,F>;
@@ -906,7 +829,7 @@ namespace gridtools {
             using memory_t               = std::tuple<buffer_memory<Devices>*...>;
 
             buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
-            handle_type h(*this,std::get<0>(buffer_info_tuple)->get_pattern().communicator());
+            handle_type h(*this,std::get<0>(buffer_info_tuple)->get_pattern().communicator(), [this](){this->wait();});
             memory_t memory_tuple{&(std::get<buffer_memory<Devices>>(m_mem))...};
             int tag_offsets[sizeof...(Fields)] = { m_max_tag_map[&(buffer_infos.get_pattern_container())]... };
 
@@ -947,43 +870,6 @@ namespace gridtools {
         template<typename Device, typename Field>
         [[nodiscard]] handle_type exchange(buffer_info_type<Device,Field>* first, std::size_t length)
         {
-            /*if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
-            m_valid = true;
-            
-            using memory_t               = buffer_memory<Device>*;
-            using value_type             = typename buffer_info_type<Device,Field>::value_type;
-
-            handle_type h(*this, first->get_pattern().communicator());
-            memory_t mem{&(std::get<buffer_memory<Device>>(m_mem))};
-            std::vector<int> tag_offsets(length);
-            for (std::size_t k=0; k<length; ++k)
-                tag_offsets[k] = m_max_tag_map[&((first+k)->get_pattern_container())];
-
-            for (std::size_t k=0; k<length; ++k)
-            {
-                auto field_ptr = &((first+k)->get_field());
-                const auto my_dom_id  =(first+k)->get_field().domain_id();
-
-                this->allocate<Device,value_type,typename buffer_memory<Device>::recv_buffer_type>(
-                    mem->recv_memory[(first+k)->device_id()],
-                    (first+k)->get_pattern().recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    (first+k)->device_id(),
-                    tag_offsets[k],
-                    true);
-                this->allocate<Device,value_type,typename buffer_memory<Device>::send_buffer_type>(
-                    mem->send_memory[(first+k)->device_id()],
-                    (first+k)->get_pattern().send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    (first+k)->device_id(),
-                    tag_offsets[k],
-                    false);
-            }
-            post(h.m_comm);*/
             auto h = exchange_impl(first, length);
             pack(h.m_comm);
             return h;
@@ -1006,71 +892,14 @@ namespace gridtools {
                 >
             >* first, std::size_t length)
         {
-            /*if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
-            m_valid = true;
-            
-            using memory_t               = buffer_memory<device::gpu>*;
-            using value_type             = T;
-            memory_t mem{&(std::get<buffer_memory<device::gpu>>(m_mem))};
-            std::vector<int> tag_offsets(length);
-            for (std::size_t k=0; k<length; ++k)
-                tag_offsets[k] = m_max_tag_map[&((first+k)->get_pattern_container())];
-
-            for (std::size_t k=0; k<length; ++k)
-            {
-                auto field_ptr = &((first+k)->get_field());
-                const auto my_dom_id  =(first+k)->get_field().domain_id();
-
-                this->allocate<Device,value_type,typename buffer_memory<Device>::recv_buffer_type>(
-                    mem->recv_memory[(first+k)->device_id()],
-                    (first+k)->get_pattern().recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    (first+k)->device_id(),
-                    tag_offsets[k],
-                    true, field_ptr);
-                this->allocate<Device,value_type,typename buffer_memory<Device>::send_buffer_type>(
-                    mem->send_memory[(first+k)->device_id()],
-                    (first+k)->get_pattern().send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    (first+k)->device_id(),
-                    tag_offsets[k],
-                    false, field_ptr);
-            }*/
-
-            /*using field_type = simple_field_wrapper<T, device::gpu, structured_domain_descriptor<domain_id_type, sizeof...(Order)>, Order...>;
-            using value_type  = typename
-            buffer_info_type<
-                Device,
-                simple_field_wrapper<
-                    T,
-                    Device,
-                    structured_domain_descriptor<
-                        domain_id_type, 
-                        sizeof...(Order)
-                    >, 
-                    Order...
-                >
-            >::value_type;
-
-            std::cout << std::endl;
-            std::cout << "exchanging" << std::endl;
-            std::cout << "==========" << std::endl;
-            auto h = exchange_impl(first, length);
-
-            // store wait_u<T,Dimension,Order...> in handle as function pointer void()
-            return h;
-            */
-            using memory_t   = buffer_memory<device::gpu>*;
+            using memory_t   = buffer_memory<device::gpu>;
             using field_type = std::remove_reference_t<decltype(first->get_field())>;
             using value_type = typename field_type::value_type;
             auto h = exchange_impl(first, length);
-            memory_t mem{&(std::get<buffer_memory<device::gpu>>(m_mem))};
-            //pack(h.m_comm);
-            packer<device::gpu>::pack_u<value_type,field_type>(*mem, m_send_futures, h.m_comm);
+            //h.m_wait_fct = &this_type::wait<value_type,field_type>;
+            h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
+            memory_t& mem = std::get<memory_t>(m_mem);
+            packer<device::gpu>::pack_u<value_type,field_type>(mem, m_send_futures, h.m_comm);
             return h;
         }
 #endif
@@ -1103,7 +932,7 @@ namespace gridtools {
             using memory_t               = buffer_memory<Device>*;
             using value_type             = typename buffer_info_type<Device,Field>::value_type;
 
-            handle_type h(*this, first->get_pattern().communicator());
+            handle_type h(*this, first->get_pattern().communicator(), [this](){this->wait();});
             memory_t mem{&(std::get<buffer_memory<Device>>(m_mem))};
             std::vector<int> tag_offsets(length);
             for (std::size_t k=0; k<length; ++k)
@@ -1171,6 +1000,24 @@ namespace gridtools {
                 packer<device_type>::pack(m,m_send_futures,comm);
             });
         }
+
+#ifdef __CUDACC__
+        template<typename T, typename Field>
+        void wait_u()
+        {
+            if (!m_valid) return;
+            
+            using memory_t   = buffer_memory<device::gpu>;
+            memory_t& mem = std::get<memory_t>(m_mem);
+
+            packer<device::gpu>::unpack_u<T,Field>(mem);
+
+            for (auto& f : m_send_futures) 
+                f.wait();
+
+            clear();
+        }
+#endif
 
         void wait()
         {
