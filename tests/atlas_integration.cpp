@@ -31,7 +31,7 @@
 #include "../include/utils.hpp"
 #include "../include/unstructured_grid.hpp"
 #include "../include/unstructured_pattern.hpp"
-#include "../include/atlas_domain_descriptor.hpp"
+#include "../include/atlas_user_concepts.hpp"
 #include "../include/communication_object.hpp"
 
 
