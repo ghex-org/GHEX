@@ -35,80 +35,6 @@
 #include "../include/communication_object.hpp"
 
 
-/** @brief CPU data descriptor
- * WARN: so far full support to multiple vertical layers is still not provided*/
-template <typename T, typename DomainDescriptor>
-class my_data_desc {
-
-    public:
-
-        using index_t = typename DomainDescriptor::index_t;
-        using Byte = unsigned char;
-
-    private:
-
-        const DomainDescriptor& m_domain;
-        const int* m_partition_data; // WARN: this should not be needed with a richer iteration spaces
-        atlas::array::ArrayView<T, 2> m_values;
-
-    public:
-
-        my_data_desc(const DomainDescriptor& domain,
-                     const atlas::Field& field) :
-            m_domain{domain},
-            m_partition_data{atlas::array::make_view<int, 1>(domain.partition()).data()},
-            m_values{atlas::array::make_view<T, 2>(field)} {}
-
-        /** @brief data type size, mandatory*/
-        std::size_t data_type_size() const {
-            return sizeof (T);
-        }
-
-        /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
-        void set(const T& value, const index_t idx, const std::size_t level) {
-            m_values(idx, level) = value;
-        }
-
-        /** @brief single access get function, not mandatory but used by the corresponding multiple access operator*/
-        const T& get(const index_t idx, const std::size_t level) const {
-            return m_values(idx, level);
-        }
-
-        /** @brief multiple access set function, needed by GHEX in order to perform the unpacking.
-         * WARN: it could be more efficient if the iteration space includes also the indexes on this domain;
-         * in order to do so, iteration space needs to include an additional set of indexes;
-         * for now, the needed indices are retrieved by looping over the whole doamin,
-         * and filtering out all the indices by those on the desired remote partition.
-         * @tparam IterationSpace iteration space type
-         * @param is iteration space which to loop through in order to retrieve the coordinates at which to set back the buffer values
-         * @param buffer buffer with the data to be set back*/
-        template <typename IterationSpace>
-        void set(const IterationSpace& is, const Byte* buffer) {
-            for (index_t idx : is.local_index()) {
-                for (std::size_t level = 0; level < is.levels(); ++level) {
-                    set(*(reinterpret_cast<const T*>(buffer)), idx, level);
-                    buffer += sizeof(T);
-                }
-            }
-        }
-
-        /** @brief multiple access get function, needed by GHEX in order to perform the packing
-         * @tparam IterationSpace iteration space type
-         * @param is iteration space which to loop through in order to retrieve the coordinates at which to get the data
-         * @param buffer buffer to be filled*/
-        template <typename IterationSpace>
-        void get(const IterationSpace& is, Byte* buffer) const {
-            for (index_t idx : is.local_index()) {
-                for (std::size_t level = 0; level < is.levels(); ++level) {
-                    std::memcpy(buffer, &get(idx, level), sizeof(T));
-                    buffer += sizeof(T);
-                }
-            }
-        }
-
-};
-
-
 TEST(atlas_integration, dependencies) {
 
     // Generate global classic reduced Gaussian grid
@@ -349,7 +275,7 @@ TEST(atlas_integration, halo_exchange) {
     }
 
     // Istantiate data descriptor
-    my_data_desc<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
+    gridtools::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // ==================== atlas halo exchange ====================
 
