@@ -11,34 +11,15 @@
 #ifndef INCLUDED_COMMUNICATION_OBJECT_2_HPP
 #define INCLUDED_COMMUNICATION_OBJECT_2_HPP
 
+#include "./pack.hpp"
 #include "./utils.hpp"
 #include "./buffer_info.hpp"
-#include "./devices.hpp"
 #include "./protocol/communicator_base.hpp"
 #include "./simple_field_wrapper.hpp"
-#include <thread>
-#include <future>
 #include <map>
 #include <stdio.h>
 
 namespace gridtools {
-
-    namespace detail {
-
-        // forward declaration
-        template<typename Tuple>
-        struct transform;
-
-        // transform a tuple of types into another tuple of types
-        template<template<typename...> class Tuple, typename... Ts>
-        struct transform<Tuple<Ts...>>
-        {
-            // by applying the compile-time transform CT
-            template<template<typename> class CT>
-            using with = Tuple<CT<Ts>...>;
-        };
-
-    } // namespace detail
 
     // forward declaration
     template<typename P, typename GridType, typename DomainIdType>
@@ -63,13 +44,9 @@ namespace gridtools {
         : m_comm{comm} {}
 
     private: // private constructor
-        /*communication_handle(co_t& co, const communicator_type& comm) 
-        : m_co{&co}, m_comm{comm} {}*/
-
-        //using wait_fct_t = void (co_t::*)();
         template<typename Func>
-        communication_handle(co_t& co, const communicator_type& comm, Func&& wait_fct) 
-        : m_co{&co}, m_comm{comm}, m_wait_fct(std::forward<Func>(wait_fct)) {}
+        communication_handle(const communicator_type& comm, Func&& wait_fct) 
+        : m_comm{comm}, m_wait_fct(std::forward<Func>(wait_fct)) {}
 
     public: // copy and move ctors
         communication_handle(communication_handle&&) = default;
@@ -80,615 +57,12 @@ namespace gridtools {
 
     public: // member functions
         /** @brief  wait for communication to be finished*/
-        void wait() { /*if (m_co) m_co->wait();*/ if (m_wait_fct) m_wait_fct(); }
-#ifdef GHEX_COMM_2_TIMINGS
-        template<typename Timings>
-        void wait(Timings& t) { if (m_co) m_co->wait(t); }
-#endif
+        void wait() { if (m_wait_fct) m_wait_fct(); }
 
     private: // members
-        co_t* m_co = nullptr;
         communicator_type m_comm;
-        //wait_fct_t m_wait_fct = nullptr; 
-        //std::function<void(co_t&, void)> m_wait_fct;
         std::function<void()> m_wait_fct;
     };
-
-
-    template<typename Device>
-    struct packer
-    {
-        template<typename Map, typename Futures, typename Communicator>
-        static void pack(Map& map, Futures& send_futures,Communicator& comm)
-        {
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        p1.second.buffer.resize(p1.second.size);
-                        for (const auto& fb : p1.second.field_buffers)
-                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)0);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
-                        send_futures.push_back(comm.isend(
-                            p1.second.address,
-                            p1.second.tag,
-                            p1.second.buffer));
-                    }
-                }
-            }
-        }
-
-#ifndef GHEX_COMM_2_TIMINGS
-        template<typename BufferMem>
-        static void unpack(BufferMem& m)
-#else
-        template<typename BufferMem,typename... Args>
-        static void unpack(BufferMem& m, Args&&...)
-#endif
-        {
-            //auto policy = std::launch::async;
-            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
-            std::vector<std::size_t> index_list(m.m_recv_futures.size());
-            for (std::size_t i = 0; i < index_list.size(); ++i)
-                index_list[i] = i;
-            std::size_t size = index_list.size();
-            while(size>0u)
-            {
-                for (std::size_t j = 0; j < size; ++j)
-                {
-                    const auto k = index_list[j];
-                    if (m.m_recv_futures[k].test())
-                    {
-                        if (j < --size)
-                            index_list[j--] = index_list[size];
-                        //futures[k] = std::async(
-                        //    policy,
-                        //    [k](BufferMem& m){
-                                for (const auto& fb : *m.m_recv_hooks[k].second)
-                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
-                        //    }, 
-                        //    std::ref(m));
-                    }
-                }
-            }
-            //for (auto& f: futures)
-            //    f.get();
-        }
-    };
-	
-#ifdef __CUDACC__
-    
-    template<class T, unsigned int N>
-    struct pack_arg_t
-    {
-        T m_data[N];
-
-        __host__ pack_arg_t& fill(const T* data, unsigned int size)
-        {
-            if (size > N) throw std::runtime_error("static space too small " + std::to_string(N) + " < " + std::to_string(size));
-            for (unsigned int i=0; i<size; ++i) m_data[i] = data[i];
-            return *this;
-        }
-        GT_FUNCTION T &operator[](unsigned int i) { return m_data[i]; }
-
-        GT_FUNCTION T const &operator[](unsigned int i) const { return m_data[i]; }
-    };
-
-    template<typename T, typename Array, typename Field, unsigned int N>
-    __global__ void pack_kernel_u(
-        pack_arg_t<int,   N> sizes, 
-        pack_arg_t<T*,    N> buffers, 
-        pack_arg_t<Array, N> firsts, 
-        pack_arg_t<Array, N> local_strides,
-        pack_arg_t<Field, N> fields)
-    {
-        using layout_t = typename Field::layout_map;
-        const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
-        const int data_lu_index = blockIdx.y;
-
-        const int size = sizes[data_lu_index];
-        if (thread_index < size)
-        {
-            Array local_coordinate;
-            detail::compute_coordinate<Array::size()>::template apply<layout_t>(local_strides[data_lu_index],local_coordinate,thread_index);
-            // add offset
-            const auto memory_coordinate = local_coordinate + firsts[data_lu_index] + fields[data_lu_index].offsets();
-            // multiply with memory strides
-            const auto idx = dot(memory_coordinate, fields[data_lu_index].byte_strides());
-            buffers[data_lu_index][thread_index] = *reinterpret_cast<const T*>((const char*)fields[data_lu_index].data() + idx);
-        }
-    }
-
-    template<typename T, typename Array, typename Field, unsigned int N>
-    __global__ void unpack_kernel_u(
-        pack_arg_t<int,      N> sizes, 
-        pack_arg_t<const T*, N> buffers, 
-        pack_arg_t<Array,    N> firsts, 
-        pack_arg_t<Array,    N> local_strides,
-        pack_arg_t<Field,    N> fields)
-    {
-        using layout_t = typename Field::layout_map;
-        const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
-        const int data_lu_index = blockIdx.y;
-
-        const int size = sizes[data_lu_index];
-        if (thread_index < size)
-        {
-            Array local_coordinate;
-            detail::compute_coordinate<Array::size()>::template apply<layout_t>(local_strides[data_lu_index],local_coordinate,thread_index);
-            // add offset
-            const auto memory_coordinate = local_coordinate + firsts[data_lu_index] + fields[data_lu_index].offsets();
-            // multiply with memory strides
-            const auto idx = dot(memory_coordinate, fields[data_lu_index].byte_strides());
-            *reinterpret_cast<T*>((char*)fields[data_lu_index].data() + idx) = buffers[data_lu_index][thread_index];
-        }
-    }
-
-    template<>
-    struct packer<device::gpu>
-    {
-        template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
-        static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
-        {
-            using send_buffer_type     = typename Map::send_buffer_type;
-            using field_buffer_type    = typename send_buffer_type::field_buffer_type;
-            using index_container_type = typename field_buffer_type::index_container_type;
-            using dimension            = typename index_container_type::value_type::dimension;
-            using array_t              = array<int, dimension::value>;
-
-            static std::vector<array_t> firsts;
-            static std::vector<array_t> lasts;
-            static std::vector<int>     sizes;
-            static std::vector<T*> buffer_offsets;
-            static std::vector<FieldType> fields;
-
-            std::size_t num_streams = 0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        p1.second.buffer.resize(p1.second.size);
-                        ++num_streams;
-                    }
-                }
-            }
-            std::vector<cudaStream_t> streams(num_streams);
-            for (auto& x : streams) 
-                cudaStreamCreate(&x);
-            const int block_size = 128;
-            num_streams = 0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        firsts.clear();
-                        lasts.clear();
-                        sizes.clear();
-                        buffer_offsets.clear();
-                        fields.clear();
-                        int num_blocks_y = 0;
-                        int max_size = 0;
-                        for (const auto& fb : p1.second.field_buffers)
-                        {
-                            T* buffer_address = reinterpret_cast<T*>(p1.second.buffer.data()+fb.offset);
-                            for (const auto& it_space_pair : *fb.index_container)
-                            {
-                                ++num_blocks_y;
-                                const int size = it_space_pair.size();
-                                max_size = std::max(size,max_size);
-                                array_t first, last;
-                                std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
-                                std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
-                                firsts.push_back(first);
-                                buffer_offsets.push_back(buffer_address);
-                                buffer_address += size;
-                                sizes.push_back(size);
-                                fields.push_back(*reinterpret_cast<FieldType*>(fb.field_ptr));
-                                array_t local_extents, local_strides;
-                                for (std::size_t i=0; i<dimension::value; ++i)  
-                                    local_extents[i] = 1 + last[i] - first[i];
-                                detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
-                                lasts.push_back(local_strides);
-                            }
-                        }
-                        const int num_blocks_x = (max_size+block_size-1)/block_size;
-                        unsigned int count = 0;
-                        while (num_blocks_y)
-                        {
-                            if (num_blocks_y > 36)
-                            {
-                                dim3 dimBlock(block_size, 1);
-                                dim3 dimGrid(num_blocks_x, 36);
-                                pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
-                                    pack_arg_t<int,       36>().fill(sizes.data()+count, 36),
-                                    pack_arg_t<T*,        36>().fill(buffer_offsets.data()+count, 36),
-                                    pack_arg_t<array_t,   36>().fill(firsts.data()+count, 36),
-                                    pack_arg_t<array_t,   36>().fill(lasts.data()+count, 36),
-                                    pack_arg_t<FieldType, 36>().fill(fields.data()+count, 36)
-                                );
-                                count += 36;
-                                num_blocks_y -= 36;
-                            }
-                            else 
-                            {
-                                dim3 dimBlock(block_size, 1);
-                                dim3 dimGrid(num_blocks_x, num_blocks_y);
-                                if (num_blocks_y < 7)
-                                {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
-                                        pack_arg_t<int,       6>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<T*,        6>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,   6>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,   6>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType, 6>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                else if (num_blocks_y < 13)
-                                {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
-                                        pack_arg_t<int,      12>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<T*,       12>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,  12>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,  12>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType,12>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                else if (num_blocks_y < 25)
-                                {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
-                                        pack_arg_t<int,      24>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<T*,       24>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,  24>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,  24>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType,24>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                else
-                                {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
-                                        pack_arg_t<int,      36>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<T*,       36>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,  36>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,  36>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType,36>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                count += num_blocks_y;
-                                num_blocks_y = 0;
-                            }
-                        }
-                        ++num_streams;
-                    }
-                }
-            }
-
-            num_streams=0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        cudaStreamSynchronize(streams[num_streams]);
-                        cudaStreamDestroy(streams[num_streams]);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
-                        send_futures.push_back(comm.isend(
-                            p1.second.address,
-                            p1.second.tag,
-                            p1.second.buffer));
-                        ++num_streams;
-                    }
-                }
-            }
-        }
-
-        template<typename Map, typename Futures, typename Communicator>
-        static void pack(Map& map, Futures& send_futures,Communicator& comm)
-        {
-            std::size_t num_streams = 0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        p1.second.buffer.resize(p1.second.size);
-                        ++num_streams;
-                    }
-                }
-            }
-            std::vector<cudaStream_t> streams(num_streams);
-            for (auto& x : streams) 
-                cudaStreamCreate(&x);
-            num_streams = 0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        for (const auto& fb : p1.second.field_buffers)
-                        {
-                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
-                        }
-                        ++num_streams;
-                    }
-                }
-            }
-            num_streams=0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        cudaStreamSynchronize(streams[num_streams]);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
-                        send_futures.push_back(comm.isend(
-                            p1.second.address,
-                            p1.second.tag,
-                            p1.second.buffer));
-                        ++num_streams;
-                    }
-                }
-            }
-            for (auto& x : streams) 
-                cudaStreamDestroy(x);
-        }
-
-        template<typename T, typename FieldType, typename BufferMem>
-        static void unpack_u(BufferMem& m)
-        {
-            using recv_buffer_type     = typename BufferMem::recv_buffer_type;
-            using field_buffer_type    = typename recv_buffer_type::field_buffer_type;
-            using index_container_type = typename field_buffer_type::index_container_type;
-            using dimension            = typename index_container_type::value_type::dimension;
-            using array_t              = array<int, dimension::value>;
-
-            static std::vector<array_t> firsts;
-            static std::vector<array_t> lasts;
-            static std::vector<int>     sizes;
-            static std::vector<const T*> buffer_offsets;
-            static std::vector<FieldType> fields;
-
-            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
-            std::vector<std::size_t> index_list(m.m_recv_futures.size());
-            std::size_t i = 0;
-            for (auto& x : streams)
-            {
-                cudaStreamCreate(&x);
-                index_list[i] = i;
-                ++i;
-            }
-            const int block_size = 128;
-            std::size_t size = index_list.size();
-            while(size>0u)
-            {
-                for (std::size_t j = 0; j < size; ++j)
-                {
-                    const auto k = index_list[j];
-                    if (m.m_recv_futures[k].test())
-                    {
-                        if (j < --size)
-                            index_list[j--] = index_list[size];
-                        //for (const auto& fb : *m.m_recv_hooks[k].second)
-                        //    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
-                        
-                        firsts.clear();
-                        lasts.clear();
-                        sizes.clear();
-                        buffer_offsets.clear();
-                        fields.clear();
-                        int num_blocks_y = 0;
-                        int max_size = 0;
-                        for (const auto& fb : *m.m_recv_hooks[k].second)
-                        {
-                            const T* buffer_address = reinterpret_cast<const T*>(m.m_recv_hooks[k].first+fb.offset);
-                            for (const auto& it_space_pair : *fb.index_container)
-                            {
-                                ++num_blocks_y;
-                                const int size = it_space_pair.size();
-                                max_size = std::max(size,max_size);
-                                array_t first, last;
-                                std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
-                                std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
-                                firsts.push_back(first);
-                                buffer_offsets.push_back(buffer_address);
-                                buffer_address += size;
-                                sizes.push_back(size);
-                                fields.push_back(*reinterpret_cast<FieldType*>(fb.field_ptr));
-                                array_t local_extents, local_strides;
-                                for (std::size_t i=0; i<dimension::value; ++i)  
-                                    local_extents[i] = 1 + last[i] - first[i];
-                                detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
-                                lasts.push_back(local_strides);
-                            }
-                        }
-                        const int num_blocks_x = (max_size+block_size-1)/block_size;
-                        unsigned int count = 0;
-                        while (num_blocks_y)
-                        {
-                            if (num_blocks_y > 36)
-                            {
-                                dim3 dimBlock(block_size, 1);
-                                dim3 dimGrid(num_blocks_x, 36);
-                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
-                                    pack_arg_t<int,       36>().fill(sizes.data()+count, 36),
-                                    pack_arg_t<const T*,  36>().fill(buffer_offsets.data()+count, 36),
-                                    pack_arg_t<array_t,   36>().fill(firsts.data()+count, 36),
-                                    pack_arg_t<array_t,   36>().fill(lasts.data()+count, 36),
-                                    pack_arg_t<FieldType, 36>().fill(fields.data()+count, 36)
-                                );
-                                count += 36;
-                                num_blocks_y -= 36;
-                            }
-                            else 
-                            {
-                                dim3 dimBlock(block_size, 1);
-                                dim3 dimGrid(num_blocks_x, num_blocks_y);
-                                if (num_blocks_y < 7)
-                                {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
-                                        pack_arg_t<int,       6>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<const T*,  6>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,   6>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,   6>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType, 6>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                else if (num_blocks_y < 13)
-                                {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
-                                        pack_arg_t<int,      12>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<const T*, 12>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,  12>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,  12>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType,12>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                else if (num_blocks_y < 25)
-                                {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
-                                        pack_arg_t<int,      24>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<const T*, 24>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,  24>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,  24>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType,24>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                else
-                                {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
-                                        pack_arg_t<int,      36>().fill(sizes.data()+count,          num_blocks_y),
-                                        pack_arg_t<const T*, 36>().fill(buffer_offsets.data()+count, num_blocks_y),
-                                        pack_arg_t<array_t,  36>().fill(firsts.data()+count,         num_blocks_y),
-                                        pack_arg_t<array_t,  36>().fill(lasts.data()+count,          num_blocks_y),
-                                        pack_arg_t<FieldType,36>().fill(fields.data()+count,         num_blocks_y)
-                                    );
-                                }
-                                count += num_blocks_y;
-                                num_blocks_y = 0;
-                            }
-                        }
-                    }
-                }
-            }
-            for (auto& x : streams) 
-            {
-                cudaStreamSynchronize(x);
-                cudaStreamDestroy(x);
-            }
-        }
-
-        template<typename BufferMem>
-        static void unpack(BufferMem& m)
-        {
-            //auto policy = std::launch::async;
-            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
-            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
-            std::vector<std::size_t> index_list(m.m_recv_futures.size());
-            std::size_t i = 0;
-            for (auto& x : streams)
-            {
-                cudaStreamCreate(&x);
-                index_list[i] = i;
-                ++i;
-            }
-            std::size_t size = index_list.size();
-            while(size>0u)
-            {
-                for (std::size_t j = 0; j < size; ++j)
-                {
-                    const auto k = index_list[j];
-                    if (m.m_recv_futures[k].test())
-                    {
-                        if (j < --size)
-                            index_list[j--] = index_list[size];
-                        //futures[k] = std::async(
-                        //    policy,
-                        //    [k](BufferMem& m, cudaStream_t& s){
-                        //        for (const auto& fb : *m.m_recv_hooks[k].second)
-                        //            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); 
-                        //    }, 
-                        //    std::ref(m), std::ref(streams[k]));
-                        for (const auto& fb : *m.m_recv_hooks[k].second)
-                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
-                    }
-                }
-            }
-            //int k = 0;
-            for (auto& x : streams) 
-            {
-                //futures[k++].get();
-                cudaStreamSynchronize(x);
-                cudaStreamDestroy(x);
-            }
-        }
-
-
-#ifdef GHEX_COMM_2_TIMINGS
-        template<typename BufferMem,typename Timings>
-        static void unpack(BufferMem& m, Timings& t)
-        {
-            //auto policy = std::launch::async;
-            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
-            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
-            std::vector<std::size_t> index_list(m.m_recv_futures.size());
-            std::size_t i = 0;
-            for (auto& x : streams)
-            {
-                cudaStreamCreate(&x);
-                index_list[i] = i;
-                ++i;
-            }
-            std::size_t size = index_list.size();
-            while(size>0u)
-            {
-                for (std::size_t j = 0; j < size; ++j)
-                {
-                    const auto k = index_list[j];
-                    if (m.m_recv_futures[k].test())
-                    {
-                        if (j < --size)
-                            index_list[j--] = index_list[size];
-                        //futures[k] = std::async(
-                        //    policy,
-                        //    [k](BufferMem& m, cudaStream_t& s){
-                        //        for (const auto& fb : *m.m_recv_hooks[k].second)
-                        //            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); 
-                        //    }, 
-                        //    std::ref(m), std::ref(streams[k]));
-                        const auto t0 = Timings::clock_type::now(); 
-                        for (const auto& fb : *m.m_recv_hooks[k].second)
-                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
-                        const auto t1 = Timings::clock_type::now(); 
-                        t.unpack_launch_time += t1-t0;
-                    }
-                }
-            }
-            const auto t0 = Timings::clock_type::now(); 
-            //int k = 0;
-            for (auto& x : streams) 
-            {
-                //futures[k++].get();
-                cudaStreamSynchronize(x);
-                cudaStreamDestroy(x);
-            }
-            const auto t1 = Timings::clock_type::now(); 
-            t.unpack_launch_time += t1-t0;
-        }
-#endif
-    };
-#endif
  
     /** @brief communication object responsible for exchanging halo data. Allocates storage depending on the 
      * device type and device id of involved fields.
@@ -824,12 +198,11 @@ namespace gridtools {
         {
             if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
             m_valid = true;
-
             using buffer_infos_ptr_t     = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
             using memory_t               = std::tuple<buffer_memory<Devices>*...>;
 
             buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
-            handle_type h(*this,std::get<0>(buffer_info_tuple)->get_pattern().communicator(), [this](){this->wait();});
+            handle_type h(std::get<0>(buffer_info_tuple)->get_pattern().communicator(), [this](){this->wait();});
             memory_t memory_tuple{&(std::get<buffer_memory<Devices>>(m_mem))...};
             int tag_offsets[sizeof...(Fields)] = { m_max_tag_map[&(buffer_infos.get_pattern_container())]... };
 
@@ -838,28 +211,9 @@ namespace gridtools {
             {
                 using device_type = typename std::remove_reference_t<decltype(*mem)>::device_type;
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
-
                 auto field_ptr = &(bi->get_field());
                 const domain_id_type my_dom_id = bi->get_field().domain_id();
-
-                this->allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
-                    mem->recv_memory[bi->device_id()],
-                    bi->get_pattern().recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    bi->device_id(),
-                    tag_offsets[i],
-                    true, field_ptr);
-                this->allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
-                    mem->send_memory[bi->device_id()],
-                    bi->get_pattern().send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    bi->device_id(),
-                    tag_offsets[i],
-                    false, field_ptr);
+                allocate<device_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                 ++i;
             });
             post(h.m_comm);
@@ -879,45 +233,25 @@ namespace gridtools {
         template<typename Device, typename T, int... Order>
         [[nodiscard]] std::enable_if_t<std::is_same<Device,device::gpu>::value, handle_type>
         exchange_u(
-            buffer_info_type<
-                Device,
-                simple_field_wrapper<
-                    T,
-                    Device,
-                    structured_domain_descriptor<
-                        domain_id_type, 
-                        sizeof...(Order)
-                    >, 
-                    Order...
-                >
-            >* first, std::size_t length)
+            buffer_info_type<Device,simple_field_wrapper<T,Device,structured_domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+            std::size_t length)
         {
             using memory_t   = buffer_memory<device::gpu>;
             using field_type = std::remove_reference_t<decltype(first->get_field())>;
             using value_type = typename field_type::value_type;
             auto h = exchange_impl(first, length);
-            //h.m_wait_fct = &this_type::wait<value_type,field_type>;
             h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
             memory_t& mem = std::get<memory_t>(m_mem);
-            packer<device::gpu>::pack_u<value_type,field_type>(mem, m_send_futures, h.m_comm);
+            packer<device::gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, h.m_comm);
             return h;
         }
 #endif
+
         template<typename Device, typename T, int... Order>
         [[nodiscard]] std::enable_if_t<std::is_same<Device,device::cpu>::value, handle_type>
         exchange_u(
-            buffer_info_type<
-                Device,
-                simple_field_wrapper<
-                    T,
-                    Device,
-                    structured_domain_descriptor<
-                        domain_id_type, 
-                        sizeof...(Order)
-                    >, 
-                    Order...
-                >
-            >* first, std::size_t length)
+            buffer_info_type<Device,simple_field_wrapper<T,Device,structured_domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+            std::size_t length)
         {
             return exchange(first, length);
         }
@@ -928,11 +262,10 @@ namespace gridtools {
         {
             if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
             m_valid = true;
-            
             using memory_t               = buffer_memory<Device>*;
             using value_type             = typename buffer_info_type<Device,Field>::value_type;
 
-            handle_type h(*this, first->get_pattern().communicator(), [this](){this->wait();});
+            handle_type h(first->get_pattern().communicator(), [this](){this->wait();});
             memory_t mem{&(std::get<buffer_memory<Device>>(m_mem))};
             std::vector<int> tag_offsets(length);
             for (std::size_t k=0; k<length; ++k)
@@ -942,28 +275,21 @@ namespace gridtools {
             {
                 auto field_ptr = &((first+k)->get_field());
                 const auto my_dom_id  =(first+k)->get_field().domain_id();
-
-                this->allocate<Device,value_type,typename buffer_memory<Device>::recv_buffer_type>(
-                    mem->recv_memory[(first+k)->device_id()],
-                    (first+k)->get_pattern().recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    (first+k)->device_id(),
-                    tag_offsets[k],
-                    true, field_ptr);
-                this->allocate<Device,value_type,typename buffer_memory<Device>::send_buffer_type>(
-                    mem->send_memory[(first+k)->device_id()],
-                    (first+k)->get_pattern().send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
-                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c,arg); },
-                    my_dom_id,
-                    (first+k)->device_id(),
-                    tag_offsets[k],
-                    false, field_ptr);
+                allocate<Device,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offsets[k]);
             }
             post(h.m_comm);
             return h;
+        }
+
+        template<typename Device, typename T, typename Memory, typename Field, typename O>
+        void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id, typename Device::id_type device_id, O tag_offset)
+        {
+            allocate<Device,T,typename buffer_memory<Device>::recv_buffer_type>( mem->recv_memory[device_id], pattern.recv_halos(),
+                [field_ptr](const void* buffer, const index_container_type& c, void* arg) { field_ptr->unpack(reinterpret_cast<const T*>(buffer),c,arg); },
+                dom_id, device_id, tag_offset, true, field_ptr);
+            allocate<Device,T,typename buffer_memory<Device>::send_buffer_type>( mem->send_memory[device_id], pattern.send_halos(),
+                [field_ptr](void* buffer, const index_container_type& c, void* arg) { field_ptr->pack(reinterpret_cast<T*>(buffer),c,arg); },
+                dom_id, device_id, tag_offset, false, field_ptr);
         }
 
         void post(communicator_type& comm)
@@ -1010,7 +336,7 @@ namespace gridtools {
             using memory_t   = buffer_memory<device::gpu>;
             memory_t& mem = std::get<memory_t>(m_mem);
 
-            packer<device::gpu>::unpack_u<T,Field>(mem);
+            packer<device::gpu>::template unpack_u<T,Field>(mem);
 
             for (auto& f : m_send_futures) 
                 f.wait();
@@ -1102,13 +428,6 @@ namespace gridtools {
                 {
                     left  = remote_dom_id;
                     right = my_dom_id;
-                    /*std::cout << "field_ptr = " << field_ptr << ", data = " << field_ptr->data() << std::endl;
-                    ValueType first_element;
-                    cudaMemcpy(&first_element, field_ptr, sizeof(ValueType), cudaMemcpyDeviceToHost);
-                    //ValueType first_p_element;
-                    //cudaMemcpy(&first_p_element, field_ptr+195, sizeof(ValueType), cudaMemcpyDeviceToHost);
-                    std::cout << "     first_element   =  " << first_element << std::endl;                                 
-                    //std::cout << "     first_p_element =  " << first_p_element << std::endl;*/
                 }
                 const auto d_p = domain_id_pair{left,right};
                 auto it = memory.find(d_p);

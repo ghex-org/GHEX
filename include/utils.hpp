@@ -281,6 +281,19 @@ namespace gridtools {
             }
         };
 
+        // forward declaration
+        template<typename Tuple>
+        struct transform;
+
+        // transform a tuple of types into another tuple of types
+        template<template<typename...> class Tuple, typename... Ts>
+        struct transform<Tuple<Ts...>>
+        {
+            // by applying the compile-time transform CT
+            template<template<typename> class CT>
+            using with = Tuple<CT<Ts>...>;
+        };
+
     }   // namespace detail
 
 } // namespace gridtools

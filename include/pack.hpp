@@ -1,0 +1,546 @@
+/* 
+ * GridTools
+ * 
+ * Copyright (c) 2014-2019, ETH Zurich
+ * All rights reserved.
+ * 
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * 
+ */
+#ifndef INCLUDED_PACK_HPP
+#define INCLUDED_PACK_HPP
+
+#include "./devices.hpp"
+#include "./field_utils.hpp"
+#include "./kernel_argument.hpp"
+//#include <thread>
+//#include <future>
+
+namespace gridtools {
+
+    template<typename Device>
+    struct packer
+    {
+        template<typename Map, typename Futures, typename Communicator>
+        static void pack(Map& map, Futures& send_futures,Communicator& comm)
+        {
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.buffer.resize(p1.second.size);
+                        for (const auto& fb : p1.second.field_buffers)
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)0);
+                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                        send_futures.push_back(comm.isend(
+                            p1.second.address,
+                            p1.second.tag,
+                            p1.second.buffer));
+                    }
+                }
+            }
+        }
+
+        template<typename BufferMem>
+        static void unpack(BufferMem& m)
+        {
+            //auto policy = std::launch::async;
+            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            for (std::size_t i = 0; i < index_list.size(); ++i)
+                index_list[i] = i;
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        //futures[k] = std::async(
+                        //    policy,
+                        //    [k](BufferMem& m){
+                                for (const auto& fb : *m.m_recv_hooks[k].second)
+                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
+                        //    }, 
+                        //    std::ref(m));
+                    }
+                }
+            }
+            //for (auto& f: futures)
+            //    f.get();
+        }
+    };
+	
+#ifdef __CUDACC__
+    
+
+    template<typename T, typename Array, typename Field, unsigned int N>
+    __global__ void pack_kernel_u(
+        kernel_argument<int,   N> sizes, 
+        kernel_argument<T*,    N> buffers, 
+        kernel_argument<Array, N> firsts, 
+        kernel_argument<Array, N> local_strides,
+        kernel_argument<Field, N> fields)
+    {
+        using layout_t = typename Field::layout_map;
+        const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
+        const int data_lu_index = blockIdx.y;
+
+        const int size = sizes[data_lu_index];
+        if (thread_index < size)
+        {
+            Array local_coordinate;
+            detail::compute_coordinate<Array::size()>::template apply<layout_t>(local_strides[data_lu_index],local_coordinate,thread_index);
+            // add offset
+            const auto memory_coordinate = local_coordinate + firsts[data_lu_index] + fields[data_lu_index].offsets();
+            // multiply with memory strides
+            const auto idx = dot(memory_coordinate, fields[data_lu_index].byte_strides());
+            buffers[data_lu_index][thread_index] = *reinterpret_cast<const T*>((const char*)fields[data_lu_index].data() + idx);
+        }
+    }
+
+    template<typename T, typename Array, typename Field, unsigned int N>
+    __global__ void unpack_kernel_u(
+        kernel_argument<int,      N> sizes, 
+        kernel_argument<const T*, N> buffers, 
+        kernel_argument<Array,    N> firsts, 
+        kernel_argument<Array,    N> local_strides,
+        kernel_argument<Field,    N> fields)
+    {
+        using layout_t = typename Field::layout_map;
+        const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
+        const int data_lu_index = blockIdx.y;
+
+        const int size = sizes[data_lu_index];
+        if (thread_index < size)
+        {
+            Array local_coordinate;
+            detail::compute_coordinate<Array::size()>::template apply<layout_t>(local_strides[data_lu_index],local_coordinate,thread_index);
+            // add offset
+            const auto memory_coordinate = local_coordinate + firsts[data_lu_index] + fields[data_lu_index].offsets();
+            // multiply with memory strides
+            const auto idx = dot(memory_coordinate, fields[data_lu_index].byte_strides());
+            *reinterpret_cast<T*>((char*)fields[data_lu_index].data() + idx) = buffers[data_lu_index][thread_index];
+        }
+    }
+
+    template<>
+    struct packer<device::gpu>
+    {
+        template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
+        static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
+        {
+            using send_buffer_type     = typename Map::send_buffer_type;
+            using field_buffer_type    = typename send_buffer_type::field_buffer_type;
+            using index_container_type = typename field_buffer_type::index_container_type;
+            using dimension            = typename index_container_type::value_type::dimension;
+            using array_t              = array<int, dimension::value>;
+
+            static std::vector<array_t> firsts;
+            static std::vector<array_t> lasts;
+            static std::vector<int>     sizes;
+            static std::vector<T*> buffer_offsets;
+            static std::vector<FieldType> fields;
+
+            std::size_t num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.buffer.resize(p1.second.size);
+                        ++num_streams;
+                    }
+                }
+            }
+            std::vector<cudaStream_t> streams(num_streams);
+            for (auto& x : streams) 
+                cudaStreamCreate(&x);
+            const int block_size = 128;
+            num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        firsts.clear();
+                        lasts.clear();
+                        sizes.clear();
+                        buffer_offsets.clear();
+                        fields.clear();
+                        int num_blocks_y = 0;
+                        int max_size = 0;
+                        for (const auto& fb : p1.second.field_buffers)
+                        {
+                            T* buffer_address = reinterpret_cast<T*>(p1.second.buffer.data()+fb.offset);
+                            for (const auto& it_space_pair : *fb.index_container)
+                            {
+                                ++num_blocks_y;
+                                const int size = it_space_pair.size();
+                                max_size = std::max(size,max_size);
+                                array_t first, last;
+                                std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
+                                std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
+                                firsts.push_back(first);
+                                buffer_offsets.push_back(buffer_address);
+                                buffer_address += size;
+                                sizes.push_back(size);
+                                fields.push_back(*reinterpret_cast<FieldType*>(fb.field_ptr));
+                                array_t local_extents, local_strides;
+                                for (std::size_t i=0; i<dimension::value; ++i)  
+                                    local_extents[i] = 1 + last[i] - first[i];
+                                detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
+                                lasts.push_back(local_strides);
+                            }
+                        }
+                        const int num_blocks_x = (max_size+block_size-1)/block_size;
+                        unsigned int count = 0;
+                        while (num_blocks_y)
+                        {
+                            if (num_blocks_y > 36)
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, 36);
+                                pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                    make_kernel_arg<36>(sizes.data()+count,          36),
+                                    make_kernel_arg<36>(buffer_offsets.data()+count, 36),
+                                    make_kernel_arg<36>(firsts.data()+count,         36),
+                                    make_kernel_arg<36>(lasts.data()+count,          36),
+                                    make_kernel_arg<36>(fields.data()+count,         36)
+                                );
+                                count += 36;
+                                num_blocks_y -= 36;
+                            }
+                            else 
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, num_blocks_y);
+                                if (num_blocks_y < 7)
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        make_kernel_arg< 6>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg< 6>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg< 6>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg< 6>(lasts.data()+count,          num_blocks_y),
+                                        make_kernel_arg< 6>(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 13)
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        make_kernel_arg<12>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg<12>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg<12>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg<12>(lasts.data()+count,          num_blocks_y),
+                                        make_kernel_arg<12>(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 25)
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        make_kernel_arg<24>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg<24>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg<24>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg<24>(lasts.data()+count,          num_blocks_y),
+                                        make_kernel_arg<24>(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else
+                                {
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                        make_kernel_arg<36>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg<36>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg<36>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg<36>(lasts.data()+count,          num_blocks_y),
+                                        make_kernel_arg<36>(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                count += num_blocks_y;
+                                num_blocks_y = 0;
+                            }
+                        }
+                        ++num_streams;
+                    }
+                }
+            }
+
+            num_streams=0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        cudaStreamSynchronize(streams[num_streams]);
+                        cudaStreamDestroy(streams[num_streams]);
+                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                        send_futures.push_back(comm.isend(
+                            p1.second.address,
+                            p1.second.tag,
+                            p1.second.buffer));
+                        ++num_streams;
+                    }
+                }
+            }
+        }
+
+        template<typename Map, typename Futures, typename Communicator>
+        static void pack(Map& map, Futures& send_futures,Communicator& comm)
+        {
+            std::size_t num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.buffer.resize(p1.second.size);
+                        ++num_streams;
+                    }
+                }
+            }
+            std::vector<cudaStream_t> streams(num_streams);
+            for (auto& x : streams) 
+                cudaStreamCreate(&x);
+            num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        for (const auto& fb : p1.second.field_buffers)
+                        {
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
+                        }
+                        ++num_streams;
+                    }
+                }
+            }
+            num_streams=0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        cudaStreamSynchronize(streams[num_streams]);
+                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
+                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                        send_futures.push_back(comm.isend(
+                            p1.second.address,
+                            p1.second.tag,
+                            p1.second.buffer));
+                        ++num_streams;
+                    }
+                }
+            }
+            for (auto& x : streams) 
+                cudaStreamDestroy(x);
+        }
+
+        template<typename T, typename FieldType, typename BufferMem>
+        static void unpack_u(BufferMem& m)
+        {
+            using recv_buffer_type     = typename BufferMem::recv_buffer_type;
+            using field_buffer_type    = typename recv_buffer_type::field_buffer_type;
+            using index_container_type = typename field_buffer_type::index_container_type;
+            using dimension            = typename index_container_type::value_type::dimension;
+            using array_t              = array<int, dimension::value>;
+
+            static std::vector<array_t> firsts;
+            static std::vector<array_t> lasts;
+            static std::vector<int>     sizes;
+            static std::vector<const T*> buffer_offsets;
+            static std::vector<FieldType> fields;
+
+            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            std::size_t i = 0;
+            for (auto& x : streams)
+            {
+                cudaStreamCreate(&x);
+                index_list[i] = i;
+                ++i;
+            }
+            const int block_size = 128;
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        //for (const auto& fb : *m.m_recv_hooks[k].second)
+                        //    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
+                        
+                        firsts.clear();
+                        lasts.clear();
+                        sizes.clear();
+                        buffer_offsets.clear();
+                        fields.clear();
+                        int num_blocks_y = 0;
+                        int max_size = 0;
+                        for (const auto& fb : *m.m_recv_hooks[k].second)
+                        {
+                            const T* buffer_address = reinterpret_cast<const T*>(m.m_recv_hooks[k].first+fb.offset);
+                            for (const auto& it_space_pair : *fb.index_container)
+                            {
+                                ++num_blocks_y;
+                                const int size = it_space_pair.size();
+                                max_size = std::max(size,max_size);
+                                array_t first, last;
+                                std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
+                                std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
+                                firsts.push_back(first);
+                                buffer_offsets.push_back(buffer_address);
+                                buffer_address += size;
+                                sizes.push_back(size);
+                                fields.push_back(*reinterpret_cast<FieldType*>(fb.field_ptr));
+                                array_t local_extents, local_strides;
+                                for (std::size_t i=0; i<dimension::value; ++i)  
+                                    local_extents[i] = 1 + last[i] - first[i];
+                                detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
+                                lasts.push_back(local_strides);
+                            }
+                        }
+                        const int num_blocks_x = (max_size+block_size-1)/block_size;
+                        unsigned int count = 0;
+                        while (num_blocks_y)
+                        {
+                            if (num_blocks_y > 36)
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, 36);
+                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                    make_kernel_arg<36>(sizes.data()+count,          36),
+                                    make_kernel_arg<36>(buffer_offsets.data()+count, 36),
+                                    make_kernel_arg<36>(firsts.data()+count,         36),
+                                    make_kernel_arg<36>(lasts.data()+count,          36),
+                                    kernel_argument<FieldType,36>().fill(fields.data()+count,         36)
+                                );
+                                count += 36;
+                                num_blocks_y -= 36;
+                            }
+                            else 
+                            {
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, num_blocks_y);
+                                if (num_blocks_y < 7)
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        make_kernel_arg< 6>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg< 6>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg< 6>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg< 6>(lasts.data()+count,          num_blocks_y),
+                                        kernel_argument<FieldType, 6>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 13)
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        make_kernel_arg<12>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg<12>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg<12>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg<12>(lasts.data()+count,          num_blocks_y),
+                                        kernel_argument<FieldType,12>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 25)
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        make_kernel_arg<24>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg<24>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg<24>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg<24>(lasts.data()+count,          num_blocks_y),
+                                        kernel_argument<FieldType,24>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                else
+                                {
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                        make_kernel_arg<36>(sizes.data()+count,          num_blocks_y),
+                                        make_kernel_arg<36>(buffer_offsets.data()+count, num_blocks_y),
+                                        make_kernel_arg<36>(firsts.data()+count,         num_blocks_y),
+                                        make_kernel_arg<36>(lasts.data()+count,          num_blocks_y),
+                                        kernel_argument<FieldType,36>().fill(fields.data()+count,         num_blocks_y)
+                                    );
+                                }
+                                count += num_blocks_y;
+                                num_blocks_y = 0;
+                            }
+                        }
+                    }
+                }
+            }
+            for (auto& x : streams) 
+            {
+                cudaStreamSynchronize(x);
+                cudaStreamDestroy(x);
+            }
+        }
+
+        template<typename BufferMem>
+        static void unpack(BufferMem& m)
+        {
+            //auto policy = std::launch::async;
+            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
+            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            std::size_t i = 0;
+            for (auto& x : streams)
+            {
+                cudaStreamCreate(&x);
+                index_list[i] = i;
+                ++i;
+            }
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        //futures[k] = std::async(
+                        //    policy,
+                        //    [k](BufferMem& m, cudaStream_t& s){
+                        //        for (const auto& fb : *m.m_recv_hooks[k].second)
+                        //            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); 
+                        //    }, 
+                        //    std::ref(m), std::ref(streams[k]));
+                        for (const auto& fb : *m.m_recv_hooks[k].second)
+                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
+                    }
+                }
+            }
+            //int k = 0;
+            for (auto& x : streams) 
+            {
+                //futures[k++].get();
+                cudaStreamSynchronize(x);
+                cudaStreamDestroy(x);
+            }
+        }
+    };
+#endif
+
+} // namespace gridtools
+
+#endif /* INCLUDED_PACK_HPP */
+
