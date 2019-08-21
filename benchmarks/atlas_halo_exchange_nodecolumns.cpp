@@ -61,14 +61,14 @@ int main(int argc, char **argv) {
     // ==================== Atlas code ====================
 
     // Generate global classic reduced Gaussian grid
-    atlas::StructuredGrid grid("N32");
+    atlas::StructuredGrid grid("O1280");
 
     // Generate mesh associated to structured grid
     atlas::StructuredMeshGenerator meshgenerator;
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
     // Number of vertical levels required
-    std::size_t nb_levels = 50;
+    std::size_t nb_levels = 100;
 
     // Generate functionspace associated to mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
