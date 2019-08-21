@@ -181,12 +181,48 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    void send(MsgType const &msg, rank_type dst, tag_type tag, CallBack &&cb)
+    //std::enable_if_t<!std::is_reference<MsgType>::value>
+    void 
+    send(MsgType const &msg, rank_type dst, tag_type tag, CallBack &&cb)
     {
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
         m_callbacks.emplace(std::make_pair(req, std::make_tuple(std::forward<CallBack>(cb), dst, tag)));
     }
+
+
+    template<typename Msg>
+    struct call_back_
+    {
+        Msg m_msg;
+        std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
+
+        template<typename Callback>
+        call_back_(Msg&& msg, Callback&& cb)
+        : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
+        {}
+
+        call_back_(const call_back_&) = delete;
+        call_back_(call_back_&&) = default;
+
+        void operator()(rank_type r, tag_type t)
+        {
+            m_inner_cb(r,t,m_msg);
+        }
+
+        Msg& message() { return m_msg; }
+    };
+
+    /*template <typename MsgType, typename CallBack>
+    std::enable_if_t<std::is_rvalue_reference<MsgType&&>::value>
+    //void 
+    send(MsgType&& msg, rank_type dst, tag_type tag, CallBack &&cb)
+    {
+        call_back_<MsgType> cb2(std::move(msg), std::forward<CallBack>(cb));
+        MPI_Request req;
+        CHECK_MPI_ERROR(MPI_Isend(cb.message().data(), cb.message().size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
+        m_callbacks.emplace(std::make_pair(req, std::make_tuple(std::move(cb2), dst, tag)));
+    }*/
 
     /** Send a message to a destination with the given tag. This function blocks until the message has been sent and
          * the message ready to be reused
@@ -237,13 +273,27 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
+    //std::enable_if_t<!std::is_reference<MsgType>::value>
+    void 
+    recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
     {
         MPI_Request request;
         CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
 
         m_callbacks.emplace(std::make_pair(request, std::make_tuple(std::forward<CallBack>(cb), src, tag)));
     }
+
+    /*template <typename MsgType, typename CallBack>
+    std::enable_if_t<std::is_rvalue_reference<MsgType&&>::value>
+    //void 
+    recv(MsgType&& msg, rank_type src, tag_type tag, CallBack &&cb)
+    {
+        call_back_<MsgType> cb2(std::move(msg), std::forward<CallBack>(cb));
+        MPI_Request request;
+        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
+
+        m_callbacks.emplace(std::make_pair(request, std::make_tuple(std::move(cb2), src, tag)));
+    }*/
 
     /** Send a message (shared_message type) to a set of destinations listed in
          * a container, with a same tag.
