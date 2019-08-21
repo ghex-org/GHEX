@@ -50,7 +50,8 @@ void test2() {
     gridtools::ghex::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
-    std::vector<unsigned char> rmsg(10);
+    std::vector<unsigned char> rmsg;
+    std::vector<unsigned char> rmsg2(10);
 
     bool arrived = false;
 
@@ -58,8 +59,9 @@ void test2() {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        sr.recv(rmsg, 0, 1, [ &arrived](int /*src*/, int /* tag */) {
+        sr.recv(std::move(rmsg2), 0, 1, [ &arrived,&rmsg](int /*src*/, int /* tag */, std::vector<unsigned char>&& x) {
             arrived = true;
+            rmsg = std::move(x);
         });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -136,6 +138,8 @@ void test2_mesg() {
     gridtools::ghex::mpi::communicator sr;
 
     gridtools::ghex::mpi::message<> smsg{40, 40};
+    gridtools::ghex::mpi::message<> rmsg2{40, 40};
+    gridtools::ghex::mpi::message<> rmsg;
 
     int * data = smsg.data<int>();
 
@@ -143,16 +147,15 @@ void test2_mesg() {
         data[i] = i;
     }
 
-    gridtools::ghex::mpi::message<> rmsg{40, 40};
-
     bool arrived = false;
 
     if ( rank == 0 ) {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        sr.recv(rmsg, 0, 1, [ &arrived](int /* src */, int /* tag */) {
+        sr.recv(std::move(rmsg2), 0, 1, [ &arrived, &rmsg](int /* src */, int /* tag */, gridtools::ghex::mpi::message<>&& x) {
             arrived = true;
+            rmsg = std::move(x);
         });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -178,6 +181,8 @@ void test2_mesg() {
     }
 
     EXPECT_FALSE(sr.progress());
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
 }
 
@@ -234,7 +239,8 @@ void test2_shared_mesg() {
         data[i] = i;
     }
 
-    gridtools::ghex::mpi::shared_message<> rmsg{40, 40};
+    gridtools::ghex::mpi::shared_message<> rmsg2{40, 40};
+    gridtools::ghex::mpi::shared_message<> rmsg;
 
     bool arrived = false;
 
@@ -242,9 +248,9 @@ void test2_shared_mesg() {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        sr.recv(rmsg, 0, 1, [ &arrived](int src, int tag) {
-            std::cout << src << ", " << tag << "\n";
+        sr.recv(std::move(rmsg2), 0, 1, [ &arrived, &rmsg](int, int, gridtools::ghex::mpi::shared_message<>&& x) {
             arrived = true;
+            rmsg = std::move(x);
         });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS

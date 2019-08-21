@@ -30,6 +30,7 @@ bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
         auto fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
 
         bool ok = fut.cancel();
+
         return ok;
     }
 
@@ -50,20 +51,20 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         bool ok = true;
 
         for (auto dst : dsts) {
-            auto fut = comm.detach(dst, 45);
-            ok &= fut.cancel();
+            if (auto fut = comm.detach_send(dst, 45))
+                if (!fut->ready())
+                    ok &= fut->cancel();
         }
-
 
         while (comm.progress()) {}
 
         return ok;
 
     } else {
-        gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
-        comm.recv(rmsg, 0, 43, [](int, int) {}); // unmatching tag
-        auto fut = comm.detach(0,43);
-        bool ok = fut.cancel();
+        comm.recv(gridtools::ghex::mpi::message<>{SIZE, SIZE}, 0, 43, [](int, int, gridtools::ghex::mpi::message<>&&) {  }); // unmatching tag
+        bool ok = true;
+        if (auto fut = comm.detach_recv(0,43))
+            ok = fut->cancel();
 
         while (comm.progress()) {}
 
@@ -76,18 +77,16 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
 class call_back {
     int & m_value;
     gridtools::ghex::mpi::communicator& m_comm;
-    gridtools::ghex::mpi::message<>& m_msg;
 
 public:
-    call_back(int& a, gridtools::ghex::mpi::communicator& c, gridtools::ghex::mpi::message<>& m)
+    call_back(int& a, gridtools::ghex::mpi::communicator& c)
     : m_value(a)
     , m_comm{c}
-    , m_msg{m}
     { }
 
-    void operator()(int, int) {
-        m_value = m_msg.data<int>()[0];
-        m_comm.recv(m_msg, 0, 42+m_value+1, *this);
+    void operator()(int, int, gridtools::ghex::mpi::message<>&& m) {
+        m_value = m.data<int>()[0];
+        m_comm.recv(std::move(m), 0, 42+m_value+1, *this);
     }
 };
 
@@ -110,9 +109,9 @@ bool test_send_10(gridtools::ghex::mpi::communicator &comm, int rank) {
     } else {
         int value = -11111111;
 
-        gridtools::ghex::mpi::message<> rmsg{sizeof(int), sizeof(int)};
+        //gridtools::ghex::mpi::message<> rmsg{sizeof(int), sizeof(int)};
 
-        comm.recv(rmsg, 0, 42, call_back{value, comm, rmsg});
+        comm.recv(gridtools::ghex::mpi::message<>{sizeof(int),sizeof(int)}, 0, 42, call_back{value, comm});
 
         while (value < 9) {
             comm.progress();

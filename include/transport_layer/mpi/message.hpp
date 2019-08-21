@@ -95,6 +95,18 @@ struct message
         m_payload = nullptr;
     }
 
+    message& operator=(message&& other)
+    {
+        m_alloc    = std::move(other.m_alloc);
+        m_capacity = other.m_capacity;
+        m_payload  = other.m_payload;
+        m_size     = other.m_size;
+        other.m_capacity = 0;
+        other.m_payload  = nullptr;
+        other.m_size     = 0;
+        return *this;
+    }
+
     constexpr bool is_shared() { return can_be_shared; }
     size_t use_count() const { return 1; }
 
@@ -200,6 +212,11 @@ struct shared_message
 
     static constexpr bool can_be_shared = true;
 
+    shared_message(Allocator allc = Allocator{})
+        : m_s_message{std::make_shared<message<Allocator>>(0u, allc)}
+    {
+    }
+
     /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
@@ -225,6 +242,9 @@ struct shared_message
     /* Showing these to highlight the semantics */
     shared_message(shared_message const &) = default;
     shared_message(shared_message &&) = default;
+
+
+    shared_message& operator=(shared_message&&) = default;
 
     /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector
