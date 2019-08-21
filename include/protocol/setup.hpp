@@ -22,8 +22,20 @@ namespace gridtools {
         /** @brief special mpi communicator used for setup phase */
         class setup_communicator
         {
+            struct setup_handle
+            {
+                MPI_Request m_req;
+                void wait()
+                {
+                    MPI_Status status;
+                    BOOST_MPI_CHECK_RESULT(
+                        MPI_Wait,
+                        (&m_req, &status)
+                    );
+                }
+            };
         public:
-            using handle_type = boost::mpi::request;
+            using handle_type = setup_handle; //boost::mpi::request;
             using address_type = int;
             template<typename T>
             using future = future_base<handle_type,T>;
@@ -99,7 +111,8 @@ namespace gridtools {
                     (&payload[0], payload.size()*sizeof(T), MPI_BYTE,
                     &res[0][0], &recvcounts[0], &displs[0], MPI_BYTE,
                     m_comm, 
-                    &h.m_requests[0]));
+                    //&h.m_requests[0]));
+                    &h.m_req));
                 return {std::move(res), std::move(h)};
             }
 
@@ -113,7 +126,8 @@ namespace gridtools {
                     (&payload, sizeof(T), MPI_BYTE,
                     &res[0], sizeof(T), MPI_BYTE,
                     m_comm,
-                    &h.m_requests[0]));
+                    //&h.m_requests[0]));
+                    &h.m_req));
                 return {std::move(res), std::move(h)};
             } 
 

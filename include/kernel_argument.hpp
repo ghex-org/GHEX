@@ -18,7 +18,7 @@ namespace gridtools {
     {
         T m_data[N];
 
-        __host__ kernel_argument& fill(const T* data, unsigned int size)
+        GT_HOST kernel_argument& fill(const T* data, unsigned int size)
         {
             if (size > N) throw std::runtime_error("static space too small " + std::to_string(N) + " < " + std::to_string(size));
             for (unsigned int i=0; i<size; ++i) m_data[i] = data[i];

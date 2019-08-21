@@ -14,6 +14,7 @@
 #include <tuple>
 #include "allocator/default_init_allocator.hpp"
 #include <boost/align/aligned_allocator_adaptor.hpp>
+#include <vector>
 
 namespace gridtools {
 

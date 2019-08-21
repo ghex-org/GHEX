@@ -29,14 +29,14 @@ namespace gridtools {
     array<T,D> operator+(array<T,D> a, const array<T,D>& b)
     {
         for (std::size_t i=0u; i<D; ++i) a[i] += b[i];
-        return std::move(a);
+        return a;
     }
     template <typename T, size_t D>
     GT_FUNCTION
     array<T,D> operator-(array<T,D> a, const array<T,D>& b)
     {
         for (std::size_t i=0u; i<D; ++i) a[i] -= b[i];
-        return std::move(a);
+        return a;
     }
     template <typename T, typename U, size_t D>
     GT_FUNCTION

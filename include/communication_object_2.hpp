@@ -18,6 +18,7 @@
 #include "./simple_field_wrapper.hpp"
 #include <map>
 #include <stdio.h>
+#include <functional>
 
 namespace gridtools {
 

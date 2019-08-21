@@ -185,13 +185,13 @@ namespace gridtools {
     coordinate<A> min(coordinate<A> l, const coordinate<A>& r) noexcept
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = std::min(l[i],r[i]);
-        return std::move(l);
+        return l;
     }
     template<typename A>
     coordinate<A> max(coordinate<A> l, const coordinate<A>& r) noexcept
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = std::max(l[i],r[i]);
-        return std::move(l);
+        return l;
     }
 
     template<typename A>

@@ -11,6 +11,9 @@
 #ifndef INCLUDED_FIELD_UTILS_HPP
 #define INCLUDED_FIELD_UTILS_HPP
 
+#include <gridtools/common/host_device.hpp>
+#include <cstddef> 
+
 namespace gridtools {
 
     namespace detail {
