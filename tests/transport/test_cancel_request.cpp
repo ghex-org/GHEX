@@ -7,7 +7,7 @@
 #include <gtest/gtest.h>
 
 int rank;
-const int SIZE = 1<<12;
+const unsigned int SIZE = 1<<12;
 
 bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
 
@@ -16,7 +16,7 @@ bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
 
         int* data = smsg.data<int>();
 
-        for (int i = 0; i < SIZE/static_cast<int>(sizeof(int)); ++i) {
+        for (unsigned int i = 0; i < SIZE/sizeof(int); ++i) {
             data[i] = i;
         }
 
@@ -61,7 +61,8 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         return ok;
 
     } else {
-        comm.recv(gridtools::ghex::mpi::message<>{SIZE, SIZE}, 0, 43, [](int, int, gridtools::ghex::mpi::message<>&&) {  }); // unmatching tag
+        //comm.recv(gridtools::ghex::mpi::message<>{SIZE, SIZE}, 0, 43, [](int, int, gridtools::ghex::mpi::message<>&&) {  }); // unmatching tag
+        comm.recv(0, 43, [](int, int, gridtools::ghex::mpi::message<>&) { }, SIZE, SIZE); // unmatching tag
         bool ok = true;
         if (auto fut = comm.detach_recv(0,43))
             ok = fut->cancel();
@@ -84,7 +85,7 @@ public:
     , m_comm{c}
     { }
 
-    void operator()(int, int, gridtools::ghex::mpi::message<>&& m) {
+    void operator()(int, int, gridtools::ghex::mpi::message<>& m) {
         m_value = m.data<int>()[0];
         m_comm.recv(std::move(m), 0, 42+m_value+1, *this);
     }

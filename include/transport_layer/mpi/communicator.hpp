@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <deque>
 #include <boost/optional.hpp>
+#include <boost/callable_traits.hpp>
 
 namespace gridtools
 {
@@ -164,6 +165,50 @@ private:
         Msg& message() { return m_msg; }
     };
 
+    template<typename Msg>
+    struct call_back2_
+    {
+        Msg& m_msg;
+        std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
+
+        template<typename Callback>
+        call_back2_(Msg& msg, Callback&& cb)
+        : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
+        {}
+
+        call_back2_(const call_back2_& x) = default;
+        call_back2_(call_back2_&&) = default;
+
+        void operator()(rank_type r, tag_type t)
+        {
+            m_inner_cb(r,t,m_msg);
+        }
+
+        Msg& message() { return m_msg; }
+    };
+
+    template<typename Msg>
+    struct call_back3_
+    {
+        Msg m_msg;
+        std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
+
+        template<typename Callback>
+        call_back3_(Msg&& msg, Callback&& cb)
+        : m_msg(std::move(msg)), m_inner_cb(std::forward<Callback>(cb))
+        {}
+
+        call_back3_(const call_back3_& x) = default;
+        call_back3_(call_back3_&&) = default;
+
+        void operator()(rank_type r, tag_type t)
+        {
+            m_inner_cb(r,t,m_msg);
+        }
+
+        Msg& message() { return m_msg; }
+    };
+
 public:
     using element_t = std::tuple<std::function<void(rank_type, tag_type)>, rank_type, tag_type, future_type>;
     using cb_container_t = std::deque<element_t>;
@@ -282,15 +327,74 @@ public:
          * @param cb  Call-back function with signature void(int, int, MsgType&&)
          *
          */
+
+    // takes ownership of msg
     template <typename MsgType, typename CallBack>
-    std::enable_if_t<std::is_rvalue_reference<MsgType&&>::value>
+    std::enable_if_t<std::is_rvalue_reference<MsgType&&>::value 
+    && std::is_same<std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>, MsgType&>::value >
     recv(MsgType&& msg, rank_type src, tag_type tag, CallBack &&cb)
     {
-        call_back_<MsgType> cb2(std::move(msg), std::forward<CallBack>(cb));
+        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
+        static_assert(std::is_same<MsgType_ref,MsgType&>::value, "callback parameter 3 is not an lvalue message type");
+        call_back3_<MsgType> cb2(std::move(msg), std::forward<CallBack>(cb));
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
         m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
     }
+
+    // uses msg reference (user is not allowed to delete it)
+    template <typename MsgType, typename CallBack>
+    std::enable_if_t<std::is_lvalue_reference<MsgType&>::value>
+    recv(MsgType& msg, rank_type src, tag_type tag, CallBack &&cb)
+    {
+        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
+        static_assert(std::is_same<MsgType_ref,MsgType&>::value, "callback parameter 3 is not an lvalue message type");
+        call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        MPI_Request req;
+        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
+        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
+    }
+
+    // allocates msg internally with args...
+    template <typename CallBack, typename... Args>
+    std::enable_if_t<std::is_lvalue_reference<
+        std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>>::value>
+    recv(rank_type src, tag_type tag, CallBack&& cb, Args&&... args)
+    {
+        //std::cout << "using lvalue recv" << std::endl;
+        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
+        using MsgType = std::remove_reference_t<MsgType_ref>;
+        call_back3_<MsgType> cb2(MsgType(std::forward<Args>(args)...), std::forward<CallBack>(cb));
+        MPI_Request req;
+        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
+        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
+    }
+
+    /*template <typename MsgType, typename CallBack>
+    std::enable_if_t<std::is_rvalue_reference<MsgType&&>::value 
+    && std::is_same<std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>, MsgType&&>::value >
+    recv(MsgType&& msg, rank_type src, tag_type tag, CallBack &&cb)
+    {
+        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
+        static_assert(std::is_same<MsgType_ref,MsgType&&>::value, "callback parameter 3 is not an rvalue message type");
+        call_back_<MsgType> cb2(std::move(msg), std::forward<CallBack>(cb));
+        MPI_Request req;
+        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
+        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
+    }*/
+
+    /*template <typename CallBack, typename... Args>
+    std::enable_if_t<std::is_rvalue_reference<
+        std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>>::value>
+    recv(rank_type src, tag_type tag, CallBack&& cb, Args&&... args)
+    {
+        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
+        using MsgType = std::remove_reference_t<MsgType_ref>;
+        call_back_<MsgType> cb2(MsgType(std::forward<Args>(args)...), std::forward<CallBack>(cb));
+        MPI_Request req;
+        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
+        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
+    }*/
 
     /** Send a message (shared_message type) to a set of destinations listed in
          * a container, with a same tag.

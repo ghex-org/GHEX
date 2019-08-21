@@ -50,8 +50,9 @@ void test2() {
     gridtools::ghex::mpi::communicator sr;
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
-    std::vector<unsigned char> rmsg;
-    std::vector<unsigned char> rmsg2(10);
+    //std::vector<unsigned char> rmsg;
+    //std::vector<unsigned char> rmsg2(10);
+    std::vector<unsigned char> rmsg(10);
 
     bool arrived = false;
 
@@ -59,10 +60,13 @@ void test2() {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        sr.recv(std::move(rmsg2), 0, 1, [ &arrived,&rmsg](int /*src*/, int /* tag */, std::vector<unsigned char>&& x) {
+        //sr.recv(std::move(rmsg2), 0, 1, [ &arrived,&rmsg](int /*src*/, int /* tag */, std::vector<unsigned char>&& x) {
+        //sr.recv(rmsg, 0, 1, [ &arrived](int /*src*/, int /* tag */, std::vector<unsigned char>&) {
+        sr.recv(0, 1, [ &arrived,&rmsg](int /*src*/, int /* tag */, std::vector<unsigned char>& x) {
             arrived = true;
             rmsg = std::move(x);
-        });
+            //rmsg = x;
+        }, 10u);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -153,10 +157,11 @@ void test2_mesg() {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        sr.recv(std::move(rmsg2), 0, 1, [ &arrived, &rmsg](int /* src */, int /* tag */, gridtools::ghex::mpi::message<>&& x) {
+        //sr.recv(std::move(rmsg2), 0, 1, [ &arrived, &rmsg](int /* src */, int /* tag */, gridtools::ghex::mpi::message<>&& x) {
+        sr.recv(0, 1, [ &arrived, &rmsg](int /* src */, int /* tag */, gridtools::ghex::mpi::message<>& x) {
             arrived = true;
             rmsg = std::move(x);
-        });
+        }, 40,40);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -248,7 +253,7 @@ void test2_shared_mesg() {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        sr.recv(std::move(rmsg2), 0, 1, [ &arrived, &rmsg](int, int, gridtools::ghex::mpi::shared_message<>&& x) {
+        sr.recv(std::move(rmsg2), 0, 1, [ &arrived, &rmsg](int, int, gridtools::ghex::mpi::shared_message<>& x) {
             arrived = true;
             rmsg = std::move(x);
         });
