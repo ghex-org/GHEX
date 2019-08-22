@@ -11,29 +11,16 @@
 #ifndef INCLUDED_COMMUNICATION_OBJECT_2_HPP
 #define INCLUDED_COMMUNICATION_OBJECT_2_HPP
 
+#include "./pack.hpp"
 #include "./utils.hpp"
 #include "./buffer_info.hpp"
-#include "./devices.hpp"
 #include "./protocol/communicator_base.hpp"
+#include "./simple_field_wrapper.hpp"
+#include <map>
+#include <stdio.h>
+#include <functional>
 
 namespace gridtools {
-
-    namespace detail {
-
-        // forward declaration
-        template<typename Tuple>
-        struct transform;
-
-        // transform a tuple of types into another tuple of types
-        template<template<typename...> class Tuple, typename... Ts>
-        struct transform<Tuple<Ts...>>
-        {
-            // by applying the compile-time transform CT
-            template<template<typename> class CT>
-            using with = Tuple<CT<Ts>...>;
-        };
-
-    } // namespace detail
 
     // forward declaration
     template<typename P, typename GridType, typename DomainIdType>
@@ -53,23 +40,31 @@ namespace gridtools {
         using co_t              = communication_object<P,GridType,DomainIdType>;
         using communicator_type = protocol::communicator<P>;
 
+    public: // public constructor
+        communication_handle(const communicator_type& comm) 
+        : m_comm{comm} {}
+
     private: // private constructor
-        communication_handle(co_t& co, const communicator_type& comm) 
-        : m_co{&co}, m_comm{comm} {}
+        template<typename Func>
+        communication_handle(const communicator_type& comm, Func&& wait_fct) 
+        : m_comm{comm}, m_wait_fct(std::forward<Func>(wait_fct)) {}
 
     public: // copy and move ctors
         communication_handle(communication_handle&&) = default;
         communication_handle(const communication_handle&) = delete;
 
+        communication_handle& operator=(communication_handle&&) = default;
+        communication_handle& operator=(const communication_handle&) = delete;
+
     public: // member functions
         /** @brief  wait for communication to be finished*/
-        void wait() { m_co->wait(); }
+        void wait() { if (m_wait_fct) m_wait_fct(); }
 
     private: // members
-        co_t* m_co;
         communicator_type m_comm;
+        std::function<void()> m_wait_fct;
     };
-    
+ 
     /** @brief communication object responsible for exchanging halo data. Allocates storage depending on the 
      * device type and device id of involved fields.
      * @tparam P message protocol type
@@ -85,18 +80,19 @@ namespace gridtools {
         /** @brief handle type returned by exhange operation */
         using handle_type             = communication_handle<P,GridType,DomainIdType>;
         using domain_id_type          = DomainIdType;
+        using pattern_type            = pattern<P,GridType,DomainIdType>;
+        using pattern_container_type  = pattern_container<P,GridType,DomainIdType>;
+        using this_type               = communication_object<P,GridType,DomainIdType>;
+
+        template<typename D, typename F>
+        using buffer_info_type        = buffer_info<pattern_type,D,F>;
 
     private: // member types
         using communicator_type       = typename handle_type::communicator_type;
         using address_type            = typename communicator_type::address_type;
-
-        using pattern_type            = pattern<P,GridType,DomainIdType>;
         using index_container_type    = typename pattern_type::index_container_type;
-        using pack_function_type      = std::function<void(void*,const index_container_type&)>;
-        using unpack_function_type    = std::function<void(const void*,const index_container_type&)>;
-
-        template<typename D, typename F>
-        using buffer_info_type        = buffer_info<pattern_type,D,F>;
+        using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;
+        using unpack_function_type    = std::function<void(const void*,const index_container_type&, void*)>;
 
         struct domain_id_pair
         {
@@ -112,9 +108,11 @@ namespace gridtools {
         template<typename Function>
         struct field_buffer
         {
+            using index_container_type = typename pattern_type::map_type::mapped_type;
             Function call_back;
-            const typename pattern_type::map_type::mapped_type* index_container;
+            const index_container_type* index_container;
             std::size_t offset;
+            void* field_ptr;
         };
 
         // holds actual memory
@@ -144,6 +142,10 @@ namespace gridtools {
 
             send_memory_type send_memory;
             recv_memory_type recv_memory;
+
+            std::vector<typename communicator_type::template future<void>> m_recv_futures;
+            std::vector<std::pair<char*,std::vector<field_buffer<unpack_function_type>>*>> m_recv_hooks;
+            std::vector<bool> m_completed_hooks;
         };
         
         // tuple type of buffer_memory (one element for each device in device::device_list)
@@ -154,9 +156,6 @@ namespace gridtools {
         std::map<const typename pattern_type::pattern_container_type*, int> m_max_tag_map;
         memory_type m_mem;
         std::vector<typename communicator_type::template future<void>> m_send_futures;
-        std::vector<typename communicator_type::template future<void>> m_recv_futures;
-        std::vector<std::pair<char*,std::vector<field_buffer<unpack_function_type>>*>> m_recv_hooks;
-        std::vector<bool> m_completed_hooks;
 
     public: // ctors
         /** @brief construct a communication object from a message tag map
@@ -165,10 +164,17 @@ namespace gridtools {
         communication_object(const std::map<const typename pattern_type::pattern_container_type*, int>& max_tag_map)
         : m_valid(false), m_max_tag_map(max_tag_map) {}
 
+        communication_object()
+        : m_valid(false) {}
+
         communication_object(const communication_object&) = delete;
         communication_object(communication_object&&) = default;
 
     public: // member functions
+
+        auto& tag_map() noexcept { return m_max_tag_map; }
+        const auto& tag_map() const noexcept { return m_max_tag_map; }
+
         /**
          * @brief blocking variant of halo exchange
          * @tparam Devices list of device types
@@ -193,12 +199,11 @@ namespace gridtools {
         {
             if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
             m_valid = true;
-
             using buffer_infos_ptr_t     = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
             using memory_t               = std::tuple<buffer_memory<Devices>*...>;
 
             buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
-            handle_type h(*this,std::get<0>(buffer_info_tuple)->get_pattern().communicator());
+            handle_type h(std::get<0>(buffer_info_tuple)->get_pattern().communicator(), [this](){this->wait();});
             memory_t memory_tuple{&(std::get<buffer_memory<Devices>>(m_mem))...};
             int tag_offsets[sizeof...(Fields)] = { m_max_tag_map[&(buffer_infos.get_pattern_container())]... };
 
@@ -207,36 +212,87 @@ namespace gridtools {
             {
                 using device_type = typename std::remove_reference_t<decltype(*mem)>::device_type;
                 using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
-
                 auto field_ptr = &(bi->get_field());
                 const domain_id_type my_dom_id = bi->get_field().domain_id();
-
-                this->allocate<device_type,value_type,typename buffer_memory<device_type>::recv_buffer_type>(
-                    mem->recv_memory[bi->device_id()],
-                    bi->get_pattern().recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c) 
-                        { field_ptr->unpack(reinterpret_cast<const value_type*>(buffer),c); },
-                    my_dom_id,
-                    bi->device_id(),
-                    tag_offsets[i],
-                    true);
-                this->allocate<device_type,value_type,typename buffer_memory<device_type>::send_buffer_type>(
-                    mem->send_memory[bi->device_id()],
-                    bi->get_pattern().send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c) 
-                        { field_ptr->pack(reinterpret_cast<value_type*>(buffer),c); },
-                    my_dom_id,
-                    bi->device_id(),
-                    tag_offsets[i],
-                    false);
+                allocate<device_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                 ++i;
             });
             post(h.m_comm);
+            pack(h.m_comm);
             return h; 
-            //return std::move(h);
+        }
+
+        template<typename Device, typename Field>
+        [[nodiscard]] handle_type exchange(buffer_info_type<Device,Field>* first, std::size_t length)
+        {
+            auto h = exchange_impl(first, length);
+            pack(h.m_comm);
+            return h;
+        }
+
+#ifdef __CUDACC__
+        template<typename Device, typename T, int... Order>
+        [[nodiscard]] std::enable_if_t<std::is_same<Device,device::gpu>::value, handle_type>
+        exchange_u(
+            buffer_info_type<Device,simple_field_wrapper<T,Device,structured_domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+            std::size_t length)
+        {
+            using memory_t   = buffer_memory<device::gpu>;
+            using field_type = std::remove_reference_t<decltype(first->get_field())>;
+            using value_type = typename field_type::value_type;
+            auto h = exchange_impl(first, length);
+            h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
+            memory_t& mem = std::get<memory_t>(m_mem);
+            packer<device::gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, h.m_comm);
+            return h;
+        }
+#endif
+
+        template<typename Device, typename T, int... Order>
+        [[nodiscard]] std::enable_if_t<std::is_same<Device,device::cpu>::value, handle_type>
+        exchange_u(
+            buffer_info_type<Device,simple_field_wrapper<T,Device,structured_domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+            std::size_t length)
+        {
+            return exchange(first, length);
         }
 
     private:
+        template<typename Device, typename Field>
+        [[nodiscard]] handle_type exchange_impl(buffer_info_type<Device,Field>* first, std::size_t length)
+        {
+            if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
+            m_valid = true;
+            using memory_t               = buffer_memory<Device>*;
+            using value_type             = typename buffer_info_type<Device,Field>::value_type;
+
+            handle_type h(first->get_pattern().communicator(), [this](){this->wait();});
+            memory_t mem{&(std::get<buffer_memory<Device>>(m_mem))};
+            std::vector<int> tag_offsets(length);
+            for (std::size_t k=0; k<length; ++k)
+                tag_offsets[k] = m_max_tag_map[&((first+k)->get_pattern_container())];
+
+            for (std::size_t k=0; k<length; ++k)
+            {
+                auto field_ptr = &((first+k)->get_field());
+                const auto my_dom_id  =(first+k)->get_field().domain_id();
+                allocate<Device,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offsets[k]);
+            }
+            post(h.m_comm);
+            return h;
+        }
+
+        template<typename Device, typename T, typename Memory, typename Field, typename O>
+        void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id, typename Device::id_type device_id, O tag_offset)
+        {
+            allocate<Device,T,typename buffer_memory<Device>::recv_buffer_type>( mem->recv_memory[device_id], pattern.recv_halos(),
+                [field_ptr](const void* buffer, const index_container_type& c, void* arg) { field_ptr->unpack(reinterpret_cast<const T*>(buffer),c,arg); },
+                dom_id, device_id, tag_offset, true, field_ptr);
+            allocate<Device,T,typename buffer_memory<Device>::send_buffer_type>( mem->send_memory[device_id], pattern.send_halos(),
+                [field_ptr](void* buffer, const index_container_type& c, void* arg) { field_ptr->pack(reinterpret_cast<T*>(buffer),c,arg); },
+                dom_id, device_id, tag_offset, false, field_ptr);
+        }
+
         void post(communicator_type& comm)
         {
             detail::for_each(m_mem, [this,&comm](auto& m)
@@ -247,68 +303,82 @@ namespace gridtools {
                     {
                         if (p1.second.size > 0u)
                         {
-                            //std::cout << "irecv(" << p1.second.address << ", " << p1.second.tag 
-                            //<< ", " << p1.second.buffer.size() << ")" << std::endl;
                             p1.second.buffer.resize(p1.second.size);
-                            m_recv_futures.push_back(comm.irecv(
+                            //std::cout << "rank " << comm.rank() << ": irecv(" << p1.second.address << ", " << p1.second.tag 
+                            //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                            m.m_recv_futures.push_back(comm.irecv(
                                 p1.second.address,
                                 p1.second.tag,
                                 p1.second.buffer.data(),
                                 p1.second.buffer.size()));
-                            m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_buffers))); 
-                            m_completed_hooks.push_back(false);
-                        }
-                    }
-                }
-            });
-            detail::for_each(m_mem, [this,&comm](auto& m)
-            {
-                for (auto& p0 : m.send_memory)
-                {
-                    for (auto& p1: p0.second)
-                    {
-                        if (p1.second.size > 0u)
-                        {
-                            p1.second.buffer.resize(p1.second.size);
-                            for (const auto& fb : p1.second.field_buffers)
-                                fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container);
-                            //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                            //<< ", " << p1.second.buffer.size() << ")" << std::endl;
-                            m_send_futures.push_back(comm.isend(
-                                p1.second.address,
-                                p1.second.tag,
-                                p1.second.buffer));
+                            m.m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_buffers))); 
+                            m.m_completed_hooks.push_back(false);
                         }
                     }
                 }
             });
         }
 
+        void pack(communicator_type& comm)
+        {
+            detail::for_each(m_mem, [this,&comm](auto& m)
+            {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                packer<device_type>::pack(m,m_send_futures,comm);
+            });
+        }
+
+#ifdef __CUDACC__
+        template<typename T, typename Field>
+        void wait_u()
+        {
+            if (!m_valid) return;
+            
+            using memory_t   = buffer_memory<device::gpu>;
+            memory_t& mem = std::get<memory_t>(m_mem);
+
+            packer<device::gpu>::template unpack_u<T,Field>(mem);
+
+            for (auto& f : m_send_futures) 
+                f.wait();
+
+            clear();
+        }
+#endif
+
         void wait()
         {
             if (!m_valid) return;
-            unsigned int completed = 0;
-            while(completed < m_recv_futures.size())
+
+            detail::for_each(m_mem, [this](auto& m)
             {
-                std::size_t k = 0;
-                for (auto& f : m_recv_futures)
-                {
-                    if (!m_completed_hooks[k])
-                    {
-                        if (f.test())
-                        {
-                            m_completed_hooks[k] = true;
-                            for (const auto& fb : *m_recv_hooks[k].second)
-                                fb.call_back(m_recv_hooks[k].first + fb.offset, *fb.index_container);
-                            if (++completed == m_recv_futures.size()) break;
-                        }
-                    }
-                    ++k;
-                }
-            }
-            for (auto& f : m_send_futures) f.wait();
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                packer<device_type>::unpack(m);
+            });
+
+            for (auto& f : m_send_futures) 
+                f.wait();
+
             clear();
         }
+#ifdef GHEX_COMM_2_TIMINGS
+        template<typename Timings>
+        void wait(Timings& t)
+        {
+            if (!m_valid) return;
+
+            detail::for_each(m_mem, [this, &t](auto& m)
+            {
+                using device_type = typename std::remove_reference_t<decltype(m)>::device_type;
+                packer<device_type>::unpack(m, t);
+            });
+
+            for (auto& f : m_send_futures) 
+                f.wait();
+
+            clear();
+        }
+#endif
 
         // clear the internal flags so that a new exchange can be started
         // important: does not deallocate
@@ -316,11 +386,11 @@ namespace gridtools {
         {
             m_valid = false;
             m_send_futures.clear();
-            m_recv_futures.clear();
-            m_recv_hooks.resize(0);
-            m_completed_hooks.resize(0);
             detail::for_each(m_mem, [this](auto& m)
             {
+                m.m_recv_futures.clear();
+                m.m_recv_hooks.resize(0);
+                m.m_completed_hooks.resize(0);
                 for (auto& p0 : m.send_memory)
                     for (auto& p1 : p0.second)
                     {
@@ -339,9 +409,9 @@ namespace gridtools {
         }
 
         // compute memory requirements to be allocated on the device
-        template<typename Device, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType>
+        template<typename Device, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType, typename Field = void>
         void allocate(Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id, DeviceIdType device_id, 
-                      int tag_offset, bool receive)
+                      int tag_offset, bool receive, Field* field_ptr = nullptr)
         {
             for (const auto& p_id_c : halos)
             {
@@ -383,7 +453,7 @@ namespace gridtools {
                 const auto prev_size = it->second.size;
                 const auto padding = ((prev_size+alignof(ValueType)-1)/alignof(ValueType))*alignof(ValueType) - prev_size;
                 it->second.field_buffers.push_back(
-                    typename BufferType::field_buffer_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding});
+                    typename BufferType::field_buffer_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding, field_ptr});
                 it->second.size += padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
             }
         }

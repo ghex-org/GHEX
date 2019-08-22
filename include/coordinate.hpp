@@ -185,16 +185,24 @@ namespace gridtools {
     coordinate<A> min(coordinate<A> l, const coordinate<A>& r) noexcept
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = std::min(l[i],r[i]);
-        return std::move(l);
+        return l;
     }
     template<typename A>
     coordinate<A> max(coordinate<A> l, const coordinate<A>& r) noexcept
     {
         for (int i=0; i<coordinate<A>::size(); ++i) l[i] = std::max(l[i],r[i]);
-        return std::move(l);
+        return l;
     }
 
-    template<typename A1, typename A2>
+    template<typename A>
+    auto dot(const coordinate<A>& l, const coordinate<A>& r) noexcept
+    {
+        auto res = l[0]*r[0];
+        for (int i=1; i<A::size(); ++i) res += l[i]*r[i];
+        return res;
+    }
+
+    /*template<typename A1, typename A2>
     auto dot(A1&& l, A2&& r) noexcept
     {
         using A1_t = typename std::remove_cv<typename std::remove_reference<A1>::type>::type;
@@ -206,7 +214,7 @@ namespace gridtools {
         auto res = std::forward<A1>(l)[0]*std::forward<A2>(r)[0];
         for (int i=1; i<A1_t::size(); ++i) res += std::forward<A1>(l)[i]*std::forward<A2>(r)[i];
         return res;
-    }
+    }*/
 
 } // namespace gridtools
 

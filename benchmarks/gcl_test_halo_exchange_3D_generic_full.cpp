@@ -7,6 +7,9 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
+//#define GHEX_1_PATTERN_BENCHMARK
+
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
@@ -27,18 +30,8 @@
 #include <chrono>
 #include <iomanip>
 
+#include "../include/accumulator.hpp"
 #include "triplet.hpp"
-
-#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
-
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-#include <boost/accumulators/statistics/mean.hpp>
-#include <boost/accumulators/statistics/moment.hpp>
-#include <boost/accumulators/statistics/variance.hpp>
-#include <boost/accumulators/statistics/max.hpp>
-#include <boost/accumulators/statistics/min.hpp>
-
 
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
@@ -299,19 +292,18 @@ namespace halo_exchange_3D_generic_full {
 
 
         file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
-        using namespace boost::accumulators;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_0;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_1;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_0;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_1;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global;
+        gridtools::accumulator time_acc_local_0;
+        gridtools::accumulator time_acc_local_1;
+        gridtools::accumulator time_acc_local;
+        gridtools::accumulator time_acc_global_0;
+        gridtools::accumulator time_acc_global_1;
+        gridtools::accumulator time_acc_global;
         const int k_start = 5;
         for (int k=0; k<25; ++k)
         {
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_0;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_1;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global;
+            gridtools::accumulator acc_global_0;
+            gridtools::accumulator acc_global_1;
+            gridtools::accumulator acc_global;
 #ifdef VECTOR_INTERFACE
             world.barrier();
             const auto t0 = clock_type::now();
@@ -366,70 +358,57 @@ namespace halo_exchange_3D_generic_full {
                 time_acc_local(d0+d1);
             }
 
-            const auto global_0_mean    = mean(acc_global_0);
-            const auto global_1_mean    = mean(acc_global_1);
-            const auto global_mean      = mean(acc_global);
-            const auto global_0_std_dev = std::sqrt(variance(acc_global_0));
-            const auto global_1_std_dev = std::sqrt(variance(acc_global_1));
-            const auto global_std_dev   = std::sqrt(variance(acc_global));
-            const auto global_0_max     = max(acc_global_0);
-            const auto global_1_max     = max(acc_global_1);
-            const auto global_max       = max(acc_global);
-            const auto global_0_min     = min(acc_global_0);
-            const auto global_1_min     = min(acc_global_1);
-            const auto global_min       = min(acc_global);
-
             file << "TIME PACK:        " 
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d0/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_mean/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_0_std_dev/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_min/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_max/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_0.stdev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.max()/1000.0
                 << std::endl;
             file << "TIME WAIT/UNPACK: " 
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_mean/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.mean()/1000.0 
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_1_std_dev/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_min/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_max/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_1.stdev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.max()/1000.0
                 << std::endl;
             file << "TIME ALL:         " 
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_mean/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.mean()/1000.0 
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_std_dev/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_min/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_max/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global.stdev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.max()/1000.0
                 << std::endl;
             file << std::endl;
         }
 
         file << std::endl << "-----------------" << std::endl;
         file << "TIME PACK:        " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_0)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_0)/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_0.mean()/1000.0 
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.mean()/1000.0
             << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_0))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_0)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_0)/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_0.stdev()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.min()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.max()/1000.0
             << std::endl;
         file << "TIME WAIT/UNPACK: " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_1)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_1)/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_1.mean()/1000.0 
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.max()/1000.0
             << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_1))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_1)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_1)/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_1.stdev()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.min()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.min()/1000.0
             << std::endl;
         file << "TIME ALL:         " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global)/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local.mean()/1000.0 
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.mean()/1000.0
             << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global)/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global.stdev()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.min()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.max()/1000.0
             << std::endl;
 
         /*lapse_time1 =
@@ -661,6 +640,7 @@ namespace halo_exchange_3D_generic_full {
 
         file << pid << "  " << nprocs << "\n";
 
+        dims[2]=1;
         MPI_Dims_create(nprocs, 3, dims);
         int period[3] = {1, 1, 1};
 
@@ -2221,10 +2201,17 @@ int main(int argc, char **argv) {
 }
 #else
 TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
+    //const int Nx = 98*2;
+    //const int Ny = 54*3;
+    //const int Nz = 87*2;
+    const int Nx = 260;
+    const int Ny = 260;
+    const int Nz = 80;
 #ifndef GHEX_1_PATTERN_BENCHMARK
-    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+    bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    //bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
 #endif
     EXPECT_TRUE(passed);
 }
