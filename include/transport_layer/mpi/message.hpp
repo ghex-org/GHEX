@@ -208,6 +208,8 @@ struct message
 template <typename Allocator = std::allocator<unsigned char>>
 struct shared_message
 {
+    using allocator_type = Allocator;
+
     std::shared_ptr<message<Allocator>> m_s_message;
 
     static constexpr bool can_be_shared = true;
@@ -243,8 +245,9 @@ struct shared_message
     shared_message(shared_message const &) = default;
     shared_message(shared_message &&) = default;
 
-
     shared_message& operator=(shared_message&&) = default;
+
+    void reset() noexcept { m_s_message.reset(); }
 
     /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector

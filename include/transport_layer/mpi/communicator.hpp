@@ -45,6 +45,13 @@ class communicator;
 
 namespace _impl
 {
+
+    template<typename T>
+    struct is_shared_message : public std::false_type {};
+
+    template<typename A>
+    struct is_shared_message<shared_message<A>> : public std::true_type {};
+
 /** The future returned by the send and receive
          * operations of a communicator object to check or wait on their status.
         */
@@ -136,34 +143,27 @@ private:
     using tag_type = int;
     using rank_type = int;
 
-    /*template<typename Msg>
-    struct call_back_
+    template<typename SMsg>
+    struct call_back1_
     {
-        Msg m_msg;
-        std::function<void(rank_type, tag_type, Msg&&)> m_inner_cb;
+        SMsg m_msg;
+        std::function<void(rank_type, tag_type, SMsg&)> m_inner_cb;
 
         template<typename Callback>
-        call_back_(Msg&& msg, Callback&& cb)
-        : m_msg(std::move(msg)), m_inner_cb(std::forward<Callback>(cb))
+        call_back1_(SMsg& msg, Callback&& cb)
+        : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
         {}
 
-        // dangerous ahead:
-        call_back_(const call_back_& x)
-        : m_msg(std::move(x.m_msg)),
-          m_inner_cb(std::move(x.m_inner_cb))
-        {}
-
-        call_back_(call_back_&&) = default;
-
-        call_back_& operator=(call_back_&&) = default;
+        call_back1_(const call_back1_& x) = default;
+        call_back1_(call_back1_&&) = default;
 
         void operator()(rank_type r, tag_type t)
         {
-            m_inner_cb(r,t,std::move(m_msg));
+            m_inner_cb(r,t,m_msg);
         }
 
-        Msg& message() { return m_msg; }
-    };*/
+        SMsg& message() { return m_msg; }
+    };
 
     template<typename Msg>
     struct call_back2_
@@ -344,12 +344,25 @@ public:
 
     // uses msg reference (user is not allowed to delete it)
     template <typename MsgType, typename CallBack>
-    std::enable_if_t<std::is_lvalue_reference<MsgType&>::value>
+    std::enable_if_t<std::is_lvalue_reference<MsgType&>::value && !_impl::is_shared_message<MsgType>::value>
     recv(MsgType& msg, rank_type src, tag_type tag, CallBack &&cb)
     {
         using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
         static_assert(std::is_same<MsgType_ref,MsgType&>::value, "callback parameter 3 is not an lvalue message type");
         call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        MPI_Request req;
+        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
+        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
+    }
+
+    // uses shared msg
+    template <typename MsgType, typename CallBack>
+    std::enable_if_t<std::is_lvalue_reference<MsgType&>::value && _impl::is_shared_message<MsgType>::value>
+    recv(MsgType& msg, rank_type src, tag_type tag, CallBack &&cb)
+    {
+        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
+        static_assert(std::is_same<MsgType_ref,MsgType&>::value, "callback parameter 3 is not an lvalue message type");
+        call_back1_<MsgType> cb2(msg, std::forward<CallBack>(cb));
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
         m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
@@ -361,7 +374,6 @@ public:
         std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>>::value>
     recv(rank_type src, tag_type tag, CallBack&& cb, Args&&... args)
     {
-        //std::cout << "using lvalue recv" << std::endl;
         using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
         using MsgType = std::remove_reference_t<MsgType_ref>;
         call_back3_<MsgType> cb2(MsgType(std::forward<Args>(args)...), std::forward<CallBack>(cb));
@@ -369,32 +381,6 @@ public:
         CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
         m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
     }
-
-    /*template <typename MsgType, typename CallBack>
-    std::enable_if_t<std::is_rvalue_reference<MsgType&&>::value 
-    && std::is_same<std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>, MsgType&&>::value >
-    recv(MsgType&& msg, rank_type src, tag_type tag, CallBack &&cb)
-    {
-        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
-        static_assert(std::is_same<MsgType_ref,MsgType&&>::value, "callback parameter 3 is not an rvalue message type");
-        call_back_<MsgType> cb2(std::move(msg), std::forward<CallBack>(cb));
-        MPI_Request req;
-        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
-        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
-    }*/
-
-    /*template <typename CallBack, typename... Args>
-    std::enable_if_t<std::is_rvalue_reference<
-        std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>>::value>
-    recv(rank_type src, tag_type tag, CallBack&& cb, Args&&... args)
-    {
-        using MsgType_ref = std::tuple_element_t<2,boost::callable_traits::args_t<CallBack>>;
-        using MsgType = std::remove_reference_t<MsgType_ref>;
-        call_back_<MsgType> cb2(MsgType(std::forward<Args>(args)...), std::forward<CallBack>(cb));
-        MPI_Request req;
-        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
-        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
-    }*/
 
     /** Send a message (shared_message type) to a set of destinations listed in
          * a container, with a same tag.
@@ -452,8 +438,6 @@ public:
         }
         return !(m_callbacks[0].size() == 0 && m_callbacks[1].size()==0);
     }
-
-
     
     template<typename Msg>
     struct unique_msg_ptr
@@ -484,9 +468,10 @@ public:
             return *this;
         }
 
-        operator bool() const { return m_ptr; }
+        bool is_owner() const noexcept { return m_delete; }
+        operator bool() const noexcept { return m_ptr; }
 
-        Msg* release()
+        Msg* release() noexcept
         {
             auto ptr = m_ptr;
             m_ptr = nullptr;
@@ -494,8 +479,8 @@ public:
             return ptr;
         }
 
-        Msg* operator->() { return m_ptr; }
-        Msg& operator*() { return *m_ptr; }
+        Msg* operator->() noexcept { return m_ptr; }
+        Msg& operator*() noexcept { return *m_ptr; }
     };
 
     template<typename Msg>
@@ -529,11 +514,20 @@ public:
             cb_container.erase(it);
             if (auto t_ptr = cb.template target<call_back2_<Msg>>())
             {
+                // I don't own message
                 return std::make_pair(std::move(fut), unique_msg_ptr<Msg>(&(t_ptr->message()),false));
             }
             else if (auto t_ptr = cb.template target<call_back3_<Msg>>())
             {
+                // I own message
                 return std::make_pair(std::move(fut), unique_msg_ptr<Msg>(new Msg(std::move(t_ptr->message())), true));
+            }
+            else if (auto t_ptr = cb.template target<call_back1_<Msg>>())
+            {
+                // it's a shared_message
+                Msg m(std::move(t_ptr->message()));
+                std::cout << "use count is = " << m.use_count() << std::endl;
+                return std::make_pair(std::move(fut), unique_msg_ptr<Msg>(new Msg(std::move(m)), true));
             }
             else
             {
@@ -544,23 +538,22 @@ public:
             return boost::none;
     }
 
-    /*template <typename Callback>
-    void attach(future_type const& fut, rank_type rank, tag_type tag, Callback&& cb) {
-
-        auto it = std::find_if(m_callbacks.begin(), m_callbacks.end(),
-            [rank, tag](auto const& x) {
-                if (std::get<1>(x.second) == rank && std::get<2>(x.second) == tag) {
-                    return true;
-                }
-                return false;
-            });
-
-        if (it == m_callbacks.end()) {
-            m_callbacks.emplace(std::make_pair(fut.request(), std::make_tuple(std::forward<Callback>(cb), rank, tag)));
-        } else {
-            throw std::runtime_error("GHEX ERROR: There is already such a request in line");
+    template <typename Msg, typename Callback>
+    void attach_recv(std::pair<future_type, unique_msg_ptr<Msg>>&& fut_msg_pair, rank_type src, tag_type tag, Callback&& cb) 
+    {
+        if (!fut_msg_pair.second) throw std::runtime_error("GHEX Error: no message found when attaching to mpi communicator");
+        if (fut_msg_pair.second.is_owner())
+        {
+            std::cout << "attaching message (owning)" << std::endl;
+            recv( std::move( *fut_msg_pair.second ), src, tag, std::forward<Callback>(cb) );
+            fut_msg_pair.second.release();
         }
-    }*/
+        else
+        {
+            std::cout << "attaching message (non-owning)" << std::endl;
+            recv( *fut_msg_pair.second, src, tag, std::forward<Callback>(cb) );
+        }
+    }
 
     /**
          * @brief Function to cancel all pending requests for send/recv with callbacks.

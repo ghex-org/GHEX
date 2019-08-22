@@ -65,8 +65,8 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
 
         //unmatching tag
         
-        comm.recv(0, 43, [](int, int, gridtools::ghex::mpi::message<>&) { }, SIZE, SIZE);
-        if (auto o = comm.detach_recv<gridtools::ghex::mpi::message<>>(0,43))
+        //comm.recv(0, 43, [](int, int, gridtools::ghex::mpi::message<>&) { }, SIZE, SIZE);
+        //if (auto o = comm.detach_recv<gridtools::ghex::mpi::message<>>(0,43))
 
         //gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
         //comm.recv(std::move(rmsg), 0, 43, [](int, int, gridtools::ghex::mpi::message<>&) {  });
@@ -83,9 +83,14 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         //comm.recv(std::move(rmsg), 0, 43, [](int, int, gridtools::ghex::mpi::shared_message<>&) {  });
         //if (auto o = comm.detach_recv<gridtools::ghex::mpi::shared_message<>>(0,43))
 
-        //gridtools::ghex::mpi::shared_message<> rmsg{SIZE, SIZE};
-        //comm.recv(rmsg, 0, 43, [](int, int, gridtools::ghex::mpi::shared_message<>&) {  });
-        //if (auto o = comm.detach_recv<gridtools::ghex::mpi::shared_message<>>(0,43))
+        gridtools::ghex::mpi::shared_message<> rmsg{SIZE, SIZE};
+        comm.recv(rmsg, 0, 43, [](int, int, gridtools::ghex::mpi::shared_message<>&) {  });
+        rmsg.reset();
+        if (auto o = comm.detach_recv<gridtools::ghex::mpi::shared_message<>>(0,43))
+        {
+            comm.attach_recv(std::move(*o), 0, 43, [](int, int, gridtools::ghex::mpi::shared_message<>&){});
+        }
+        if (auto o = comm.detach_recv<gridtools::ghex::mpi::shared_message<>>(0,43))
  
         {
             ok = o->first.cancel();
