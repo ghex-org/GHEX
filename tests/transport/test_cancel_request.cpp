@@ -24,12 +24,19 @@ bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
 
         comm.send_multi(smsg, dsts, 42+42); // ~wrong tag to then cancel the calls
         bool ok = comm.cancel_callbacks();
+        MPI_Barrier(comm);
         return ok;
     } else {
         gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
         auto fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
 
         bool ok = fut.cancel();
+
+        MPI_Barrier(comm);
+        // cleanup msg
+        //comm.recv_any([](int, int, gridtools::ghex::mpi::message<>&) { std::cout << "received unexpected msg!" << std::endl; });
+        for (int i=0; i<100; ++i)
+            comm.irecv_any([](int, int, gridtools::ghex::mpi::message<>&) { std::cout << "received unexpected msg!" << std::endl; });
 
         return ok;
     }
@@ -58,6 +65,7 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
 
         while (comm.progress()) {}
 
+        MPI_Barrier(comm);
         return ok;
 
     } else {
@@ -99,6 +107,13 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         }
 
         while (comm.progress()) {}
+
+        MPI_Barrier(comm);
+
+        // cleanup msg
+        //comm.recv_any([](int, int, gridtools::ghex::mpi::message<>&) { std::cout << "received unexpected msg!" << std::endl; });
+        for (int i=0; i<100; ++i)
+            comm.irecv_any([](int, int, gridtools::ghex::mpi::message<>&) { std::cout << "received unexpected msg!" << std::endl; });
 
         return ok;
     }

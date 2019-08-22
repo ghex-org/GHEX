@@ -39,6 +39,8 @@ namespace mpi
 template <typename Allocator = std::allocator<unsigned char>>
 struct message
 {
+    using allocator_type = Allocator;
+
     using byte = unsigned char;
     Allocator m_alloc;
     size_t m_capacity;
