@@ -136,7 +136,7 @@ private:
     using tag_type = int;
     using rank_type = int;
 
-    template<typename Msg>
+    /*template<typename Msg>
     struct call_back_
     {
         Msg m_msg;
@@ -163,7 +163,7 @@ private:
         }
 
         Msg& message() { return m_msg; }
-    };
+    };*/
 
     template<typename Msg>
     struct call_back2_
@@ -454,15 +454,65 @@ public:
     }
 
 
-    boost::optional<future_type> detach_send(rank_type rank, tag_type tag) {
-        return detach(m_callbacks[0], rank, tag);
+    
+    template<typename Msg>
+    struct unique_msg_ptr
+    {
+        Msg* m_ptr = nullptr;
+        bool m_delete = false;
+        unique_msg_ptr(){};
+        ~unique_msg_ptr() { if (m_delete && m_ptr) delete m_ptr; }
+        unique_msg_ptr(Msg* ptr, bool delete_) : m_ptr(ptr), m_delete(delete_) {}
+        unique_msg_ptr(const unique_msg_ptr&) = delete;
+        unique_msg_ptr(unique_msg_ptr&& x)
+        {
+            if (m_delete && m_ptr) delete m_ptr;
+            m_ptr = x.m_ptr;
+            m_delete = x.m_delete;
+            x.m_ptr = nullptr;
+            x.m_delete = false;
+        }
+
+        unique_msg_ptr& operator=(const unique_msg_ptr&) = delete;
+        unique_msg_ptr& operator=(const unique_msg_ptr&& x)
+        {
+            if (m_delete && m_ptr) delete m_ptr;
+            m_ptr = x.m_ptr;
+            m_delete = x.m_delete;
+            x.m_ptr = nullptr;
+            x.m_delete = false;
+            return *this;
+        }
+
+        operator bool() const { return m_ptr; }
+
+        Msg* release()
+        {
+            auto ptr = m_ptr;
+            m_ptr = nullptr;
+            m_delete = false;
+            return ptr;
+        }
+
+        Msg* operator->() { return m_ptr; }
+        Msg& operator*() { return *m_ptr; }
+    };
+
+    template<typename Msg>
+    boost::optional<std::pair<future_type,unique_msg_ptr<Msg>>> 
+    detach_send(rank_type rank, tag_type tag) {
+        return detach<Msg>(m_callbacks[0], rank, tag);
     }
 
-    boost::optional<future_type> detach_recv(rank_type rank, tag_type tag) {
-        return detach(m_callbacks[1], rank, tag);
+    template<typename Msg>
+    boost::optional<std::pair<future_type,unique_msg_ptr<Msg>>> 
+    detach_recv(rank_type rank, tag_type tag) {
+        return detach<Msg>(m_callbacks[1], rank, tag);
     }
-    
-    boost::optional<future_type> detach(cb_container_t& cb_container, rank_type rank, tag_type tag)
+
+    template<typename Msg>
+    boost::optional<std::pair<future_type,unique_msg_ptr<Msg>>> 
+    detach(cb_container_t& cb_container, rank_type rank, tag_type tag)
     {
         auto it = std::find_if(
             cb_container.begin(), 
@@ -474,10 +524,23 @@ public:
 
         if (it != cb_container.end()) 
         {
+            auto cb =  std::move(std::get<0>(*it));
             auto fut = std::move(std::get<3>(*it));
             cb_container.erase(it);
-            return fut;
-        } else 
+            if (auto t_ptr = cb.template target<call_back2_<Msg>>())
+            {
+                return std::make_pair(std::move(fut), unique_msg_ptr<Msg>(&(t_ptr->message()),false));
+            }
+            else if (auto t_ptr = cb.template target<call_back3_<Msg>>())
+            {
+                return std::make_pair(std::move(fut), unique_msg_ptr<Msg>(new Msg(std::move(t_ptr->message())), true));
+            }
+            else
+            {
+                return std::make_pair(std::move(fut), unique_msg_ptr<Msg>());
+            }
+        } 
+        else 
             return boost::none;
     }
 

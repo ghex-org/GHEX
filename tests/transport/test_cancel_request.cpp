@@ -51,9 +51,9 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         bool ok = true;
 
         for (auto dst : dsts) {
-            if (auto fut = comm.detach_send(dst, 45))
-                if (!fut->ready())
-                    ok &= fut->cancel();
+            if (auto o = comm.template detach_send<decltype(smsg)>(dst, 45))
+                if (!o->first.ready())
+                    ok &= o->first.cancel();
         }
 
         while (comm.progress()) {}
@@ -61,11 +61,37 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         return ok;
 
     } else {
-        //comm.recv(gridtools::ghex::mpi::message<>{SIZE, SIZE}, 0, 43, [](int, int, gridtools::ghex::mpi::message<>&&) {  }); // unmatching tag
-        comm.recv(0, 43, [](int, int, gridtools::ghex::mpi::message<>&) { }, SIZE, SIZE); // unmatching tag
         bool ok = true;
-        if (auto fut = comm.detach_recv(0,43))
-            ok = fut->cancel();
+
+        //unmatching tag
+        
+        comm.recv(0, 43, [](int, int, gridtools::ghex::mpi::message<>&) { }, SIZE, SIZE);
+        if (auto o = comm.detach_recv<gridtools::ghex::mpi::message<>>(0,43))
+
+        //gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
+        //comm.recv(std::move(rmsg), 0, 43, [](int, int, gridtools::ghex::mpi::message<>&) {  });
+        //if (auto o = comm.detach_recv<gridtools::ghex::mpi::message<>>(0,43))
+
+        //gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
+        //comm.recv(rmsg, 0, 43, [](int, int, gridtools::ghex::mpi::message<>&) {  });
+        //if (auto o = comm.detach_recv<gridtools::ghex::mpi::message<>>(0,43))
+
+        //comm.recv(0, 43, [](int, int, gridtools::ghex::mpi::shared_message<>&) { }, SIZE, SIZE); 
+        //if (auto o = comm.detach_recv<gridtools::ghex::mpi::shared_message<>>(0,43))
+
+        //gridtools::ghex::mpi::shared_message<> rmsg{SIZE, SIZE};
+        //comm.recv(std::move(rmsg), 0, 43, [](int, int, gridtools::ghex::mpi::shared_message<>&) {  });
+        //if (auto o = comm.detach_recv<gridtools::ghex::mpi::shared_message<>>(0,43))
+
+        //gridtools::ghex::mpi::shared_message<> rmsg{SIZE, SIZE};
+        //comm.recv(rmsg, 0, 43, [](int, int, gridtools::ghex::mpi::shared_message<>&) {  });
+        //if (auto o = comm.detach_recv<gridtools::ghex::mpi::shared_message<>>(0,43))
+ 
+        {
+            ok = o->first.cancel();
+            if (o->second)
+                std::cout << "detached msg size = " << o->second->size() << std::endl;
+        }
 
         while (comm.progress()) {}
 
