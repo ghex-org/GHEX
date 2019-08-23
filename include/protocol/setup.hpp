@@ -125,7 +125,6 @@ namespace gridtools {
                     (&payload, sizeof(T), MPI_BYTE,
                     &res[0], sizeof(T), MPI_BYTE,
                     m_comm,
-                    //&h.m_requests[0]));
                     &h.m_req));
                 return {std::move(res), std::move(h)};
             } 
