@@ -143,10 +143,10 @@ class communicator
 public:
     using future_type = _impl::mpi_future;
     using request_type = _impl::cb_request_t;
-
-private:
     using tag_type = int;
     using rank_type = int;
+
+private:
 
     template<typename Msg>
     struct call_back_non_owning
