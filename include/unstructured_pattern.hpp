@@ -111,11 +111,11 @@ namespace gridtools {
             using index_container_type = std::vector<iteration_space_pair>;
 
             /** @brief extended domain id, including rank and tag information
-             * WARN: does not include actual domain id, differently from structured pattern case*/
+             * WARN: domain id temporarily set equal to rank, differently from structured pattern case*/
             struct extended_domain_id_type {
 
                 // members
-                // domain_id_type id;
+                domain_id_type id;
                 int mpi_rank;
                 address_type address;
                 int tag;
@@ -189,6 +189,16 @@ namespace gridtools {
             const map_type& recv_halos() const noexcept { return m_recv_map; }
             const pattern_container_type& container() const noexcept { return *m_container; }
 
+            /** @brief tie pattern to field
+             * @tparam Field field type
+             * @param pc pattern container
+             * @param field field instance
+             * @return buffer_info object which holds a refernce to the field, the pattern and the pattern container*/
+            template<typename Field>
+            buffer_info<pattern, typename Field::device_type, Field> operator()(Field& field) const {
+                return { *this, field, field.device_id() };
+            }
+
     };
 
     namespace detail {
@@ -236,12 +246,12 @@ namespace gridtools {
                 send_levels.resize(size);
 
                 // needed with multiple domains per PE
-                int m_max_tag = 0;
+                int m_max_tag = 999;
 
                 for (const auto& d : d_range) { // WARN: so far, multiple domains are not fully supported
 
                     // setup pattern
-                    pattern_type p{new_comm, {my_rank, d.first(), d.last(), d.levels()}, {my_rank, my_address, 0}};
+                    pattern_type p{new_comm, {my_rank, d.first(), d.last(), d.levels()}, {my_rank, my_rank, my_address, 0}};
 
                     std::fill(recv_counts.begin(), recv_counts.end(), 0);
                     std::fill(send_counts.begin(), send_counts.end(), 0);
@@ -255,7 +265,7 @@ namespace gridtools {
                             // WARN: very simplified definition of extended domain id;
                             // a more complex one is needed for multiple domains
                             int tag = (h.partition() << 7) + my_address; // WARN: maximum address / rank = 2^7 - 1
-                            extended_domain_id_type id{h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
+                            extended_domain_id_type id{h.partition(), h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
                             index_container_type ic{ {h.partition(), h.local_index(), h.levels()} };
                             p.recv_halos().insert(std::make_pair(id, ic));
                             recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
@@ -296,7 +306,7 @@ namespace gridtools {
                             // WARN: very simplified definition of extended domain id;
                             // a more complex one is needed for multiple domains
                             int tag = (my_address << 7) + rank; // WARN: maximum rank / address = 2^7 - 1
-                            extended_domain_id_type id{static_cast<int>(rank), static_cast<address_type>(rank), tag};
+                            extended_domain_id_type id{static_cast<int>(rank), static_cast<int>(rank), static_cast<address_type>(rank), tag};
                             std::vector<index_type> remote_index{};
                             remote_index.resize(send_counts[rank]);
                             std::memcpy(&remote_index[0],

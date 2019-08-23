@@ -11,6 +11,8 @@
 #ifndef INCLUDED_PACK_HPP
 #define INCLUDED_PACK_HPP
 
+#include <iostream>
+
 #include "./devices.hpp"
 #include "./field_utils.hpp"
 #include "./kernel_argument.hpp"

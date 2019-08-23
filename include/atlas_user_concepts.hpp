@@ -19,6 +19,7 @@
 #include "atlas/array/ArrayView.h"
 
 #include "./unstructured_grid.hpp"
+#include "./devices.hpp"
 
 
 namespace gridtools {
@@ -260,7 +261,11 @@ namespace gridtools {
 
         public:
 
+            using value_type = T;
             using index_t = typename DomainDescriptor::index_t;
+            using domain_id_t = typename DomainDescriptor::domain_id_type;
+            using device_type = gridtools::device::cpu;
+            using device_id_type = device_type::id_type;
             using Byte = unsigned char;
 
         private:
@@ -281,6 +286,10 @@ namespace gridtools {
             std::size_t data_type_size() const {
                 return sizeof (T);
             }
+
+            domain_id_t domain_id() const { return m_domain.domain_id(); }
+
+            device_id_type device_id() const { return 0; };
 
             /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
             void set(const T& value, const index_t idx, const std::size_t level) {
@@ -321,6 +330,20 @@ namespace gridtools {
                         std::memcpy(buffer, &get(idx, level), sizeof(T));
                         buffer += sizeof(T);
                     }
+                }
+            }
+
+            template<typename IndexContainer>
+            void pack(T* buffer, const IndexContainer& c, void*) {
+                for (const auto& is : c) {
+                    get(is, reinterpret_cast<Byte*>(buffer));
+                }
+            }
+
+            template<typename IndexContainer>
+            void unpack(const T* buffer, const IndexContainer& c, void*) {
+                for (const auto& is : c) {
+                    set(is, reinterpret_cast<const Byte*>(buffer));
                 }
             }
 
