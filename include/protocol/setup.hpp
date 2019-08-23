@@ -111,7 +111,6 @@ namespace gridtools {
                     (&payload[0], payload.size()*sizeof(T), MPI_BYTE,
                     &res[0][0], &recvcounts[0], &displs[0], MPI_BYTE,
                     m_comm, 
-                    //&h.m_requests[0]));
                     &h.m_req));
                 return {std::move(res), std::move(h)};
             }
