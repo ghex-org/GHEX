@@ -43,8 +43,6 @@ void test1() {
             ++j;
         }
     }
-
-    EXPECT_FALSE(sr.progress());
 }
 
 void test2() {
@@ -131,9 +129,6 @@ void test1_mesg() {
             EXPECT_EQ(data[i], i);
         }
     }
-
-    //EXPECT_FALSE(progress());
-
 }
 
 void test2_mesg() {

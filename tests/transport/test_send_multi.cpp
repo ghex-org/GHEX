@@ -1,3 +1,4 @@
+#include <transport_layer/progress.hpp>
 #include <transport_layer/mpi/communicator.hpp>
 #include <iostream>
 #include <iomanip>
@@ -23,10 +24,16 @@ TEST(transport, send_multi) {
 
     gridtools::ghex::mpi::communicator comm;
 
+    using allocator_type = std::allocator<unsigned char>;
+    using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
+    using comm_type      = std::remove_reference_t<decltype(comm)>;
+
+    gridtools::ghex::progress<comm_type,allocator_type> progress(comm);
+
     if (mpi_rank == 0) {
 
 
-        gridtools::ghex::mpi::shared_message<> smsg{SIZE, SIZE};
+        smsg_type smsg{SIZE, SIZE};
 
         int * data = smsg.data<int>();
 
@@ -36,12 +43,12 @@ TEST(transport, send_multi) {
 
         std::array<int, 3> dsts = {1,2,3};
 
-        comm.send_multi(smsg, dsts, 42);
+        progress.send_multi(smsg, dsts, 42);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     int c = 0;
 #endif
-    while (comm.progress()) {
+    while (progress()) {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
@@ -72,6 +79,6 @@ TEST(transport, send_multi) {
     }
 
 
-    EXPECT_FALSE(comm.progress());
+    EXPECT_FALSE(progress());
 
 }

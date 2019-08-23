@@ -41,9 +41,10 @@ bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
 
         MPI_Barrier(comm);
         // cleanup msg
-        //comm.recv_any([](int, int, gridtools::ghex::mpi::message<>&) { std::cout << "received unexpected msg!" << std::endl; });
         for (int i=0; i<100; ++i)
-            comm.irecv_any([](int, int, gridtools::ghex::mpi::message<>&) { std::cout << "received unexpected msg!" << std::endl; });
+            progress([](int src,int tag,const smsg_type& m){ 
+                std::cout << "received unexpected message from rank " << src << " and tag " << tag 
+                << " with size = " << m.size() << std::endl;});
 
         return ok;
     }
@@ -62,7 +63,6 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         smsg_type smsg{SIZE, SIZE};
 
         std::array<int, 3> dsts = {1,2,3};
-        std::array<gridtools::ghex::mpi::communicator::request_type, 3> reqs;
 
         for (int dst : dsts) {
             progress.send(smsg, dst, 45, [](int,int,const smsg_type&) {} );
@@ -106,7 +106,9 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
 
         // try to cleanup lingering messages
         for (int i=0; i<100; ++i)
-            comm.irecv_any([](int, int, gridtools::ghex::mpi::message<>&) { std::cout << "received unexpected msg!" << std::endl; });
+            progress([](int src,int tag,const smsg_type& m){ 
+                std::cout << "received unexpected message from rank " << src << " and tag " << tag 
+                << " with size = " << m.size() << std::endl;});
 
         return ok;
     }

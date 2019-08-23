@@ -136,6 +136,11 @@ auto test1_mesg() {
 
 auto test2_mesg() {
     gridtools::ghex::mpi::communicator sr;
+    using allocator_type = std::allocator<unsigned char>;
+    using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
+    using comm_type      = std::remove_reference_t<decltype(sr)>;
+
+    gridtools::ghex::progress<comm_type,allocator_type> progress(sr);
 
     gridtools::ghex::mpi::message<> smsg{40, 40};
 
@@ -145,24 +150,17 @@ auto test2_mesg() {
         data[i] = i;
     }
 
-    gridtools::ghex::mpi::message<> rmsg2{40, 40};
-    gridtools::ghex::mpi::message<> rmsg;
+    smsg_type rmsg{40, 40};
 
     bool arrived = false;
 
     if ( rank == 0 ) {
         auto fut = sr.send(smsg, 1, 1);
-        sr.recv(std::move(rmsg2), 1, 2, [ &arrived,&rmsg](int, int, gridtools::ghex::mpi::message<>& x) {
-            arrived = true;
-            rmsg = std::move(x);
-        });
+        progress.recv(rmsg, 1, 2, [ &arrived](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
         auto fut = sr.send(smsg, 0, 2);
-        sr.recv(std::move(rmsg2), 0, 1, [ &arrived,&rmsg](int, int, gridtools::ghex::mpi::message<>& x) {
-            arrived = true;
-            rmsg = std::move(x);
-        });
+        progress.recv(rmsg, 0, 1, [ &arrived](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     }
 
@@ -173,7 +171,7 @@ auto test2_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-        sr.progress();
+        progress();
      } while (!arrived);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -182,7 +180,7 @@ auto test2_mesg() {
     std::cout << "***********\n";
 #endif
 
-    EXPECT_FALSE(sr.progress());
+    EXPECT_FALSE(progress());
 
 
     return rmsg;
@@ -226,62 +224,6 @@ auto test1_shared_mesg() {
     std::cout <<   "*" << std::setw(8) << c << " *\n";
     std::cout << "***********\n";
 #endif
-
-    EXPECT_FALSE(sr.progress());
-
-
-    return rmsg;
-}
-
-auto test2_shared_mesg() {
-    gridtools::ghex::mpi::communicator sr;
-
-    gridtools::ghex::mpi::shared_message<> smsg{40, 40};
-    int* data = smsg.data<int>();
-
-    for (int i = 0; i < 10; ++i) {
-        data[i] = i;
-    }
-
-    gridtools::ghex::mpi::shared_message<> rmsg2{40, 40};
-    gridtools::ghex::mpi::shared_message<> rmsg;
-
-    bool arrived = false;
-
-    if ( rank == 0 ) {
-        auto fut = sr.send(smsg, 1, 1);
-        sr.recv(std::move(rmsg2), 1, 2, [ &arrived,&rmsg](int, int, gridtools::ghex::mpi::shared_message<>& x) {
-            arrived = true;
-            rmsg = std::move(x);
-        });
-        fut.wait();
-    } else if (rank == 1) {
-        auto fut = sr.send(smsg, 0, 2);
-        sr.recv(std::move(rmsg2), 0, 1, [ &arrived,&rmsg](int, int, gridtools::ghex::mpi::shared_message<>& x) {
-            arrived = true;
-            rmsg = std::move(x);
-        });
-        fut.wait();
-    }
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-    int c = 0;
-#endif
-    do {
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-        c++;
-#endif
-        sr.progress();
-     } while (!arrived);
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-    std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
-    std::cout << "***********\n";
-#endif
-
-    EXPECT_FALSE(sr.progress());
-
 
     return rmsg;
 }
@@ -353,7 +295,7 @@ TEST(low_level, basic_x_msg) {
     }
 }
 
-/*TEST(low_level, basic_x_msg_call_back) {
+TEST(low_level, basic_x_msg_call_back) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
@@ -371,11 +313,3 @@ TEST(low_level, basic_x_shared_msg) {
     }
 }
 
-TEST(low_level, basic_x_shared_msg_call_back) {
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    if (rank < 2) {
-        EXPECT_TRUE(run_test(test2_shared_mesg));
-    }
-}*/
