@@ -12,14 +12,16 @@
 #define INCLUDED_PROGRESS_HPP
 
 #include <deque>
+#include <algorithm>
 #include <memory>
 #include <type_traits>
 #include <tuple>
 #include <boost/callable_traits.hpp>
 #include <boost/optional.hpp>
-#include <iostream>
+//#include <iostream>
 #include "./mpi/message.hpp"
 
+/** @brief checks the arguments of callback function object */
 #define GHEX_CHECK_CALLBACK                                                            \
     using args_t = boost::callable_traits::args_t<CallBack>;                           \
     using arg0_t = std::tuple_element_t<0, args_t>;                                    \
@@ -39,6 +41,21 @@ namespace gridtools
     namespace ghex
     {
 
+        /** progress is a class to dispatch send and receive operations to. Each operation can optionally be tied
+          * to a user defined callback function / function object. The payload of each send/receive operation
+          * must be a ghex::shared_message<Allocator>. This class will keep a (shallow) copy of each message, thus
+          * it is safe to release the message at the caller's site.
+          *
+          * The communication must be explicitely progressed using the function call operator().
+          *
+          * An instance of this class is 
+          * - a move-only.
+          * - not thread-safe
+          *
+          * If unprogressed operations remain at time of destruction, std::terminate will be called.
+          *
+          * @tparam Communicator underlying transport communicator
+          * @tparam Allocator    allocator type used for allocating shared messages */
         template<class Communicator, class Allocator = std::allocator<unsigned char>>
         class progress
         {
@@ -48,11 +65,12 @@ namespace gridtools
             using future_type       = typename communicator_type::future_type;
             using tag_type          = typename communicator_type::tag_type;
             using rank_type         = typename communicator_type::rank_type;
-            using allocator_type    = typename std::allocator_traits<Allocator>::template rebind_alloc<unsigned char>;
+            using allocator_type    = Allocator;
             using message_type      = mpi::shared_message<allocator_type>;
 
         private: // member types
 
+            // necessary meta information for each send/receive operation
             struct element_type
             {
                 using message_arg_type = const message_type&;
@@ -75,16 +93,17 @@ namespace gridtools
             recv_container_type m_recvs; 
 
         public: // ctors
+
             progress(const communicator_type& comm, allocator_type alloc = allocator_type{}) 
-            : m_comm(comm), m_alloc(alloc) {}
-            progress(communicator_type&& comm) : m_comm(std::move(comm)) {}
+                : m_comm(comm), m_alloc(alloc) {}
+            progress(communicator_type&& comm, allocator_type alloc = allocator_type{}) 
+                : m_comm(std::move(comm)), m_alloc(alloc) {}
             progress(const progress&) = delete;
             progress(progress&&) = default;
             ~progress() 
             { 
                 if (m_sends.size() != 0 || m_recvs.size() != 0)  
                 {
-                    //std::cout << "not empty: " << m_sends.size() << ", " << m_recvs.size() << std::endl;
                     std::terminate(); 
                 }
             }
@@ -96,19 +115,33 @@ namespace gridtools
 
         public: // send
 
+            /** @brief Send a message to a destination with the given tag and register a callback which will be invoked
+              * when the send operation is completed.
+              * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+              * @param msg Message to be sent
+              * @param dst Destination of the message
+              * @param tag Tag associated with the message
+              * @param cb  Callback function object */
             template<typename CallBack>
             void send(const message_type& msg, rank_type dst, tag_type tag, CallBack&& cb)
             {
                 GHEX_CHECK_CALLBACK
-                // add to list
                 m_sends.push_back( send_element_type{ std::forward<CallBack>(cb), dst, tag, m_comm.send(msg, dst, tag), msg } );
             }
 
+            /** @brief Send a message without registering a callback. */
             void send(const message_type& msg, rank_type dst, tag_type tag)
             {
                 send(msg,dst,tag,[](rank_type,tag_type,const message_type&){});
             }
 
+            /** @brief Send a message to multiple destinations with the same rank an register an associated callback. 
+              * @tparam Neighs Range over rank_type
+              * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+              * @param msg Message to be sent
+              * @param neighs Range of destination ranks
+              * @param tag Tag associated with the message
+              * @param cb Callback function object */
             template <typename Neighs, typename CallBack>
             void send_multi(const message_type& msg, Neighs const &neighs, int tag, CallBack&& cb)
             {
@@ -116,6 +149,7 @@ namespace gridtools
                     send(msg, id, tag, std::forward<CallBack>(cb));
             }
 
+            /** @brief Send a message to multiple destination without registering a callback */
             template <typename Neighs>
             void send_multi(const message_type& msg, Neighs const &neighs, int tag)
             {
@@ -124,14 +158,28 @@ namespace gridtools
 
         public: // recieve
 
+            /** @brief Receive a message from a source rank with the given tag and register a callback which will be invoked
+              * when the receive operation is completed.
+              * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+              * @param msg Message where data will be received
+              * @param src Source of the message
+              * @param tag Tag associated with the message
+              * @param cb  Callback function object */
             template<typename CallBack>
             void recv(const message_type& msg, rank_type src, tag_type tag, CallBack&& cb)
             {
                 GHEX_CHECK_CALLBACK
-                // add to list
                 m_recvs.push_back( recv_element_type{ std::forward<CallBack>(cb), src, tag, m_comm.recv(msg, src, tag), msg } );
             }
 
+            /** @brief Receive a message with length size (storage is allocated accordingly). */
+            template<typename CallBack>
+            void recv(std::size_t size, rank_type src, tag_type tag, CallBack&& cb)
+            {
+                recv(message_type{size,size}, src, tag, std::forward<CallBack>(cb));
+            }
+
+            /** @brief Receive a message without registering a callback. */
             void recv(const message_type& msg, rank_type src, tag_type tag)
             {
                 recv(msg,src,tag,[](rank_type,tag_type,const message_type&){});
@@ -139,6 +187,9 @@ namespace gridtools
 
         public: // progress
 
+            /** @brief Progress the communication. This function checks whether any receive and send operation is 
+              * completed and calls the associated callback (if it exists).
+              * @return returns false if all registered operations have been completed.*/
             bool operator()()
             {
                 const auto sends_completed = run(m_sends);
@@ -147,6 +198,13 @@ namespace gridtools
                 return !completed;
             }
 
+            /** @brief Progress the communication. This function checks whether any receive and send operation is 
+              * completed and calls the associated callback (if it exists). When all registered operations have been
+              * completed this function checks for further unexpected incoming messages which will be received in a
+              * newly allocated shared_message and returned to the user through invocation of the provided callback.
+              * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+              * @param unexpected_cb Callback function object
+              * @return returns false if all registered operations have been completed. */
             template<typename CallBack>
             bool operator()(CallBack&& unexpected_cb)
             {
@@ -164,17 +222,39 @@ namespace gridtools
                 }
                 return not_completed;
             }
+
+        public: // attach/detach
             
+            /** @brief Deregister a send operation from this object which matches the given destination and tag.
+              * If such operation is found the callback will be discared and the message will be returned to the caller
+              * together with a future object on which completion can be awaited.
+              * @param dst Destination of the message
+              * @param tag Tag associated with the message
+              * @return Either a pair of future and message or none*/
             boost::optional<std::pair<future_type,message_type>> detach_send(rank_type dst, tag_type tag)
             {
                 return detach(dst,tag,m_sends);
             }
 
-            boost::optional<std::pair<future_type,message_type>> detach_recv(rank_type dst, tag_type tag)
+            /** @brief Deregister a receive operation from this object which matches the given destination and tag.
+              * If such operation is found the callback will be discared and the message will be returned to the caller
+              * together with a future object on which completion can be awaited.
+              * @param src Source of the message
+              * @param tag Tag associated with the message
+              * @return Either a pair of future and message or none*/
+            boost::optional<std::pair<future_type,message_type>> detach_recv(rank_type src, tag_type tag)
             {
-                return detach(dst,tag,m_recvs);
+                return detach(src,tag,m_recvs);
             }
 
+            /** @brief Register a send operation with this object which matches the given future, destination and tag
+              * and associate it with a callback.
+              * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+              * @param fut future object
+              * @param msg message data
+              * @param dst destination rank
+              * @param tag associated tag
+              * @param cb  Callback function object */
             template<typename CallBack>
             void attach_send(future_type&& fut, const message_type& msg, rank_type dst, tag_type tag, CallBack&& cb)
             {
@@ -182,13 +262,37 @@ namespace gridtools
                 m_sends.push_back( send_element_type{ std::forward<CallBack>(cb), dst, tag, std::move(fut), msg } );
             }
 
+            /** @brief Register a send without associated callback. */
+            void attach_send(future_type&& fut, const message_type& msg, rank_type dst, tag_type tag)
+            {
+                m_sends.push_back( send_element_type{ [](rank_type,tag_type,const message_type&){}, dst, tag, std::move(fut), msg } );
+            }
+
+            /** @brief Register a receive operation with this object which matches the given future, source and tag
+              * and associate it with a callback.
+              * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+              * @param fut future object
+              * @param msg message data
+              * @param dst source rank
+              * @param tag associated tag
+              * @param cb  Callback function object */
             template<typename CallBack>
             void attach_recv(future_type&& fut, const message_type& msg, rank_type src, tag_type tag, CallBack&& cb)
             {
                 GHEX_CHECK_CALLBACK
                 m_recvs.push_back( send_element_type{ std::forward<CallBack>(cb), src, tag, std::move(fut), msg } );
             }
+
+            /** @brief Register a receive without associated callback. */
+            void attach_recv(future_type&& fut, const message_type& msg, rank_type src, tag_type tag)
+            {
+                m_recvs.push_back( send_element_type{ [](rank_type,tag_type,const message_type&){}, src, tag, std::move(fut), msg } );
+            }
+
+        public: // cancel
             
+            /** @brief Deregister all operations from this object and attempt to cancel the communication.
+              * @return true if cancelling was successful. */
             bool cancel()
             {
                 const auto s = cancel_sends();

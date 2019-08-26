@@ -11,19 +11,12 @@
 #ifndef GHEX_MPI_COMMUNICATOR_HPP
 #define GHEX_MPI_COMMUNICATOR_HPP
 
-#include <iostream>
 #include <mpi.h>
-#include <future>
-#include <functional>
-#include <unordered_map>
 #include <tuple>
 #include <cassert>
+#include <boost/optional.hpp>
 #include "./message.hpp"
 #include "./communicator_traits.hpp"
-//#include <algorithm>
-//#include <deque>
-#include <boost/optional.hpp>
-//#include <boost/callable_traits.hpp>
 
 namespace gridtools
 {
@@ -171,6 +164,16 @@ public:
         return request;
     }
 
+    /** Receive a message from any destination with any tag.
+         * In case of success the function returns a tuple of rank, tag and message that has been received. The
+         * necessary storage will be allocated using a shared_message<Allocator>.
+         * It is safe to call this function in a multi-threaded mpi environment, however, there is no way to prevent
+         * one thread receiving a message intended for another thread.
+         *
+         * @tparam Allocator Allocator type used for creating a shared_message.
+         * @param alloc Allocator instance
+         * @return Optional which may hold a tuple of rank, tag and message
+         */
     template < typename Allocator = std::allocator<unsigned char> >
     boost::optional<std::tuple<rank_type,tag_type,shared_message<Allocator>>> 
     recv_any(Allocator alloc = Allocator{}) const 
