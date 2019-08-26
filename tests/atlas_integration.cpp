@@ -246,19 +246,19 @@ TEST(atlas_integration, halo_exchange) {
     // ==================== GHEX code ====================
 
     // Instantiate vector of local domains
-    std::vector<gridtools::atlas_domain_descriptor<int>> local_domains{};
+    std::vector<domain_descriptor_t> local_domains{};
 
     // Instantiate domain descriptor with halo size = 1 and add it to local domains
     std::stringstream ss_1;
     atlas::idx_t nb_nodes_1;
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
-    gridtools::atlas_domain_descriptor<int> d{0,
-                                              rank,
-                                              mesh.nodes().partition(),
-                                              mesh.nodes().remote_index(),
-                                              nb_levels,
-                                              nb_nodes_1};
+    domain_descriptor_t d{0,
+                          rank,
+                          mesh.nodes().partition(),
+                          mesh.nodes().remote_index(),
+                          nb_levels,
+                          nb_nodes_1};
     local_domains.push_back(d);
 
     // Instantate halo generator

@@ -75,19 +75,19 @@ TEST(atlas_integration, halo_exchange) {
     // ==================== GHEX code ====================
 
     // Instantiate vector of local domains
-    std::vector<gridtools::atlas_domain_descriptor<int>> local_domains{};
+    std::vector<domain_descriptor_t> local_domains{};
 
     // Instantiate domain descriptor with halo size = 1 and add it to local domains
     std::stringstream ss_1;
     atlas::idx_t nb_nodes_1;
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
-    gridtools::atlas_domain_descriptor<int> d{rank,
-                                              rank,
-                                              mesh.nodes().partition(),
-                                              mesh.nodes().remote_index(),
-                                              nb_levels,
-                                              nb_nodes_1};
+    domain_descriptor_t d{rank,
+                          rank,
+                          mesh.nodes().partition(),
+                          mesh.nodes().remote_index(),
+                          nb_levels,
+                          nb_nodes_1};
     local_domains.push_back(d);
 
     // Instantate halo generator
@@ -142,8 +142,8 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     std::size_t nb_levels = 10;
 
     // Instantiate 2 vector of local domains, respectively for halo size = 1 and halo size = 2
-    std::vector<gridtools::atlas_domain_descriptor<int>> local_domains_1{};
-    std::vector<gridtools::atlas_domain_descriptor<int>> local_domains_2{};
+    std::vector<domain_descriptor_t> local_domains_1{};
+    std::vector<domain_descriptor_t> local_domains_2{};
 
     // Generate 2 functionspaces associated to mesh and GHEX domain descriptors, accordingly
     atlas::functionspace::NodeColumns fs_nodes_1(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
@@ -151,24 +151,24 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     atlas::idx_t nb_nodes_1;
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
-    gridtools::atlas_domain_descriptor<int> d_1{rank,
-                                                rank,
-                                                mesh.nodes().partition(),
-                                                mesh.nodes().remote_index(),
-                                                nb_levels,
-                                                nb_nodes_1};
+    domain_descriptor_t d_1{rank,
+                            rank,
+                            mesh.nodes().partition(),
+                            mesh.nodes().remote_index(),
+                            nb_levels,
+                            nb_nodes_1};
     local_domains_1.push_back(d_1);
     atlas::functionspace::NodeColumns fs_nodes_2(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(2));
     std::stringstream ss_2;
     atlas::idx_t nb_nodes_2;
     ss_2 << "nb_nodes_including_halo[" << 2 << "]";
     mesh.metadata().get( ss_2.str(), nb_nodes_2 );
-    gridtools::atlas_domain_descriptor<int> d_2{rank,
-                                                rank,
-                                                mesh.nodes().partition(),
-                                                mesh.nodes().remote_index(),
-                                                nb_levels,
-                                                nb_nodes_2};
+    domain_descriptor_t d_2{rank,
+                            rank,
+                            mesh.nodes().partition(),
+                            mesh.nodes().remote_index(),
+                            nb_levels,
+                            nb_nodes_2};
     local_domains_2.push_back(d_2);
 
     // Fields creation and initialization
