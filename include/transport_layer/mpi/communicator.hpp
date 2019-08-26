@@ -104,12 +104,27 @@ public:
 private:
 
     MPI_Comm m_mpi_comm;
+    rank_type m_rank;
+    rank_type m_size;
 
 public:
 
-    operator MPI_Comm() const { return m_mpi_comm; }
+    communicator(communicator_traits const &ct = communicator_traits{}) 
+        : m_mpi_comm{ct.communicator()} 
+        , m_rank{ [this]() { 
+            int r; 
+            CHECK_MPI_ERROR(MPI_Comm_rank(m_mpi_comm, &r));
+            return r; }() }
+        , m_size{ [this]() {
+            int s;
+            CHECK_MPI_ERROR(MPI_Comm_size(m_mpi_comm, &s));
+            return s; }()}
+    {}
 
-    communicator(communicator_traits const &ct = communicator_traits{}) : m_mpi_comm{ct.communicator()} {}
+    rank_type rank() const noexcept { return m_rank; }
+    rank_type size() const noexcept { return m_size; }
+
+    operator MPI_Comm() const { return m_mpi_comm; }
 
     /** Send a message to a destination with the given tag.
          * It returns a future that can be used to check when the message is available

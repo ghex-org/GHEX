@@ -248,6 +248,8 @@ struct shared_message
     shared_message(shared_message &&) = default;
 
     shared_message& operator=(shared_message&&) = default;
+    // shallow copy
+    shared_message& operator=(const shared_message&) = default;
 
     void reset() noexcept { m_s_message.reset(); }
 
