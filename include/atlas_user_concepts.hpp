@@ -293,12 +293,12 @@ namespace gridtools {
 
             /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
             void set(const T& value, const index_t idx, const std::size_t level) {
-                m_values(idx, level) = value;
+                m_values((std::size_t)idx, level) = value; // WARN: why std::size_t cast is needed here?
             }
 
             /** @brief single access get function, not mandatory but used by the corresponding multiple access operator*/
             const T& get(const index_t idx, const std::size_t level) const {
-                return m_values(idx, level);
+                return m_values((std::size_t)idx, level); // WARN: why std::size_t cast is needed here?
             }
 
             /** @brief multiple access set function, needed by GHEX in order to perform the unpacking.
