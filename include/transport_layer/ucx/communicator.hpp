@@ -25,7 +25,39 @@ namespace ghex
 namespace ucx
 {
 
+    /* 
+     * GHEX tag structure:
+     *
+     * 01234567 01234567 01234567 01234567 01234567 01234567 01234567 01234567
+     *                                    |                   
+     *      message tag (32)              |   source rank (32)
+     *                                    |                   
+     */
+#define GHEX_TAG_BITS                       32
+#define GHEX_RANK_BITS                      32
+#define GHEX_TAG_MASK                       0xffffffff00000000ul
+#define GHEX_SOURCE_MASK                    0x00000000fffffffful
 
+#define GHEX_MAKE_SEND_TAG(_tag, _dst)			\
+    ((((uint64_t) (_tag) ) << GHEX_RANK_BITS)    |	\
+     (((uint64_t) (_dst) )))
+
+
+#define GHEX_MAKE_RECV_TAG(_ucp_tag, _ucp_tag_mask, _tag, _src)		\
+    {									\
+	_ucp_tag_mask = GHEX_SOURCE_MASK | GHEX_TAG_MASK;		\
+	_ucp_tag = ((((uint64_t) (_tag) ) << GHEX_RANK_BITS)    |	\
+		    (((uint64_t) (_src) )));				\
+    }									\
+   
+#define GHEX_GET_SOURCE(_ucp_tag)		\
+    ((_ucp_tag) & GHEX_SOURCE_MASK)
+
+
+#define GHEX_GET_TAG(_ucp_tag)			\
+    ((_ucp_tag) >> GHEX_RANK_BITS)
+
+    
 class communicator;
 
 namespace _impl
@@ -290,7 +322,8 @@ public:
 	ep = rank_to_ep(dst);
 
 	/* send without callback */
-	status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1), tag, request + _impl::ucp_request_size);
+	status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				  GHEX_MAKE_SEND_TAG(tag, m_rank), request + _impl::ucp_request_size);
 	
 	if(UCS_OK == status){
 	    
@@ -326,15 +359,16 @@ public:
 	request = (char*)alloca(_impl::request_size);
 	ep = rank_to_ep(dst);
 
-	// send
-	status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1), tag, request + _impl::ucp_request_size);
+	/* send */
+	status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				  GHEX_MAKE_SEND_TAG(tag, m_rank), request + _impl::ucp_request_size);
 
 	if (status != UCS_INPROGRESS) {
-	    // TODO terminate on error
+	    /* TODO terminate on error */
 	    return;
 	}
 
-	// wait for completion
+	/* wait for completion */
 	do {
 	    ucp_worker_progress(ucp_worker);
 	    status = ucp_request_check_status(request + _impl::ucp_request_size);
@@ -360,18 +394,20 @@ public:
 	ucs_status_t status;
 	char *request;
 	ucp_ep_h ep;
-	ucp_tag_t tag_mask = 0xffffff;
+	ucp_tag_t ucp_tag, ucp_tag_mask;
 
 	request = (char*)malloc(_impl::request_size);
 	ep = rank_to_ep(src);
 
-	// recv
-	status = ucp_tag_recv_nbr(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1), tag, tag_mask, request + _impl::ucp_request_size);
+	/* recv */
+	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
+	status = ucp_tag_recv_nbr(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				  ucp_tag, ucp_tag_mask, request + _impl::ucp_request_size);
 	if(UCS_OK != status){
 	    ERR("ucx recv operation failed");
 	}
 
-	// return the future with the request id
+	/* return the future with the request id */
 	request_type ghex_request;
 	ghex_request = (request_type)(request + _impl::ucp_request_size);
 	(*ghex_request).rank = src;
