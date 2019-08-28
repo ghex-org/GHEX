@@ -3,7 +3,7 @@ CXX=/home/angainor/work/institution/usit/prace_6ip/install/bin/mpicxx
 PMIX_DIR=/home/angainor/work/pmi/install-pmix/
 UCX_DIR=/home/angainor/work/institution/usit/prace_6ip/ghex/ucx-1.6.0/install/
 
-FLAGS=-g
+FLAGS=-g -DGHEX_DEBUG_LEVEL=2
 
 all: test
 

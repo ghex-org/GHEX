@@ -4,6 +4,8 @@
 #include <string.h>
 #include <time.h>
 
+#if (GHEX_DEBUG_LEVEL == 2)
+
 #define LOG(msg, ...)							\
     do {								\
 	time_t tm = time(NULL);						\
@@ -13,6 +15,9 @@
 	fflush(stderr);							\
     } while(0);
 
+#else
+#define LOG(msg, ...)
+#endif
 
 #define ERR(msg, ...)							\
     do {								\

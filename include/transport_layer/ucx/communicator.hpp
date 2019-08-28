@@ -148,7 +148,7 @@ public:
     using future_type = _impl::ucx_future;
     using tag_type = ucp_tag_t;
     using rank_type = int;
-    using request_type = _impl::ghex_ucx_request *;
+    using request_type = _impl::ghex_ucx_request;
 
 private:
 
@@ -183,69 +183,80 @@ public:
 	status = ucp_config_read(NULL, NULL, &config);
 	if(UCS_OK != status) ERR("ucp_config_read failed");
 
-	memset(&ucp_params, 0, sizeof(ucp_params));
-	
-	ucp_params.field_mask =
-	    UCP_PARAM_FIELD_FEATURES     |
-	    UCP_PARAM_FIELD_REQUEST_SIZE |
-	    UCP_PARAM_FIELD_REQUEST_INIT ;
+	/* Initialize UCP */
+	{
+	    memset(&ucp_params, 0, sizeof(ucp_params));
 
-	ucp_params.features =
-	    UCP_FEATURE_TAG ;
+	    /* pass features, request size, and request init function */
+	    ucp_params.field_mask =
+		UCP_PARAM_FIELD_FEATURES     |
+		UCP_PARAM_FIELD_REQUEST_SIZE |
+		UCP_PARAM_FIELD_REQUEST_INIT ;
 
-	// support for events
-	// if(use_events){
-	//     ucp_params.features |=
-	// 	UCP_FEATURE_WAKEUP ;
-	// }
+	    /* request transport support for tag matching */
+	    ucp_params.features =
+		UCP_FEATURE_TAG ;
 
-	ucp_params.request_size = sizeof(request_type);
-	ucp_params.request_init = _impl::ghex_ucx_request_init;
+	    // request transport support for wakeup on events
+	    // if(use_events){
+	    //     ucp_params.features |=
+	    // 	UCP_FEATURE_WAKEUP ;
+	    // }
+
+	    ucp_params.request_size = sizeof(request_type);
+	    ucp_params.request_init = _impl::ghex_ucx_request_init;
 
 #if (GHEX_DEBUG_LEVEL == 2)
-	if(0 == pmi_get_rank()){
-	    LOG("ucp version %s", ucp_get_version_string());
-	    LOG("ucp features %lx", ucp_params.features);
-	    ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
-	}
+	    if(0 == pmi_get_rank()){
+		LOG("ucp version %s", ucp_get_version_string());
+		LOG("ucp features %lx", ucp_params.features);
+		ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
+	    }
 #endif
 
-	status = ucp_init(&ucp_params, config, &ucp_context);
-	ucp_config_release(config);
+	    status = ucp_init(&ucp_params, config, &ucp_context);
+	    ucp_config_release(config);
 	
-	if(UCS_OK != status) ERR("ucp_config_init");
-	if(0 == pmi_get_rank()) LOG("UCX initialized");
+	    if(UCS_OK != status) ERR("ucp_config_init");
+	    if(0 == pmi_get_rank()) LOG("UCX initialized");
+	}
 
+	/* ask for UCP request size */
 	{
 	    ucp_context_attr_t attr = {};
-	    attr.field_mask = 0;
-	    attr.field_mask |= UCP_ATTR_FIELD_REQUEST_SIZE;
+	    attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
 	    ucp_context_query (ucp_context, &attr);
+
+	    /* UCP request size */
 	    _impl::ucp_request_size = attr.request_size;
+
+	    /* Total request size: UCP + GHEX struct*/
 	    _impl::request_size = attr.request_size + sizeof(struct _impl::ghex_ucx_request);
-	    if(0 == pmi_get_rank()) LOG("ucp_request size %li, struct size %li\n",
-					attr.request_size, sizeof(_impl::ghex_ucx_request));
 	}
 
 	/* create a worker */
-	memset(&worker_params, 0, sizeof(worker_params));
-	worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-	worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
-	status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
-	if(UCS_OK != status) ERR("ucp_worker_create failed");
-	if(0 == pmi_get_rank()) LOG("UCP worker created");
+	{
+	    memset(&worker_params, 0, sizeof(worker_params));
+	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
+	    if(UCS_OK != status) ERR("ucp_worker_create failed");
+	    if(0 == pmi_get_rank()) LOG("UCP worker created");
+	}
 
-	/* obtain the worker address */
-	status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
-	if(UCS_OK != status) ERR("ucp_worker_create");
-	if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
+	/* obtain the worker endpoint address and post it to PMI */
+	{
+	    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
+	    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
+	    if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
 
-	/* update pmi with local address information */
-	pmi_set_string("ghex-rank-address", worker_address, address_length);
-	ucp_worker_release_address(ucp_worker, worker_address);
+	    /* update pmi with local address information */
+	    pmi_set_string("ghex-rank-address", worker_address, address_length);
+	    ucp_worker_release_address(ucp_worker, worker_address);
 
-	/* global pmi data exchange */
-	pmi_exchange();
+	    /* invoke global pmi data exchange */
+	    pmi_exchange();
+	}
     }
 
     rank_type rank() const noexcept { return m_rank; }
@@ -295,7 +306,7 @@ public:
 	    return ep;
 	}
 
-	/* found an existing connection */
+	/* found an existing connection - return the corresponding endpoint handle */
 	return conn->second;
     }
 
@@ -333,10 +344,10 @@ public:
 	}
 
 	/* return the future with the request id */
-	request_type ghex_request;
-	ghex_request = (request_type)(request + _impl::ucp_request_size);
-	(*ghex_request).rank = dst;
-	(*ghex_request).ucp_worker = ucp_worker;
+	request_type *ghex_request;
+	ghex_request = (request_type*)(request + _impl::ucp_request_size);
+	ghex_request->rank = dst;
+	ghex_request->ucp_worker = ucp_worker;
 	return ghex_request;
     }
 
@@ -359,7 +370,7 @@ public:
 	request = (char*)alloca(_impl::request_size);
 	ep = rank_to_ep(dst);
 
-	/* send */
+	/* send without callback */
 	status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
 				  GHEX_MAKE_SEND_TAG(tag, m_rank), request + _impl::ucp_request_size);
 
@@ -408,10 +419,10 @@ public:
 	}
 
 	/* return the future with the request id */
-	request_type ghex_request;
-	ghex_request = (request_type)(request + _impl::ucp_request_size);
-	(*ghex_request).rank = src;
-	(*ghex_request).ucp_worker = ucp_worker;
+	request_type *ghex_request;
+	ghex_request = (request_type*)(request + _impl::ucp_request_size);
+	ghex_request->rank = src;
+	ghex_request->ucp_worker = ucp_worker;
 	return ghex_request;
     }
 };
