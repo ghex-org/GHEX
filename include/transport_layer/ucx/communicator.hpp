@@ -56,6 +56,7 @@ namespace ucx
 
 #define GHEX_GET_TAG(_ucp_tag)			\
     ((_ucp_tag) >> GHEX_RANK_BITS)
+  
 
     
 class communicator;
@@ -65,20 +66,60 @@ namespace _impl
 
 static std::size_t   ucp_request_size; // size in bytes required for a request by the UCX library
 static std::size_t   request_size;     // total request size in bytes (UCX + our data)
-    
+       
 /** request structure and init function */
 struct ghex_ucx_request {
-    int rank;
-    ucp_worker_h ucp_worker;
+    ucp_worker_h ucp_worker; // worker thread handling this request
+    uint32_t peer_rank;
+    uint32_t tag;
+    void *cb;                // user-side callback, if any
+    void *h_msg;             // user-side message handle
 };
-    
+
 static void ghex_ucx_request_init(void *ptr)
 {
     struct ghex_ucx_request *request = (struct ghex_ucx_request *) ptr;
-    request->rank = 0;
     request->ucp_worker = nullptr;
 }
-    
+
+/** user-side callback */
+typedef void (*f_callback)(int rank, int tag, void *mesg);
+
+/** completion callbacks registered in UCX */
+void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info)
+{
+    /* 1. extract user callback info from request
+       2. extract message object from request
+       3. decode rank and tag
+       4. call user callback
+    */
+    struct ghex_ucx_request *r = static_cast<struct ghex_ucx_request*>(request);
+    f_callback cb = (f_callback)(r->cb);
+    if(cb){
+	uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
+	uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
+	cb(peer_rank, tag, r->h_msg);
+    }
+    ucp_request_free(request);
+}
+
+void ghex_tag_send_callback(void *request, ucs_status_t status)
+{
+    /* 1. extract user callback info from request
+       2. extract message object from request
+       3. decode rank and tag
+       4. call user callback
+    */
+    struct ghex_ucx_request *r = static_cast<struct ghex_ucx_request*>(request);
+    f_callback cb = (f_callback)(r->cb);
+    if(cb){
+	uint32_t peer_rank = r->peer_rank;
+	uint32_t tag = r->tag;
+	cb(peer_rank, tag, r->h_msg);
+    }
+    ucp_request_free(request);
+}
+
 /** The future returned by the send and receive
         * operations of a communicator object to check or wait on their status.
         */
@@ -346,8 +387,9 @@ public:
 	/* return the future with the request id */
 	request_type *ghex_request;
 	ghex_request = (request_type*)(request + _impl::ucp_request_size);
-	ghex_request->rank = dst;
 	ghex_request->ucp_worker = ucp_worker;
+	ghex_request->tag = tag;
+	ghex_request->peer_rank = dst;
 	return ghex_request;
     }
 
@@ -388,6 +430,56 @@ public:
 	return;
     }
 
+    /** Send a message to a destination with the given tag. When the message is sent, and
+         * the message ready to be reused, the given call-back is invoked with the destination
+         *  and tag of the message sent.
+         *
+         * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
+         * @tparam CallBack Funciton to call when the message has been sent and the message ready for reuse
+         *
+         * @param msg Const reference to a message to send
+         * @param dst Destination of the message
+         * @param tag Tag associated with the message
+         * @param cb  Call-back function with signature void(int, int)
+         *
+         * @return A value of type `request_type` that can be used to cancel the request if needed.
+         */
+    template <typename MsgType, typename CallBack>
+    void send(MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
+    {
+	ucs_status_ptr_t status;
+	uintptr_t istatus;
+	request_type *ghex_request;
+	ucp_ep_h ep;
+
+	ep = rank_to_ep(dst);
+
+	/* send with callback */
+	status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				 GHEX_MAKE_SEND_TAG(tag, m_rank), _impl::ghex_tag_send_callback);
+
+	// TODO !! C++ doesn't like it..
+	istatus = (uintptr_t)status;
+	if(UCS_OK == (ucs_status_t)(istatus)){
+	    // immediate completion. callback? or return value?
+	    LOG("immediate completion");
+	    cb(dst, tag, &msg);                         // TODO !!
+	} else if(!UCS_PTR_IS_ERR(status)) {
+	    LOG("send request scheduled for later");
+	    
+	    ghex_request = (request_type*)(status);
+
+	    /* fill in useful request data */
+	    ghex_request->peer_rank = dst;
+	    ghex_request->tag = tag;
+	    ghex_request->cb = (void*)(&cb);             // TODO !!
+	    ghex_request->h_msg = new MsgType(msg);	 // TODO !!
+	} else {
+	    ERR("ucp_tag_send_nb failed");
+	}
+    }
+    
+
     /** Receive a message from a destination with the given tag.
          * It returns a future that can be used to check when the message is available
          * to be read.
@@ -421,9 +513,63 @@ public:
 	/* return the future with the request id */
 	request_type *ghex_request;
 	ghex_request = (request_type*)(request + _impl::ucp_request_size);
-	ghex_request->rank = src;
 	ghex_request->ucp_worker = ucp_worker;
+	ghex_request->tag = tag;
+	ghex_request->peer_rank = src;
 	return ghex_request;
+    }
+
+    
+    /** Receive a message from a source with the given tag. When the message arrives, and
+         * the message ready to be read, the given call-back is invoked with the source
+         *  and tag of the message sent.
+         *
+         * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
+         * @tparam CallBack Funciton to call when the message has been sent and the message ready to be read
+         *
+         * @param msg Const reference to a message that will contain the data
+         * @param src Source of the message
+         * @param tag Tag associated with the message
+         * @param cb  Call-back function with signature void(int, int)
+         *
+         * @return A value of type `request_type` that can be used to cancel the request if needed.
+         */
+    template <typename MsgType, typename CallBack>
+    void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
+    {
+	ucs_status_ptr_t status;
+	request_type *ghex_request;
+	ucp_tag_t ucp_tag, ucp_tag_mask;
+
+	/* recv with callback */
+	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
+	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback);
+
+	if(!UCS_PTR_IS_ERR(status)) {
+	    ghex_request = (request_type*)(status);
+
+	    /* fill in useful request data */
+	    ghex_request->peer_rank = src;
+	    ghex_request->tag = tag;
+	    ghex_request->cb = (void*)(&cb);             // TODO !!
+	    ghex_request->h_msg = new MsgType(msg);	 // TODO !!
+	} else {
+	    ERR("ucp_tag_send_nb failed");
+	}
+    }
+
+    
+    /** Function to invoke to poll the transport layer and check for the completions
+         * of the operations without a future associated to them (that is, they are associated
+         * to a call-back). When an operation completes, the corresponfing call-back is invoked
+         * with the rank and tag associated with that request.
+         *
+         * @return unsigned Non-zero if any communication was progressed, zero otherwise.
+         */
+    unsigned progress()
+    {
+	return ucp_worker_progress(ucp_worker);
     }
 };
 
