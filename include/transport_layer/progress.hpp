@@ -110,8 +110,8 @@ namespace gridtools
             
         public: // queries
 
-            std::size_t size_sends() const { return m_sends.size(); }
-            std::size_t size_recvs() const { return m_recvs.size(); }
+            std::size_t pending_sends() const { return m_sends.size(); }
+            std::size_t pending_recvs() const { return m_recvs.size(); }
 
         public: // send
 
@@ -145,8 +145,15 @@ namespace gridtools
             template <typename Neighs, typename CallBack>
             void send_multi(const message_type& msg, Neighs const &neighs, int tag, CallBack&& cb)
             {
+                GHEX_CHECK_CALLBACK
+                std::shared_ptr<CallBack> cb_ptr(new CallBack{std::forward<CallBack>(cb)});
                 for (auto id : neighs)
-                    send(msg, id, tag, std::forward<CallBack>(cb));
+                    send(msg, id, tag, 
+                            [cb_ptr](rank_type r, tag_type t, const message_type& m)
+                            {
+                                // if (cb_ptr->use_count == 1)
+                                (*cb_ptr)(r,t,m); 
+                            });
             }
 
             /** @brief Send a message to multiple destination without registering a callback */
@@ -317,8 +324,7 @@ namespace gridtools
                     if (element.m_future.ready())
                     {
                         element.m_future.wait();
-                        auto f = std::move( element.m_cb);
-                        f(element.m_rank, element.m_tag, element.m_msg);
+                        element.m_cb(element.m_rank, element.m_tag, element.m_msg);
                         break;
                     }
                     else

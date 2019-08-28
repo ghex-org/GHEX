@@ -47,8 +47,8 @@ TEST(attach, attach_progress)
     progress.attach_send(std::move(send_future), send_msg, dst, 0, [&cb_count](int,int,const message_type&){++cb_count;});
     progress.attach_recv(std::move(recv_future), recv_msg, src, 0, [&cb_count](int,int,const message_type&){++cb_count;});
 
-    ok = ok && (progress.size_sends()==1);
-    ok = ok && (progress.size_recvs()==1);
+    ok = ok && (progress.pending_sends()==1);
+    ok = ok && (progress.pending_recvs()==1);
 
     while(progress()){}
 
@@ -84,14 +84,14 @@ TEST(detach, detach_wait)
     progress.send(send_msg, dst, 0, [&cb_count](int,int,const message_type&){++cb_count;});
     progress.recv(recv_msg, src, 0, [&cb_count](int,int,const message_type&){++cb_count;});
 
-    ok = ok && (progress.size_sends()==1);
-    ok = ok && (progress.size_recvs()==1);
+    ok = ok && (progress.pending_sends()==1);
+    ok = ok && (progress.pending_recvs()==1);
 
     auto o_send = progress.detach_send(dst,0);
     auto o_recv = progress.detach_recv(src,0);
 
-    ok = ok && (progress.size_sends()==0);
-    ok = ok && (progress.size_recvs()==0);
+    ok = ok && (progress.pending_sends()==0);
+    ok = ok && (progress.pending_recvs()==0);
     ok = ok && !progress();
     while (progress()){}
     ok = ok && (cb_count == 0);

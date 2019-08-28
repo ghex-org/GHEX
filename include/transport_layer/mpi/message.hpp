@@ -13,6 +13,7 @@
 
 #include <cassert>
 #include <memory>
+#include <cstring>
 
 namespace gridtools
 {
@@ -39,26 +40,33 @@ namespace mpi
 template <typename Allocator = std::allocator<unsigned char>>
 struct message
 {
-    using allocator_type = Allocator;
-
-    using byte = unsigned char;
-    Allocator m_alloc;
+    using byte           = unsigned char;
+    using allocator_type = typename std::allocator_traits<Allocator>::template rebind_alloc<byte>;
+    using alloc_traits   = std::allocator_traits<allocator_type>;
+    using value_type     = typename alloc_traits::value_type; 
+    using pointer        = typename alloc_traits::pointer; // pointer could be a fancy pointer, i.e. pointer != byte*
+    
+    allocator_type m_alloc;
     size_t m_capacity;
-    byte *m_payload;
+    pointer m_payload;
     size_t m_size;
 
     static constexpr bool can_be_shared = false;
 
+    message(allocator_type alloc)
+        : m_alloc{alloc}, m_capacity{0u}, m_payload(nullptr), m_size{0u}
+    {}
+
     /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
-         * @param alloc Allocator instance
+         * @param alloc allocator_type instance
          */
-    message(size_t capacity = 0, Allocator alloc = Allocator{})
+    message(size_t capacity = 0, allocator_type alloc = allocator_type{})
         : m_alloc{alloc}, m_capacity{capacity}, m_payload(nullptr), m_size{0}
     {
         if (m_capacity > 0)
-            m_payload = std::allocator_traits<Allocator>::allocate(m_alloc, m_capacity);
+            m_payload = alloc_traits::allocate(m_alloc, m_capacity);
     }
 
     /** Constructor that take capacity size and allocator.
@@ -66,21 +74,22 @@ struct message
          *
          * @param capacity Capacity
          * @param size
-         * @param alloc Allocator instance
+         * @param alloc allocator_type instance
          */
-    message(size_t capacity, size_t size, Allocator alloc = Allocator{})
+    message(size_t capacity, size_t size, allocator_type alloc = allocator_type{})
         : message(capacity, alloc)
     {
         m_size = size;
         assert(m_size <= m_capacity);
     }
-
-    /** Copy constructor only does shallo copy, and it should only be used
-     * to put messages in a container, like std::vector
-     */
-    message(message const& other)
-        : m_alloc{other.m_alloc}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
-    {}
+    
+    ///** Copy constructor only does shallo copy, and it should only be used
+    // * to put messages in a container, like std::vector
+    // */
+    //message(message const& other)
+    //    : m_alloc{ alloc_traits::select_on_copy_construction(other.m_alloc) }
+    //    , m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
+    //{}
 
     message(message &&other)
         : m_alloc{std::move(other.m_alloc)}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
@@ -93,21 +102,47 @@ struct message
     ~message()
     {
         if (m_payload)
-            std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
+            alloc_traits::deallocate(m_alloc, m_payload, m_capacity);
         m_payload = nullptr;
     }
 
     message& operator=(message&& other)
     {
-        m_alloc    = std::move(other.m_alloc);
-        m_capacity = other.m_capacity;
-        m_payload  = other.m_payload;
-        m_size     = other.m_size;
-        other.m_capacity = 0;
-        other.m_payload  = nullptr;
-        other.m_size     = 0;
+        using propagate_alloc = typename alloc_traits::propagate_on_container_move_assignment;
+        if (propagate_alloc::value || m_alloc == other.m_alloc)
+        {
+            if (m_payload) alloc_traits::deallocate(m_alloc, m_payload, m_capacity);
+            if (propagate_alloc::value)
+            {
+                void* ptr  = &m_alloc;
+                ~m_alloc();
+                new(ptr) allocator_type{std::move(other.m_alloc)};
+            }
+            m_capacity = other.m_capacity;
+            m_payload  = other.m_payload;
+            m_size     = other.m_size;
+            other.m_capacity = 0;
+            other.m_payload  = nullptr;
+            other.m_size     = 0;
+        }
+        else 
+        {
+            if (m_capacity < other.m_size)
+            {
+                if (m_payload) alloc_traits::deallocate(m_alloc, m_payload, m_capacity);
+                m_payload = alloc_traits::allocate(m_alloc, other.m_size);
+                m_capacity = other.m_size;
+            }
+            byte* dst = m_payload;
+            byte* src = other.m_payload;
+            std::memcpy(dst, src, other.m_size);
+            m_size = other.m_size;
+            other.m_size     = 0;
+        }
         return *this;
     }
+
+    allocator_type get_allocator() const noexcept { return m_alloc; }
 
     constexpr bool is_shared() { return can_be_shared; }
     size_t use_count() const { return 1; }
@@ -118,7 +153,7 @@ struct message
          *
          * @return Pointer to the beginning of the message
          */
-    unsigned char *data() const
+    byte* data() const
     {
         return m_payload;
     }
@@ -132,8 +167,9 @@ struct message
     template <typename T>
     T *data() const
     {
-        assert(reinterpret_cast<std::uintptr_t>(m_payload) % alignof(T) == 0);
-        return reinterpret_cast<T *>(m_payload);
+        byte* byte_ptr = m_payload;
+        assert(reinterpret_cast<std::uintptr_t>(byte_ptr) % alignof(T) == 0);
+        return reinterpret_cast<T *>(byte_ptr);
     }
 
     /** This is the main function used by the communicator to access the
@@ -172,8 +208,8 @@ struct message
     size_t capacity() const { return m_capacity; }
 
     /** Simple iterator facility to read the bytes out of the message */
-    unsigned char *begin() { return m_payload; }
-    unsigned char *end() const { return m_payload + m_size; }
+    byte* begin() { return m_payload; }
+    byte* end() const { return m_payload + m_size; }
 
     /** Function to set a message to a new capacity. Size is unchanged */
     void reserve(size_t new_capacity)
@@ -182,8 +218,8 @@ struct message
             return;
 
         if (m_payload)
-            std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
-        byte *new_storage = std::allocator_traits<Allocator>::allocate(m_alloc, new_capacity);
+            alloc_traits::deallocate(m_alloc, m_payload, m_capacity);
+        pointer new_storage = alloc_traits::allocate(m_alloc, new_capacity);
         m_payload = new_storage;
         m_capacity = new_capacity;
         m_size = 0;
@@ -210,24 +246,30 @@ struct message
 template <typename Allocator = std::allocator<unsigned char>>
 struct shared_message
 {
-    using allocator_type = Allocator;
+    using message_type   = message<Allocator>;
+    using byte           = typename message_type::byte;
+    using allocator_type = typename message_type::allocator_type;
+    using value_type     = typename message_type::value_type; 
+    using pointer        = typename message_type::pointer;
+    
+    //using allocator_type = Allocator;
 
-    std::shared_ptr<message<Allocator>> m_s_message;
+    std::shared_ptr<message_type> m_s_message;
 
     static constexpr bool can_be_shared = true;
 
-    shared_message(Allocator allc = Allocator{})
-        : m_s_message{std::make_shared<message<Allocator>>(0u, allc)}
+    shared_message(allocator_type allc = allocator_type{})
+        : m_s_message{std::make_shared<message_type>(0u, allc)}
     {
     }
 
     /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
-         * @param alloc Allocator instance
+         * @param alloc allocator_type instance
          */
-    shared_message(size_t capacity, Allocator allc = Allocator{})
-        : m_s_message{std::make_shared<message<Allocator>>(capacity, allc)}
+    shared_message(size_t capacity, allocator_type allc = allocator_type{})
+        : m_s_message{std::make_shared<message_type>(capacity, allc)}
     {
     }
 
@@ -236,10 +278,10 @@ struct shared_message
          *
          * @param capacity Capacity
          * @param size
-         * @param alloc Allocator instance
+         * @param alloc allocator_type instance
          */
-    shared_message(size_t capacity, size_t size, Allocator allc = Allocator{})
-        : m_s_message{std::make_shared<message<Allocator>>(capacity, size, allc)}
+    shared_message(size_t capacity, size_t size, allocator_type allc = allocator_type{})
+        : m_s_message{std::make_shared<message_type>(capacity, size, allc)}
     {
     }
 
@@ -248,7 +290,6 @@ struct shared_message
     shared_message(shared_message &&) = default;
 
     shared_message& operator=(shared_message&&) = default;
-    // shallow copy
     shared_message& operator=(const shared_message&) = default;
 
     void reset() noexcept { m_s_message.reset(); }
@@ -259,7 +300,7 @@ struct shared_message
          *
          * @return Pointer to the beginning of the message
          */
-    unsigned char *data() const
+    auto data() const
     {
         return m_s_message->data();
     }
@@ -271,7 +312,7 @@ struct shared_message
          * @return Pointer to the beginning of the message as a T*
          */
     template <typename T>
-    T *data() const
+    auto data() const
     {
         return m_s_message->template data<T>();
     }
@@ -321,8 +362,8 @@ struct shared_message
     size_t capacity() const { return m_s_message->capacity(); }
 
     /** Simple iterator facility to read the bytes out of the message */
-    unsigned char *begin() { return m_s_message->begin(); }
-    unsigned char *end() const { return m_s_message->end(); }
+    auto begin() { return m_s_message->begin(); }
+    auto end() const { return m_s_message->end(); }
 };
 } // namespace mpi
 } // namespace ghex
