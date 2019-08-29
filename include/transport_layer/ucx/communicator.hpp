@@ -76,12 +76,6 @@ struct ghex_ucx_request {
     void *h_msg;             // user-side message handle
 };
 
-static void ghex_ucx_request_init(void *ptr)
-{
-    struct ghex_ucx_request *request = (struct ghex_ucx_request *) ptr;
-    request->ucp_worker = nullptr;
-}
-
 /** user-side callback */
 typedef void (*f_callback)(int rank, int tag, void *mesg);
 
@@ -231,8 +225,7 @@ public:
 	    /* pass features, request size, and request init function */
 	    ucp_params.field_mask =
 		UCP_PARAM_FIELD_FEATURES     |
-		UCP_PARAM_FIELD_REQUEST_SIZE |
-		UCP_PARAM_FIELD_REQUEST_INIT ;
+		UCP_PARAM_FIELD_REQUEST_SIZE ;
 
 	    /* request transport support for tag matching */
 	    ucp_params.features =
@@ -245,7 +238,6 @@ public:
 	    // }
 
 	    ucp_params.request_size = sizeof(request_type);
-	    ucp_params.request_init = _impl::ghex_ucx_request_init;
 
 #if (GHEX_DEBUG_LEVEL == 2)
 	    if(0 == pmi_get_rank()){
