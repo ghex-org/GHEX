@@ -115,7 +115,7 @@ struct message
             if (propagate_alloc::value)
             {
                 void* ptr  = &m_alloc;
-                ~m_alloc();
+                m_alloc.~allocator_type();
                 new(ptr) allocator_type{std::move(other.m_alloc)};
             }
             m_capacity = other.m_capacity;
