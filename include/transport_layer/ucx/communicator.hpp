@@ -224,8 +224,11 @@ public:
 
 	    /* pass features, request size, and request init function */
 	    ucp_params.field_mask =
-		UCP_PARAM_FIELD_FEATURES     |
-		UCP_PARAM_FIELD_REQUEST_SIZE ;
+		UCP_PARAM_FIELD_FEATURES          |
+		UCP_PARAM_FIELD_REQUEST_SIZE      |
+		UCP_PARAM_FIELD_TAG_SENDER_MASK   |
+		UCP_PARAM_FIELD_MT_WORKERS_SHARED |
+		UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
 
 	    /* request transport support for tag matching */
 	    ucp_params.features =
@@ -238,6 +241,20 @@ public:
 	    // }
 
 	    ucp_params.request_size = sizeof(request_type);
+
+	    /* this should be true if we have per-thread workers 
+	       otherwise, if one worker is shared by each thread, it should be false
+	       This requires benchmarking. */
+	    ucp_params.mt_workers_shared = false;
+
+	    /* estimated number of end-points - 
+	       affects transport selection criteria and theresulting performance */
+	    ucp_params.estimated_num_eps = m_size;
+
+	    /* Mask which specifies particular bits of the tag which can uniquely identify
+	       the sender (UCP endpoint) in tagged operations. */
+	    ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
+	    
 
 #if (GHEX_DEBUG_LEVEL == 2)
 	    if(0 == pmi_get_rank()){
@@ -270,8 +287,11 @@ public:
 	/* create a worker */
 	{
 	    memset(&worker_params, 0, sizeof(worker_params));
+
+	    /* this should not be used if we have a single worker per thread */
 	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
 	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+	    
 	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 	    if(UCS_OK != status) ERR("ucp_worker_create failed");
 	    if(0 == pmi_get_rank()) LOG("UCP worker created");
@@ -287,8 +307,8 @@ public:
 	    pmi_set_string("ghex-rank-address", worker_address, address_length);
 	    ucp_worker_release_address(ucp_worker, worker_address);
 
-	    /* invoke global pmi data exchange */
-	    pmi_exchange();
+	    /* invoke global pmi data exchange - this is probably not needed */
+	    /* pmi_exchange(); */
 	}
     }
 
