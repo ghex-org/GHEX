@@ -257,7 +257,7 @@ public:
 	    
 
 #if (GHEX_DEBUG_LEVEL == 2)
-	    if(0 == pmi_get_rank()){
+	    if(0 == m_rank){
 		LOG("ucp version %s", ucp_get_version_string());
 		LOG("ucp features %lx", ucp_params.features);
 		ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
@@ -268,7 +268,7 @@ public:
 	    ucp_config_release(config);
 	
 	    if(UCS_OK != status) ERR("ucp_config_init");
-	    if(0 == pmi_get_rank()) LOG("UCX initialized");
+	    if(0 == m_rank) LOG("UCX initialized");
 	}
 
 	/* ask for UCP request size */
@@ -294,14 +294,14 @@ public:
 	    
 	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 	    if(UCS_OK != status) ERR("ucp_worker_create failed");
-	    if(0 == pmi_get_rank()) LOG("UCP worker created");
+	    if(0 == m_rank) LOG("UCP worker created");
 	}
 
 	/* obtain the worker endpoint address and post it to PMI */
 	{
 	    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
 	    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
-	    if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
+	    if(0 == m_rank) LOG("UCP worker addres length %zu", address_length);
 
 	    /* update pmi with local address information */
 	    pmi_set_string("ghex-rank-address", worker_address, address_length);
@@ -335,7 +335,7 @@ public:
 	free(worker_address);
 	
 #if (GHEX_DEBUG_LEVEL == 2)
-	if(0 == pmi_get_rank()){
+	if(0 == m_rank){
 	    ucp_ep_print_info(ucp_ep, stdout);
 	    ucp_worker_print_info(ucp_worker, stdout);
 	}
