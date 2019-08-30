@@ -14,3 +14,5 @@ foreach (_t ${_benchmarks_mt})
     target_include_directories(${_t}_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
     target_link_libraries(${_t}_mt MPI::MPI_CXX GridTools::gridtools Boost::mpi gtest_main_bench_mt)
 endforeach()
+
+add_subdirectory(transport)
