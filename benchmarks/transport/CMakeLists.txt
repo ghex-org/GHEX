@@ -2,7 +2,7 @@
 set(_benchmarks )
 
 # Variable used for benchmarks that require multithreading support
-set(_benchmarks_mt mpi_thread_multiple)
+set(_benchmarks_mt mpi_thread_multiple ucx_thread_multiple)
 
 foreach (_t ${_benchmarks_mt})
     add_executable(${_t}_mt ${_t}.cpp )

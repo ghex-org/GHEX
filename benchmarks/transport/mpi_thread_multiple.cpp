@@ -6,7 +6,6 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define BUFF_SIZE 1024*1024
 static struct timeval tb, te;
 double bytes = 0;
 
@@ -39,6 +38,7 @@ int main(int argc, char *argv[])
     int rank, size, threads, peer_rank;
     int niter, buff_size;
     int inflight;
+    MPI_Comm comm;
 
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
@@ -46,8 +46,9 @@ int main(int argc, char *argv[])
     
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &threads);
     fprintf(stderr, "thread mode %d %d\n", MPI_THREAD_MULTIPLE, threads);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_dup(MPI_COMM_WORLD, &comm);
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
     if(size!=2){
 	fprintf(stderr, "ERROR: only works for 2 MPI ranks\n");
 	exit(1);
@@ -63,7 +64,6 @@ int main(int argc, char *argv[])
 	nthr = omp_get_num_threads();
 
 	fprintf(stderr, "rank %d thrid %d started\n", rank, thrid);
-#pragma omp barrier
 
 	for(int j=0; j<inflight; j++){
 	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffer[j]);
@@ -75,17 +75,13 @@ int main(int argc, char *argv[])
 	    }
 	}
 	
-#pragma omp master
-	{
-	    MPI_Barrier(MPI_COMM_WORLD);
-	}
-#pragma omp barrier
+	MPI_Barrier(comm);
 	fprintf(stderr, "rank %d thrid %d on omp barrier\n", rank, thrid);
 
 #pragma omp master
-	{
-	    if(rank == 0) tic();
-	    bytes = (double)niter*nthr*size*buff_size;
+	if(rank == 0) {
+	    tic();
+	    bytes = (double)niter*nthr*size*buff_size/2;
 	}
 	
 	MPI_Request *sreq = new MPI_Request[inflight], *rreq = new MPI_Request[inflight];
@@ -94,19 +90,21 @@ int main(int argc, char *argv[])
 	    /* submitt inflight async requests, wait for all afterwards */
 	    for(int j=0; j<inflight; j++){
 		if(rank==0 && thrid==0 && (i+j)%10000==0) fprintf(stderr, "%d iters\n", i);
-		MPI_Isend(sbuffer[j], buff_size, MPI_BYTE, peer_rank, j, MPI_COMM_WORLD, &sreq[j]);
-		MPI_Irecv(rbuffer[j], buff_size, MPI_BYTE, peer_rank, j, MPI_COMM_WORLD, &rreq[j]);
+		if(rank==0)
+		    MPI_Isend(sbuffer[j], buff_size, MPI_BYTE, peer_rank, j, comm, &sreq[j]);
+		else
+		    MPI_Irecv(rbuffer[j], buff_size, MPI_BYTE, peer_rank, j, comm, &rreq[j]);
 	    }
-	    MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
-	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
+	    if(rank==0)
+		MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
+	    else
+		MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
 	}
 
-#pragma omp barrier
+	MPI_Barrier(comm);
+
 #pragma omp master
-	{
-	    MPI_Barrier(MPI_COMM_WORLD);
-	    if(rank == 0) toc();
-	}
+	if(rank == 0) toc();
 
 	/* cleanup */
 	for(int j=0; j<inflight; j++){
