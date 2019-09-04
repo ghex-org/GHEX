@@ -12,10 +12,8 @@
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main_boost.cpp"
+    #include "gtest_main.cpp"
 #endif
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/collectives.hpp>
 #include <sstream>
 #include <string>
 #include <fstream>
@@ -106,14 +104,11 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, boost::mpi::communicator& world) 
+        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::mpi::mpi_comm& world) 
     {
         //gridtools::device::gpu::sync();
         //gridtools::device::gpu::check_error("error at begin of run");
         file << "enter run" << std::endl;
-        // mpi communicator
-        //boost::mpi::communicator comm(CartComm,boost::mpi::comm_attach);
-        //boost::mpi::communicator world;
         //gridtools::device::gpu::sync();
         //gridtools::device::gpu::check_error("error at begin of run 2");
         
@@ -693,7 +688,7 @@ namespace halo_exchange_3D_generic_full {
         int H3m3,
         int H3p3) 
     {
-        boost::mpi::communicator world;
+        gridtools::ghex::mpi::mpi_comm world;
         //std::cout << world.rank() << " " << world.size() << "\n";
         
         std::stringstream ss;
@@ -2188,7 +2183,7 @@ int main(int argc, char **argv)
     if (provided < required)
         throw std::runtime_error("MPI does not support required threading level");
 #else
-    boost::mpi::environment env(argc, argv);
+    MPI_Init(&argc,&argv);
 #endif
 
     if (argc != 22) {
@@ -2242,9 +2237,7 @@ int main(int argc, char **argv)
         H3m3,
         H3p3);
 
-#ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
     MPI_Finalize();
-#endif
     return 0;
 }
 #else
@@ -2259,12 +2252,12 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     const int Nz = 80;
 
 #ifdef __CUDACC__
-    boost::mpi::communicator mpi_comm;
+    gridtools::ghex::mpi::mpi_comm mpi_comm;
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    boost::mpi::communicator local_comm(raw_local_comm, boost::mpi::comm_take_ownership);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::gehx::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 

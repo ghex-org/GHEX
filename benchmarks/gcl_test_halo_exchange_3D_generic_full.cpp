@@ -13,7 +13,7 @@
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main_boost.cpp"
+    #include "gtest_main.cpp"
 #endif
 #include <fstream>
 #include <gridtools/common/boollist.hpp>
@@ -25,10 +25,9 @@
 #include <stdlib.h>
 #include <string>
 #include <sys/time.h>
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/collectives.hpp>
 #include <iomanip>
 
+#include "../include/protocol/mpi_comm.hpp"
 #include "../include/timer.hpp"
 #include "triplet.hpp"
 
@@ -93,7 +92,7 @@ namespace halo_exchange_3D_generic_full {
 
         typedef gridtools::layout_map<I1, I2, I3> layoutmap;
 
-        boost::mpi::communicator world;
+        gridtools::ghex::mpi::mpi_comm world;
 
         array<triple_t<USE_DOUBLE, T1>, layoutmap> a(
             _a, (DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1));

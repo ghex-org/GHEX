@@ -12,7 +12,7 @@
 #define INCLUDED_SETUP_HPP
 
 #include "./communicator_base.hpp"
-#include <boost/mpi/communicator.hpp>
+#include "./mpi_comm.hpp"
 #include <vector>
 
 namespace gridtools {
@@ -22,27 +22,18 @@ namespace gridtools {
         /** @brief special mpi communicator used for setup phase */
         class setup_communicator
         {
-            struct setup_handle
-            {
-                MPI_Request m_req;
-                void wait()
-                {
-                    MPI_Status status;
-                    BOOST_MPI_CHECK_RESULT(
-                        MPI_Wait,
-                        (&m_req, &status)
-                    );
-                }
-            };
         public:
-            using handle_type = setup_handle; //boost::mpi::request;
+            using handle_type = ::gridtools::ghex::mpi::request;
             using address_type = int;
             template<typename T>
             using future = future_base<handle_type,T>;
 
+        private:
+            ::gridtools::ghex::mpi::mpi_comm m_comm;
+
         public:
             setup_communicator(const MPI_Comm& comm)
-            :   m_comm(comm, boost::mpi::comm_attach) {}
+            :   m_comm(comm) {}
 
             setup_communicator(const setup_communicator& other) 
             : setup_communicator(other.m_comm) {} 
@@ -56,41 +47,41 @@ namespace gridtools {
             template<typename T>
             void send(int dest, int tag, const T & value)
             {
-                m_comm.send(dest, tag, reinterpret_cast<const char*>(&value), sizeof(T));
+                GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(&value), sizeof(T), MPI_BYTE, dest, tag, m_comm));
             }
 
             template<typename T>
-            boost::mpi::status recv(int source, int tag, T & value)
+            ::gridtools::ghex::mpi::status recv(int source, int tag, T & value)
             {
-                return m_comm.recv(source, tag, reinterpret_cast<char*>(&value), sizeof(T));
+                MPI_Status status;
+                GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(&value), sizeof(T), MPI_BYTE, source, tag, m_comm, &status));
+                return {status};
             }
 
             template<typename T>
             void send(int dest, int tag, const T* values, int n)
             {
-                m_comm.send(dest, tag, reinterpret_cast<const char*>(values), sizeof(T)*n);
+                GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(values), sizeof(T)*n, MPI_BYTE, dest, tag, m_comm));
             }
 
             template<typename T>
-            boost::mpi::status recv(int source, int tag, T* values, int n)
+            ::gridtools::ghex::mpi::status recv(int source, int tag, T* values, int n)
             {
-                return m_comm.recv(source, tag, reinterpret_cast<char*>(values), sizeof(T)*n);
+                MPI_Status status;
+                GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(values), sizeof(T)*n, MPI_BYTE, source, tag, m_comm, &status));
+                return {status};
             }
 
             template<typename T> 
             void broadcast(T& value, int root)
             {
-                BOOST_MPI_CHECK_RESULT(
-                    MPI_Bcast,
-                    (&value, sizeof(T), MPI_BYTE, root, m_comm));
+                GHEX_CHECK_MPI_RESULT(MPI_Bcast(&value, sizeof(T), MPI_BYTE, root, m_comm));
             }
 
             template<typename T> 
             void broadcast(T * values, int n, int root)
             {
-                BOOST_MPI_CHECK_RESULT(
-                    MPI_Bcast,
-                    (values, sizeof(T)*n, MPI_BYTE, root, m_comm));
+                GHEX_CHECK_MPI_RESULT(MPI_Bcast(values, sizeof(T)*n, MPI_BYTE, root, m_comm));
             }
 
             template<typename T>
@@ -106,12 +97,10 @@ namespace gridtools {
                     recvcounts[i] = sizes[i]*sizeof(T);
                     displs[i] = reinterpret_cast<char*>(&res[i][0]) - reinterpret_cast<char*>(&res[0][0]);
                 }
-                BOOST_MPI_CHECK_RESULT(
-                    MPI_Iallgatherv,
-                    (&payload[0], payload.size()*sizeof(T), MPI_BYTE,
+                GHEX_CHECK_MPI_RESULT( MPI_Iallgatherv(
+                    &payload[0], payload.size()*sizeof(T), MPI_BYTE,
                     &res[0][0], &recvcounts[0], &displs[0], MPI_BYTE,
                     m_comm, 
-                    //&h.m_requests[0]));
                     &h.m_req));
                 return {std::move(res), std::move(h)};
             }
@@ -121,18 +110,15 @@ namespace gridtools {
             {
                 std::vector<T> res(m_comm.size());
                 handle_type h;
-                BOOST_MPI_CHECK_RESULT(
-                    MPI_Iallgather,
+                GHEX_CHECK_MPI_RESULT(
+                    MPI_Iallgather
                     (&payload, sizeof(T), MPI_BYTE,
                     &res[0], sizeof(T), MPI_BYTE,
                     m_comm,
-                    //&h.m_requests[0]));
                     &h.m_req));
                 return {std::move(res), std::move(h)};
             } 
 
-        private:
-            boost::mpi::communicator m_comm;
         };
 
     } // namespace protocol
