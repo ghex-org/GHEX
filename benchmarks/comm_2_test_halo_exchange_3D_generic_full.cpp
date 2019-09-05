@@ -160,11 +160,8 @@ namespace halo_exchange_3D_generic_full {
         file << "run after pattern creation" << std::endl;
         
         // communication object
-#ifndef GHEX_1_PATTERN_BENCHMARK
-        auto co = gridtools::make_communication_object(pattern_1, pattern_2, pattern_3);
-#else
-        auto co = gridtools::make_communication_object(pattern_1);
-#endif
+        auto co = gridtools::make_communication_object<decltype(pattern_1)>();
+
         file << "run after co creation" << std::endl;
 
 

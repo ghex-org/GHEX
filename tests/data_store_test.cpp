@@ -43,7 +43,7 @@ TEST(data_store, make)
     //auto grid = gridtools::make_gt_processor_grid<gridtools::layout_map<0,1,2>>(extents, periodicity, CartComm); 
     auto grid     = gridtools::make_gt_processor_grid(extents, periodicity, CartComm); 
     auto pattern1 = gridtools::make_gt_pattern(grid, std::array<int,6>{1,1,1,1,0,0});
-    auto co       = gridtools::make_communication_object(pattern1);
+    auto co       = gridtools::make_communication_object<decltype(pattern1)>();
 
     using host_backend_t        = gridtools::backend::mc;
     using host_storage_info_t   = gridtools::storage_traits<host_backend_t>::storage_info_t<0, 3, halo_t>;

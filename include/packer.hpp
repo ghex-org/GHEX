@@ -32,7 +32,7 @@ namespace gridtools {
                     if (p1.second.size > 0u)
                     {
                         p1.second.buffer.resize(p1.second.size);
-                        for (const auto& fb : p1.second.field_buffers)
+                        for (const auto& fb : p1.second.field_infos)
                             fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)0);
                         //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
                         //<< ", " << p1.second.buffer.size() << ")" << std::endl;
@@ -142,8 +142,8 @@ namespace gridtools {
         static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
         {
             using send_buffer_type     = typename Map::send_buffer_type;
-            using field_buffer_type    = typename send_buffer_type::field_buffer_type;
-            using index_container_type = typename field_buffer_type::index_container_type;
+            using field_info_type      = typename send_buffer_type::field_info_type;
+            using index_container_type = typename field_info_type::index_container_type;
             using dimension            = typename index_container_type::value_type::dimension;
             using array_t              = array<int, dimension::value>;
 
@@ -177,7 +177,7 @@ namespace gridtools {
                         args.resize(0);
                         int num_blocks_y = 0;
                         int max_size = 0;
-                        for (const auto& fb : p1.second.field_buffers)
+                        for (const auto& fb : p1.second.field_infos)
                         {
                             T* buffer_address = reinterpret_cast<T*>(p1.second.buffer.data()+fb.offset);
                             for (const auto& it_space_pair : *fb.index_container)
@@ -293,7 +293,7 @@ namespace gridtools {
                 {
                     if (p1.second.size > 0u)
                     {
-                        for (const auto& fb : p1.second.field_buffers)
+                        for (const auto& fb : p1.second.field_infos)
                         {
                             fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
                         }
@@ -327,8 +327,8 @@ namespace gridtools {
         static void unpack_u(BufferMem& m)
         {
             using recv_buffer_type     = typename BufferMem::recv_buffer_type;
-            using field_buffer_type    = typename recv_buffer_type::field_buffer_type;
-            using index_container_type = typename field_buffer_type::index_container_type;
+            using field_info_type      = typename recv_buffer_type::field_info_type;
+            using index_container_type = typename field_info_type::index_container_type;
             using dimension            = typename index_container_type::value_type::dimension;
             using array_t              = array<int, dimension::value>;
 

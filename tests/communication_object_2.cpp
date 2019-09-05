@@ -247,9 +247,9 @@ bool test0()
     auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
     
     // communication object
-    auto co   = gridtools::make_communication_object(pattern1,pattern2);
-    auto co_1 = gridtools::make_communication_object(pattern1,pattern2);
-    auto co_2 = gridtools::make_communication_object(pattern1,pattern2);
+    auto co   = gridtools::make_communication_object<decltype(pattern1)>();
+    auto co_1 = gridtools::make_communication_object<decltype(pattern1)>();
+    auto co_2 = gridtools::make_communication_object<decltype(pattern1)>();
 
     // wrap raw fields
     auto field_1a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer);
