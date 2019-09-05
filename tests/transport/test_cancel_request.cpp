@@ -1,4 +1,4 @@
-#include <transport_layer/progress.hpp>
+#include <transport_layer/callback_communicator.hpp>
 #include <transport_layer/mpi/communicator.hpp>
 #include <iostream>
 #include <iomanip>
@@ -16,7 +16,7 @@ bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
     using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(comm)>;
 
-    gridtools::ghex::progress<comm_type,allocator_type> progress(comm);
+    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(comm);
 
     if (rank == 0) {
         smsg_type smsg{SIZE, SIZE};
@@ -29,8 +29,8 @@ bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
 
         std::array<int, 3> dsts = {1,2,3};
 
-        progress.send_multi(smsg, dsts, 42+42); // ~wrong tag to then cancel the calls
-        bool ok = progress.cancel();
+        cb_comm.send_multi(smsg, dsts, 42+42); // ~wrong tag to then cancel the calls
+        bool ok = cb_comm.cancel();
         MPI_Barrier(comm);
         return ok;
     } else {
@@ -42,7 +42,7 @@ bool test_simple(gridtools::ghex::mpi::communicator &comm, int rank) {
         MPI_Barrier(comm);
         // cleanup msg
         for (int i=0; i<100; ++i)
-            progress([](int src,int tag,const smsg_type& m){ 
+            cb_comm.progress([](int src,int tag,const smsg_type& m){ 
                 std::cout << "received unexpected message from rank " << src << " and tag " << tag 
                 << " with size = " << m.size() << std::endl;});
 
@@ -57,7 +57,7 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
     using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(comm)>;
 
-    gridtools::ghex::progress<comm_type,allocator_type> progress(comm);
+    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(comm);
 
     if (rank == 0) {
         smsg_type smsg{SIZE, SIZE};
@@ -65,18 +65,18 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         std::array<int, 3> dsts = {1,2,3};
 
         for (int dst : dsts) {
-            progress.send(smsg, dst, 45, [](int,int,const smsg_type&) {} );
+            cb_comm.send(smsg, dst, 45, [](int,int,const smsg_type&) {} );
         }
 
         bool ok = true;
 
         for (auto dst : dsts) {
-            if (auto o = progress.detach_send(dst, 45))
+            if (auto o = cb_comm.detach_send(dst, 45))
                 if (!o->first.ready())
                     ok &= o->first.cancel();
         }
 
-        while (progress()) {}
+        while (cb_comm.progress()) {}
 
         MPI_Barrier(comm);
         return ok;
@@ -86,27 +86,27 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
         smsg_type rmsg{SIZE, SIZE};
 
         // recv umatching tag
-        progress.recv(rmsg, 0, 43, [](int, int, const smsg_type&) {  }); 
+        cb_comm.recv(rmsg, 0, 43, [](int, int, const smsg_type&) {  }); 
 
         // progress should not be empty
-        ok = ok && progress();
+        ok = ok && cb_comm.progress();
 
         // detach all registered recvs/callbacks and cancel recv operation
-        if (auto o = progress.detach_recv(0,43))
+        if (auto o = cb_comm.detach_recv(0,43))
         {
             ok = ok && o->first.cancel();
             std::cout << "detached msg size = " << o->second.size() << std::endl;
         }
 
         // progress shoud be empty now
-        ok = ok && !progress();
-        while (progress()) {}
+        ok = ok && !cb_comm.progress();
+        while (cb_comm.progress()) {}
 
         MPI_Barrier(comm);
 
         // try to cleanup lingering messages
         for (int i=0; i<100; ++i)
-            progress([](int src,int tag,const smsg_type& m){ 
+            cb_comm.progress([](int src,int tag,const smsg_type& m){ 
                 std::cout << "received unexpected message from rank " << src << " and tag " << tag 
                 << " with size = " << m.size() << std::endl;});
 
@@ -116,21 +116,21 @@ bool test_single(gridtools::ghex::mpi::communicator &comm, int rank) {
 }
 
 
-template<typename Progress>
+template<typename CBComm>
 class call_back {
     int & m_value;
-    Progress& m_progress;
+    CBComm& m_cb_comm;
 
 public:
-    call_back(int& a, Progress& p)
+    call_back(int& a, CBComm& p)
     : m_value(a)
-    , m_progress{p}
+    , m_cb_comm{p}
     { }
 
     void operator()(int, int, const gridtools::ghex::mpi::shared_message<>& m) 
     {
         m_value = m.data<int>()[0];
-        m_progress.recv(m, 0, 42+m_value+1, *this);
+        m_cb_comm.recv(m, 0, 42+m_value+1, *this);
     }
 };
 
@@ -139,9 +139,9 @@ bool test_send_10(gridtools::ghex::mpi::communicator &comm, int rank) {
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(comm)>;
-    using progress_type  = gridtools::ghex::progress<comm_type,allocator_type>;
+    using cb_comm_type   = gridtools::ghex::callback_communicator<comm_type,allocator_type>;
    
-    progress_type progress(comm);
+    cb_comm_type cb_comm(comm);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -153,22 +153,22 @@ bool test_send_10(gridtools::ghex::mpi::communicator &comm, int rank) {
 
             std::array<int, 3> dsts = {1,2,3};
 
-            progress.send_multi(smsg, dsts, 42+v);
+            cb_comm.send_multi(smsg, dsts, 42+v);
         }
-        while (progress()) {}
+        while (cb_comm.progress()) {}
         return true;
     } else {
         int value = -11111111;
 
         smsg_type rmsg{sizeof(int), sizeof(int)};
 
-        progress.recv(rmsg, 0, 42, call_back<progress_type>{value, progress});
+        cb_comm.recv(rmsg, 0, 42, call_back<cb_comm_type>{value, cb_comm});
 
         while (value < 9) {
-            progress();
+            cb_comm.progress();
         }
 
-        bool ok = progress.cancel();
+        bool ok = cb_comm.cancel();
 
         return ok;
 
@@ -210,3 +210,4 @@ TEST(transport, cancel_single_request) {
 
     EXPECT_TRUE(test_single(comm, rank));
 }
+

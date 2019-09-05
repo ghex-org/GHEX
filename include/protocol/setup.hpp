@@ -35,7 +35,7 @@ namespace gridtools {
                 }
             };
         public:
-            using handle_type = setup_handle; //boost::mpi::request;
+            using handle_type = setup_handle;
             using address_type = int;
             template<typename T>
             using future = future_base<handle_type,T>;

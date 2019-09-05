@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_PROGRESS_HPP
-#define INCLUDED_PROGRESS_HPP
+#ifndef INCLUDED_CALLBACK_COMMUNICATOR_HPP
+#define INCLUDED_CALLBACK_COMMUNICATOR_HPP
 
 #include <deque>
 #include <algorithm>
@@ -41,8 +41,8 @@ namespace gridtools
     namespace ghex
     {
 
-        /** progress is a class to dispatch send and receive operations to. Each operation can optionally be tied
-          * to a user defined callback function / function object. The payload of each send/receive operation
+        /** callback_communicator is a class to dispatch send and receive operations to. Each operation can optionally 
+          * be tied to a user defined callback function / function object. The payload of each send/receive operation
           * must be a ghex::shared_message<Allocator>. This class will keep a (shallow) copy of each message, thus
           * it is safe to release the message at the caller's site.
           *
@@ -57,7 +57,7 @@ namespace gridtools
           * @tparam Communicator underlying transport communicator
           * @tparam Allocator    allocator type used for allocating shared messages */
         template<class Communicator, class Allocator = std::allocator<unsigned char>>
-        class progress
+        class callback_communicator
         {
         public: // member types
             
@@ -94,13 +94,13 @@ namespace gridtools
 
         public: // ctors
 
-            progress(const communicator_type& comm, allocator_type alloc = allocator_type{}) 
+            callback_communicator(const communicator_type& comm, allocator_type alloc = allocator_type{}) 
                 : m_comm(comm), m_alloc(alloc) {}
-            progress(communicator_type&& comm, allocator_type alloc = allocator_type{}) 
+            callback_communicator(communicator_type&& comm, allocator_type alloc = allocator_type{}) 
                 : m_comm(std::move(comm)), m_alloc(alloc) {}
-            progress(const progress&) = delete;
-            progress(progress&&) = default;
-            ~progress() 
+            callback_communicator(const callback_communicator&) = delete;
+            callback_communicator(callback_communicator&&) = default;
+            ~callback_communicator() 
             { 
                 if (m_sends.size() != 0 || m_recvs.size() != 0)  
                 {
@@ -197,7 +197,7 @@ namespace gridtools
             /** @brief Progress the communication. This function checks whether any receive and send operation is 
               * completed and calls the associated callback (if it exists).
               * @return returns false if all registered operations have been completed.*/
-            bool operator()()
+            bool progress()
             {
                 const auto sends_completed = run(m_sends);
                 const auto recvs_completed = run(m_recvs);
@@ -213,10 +213,10 @@ namespace gridtools
               * @param unexpected_cb Callback function object
               * @return returns false if all registered operations have been completed. */
             template<typename CallBack>
-            bool operator()(CallBack&& unexpected_cb)
+            bool progress(CallBack&& unexpected_cb)
             {
                 GHEX_CHECK_CALLBACK
-                const auto not_completed = this->operator()();
+                const auto not_completed = progress();
                 if (!not_completed)
                 {
                     if (auto o = m_comm.recv_any(m_alloc))
@@ -376,5 +376,5 @@ namespace gridtools
     } // namespace ghex
 }// namespace gridtools
 
-#endif /* INCLUDED_PROGRESS_HPP */
+#endif /* INCLUDED_CALLBACK_COMMUNICATOR_HPP */
 

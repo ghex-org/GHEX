@@ -1,4 +1,4 @@
-#include <transport_layer/progress.hpp>
+#include <transport_layer/callback_communicator.hpp>
 #include <transport_layer/mpi/communicator.hpp>
 #include <vector>
 #include <iomanip>
@@ -54,7 +54,7 @@ auto test2() {
     using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
 
-    gridtools::ghex::progress<comm_type,allocator_type> progress(sr);
+    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     smsg_type rmsg(40, 40);
@@ -63,11 +63,11 @@ auto test2() {
 
     if ( rank == 0 ) {
         auto fut = sr.send(smsg, 1, 1);
-        progress.recv(rmsg, 1, 2, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 1, 2, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
         auto fut = sr.send(smsg, 0, 2);
-        progress.recv(rmsg, 0, 1, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     }
 
@@ -78,7 +78,7 @@ auto test2() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-        progress();
+        cb_comm.progress();
      } while (!arrived);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -87,7 +87,7 @@ auto test2() {
     std::cout << "***********\n";
 #endif
 
-    EXPECT_FALSE(progress());
+    EXPECT_FALSE(cb_comm.progress());
 
     return rmsg;
 }
@@ -140,7 +140,7 @@ auto test2_mesg() {
     using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
 
-    gridtools::ghex::progress<comm_type,allocator_type> progress(sr);
+    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
 
     gridtools::ghex::mpi::message<> smsg{40, 40};
 
@@ -156,11 +156,11 @@ auto test2_mesg() {
 
     if ( rank == 0 ) {
         auto fut = sr.send(smsg, 1, 1);
-        progress.recv(rmsg, 1, 2, [ &arrived](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 1, 2, [ &arrived](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
         auto fut = sr.send(smsg, 0, 2);
-        progress.recv(rmsg, 0, 1, [ &arrived](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     }
 
@@ -171,7 +171,7 @@ auto test2_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
-        progress();
+        cb_comm.progress();
      } while (!arrived);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -180,7 +180,7 @@ auto test2_mesg() {
     std::cout << "***********\n";
 #endif
 
-    EXPECT_FALSE(progress());
+    EXPECT_FALSE(cb_comm.progress());
 
 
     return rmsg;

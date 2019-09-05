@@ -1,4 +1,4 @@
-#include <transport_layer/progress.hpp>
+#include <transport_layer/callback_communicator.hpp>
 #include <transport_layer/mpi/communicator.hpp>
 #include <vector>
 #include <iomanip>
@@ -51,7 +51,7 @@ void test2() {
     using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
 
-    gridtools::ghex::progress<comm_type,allocator_type> progress(sr);
+    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
     smsg_type rmsg(10,10);
@@ -62,7 +62,7 @@ void test2() {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        progress.recv(rmsg, 0, 1, [ &arrived](int /*src*/, int /* tag */, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived](int /*src*/, int /* tag */, const smsg_type&) { arrived = true; });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -71,7 +71,7 @@ void test2() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-            progress();
+            cb_comm.progress();
          } while (!arrived);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -87,7 +87,7 @@ void test2() {
         }
     }
 
-    EXPECT_FALSE(progress());
+    EXPECT_FALSE(cb_comm.progress());
 
 }
 
@@ -137,7 +137,7 @@ void test2_mesg() {
     using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
 
-    gridtools::ghex::progress<comm_type,allocator_type> progress(sr);
+    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
 
     gridtools::ghex::mpi::message<> smsg{40, 40};
     smsg_type rmsg{40, 40};
@@ -154,7 +154,7 @@ void test2_mesg() {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
-        progress.recv(rmsg, 0, 1, [ &arrived](int /* src */, int /* tag */, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived](int /* src */, int /* tag */, const smsg_type&) { arrived = true; });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -163,7 +163,7 @@ void test2_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-            progress();
+            cb_comm.progress();
          } while (!arrived);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -178,7 +178,7 @@ void test2_mesg() {
         }
     }
 
-    EXPECT_FALSE(progress());
+    EXPECT_FALSE(cb_comm.progress());
 
     MPI_Barrier(MPI_COMM_WORLD);
 
