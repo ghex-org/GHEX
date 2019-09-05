@@ -159,14 +159,14 @@ namespace gridtools {
         template<typename Device>
         struct buffer_memory
         {
-            using device_type = Device;
-            using id_type     = typename device_type::id_type;
-            using vector_type = typename device_type::template vector_type<char>;
+            using device_type    = Device;
+            using device_id_type = typename device_type::device_id_type;
+            using vector_type    = typename device_type::template vector_type<char>;
             
             using send_buffer_type = buffer<vector_type,pack_function_type>; 
             using recv_buffer_type = buffer<vector_type,unpack_function_type>; 
-            using send_memory_type = std::map<id_type, std::map<domain_id_pair,send_buffer_type>>;
-            using recv_memory_type = std::map<id_type, std::map<domain_id_pair,recv_buffer_type>>;
+            using send_memory_type = std::map<device_id_type, std::map<domain_id_pair,send_buffer_type>>;
+            using recv_memory_type = std::map<device_id_type, std::map<domain_id_pair,recv_buffer_type>>;
 
             send_memory_type send_memory;
             recv_memory_type recv_memory;
@@ -431,7 +431,7 @@ namespace gridtools {
     private: // allocation member functions
 
         template<typename Device, typename T, typename Memory, typename Field, typename O>
-        void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id, typename Device::id_type device_id, O tag_offset)
+        void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id, typename Device::device_id_type device_id, O tag_offset)
         {
             allocate<Device,T,typename buffer_memory<Device>::recv_buffer_type>( mem->recv_memory[device_id], pattern.recv_halos(),
                 [field_ptr](const void* buffer, const index_container_type& c, void* arg) { field_ptr->unpack(reinterpret_cast<const T*>(buffer),c,arg); },

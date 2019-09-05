@@ -75,15 +75,13 @@ namespace gridtools {
     } // namespace _impl
 
     template <typename Grid, typename Storage, typename StorageInfo>
-    auto wrap_gt_field(Grid& grid, const data_store<Storage,StorageInfo>& ds, typename _impl::get_device<Storage>::type::id_type device_id = 0)
+    auto wrap_gt_field(Grid& grid, const data_store<Storage,StorageInfo>& ds, typename _impl::get_device<Storage>::type::device_id_type device_id = 0)
     {
         using domain_id_type    = typename Grid::domain_id_type;
-        //using data_store_t      = data_store<mc_storage<DataType>,StorageInfo>;
         using data_store_t      = data_store<Storage,StorageInfo>;
         using device_t          = typename _impl::get_device<Storage>::type;
         using value_t           = typename data_store_t::data_t;
         using layout_t          = typename StorageInfo::layout_t;
-        //using unmasked_layout_t = typename _impl::get_unmasked_layout_map<layout_t>::type;
         using integer_seq       = typename _impl::get_unmasked_layout_map<layout_t>::integer_seq;
         using uint_t            = decltype(layout_t::masked_length);
         using dimension         = std::integral_constant<uint_t, layout_t::masked_length>;

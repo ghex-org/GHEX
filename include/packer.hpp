@@ -8,17 +8,16 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_PACK_HPP
-#define INCLUDED_PACK_HPP
+#ifndef INCLUDED_PACKER_HPP
+#define INCLUDED_PACKER_HPP
 
 #include "./devices.hpp"
 #include "./structured/field_utils.hpp"
 #include "./cuda_utils/kernel_argument.hpp"
-//#include <thread>
-//#include <future>
 
 namespace gridtools {
 
+    /** @brief generic implementation of pack and unpack */
     template<typename Device>
     struct packer
     {
@@ -33,9 +32,7 @@ namespace gridtools {
                     {
                         p1.second.buffer.resize(p1.second.size);
                         for (const auto& fb : p1.second.field_infos)
-                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)0);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, nullptr);
                         send_futures.push_back(comm.isend(
                             p1.second.address,
                             p1.second.tag,
@@ -48,8 +45,6 @@ namespace gridtools {
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
-            //auto policy = std::launch::async;
-            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
             for (std::size_t i = 0; i < index_list.size(); ++i)
                 index_list[i] = i;
@@ -63,20 +58,15 @@ namespace gridtools {
                     {
                         if (j < --size)
                             index_list[j--] = index_list[size];
-                        //futures[k] = std::async(
-                        //    policy,
-                        //    [k](BufferMem& m){
                                 for (const auto& fb : *m.m_recv_hooks[k].second)
-                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,(void*)0);
-                        //    }, 
-                        //    std::ref(m));
+                                    fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,nullptr);
                     }
                 }
             }
-            //for (auto& f: futures)
-            //    f.get();
         }
     };
+
+
 	
 #ifdef __CUDACC__
     
@@ -99,7 +89,6 @@ namespace gridtools {
         const int data_lu_index = blockIdx.y;
 
         const auto& arg = args[data_lu_index];
-        //const int size = sizes[data_lu_index];
         const int size = arg.size;
         if (thread_index < size)
         {
@@ -135,9 +124,97 @@ namespace gridtools {
         }
     }
 
+    /** @brief specialization for gpus, including vector interface special functions */
     template<>
     struct packer<device::gpu>
     {
+        template<typename Map, typename Futures, typename Communicator>
+        static void pack(Map& map, Futures& send_futures,Communicator& comm)
+        {
+            std::size_t num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.buffer.resize(p1.second.size);
+                        ++num_streams;
+                    }
+                }
+            }
+            std::vector<cudaStream_t> streams(num_streams);
+            for (auto& x : streams) 
+                cudaStreamCreate(&x);
+            num_streams = 0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        for (const auto& fb : p1.second.field_infos)
+                        {
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
+                        }
+                        ++num_streams;
+                    }
+                }
+            }
+            num_streams=0;
+            for (auto& p0 : map.send_memory)
+            {
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        cudaStreamSynchronize(streams[num_streams]);
+                        send_futures.push_back(comm.isend(
+                            p1.second.address,
+                            p1.second.tag,
+                            p1.second.buffer));
+                        ++num_streams;
+                    }
+                }
+            }
+            for (auto& x : streams) 
+                cudaStreamDestroy(x);
+        }
+
+        template<typename BufferMem>
+        static void unpack(BufferMem& m)
+        {
+            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
+            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            std::size_t i = 0;
+            for (auto& x : streams)
+            {
+                cudaStreamCreate(&x);
+                index_list[i] = i;
+                ++i;
+            }
+            std::size_t size = index_list.size();
+            while(size>0u)
+            {
+                for (std::size_t j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (m.m_recv_futures[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        for (const auto& fb : *m.m_recv_hooks[k].second)
+                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
+                    }
+                }
+            }
+            for (auto& x : streams) 
+            {
+                cudaStreamSynchronize(x);
+                cudaStreamDestroy(x);
+            }
+        }
+
         template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
         static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
         {
@@ -197,6 +274,8 @@ namespace gridtools {
                             }
                         }
                         const int num_blocks_x = (max_size+block_size-1)/block_size;
+                        // unroll kernels: can fit at most 36 arguments as pack kernel argument
+                        // invoke new kernels until all data is packed
                         unsigned int count = 0;
                         while (num_blocks_y)
                         {
@@ -256,8 +335,6 @@ namespace gridtools {
                     {
                         cudaStreamSynchronize(streams[num_streams]);
                         cudaStreamDestroy(streams[num_streams]);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
                         send_futures.push_back(comm.isend(
                             p1.second.address,
                             p1.second.tag,
@@ -266,61 +343,6 @@ namespace gridtools {
                     }
                 }
             }
-        }
-
-        template<typename Map, typename Futures, typename Communicator>
-        static void pack(Map& map, Futures& send_futures,Communicator& comm)
-        {
-            std::size_t num_streams = 0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        p1.second.buffer.resize(p1.second.size);
-                        ++num_streams;
-                    }
-                }
-            }
-            std::vector<cudaStream_t> streams(num_streams);
-            for (auto& x : streams) 
-                cudaStreamCreate(&x);
-            num_streams = 0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        for (const auto& fb : p1.second.field_infos)
-                        {
-                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
-                        }
-                        ++num_streams;
-                    }
-                }
-            }
-            num_streams=0;
-            for (auto& p0 : map.send_memory)
-            {
-                for (auto& p1: p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        cudaStreamSynchronize(streams[num_streams]);
-                        //std::cout << "isend(" << p1.second.address << ", " << p1.second.tag 
-                        //<< ", " << p1.second.buffer.size() << ")" << std::endl;
-                        send_futures.push_back(comm.isend(
-                            p1.second.address,
-                            p1.second.tag,
-                            p1.second.buffer));
-                        ++num_streams;
-                    }
-                }
-            }
-            for (auto& x : streams) 
-                cudaStreamDestroy(x);
         }
 
         template<typename T, typename FieldType, typename BufferMem>
@@ -379,6 +401,8 @@ namespace gridtools {
                             }
                         }
                         const int num_blocks_x = (max_size+block_size-1)/block_size;
+                        // unroll kernels: can fit at most 36 arguments as unpack kernel argument
+                        // invoke new kernels until all data is unpacked
                         unsigned int count = 0;
                         while (num_blocks_y)
                         {
@@ -433,55 +457,10 @@ namespace gridtools {
                 cudaStreamDestroy(x);
             }
         }
-
-        template<typename BufferMem>
-        static void unpack(BufferMem& m)
-        {
-            //auto policy = std::launch::async;
-            //std::vector<std::future<void>> futures(m.m_recv_futures.size());
-            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
-            std::vector<std::size_t> index_list(m.m_recv_futures.size());
-            std::size_t i = 0;
-            for (auto& x : streams)
-            {
-                cudaStreamCreate(&x);
-                index_list[i] = i;
-                ++i;
-            }
-            std::size_t size = index_list.size();
-            while(size>0u)
-            {
-                for (std::size_t j = 0; j < size; ++j)
-                {
-                    const auto k = index_list[j];
-                    if (m.m_recv_futures[k].test())
-                    {
-                        if (j < --size)
-                            index_list[j--] = index_list[size];
-                        //futures[k] = std::async(
-                        //    policy,
-                        //    [k](BufferMem& m, cudaStream_t& s){
-                        //        for (const auto& fb : *m.m_recv_hooks[k].second)
-                        //            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&s)); 
-                        //    }, 
-                        //    std::ref(m), std::ref(streams[k]));
-                        for (const auto& fb : *m.m_recv_hooks[k].second)
-                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
-                    }
-                }
-            }
-            //int k = 0;
-            for (auto& x : streams) 
-            {
-                //futures[k++].get();
-                cudaStreamSynchronize(x);
-                cudaStreamDestroy(x);
-            }
-        }
     };
 #endif
 
 } // namespace gridtools
 
-#endif /* INCLUDED_PACK_HPP */
+#endif /* INCLUDED_PACKER_HPP */
 

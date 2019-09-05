@@ -13,6 +13,7 @@
 
 namespace gridtools {
 
+    /** @brief simple std::array-like class used to efficiently pass arguments to a cuda kernel */
     template<class T, unsigned int N>
     struct kernel_argument
     {

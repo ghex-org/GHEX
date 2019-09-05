@@ -39,7 +39,7 @@ namespace gridtools {
         using pattern_container_type   = pattern_container<P,GridType,DomainIdType>;
         using device_type              = Device;
         using field_type               = Field;
-        using device_id_type           = typename device_type::id_type;
+        using device_id_type           = typename device_type::device_id_type;
         using value_type               = typename field_type::value_type; 
    
     private: // friend class

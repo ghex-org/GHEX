@@ -205,7 +205,7 @@ namespace gridtools {
     public: // member types
         using value_type             = T;
         using device_type            = Device;
-        using device_id_type         = typename device_type::id_type;
+        using device_id_type         = typename device_type::device_id_type;
         using domain_descriptor_type = structured_domain_descriptor<DomainIdType,Dimension>;
         using dimension              = typename domain_descriptor_type::dimension;
         using layout_map             = gridtools::layout_map<Order...>;
@@ -285,7 +285,7 @@ namespace gridtools {
 
     public: // member functions
         GT_FUNCTION
-        typename device_type::id_type device_id() const { return m_device_id; }
+        typename device_type::device_id_type device_id() const { return m_device_id; }
         GT_FUNCTION
         domain_id_type domain_id() const { return m_dom_id; }
 
@@ -343,7 +343,7 @@ namespace gridtools {
      * @return wrapped field*/
     template<typename Device, int... Order, typename DomainIdType, typename T, typename Array>
     simple_field_wrapper<T,Device,structured_domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
-    wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents, typename Device::id_type device_id = 0)
+    wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents, typename Device::device_id_type device_id = 0)
     {
         return {dom_id, data, offsets, extents, device_id};     
     }

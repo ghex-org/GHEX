@@ -37,6 +37,7 @@ namespace gridtools {
     namespace ghex {
         namespace mpi {
 
+            /** @brief thin wrapper around MPI_Request */
             struct request
             {
                 MPI_Request m_req;
@@ -55,6 +56,7 @@ namespace gridtools {
                 }
             };
 
+            /** @brief thin wrapper around MPI_Status */
             struct status
             {
                 MPI_Status m_status;
@@ -74,6 +76,7 @@ namespace gridtools {
             struct comm_take_ownership_tag{};
             static constexpr comm_take_ownership_tag comm_take_ownership;
 
+            /** @brief thin wrapper around MPI_Comm */
             struct mpi_comm
             {
                 MPI_Comm m_comm;
