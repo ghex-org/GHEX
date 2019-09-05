@@ -13,5 +13,5 @@ clean:
 pmi.o: pmi.c pmi.h
 	$(CC) $(FLAGS) -I$(PMIX_DIR)/include pmi.c -c
 
-test: test.cpp pmi.o communicator.hpp
-	$(CXX) $(FLAGS) -I$(UCX_DIR)/include -o $@ $^  -L$(PMIX_DIR)/lib -lpmix -L$(UCX_DIR)/lib -lucp -Wl,-rpath -Wl,$(UCX_DIR)/lib -Wl,-rpath -Wl,$(PMIX_DIR)/lib
+test: ucx_thread_multiple.cpp pmi.o communicator.hpp
+	$(CXX) $(FLAGS) -I$(UCX_DIR)/include -o $@ $^  -L$(PMIX_DIR)/lib -lpmix -L$(UCX_DIR)/lib -lucp -Wl,-rpath -Wl,$(UCX_DIR)/lib -Wl,-rpath -Wl,$(PMIX_DIR)/lib -fopenmp
