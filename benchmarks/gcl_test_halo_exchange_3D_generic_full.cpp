@@ -318,12 +318,12 @@ namespace halo_exchange_3D_generic_full {
             auto t_all = gridtools::ghex::reduce(t,world);
             if (k >= k_start)
             {
-                t_0_local += t_0;
-                t_1_local += t_1;
-                t_local += t;
-                t_0_global += t_0_all;
-                t_1_global += t_1_all;
-                t_global += t_all;
+                t_0_local(t_0);
+                t_1_local(t_1);
+                t_local(t);
+                t_0_global(t_0_all);
+                t_1_global(t_1_all);
+                t_global(t_all);
             }
 
             file << "TIME PACK:        " 

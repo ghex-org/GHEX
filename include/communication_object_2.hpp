@@ -41,8 +41,8 @@ namespace gridtools {
         using communicator_type = protocol::communicator<P>;
 
     public: // public constructor
-        communication_handle(const communicator_type& comm) 
-        : m_comm{comm} {}
+        /*communication_handle(const communicator_type& comm) 
+        : m_comm{comm} {}*/
 
     private: // private constructor
         template<typename Func>
@@ -145,7 +145,6 @@ namespace gridtools {
 
             std::vector<typename communicator_type::template future<void>> m_recv_futures;
             std::vector<std::pair<char*,std::vector<field_buffer<unpack_function_type>>*>> m_recv_hooks;
-            std::vector<bool> m_completed_hooks;
         };
         
         // tuple type of buffer_memory (one element for each device in device::device_list)
@@ -312,7 +311,7 @@ namespace gridtools {
                                 p1.second.buffer.data(),
                                 p1.second.buffer.size()));
                             m.m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_buffers))); 
-                            m.m_completed_hooks.push_back(false);
+                            //m.m_completed_hooks.push_back(false);
                         }
                     }
                 }
@@ -390,7 +389,7 @@ namespace gridtools {
             {
                 m.m_recv_futures.clear();
                 m.m_recv_hooks.resize(0);
-                m.m_completed_hooks.resize(0);
+                //m.m_completed_hooks.resize(0);
                 for (auto& p0 : m.send_memory)
                     for (auto& p1 : p0.second)
                     {

@@ -14,7 +14,6 @@
 #include <array>
 #include <utility>
 #include <thread>
-//#include <boost/mpi/communicator.hpp>
 #include <cstring>
 #include <gridtools/common/layout_map.hpp>
 #include "../include/gridtools_arch.hpp"
@@ -101,7 +100,6 @@ TEST(communication_object, constructor) {
     using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
 
-    //boost::mpi::communicator world;
     gridtools::ghex::mpi::mpi_comm world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
@@ -156,7 +154,6 @@ TEST(communication_object, exchange) {
     using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    //boost::mpi::communicator world;
     gridtools::ghex::mpi::mpi_comm world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
@@ -263,7 +260,6 @@ TEST(communication_object, exchange_asymmetric_halos) {
     using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    //boost::mpi::communicator world;
     gridtools::ghex::mpi::mpi_comm world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
@@ -370,7 +366,6 @@ TEST(communication_object, exchange_multiple_fields) {
     using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    //boost::mpi::communicator world;
     gridtools::ghex::mpi::mpi_comm world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
@@ -508,7 +503,6 @@ TEST(communication_object, multithreading) {
     using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    //boost::mpi::communicator world;
     gridtools::ghex::mpi::mpi_comm world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 
@@ -666,7 +660,6 @@ TEST(communication_object, multithreading_multiple_fileds) {
     using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    //boost::mpi::communicator world;
     gridtools::ghex::mpi::mpi_comm world;
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
 

@@ -21,8 +21,6 @@
 #include <gtest/gtest.h>
 #include "gtest_main_gpu.cpp"
 
-//#include <boost/mpi/communicator.hpp>
-
 #include "../include/devices.hpp"
 
 #ifdef __CUDACC__
@@ -83,7 +81,6 @@ TEST(gpu, allocate)
 {
     bool passed = true;
 
-    //boost::mpi::communicator world;
     gridtools::ghex::mpi::mpi_comm world;
 
 #ifdef __CUDACC__
@@ -93,7 +90,6 @@ TEST(gpu, allocate)
 
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, world.rank(), MPI_INFO_NULL, &raw_local_comm);
-    //boost::mpi::communicator local_comm(raw_local_comm, boost::mpi::comm_take_ownership);
     gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
 
 

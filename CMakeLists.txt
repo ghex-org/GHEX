@@ -24,7 +24,6 @@ endif()
 
 find_package(MPI REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
-#find_package(Boost COMPONENTS mpi REQUIRED)
 find_package(Boost)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
@@ -63,6 +62,5 @@ endif()
 set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
 set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
-#add_subdirectory(src)
 add_subdirectory(tests)
 add_subdirectory(benchmarks)
