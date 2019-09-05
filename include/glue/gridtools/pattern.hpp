@@ -12,7 +12,7 @@
 #define INCLUDED_GT_GLUE_PATTERN_HPP
 
 #include <array>
-#include "../structured_pattern.hpp"
+#include "../../structured/structured_pattern.hpp"
 
 namespace gridtools {
 

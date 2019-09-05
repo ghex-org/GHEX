@@ -1,4 +1,3 @@
-#set(_benchmarks simple_comm_test_halo_exchange_3D_generic_full gcl_test_halo_exchange_3D_generic_full comm_2_test_halo_exchange_3D_generic_full)
 set(_benchmarks simple_comm_test_halo_exchange_3D_generic_full)
 
 foreach (_t ${_benchmarks})

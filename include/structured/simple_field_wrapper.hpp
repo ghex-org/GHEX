@@ -49,62 +49,40 @@ namespace gridtools {
 
     
 #ifdef __CUDACC__
-    //template<typename Layout, typename T, std::size_t D, typename I>
     template<typename Layout, typename T, std::size_t D, typename I, typename S>
     __global__ void pack_kernel(int size, const T* data, T* buffer, 
-                                //array<I,D> local_first, array<I,D> local_last, 
                                 array<I,D> local_first, array<I,D> local_strides,
-                                //array<I,D> extents, array<I,D> offsets, array<I,D> strides)
                                 array<S,D> byte_strides, array<I,D> offsets)
     {
         const auto index = blockIdx.x*blockDim.x + threadIdx.x;
         if (index < size)
         {
-            // compute local strides
-            /*array<I,D> local_extents, local_strides;
-            for (std::size_t i=0; i<D; ++i)  
-                local_extents[i] = 1 + local_last[i] - local_first[i];
-            detail::compute_strides<D>::template apply<Layout>(local_extents, local_strides);*/
             // compute local coordinate
             array<I,D> local_coordinate;
             detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
             // add offset
             const auto memory_coordinate = local_coordinate + local_first + offsets;
             // multiply with memory strides
-            //const auto idx = dot(memory_coordinate, strides);
             const auto idx = dot(memory_coordinate, byte_strides);
-            //const decltype(idx) mm = extents[0]*extents[1]*extents[2]-1;
-            //const auto idx2 = idx < mm ? idx : mm;
-            //buffer[index] = data[idx];
             buffer[index] = *reinterpret_cast<const T*>((const char*)data + idx);
         }
     }
 
-    //template<typename Layout, typename T, std::size_t D, typename I>
     template<typename Layout, typename T, std::size_t D, typename I, typename S>
     __global__ void unpack_kernel(int size, T* data, const T* buffer, 
-                                //array<I,D> local_first, array<I,D> local_last, 
                                 array<I,D> local_first, array<I,D> local_strides,
-                                //array<I,D> extents, array<I,D> offsets, array<I,D> strides)
                                 array<S,D> byte_strides, array<I,D> offsets)
     {
         const auto index = blockIdx.x*blockDim.x + threadIdx.x;
         if (index < size)
         {
-            // compute local strides
-            /*array<I,D> local_extents, local_strides;
-            for (std::size_t i=0; i<D; ++i)  
-                local_extents[i] = 1 + local_last[i] - local_first[i];
-            detail::compute_strides<D>::template apply<Layout>(local_extents, local_strides);*/
             // compute local coordinate
             array<I,D> local_coordinate;
             detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
             // add offset
             const auto memory_coordinate = local_coordinate + local_first + offsets;
             // multiply with memory strides
-            //const auto idx = dot(memory_coordinate, strides);
             const auto idx = dot(memory_coordinate, byte_strides);
-            //data[idx] = buffer[index];
             *reinterpret_cast<T*>((char*)data + idx) = buffer[index];
         }
     }
@@ -112,14 +90,9 @@ namespace gridtools {
 
     template<typename Device, typename Dimension, typename Layout>
     struct serialization
-    //template<typename Dimension, typename Layout>
-    //struct serialization<device::cpu, Dimension, Layout>
     {
-        //template<typename T, typename IndexContainer, typename Array>
         template<typename T, typename IndexContainer, typename Strides, typename Array>
         GT_FUNCTION_HOST
-        //static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, 
-        //                 const Array& m_offsets, const Array& /*m_strides*/, void*)
         static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Strides& m_byte_strides, 
                          const Array& m_offsets, void*)
         {
@@ -128,13 +101,11 @@ namespace gridtools {
                 detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
                     [m_data,buffer](auto o_data, auto o_buffer)
                     {
-                        //buffer[o_buffer] = m_data[o_data]; 
                         *reinterpret_cast<T*>(reinterpret_cast<char*>(buffer)+o_buffer) = 
                         *reinterpret_cast<const T*>(reinterpret_cast<const char*>(m_data)+o_data); 
                     }, 
                     is.local().first(), 
                     is.local().last(),
-                    //m_extents,
                     m_byte_strides,
                     m_offsets
                     );
@@ -142,11 +113,8 @@ namespace gridtools {
             }
         }
 
-        //template<typename T, typename IndexContainer, typename Array>
         template<typename T, typename IndexContainer, typename Strides, typename Array>
         GT_FUNCTION_HOST
-        //static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, 
-        //                   const Array& m_offsets, const Array& /*m_strides*/, void*)
         static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Strides& m_byte_strides, 
                            const Array& m_offsets, void*)
         {
@@ -155,13 +123,11 @@ namespace gridtools {
                 detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
                     [m_data,buffer](auto o_data, auto o_buffer)
                     {
-                        //m_data[o_data] = buffer[o_buffer];
                         *reinterpret_cast<T*>(reinterpret_cast<char*>(m_data)+o_data) = 
                         *reinterpret_cast<const T*>(reinterpret_cast<const char*>(buffer)+o_buffer); 
                     }, 
                     is.local().first(), 
                     is.local().last(),
-                    //m_extents,
                     m_byte_strides,
                     m_offsets
                     );
@@ -175,11 +141,8 @@ namespace gridtools {
     template<typename Dimension, typename Layout>
     struct serialization<device::gpu, Dimension, Layout>
     {
-        //template<typename T, typename IndexContainer, typename Array>
         template<typename T, typename IndexContainer, typename Strides, typename Array>
         GT_FUNCTION_HOST
-        //static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Array& m_extents, 
-        //                 const Array& m_offsets, const Array& m_strides, void* arg)
         static void pack(T* buffer, const IndexContainer& c, const T* m_data, const Strides& m_byte_strides, 
                          const Array& m_offsets, void* arg)
         {
@@ -194,20 +157,14 @@ namespace gridtools {
                     local_extents[i] = 1 + local_last[i] - local_first[i];
                 detail::compute_strides<Dimension::value>::template apply<Layout>(local_extents, local_strides);
                 const int size = is.size();
-                //pack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(
-                //  size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
                 pack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS,0,*stream_ptr>>>(
-                    //size, m_data, buffer, local_first, local_strides, m_extents, m_offsets, m_strides);
                     size, m_data, buffer, local_first, local_strides, m_byte_strides, m_offsets);
                 buffer += size;
             }
         }
 
-        //template<typename T, typename IndexContainer, typename Array>
         template<typename T, typename IndexContainer, typename Strides, typename Array>
         GT_FUNCTION_HOST
-        //static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Array& m_extents, 
-        //                   const Array& m_offsets, const Array& m_strides, void* arg)
         static void unpack(const T* buffer, const IndexContainer& c, T* m_data, const Strides& m_byte_strides, 
                            const Array& m_offsets, void* arg)
         {
@@ -222,12 +179,7 @@ namespace gridtools {
                     local_extents[i] = 1 + local_last[i] - local_first[i];
                 detail::compute_strides<Dimension::value>::template apply<Layout>(local_extents, local_strides);
                 const int size = is.size();
-                //unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(
-                //  size, m_data, buffer, local_first, local_last, m_extents, m_offsets, m_strides);
-                //unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS>>>(
-                //        size, m_data, buffer, local_first, local_strides, m_extents, m_offsets, m_strides);
                 unpack_kernel<Layout><<<(size+NCTIS-1)/NCTIS,NCTIS,0,*stream_ptr>>>(
-                        //size, m_data, buffer, local_first, local_strides, m_extents, m_offsets, m_strides);
                         size, m_data, buffer, local_first, local_strides, m_byte_strides, m_offsets);
                 buffer += size;
             }
@@ -258,14 +210,12 @@ namespace gridtools {
         using dimension              = typename domain_descriptor_type::dimension;
         using layout_map             = gridtools::layout_map<Order...>;
         using domain_id_type         = DomainIdType;
-        //using coordinate_type        = typename domain_descriptor_type::halo_generator_type::coordinate_type;
         using coordinate_type        = array<typename domain_descriptor_type::halo_generator_type::coordinate_type::element_type, dimension::value>;
         using strides_type           = array<std::size_t, dimension::value>;
 
     private: // members
         domain_id_type  m_dom_id;
         value_type*     m_data;
-        //coordinate_type m_strides;
         coordinate_type m_offsets;
         coordinate_type m_extents;
         device_id_type  m_device_id;
@@ -289,7 +239,6 @@ namespace gridtools {
             std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
             std::copy(extents.begin(), extents.end(), m_extents.begin());
             // compute strides
-            //detail::compute_strides<dimension::value>::template apply<layout_map>(m_extents,m_strides);
             detail::compute_strides<dimension::value>::template apply<layout_map,value_type>(m_extents,m_byte_strides,0u);
         }
 
@@ -354,10 +303,8 @@ namespace gridtools {
          * @param x coordinate vector with respect to offset specified in constructor
          * @return reference to value */
         GT_FUNCTION
-        //value_type& operator()(const coordinate_type& x) { return m_data[dot(x,m_strides)]; }
         value_type& operator()(const coordinate_type& x) { return *reinterpret_cast<T*>((char*)m_data +dot(x,m_byte_strides)); }
         GT_FUNCTION
-        //const value_type& operator()(const coordinate_type& x) const { return m_data[dot(x,m_strides)]; }
         const value_type& operator()(const coordinate_type& x) const { return *reinterpret_cast<const T*>((const char*)m_data +dot(x,m_byte_strides)); }
 
         /** @brief access operator
@@ -365,24 +312,20 @@ namespace gridtools {
          * @return reference to value */
         template<typename... Is>
         GT_FUNCTION
-        //value_type& operator()(Is&&... is) { return m_data[dot(coordinate_type{is...}+m_offsets,m_strides)]; }
         value_type& operator()(Is&&... is) { return *reinterpret_cast<T*>((char*)m_data+dot(coordinate_type{is...}+m_offsets,m_byte_strides)); }
         template<typename... Is>
         GT_FUNCTION
-        //const value_type& operator()(Is&&... is) const { return m_data[dot(coordinate_type{is...}+m_offsets,m_strides)]; }
         const value_type& operator()(Is&&... is) const { return *reinterpret_cast<const T*>((const char*)m_data+dot(coordinate_type{is...}+m_offsets,m_byte_strides)); }
 
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c, void* arg)
         {
-            //serialization<Device,dimension,layout_map>::pack(buffer, c, m_data, m_extents, m_offsets, m_strides, arg);
             serialization<Device,dimension,layout_map>::pack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
         }
 
         template<typename IndexContainer>
         void unpack(const T* buffer, const IndexContainer& c, void* arg)
         {
-            //serialization<Device,dimension,layout_map>::unpack(buffer, c, m_data, m_extents, m_offsets, m_strides, arg);
             serialization<Device,dimension,layout_map>::unpack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
         }
     };

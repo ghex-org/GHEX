@@ -16,7 +16,7 @@
 #include <tuple>
 #include <iostream>
 #include "./gridtools_arch.hpp"
-#include "./utils.hpp"
+#include "./common/utils.hpp"
 #include "./allocator/default_init_allocator.hpp"
 
 namespace gridtools {

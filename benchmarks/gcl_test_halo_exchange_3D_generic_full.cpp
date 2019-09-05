@@ -28,7 +28,7 @@
 #include <iomanip>
 
 #include "../include/protocol/mpi_comm.hpp"
-#include "../include/timer.hpp"
+#include "../include/common/timer.hpp"
 #include "triplet.hpp"
 
 #ifdef __CUDACC__

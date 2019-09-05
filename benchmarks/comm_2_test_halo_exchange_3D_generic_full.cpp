@@ -21,10 +21,10 @@
 #include <array>
 
 #include "../include/communication_object_2.hpp"
-#include "../include/structured_pattern.hpp"
-#include "../include/structured_domain_descriptor.hpp"
-#include "../include/simple_field_wrapper.hpp"
-#include "../include/timer.hpp"
+#include "../include/structured/structured_pattern.hpp"
+#include "../include/structured/structured_domain_descriptor.hpp"
+#include "../include/structured/simple_field_wrapper.hpp"
+#include "../include/common/timer.hpp"
 #include "triplet.hpp"
 
 #include <gridtools/common/array.hpp>

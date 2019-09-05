@@ -117,11 +117,6 @@ namespace gridtools {
             template<typename T>
             using vector_type = vector_type_<T, void>;
             
-            /*struct handle
-            {
-                void wait() {}
-            };*/
-
             template<typename T>
             static vector_type<T> make_vector(id_type index = default_id()) 
             { 

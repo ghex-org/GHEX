@@ -17,8 +17,7 @@
 //#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
 //#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
-#include "../include/simple_field_wrapper.hpp"
-#include "../include/structured_pattern.hpp"
+#include "../include/structured/structured_pattern.hpp"
 #include "../include/communication_object_2.hpp"
 #include <array>
 #include <iomanip>

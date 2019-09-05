@@ -12,10 +12,10 @@
 #define INCLUDED_COMMUNICATION_OBJECT_2_HPP
 
 #include "./packer.hpp"
-#include "./utils.hpp"
+#include "./common/utils.hpp"
 #include "./buffer_info.hpp"
 #include "./protocol/communicator_base.hpp"
-#include "./simple_field_wrapper.hpp"
+#include "./structured/simple_field_wrapper.hpp"
 #include <map>
 #include <stdio.h>
 #include <functional>

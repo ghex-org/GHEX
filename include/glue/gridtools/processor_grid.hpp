@@ -12,13 +12,10 @@
 #define INCLUDED_PROCESSOR_GRID_HPP
 
 #include <mpi.h>
-//#include <gridtools/common/array.hpp>
-//#include <gridtools/common/layout_map.hpp>
 #include <array>
 
-#include "../structured_domain_descriptor.hpp"
-//#include "../protocol/setup.hpp"
-#include "../protocol/mpi.hpp"
+#include "../../structured/structured_domain_descriptor.hpp"
+#include "../../protocol/mpi.hpp"
 
 #include <numeric>
 

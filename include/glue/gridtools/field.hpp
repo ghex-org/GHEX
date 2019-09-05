@@ -11,8 +11,8 @@
 #ifndef INCLUDED_GT_GLUE_FIELD_HPP
 #define INCLUDED_GT_GLUE_FIELD_HPP
 
-#include "../simple_field_wrapper.hpp"
-#include "../devices.hpp"
+#include "../../structured/simple_field_wrapper.hpp"
+#include "../../devices.hpp"
 #include <gridtools/storage/data_store.hpp>
 #include <gridtools/meta/list_to_iseq.hpp>
 #ifdef __CUDACC__

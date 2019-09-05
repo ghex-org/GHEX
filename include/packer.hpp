@@ -12,8 +12,8 @@
 #define INCLUDED_PACK_HPP
 
 #include "./devices.hpp"
-#include "./field_utils.hpp"
-#include "./kernel_argument.hpp"
+#include "./structured/field_utils.hpp"
+#include "./cuda_utils/kernel_argument.hpp"
 //#include <thread>
 //#include <future>
 

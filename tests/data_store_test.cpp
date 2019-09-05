@@ -10,7 +10,7 @@
  */
 
 #include "../include/communication_object_2.hpp"
-#include "../include/gt_glue/gt_glue.hpp"
+#include "../include/glue/gridtools/gt_glue.hpp"
 
 #include <gridtools/storage/storage_facility.hpp>
 
