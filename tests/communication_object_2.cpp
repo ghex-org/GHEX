@@ -20,7 +20,6 @@
 #include "../include/simple_field_wrapper.hpp"
 #include "../include/structured_pattern.hpp"
 #include "../include/communication_object_2.hpp"
-#include <boost/mpi/environment.hpp>
 #include <array>
 #include <iomanip>
 
@@ -145,14 +144,14 @@ TEST(communication_object_2, exchange)
 bool test0()
 #endif
 {
-    boost::mpi::communicator mpi_comm;
+    gridtools::ghex::mpi::mpi_comm mpi_comm;
 
 #ifdef __CUDACC__
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    boost::mpi::communicator local_comm(raw_local_comm, boost::mpi::comm_take_ownership);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
@@ -164,7 +163,7 @@ bool test0()
     int num_devices_per_node = 1;
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    boost::mpi::communicator local_comm(raw_local_comm, boost::mpi::comm_take_ownership);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
@@ -663,6 +662,7 @@ bool test0()
 }
 
 #ifdef STANDALONE
+#include <boost/mpi/environment.hpp>
 int main(int argc, char* argv[])
 {
     //MPI_Init(&argc,&argv);

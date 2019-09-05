@@ -13,7 +13,7 @@
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main_boost.cpp"
+    #include "gtest_main.cpp"
 #endif
 #include <fstream>
 #include <gridtools/common/boollist.hpp>
@@ -25,12 +25,10 @@
 #include <stdlib.h>
 #include <string>
 #include <sys/time.h>
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/collectives.hpp>
-#include <chrono>
 #include <iomanip>
 
-#include "../include/accumulator.hpp"
+#include "../include/protocol/mpi_comm.hpp"
+#include "../include/timer.hpp"
 #include "triplet.hpp"
 
 #ifdef __CUDACC__
@@ -44,19 +42,7 @@ namespace halo_exchange_3D_generic_full {
     int dims[3] = {0, 0, 0};
     int coords[3] = {0, 0, 0};
 
-    struct timeval start_tv;
-    struct timeval stop1_tv;
-    struct timeval stop2_tv;
-    struct timeval stop3_tv;
-    double lapse_time1;
-    double lapse_time2;
-    double lapse_time3;
-    double lapse_time4;
-
-    using clock_type = std::chrono::high_resolution_clock;
-    using duaration_type = typename clock_type::duration;
-    using time_point_type = typename clock_type::time_point;
-    using microseconds = std::chrono::microseconds;
+    using timer_type = gridtools::ghex::timer;
 
 #define B_ADD 1
 #define C_ADD 2
@@ -106,7 +92,7 @@ namespace halo_exchange_3D_generic_full {
 
         typedef gridtools::layout_map<I1, I2, I3> layoutmap;
 
-        boost::mpi::communicator world;
+        gridtools::ghex::mpi::mpi_comm world;
 
         array<triple_t<USE_DOUBLE, T1>, layoutmap> a(
             _a, (DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1));
@@ -292,151 +278,106 @@ namespace halo_exchange_3D_generic_full {
 
 
         file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
-        gridtools::accumulator time_acc_local_0;
-        gridtools::accumulator time_acc_local_1;
-        gridtools::accumulator time_acc_local;
-        gridtools::accumulator time_acc_global_0;
-        gridtools::accumulator time_acc_global_1;
-        gridtools::accumulator time_acc_global;
+        timer_type t_0_local;
+        timer_type t_1_local;
+        timer_type t_local;
+        timer_type t_0_global;
+        timer_type t_1_global;
+        timer_type t_global;
         const int k_start = 5;
         for (int k=0; k<25; ++k)
         {
-            gridtools::accumulator acc_global_0;
-            gridtools::accumulator acc_global_1;
-            gridtools::accumulator acc_global;
+            timer_type t_0;
+            timer_type t_1;
 #ifdef VECTOR_INTERFACE
             world.barrier();
-            const auto t0 = clock_type::now();
+            t_0.tic();
             he.pack(vect);
-            const auto t1 = clock_type::now();
+            t_0.toc();
+            t_1.tic();
             he.exchange();
             he.unpack(vect);
-            const auto t2 = clock_type::now();
+            t_1.toc();
             world.barrier();
 #else
             world.barrier();
-            const auto t0 = clock_type::now();
+            t_0.tic();
             he.pack(field1, field2, field3);
-            const auto t1 = clock_type::now();
+            t_0.toc();
+            t_1.tic();
             he.exchange();
             he.unpack(field1, field2, field3);
-            const auto t2 = clock_type::now();
+            t_1.toc();
             world.barrier();
 #endif
+            timer_type t;
+            t(t_0.sum()+t_1.sum());
 
-            /*const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
-            const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
-            file << "TIME PACK:        " << d0/1000.0 << std::endl;
-            file << "TIME WAIT/UNPACK: " << d1/1000.0 << std::endl;*/
-
-            const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
-            const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
-            const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
-
-            std::vector<typename microseconds::rep> tmp_0;
-            boost::mpi::all_gather(world, d0, tmp_0); 
-            std::vector<typename microseconds::rep> tmp_1;
-            boost::mpi::all_gather(world, d1, tmp_1); 
-            std::vector<typename microseconds::rep> tmp;
-            boost::mpi::all_gather(world, d01, tmp); 
-            for (unsigned int i=0; i<tmp_0.size(); ++i)
-            {
-                acc_global_0(tmp_0[i]);
-                acc_global_1(tmp_1[i]);
-                acc_global(tmp[i]);
-                if (k >= k_start)
-                {
-                    time_acc_global_0(tmp_0[i]);
-                    time_acc_global_1(tmp_1[i]);
-                    time_acc_global(tmp[i]);
-                }
-            }
+            auto t_0_all = gridtools::ghex::reduce(t_0,world);
+            auto t_1_all = gridtools::ghex::reduce(t_1,world);
+            auto t_all = gridtools::ghex::reduce(t,world);
             if (k >= k_start)
             {
-                time_acc_local_0(d0);
-                time_acc_local_1(d1);
-                time_acc_local(d0+d1);
+                t_0_local(t_0);
+                t_1_local(t_1);
+                t_local(t);
+                t_0_global(t_0_all);
+                t_1_global(t_1_all);
+                t_global(t_all);
             }
 
             file << "TIME PACK:        " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d0/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.mean()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_0.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_all.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.max()/1000.0
                 << std::endl;
             file << "TIME WAIT/UNPACK: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0 
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_1.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_all.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.max()/1000.0
                 << std::endl;
             file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0 
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_all.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.max()/1000.0
                 << std::endl;
             file << std::endl;
         }
 
         file << std::endl << "-----------------" << std::endl;
         file << "TIME PACK:        " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_0.mean()/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.mean()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0 
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.mean()/1000.0
             << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_0.stdev()/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.min()/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.max()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_global.stddev()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.min()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.max()/1000.0
             << std::endl;
         file << "TIME WAIT/UNPACK: " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_1.mean()/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.max()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0 
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.mean()/1000.0
             << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_1.stdev()/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.min()/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.min()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_global.stddev()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.min()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.max()/1000.0
             << std::endl;
         file << "TIME ALL:         " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local.mean()/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.mean()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0 
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.mean()/1000.0
             << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global.stdev()/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.min()/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.max()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_global.stddev()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.min()/1000.0
+            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.max()/1000.0
             << std::endl;
-
-        /*lapse_time1 =
-            ((static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec)) -
-                (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
-            1000.0;
-
-        lapse_time2 =
-            ((static_cast<double>(stop2_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop2_tv.tv_usec)) -
-                (static_cast<double>(stop1_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop1_tv.tv_usec))) *
-            1000.0;
-
-        lapse_time3 =
-            ((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
-                (static_cast<double>(stop2_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop2_tv.tv_usec))) *
-            1000.0;
-
-        lapse_time4 =
-            ((static_cast<double>(stop3_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop3_tv.tv_usec)) -
-                (static_cast<double>(start_tv.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_tv.tv_usec))) *
-            1000.0;
-
-        MPI_Barrier(MPI_COMM_WORLD);
-        file << "TIME PACK: " << lapse_time1 << std::endl;
-        file << "TIME EXCH: " << lapse_time2 << std::endl;
-        file << "TIME UNPK: " << lapse_time3 << std::endl;
-        file << "TIME ALL : " << lapse_time1 + lapse_time2 + lapse_time3 << std::endl;
-        file << "TIME TOT : " << lapse_time4 << std::endl;*/
 
 #ifdef __CUDACC__
         GT_CUDA_CHECK(cudaMemcpy(a.ptr,

@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <mpi.h>
 #include <string>
+#include <cstring>    
 #include <utility>
 
 #include <type_traits>
