@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_ATLAS_DOMAIN_DESCRIPTOR_HPP
-#define INCLUDED_ATLAS_DOMAIN_DESCRIPTOR_HPP
+#ifndef INCLUDED_ATLAS_USER_CONCEPTS_HPP
+#define INCLUDED_ATLAS_USER_CONCEPTS_HPP
 
 #include <vector>
 #include <cassert>
@@ -17,6 +17,10 @@
 
 #include "atlas/field.h"
 #include "atlas/array/ArrayView.h"
+
+#ifdef __CUDACC__
+#include "gridtools/common/cuda_util.hpp"
+#endif
 
 #include "./unstructured_grid.hpp"
 #include "./devices.hpp"
@@ -255,8 +259,7 @@ namespace gridtools {
 
     };
 
-    /** @brief CPU data descriptor
-     * WARN: so far full support to multiple vertical layers is still not provided*/
+    /** @brief CPU data descriptor*/
     template <typename T, typename DomainDescriptor>
     class atlas_data_descriptor {
 
@@ -272,7 +275,6 @@ namespace gridtools {
         private:
 
             const DomainDescriptor& m_domain;
-            const int* m_partition_data; // WARN: this should not be needed with a richer iteration spaces
             atlas::array::ArrayView<T, 2> m_values;
 
         public:
@@ -280,7 +282,6 @@ namespace gridtools {
             atlas_data_descriptor(const DomainDescriptor& domain,
                                   const atlas::Field& field) :
                 m_domain{domain},
-                m_partition_data{atlas::array::make_view<int, 1>(domain.partition()).data()},
                 m_values{atlas::array::make_view<T, 2>(field)} {}
 
             /** @brief data type size, mandatory*/
@@ -350,6 +351,111 @@ namespace gridtools {
 
     };
 
+#ifdef __CUDACC__
+
+#define THREADS_PER_BLOCK 32
+
+    template <typename T, typename index_t>
+    __global__ void pack_kernel(
+            const atlas::array::ArrayView<T, 2> values,
+            const std::size_t local_index_size,
+            const index_t* local_index,
+            const std::size_t levels,
+            const std::size_t buffer_size,
+            T* buffer) {
+        auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
+        if (idx < local_index_size) {
+            for(auto level = 0; level < levels; ++level) {
+                buffer[idx * levels + level] = values(local_index[idx], level);
+            }
+        }
+    }
+
+    template <typename T, typename index_t>
+    __global__ void unpack_kernel(
+            const std::size_t buffer_size,
+            const T* buffer,
+            const std::size_t local_index_size,
+            const index_t* local_index,
+            const std::size_t levels,
+            atlas::array::ArrayView<T, 2> values) {
+        auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
+        if (idx < local_index_size) {
+            for(auto level = 0; level < levels; ++level) {
+                values(local_index[idx], level) = buffer[idx * levels + level];
+            }
+        }
+    }
+
+    /** @brief GPU data descriptor*/
+    template <typename T, typename DomainDescriptor>
+    class atlas_data_descriptor_gpu {
+
+        public:
+
+            using value_type = T;
+            using index_t = typename DomainDescriptor::index_t;
+            using domain_id_t = typename DomainDescriptor::domain_id_type;
+            using device_type = gridtools::device::gpu;
+            using device_id_type = device_type::id_type;
+
+        private:
+
+            const DomainDescriptor& m_domain;
+            device_id_type m_device_id;
+            atlas::array::ArrayView<T, 2> m_values;
+
+        public:
+
+            atlas_data_descriptor_gpu(
+                    const DomainDescriptor& domain,
+                    const device_id_type device_id,
+                    const atlas::Field& field) : // WARN: different from cpu data descriptor, but easy to change there
+                m_domain{domain},
+                m_device_id{device_id},
+                m_values{atlas::array::make_device_view<T, 2>(field)} {}
+
+            /** @brief data type size, mandatory*/
+            std::size_t data_type_size() const {
+                return sizeof (T);
+            }
+
+            domain_id_t domain_id() const { return m_domain.domain_id(); }
+
+            device_id_type device_id() const { return m_device_id; };
+
+            template<typename IndexContainer>
+            void pack(T* buffer, const IndexContainer& c, void*) {
+                for (const auto& is : c) {
+                    auto n_blocks = (is.local_index().size() + 1) / THREADS_PER_BLOCK;
+                    pack_kernel<T, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
+                            m_values,
+                            is.local_index().size(),
+                            &(is.local_index()[0]),
+                            is.levels(),
+                            is.size(),
+                            buffer);
+                }
+            }
+
+            template<typename IndexContainer>
+            void unpack(const T* buffer, const IndexContainer& c, void*) {
+                for (const auto& is : c) {
+                    auto n_blocks = (is.local_index().size() + 1) / THREADS_PER_BLOCK;
+                    unpack_kernel<T, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
+                            is.size(),
+                            buffer,
+                            is.local_index().size(),
+                            &(is.local_index()[0]),
+                            is.levels(),
+                            m_values);
+                }
+            }
+
+    };
+
+#endif
+
 } // namespac gridtools
 
-#endif /* INCLUDED_STRUCTURED_DOMAIN_DESCRIPTOR_HPP */
+#endif /* INCLUDED_ATLAS_USER_CONCEPTS_HPP */

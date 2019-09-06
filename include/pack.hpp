@@ -13,6 +13,8 @@
 
 #include <iostream>
 
+#include "gridtools/common/array.hpp"
+
 #include "./devices.hpp"
 #include "./field_utils.hpp"
 #include "./kernel_argument.hpp"
