@@ -20,6 +20,7 @@
 
 #include "./unstructured_grid.hpp"
 #include "./devices.hpp"
+#include "./allocator/unified_memory_allocator.hpp"
 
 
 namespace gridtools {
@@ -156,7 +157,7 @@ namespace gridtools {
                 private:
 
                     int m_partition;
-                    std::vector<index_t> m_local_index;
+                    std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>> m_local_index;
                     std::vector<index_t> m_remote_index;
                     std::size_t m_levels;
 
@@ -170,7 +171,7 @@ namespace gridtools {
                         m_remote_index{},
                         m_levels{levels} {}
                     halo(const int partition,
-                         const std::vector<index_t>& local_index,
+                         const std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>>& local_index,
                          const std::vector<index_t>& remote_index,
                          const std::size_t levels = 1) noexcept :
                         m_partition{partition},
@@ -178,12 +179,12 @@ namespace gridtools {
                         m_remote_index{remote_index},
                         m_levels{levels} {
                         assert(local_index.size() == remote_index.size());
-                    }
+                    } // WARN: is this constructor actually needed?
 
                     // member functions
                     int partition() const noexcept { return m_partition; }
-                    std::vector<index_t>& local_index() noexcept { return m_local_index; }
-                    const std::vector<index_t>& local_index() const noexcept { return m_local_index; }
+                    std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>>& local_index() noexcept { return m_local_index; }
+                    const std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>>& local_index() const noexcept { return m_local_index; }
                     std::vector<index_t>& remote_index() noexcept { return m_remote_index; }
                     const std::vector<index_t>& remote_index() const noexcept { return m_remote_index; }
                     std::size_t levels() const noexcept { return m_levels; }
