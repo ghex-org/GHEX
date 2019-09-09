@@ -115,4 +115,10 @@ if (USE_GPU)
             COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} ${_t} ${MPIEXEC_POSTFLAGS}
         )
     endforeach()
+
+    add_executable(atlas_integration_comm_2_gpu atlas_integration_comm_2.cu ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+    target_compile_definitions(atlas_integration_comm_2_gpu PUBLIC GT_USE_GPU)
+    target_include_directories(atlas_integration_comm_2_gpu PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+    target_link_libraries(atlas_integration_comm_2_gpu MPI::MPI_CXX Boost::mpi GridTools::gridtools atlas)
+
 endif()
