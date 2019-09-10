@@ -1,0 +1,80 @@
+BASELINE: 1 thread
+
+-M multi is important, because we want to use MT version of UCX. This adds overhead
+time numactl --physcpubind=0-15 ucx_perftest -t tag_bw -M multi c3-4 -n 5000000 -s 1 -O 1
+
+---------------------------------------------------------------------
+niters			5000000
+msg_size		1	1	1	1024	1024
+inflight  		1	10	1000	1	10
+---------------------------------------------------------------------
+
+ucx_perftest		0.63	0.63		1.55	1.55
+
+------------------------------
+OpenMPI + HPCX 2.4
+------------------------------
+mpi_avail (waitany)   	1.40	2.10	80	1.78	2.51
+mpi_avail (testany)   	0.86	0.98	13	1.63	1.57
+mpi_avail2 (for + test) 0.82	0.85	1.18	1.83	1.71
+
+------------------------------
+Intel MPI  - even worse than the results below
+------------------------------
+mpi_avail (waitany)   	2.07	2.08	20	2.49	2.30
+mpi_avail (testany)   	2.44	2.65	29	2.86	
+mpi_avail2 (for + test) 2.39	2.42	2.60	2.80	6.7
+
+------------------------------
+ghex_msg_cb.cpp
+------------------------------
+Sending a shared_message using callbacks.
+n requests are submited and completed in turns.
+Both backends can be used.
+
+MPI (ompi)  		1.24	1.26	1.72	2.17	1.19
+MPI (intel)		5.47	5.36	4.84	5.79	6.01
+UCX			0.80	0.80	1.08	1.53	1.66
+
+------------------------------
+ghex_msg_cb_avail.cpp
+------------------------------
+Sending a shared_message using callbacks. There is n in-flight requests.
+Messages are sent as slots become available, i.e., requests are completed.
+Both backends can be used.
+
+MPI (ompi)  		1.24    1.36	2.17    2.10    2.20
+MPI (intel)		5.54	5.63	5.24	6.02	6.29
+UCX			0.91	0.79	1.09	1.56	1.52
+
+------------------------------
+ghex_msg_cb_resubmit.cpp
+------------------------------
+Sending a shared_message using callbacks. There is n in-flight requests.
+Messages are sent as slots become available, i.e., requests are completed.
+recv requests are resubmited inside the recv callback.
+Both backends can be used.
+
+MPI (ompi)  		1.29	1.36	1.83	2.09	2.24
+MPI (intel)		5.73	5.62	...
+UCX			0.91	0.79	1.40	1.56	1.56
+
+------------------------------
+ghex_ptr_cb.cpp
+------------------------------
+Sending buffer directly through pointer, using callbacks.
+n requests are submited and completed in turns.
+only UCX
+
+UCX			0.79	0.80	1.13    1.64	1.55
+
+------------------------------
+ghex_ptr_cb_avail.cpp
+------------------------------
+Sending buffer directly through pointer, using callbacks.
+There is n in-flight requests.
+Messages are sent as slots become available, i.e., requests are completed.
+only UCX
+
+UCX			0.90	0.79	1.14	1.64	1.55
+
