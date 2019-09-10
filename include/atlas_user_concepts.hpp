@@ -14,6 +14,7 @@
 #include <vector>
 #include <cassert>
 #include <cstring>
+#include <cmath>
 
 #include "atlas/field.h"
 #include "atlas/array/ArrayView.h"
@@ -427,7 +428,7 @@ namespace gridtools {
             template<typename IndexContainer>
             void pack(T* buffer, const IndexContainer& c, void*) {
                 for (const auto& is : c) {
-                    auto n_blocks = (is.local_index().size() + 1) / THREADS_PER_BLOCK;
+                    int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_index().size()) / THREADS_PER_BLOCK));
                     pack_kernel<T, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
                             m_values,
                             is.local_index().size(),
@@ -441,7 +442,7 @@ namespace gridtools {
             template<typename IndexContainer>
             void unpack(const T* buffer, const IndexContainer& c, void*) {
                 for (const auto& is : c) {
-                    auto n_blocks = (is.local_index().size() + 1) / THREADS_PER_BLOCK;
+                    int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_index().size()) / THREADS_PER_BLOCK));
                     unpack_kernel<T, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
                             is.size(),
                             buffer,
