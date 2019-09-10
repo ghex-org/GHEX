@@ -179,7 +179,7 @@ private:
     template<typename Msg>
     struct call_back2_
     {
-        Msg& m_msg;
+        Msg m_msg;
         std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
 
         template<typename Callback>
@@ -517,7 +517,7 @@ public:
          */
     unsigned progress()
     {
-
+	int completed = 0;
         for (auto& cb_container : m_callbacks) 
         {
             const unsigned int size = cb_container.size();
@@ -532,7 +532,7 @@ public:
                     auto x = std::get<1>(element);
                     auto y = std::get<2>(element);
                     f(x, y);
-                    break;
+		    completed++;
                 }
                 else
                 {
@@ -540,7 +540,7 @@ public:
                 }
             }
         }
-        return !(m_callbacks[0].size() == 0 && m_callbacks[1].size()==0);
+        return completed;
     }
 
     void flush()

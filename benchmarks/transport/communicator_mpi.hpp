@@ -190,9 +190,9 @@ public:
         m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
     }
 
-    bool progress()
+    unsigned progress()
     {
-
+	int completed = 0;
         for (auto& cb_container : m_callbacks) 
         {
             const unsigned int size = cb_container.size();
@@ -207,7 +207,7 @@ public:
                     auto x = std::get<1>(element);
                     auto y = std::get<2>(element);
                     f(x, y);
-                    break;
+		    completed++;
                 }
                 else
                 {
@@ -215,7 +215,7 @@ public:
                 }
             }
         }
-        return !(m_callbacks[0].size() == 0 && m_callbacks[1].size()==0);
+        return completed;
     }
 
 };
