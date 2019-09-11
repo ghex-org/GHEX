@@ -15,7 +15,7 @@ clean:
 pmi.o: pmi.c pmi.h
 	$(CC) $(FLAGS) -I$(PMIX_DIR)/include pmi.c -c
 
-test: ghex_futures.cpp pmi.o
+test: ghex_msg_cb.cpp pmi.o
 	$(CXX) $(FLAGS) -I$(UCX_DIR)/include -o $@ $^ -Wl,-rpath -Wl,$(PMIX_DIR)/lib -L$(PMIX_DIR)/lib -lpmix -L$(UCX_DIR)/lib -lucp -Wl,-rpath -Wl,$(UCX_DIR)/lib -Wl,-rpath -Wl,$(PMIX_DIR)/lib -fopenmp
 
 mpitest: mpi_avail_iter.cpp

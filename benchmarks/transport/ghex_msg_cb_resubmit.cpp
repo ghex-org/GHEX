@@ -119,5 +119,6 @@ int main(int argc, char *argv[])
 	}
 
 	if(rank == 1) toc();
+	comm.fence();
     }
 }

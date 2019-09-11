@@ -107,24 +107,29 @@ private:
     using rank_type = int;
 
     template<typename Msg>
-    struct call_back2_
+    struct call_back_owning   // TODO: non-owning is faster :(
     {
-        Msg& m_msg;
-        std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
+        Msg m_msg;
+	std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
 
         template<typename Callback>
-        call_back2_(Msg& msg, Callback&& cb)
-        : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
+        call_back_owning(Msg& msg, Callback&& cb)
+	    : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
         {}
-
-        call_back2_(const call_back2_& x) = default;
-        call_back2_(call_back2_&&) = default;
+    
+        template<typename Callback>
+        call_back_owning(Msg&& msg, Callback&& cb)
+	    : m_msg(std::move(msg)), m_inner_cb(std::forward<Callback>(cb))
+        {}
+    
+        call_back_owning(const call_back_owning& x) = default;
+        call_back_owning(call_back_owning&&) = default;
 
         void operator()(rank_type r, tag_type t)
         {
             m_inner_cb(r,t,m_msg);
         }
-
+    
         Msg& message() { return m_msg; }
     };
 
@@ -168,7 +173,7 @@ public:
     void 
     send(MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
     {
-        call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(cb2.message().data(), cb2.message().size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
         m_callbacks[0].push_back( std::make_tuple(std::move(cb2), dst, tag, future_type(req)) );
@@ -186,7 +191,7 @@ public:
     void
     recv(MsgType& msg, rank_type src, tag_type tag, CallBack &&cb)
     {
-        call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
         m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );

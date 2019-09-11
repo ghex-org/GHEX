@@ -11,7 +11,7 @@
 #include <omp.h>
 #include "tictoc.h"
 
-#define USE_MPI
+// #define USE_MPI
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
@@ -91,5 +91,6 @@ int main(int argc, char *argv[])
 	}
 
 	if(rank == 1) toc();
+	comm.fence();
     }
 }
