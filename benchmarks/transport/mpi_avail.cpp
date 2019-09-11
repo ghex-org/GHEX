@@ -9,7 +9,7 @@
 
 int main(int argc, char *argv[])
 {
-    int rank, size, threads, peer_rank;
+    int rank, size, mode, peer_rank;
     int niter, buff_size;
     int inflight;
     MPI_Comm mpi_comm;
@@ -18,7 +18,13 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
     
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &threads);
+#ifdef THREAD_MODE_MULTIPLE
+	MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+#else
+	// MPI_Init(NULL, NULL);
+	MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+#endif
+
     MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
     MPI_Comm_rank(mpi_comm, &rank);
     MPI_Comm_size(mpi_comm, &size);

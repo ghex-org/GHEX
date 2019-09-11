@@ -21,6 +21,7 @@
 #include "./message.hpp"
 #include <algorithm>
 #include <deque>
+#include <string>
 
 namespace gridtools
 {
@@ -97,6 +98,7 @@ struct mpi_future
      * and .size(), with the same behavior of std::vector<unsigned char>.
      * Each message will be sent and received with a tag, bot of type int
      */
+
 class communicator
 {
 public:
@@ -140,13 +142,19 @@ public:
     MPI_Comm m_mpi_comm;
     rank_type m_rank, m_size;
 
+    static const std::string name;
+    
 public:
 
     communicator()
     {
 	int mode;
-	// MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
-	MPI_Init(NULL, NULL);
+#ifdef THREAD_MODE_MULTIPLE
+	MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+#else
+	// MPI_Init(NULL, NULL);
+	MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+#endif
 	MPI_Comm_dup(MPI_COMM_WORLD, &m_mpi_comm);
 	MPI_Comm_rank(m_mpi_comm, &m_rank);
 	MPI_Comm_size(m_mpi_comm, &m_size);    
@@ -231,6 +239,8 @@ public:
     }
 
 };
+
+const std::string communicator::name = "ghex::mpi";
 
 } //namespace mpi
 } // namespace ghex

@@ -198,6 +198,8 @@ public:
     rank_type m_rank;
     rank_type m_size;
 
+    static const std::string name;
+
 private:
 
     ucp_context_h ucp_context;
@@ -318,7 +320,11 @@ public:
 
 	    /* this should not be used if we have a single worker per thread */
 	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+#ifdef THREAD_MODE_MULTIPLE
+	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+#else
 	    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+#endif
 	    
 	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 	    if(UCS_OK != status) ERR("ucp_worker_create failed");
@@ -490,7 +496,9 @@ public:
 	    ghex_request->peer_rank = dst;
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
-	    // ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+#ifdef GHEX_CB_NEED_MESSAGE
+	    ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+#endif
 	} else {
 	    ERR("ucp_tag_send_nb failed");
 	}
@@ -579,7 +587,9 @@ public:
 	    ghex_request->peer_rank = src;
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
-	    // ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+#ifdef GHEX_CB_NEED_MESSAGE
+	    ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+#endif
 	} else {
 	    ERR("ucp_tag_send_nb failed");
 	}
@@ -689,6 +699,8 @@ public:
 	}
     }
 };
+
+const std::string communicator::name = "ghex::ucx";
 
 } // namespace ucx
 } // namespace ghex

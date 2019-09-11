@@ -169,6 +169,8 @@ public:
     rank_type m_rank;
     rank_type m_size;
 
+    static const std::string name;
+
 private:
 
     ucp_context_h ucp_context;
@@ -317,7 +319,11 @@ public:
 
 	    /* this should not be used if we have a single worker per thread */
 	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+#ifdef THREAD_MODE_MULTIPLE
 	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+#else
+	    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+#endif
 	    
 	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 	    if(UCS_OK != status) ERR("ucp_worker_create failed");
@@ -608,6 +614,8 @@ public:
 	}
     }
 };
+
+const std::string communicator::name = "ghex::ucx_nbr";
 
 } // namespace ucx
 } // namespace ghex
