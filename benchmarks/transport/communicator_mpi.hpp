@@ -47,7 +47,7 @@ namespace _impl
         */
 struct mpi_future
 {
-    MPI_Request m_req;
+    MPI_Request m_req = MPI_REQUEST_NULL;
 
     mpi_future() = default;
     mpi_future(MPI_Request req) : m_req{req} {}
@@ -139,6 +139,8 @@ public:
 
     communicator()
     {
+	int mode;
+	// MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
 	MPI_Init(NULL, NULL);
 	MPI_Comm_dup(MPI_COMM_WORLD, &m_mpi_comm);
 	MPI_Comm_rank(m_mpi_comm, &m_rank);
@@ -216,6 +218,11 @@ public:
             }
         }
         return completed;
+    }
+
+    void fence()
+    {
+	MPI_Barrier(m_mpi_comm);
     }
 
 };

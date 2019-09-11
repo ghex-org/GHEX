@@ -11,7 +11,7 @@
 #include <omp.h>
 #include "tictoc.h"
 
-// #define USE_MPI
+#define USE_MPI
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;

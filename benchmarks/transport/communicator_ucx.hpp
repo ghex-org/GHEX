@@ -12,6 +12,7 @@
 #define GHEX_UCX_COMMUNICATOR_HPP
 
 #include <iostream>
+#include <time.h>
 #include <map>
 #include <omp.h>
 
@@ -118,12 +119,16 @@ void ghex_tag_send_callback(void *request, ucs_status_t status)
     ucp_request_free(request);
 }
 
+void empty_send_cb(void *request, ucs_status_t status)
+{
+}
+
 /** The future returned by the send and receive
         * operations of a communicator object to check or wait on their status.
         */
 struct ucx_future
 {
-    struct ghex_ucx_request *m_req;
+    struct ghex_ucx_request *m_req = NULL;
 
     ucx_future() = default;
     ucx_future(struct ghex_ucx_request *req) : m_req{req} {}
@@ -163,7 +168,7 @@ struct ucx_future
     {
 	if(NULL == m_req) return false;
 	ucp_request_cancel(m_req->ucp_worker, m_req);
-	ucp_request_free(m_req);
+	// ucp_request_free(m_req);
 	
 	/* TODO: how to check the status ? what if no callback (nbr) */
         return true;
@@ -203,6 +208,11 @@ private:
 	Has to be per-thread
     */
     std::map<rank_type, ucp_ep_h> connections;
+
+    /* request pool for nbr communications (futures) */
+#define REQUEST_POOL_SIZE 10000
+    char *ucp_requests;
+    int ucp_request_pos = 0;
 
 public:
 
@@ -308,7 +318,7 @@ public:
 
 	    /* this should not be used if we have a single worker per thread */
 	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+	    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
 	    
 	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 	    if(UCS_OK != status) ERR("ucp_worker_create failed");
@@ -328,6 +338,11 @@ public:
 	    /* invoke global pmi data exchange */
 	    // pmi_exchange();
 	}
+
+	/* allocate comm request pool */
+	ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
+	ucp_request_pos = 0;
+
     }
 
     rank_type rank() const noexcept { return m_rank; }
@@ -404,7 +419,11 @@ public:
 	char *request;
 	ucp_ep_h ep;
 	
-	request = (char*)malloc(_impl::request_size);
+	// Dynamic allocation of requests is very slow - need a pool
+	// request = (char*)malloc(_impl::request_size);
+	request = ucp_requests + _impl::request_size * ucp_request_pos;
+	// TODO: check if request is free, if not - look for next one
+
 	ep = rank_to_ep(dst);
 
 	/* send without callback */
@@ -414,9 +433,13 @@ public:
 	if(UCS_OK == status){
 	    
 	    /* send completed immediately */
-	    free(request);
 	    return nullptr;
 	}
+
+	/* update request pool */
+	ucp_request_pos++;
+	if(ucp_request_pos == REQUEST_POOL_SIZE)
+	    ucp_request_pos = 0;
 
 	/* return the future with the request id */
 	request_type *ghex_request;
@@ -467,7 +490,7 @@ public:
 	    ghex_request->peer_rank = dst;
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
-	    ghex_request->h_msg = new MsgType(msg);      // TODO !!
+	    // ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
 	} else {
 	    ERR("ucp_tag_send_nb failed");
 	}
@@ -493,7 +516,11 @@ public:
 	ucp_ep_h ep;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
-	request = (char*)malloc(_impl::request_size);
+	// Dynamic allocation of requests is very slow - need a pool
+	// request = (char*)malloc(_impl::request_size);
+	request = ucp_requests + _impl::request_size * ucp_request_pos;
+	// TODO: check if request is free, if not - look for next one
+
 	ep = rank_to_ep(src);
 
 	/* recv */
@@ -503,6 +530,11 @@ public:
 	if(UCS_OK != status){
 	    ERR("ucx recv operation failed");
 	}
+
+	/* update request pool */
+	ucp_request_pos++;
+	if(ucp_request_pos == REQUEST_POOL_SIZE)
+	    ucp_request_pos = 0;
 
 	/* return the future with the request id */
 	request_type *ghex_request;
@@ -547,7 +579,7 @@ public:
 	    ghex_request->peer_rank = src;
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
-	    ghex_request->h_msg = new MsgType(msg);      // TODO !!
+	    // ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
 	} else {
 	    ERR("ucp_tag_send_nb failed");
 	}
@@ -628,9 +660,33 @@ public:
 	return ucp_worker_progress(ucp_worker);
     }
 
+    void fence()
+    {
+	flush();
+
+	// TODO: how to assure that all comm is completed before we quit a rank?
+	// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
+	for(int i=0; i<100000; i++) {
+	    ucp_worker_progress(ucp_worker);
+	}
+    }
+
     void flush()
     {
-	ucp_worker_flush(ucp_worker);
+	void *request = ucp_worker_flush_nb(ucp_worker, 0, _impl::empty_send_cb);
+	if (request == NULL) {
+	    return;
+	} else if (UCS_PTR_IS_ERR(request)) {
+	    ERR("flush failed");
+	    return;
+	} else {
+	    ucs_status_t status;
+	    do {
+		ucp_worker_progress(ucp_worker);
+		status = ucp_request_check_status(request);
+	    } while (status == UCS_INPROGRESS);
+	    ucp_request_release(request);
+	}
     }
 };
 
