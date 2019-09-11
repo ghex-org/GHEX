@@ -121,4 +121,9 @@ if (USE_GPU)
     target_include_directories(atlas_integration_comm_2_gpu PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
     target_link_libraries(atlas_integration_comm_2_gpu MPI::MPI_CXX Boost::mpi GridTools::gridtools atlas)
 
+    add_executable(atlas_integration_comm_2_gpu_GHEX_only atlas_integration_comm_2_GHEX_only.cu ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+    target_compile_definitions(atlas_integration_comm_2_gpu_GHEX_only PUBLIC GT_USE_GPU)
+    target_include_directories(atlas_integration_comm_2_gpu_GHEX_only PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+    target_link_libraries(atlas_integration_comm_2_gpu_GHEX_only MPI::MPI_CXX Boost::mpi GridTools::gridtools atlas)
+
 endif()
