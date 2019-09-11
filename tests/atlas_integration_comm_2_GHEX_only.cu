@@ -59,7 +59,7 @@ TEST(atlas_integration, halo_exchange) {
     if (file_reading_mode) {
         std::cout << "Running actual test reading from file " << filename << "\n";
     } else {
-        std::cout << "WARN: file reading mode not available, running halo exchange without checking results"
+        std::cout << "WARN: file reading mode not available, running halo exchange without checking results";
     }
 
     const std::size_t n_iter = 100;
