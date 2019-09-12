@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
+#include <iostream>
 
 #include <mpi.h>
 #include <omp.h>
@@ -28,18 +29,14 @@ int main(int argc, char *argv[])
     MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
     MPI_Comm_rank(mpi_comm, &rank);
     MPI_Comm_size(mpi_comm, &size);
-    if(size!=2){
-	fprintf(stderr, "ERROR: only works for 2 MPI ranks\n");
-	exit(1);
-    }
     peer_rank = (rank+1)%2;
+
+    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << "\n\n";
 
     {
 	unsigned char **buffers = new unsigned char *[inflight];
 	MPI_Request *req = new MPI_Request[inflight];
 	
-	fprintf(stderr, "rank %d started\n", rank);
-
 	for(int j=0; j<inflight; j++){
 	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &buffers[j]);
 	    req[j] = MPI_REQUEST_NULL;	    
@@ -56,9 +53,9 @@ int main(int argc, char *argv[])
 	/* submit inflight async requests */
 	for(int j=0; j<inflight; j++){
 	    if(rank==0)
-		MPI_Isend(buffers[j], buff_size, MPI_BYTE, peer_rank, 42, mpi_comm, &req[j]);
+		MPI_Isend(buffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[j]);
 	    else
-		MPI_Irecv(buffers[j], buff_size, MPI_BYTE, peer_rank, 42, mpi_comm, &req[j]);
+		MPI_Irecv(buffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[j]);
 	}
 
 	int i = 0;
@@ -71,9 +68,9 @@ int main(int argc, char *argv[])
 	    
 	    if(rank==0 && i%(niter/10)==0) fprintf(stderr, "%d iters\n", i);
 	    if(rank==0)
-		MPI_Isend(buffers[completed], buff_size, MPI_BYTE, peer_rank, 42, mpi_comm, &req[completed]);
+		MPI_Isend(buffers[completed], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[completed]);
 	    else
-		MPI_Irecv(buffers[completed], buff_size, MPI_BYTE, peer_rank, 42, mpi_comm, &req[completed]);	    
+		MPI_Irecv(buffers[completed], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[completed]);	    
 	    i++; if(i==niter) break;
 	}
 

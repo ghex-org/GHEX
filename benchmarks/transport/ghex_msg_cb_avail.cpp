@@ -1,14 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <iostream>
 #include <vector>
-#include <array>
-#include <unistd.h>
-#include <sched.h>
-#include <vector>
-#include <omp.h>
 #include "tictoc.h"
 
 #ifdef USE_MPI
@@ -79,7 +70,7 @@ int main(int argc, char *argv[])
 
 	if(rank == 0){
 
-	    /* send niter messages - as slots become free */
+	    /* send niter messages - as soon as a slot becomes free */
 	    int sent = 0;
 	    while(sent != niter){
 
@@ -95,7 +86,8 @@ int main(int argc, char *argv[])
 		}
 		if(sent==niter) break;
 	    
-		/* progress a bit */
+		/* progress a bit: for large inflight values this yields better performance */
+		/* over simply calling the progress once */
 		int p = 0.1*inflight-1;
 		do {
 		    p-=comm.progress();
@@ -104,7 +96,9 @@ int main(int argc, char *argv[])
 
 	} else {
 
-	    /* expect niter messages on receiver */
+	    /* recv requests are resubmitted as soon as a request is completed */
+	    /* so the number of submitted recv requests is always constant (inflight) */
+	    /* expect niter messages (i.e., niter recv callbacks) on receiver  */
 	    ongoing_comm = niter;
 
 	    while(ongoing_comm){
@@ -116,7 +110,8 @@ int main(int argc, char *argv[])
 		    }
 		}
 	    
-		/* progress a bit */
+		/* progress a bit: for large inflight values this yields better performance */
+		/* over simply calling the progress once */
 		int p = 0.1*inflight-1;
 		do {
 		    p-=comm.progress();

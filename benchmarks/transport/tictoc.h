@@ -1,6 +1,11 @@
 #ifndef _TICTOC_H
 #define _TICTOC_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <time.h>
+
 struct timeval tb, te;
 double bytes = 0;
 

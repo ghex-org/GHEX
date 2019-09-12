@@ -1,14 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <iostream>
 #include <vector>
-#include <array>
-#include <unistd.h>
-#include <sched.h>
-#include <vector>
-#include <omp.h>
 #include "tictoc.h"
 
 #ifdef USE_MPI
@@ -29,7 +20,7 @@ CommType comm;
 #include "message.hpp"
 using MsgType = gridtools::ghex::mpi::shared_message<>;
 
-/* available comm slots */
+/* comm requests currently in-flight */
 int ongoing_comm = 0;
 
 void send_callback(int rank, int tag, MsgType &mesg)
