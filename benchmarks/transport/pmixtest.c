@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     int rc;
     pmix_value_t *pvalue;
 
-    // MPI_Init(&argc, &argv);
+    MPI_Init(&argc, &argv);
 
     if (PMIX_SUCCESS != (rc = PMIx_Init(&myproc, NULL, 0))) {
 	ERR("PMIx_Init failed");
@@ -87,14 +87,15 @@ int main(int argc, char *argv[])
     }
     if(myproc.rank == 0) printf("PMIx initialized\n");
 
-    sprintf(data, "this is data for rank %d\n", myproc.rank);
+    sprintf(data, "this is data for rank %d", myproc.rank);
     pmi_set_string("ghex-rank-address", data, 256);
     pmi_get_string((myproc.rank+1)%2, "ghex-rank-address", (void**)&data_out, &size_out);
+    printf("%d received \"%s\"\n", myproc.rank, data_out);
 
     if (PMIX_SUCCESS != (rc = PMIx_Finalize(NULL, 0))) {
         ERR("Client ns %s rank %d:PMIx_Finalize failed: %d\n", myproc.nspace, myproc.rank, rc);
     }
     if(myproc.rank == 0) printf("PMIx finalized\n");
 
-    // MPI_Finalize();
+    MPI_Finalize();
 }

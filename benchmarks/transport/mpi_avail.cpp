@@ -1,11 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <iostream>
-
 #include <mpi.h>
-#include <omp.h>
 #include "tictoc.h"
 
 int main(int argc, char *argv[])
@@ -68,9 +62,9 @@ int main(int argc, char *argv[])
 	    
 	    if(rank==0 && i%(niter/10)==0) fprintf(stderr, "%d iters\n", i);
 	    if(rank==0)
-		MPI_Isend(buffers[completed], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[completed]);
+		MPI_Isend(buffers[completed], buff_size, MPI_BYTE, peer_rank, completed, mpi_comm, &req[completed]);
 	    else
-		MPI_Irecv(buffers[completed], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[completed]);	    
+		MPI_Irecv(buffers[completed], buff_size, MPI_BYTE, peer_rank, completed, mpi_comm, &req[completed]);	    
 	    i++; if(i==niter) break;
 	}
 
