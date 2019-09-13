@@ -47,8 +47,15 @@ namespace ghex {
 
             persistent_allocator() = default;
 
+	    void initialize(int nb, int size){
+	    }
+
             [[nodiscard]] T* allocate(std::size_t n)
             {
+		/* size threashold: this allocator is only useful for large messages */
+		/* that are not sent in-flight by the backend */
+		if(n < 8192) return ba.allocate(n);
+
 		/** look for a large enough existing allocation */
 		auto existing = std::find_if(free_alloc.begin(), free_alloc.end(), [n](const persistent_pointer<T> &x){
 			return n <= x.n;
@@ -74,8 +81,12 @@ namespace ghex {
 		return ptr;
             }
 
-            void deallocate(T* p, std::size_t)
+            void deallocate(T* p, std::size_t n)
             {
+		/* size threashold: this allocator is only useful for large messages */
+		/* that are not sent in-flight by the backend */
+		if(n < 8192) return ba.deallocate(p, n);
+
 		/** look for the allocation in used_alloc */
 		auto existing = std::find_if(used_alloc.begin(), used_alloc.end(), [p](const persistent_pointer<T> &x){
 			return p == x.ptr;

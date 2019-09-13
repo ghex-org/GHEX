@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <unistd.h>
-#include <mpi.h> // for barrier
 
 #include "tictoc.h"
 #include "message.hpp"
@@ -9,8 +8,8 @@
 #define GHEX_CB_NEED_MESSAGE
 
 #ifdef USE_POOL_ALLOCATOR
-#include "persistent_allocator.hpp"
-using AllocType = ghex::allocator::persistent_allocator<unsigned char, std::allocator<unsigned char>>;
+#include "circular_allocator.hpp"
+using AllocType = ghex::allocator::circular_allocator<unsigned char, std::allocator<unsigned char>>;
 #else
 using AllocType = std::allocator<unsigned char>;
 #endif
@@ -76,8 +75,6 @@ int main(int argc, char *argv[])
     int niter, buff_size;
     int inflight;
 
-    MPI_Init(NULL, NULL);
-
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
@@ -87,6 +84,10 @@ int main(int argc, char *argv[])
     peer_rank = (rank+1)%2;
 
     grank = rank;
+
+#ifdef USE_POOL_ALLOCATOR
+    alloc.initialize(inflight+1, buff_size);
+#endif
     
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << comm.name << "\n\n";
 
@@ -100,8 +101,6 @@ int main(int argc, char *argv[])
 	}
 	msgs.clear();
 	fprintf(stderr, "%d pre-allocate buffers: DONE\n", rank);
-
-	MPI_Barrier(MPI_COMM_WORLD);
 
 	for(int j=0; j<inflight; j++){
 	    available[j] = 1;
@@ -172,6 +171,4 @@ int main(int argc, char *argv[])
 	if(rank == 1) toc();
 	comm.fence();
     }
-
-    MPI_Finalize();
 }
