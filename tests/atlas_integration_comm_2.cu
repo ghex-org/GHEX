@@ -56,7 +56,7 @@ TEST(atlas_integration, halo_exchange) {
 #ifndef NDEBUG
     std::stringstream ss;
     ss << rank;
-    std::string filename = "atlas_integration_comm_2_CUDA_" + ss.str() + ".txt";
+    std::string filename = "halo_exchange_int_size=12_rank=" + ss.str() + "_CUDA.txt";
     std::ofstream file(filename.c_str());
 #endif
 

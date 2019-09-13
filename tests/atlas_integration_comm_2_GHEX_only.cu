@@ -52,7 +52,7 @@ TEST(atlas_integration, halo_exchange) {
 
     std::stringstream ss;
     ss << rank;
-    std::string filename = "atlas_integration_comm_2_CUDA_" + ss.str() + ".txt";
+    std::string filename = "halo_exchange_int_size=12_rank=" + ss.str() + ".txt";
     std::ifstream file(filename.c_str());
     bool file_reading_mode;
     file_reading_mode = (size == 12) && file.good();
