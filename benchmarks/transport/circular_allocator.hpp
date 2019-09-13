@@ -20,6 +20,7 @@ namespace ghex {
 	    BaseAllocator ba;
 	    
 	    static int  n_buffers;
+	    static int  n_used;
 	    static int  position;
 	    static int *available;
 	    static T  **buffers;
@@ -53,7 +54,8 @@ namespace ghex {
 		    if(available[ip]){
 			available[ip] = 0;
 			position = (ip+1)%n_buffers;
-			// fprintf(stderr, "%d: found free buffer %d\n", grank, ip);
+			n_used++;
+			// fprintf(stderr, "%d: found free buffer %d, used %d\n", grank, ip, n_used);
 			return buffers[ip];
 		    }
 		    ip = (ip+1)%n_buffers;
@@ -76,6 +78,7 @@ namespace ghex {
 		    if(buffers[i] == p){
 			available[i] = 1;
 			position = i;
+			n_used--;
 			return;
 		    }
 		}
@@ -84,6 +87,8 @@ namespace ghex {
 
 	template <typename T, typename BA>
 	int   circular_allocator<T, BA>::n_buffers = 0;
+	template <typename T, typename BA>
+	int   circular_allocator<T, BA>::n_used = 0;
 	template <typename T, typename BA>
 	int   circular_allocator<T, BA>::position = -1;
 	template <typename T, typename BA>
