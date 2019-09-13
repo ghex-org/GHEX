@@ -78,6 +78,10 @@ struct ghex_ucx_request {
     void *h_msg;             // user-side message handle
 };
 
+int   rinit_early;
+void *rinit_cb;
+void *rinit_msg;
+
 /** user-side callback */
 /* TODO: a hack, actually MsgType &mesg */
 typedef void (*f_callback)(int rank, int tag, void *mesg);
@@ -90,15 +94,24 @@ void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_inf
        3. decode rank and tag
        4. call user callback
     */
-    struct ghex_ucx_request *r = static_cast<struct ghex_ucx_request*>(request);
-    f_callback cb = (f_callback)(r->cb);
-    if(cb){
-	uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
-	uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
-	cb(peer_rank, tag, r->h_msg);
-	// delete r->h_msg;   TODO
+    uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
+    uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
+
+    if(rinit_early){
+	f_callback cb = (f_callback)(rinit_cb);
+	if(cb){
+	    cb(peer_rank, tag, rinit_msg);
+	    // delete r->h_msg;   TODO
+	}	
+    } else {
+	struct ghex_ucx_request *r = static_cast<struct ghex_ucx_request*>(request);
+	f_callback cb = (f_callback)(r->cb);
+	if(cb){
+	    cb(peer_rank, tag, r->h_msg);
+	    // delete r->h_msg;   TODO
+	}
+	ucp_request_free(request);
     }
-    ucp_request_free(request);
 }
 
 void ghex_tag_send_callback(void *request, ucs_status_t status)
@@ -259,6 +272,7 @@ public:
 		UCP_PARAM_FIELD_TAG_SENDER_MASK   |
 		UCP_PARAM_FIELD_MT_WORKERS_SHARED |
 		UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
+	    // UCP_PARAM_FIELD_REQUEST_INIT      ;
 
 	    /* request transport support for tag matching */
 	    ucp_params.features =
@@ -271,6 +285,7 @@ public:
 	    // }
 
 	    ucp_params.request_size = sizeof(request_type);
+	    // ucp_params.request_init = _impl::ghex_ucx_request_init;
 
 	    /* this should be true if we have per-thread workers 
 	       otherwise, if one worker is shared by each thread, it should be false
@@ -488,7 +503,11 @@ public:
 	istatus = (uintptr_t)status;
 	if(UCS_OK == (ucs_status_t)(istatus)){
 	    // immediate completion. callback? or return value?
+#ifdef GHEX_CB_NEED_MESSAGE
+	    cb(dst, tag, NULL);                          // TODO !!
+#else
 	    cb(dst, tag, msg);                           // TODO !!
+#endif
 	} else if(!UCS_PTR_IS_ERR(status)) {
 	    ghex_request = (request_type*)(status);
 
@@ -496,6 +515,7 @@ public:
 	    ghex_request->peer_rank = dst;
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
+	    ghex_request->h_msg = NULL;
 #ifdef GHEX_CB_NEED_MESSAGE
 	    ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
 #endif
@@ -575,12 +595,31 @@ public:
 	request_type *ghex_request;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
+	/* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
+	/* and the callback is called earlier than we initialize the data inside it */
+	_impl::rinit_early = 1;
+	_impl::rinit_cb = (void*)(&cb);             // TODO !!
+	_impl::rinit_msg = NULL;
+#ifdef GHEX_CB_NEED_MESSAGE
+	_impl::rinit_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+#endif
+
 	/* recv with callback */
 	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback);
 
+	_impl::rinit_early = 0;
+
 	if(!UCS_PTR_IS_ERR(status)) {
+
+	    ucs_status_t rstatus;
+	    rstatus = ucp_request_check_status (status);
+	    if(rstatus != UCS_INPROGRESS){
+		ucp_request_free(status);
+		return;
+	    }
+
 	    ghex_request = (request_type*)(status);
 
 	    /* fill in useful request data */
@@ -588,7 +627,7 @@ public:
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
 #ifdef GHEX_CB_NEED_MESSAGE
-	    ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+	    ghex_request->h_msg = _impl::rinit_msg;
 #endif
 	} else {
 	    ERR("ucp_tag_send_nb failed");

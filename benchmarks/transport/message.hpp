@@ -14,6 +14,8 @@
 #include <cassert>
 #include <memory>
 
+extern int grank;
+
 namespace gridtools
 {
 namespace ghex
@@ -78,11 +80,12 @@ struct message
      */
     message(message const& other)
         : m_alloc{other.m_alloc}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
-    {}
+    {fprintf(stderr, "message const& other\n");}
 
     message(message &&other)
         : m_alloc{std::move(other.m_alloc)}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
     {
+	fprintf(stderr, "message && other\n");
         other.m_capacity = 0;
         other.m_payload = nullptr;
         other.m_size = 0;
@@ -90,7 +93,7 @@ struct message
 
     ~message()
     {
-	// fprintf(stderr, "oooops!!!\n");
+	// fprintf(stderr, "oooops!!! %d free %x\n", grank, m_payload);
 	if (m_payload)
 	    std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
 	m_payload = nullptr;
