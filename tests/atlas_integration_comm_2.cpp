@@ -53,7 +53,7 @@ TEST(atlas_integration, halo_exchange) {
     // ==================== Atlas code ====================
 
     // Generate global classic reduced Gaussian grid
-    atlas::StructuredGrid grid("N16");
+    atlas::StructuredGrid grid("O256");
 
     // Generate mesh associated to structured grid
     atlas::StructuredMeshGenerator meshgenerator;
@@ -147,7 +147,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     int size = comm.size();
 
     // Generate global classic reduced Gaussian grid
-    atlas::StructuredGrid grid("N16");
+    atlas::StructuredGrid grid("O256");
 
     // Generate mesh associated to structured grid
     atlas::StructuredMeshGenerator meshgenerator;
