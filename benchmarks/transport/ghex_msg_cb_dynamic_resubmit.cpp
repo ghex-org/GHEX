@@ -35,7 +35,6 @@ int grank;
 int *available = NULL;
 int ongoing_comm = 0;
 
-#ifdef USE_MPI
 void send_callback(int rank, int tag, MsgType &mesg)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
@@ -46,29 +45,9 @@ void send_callback(int rank, int tag, MsgType &mesg)
 void recv_callback(int rank, int tag, MsgType &mesg)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    available[tag] = 1;
+    comm.recv(mesg, rank, tag, recv_callback);
     ongoing_comm--;
 }
-#else
-void send_callback(int rank, int tag, void *pmesg)
-{
-    // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    available[tag] = 1;
-    ongoing_comm--;
-    MsgType *mesg = reinterpret_cast<MsgType*>(pmesg);
-    delete mesg;
-}
-
-void recv_callback(int rank, int tag, void *pmesg)
-{
-    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    MsgType *mesg = reinterpret_cast<MsgType*>(pmesg);
-    MsgType &rmesg = *mesg;
-    comm.recv(rmesg, rank, tag, recv_callback);
-    ongoing_comm--;
-    delete mesg;
-}
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -93,15 +72,7 @@ int main(int argc, char *argv[])
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << comm.name << "\n\n";
 
     {
-	available = new int[inflight];
-	
-	fprintf(stderr, "%d pre-allocate buffers\n", rank);
-	std::vector<MsgType> msgs;
-	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size, buff_size);
-	}
-	msgs.clear();
-	fprintf(stderr, "%d pre-allocate buffers: DONE\n", rank);
+	available = new int[inflight];	
 
 	for(int j=0; j<inflight; j++){
 	    available[j] = 1;

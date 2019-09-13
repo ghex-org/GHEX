@@ -93,7 +93,7 @@ struct message
 
     ~message()
     {
-	// fprintf(stderr, "oooops!!! %d free %x\n", grank, m_payload);
+	// if(grank==1) fprintf(stderr, "oooops!!! %d free %x\n", grank, m_payload);
 	if (m_payload)
 	    std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
 	m_payload = nullptr;
@@ -229,6 +229,10 @@ struct shared_message
     /* Showing these to highlight the semantics */
     shared_message(shared_message const &) = default;
     shared_message(shared_message &&) = default;
+
+    void operator=(shared_message const &other){
+	m_s_message = other.m_s_message;
+    }
 
     /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector
