@@ -93,7 +93,6 @@ struct message
 
     ~message()
     {
-	// if(grank==1) fprintf(stderr, "oooops!!! %d free %x\n", grank, m_payload);
 	if (m_payload)
 	    std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
 	m_payload = nullptr;

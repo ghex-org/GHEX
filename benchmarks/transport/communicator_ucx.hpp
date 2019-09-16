@@ -183,7 +183,7 @@ struct ucx_future
     bool cancel()
     {
 	if(NULL == m_req) return false;
-	ucp_request_cancel(m_req->ucp_worker, m_req);
+	// ucp_request_cancel(m_req->ucp_worker, m_req);
 	// ucp_request_free(m_req);
 	
 	/* TODO: how to check the status ? what if no callback (nbr) */
@@ -508,7 +508,7 @@ public:
 	// TODO !! C++ doesn't like it..
 	istatus = (uintptr_t)status;
 	if(UCS_OK == (ucs_status_t)(istatus)){
-	    cb(dst, tag, msg);
+	    cb(dst, tag, msg);                          // TODO !!
 	} else if(!UCS_PTR_IS_ERR(status)) {
 	    ghex_request = (_impl::tghex_ucx_request<MsgType, CallBack> *)status;
 
@@ -626,65 +626,6 @@ public:
 	    ERR("ucp_tag_send_nb failed");
 	}
     }
-
-    template <typename CallBack>
-    void send(unsigned char *data, size_t size, rank_type dst, tag_type tag, CallBack &&cb)
-    {
-	ucs_status_ptr_t status;
-	uintptr_t istatus;
-	_impl::tghex_ucx_request<MsgType, CallBack> *ghex_request;
-	ucp_ep_h ep;
-
-	ep = rank_to_ep(dst);
-
-	/* send with callback */
-	status = ucp_tag_send_nb(ep, data, size, ucp_dt_make_contig(1),
-				 GHEX_MAKE_SEND_TAG(tag, m_rank), _impl::ghex_tag_send_callback<MsgType, CallBack>);
-
-	// TODO !! C++ doesn't like it..
-	istatus = (uintptr_t)status;
-	if(UCS_OK == (ucs_status_t)(istatus)){
-	    // immediate completion. callback? or return value?
-	    cb(dst, tag, data);                         // TODO !!
-	} else if(!UCS_PTR_IS_ERR(status)) {
-	    
-	    ghex_request = (request_type*)(status);
-
-	    /* fill in useful request data */
-	    ghex_request->peer_rank = dst;
-	    ghex_request->tag = tag;
-	    ghex_request->cb = (void*)(&cb);            // TODO !!
-	    // ghex_request->h_msg = data;
-	} else {
-	    ERR("ucp_tag_send_nb failed");
-	}
-    }
-
-    template <typename CallBack>
-    void recv(unsigned char *data, size_t size, rank_type src, tag_type tag, CallBack &&cb)
-    {
-	ucs_status_ptr_t status;
-	request_type *ghex_request;
-	ucp_tag_t ucp_tag, ucp_tag_mask;
-
-	/* recv with callback */
-	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-	status = ucp_tag_recv_nb(ucp_worker, data, size, ucp_dt_make_contig(1),
-				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback<MsgType, CallBack>);
-
-	if(!UCS_PTR_IS_ERR(status)) {
-	    ghex_request = (request_type*)(status);
-
-	    /* fill in useful request data */
-	    ghex_request->peer_rank = src;
-	    ghex_request->tag = tag;
-	    ghex_request->cb = (void*)(&cb);             // TODO !!
-	    ghex_request->h_msg = data;
-	} else {
-	    ERR("ucp_tag_send_nb failed");
-	}
-    }
-
     
     /** Function to invoke to poll the transport layer and check for the completions
          * of the operations without a future associated to them (that is, they are associated
