@@ -14,7 +14,6 @@
 #include "tictoc.h"
 #include "pmi.h"
 
-// #define USE_MPI
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
@@ -43,7 +42,8 @@ int main(int argc, char *argv[])
     rank = comm.m_rank;
     size = comm.m_size;
     peer_rank = (rank+1)%2;
-    printf("PMIx rank size %d %d\n", rank, size);
+
+    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << comm.name << "\n\n";
     
     {
 	std::vector<MsgType> msgs;
@@ -78,6 +78,11 @@ int main(int argc, char *argv[])
 	}
 
 	if(rank == 1) toc();
+
+	for(int j=0; j<inflight; j++){
+	    reqs[i].cancel();
+	}
+
 	comm.fence();
     }
 }
