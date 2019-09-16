@@ -515,7 +515,7 @@ public:
 	    /* fill in useful request data */
 	    ghex_request->peer_rank = dst;
 	    ghex_request->tag = tag;
-	    ghex_request->cb = std::forward<CallBack>(cb);
+	    ghex_request->cb = cb;
 	    ghex_request->h_msg = msg;
 	} else {
 	    ERR("ucp_tag_send_nb failed");
@@ -620,7 +620,7 @@ public:
 	    /* fill in useful request data */
 	    ghex_request->peer_rank = src;
 	    ghex_request->tag = tag;
-	    ghex_request->cb = std::forward<CallBack>(cb);
+	    ghex_request->cb = cb;
 	    ghex_request->h_msg = msg;
 	} else {
 	    ERR("ucp_tag_send_nb failed");
