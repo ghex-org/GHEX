@@ -1,22 +1,16 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <iostream>
 #include <vector>
-#include <array>
-#include <unistd.h>
-#include <sched.h>
-#include <vector>
-#include <omp.h>
 #include "tictoc.h"
 
-#define USE_MPI
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
 #else
+#ifdef USE_UCX_NBR
+#include "communicator_ucx_nbr.hpp"
+#else
 #include "communicator_ucx.hpp"
+#endif
 using CommType = gridtools::ghex::ucx::communicator;
 #endif
 
@@ -26,7 +20,7 @@ CommType comm;
 #include "message.hpp"
 using MsgType = gridtools::ghex::mpi::shared_message<>;
 
-/* available comm slots */
+/* comm requests currently in-flight */
 int ongoing_comm = 0;
 
 void send_callback(int rank, int tag, MsgType &mesg)
@@ -54,7 +48,8 @@ int main(int argc, char *argv[])
     rank = comm.m_rank;
     size = comm.m_size;
     peer_rank = (rank+1)%2;
-    printf("rank size %d %d\n", rank, size);
+
+    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << comm.name << "\n\n";
 
     {
 	std::vector<MsgType> msgs;
@@ -91,5 +86,6 @@ int main(int argc, char *argv[])
 	}
 
 	if(rank == 1) toc();
+	comm.fence();
     }
 }

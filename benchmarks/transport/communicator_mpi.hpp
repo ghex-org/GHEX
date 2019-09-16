@@ -21,6 +21,7 @@
 #include "./message.hpp"
 #include <algorithm>
 #include <deque>
+#include <string>
 
 namespace gridtools
 {
@@ -47,7 +48,7 @@ namespace _impl
         */
 struct mpi_future
 {
-    MPI_Request m_req;
+    MPI_Request m_req = MPI_REQUEST_NULL;
 
     mpi_future() = default;
     mpi_future(MPI_Request req) : m_req{req} {}
@@ -97,6 +98,7 @@ struct mpi_future
      * and .size(), with the same behavior of std::vector<unsigned char>.
      * Each message will be sent and received with a tag, bot of type int
      */
+
 class communicator
 {
 public:
@@ -107,24 +109,29 @@ private:
     using rank_type = int;
 
     template<typename Msg>
-    struct call_back2_
+    struct call_back_owning   // TODO: non-owning is faster :(
     {
-        Msg& m_msg;
-        std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
+        Msg m_msg;
+	std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
 
         template<typename Callback>
-        call_back2_(Msg& msg, Callback&& cb)
-        : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
+        call_back_owning(Msg& msg, Callback&& cb)
+	    : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
         {}
-
-        call_back2_(const call_back2_& x) = default;
-        call_back2_(call_back2_&&) = default;
+    
+        template<typename Callback>
+        call_back_owning(Msg&& msg, Callback&& cb)
+	    : m_msg(std::move(msg)), m_inner_cb(std::forward<Callback>(cb))
+        {}
+    
+        call_back_owning(const call_back_owning& x) = default;
+        call_back_owning(call_back_owning&&) = default;
 
         void operator()(rank_type r, tag_type t)
         {
             m_inner_cb(r,t,m_msg);
         }
-
+    
         Msg& message() { return m_msg; }
     };
 
@@ -135,11 +142,19 @@ public:
     MPI_Comm m_mpi_comm;
     rank_type m_rank, m_size;
 
+    static const std::string name;
+    
 public:
 
     communicator()
     {
-	MPI_Init(NULL, NULL);
+	int mode;
+#ifdef THREAD_MODE_MULTIPLE
+	MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+#else
+	// MPI_Init(NULL, NULL);
+	MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+#endif
 	MPI_Comm_dup(MPI_COMM_WORLD, &m_mpi_comm);
 	MPI_Comm_rank(m_mpi_comm, &m_rank);
 	MPI_Comm_size(m_mpi_comm, &m_size);    
@@ -166,7 +181,7 @@ public:
     void 
     send(MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
     {
-        call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Isend(cb2.message().data(), cb2.message().size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
         m_callbacks[0].push_back( std::make_tuple(std::move(cb2), dst, tag, future_type(req)) );
@@ -184,15 +199,15 @@ public:
     void
     recv(MsgType& msg, rank_type src, tag_type tag, CallBack &&cb)
     {
-        call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
         MPI_Request req;
         CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
         m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
     }
 
-    bool progress()
+    unsigned progress()
     {
-
+	int completed = 0;
         for (auto& cb_container : m_callbacks) 
         {
             const unsigned int size = cb_container.size();
@@ -207,7 +222,7 @@ public:
                     auto x = std::get<1>(element);
                     auto y = std::get<2>(element);
                     f(x, y);
-                    break;
+		    completed++;
                 }
                 else
                 {
@@ -215,10 +230,17 @@ public:
                 }
             }
         }
-        return !(m_callbacks[0].size() == 0 && m_callbacks[1].size()==0);
+        return completed;
+    }
+
+    void fence()
+    {
+	MPI_Barrier(m_mpi_comm);
     }
 
 };
+
+const std::string communicator::name = "ghex::mpi";
 
 } //namespace mpi
 } // namespace ghex

@@ -74,6 +74,10 @@ class communicator;
 namespace _impl
 {
 
+void empty_send_cb(void *request, ucs_status_t status)
+{
+}
+
 static std::size_t   ucp_request_size; // size in bytes required for a request by the UCX library
 static std::size_t   request_size;     // total request size in bytes (UCX + our data)
        
@@ -135,7 +139,7 @@ struct ucx_future
     {
 	if(NULL == m_req) return false;
 	ucp_request_cancel(m_req->ucp_worker, m_req);
-	ucp_request_free(m_req);
+	// ucp_request_free(m_req);
 	
 	/* TODO: how to check the status ? what if no callback (nbr) */
         return true;
@@ -165,6 +169,8 @@ public:
     rank_type m_rank;
     rank_type m_size;
 
+    static const std::string name;
+
 private:
 
     ucp_context_h ucp_context;
@@ -176,25 +182,35 @@ private:
     */
     std::map<rank_type, ucp_ep_h> connections;
 
+    /* request pool for nbr communications (futures) */
+#define REQUEST_POOL_SIZE 10000
+    char *ucp_requests;
+    int ucp_request_pos = 0;
+
     template<typename Msg>
-    struct call_back2_
+    struct call_back_owning   // TODO: non-owning is faster :(
     {
-        Msg& m_msg;
-        std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
+        Msg m_msg;
+	std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
 
         template<typename Callback>
-        call_back2_(Msg& msg, Callback&& cb)
-        : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
+        call_back_owning(Msg& msg, Callback&& cb)
+	    : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
         {}
-
-        call_back2_(const call_back2_& x) = default;
-        call_back2_(call_back2_&&) = default;
+    
+        template<typename Callback>
+        call_back_owning(Msg&& msg, Callback&& cb)
+	    : m_msg(std::move(msg)), m_inner_cb(std::forward<Callback>(cb))
+        {}
+    
+        call_back_owning(const call_back_owning& x) = default;
+        call_back_owning(call_back_owning&&) = default;
 
         void operator()(rank_type r, tag_type t)
         {
             m_inner_cb(r,t,m_msg);
         }
-
+    
         Msg& message() { return m_msg; }
     };
 
@@ -303,7 +319,11 @@ public:
 
 	    /* this should not be used if we have a single worker per thread */
 	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+#ifdef THREAD_MODE_MULTIPLE
 	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+#else
+	    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+#endif
 	    
 	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 	    if(UCS_OK != status) ERR("ucp_worker_create failed");
@@ -323,6 +343,11 @@ public:
 	    /* invoke global pmi data exchange */
 	    // pmi_exchange();
 	}
+
+	/* allocate comm request pool */
+	ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
+	ucp_request_pos = 0;
+
     }
 
     rank_type rank() const noexcept { return m_rank; }
@@ -399,7 +424,11 @@ public:
 	char *request;
 	ucp_ep_h ep;
 	
-	request = (char*)malloc(_impl::request_size);
+	// Dynamic allocation of requests is very slow - need a pool
+	// request = (char*)malloc(_impl::request_size);
+	request = ucp_requests + _impl::request_size * ucp_request_pos;
+	// TODO: check if request is free, if not - look for next one
+	
 	ep = rank_to_ep(dst);
 
 	/* send without callback */
@@ -409,9 +438,13 @@ public:
 	if(UCS_OK == status){
 	    
 	    /* send completed immediately */
-	    free(request);
 	    return nullptr;
 	}
+
+	/* update request pool */
+	ucp_request_pos++;
+	if(ucp_request_pos == REQUEST_POOL_SIZE)
+	    ucp_request_pos = 0;
 
 	/* return the future with the request id */
 	request_type *ghex_request;
@@ -439,7 +472,7 @@ public:
     template <typename MsgType, typename CallBack>
     void send(MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
     {
-        call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
 	future_type fut = send(msg, dst, tag);
         m_callbacks[0].push_back( std::make_tuple(std::move(cb2), dst, tag, fut) );
     }
@@ -464,7 +497,11 @@ public:
 	ucp_ep_h ep;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
-	request = (char*)malloc(_impl::request_size);
+	// Dynamic allocation of requests is very slow - need a pool
+	// request = (char*)malloc(_impl::request_size);
+	request = ucp_requests + _impl::request_size * ucp_request_pos;
+	// TODO: check if request is free, if not - look for next one
+	
 	ep = rank_to_ep(src);
 
 	/* recv */
@@ -474,6 +511,11 @@ public:
 	if(UCS_OK != status){
 	    ERR("ucx recv operation failed");
 	}
+
+	/* update request pool */
+	ucp_request_pos++;
+	if(ucp_request_pos == REQUEST_POOL_SIZE)
+	    ucp_request_pos = 0;
 
 	/* return the future with the request id */
 	request_type *ghex_request;
@@ -502,7 +544,7 @@ public:
     template <typename MsgType, typename CallBack>
     void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
     {
-        call_back2_<MsgType> cb2(msg, std::forward<CallBack>(cb));
+        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
 	future_type fut = recv(msg, src, tag);
         m_callbacks[0].push_back( std::make_tuple(std::move(cb2), src, tag, fut) );
     }
@@ -517,7 +559,7 @@ public:
          */
     unsigned progress()
     {
-
+	int completed = 0;
         for (auto& cb_container : m_callbacks) 
         {
             const unsigned int size = cb_container.size();
@@ -532,7 +574,7 @@ public:
                     auto x = std::get<1>(element);
                     auto y = std::get<2>(element);
                     f(x, y);
-                    break;
+		    completed++;
                 }
                 else
                 {
@@ -540,14 +582,40 @@ public:
                 }
             }
         }
-        return !(m_callbacks[0].size() == 0 && m_callbacks[1].size()==0);
+        return completed;
+    }
+
+    void fence()
+    {
+	flush();
+
+	// TODO: how to assure that all comm is completed before we quit a rank?
+	// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
+	for(int i=0; i<100000; i++) {
+	    ucp_worker_progress(ucp_worker);
+	}
     }
 
     void flush()
     {
-	ucp_worker_flush(ucp_worker);
+	void *request = ucp_worker_flush_nb(ucp_worker, 0, _impl::empty_send_cb);
+	if (request == NULL) {
+	    return;
+	} else if (UCS_PTR_IS_ERR(request)) {
+	    ERR("flush failed");
+	    return;
+	} else {
+	    ucs_status_t status;
+	    do {
+		ucp_worker_progress(ucp_worker);
+		status = ucp_request_check_status(request);
+	    } while (status == UCS_INPROGRESS);
+	    ucp_request_release(request);
+	}
     }
 };
+
+const std::string communicator::name = "ghex::ucx_nbr";
 
 } // namespace ucx
 } // namespace ghex

@@ -1,11 +1,19 @@
 #include <iostream>
 #include <vector>
-#include "tictoc.h"
+#include <unistd.h>
 
-/* TODO: temporary. UCX communicator creates a new msg object */
-/* and stores it with the comm request to pass it to the callback. */
-/* This introduces overhead, and is turned off by default */
+#include "tictoc.h"
+#include "message.hpp"
+
 #define GHEX_CB_NEED_MESSAGE
+
+#ifdef USE_POOL_ALLOCATOR
+#include "circular_allocator.hpp"
+using AllocType = ghex::allocator::circular_allocator<unsigned char, std::allocator<unsigned char>>;
+#else
+using AllocType = std::allocator<unsigned char>;
+#endif
+using MsgType = gridtools::ghex::mpi::shared_message<AllocType>;
 
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
@@ -20,15 +28,14 @@ using CommType = gridtools::ghex::ucx::communicator;
 #endif
 
 CommType comm;
-
-
-#include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+AllocType alloc;
+int grank;
 
 /* available comm slots */
 int *available = NULL;
 int ongoing_comm = 0;
 
+#ifdef USE_MPI
 void send_callback(int rank, int tag, MsgType &mesg)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
@@ -39,9 +46,28 @@ void send_callback(int rank, int tag, MsgType &mesg)
 void recv_callback(int rank, int tag, MsgType &mesg)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    comm.recv(mesg, rank, tag, recv_callback);
+    available[tag] = 1;
     ongoing_comm--;
 }
+#else
+void send_callback(int rank, int tag, void *pmesg)
+{
+    // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+    available[tag] = 1;
+    ongoing_comm--;
+    MsgType *mesg = reinterpret_cast<MsgType*>(pmesg);
+    delete mesg;
+}
+
+void recv_callback(int rank, int tag, void *pmesg)
+{
+    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+    available[tag] = 1;
+    ongoing_comm--;
+    MsgType *mesg = reinterpret_cast<MsgType*>(pmesg);
+    delete mesg;
+}
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -57,17 +83,29 @@ int main(int argc, char *argv[])
     size = comm.m_size;
     peer_rank = (rank+1)%2;
 
+    grank = rank;
+
+#ifdef USE_POOL_ALLOCATOR
+    alloc.initialize(inflight+1, buff_size);
+#endif
+    
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << comm.name << "\n\n";
 
     {
-	std::vector<MsgType> msgs;
 	available = new int[inflight];
+	
+	fprintf(stderr, "%d pre-allocate buffers\n", rank);
+	std::vector<MsgType> msgs;
+	for(int j=0; j<inflight; j++){
+	    msgs.emplace_back(buff_size, buff_size);
+	}
+	msgs.clear();
+	fprintf(stderr, "%d pre-allocate buffers: DONE\n", rank);
 
 	for(int j=0; j<inflight; j++){
 	    available[j] = 1;
-	    msgs.emplace_back(buff_size, buff_size);
 	}
-	
+
 	if(rank == 1) {
 	    tic();
 	    bytes = (double)niter*size*buff_size/2;
@@ -78,14 +116,15 @@ int main(int argc, char *argv[])
 	    /* send niter messages - as soon as a slot becomes free */
 	    int sent = 0;
 	    while(sent != niter){
-
+		
 		for(int j=0; j<inflight; j++){
 		    if(available[j]){
 			if(rank==0 && (sent)%(niter/10)==0) fprintf(stderr, "%d iters\n", sent);
 			available[j] = 0;
 			sent++;
 			ongoing_comm++;
-			comm.send(msgs[j], 1, j, send_callback);
+			MsgType msg = MsgType(buff_size, buff_size, alloc);
+			comm.send(msg, 1, j, send_callback);
 			if(sent==niter) break;
 		    }
 		}
@@ -105,14 +144,23 @@ int main(int argc, char *argv[])
 	    /* so the number of submitted recv requests is always constant (inflight) */
 	    /* expect niter messages (i.e., niter recv callbacks) on receiver  */
 	    ongoing_comm = niter;
-
-	    /* submit all recv requests */
-	    for(int j=0; j<inflight; j++){
-		comm.recv(msgs[j], 0, j, recv_callback);
-	    }
-
-	    /* requests are re-submitted inside the calback. */
-	    /* progress (below) until niter messages have been received. */
+	    while(ongoing_comm){
+		
+		for(int j=0; j<inflight; j++){
+		    if(available[j]){
+			available[j] = 0;
+			MsgType msg = MsgType(buff_size, buff_size, alloc);
+			comm.recv(msg, 0, j, recv_callback);
+		    }
+		}
+	    
+		/* progress a bit: for large inflight values this yields better performance */
+		/* over simply calling the progress once */
+		int p = 0.1*inflight-1;
+		do {
+		    p-=comm.progress();
+		} while(ongoing_comm && p>0);
+	    }	    
 	}
 
 	/* complete all comm */

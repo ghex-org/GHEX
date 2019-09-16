@@ -12,6 +12,7 @@
 #define GHEX_UCX_COMMUNICATOR_HPP
 
 #include <iostream>
+#include <time.h>
 #include <map>
 #include <omp.h>
 
@@ -77,6 +78,10 @@ struct ghex_ucx_request {
     void *h_msg;             // user-side message handle
 };
 
+int   rinit_early;
+void *rinit_cb;
+void *rinit_msg;
+
 /** user-side callback */
 /* TODO: a hack, actually MsgType &mesg */
 typedef void (*f_callback)(int rank, int tag, void *mesg);
@@ -89,15 +94,24 @@ void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_inf
        3. decode rank and tag
        4. call user callback
     */
-    struct ghex_ucx_request *r = static_cast<struct ghex_ucx_request*>(request);
-    f_callback cb = (f_callback)(r->cb);
-    if(cb){
-	uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
-	uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
-	cb(peer_rank, tag, r->h_msg);
-	// delete r->h_msg;   TODO
+    uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
+    uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
+
+    if(rinit_early){
+	f_callback cb = (f_callback)(rinit_cb);
+	if(cb){
+	    cb(peer_rank, tag, rinit_msg);
+	    // delete r->h_msg;   TODO
+	}	
+    } else {
+	struct ghex_ucx_request *r = static_cast<struct ghex_ucx_request*>(request);
+	f_callback cb = (f_callback)(r->cb);
+	if(cb){
+	    cb(peer_rank, tag, r->h_msg);
+	    // delete r->h_msg;   TODO
+	}
+	ucp_request_free(request);
     }
-    ucp_request_free(request);
 }
 
 void ghex_tag_send_callback(void *request, ucs_status_t status)
@@ -118,12 +132,16 @@ void ghex_tag_send_callback(void *request, ucs_status_t status)
     ucp_request_free(request);
 }
 
+void empty_send_cb(void *request, ucs_status_t status)
+{
+}
+
 /** The future returned by the send and receive
         * operations of a communicator object to check or wait on their status.
         */
 struct ucx_future
 {
-    struct ghex_ucx_request *m_req;
+    struct ghex_ucx_request *m_req = NULL;
 
     ucx_future() = default;
     ucx_future(struct ghex_ucx_request *req) : m_req{req} {}
@@ -163,7 +181,7 @@ struct ucx_future
     {
 	if(NULL == m_req) return false;
 	ucp_request_cancel(m_req->ucp_worker, m_req);
-	ucp_request_free(m_req);
+	// ucp_request_free(m_req);
 	
 	/* TODO: how to check the status ? what if no callback (nbr) */
         return true;
@@ -193,6 +211,8 @@ public:
     rank_type m_rank;
     rank_type m_size;
 
+    static const std::string name;
+
 private:
 
     ucp_context_h ucp_context;
@@ -203,6 +223,11 @@ private:
 	Has to be per-thread
     */
     std::map<rank_type, ucp_ep_h> connections;
+
+    /* request pool for nbr communications (futures) */
+#define REQUEST_POOL_SIZE 10000
+    char *ucp_requests;
+    int ucp_request_pos = 0;
 
 public:
 
@@ -247,6 +272,7 @@ public:
 		UCP_PARAM_FIELD_TAG_SENDER_MASK   |
 		UCP_PARAM_FIELD_MT_WORKERS_SHARED |
 		UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
+	    // UCP_PARAM_FIELD_REQUEST_INIT      ;
 
 	    /* request transport support for tag matching */
 	    ucp_params.features =
@@ -259,6 +285,7 @@ public:
 	    // }
 
 	    ucp_params.request_size = sizeof(request_type);
+	    // ucp_params.request_init = _impl::ghex_ucx_request_init;
 
 	    /* this should be true if we have per-thread workers 
 	       otherwise, if one worker is shared by each thread, it should be false
@@ -308,7 +335,11 @@ public:
 
 	    /* this should not be used if we have a single worker per thread */
 	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+#ifdef THREAD_MODE_MULTIPLE
 	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+#else
+	    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+#endif
 	    
 	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 	    if(UCS_OK != status) ERR("ucp_worker_create failed");
@@ -328,6 +359,11 @@ public:
 	    /* invoke global pmi data exchange */
 	    // pmi_exchange();
 	}
+
+	/* allocate comm request pool */
+	ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
+	ucp_request_pos = 0;
+
     }
 
     rank_type rank() const noexcept { return m_rank; }
@@ -404,7 +440,11 @@ public:
 	char *request;
 	ucp_ep_h ep;
 	
-	request = (char*)malloc(_impl::request_size);
+	// Dynamic allocation of requests is very slow - need a pool
+	// request = (char*)malloc(_impl::request_size);
+	request = ucp_requests + _impl::request_size * ucp_request_pos;
+	// TODO: check if request is free, if not - look for next one
+
 	ep = rank_to_ep(dst);
 
 	/* send without callback */
@@ -414,9 +454,13 @@ public:
 	if(UCS_OK == status){
 	    
 	    /* send completed immediately */
-	    free(request);
 	    return nullptr;
 	}
+
+	/* update request pool */
+	ucp_request_pos++;
+	if(ucp_request_pos == REQUEST_POOL_SIZE)
+	    ucp_request_pos = 0;
 
 	/* return the future with the request id */
 	request_type *ghex_request;
@@ -459,7 +503,11 @@ public:
 	istatus = (uintptr_t)status;
 	if(UCS_OK == (ucs_status_t)(istatus)){
 	    // immediate completion. callback? or return value?
+#ifdef GHEX_CB_NEED_MESSAGE
+	    cb(dst, tag, NULL);                          // TODO !!
+#else
 	    cb(dst, tag, msg);                           // TODO !!
+#endif
 	} else if(!UCS_PTR_IS_ERR(status)) {
 	    ghex_request = (request_type*)(status);
 
@@ -467,7 +515,10 @@ public:
 	    ghex_request->peer_rank = dst;
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
-	    ghex_request->h_msg = new MsgType(msg);      // TODO !!
+	    ghex_request->h_msg = NULL;
+#ifdef GHEX_CB_NEED_MESSAGE
+	    ghex_request->h_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+#endif
 	} else {
 	    ERR("ucp_tag_send_nb failed");
 	}
@@ -493,7 +544,11 @@ public:
 	ucp_ep_h ep;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
-	request = (char*)malloc(_impl::request_size);
+	// Dynamic allocation of requests is very slow - need a pool
+	// request = (char*)malloc(_impl::request_size);
+	request = ucp_requests + _impl::request_size * ucp_request_pos;
+	// TODO: check if request is free, if not - look for next one
+
 	ep = rank_to_ep(src);
 
 	/* recv */
@@ -503,6 +558,11 @@ public:
 	if(UCS_OK != status){
 	    ERR("ucx recv operation failed");
 	}
+
+	/* update request pool */
+	ucp_request_pos++;
+	if(ucp_request_pos == REQUEST_POOL_SIZE)
+	    ucp_request_pos = 0;
 
 	/* return the future with the request id */
 	request_type *ghex_request;
@@ -535,19 +595,40 @@ public:
 	request_type *ghex_request;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
+	/* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
+	/* and the callback is called earlier than we initialize the data inside it */
+	_impl::rinit_early = 1;
+	_impl::rinit_cb = (void*)(&cb);             // TODO !!
+	_impl::rinit_msg = NULL;
+#ifdef GHEX_CB_NEED_MESSAGE
+	_impl::rinit_msg = new MsgType(msg);   // TODO !! slows down for large inflight
+#endif
+
 	/* recv with callback */
 	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback);
 
+	_impl::rinit_early = 0;
+
 	if(!UCS_PTR_IS_ERR(status)) {
+
+	    ucs_status_t rstatus;
+	    rstatus = ucp_request_check_status (status);
+	    if(rstatus != UCS_INPROGRESS){
+		ucp_request_free(status);
+		return;
+	    }
+
 	    ghex_request = (request_type*)(status);
 
 	    /* fill in useful request data */
 	    ghex_request->peer_rank = src;
 	    ghex_request->tag = tag;
 	    ghex_request->cb = (void*)(&cb);             // TODO !!
-	    ghex_request->h_msg = new MsgType(msg);      // TODO !!
+#ifdef GHEX_CB_NEED_MESSAGE
+	    ghex_request->h_msg = _impl::rinit_msg;
+#endif
 	} else {
 	    ERR("ucp_tag_send_nb failed");
 	}
@@ -628,11 +709,37 @@ public:
 	return ucp_worker_progress(ucp_worker);
     }
 
+    void fence()
+    {
+	flush();
+
+	// TODO: how to assure that all comm is completed before we quit a rank?
+	// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
+	for(int i=0; i<100000; i++) {
+	    ucp_worker_progress(ucp_worker);
+	}
+    }
+
     void flush()
     {
-	ucp_worker_flush(ucp_worker);
+	void *request = ucp_worker_flush_nb(ucp_worker, 0, _impl::empty_send_cb);
+	if (request == NULL) {
+	    return;
+	} else if (UCS_PTR_IS_ERR(request)) {
+	    ERR("flush failed");
+	    return;
+	} else {
+	    ucs_status_t status;
+	    do {
+		ucp_worker_progress(ucp_worker);
+		status = ucp_request_check_status(request);
+	    } while (status == UCS_INPROGRESS);
+	    ucp_request_release(request);
+	}
     }
 };
+
+const std::string communicator::name = "ghex::ucx";
 
 } // namespace ucx
 } // namespace ghex
