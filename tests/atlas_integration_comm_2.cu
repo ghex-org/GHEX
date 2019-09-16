@@ -56,7 +56,7 @@ TEST(atlas_integration, halo_exchange) {
 #ifndef NDEBUG
     std::stringstream ss;
     ss << rank;
-    std::string filename = "halo_exchange_int_size=12_rank=" + ss.str() + "_CUDA.txt";
+    std::string filename = "halo_exchange_int_size_4_rank_" + ss.str() + "_CUDA.txt";
     std::ofstream file(filename.c_str());
 #endif
 
@@ -194,7 +194,7 @@ TEST(atlas_integration, halo_exchange) {
             EXPECT_TRUE(GHEX_field_1_h(node, level) == atlas_field_1_h(node, level));
 #ifndef NDEBUG
             // Write output to file for comparing results with multiple node runs
-            if (size == 12) {
+            if (size == 4) {
                 file << GHEX_field_1_h(node, level);
                 if (GHEX_field_1_h(node, level) != atlas_field_1_h(node, level)) file << " INVALID VALUE";
                 file << "\n";
