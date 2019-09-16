@@ -87,7 +87,29 @@ namespace gridtools {
             template<typename T>
             future< std::vector<std::vector<T>> > all_gather(const std::vector<T>& payload, const std::vector<int>& sizes)
             {
-                handle_type h;
+                std::vector<std::vector<T>> res(m_comm.size());
+                for (int neigh=0; neigh<m_comm.size(); ++neigh)
+                {
+                    res[neigh].resize(sizes[neigh]);
+                }
+                std::vector<handle_type> m_reqs;
+                m_reqs.reserve((m_comm.size())*2);
+                for (int neigh=0; neigh<m_comm.size(); ++neigh)
+                {
+                    m_reqs.push_back( handle_type{} );
+                    GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(res[neigh].data()), sizeof(T)*sizes[neigh], MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().m_req));
+                }
+                for (int neigh=0; neigh<m_comm.size(); ++neigh)
+                {
+                    m_reqs.push_back( handle_type{} );
+                    GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(payload.data()), sizeof(T)*payload.size(), MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().m_req));
+                }
+                for (auto& r : m_reqs)
+                    r.wait();
+
+                return {std::move(res), std::move(m_reqs.front())};
+
+                /*handle_type h;
                 std::vector<int> displs(m_comm.size());
                 std::vector<int> recvcounts(m_comm.size());
                 std::vector<std::vector<T>> res(m_comm.size());
@@ -102,7 +124,7 @@ namespace gridtools {
                     &res[0][0], &recvcounts[0], &displs[0], MPI_BYTE,
                     m_comm, 
                     &h.m_req));
-                return {std::move(res), std::move(h)};
+                return {std::move(res), std::move(h)};*/
             }
 
             template<typename T>

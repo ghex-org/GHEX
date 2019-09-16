@@ -12,8 +12,8 @@
 #define INCLUDED_STRUCTURED_PATTERN_HPP
 
 #include "./structured_grid.hpp"
-#include "./protocol/communicator_base.hpp"
-#include "./pattern.hpp"
+#include "../protocol/communicator_base.hpp"
+#include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
 

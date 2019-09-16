@@ -17,7 +17,7 @@
 #include <cstring>
 #include <cstdint>
 #include <gridtools/common/array.hpp>
-#include "devices.hpp"
+#include "../devices.hpp"
 
 
 #define NCTIS 128
