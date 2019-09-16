@@ -180,7 +180,7 @@ struct ucx_future
     bool cancel()
     {
 	if(NULL == m_req) return false;
-	ucp_request_cancel(m_req->ucp_worker, m_req);
+	// ucp_request_cancel(m_req->ucp_worker, m_req);
 	// ucp_request_free(m_req);
 	
 	/* TODO: how to check the status ? what if no callback (nbr) */
@@ -503,11 +503,7 @@ public:
 	istatus = (uintptr_t)status;
 	if(UCS_OK == (ucs_status_t)(istatus)){
 	    // immediate completion. callback? or return value?
-#ifdef GHEX_CB_NEED_MESSAGE
-	    cb(dst, tag, NULL);                          // TODO !!
-#else
-	    cb(dst, tag, msg);                           // TODO !!
-#endif
+	    cb(dst, tag, msg);                          // TODO !!
 	} else if(!UCS_PTR_IS_ERR(status)) {
 	    ghex_request = (request_type*)(status);
 
