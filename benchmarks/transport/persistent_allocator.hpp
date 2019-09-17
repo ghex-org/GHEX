@@ -54,7 +54,7 @@ namespace ghex {
             {
 		/* size threashold: this allocator is only useful for large messages */
 		/* that are not sent in-flight by the backend */
-		if(n < 8192) return ba.allocate(n);
+		// if(n < 8192) return ba.allocate(n);
 
 		/** look for a large enough existing allocation */
 		auto existing = std::find_if(free_alloc.begin(), free_alloc.end(), [n](const persistent_pointer<T> &x){
@@ -85,7 +85,7 @@ namespace ghex {
             {
 		/* size threashold: this allocator is only useful for large messages */
 		/* that are not sent in-flight by the backend */
-		if(n < 8192) return ba.deallocate(p, n);
+		// if(n < 8192) return ba.deallocate(p, n);
 
 		/** look for the allocation in used_alloc */
 		auto existing = std::find_if(used_alloc.begin(), used_alloc.end(), [p](const persistent_pointer<T> &x){
