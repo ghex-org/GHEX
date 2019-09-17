@@ -16,7 +16,7 @@ ucx_perftest
 ------------------------------
 OpenMPI + HPCX 2.4
 ------------------------------
-mpi_avail (waitany)   	0.5	0.71	21.2	1.02	1.34
+mpi_avail (waitany)   	
 mpi_avail (testany)   	0.71	0.80	12.1	1.51	1.44
 mpi_avail_iter		0.69	0.72	0.90	1.51	1.54
 
@@ -43,7 +43,8 @@ Both backends can be used.
 
 MPI (ompi)  		1.28	1.27	1.74	2.20	2.17
 MPI (intel)		5.60	5.54	7.82	5.83	6.12
-UCX			0.62	0.63	0.79	1.38	1.42
+UCX			0.62	0.63	1.01	1.38	1.42
+UCX (raw smsg)				0.80
 UCX nbr/ghex progress	1.26	1.27	1.30	1.98	2.10
 
 ------------------------------
@@ -55,7 +56,8 @@ Both backends can be used.
 
 MPI (ompi)  		1.31	1.27	2.21	2.00	2.17
 MPI (intel)		
-UCX			0.62	0.62	0.84	1.25	1.35
+UCX			0.62	0.62	1.03	1.25	1.35
+UCX (raw smsg)				0.81
 UCX nbr/ghex progress	1.20	1.18	1.35	2.10	2.07
 
 ------------------------------
@@ -69,7 +71,21 @@ Both backends can be used.
 MPI (ompi)		1.30	1.30	1.86	2.22	2.14
 MPI (intel)		
 UCX			0.62	0.62	1.07	1.52	1.35
+UCX (raw smsg)				0.80
 UCX nbr/ghex progress	1.25	1.18	1.39	1.99	2.08
+
+------------------------------
+ghex_msg_cb_dynamic.cpp
+ghex_msg_cb_dynamic_resubmit.cpp
+------------------------------
+GHEX takes ownership of the message for the duration of the comm,
+in user's code the message gets out of scope after posting.
+
+UCX			1.35	1.29	1.67	2.42	2.37
+UCX (raw smsg)		1.24	1.19	1.49	2.32	2.40
+UCX (pool alloc circ)	1.09	1.05	3.25	1.82	1.84
+UCX (pool, raw smsg)	0.97	0.90	3.12	1.69	1.70
+
 
 ------------------------------
 ghex_ptr_cb.cpp
