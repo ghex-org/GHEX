@@ -5,8 +5,6 @@
 /* TODO: temporary. UCX communicator creates a new msg object */
 /* and stores it with the comm request to pass it to the callback. */
 /* This introduces overhead, and is turned off by default */
-#define GHEX_CB_NEED_MESSAGE
-
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;

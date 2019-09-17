@@ -5,15 +5,13 @@
 #include "tictoc.h"
 #include "message.hpp"
 
-#define GHEX_CB_NEED_MESSAGE
-
 #ifdef USE_POOL_ALLOCATOR
 #include "circular_allocator.hpp"
 using AllocType = ghex::allocator::circular_allocator<unsigned char, std::allocator<unsigned char>>;
 #else
 using AllocType = std::allocator<unsigned char>;
 #endif
-using MsgType = gridtools::ghex::mpi::shared_message<AllocType>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<AllocType>;
 
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
@@ -35,7 +33,6 @@ int grank;
 int *available = NULL;
 int ongoing_comm = 0;
 
-#ifdef USE_MPI
 void send_callback(int rank, int tag, MsgType &mesg)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
@@ -49,25 +46,6 @@ void recv_callback(int rank, int tag, MsgType &mesg)
     available[tag] = 1;
     ongoing_comm--;
 }
-#else
-void send_callback(int rank, int tag, void *pmesg)
-{
-    // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    available[tag] = 1;
-    ongoing_comm--;
-    MsgType *mesg = reinterpret_cast<MsgType*>(pmesg);
-    delete mesg;
-}
-
-void recv_callback(int rank, int tag, void *pmesg)
-{
-    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    available[tag] = 1;
-    ongoing_comm--;
-    MsgType *mesg = reinterpret_cast<MsgType*>(pmesg);
-    delete mesg;
-}
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -93,14 +71,6 @@ int main(int argc, char *argv[])
 
     {
 	available = new int[inflight];
-	
-	fprintf(stderr, "%d pre-allocate buffers\n", rank);
-	std::vector<MsgType> msgs;
-	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size, buff_size);
-	}
-	msgs.clear();
-	fprintf(stderr, "%d pre-allocate buffers: DONE\n", rank);
 
 	for(int j=0; j<inflight; j++){
 	    available[j] = 1;
