@@ -6,8 +6,8 @@
 #include "message.hpp"
 
 #ifdef USE_POOL_ALLOCATOR
-#include "circular_allocator.hpp"
-using AllocType = ghex::allocator::circular_allocator<unsigned char, std::allocator<unsigned char>>;
+#include "pool_allocator.hpp"
+using AllocType = ghex::allocator::pool_allocator<unsigned char, std::allocator<unsigned char>>;
 #else
 using AllocType = std::allocator<unsigned char>;
 #endif

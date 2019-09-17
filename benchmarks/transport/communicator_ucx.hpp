@@ -125,8 +125,8 @@ void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_inf
 
     if(globals<MsgType>::early_completion){
 	globals<MsgType>::cb(globals<MsgType>::rank, globals<MsgType>::tag, *(globals<MsgType>::msg));
-	globals<MsgType>::msg->release();
 	/* do not free the request - it has to be freed after tag_send_nb */
+	/* also do not release the message - it is a pointer to a message owned by the user */
     } else {
 	ghex_ucx_request_template<MsgType> *r = static_cast<ghex_ucx_request_template<MsgType>*>(request);
 	r->cb(peer_rank, tag, r->h_msg);
@@ -605,9 +605,20 @@ public:
 
 	/* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
 	/* and the callback is called earlier than we initialize the data inside it */
+
+	/* sanity check! we could be recursive... OMG! */
+	if(_impl::globals<MsgType>::early_completion){
+	    /* This should never happen, and even if, should not be a problem: */
+	    /* we do not modify anything in the early callback, and the values */
+	    /* set here are never used anywhere else (unless user re-uses the message */
+	    /* in his callback after re-submitting a send... */
+	    // ERR("cannot handle recv submitted inside early completion");
+	}
+	
 	_impl::globals<MsgType>::early_completion = 1;
 	_impl::globals<MsgType>::rank = src;
 	_impl::globals<MsgType>::tag = tag;
+	_impl::globals<MsgType>::cb = cb;
 	_impl::globals<MsgType>::msg = &msg;
 
 	/* recv with callback */

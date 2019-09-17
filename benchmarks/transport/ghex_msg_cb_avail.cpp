@@ -18,7 +18,7 @@ CommType comm;
 
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* available comm slots */
 int *available = NULL;
@@ -100,7 +100,6 @@ int main(int argc, char *argv[])
 	    /* so the number of submitted recv requests is always constant (inflight) */
 	    /* expect niter messages (i.e., niter recv callbacks) on receiver  */
 	    ongoing_comm = niter;
-
 	    while(ongoing_comm){
 
 		for(int j=0; j<inflight; j++){

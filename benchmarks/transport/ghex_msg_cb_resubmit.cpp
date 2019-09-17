@@ -21,7 +21,7 @@ CommType comm;
 
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* available comm slots */
 int *available = NULL;
@@ -91,6 +91,8 @@ int main(int argc, char *argv[])
 	    
 		/* progress a bit: for large inflight values this yields better performance */
 		/* over simply calling the progress once */
+		/* TODO: optimization target: funny that the below loop is faster for 1k inflight */
+		// for(int i=0; i<100; i++) comm.progress();
 		int p = 0.1*inflight-1;
 		do {
 		    p-=comm.progress();
