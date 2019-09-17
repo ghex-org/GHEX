@@ -1,0 +1,6 @@
+1. ghex_futures benchmark is efficient with the UCX communicator only with the request pool
+   managed inside communicator_ucx.hpp. Currently this is a circular buffer with pointer
+   at the first known `free` request. The buffer is static, and searched linearly. If there
+   are no more free requests, it fails.
+
+2. 
