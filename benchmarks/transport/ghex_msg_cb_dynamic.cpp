@@ -5,15 +5,13 @@
 #include "tictoc.h"
 #include "message.hpp"
 
-#define GHEX_CB_NEED_MESSAGE
-
 #ifdef USE_POOL_ALLOCATOR
 #include "circular_allocator.hpp"
 using AllocType = ghex::allocator::circular_allocator<unsigned char, std::allocator<unsigned char>>;
 #else
 using AllocType = std::allocator<unsigned char>;
 #endif
-using MsgType = gridtools::ghex::mpi::shared_message<AllocType>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<AllocType>;
 
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"

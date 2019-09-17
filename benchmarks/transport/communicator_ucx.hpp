@@ -70,68 +70,83 @@ namespace _impl
 static std::size_t   ucp_request_size; // size in bytes required for a request by the UCX library
 static std::size_t   request_size;     // total request size in bytes (UCX + our data)
        
-/** request structure and init function */
+/** request structure for futures-based comm */
 struct ghex_ucx_request {
     ucp_worker_h ucp_worker; // worker thread handling this request
-    uint32_t peer_rank;
-    uint32_t tag;
-    void *cb;                // user-side callback, if any
-    void *h_msg;             // user-side message handle
 };
 
-/** request structure and init function */
-template<typename MsgType, typename CallBack>
-struct tghex_ucx_request {
+/** request structure for callback-based comm */
+template<typename MsgType>
+struct ghex_ucx_request_template {
     ucp_worker_h ucp_worker; // worker thread handling this request
     uint32_t peer_rank;
     uint32_t tag; 
     std::function<void(int, int, MsgType&)> cb;
-    MsgType h_msg;           // user-side message handle
+    MsgType h_msg;
 };
 
-int   rinit_early;
-void *rinit_cb;
 
-// template <typename MsgType>
-// MsgType &rinit_msg;
+/** early recv completion requires storing this info
+    in a form accessible from the callback. 
+    NOTE: this sould be thread-local variables!!
+*/
+template <typename MsgType>
+struct globals {
+    static int early_completion;
+    static int rank, tag;
+    static std::function<void(int, int, MsgType&)> cb;
+    static MsgType *msg;
+};
 
-/** user-side callback */
-/* TODO: a hack, actually MsgType &mesg */
-typedef void (*f_callback)(int rank, int tag, void *mesg);
+template <typename MsgType>
+int globals<MsgType>::early_completion;
+template <typename MsgType>
+int globals<MsgType>::rank;
+template <typename MsgType>
+int globals<MsgType>::tag;
+template <typename MsgType>
+std::function<void(int, int, MsgType&)> globals<MsgType>::cb;
+template <typename MsgType>
+MsgType *globals<MsgType>::msg = nullptr;
+
 
 /** completion callbacks registered in UCX */
-template <typename MsgType, typename CallBack>
+template <typename MsgType>
 void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info)
 {
     /* 1. extract user callback info from request
        2. extract message object from request
        3. decode rank and tag
        4. call user callback
+       5. release / free the message (ghex is done with it)
     */
     uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
     uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
 
-    if(rinit_early){
-	ERR("cannot handle early recv yet");
+    if(globals<MsgType>::early_completion){
+	globals<MsgType>::cb(globals<MsgType>::rank, globals<MsgType>::tag, *(globals<MsgType>::msg));
+	globals<MsgType>::msg->release();
+	/* do not free the request - it has to be freed after tag_send_nb */
     } else {
-	tghex_ucx_request<MsgType, CallBack> *r = static_cast<tghex_ucx_request<MsgType, CallBack>*>(request);
+	ghex_ucx_request_template<MsgType> *r = static_cast<ghex_ucx_request_template<MsgType>*>(request);
 	r->cb(peer_rank, tag, r->h_msg);
-	r->h_msg.m_s_message.reset();
+	r->h_msg.release();
 	ucp_request_free(request);
     }
 }
 
-template <typename MsgType, typename CallBack>
+template <typename MsgType>
 void ghex_tag_send_callback(void *request, ucs_status_t status)
 {
     /* 1. extract user callback info from request
        2. extract message object from request
        3. decode rank and tag
        4. call user callback
+       5. release / free the message (ghex is done with it)
     */
-    tghex_ucx_request<MsgType, CallBack> *r = static_cast<tghex_ucx_request<MsgType, CallBack>*>(request);
+    ghex_ucx_request_template<MsgType> *r = static_cast<ghex_ucx_request_template<MsgType>*>(request);
     r->cb(r->peer_rank, r->tag, r->h_msg);
-    r->h_msg.m_s_message.reset();
+    r->h_msg.release();
     ucp_request_free(request);
 }
 
@@ -404,8 +419,7 @@ public:
 	LOG("UCP connection established");
 	return ucp_ep;
     }
-
-    
+   
     ucp_ep_h rank_to_ep(const rank_type &rank) 
     {
 	ucp_ep_h ep;
@@ -472,8 +486,6 @@ public:
 	request_type *ghex_request;
 	ghex_request = (request_type*)(request + _impl::ucp_request_size);
 	ghex_request->ucp_worker = ucp_worker;
-	ghex_request->tag = tag;
-	ghex_request->peer_rank = dst;
 	return ghex_request;
     }
 
@@ -496,21 +508,21 @@ public:
     {
 	ucs_status_ptr_t status;
 	uintptr_t istatus;
-	_impl::tghex_ucx_request<MsgType, CallBack> *ghex_request;
+	_impl::ghex_ucx_request_template<MsgType> *ghex_request;
 	ucp_ep_h ep;
 
 	ep = rank_to_ep(dst);
 
 	/* send with callback */
 	status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				 GHEX_MAKE_SEND_TAG(tag, m_rank), _impl::ghex_tag_send_callback<MsgType, CallBack>);
+				 GHEX_MAKE_SEND_TAG(tag, m_rank), _impl::ghex_tag_send_callback<MsgType>);
 
 	// TODO !! C++ doesn't like it..
 	istatus = (uintptr_t)status;
 	if(UCS_OK == (ucs_status_t)(istatus)){
 	    cb(dst, tag, msg);                          // TODO !!
 	} else if(!UCS_PTR_IS_ERR(status)) {
-	    ghex_request = (_impl::tghex_ucx_request<MsgType, CallBack> *)status;
+	    ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
 
 	    /* fill in useful request data */
 	    ghex_request->peer_rank = dst;
@@ -566,8 +578,6 @@ public:
 	request_type *ghex_request;
 	ghex_request = (request_type*)(request + _impl::ucp_request_size);
 	ghex_request->ucp_worker = ucp_worker;
-	ghex_request->tag = tag;
-	ghex_request->peer_rank = src;
 	return ghex_request;
     }
 
@@ -590,32 +600,35 @@ public:
     void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
     {
 	ucs_status_ptr_t status;
-	_impl::tghex_ucx_request<MsgType, CallBack> *ghex_request;
+	_impl::ghex_ucx_request_template<MsgType> *ghex_request;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
 	/* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
 	/* and the callback is called earlier than we initialize the data inside it */
-	_impl::rinit_early = 1;
-	// _impl::rinit_cb = (void*)(&cb);             // TODO !!
-	// _impl::rinit_msg = msg;
+	_impl::globals<MsgType>::early_completion = 1;
+	_impl::globals<MsgType>::rank = src;
+	_impl::globals<MsgType>::tag = tag;
+	_impl::globals<MsgType>::msg = &msg;
 
 	/* recv with callback */
 	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback<MsgType, CallBack>);
+				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback<MsgType>);
 
-	_impl::rinit_early = 0;
+	_impl::globals<MsgType>::early_completion = 0;
+	_impl::globals<MsgType>::msg = nullptr;
 
 	if(!UCS_PTR_IS_ERR(status)) {
 
 	    ucs_status_t rstatus;
 	    rstatus = ucp_request_check_status (status);
 	    if(rstatus != UCS_INPROGRESS){
+		/* early completion */
 		ucp_request_free(status);
 		return;
 	    }
 
-	    ghex_request = (_impl::tghex_ucx_request<MsgType, CallBack> *)status;
+	    ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
 
 	    /* fill in useful request data */
 	    ghex_request->peer_rank = src;

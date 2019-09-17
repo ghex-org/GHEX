@@ -18,7 +18,7 @@ CommType comm;
 
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* comm requests currently in-flight */
 int ongoing_comm = 0;
