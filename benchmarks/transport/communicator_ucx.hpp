@@ -520,7 +520,7 @@ public:
 	// TODO !! C++ doesn't like it..
 	istatus = (uintptr_t)status;
 	if(UCS_OK == (ucs_status_t)(istatus)){
-	    cb(dst, tag, msg);                          // TODO !!
+	    cb(dst, tag, msg);
 	} else if(!UCS_PTR_IS_ERR(status)) {
 	    ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
 
@@ -608,10 +608,11 @@ public:
 
 	/* sanity check! we could be recursive... OMG! */
 	if(_impl::globals<MsgType>::early_completion){
+	    /* TODO: VERIFY */
 	    /* This should never happen, and even if, should not be a problem: */
 	    /* we do not modify anything in the early callback, and the values */
-	    /* set here are never used anywhere else (unless user re-uses the message */
-	    /* in his callback after re-submitting a send... */
+	    /* set here are never used anywhere else. Unless user re-uses the message */
+	    /* in his callback after re-submitting a send... Should be told not to. */
 	    // ERR("cannot handle recv submitted inside early completion");
 	}
 	
@@ -627,7 +628,6 @@ public:
 				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback<MsgType>);
 
 	_impl::globals<MsgType>::early_completion = 0;
-	_impl::globals<MsgType>::msg = nullptr;
 
 	if(!UCS_PTR_IS_ERR(status)) {
 

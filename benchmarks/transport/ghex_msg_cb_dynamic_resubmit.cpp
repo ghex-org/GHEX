@@ -11,7 +11,7 @@ using AllocType = ghex::allocator::pool_allocator<unsigned char, std::allocator<
 #else
 using AllocType = std::allocator<unsigned char>;
 #endif
-using MsgType = gridtools::ghex::mpi::raw_shared_message<AllocType>;
+using MsgType = gridtools::ghex::mpi::shared_message<AllocType>;
 
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"

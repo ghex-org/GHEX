@@ -39,6 +39,7 @@ namespace ghex {
 		    for(int i=0; i<nb; i++){
 			temp = new buffer_ptr<T>;
 			temp->buffer = new T[size];
+			memset(temp->buffer, 0, sizeof(T)*size);
 			temp->next = next;
 			next = temp;
 		    }
