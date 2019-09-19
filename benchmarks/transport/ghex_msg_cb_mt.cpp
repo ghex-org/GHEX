@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
     {
 	std::vector<MsgType> msgs;
 
+	comm.init_mt();
 	comm.whoami();
 
 	for(int j=0; j<inflight; j++){
@@ -128,8 +129,6 @@ int main(int argc, char *argv[])
 		comm.progress();
 	    }
 	}
-
-	fprintf(stderr, "HERE %d:%d\n", rank, thrid);
 
 #pragma omp master
 	{

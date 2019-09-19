@@ -209,12 +209,12 @@ private:
 public:
 
     void whoami(){
-	printf("I am %d:%d, worker %x\n", m_rank, m_thrid, ucp_worker);
+	printf("I am %d/%d:%d/%d, worker %x\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
     }
 
     ~communicator()
     {
-	if(m_thrid==0){
+	if(!omp_in_parallel()) {
 	    ucp_worker_flush(ucp_worker);
 	    /* TODO: this needs to be done correctly. Right now lots of warnings
 	       about used / unfreed resources. */
@@ -224,16 +224,23 @@ public:
 	}
     }
 
+    void init_mt(){
+	m_thrid = omp_get_thread_num();
+	m_nthr = omp_get_num_threads();
+	pcomm = this;
+	printf("create communicator %d:%d/%d pointer %x\n", m_rank, m_thrid, m_nthr, pcomm);
+    }
+
     communicator()
     {
 
-	m_thrid = omp_get_thread_num();
-	m_nthr = omp_get_num_threads();
-
+	/* need to set this for single threaded runs */
+	m_thrid = 0;
+	m_nthr = 1;
 	pcomm = this;
 
 	/* only one thread must initialize UCX */
-	if(m_thrid==0) {
+	if(!omp_in_parallel()) {
 	    pmi_init();
 
 	    // communicator rank and world size
@@ -294,13 +301,13 @@ public:
 		ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
 	    
 
-// #if (GHEX_DEBUG_LEVEL == 2)
+#if (GHEX_DEBUG_LEVEL == 2)
 		if(0 == pmi_get_rank()){
 		    LOG("ucp version %s", ucp_get_version_string());
 		    LOG("ucp features %lx", ucp_params.features);
 		    ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
 		}
-// #endif
+#endif
 
 		status = ucp_init(&ucp_params, config, &ucp_context);
 		ucp_config_release(config);
@@ -357,8 +364,6 @@ public:
 	    ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
 	    ucp_request_pos = 0;
 	}
-
-	printf("create communicator %d:%d pointer %x\n", m_rank, m_thrid, pcomm);
     }
 
     rank_type rank() const noexcept { return m_rank; }
@@ -383,12 +388,12 @@ public:
 	if(UCS_OK != status) ERR("ucp_ep_create failed");
 	free(worker_address);
 	
-	//#if (GHEX_DEBUG_LEVEL == 2)
+#if (GHEX_DEBUG_LEVEL == 2)
 	if(0==m_thrid && 0 == pmi_get_rank()){
 	    ucp_ep_print_info(ucp_ep, stdout);
 	    ucp_worker_print_info(ucp_worker, stdout);
 	}
-	//#endif
+#endif
 	
 	LOG("UCP connection established");
 	return ucp_ep;
@@ -587,7 +592,6 @@ public:
 	    ERR("cannot handle recv submitted inside early completion");
 	}
 	
-	pcomm = this;
 	early_rank = src;
 	early_tag = tag;
 	std::function<void(int, int, MsgType&)> tmpcb = cb;
@@ -635,8 +639,22 @@ public:
     {
 	// TODO: do we need this? where to place this? user code, or here?
 	// spinning on progress without any delay is sometimes very slow (?)
-	sched_yield();
-	return ucp_worker_progress(ucp_worker);
+
+	int p = 0, i = 0;
+	p+= ucp_worker_progress(ucp_worker);
+	if(m_nthr>1){
+	    p+= ucp_worker_progress(ucp_worker);
+	    p+= ucp_worker_progress(ucp_worker);
+	    p+= ucp_worker_progress(ucp_worker);
+	    sched_yield();
+	}
+	
+	// do {
+	//     p+= ucp_worker_progress(ucp_worker);
+	//     i++;
+	// } while(p == 0 && i<4);
+	
+	return p;
     }
 
     void fence()
@@ -645,7 +663,7 @@ public:
 
 	// TODO: how to assure that all comm is completed before we quit a rank?
 	// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
-	for(int i=0; i<1000; i++) {
+	for(int i=0; i<100000; i++) {
 	    ucp_worker_progress(ucp_worker);
 	}
     }

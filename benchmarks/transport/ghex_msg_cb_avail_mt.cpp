@@ -44,6 +44,7 @@ int thrid, nthr;
  */
 int **available = NULL;
 
+int total_sent = 0;
 int ongoing_comm = 0;
 int inflight;
 
@@ -54,19 +55,16 @@ void send_callback(int rank, int tag, MsgType &mesg)
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
     available[pthr][pos] = 1;
-
-#pragma omp atomic
-    ongoing_comm--;
     comm_cnt++;
 }
 
 void recv_callback(int rank, int tag, MsgType &mesg)
 {
-    //std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
     available[pthr][pos] = 1;
+    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " pthr " <<  pthr << " ongoing " << ongoing_comm << "\n";
 
 #pragma omp atomic
     ongoing_comm--;
@@ -91,6 +89,9 @@ int main(int argc, char *argv[])
 #pragma omp parallel
     {
 	std::vector<MsgType> msgs;
+	
+	comm.init_mt();
+	comm.whoami();
 
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size, buff_size);
@@ -106,6 +107,8 @@ int main(int argc, char *argv[])
 	nthr = omp_get_num_threads();
 	fprintf(stderr, "rank %d thrid %d started\n", rank, thrid);
 
+
+	/** initialize request availability arrays */
 #pragma omp master
 	available = new int *[nthr];
 
@@ -115,82 +118,78 @@ int main(int argc, char *argv[])
 	for(int j=0; j<inflight; j++){
 	    available[thrid][j] = 1;
 	}
+
+	/* just in case, make sure all threads have their arrays initialized */
 #pragma omp barrier
 
 	comm_cnt = 0;
 	nlcomm_cnt = 0;
 	submit_cnt = 0;
-	int i = 0, dbg = 0;
+	int i = 0, dbg = 0, blk;
+	blk = niter / 10;
+	dbg = dbg + blk;
 
 	if(rank == 0){
 
 	    /* send niter messages - as soon as a slot becomes free */
-	    int sent = 0;
-	    while(sent < niter){
-
+	    while(total_sent < niter){
 		for(int j=0; j<inflight; j++){
 		    if(available[thrid][j]){
-			if(rank==0 && thrid==0 && dbg>=(niter/10)) {fprintf(stderr, "%d iters\n", sent); dbg=0;}
-#pragma omp atomic
-			ongoing_comm++;
+
+			// progress output
+			if(rank==0 && thrid==0 && total_sent >= dbg) {
+			    fprintf(stderr, "%d iters\n", total_sent);
+			    dbg = dbg + blk;
+			}
+
+			// don't really need atomic, because we dont' really care about precise number of messages
+			// as long as there are more than niter - we need to receive them
+			total_sent++;
+
+			// number of requests per thread
+			submit_cnt++;
+
 			available[thrid][j] = 0;
 			comm.send(msgs[j], 1, thrid*inflight+j, send_callback);
-			submit_cnt++;
-			dbg  += nthr; 
-			sent += nthr; 
-			if(sent>=niter) break;
 		    }
 		}
-		if(sent>=niter) break;
-	    
-		/* progress a bit: for large inflight values this yields better performance */
-		/* over simply calling the progress once */
-		int p = 0.1*inflight-1;
-		do {
-		    p-=comm.progress();
-		} while(ongoing_comm>0 && p>0);
+
+		comm.progress();
 	    }
 
 	} else {
 
 	    /* recv requests are resubmitted as soon as a request is completed */
-	    /* so the number of submitted recv requests is always constant (inflight) */
+	    /* so the number of submitted recv requests is always ~constant (inflight) */
 	    /* expect niter messages (i.e., niter recv callbacks) on receiver  */
-#pragma omp master
 	    ongoing_comm = niter;
-
 #pragma omp barrier
-#pragma omp flush(ongoing_comm)
 
-	    while(ongoing_comm){
+	    while(ongoing_comm>0){
 
 		for(int j=0; j<inflight; j++){
 		    if(available[thrid][j]){
+
+			// number of requests per thread
+			submit_cnt++;
+
 			available[thrid][j] = 0;
 			comm.recv(msgs[j], 0, thrid*inflight+j, recv_callback);
-			submit_cnt++;
 		    }
 		}
 
-		/* progress a bit: for large inflight values this yields better performance */
-		/* over simply calling the progress once */
-		int p = 0.1*inflight-1;
-		do {
-		    p-=comm.progress();
-		} while(ongoing_comm>0 && p>0);
+		comm.progress();
 	    }	    
-	}
-
-	/* complete all comm */
-	while(ongoing_comm){
-	    comm.progress();
 	}
 
 #pragma omp barrier
 #pragma omp master
 	if(rank == 1) toc();
-	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
+
+	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", 
+	       rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
 
 	comm.fence();
+
     }
 }
