@@ -364,8 +364,12 @@ struct raw_shared_message
     }
 
     void release(){
+	if(nullptr == m_sptr) return;
 	m_sptr->refcount--;
-	if(m_sptr->refcount==0) delete m_sptr;
+	if(m_sptr->refcount==0) {
+	    delete m_sptr;
+	    m_sptr = nullptr;
+	}
     }
 
     unsigned char *data() const

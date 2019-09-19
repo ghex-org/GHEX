@@ -61,8 +61,23 @@ namespace ucx
     ((_ucp_tag) >> GHEX_RANK_BITS)
   
 
-    
+   
 class communicator;
+extern communicator comm;
+
+/** Communication freezes when I try to access comm from the callbacks 
+    I have to access it through a pointer, which is initialized for each
+    thread inside the constructor.
+ */
+communicator *pcomm;
+#pragma omp threadprivate(pcomm)
+
+/** completion callbacks registered in UCX, defined later */
+template <typename MsgType>
+void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info);
+template <typename MsgType>
+void ghex_tag_send_callback(void *request, ucs_status_t status);
+
 
 namespace _impl
 {
@@ -78,77 +93,12 @@ struct ghex_ucx_request {
 /** request structure for callback-based comm */
 template<typename MsgType>
 struct ghex_ucx_request_template {
-    ucp_worker_h ucp_worker; // worker thread handling this request
     uint32_t peer_rank;
     uint32_t tag; 
     std::function<void(int, int, MsgType&)> cb;
     MsgType h_msg;
 };
 
-
-/** early recv completion requires storing this info
-    in a form accessible from the callback. 
-    NOTE: this sould be thread-local variables!!
-*/
-template <typename MsgType>
-struct globals {
-    static int early_completion;
-    static int rank, tag;
-    static std::function<void(int, int, MsgType&)> cb;
-    static MsgType *msg;
-};
-
-template <typename MsgType>
-int globals<MsgType>::early_completion;
-template <typename MsgType>
-int globals<MsgType>::rank;
-template <typename MsgType>
-int globals<MsgType>::tag;
-template <typename MsgType>
-std::function<void(int, int, MsgType&)> globals<MsgType>::cb;
-template <typename MsgType>
-MsgType *globals<MsgType>::msg = nullptr;
-
-
-/** completion callbacks registered in UCX */
-template <typename MsgType>
-void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info)
-{
-    /* 1. extract user callback info from request
-       2. extract message object from request
-       3. decode rank and tag
-       4. call user callback
-       5. release / free the message (ghex is done with it)
-    */
-    uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
-    uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
-
-    if(globals<MsgType>::early_completion){
-	globals<MsgType>::cb(globals<MsgType>::rank, globals<MsgType>::tag, *(globals<MsgType>::msg));
-	/* do not free the request - it has to be freed after tag_send_nb */
-	/* also do not release the message - it is a pointer to a message owned by the user */
-    } else {
-	ghex_ucx_request_template<MsgType> *r = static_cast<ghex_ucx_request_template<MsgType>*>(request);
-	r->cb(peer_rank, tag, r->h_msg);
-	r->h_msg.release();
-	ucp_request_free(request);
-    }
-}
-
-template <typename MsgType>
-void ghex_tag_send_callback(void *request, ucs_status_t status)
-{
-    /* 1. extract user callback info from request
-       2. extract message object from request
-       3. decode rank and tag
-       4. call user callback
-       5. release / free the message (ghex is done with it)
-    */
-    ghex_ucx_request_template<MsgType> *r = static_cast<ghex_ucx_request_template<MsgType>*>(request);
-    r->cb(r->peer_rank, r->tag, r->h_msg);
-    r->h_msg.release();
-    ucp_request_free(request);
-}
 
 void empty_send_cb(void *request, ucs_status_t status)
 {
@@ -226,21 +176,30 @@ public:
     using rank_type = int;
     using request_type = _impl::ghex_ucx_request;
 
-    rank_type m_rank;
-    rank_type m_size;
+    static rank_type m_rank;
+    static rank_type m_size;
+
+    rank_type m_thrid;
+    rank_type m_nthr;
 
     static const std::string name;
 
 private:
 
-    ucp_context_h ucp_context;
-    ucp_worker_h  ucp_worker;
+    static ucp_context_h ucp_context;
+    static ucp_worker_h  ucp_worker;
 
     /** known connection pairs <rank, endpoint address>, 
 	created as rquired by the communication pattern
 	Has to be per-thread
     */
     std::map<rank_type, ucp_ep_h> connections;
+
+    int early_completion;
+    int early_rank;
+    int early_tag;
+    void *early_cb;
+    void *early_msg;
 
     /* request pool for nbr communications (futures) */
 #define REQUEST_POOL_SIZE 10000
@@ -249,142 +208,157 @@ private:
 
 public:
 
+    void whoami(){
+	printf("I am %d:%d, worker %x\n", m_rank, m_thrid, ucp_worker);
+    }
+
     ~communicator()
     {
-	ucp_worker_flush(ucp_worker);
-	/* TODO: this needs to be done correctly. Right now lots of warnings
-	   about used / unfreed resources. */
-	// ucp_worker_destroy(ucp_worker);
-	// ucp_cleanup(ucp_context);
-	pmi_finalize();
+	if(m_thrid==0){
+	    ucp_worker_flush(ucp_worker);
+	    /* TODO: this needs to be done correctly. Right now lots of warnings
+	       about used / unfreed resources. */
+	    // ucp_worker_destroy(ucp_worker);
+	    // ucp_cleanup(ucp_context);
+	    pmi_finalize();
+	}
     }
 
     communicator()
     {
 
-	pmi_init();
+	m_thrid = omp_get_thread_num();
+	m_nthr = omp_get_num_threads();
 
-	// communicator rank and world size
-	m_rank = pmi_get_rank();
-	m_size = pmi_get_size();
+	pcomm = this;
 
-	// UCX initialization
-	ucs_status_t status;
-	ucp_params_t ucp_params;
-	ucp_config_t *config = NULL;
-	ucp_worker_params_t worker_params;
-	ucp_address_t *worker_address;
-	size_t address_length;
+	/* only one thread must initialize UCX */
+	if(m_thrid==0) {
+	    pmi_init();
+
+	    // communicator rank and world size
+	    m_rank = pmi_get_rank();
+	    m_size = pmi_get_size();
+
+	    // UCX initialization
+	    ucs_status_t status;
+	    ucp_params_t ucp_params;
+	    ucp_config_t *config = NULL;
+	    ucp_worker_params_t worker_params;
+	    ucp_address_t *worker_address;
+	    size_t address_length;
 	
-	status = ucp_config_read(NULL, NULL, &config);
-	if(UCS_OK != status) ERR("ucp_config_read failed");
+	    status = ucp_config_read(NULL, NULL, &config);
+	    if(UCS_OK != status) ERR("ucp_config_read failed");
 
-	/* Initialize UCP */
-	{
-	    memset(&ucp_params, 0, sizeof(ucp_params));
+	    /* Initialize UCP */
+	    {
+		memset(&ucp_params, 0, sizeof(ucp_params));
 
-	    /* pass features, request size, and request init function */
-	    ucp_params.field_mask =
-		UCP_PARAM_FIELD_FEATURES          |
-		UCP_PARAM_FIELD_REQUEST_SIZE      |
-		UCP_PARAM_FIELD_TAG_SENDER_MASK   |
-		UCP_PARAM_FIELD_MT_WORKERS_SHARED |
-		UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
-	    // UCP_PARAM_FIELD_REQUEST_INIT      ;
+		/* pass features, request size, and request init function */
+		ucp_params.field_mask =
+		    UCP_PARAM_FIELD_FEATURES          |
+		    UCP_PARAM_FIELD_REQUEST_SIZE      |
+		    UCP_PARAM_FIELD_TAG_SENDER_MASK   |
+		    UCP_PARAM_FIELD_MT_WORKERS_SHARED |
+		    UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
+		// UCP_PARAM_FIELD_REQUEST_INIT      ;
 
-	    /* request transport support for tag matching */
-	    ucp_params.features =
-		UCP_FEATURE_TAG ;
+		/* request transport support for tag matching */
+		ucp_params.features =
+		    UCP_FEATURE_TAG ;
 
-	    // request transport support for wakeup on events
-	    // if(use_events){
-	    //     ucp_params.features |=
-	    // 	UCP_FEATURE_WAKEUP ;
-	    // }
+		// request transport support for wakeup on events
+		// if(use_events){
+		//     ucp_params.features |=
+		// 	UCP_FEATURE_WAKEUP ;
+		// }
 
 
-	    // TODO: templated request type - how do we know the size??
-	    // ucp_params.request_size = sizeof(request_type);
-	    ucp_params.request_size = 64;	    
-	    // ucp_params.request_init = _impl::ghex_ucx_request_init;
+		// TODO: templated request type - how do we know the size??
+		// ucp_params.request_size = sizeof(request_type);
+		ucp_params.request_size = 64;
+		// ucp_params.request_init = _impl::ghex_ucx_request_init;
 
-	    /* this should be true if we have per-thread workers 
-	       otherwise, if one worker is shared by each thread, it should be false
-	       This requires benchmarking. */
-	    ucp_params.mt_workers_shared = false;
+		/* this should be true if we have per-thread workers 
+		   otherwise, if one worker is shared by each thread, it should be false
+		   This requires benchmarking. */
+		ucp_params.mt_workers_shared = false;
 
-	    /* estimated number of end-points - 
-	       affects transport selection criteria and theresulting performance */
-	    ucp_params.estimated_num_eps = m_size;
+		/* estimated number of end-points - 
+		   affects transport selection criteria and theresulting performance */
+		ucp_params.estimated_num_eps = m_size;
 
-	    /* Mask which specifies particular bits of the tag which can uniquely identify
-	       the sender (UCP endpoint) in tagged operations. */
-	    ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
+		/* Mask which specifies particular bits of the tag which can uniquely identify
+		   the sender (UCP endpoint) in tagged operations. */
+		ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
 	    
 
-#if (GHEX_DEBUG_LEVEL == 2)
-	    if(0 == pmi_get_rank()){
-		LOG("ucp version %s", ucp_get_version_string());
-		LOG("ucp features %lx", ucp_params.features);
-		ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
+// #if (GHEX_DEBUG_LEVEL == 2)
+		if(0 == pmi_get_rank()){
+		    LOG("ucp version %s", ucp_get_version_string());
+		    LOG("ucp features %lx", ucp_params.features);
+		    ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
+		}
+// #endif
+
+		status = ucp_init(&ucp_params, config, &ucp_context);
+		ucp_config_release(config);
+	
+		if(UCS_OK != status) ERR("ucp_config_init");
+		if(0 == pmi_get_rank()) LOG("UCX initialized");
 	    }
-#endif
 
-	    status = ucp_init(&ucp_params, config, &ucp_context);
-	    ucp_config_release(config);
-	
-	    if(UCS_OK != status) ERR("ucp_config_init");
-	    if(0 == pmi_get_rank()) LOG("UCX initialized");
-	}
+	    /* ask for UCP request size */
+	    {
+		ucp_context_attr_t attr = {};
+		attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
+		ucp_context_query (ucp_context, &attr);
 
-	/* ask for UCP request size */
-	{
-	    ucp_context_attr_t attr = {};
-	    attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
-	    ucp_context_query (ucp_context, &attr);
+		/* UCP request size */
+		_impl::ucp_request_size = attr.request_size;
 
-	    /* UCP request size */
-	    _impl::ucp_request_size = attr.request_size;
+		/* Total request size: UCP + GHEX struct*/
+		_impl::request_size = attr.request_size + sizeof(struct _impl::ghex_ucx_request);
+	    }
 
-	    /* Total request size: UCP + GHEX struct*/
-	    _impl::request_size = attr.request_size + sizeof(struct _impl::ghex_ucx_request);
-	}
+	    /* create a worker */
+	    {
+		memset(&worker_params, 0, sizeof(worker_params));
 
-	/* create a worker */
-	{
-	    memset(&worker_params, 0, sizeof(worker_params));
-
-	    /* this should not be used if we have a single worker per thread */
-	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+		/* this should not be used if we have a single worker per thread */
+		worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
 #ifdef THREAD_MODE_MULTIPLE
-	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+		worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
 #else
-	    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+		worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
 #endif
 	    
-	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
-	    if(UCS_OK != status) ERR("ucp_worker_create failed");
-	    if(0 == pmi_get_rank()) LOG("UCP worker created");
+		status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
+		if(UCS_OK != status) ERR("ucp_worker_create failed");
+		if(0 == pmi_get_rank()) LOG("UCP worker created");
+	    }
+
+	    /* obtain the worker endpoint address and post it to PMI */
+	    {
+		status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
+		if(UCS_OK != status) ERR("ucp_worker_get_address failed");
+		if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
+
+		/* update pmi with local address information */
+		pmi_set_string("ghex-rank-address", worker_address, address_length);
+		ucp_worker_release_address(ucp_worker, worker_address);
+
+		/* invoke global pmi data exchange */
+		// pmi_exchange();
+	    }
+
+	    /* allocate comm request pool */
+	    ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
+	    ucp_request_pos = 0;
 	}
 
-	/* obtain the worker endpoint address and post it to PMI */
-	{
-	    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
-	    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
-	    if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
-
-	    /* update pmi with local address information */
-	    pmi_set_string("ghex-rank-address", worker_address, address_length);
-	    ucp_worker_release_address(ucp_worker, worker_address);
-
-	    /* invoke global pmi data exchange */
-	    // pmi_exchange();
-	}
-
-	/* allocate comm request pool */
-	ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
-	ucp_request_pos = 0;
-
+	printf("create communicator %d:%d pointer %x\n", m_rank, m_thrid, pcomm);
     }
 
     rank_type rank() const noexcept { return m_rank; }
@@ -409,12 +383,12 @@ public:
 	if(UCS_OK != status) ERR("ucp_ep_create failed");
 	free(worker_address);
 	
-#if (GHEX_DEBUG_LEVEL == 2)
-	if(0 == pmi_get_rank()){
+	//#if (GHEX_DEBUG_LEVEL == 2)
+	if(0==m_thrid && 0 == pmi_get_rank()){
 	    ucp_ep_print_info(ucp_ep, stdout);
 	    ucp_worker_print_info(ucp_worker, stdout);
 	}
-#endif
+	//#endif
 	
 	LOG("UCP connection established");
 	return ucp_ep;
@@ -426,16 +400,13 @@ public:
 
 	/* look for a connection to a given peer
 	   create it if it does not yet exist */
-#pragma omp critical(ucp_connection)
-	{
-	    auto conn = connections.find(rank);
-	    if(conn == connections.end()){
-		ep = connect(rank);
-		connections.emplace(rank, ep);
-	    } else {
-		/* found an existing connection - return the corresponding endpoint handle */
-		ep = conn->second;
-	    }
+	auto conn = connections.find(rank);
+	if(conn == connections.end()){
+	    ep = connect(rank);
+	    connections.emplace(rank, ep);
+	} else {
+	    /* found an existing connection - return the corresponding endpoint handle */
+	    ep = conn->second;
 	}
 
         return ep;
@@ -515,7 +486,7 @@ public:
 
 	/* send with callback */
 	status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				 GHEX_MAKE_SEND_TAG(tag, m_rank), _impl::ghex_tag_send_callback<MsgType>);
+				 GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<MsgType>);
 
 	// TODO !! C++ doesn't like it..
 	istatus = (uintptr_t)status;
@@ -607,27 +578,29 @@ public:
 	/* and the callback is called earlier than we initialize the data inside it */
 
 	/* sanity check! we could be recursive... OMG! */
-	if(_impl::globals<MsgType>::early_completion){
+	if(early_completion){
 	    /* TODO: VERIFY */
 	    /* This should never happen, and even if, should not be a problem: */
 	    /* we do not modify anything in the early callback, and the values */
 	    /* set here are never used anywhere else. Unless user re-uses the message */
 	    /* in his callback after re-submitting a send... Should be told not to. */
-	    // ERR("cannot handle recv submitted inside early completion");
+	    ERR("cannot handle recv submitted inside early completion");
 	}
 	
-	_impl::globals<MsgType>::early_completion = 1;
-	_impl::globals<MsgType>::rank = src;
-	_impl::globals<MsgType>::tag = tag;
-	_impl::globals<MsgType>::cb = cb;
-	_impl::globals<MsgType>::msg = &msg;
+	pcomm = this;
+	early_rank = src;
+	early_tag = tag;
+	std::function<void(int, int, MsgType&)> tmpcb = cb;
+	early_cb = &tmpcb;  // this is cast to proper type inside the callback, which knows MsgType
+	early_msg = &msg;
+	early_completion = 1;
 
 	/* recv with callback */
 	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				 ucp_tag, ucp_tag_mask, _impl::ghex_tag_recv_callback<MsgType>);
+				 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<MsgType>);
 
-	_impl::globals<MsgType>::early_completion = 0;
+	early_completion = 0;
 
 	if(!UCS_PTR_IS_ERR(status)) {
 
@@ -662,8 +635,7 @@ public:
     {
 	// TODO: do we need this? where to place this? user code, or here?
 	// spinning on progress without any delay is sometimes very slow (?)
-	// sched_yield();
-
+	sched_yield();
 	return ucp_worker_progress(ucp_worker);
     }
 
@@ -673,7 +645,7 @@ public:
 
 	// TODO: how to assure that all comm is completed before we quit a rank?
 	// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
-	for(int i=0; i<100000; i++) {
+	for(int i=0; i<1000; i++) {
 	    ucp_worker_progress(ucp_worker);
 	}
     }
@@ -695,9 +667,74 @@ public:
 	    ucp_request_release(request);
 	}
     }
+
+    /** completion callbacks registered in UCX */
+    template <typename MsgType>
+    friend void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info);
+    template <typename MsgType>
+    friend void ghex_tag_send_callback(void *request, ucs_status_t status);
 };
 
+
+/** completion callbacks registered in UCX */
+template <typename MsgType>
+void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info)
+{
+    /* 1. extract user callback info from request
+       2. extract message object from request
+       3. decode rank and tag
+       4. call user callback
+       5. release / free the message (ghex is done with it)
+    */
+    uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
+    uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
+
+    if(pcomm->early_completion){
+
+	/* here we know that the submitting thread is also calling the callback */
+	std::function<void(int, int, MsgType&)> *cb = static_cast<std::function<void(int, int, MsgType&)>*>(pcomm->early_cb);
+	MsgType *msg = static_cast<MsgType *>(pcomm->early_msg);
+	(*cb)(pcomm->early_rank, pcomm->early_tag, *msg);
+	// ERR("NEEDS TESTING...");
+
+	/* do not free the request - it has to be freed after tag_send_nb */
+	/* also do not release the message - it is a pointer to a message owned by the user */
+    } else {
+	
+	/* here we know the thrid of the submitting thread, if it is not us */
+	_impl::ghex_ucx_request_template<MsgType> *r = static_cast<_impl::ghex_ucx_request_template<MsgType>*>(request);
+	r->cb(peer_rank, tag, r->h_msg);
+	r->h_msg.release();
+	ucp_request_free(request);
+    }
+}
+
+template <typename MsgType>
+void ghex_tag_send_callback(void *request, ucs_status_t status)
+{
+    /* 1. extract user callback info from request
+       2. extract message object from request
+       3. decode rank and tag
+       4. call user callback
+       5. release / free the message (ghex is done with it)
+    */
+    _impl::ghex_ucx_request_template<MsgType> *r = static_cast<_impl::ghex_ucx_request_template<MsgType>*>(request);
+    r->cb(r->peer_rank, r->tag, r->h_msg);
+    r->h_msg.release();
+    ucp_request_free(request);
+}
+
+/** this has to be here, because the class needs to be complete */
+#pragma omp threadprivate(comm, pcomm)
+communicator comm;
+
+/** static communicator properties, shared between threads */
 const std::string communicator::name = "ghex::ucx";
+communicator::rank_type communicator::m_rank;
+communicator::rank_type communicator::m_size;
+ucp_context_h communicator::ucp_context;
+ucp_worker_h  communicator::ucp_worker;
+
 
 } // namespace ucx
 } // namespace ghex
