@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <mpi.h>
 #include <string>
+#include <cstring>    
 #include <utility>
 
 #include <type_traits>
@@ -29,11 +30,9 @@
 #include "../include/protocol/communicator_base.hpp"
 #include "../include/protocol/mpi.hpp"
 #include "../include/pattern.hpp"
-#include "../include/structured_pattern.hpp"
-#include "../include/structured_domain_descriptor.hpp"
+#include "../include/structured/structured_pattern.hpp"
+#include "../include/structured/structured_domain_descriptor.hpp"
 #include "triplet.hpp"
-#include "../include/utils.hpp"
-
 
 /* CPU data descriptor */
 template <typename T, typename DomainDescriptor, typename LayoutMap>

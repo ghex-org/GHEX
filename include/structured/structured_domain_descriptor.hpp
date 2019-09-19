@@ -17,7 +17,7 @@
 #include <vector>
 #include <algorithm>
 
-#include "./utils.hpp"
+#include "../common/utils.hpp"
 #include "./structured_grid.hpp"
 
 namespace gridtools {
@@ -180,7 +180,7 @@ namespace gridtools {
                 }
             }
 
-            return std::move(halos);
+            return halos;
         }
 
     private: // member functions
@@ -191,7 +191,7 @@ namespace gridtools {
             x.reserve(detail::ct_pow(3,dimension::value));
             Box b;
             compute_spaces<Box>(0, spaces, b, x);
-            return std::move(x);
+            return x;
         }
 
         template<typename Box, typename Spaces, typename Container>

@@ -39,7 +39,7 @@ namespace gridtools {
         using pattern_container_type   = pattern_container<P,GridType,DomainIdType>;
         using device_type              = Device;
         using field_type               = Field;
-        using device_id_type           = typename device_type::id_type;
+        using device_id_type           = typename device_type::device_id_type;
         using value_type               = typename field_type::value_type; 
    
     private: // friend class
@@ -47,7 +47,7 @@ namespace gridtools {
 
     private: // private ctor
         buffer_info(const pattern_type& p, field_type& field, device_id_type id) noexcept
-        :   m_p{p}, m_field{field}, m_id{id} { }
+        :   m_p{&p}, m_field{&field}, m_id{id} { }
 
     public: // copy and move ctors
         buffer_info(const buffer_info&) noexcept = default;
@@ -55,13 +55,13 @@ namespace gridtools {
 
     public: // member functions
         device_id_type device_id() const noexcept { return m_id; }
-        const pattern_type& get_pattern() const noexcept { return m_p; }
-        const pattern_container_type& get_pattern_container() const noexcept { return m_p.container(); }
-        field_type& get_field() noexcept { return m_field; }
+        const pattern_type& get_pattern() const noexcept { return *m_p; }
+        const pattern_container_type& get_pattern_container() const noexcept { return m_p->container(); }
+        field_type& get_field() noexcept { return *m_field; }
 
     private: // members
-        const pattern_type& m_p;
-        field_type& m_field;
+        const pattern_type* m_p;
+        field_type* m_field;
         device_id_type m_id;
     };
 

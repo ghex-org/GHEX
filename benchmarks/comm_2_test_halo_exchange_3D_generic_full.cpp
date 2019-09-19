@@ -9,48 +9,34 @@
  * 
  */
 
-#define GHEX_1_PATTERN_BENCHMARK
-
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main_boost.cpp"
+    #include "gtest_main.cpp"
 #endif
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/collectives.hpp>
 #include <sstream>
 #include <string>
 #include <fstream>
 #include <iomanip>
-#include <chrono>
-
-#include "../include/communication_object_2.hpp"
-#include "../include/structured_pattern.hpp"
-#include "../include/structured_domain_descriptor.hpp"
-#include "../include/simple_field_wrapper.hpp"
 #include <array>
 
+#include "../include/communication_object_2.hpp"
+#include "../include/structured/structured_pattern.hpp"
+#include "../include/structured/structured_domain_descriptor.hpp"
+#include "../include/structured/simple_field_wrapper.hpp"
+#include "../include/common/timer.hpp"
 #include "triplet.hpp"
-#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
 
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-#include <boost/accumulators/statistics/mean.hpp>
-#include <boost/accumulators/statistics/moment.hpp>
-#include <boost/accumulators/statistics/variance.hpp>
-#include <boost/accumulators/statistics/max.hpp>
-#include <boost/accumulators/statistics/min.hpp>
-
+#include <gridtools/common/array.hpp>
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
+#include <gridtools/common/host_device.hpp>
 #endif
 
 namespace halo_exchange_3D_generic_full {
 
-    using clock_type = std::chrono::high_resolution_clock;
-    using duration_type = typename clock_type::duration;
-    using time_point_type = typename clock_type::time_point;
-    using microseconds = std::chrono::microseconds;
+    using timer_type = gridtools::ghex::timer;
+
 
     MPI_Comm CartComm;
     int dims[3] = {0, 0, 0};
@@ -118,11 +104,13 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c) 
+        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::mpi::mpi_comm& world) 
     {
-        // mpi communicator
-        //boost::mpi::communicator comm(CartComm,boost::mpi::comm_attach);
-        boost::mpi::communicator world;
+        //gridtools::device::gpu::sync();
+        //gridtools::device::gpu::check_error("error at begin of run");
+        file << "enter run" << std::endl;
+        //gridtools::device::gpu::sync();
+        //gridtools::device::gpu::check_error("error at begin of run 2");
         
         // compute total domain
         const std::array<int,3> g_first{             0,              0,              0};
@@ -169,13 +157,12 @@ namespace halo_exchange_3D_generic_full {
         auto pattern_2 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_2, local_domains);
         auto pattern_3 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_3, local_domains);
 #endif
+        file << "run after pattern creation" << std::endl;
         
         // communication object
-#ifndef GHEX_1_PATTERN_BENCHMARK
-        auto co = gridtools::make_communication_object(pattern_1, pattern_2, pattern_3);
-#else
-        auto co = gridtools::make_communication_object(pattern_1);
-#endif
+        auto co = gridtools::make_communication_object<decltype(pattern_1)>();
+
+        file << "run after co creation" << std::endl;
 
 
         file << "Proc: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
@@ -222,206 +209,315 @@ namespace halo_exchange_3D_generic_full {
         printbuff(file, c);
         file.flush();
 
-#ifdef __CUDACC__
-        file << "***** GPU ON *****\n";
-
-        triple_t<USE_DOUBLE, T1>::data_type *gpu_a = 0;
-        triple_t<USE_DOUBLE, T2>::data_type *gpu_b = 0;
-        triple_t<USE_DOUBLE, T3>::data_type *gpu_c = 0;
-        GT_CUDA_CHECK(cudaMalloc(&gpu_a,
-            (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
-                sizeof(triple_t<USE_DOUBLE, T1>::data_type)));
-        GT_CUDA_CHECK(cudaMalloc(&gpu_b,
-            (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
-                sizeof(triple_t<USE_DOUBLE, T2>::data_type)));
-        GT_CUDA_CHECK(cudaMalloc(&gpu_c,
-            (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
-                sizeof(triple_t<USE_DOUBLE, T3>::data_type)));
-
-        GT_CUDA_CHECK(cudaMemcpy(gpu_a,
-            a.data(),
-            (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
-                sizeof(triple_t<USE_DOUBLE, T1>::data_type),
-            cudaMemcpyHostToDevice));
-
-        GT_CUDA_CHECK(cudaMemcpy(gpu_b,
-            b.data(),
-            (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
-                sizeof(triple_t<USE_DOUBLE, T2>::data_type),
-            cudaMemcpyHostToDevice));
-
-        GT_CUDA_CHECK(cudaMemcpy(gpu_c,
-            c.data(),
-            (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
-                sizeof(triple_t<USE_DOUBLE, T3>::data_type),
-            cudaMemcpyHostToDevice));
-
-        // wrap raw fields
-        auto field1 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_a,
-            std::array<int,3>{H1m1,H2m1,H3m1},
-            std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-        auto field2 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_b,
-            std::array<int,3>{H1m2,H2m2,H3m2},
-            std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-        auto field3 = gridtools::wrap_field<gridtools::device::gpu,I1,I2,I3>(local_domain.domain_id(), gpu_c,
-            std::array<int,3>{H1m3,H2m3,H3m3},
-            std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
-#else
-        auto field1 = a;
-        auto field2 = b;
-        auto field3 = c;
-#endif
-
-        file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
-        using namespace boost::accumulators;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_0;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local_1;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_local;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_0;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global_1;
-        accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > time_acc_global;
-        const int k_start = 5;
-        for (int k=0; k<25; ++k)
+        if (use_gpu)
         {
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_0;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global_1;
-            accumulator_set<typename microseconds::rep, stats<tag::mean, tag::variance(lazy), tag::max, tag::min> > acc_global;
-            world.barrier();
-            const auto t0 = clock_type::now();
-            auto h = co.exchange(
-#ifndef GHEX_1_PATTERN_BENCHMARK
-                pattern_1(field1),
-                pattern_2(field2),
-                pattern_3(field3));
+            triple_t<USE_DOUBLE, T1>::data_type *gpu_a = 0;
+            triple_t<USE_DOUBLE, T2>::data_type *gpu_b = 0;
+            triple_t<USE_DOUBLE, T3>::data_type *gpu_c = 0;
+            file << "***** GPU ON *****\n";
+
+#ifdef __CUDACC__
+            GT_CUDA_CHECK(cudaMalloc(&gpu_a,
+                (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
+                    sizeof(triple_t<USE_DOUBLE, T1>::data_type)));
+            GT_CUDA_CHECK(cudaMalloc(&gpu_b,
+                (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
+                    sizeof(triple_t<USE_DOUBLE, T2>::data_type)));
+            GT_CUDA_CHECK(cudaMalloc(&gpu_c,
+                (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
+                    sizeof(triple_t<USE_DOUBLE, T3>::data_type)));
+
+            GT_CUDA_CHECK(cudaMemcpy(gpu_a,
+                a.data(),
+                (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
+                    sizeof(triple_t<USE_DOUBLE, T1>::data_type),
+                cudaMemcpyHostToDevice));
+
+            GT_CUDA_CHECK(cudaMemcpy(gpu_b,
+                b.data(),
+                (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
+                    sizeof(triple_t<USE_DOUBLE, T2>::data_type),
+                cudaMemcpyHostToDevice));
+
+            GT_CUDA_CHECK(cudaMemcpy(gpu_c,
+                c.data(),
+                (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
+                    sizeof(triple_t<USE_DOUBLE, T3>::data_type),
+                cudaMemcpyHostToDevice));
 #else
-                pattern_1(field1),
-                pattern_1(field2),
-                pattern_1(field3));
+            gpu_a = new triple_t<USE_DOUBLE, T1>[(DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1)];
+            gpu_b = new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
+            gpu_c = new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
+
+            std::memcpy((void*)gpu_a, (const void*)a.data(), 
+                (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) * sizeof(triple_t<USE_DOUBLE, T1>::data_type));
+            std::memcpy((void*)gpu_b, (const void*)b.data(), 
+                (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) * sizeof(triple_t<USE_DOUBLE, T2>::data_type));
+            std::memcpy((void*)gpu_c, (const void*)c.data(), 
+                (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) * sizeof(triple_t<USE_DOUBLE, T3>::data_type));
 #endif
-            const auto t1 = clock_type::now();
-            h.wait();
-            const auto t2 = clock_type::now();
+
+            // wrap raw fields
+            auto field1 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
+                std::array<int,3>{H1m1,H2m1,H3m1},
+                std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
+            auto field2 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
+                std::array<int,3>{H1m2,H2m2,H3m2},
+                std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
+            auto field3 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
+                std::array<int,3>{H1m3,H2m3,H3m3},
+                std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
+
             world.barrier();
 
-            const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
-            const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
-            const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
-
-            std::vector<typename microseconds::rep> tmp_0;
-            boost::mpi::all_gather(world, d0, tmp_0); 
-            std::vector<typename microseconds::rep> tmp_1;
-            boost::mpi::all_gather(world, d1, tmp_1); 
-            std::vector<typename microseconds::rep> tmp;
-            boost::mpi::all_gather(world, d01, tmp); 
-            for (unsigned int i=0; i<tmp_0.size(); ++i)
+            // do all the stuff here
+            file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
+            timer_type t_0_local;
+            timer_type t_1_local;
+            timer_type t_local;
+            timer_type t_0_global;
+            timer_type t_1_global;
+            timer_type t_global;
+            const int k_start = 5;
+            for (int k=0; k<25; ++k)
             {
-                acc_global_0(tmp_0[i]);
-                acc_global_1(tmp_1[i]);
-                acc_global(tmp[i]);
+                timer_type t_0;
+                timer_type t_1;
+                world.barrier();
+                t_0.tic();
+                auto h = co.exchange(
+#ifndef GHEX_1_PATTERN_BENCHMARK
+                    pattern_1(field1),
+                    pattern_2(field2),
+                    pattern_3(field3));
+#else
+                    pattern_1(field1),
+                    pattern_1(field2),
+                    pattern_1(field3));
+#endif
+                t_0.toc();
+                t_1.tic();
+                h.wait();
+                t_1.toc();
+                world.barrier();
+
+                timer_type t;
+                t(t_0.sum()+t_1.sum());
+
+                auto t_0_all = gridtools::ghex::reduce(t_0,world);
+                auto t_1_all = gridtools::ghex::reduce(t_1,world);
+                auto t_all = gridtools::ghex::reduce(t,world);
                 if (k >= k_start)
                 {
-                    time_acc_global_0(tmp_0[i]);
-                    time_acc_global_1(tmp_1[i]);
-                    time_acc_global(tmp[i]);
+                    t_0_local(t_0);
+                    t_1_local(t_1);
+                    t_local(t);
+                    t_0_global(t_0_all);
+                    t_1_global(t_1_all);
+                    t_global(t_all);
                 }
-            }
-            if (k >= k_start)
-            {
-                time_acc_local_0(d0);
-                time_acc_local_1(d1);
-                time_acc_local(d01);
+
+                file << "TIME PACK/POST:   " 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.mean()/1000.0
+                    << " ±"
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.max()/1000.0
+                    << std::endl;
+                file << "TIME WAIT/UNPACK: " 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0 
+                    << " ±"
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.max()/1000.0
+                    << std::endl;
+                file << "TIME ALL:         " 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0 
+                    << " ±"
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.max()/1000.0
+                    << std::endl;
+                file << std::endl;
             }
 
-            const auto global_0_mean    = mean(acc_global_0);
-            const auto global_1_mean    = mean(acc_global_1);
-            const auto global_mean      = mean(acc_global);
-            const auto global_0_std_dev = std::sqrt(variance(acc_global_0));
-            const auto global_1_std_dev = std::sqrt(variance(acc_global_1));
-            const auto global_std_dev   = std::sqrt(variance(acc_global));
-            const auto global_0_max     = max(acc_global_0);
-            const auto global_1_max     = max(acc_global_1);
-            const auto global_max       = max(acc_global);
-            const auto global_0_min     = min(acc_global_0);
-            const auto global_1_min     = min(acc_global_1);
-            const auto global_min       = min(acc_global);
-
+            file << std::endl << "-----------------" << std::endl;
             file << "TIME PACK/POST:   " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d0/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_mean/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_0_std_dev/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_min/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_0_max/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.max()/1000.0
                 << std::endl;
             file << "TIME WAIT/UNPACK: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_mean/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_1_std_dev/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_min/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_1_max/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.max()/1000.0
                 << std::endl;
             file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_mean/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << global_std_dev/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_min/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << global_max/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.max()/1000.0
                 << std::endl;
-            file << std::endl;
-        }
 
-        file << std::endl << "-----------------" << std::endl;
-        file << "TIME PACK/POST:   " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_0)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_0)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_0))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_0)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_0)/1000.0
-            << std::endl;
-        file << "TIME WAIT/UNPACK: " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local_1)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global_1)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global_1))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global_1)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global_1)/1000.0
-            << std::endl;
-        file << "TIME ALL:         " 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_local)/1000.0 
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << mean(time_acc_global)/1000.0
-            << " ±"
-            << std::scientific << std::setprecision(4) << std::right << std::setw(11) << std::sqrt(variance(time_acc_global))/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << min(time_acc_global)/1000.0
-            << std::scientific << std::setprecision(4) << std::right << std::setw(12) << max(time_acc_global)/1000.0
-            << std::endl;
-        //file << std::endl << std::endl;
-        
 #ifdef __CUDACC__
-        GT_CUDA_CHECK(cudaMemcpy(a.data(),
-            gpu_a,
-            (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
-                sizeof(triple_t<USE_DOUBLE, T1>::data_type),
-            cudaMemcpyDeviceToHost));
+            GT_CUDA_CHECK(cudaMemcpy(a.data(),
+                gpu_a,
+                (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *
+                    sizeof(triple_t<USE_DOUBLE, T1>::data_type),
+                cudaMemcpyDeviceToHost));
 
-        GT_CUDA_CHECK(cudaMemcpy(b.data(),
-            gpu_b,
-            (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
-                sizeof(triple_t<USE_DOUBLE, T2>::data_type),
-            cudaMemcpyDeviceToHost));
+            GT_CUDA_CHECK(cudaMemcpy(b.data(),
+                gpu_b,
+                (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) *
+                    sizeof(triple_t<USE_DOUBLE, T2>::data_type),
+                cudaMemcpyDeviceToHost));
 
-        GT_CUDA_CHECK(cudaMemcpy(c.data(),
-            gpu_c,
-            (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
-                sizeof(triple_t<USE_DOUBLE, T3>::data_type),
-            cudaMemcpyDeviceToHost));
+            GT_CUDA_CHECK(cudaMemcpy(c.data(),
+                gpu_c,
+                (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) *
+                    sizeof(triple_t<USE_DOUBLE, T3>::data_type),
+                cudaMemcpyDeviceToHost));
 
-        GT_CUDA_CHECK(cudaFree(gpu_a));
-        GT_CUDA_CHECK(cudaFree(gpu_b));
-        GT_CUDA_CHECK(cudaFree(gpu_c));
+            GT_CUDA_CHECK(cudaFree(gpu_a));
+            GT_CUDA_CHECK(cudaFree(gpu_b));
+            GT_CUDA_CHECK(cudaFree(gpu_c));
+#else
+            std::memcpy((void*)a.data(), (const void*)gpu_a, 
+                (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) * sizeof(triple_t<USE_DOUBLE, T1>::data_type));
+            std::memcpy((void*)b.data(), (const void*)gpu_b, 
+                (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) * sizeof(triple_t<USE_DOUBLE, T2>::data_type));
+            std::memcpy((void*)c.data(), (const void*)gpu_c, 
+                (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) * sizeof(triple_t<USE_DOUBLE, T3>::data_type));
+            
+            delete[] gpu_a;
+            delete[] gpu_b;
+            delete[] gpu_c;
 #endif
+
+            world.barrier();
+
+        }
+        else
+        {
+            auto field1 = a;
+            auto field2 = b;
+            auto field3 = c;
+            world.barrier();
+
+            file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
+            timer_type t_0_local;
+            timer_type t_1_local;
+            timer_type t_local;
+            timer_type t_0_global;
+            timer_type t_1_global;
+            timer_type t_global;
+            const int k_start = 5;
+            for (int k=0; k<25; ++k)
+            {
+                timer_type t_0;
+                timer_type t_1;
+                world.barrier();
+                t_0.tic();
+                auto h = co.exchange(
+#ifndef GHEX_1_PATTERN_BENCHMARK
+                    pattern_1(field1),
+                    pattern_2(field2),
+                    pattern_3(field3));
+#else
+                    pattern_1(field1),
+                    pattern_1(field2),
+                    pattern_1(field3));
+#endif
+                t_0.toc();
+                t_1.tic();
+                h.wait();
+                t_1.toc();
+                world.barrier();
+
+                timer_type t;
+                t(t_0.sum()+t_1.sum());
+
+                auto t_0_all = gridtools::ghex::reduce(t_0,world);
+                auto t_1_all = gridtools::ghex::reduce(t_1,world);
+                auto t_all = gridtools::ghex::reduce(t,world);
+                if (k >= k_start)
+                {
+                    t_0_local(t_0);
+                    t_1_local(t_1);
+                    t_local(t);
+                    t_0_global(t_0_all);
+                    t_1_global(t_1_all);
+                    t_global(t_all);
+                }
+
+                file << "TIME PACK/POST:   " 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.mean()/1000.0
+                    << " ±"
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.max()/1000.0
+                    << std::endl;
+                file << "TIME WAIT/UNPACK: " 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0 
+                    << " ±"
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.max()/1000.0
+                    << std::endl;
+                file << "TIME ALL:         " 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0 
+                    << " ±"
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.max()/1000.0
+                    << std::endl;
+                file << std::endl;
+            }
+
+            file << std::endl << "-----------------" << std::endl;
+            file << "TIME PACK/POST:   " 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.mean()/1000.0
+                << " ±"
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.max()/1000.0
+                << std::endl;
+            file << "TIME WAIT/UNPACK: " 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.mean()/1000.0
+                << " ±"
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.max()/1000.0
+                << std::endl;
+            file << "TIME ALL:         " 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.mean()/1000.0
+                << " ±"
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.max()/1000.0
+                << std::endl;
+            //file << std::endl << std::endl;
+
+            world.barrier();
+        }
+        
 
         file << "\n********************************************************************************\n";
 
@@ -566,7 +662,7 @@ namespace halo_exchange_3D_generic_full {
         return passed;
     }
     
-    bool test(
+    bool test(bool use_gpu,
         int DIM1,
         int DIM2,
         int DIM3,
@@ -589,7 +685,7 @@ namespace halo_exchange_3D_generic_full {
         int H3m3,
         int H3p3) 
     {
-        boost::mpi::communicator world;
+        gridtools::ghex::mpi::mpi_comm world;
         //std::cout << world.rank() << " " << world.size() << "\n";
         
         std::stringstream ss;
@@ -600,6 +696,7 @@ namespace halo_exchange_3D_generic_full {
 
         file << world.rank() << "  " << world.size() << "\n";
         
+        dims[2] = 1;
         MPI_Dims_create(world.size(), 3, dims);
         int period[3] = {1, 1, 1};
 
@@ -652,7 +749,7 @@ namespace halo_exchange_3D_generic_full {
                 "_b, "
                 "_c)\n";
 
-        passed = passed and run<std::ostream, 0, 1, 2, true, true, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -676,12 +773,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,1,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 0, 1, 2, true, true, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -703,15 +800,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,1,2, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 0, 1, 2, true, false, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -733,15 +829,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 0,1,2, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 1, 2, true, false, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -763,15 +858,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,1,2, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 0, 1, 2, false, true, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -793,15 +887,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 0,1,2, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 1, 2, false, true, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -823,15 +916,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 0,1,2, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 1, 2, false, false, true>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -853,15 +945,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,1,2, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 1, 2, false, false, false>(file,
+        passed = passed && run<std::ostream, 0, 1, 2, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -883,10 +974,9 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
         file << "---------------------------------------------------\n";
 
         file << "Permutation 0,2,1\n";
@@ -894,7 +984,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 0,2,1, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, true, true, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -916,15 +1006,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,2,1, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, true, true, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -946,15 +1035,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,2,1, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, true, false, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -976,15 +1064,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 0,2,1, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, true, false, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1006,15 +1093,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,2,1, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, false, true, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1036,15 +1122,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 0,2,1, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, false, true, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1066,15 +1151,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 0,2,1, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, false, false, true>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1096,15 +1180,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 0,2,1, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = passed and run<std::ostream, 0, 2, 1, false, false, false>(file,
+        passed = passed && run<std::ostream, 0, 2, 1, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1126,10 +1209,9 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
         file << "---------------------------------------------------\n";
 
         file << "Permutation 1,0,2\n";
@@ -1137,7 +1219,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,0,2, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, true, true, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1159,15 +1241,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,0,2, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, true, true, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1189,15 +1270,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,0,2, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, true, false, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1219,15 +1299,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 1,0,2, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, true, false, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1249,15 +1328,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,0,2, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, false, true, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1279,15 +1357,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 1,0,2, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, false, true, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1309,15 +1386,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 1,0,2, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, false, false, true>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1339,15 +1415,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,0,2, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 0, 2, false, false, false>(file,
+        passed = passed && run<std::ostream, 1, 0, 2, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1369,10 +1444,9 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
         file << "---------------------------------------------------\n";
 
         file << "Permutation 1,2,0\n";
@@ -1380,7 +1454,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 1,2,0, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, true, true, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1404,12 +1478,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,2,0, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, true, true, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1433,12 +1507,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,2,0, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, true, false, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1462,12 +1536,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 1,2,0, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, true, false, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1491,12 +1565,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,2,0, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, false, true, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1520,12 +1594,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 1,2,0, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, false, true, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1549,12 +1623,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 1,2,0, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, false, false, true>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1578,12 +1652,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 1,2,0, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H31, "
                 "_a, "
                 "_b, _c)\n";
-        passed = passed and run<std::ostream, 1, 2, 0, false, false, false>(file,
+        passed = passed && run<std::ostream, 1, 2, 0, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1607,7 +1681,7 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
         file << "---------------------------------------------------\n";
 
         file << "Permutation 2,0,1\n";
@@ -1615,7 +1689,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,0,1, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, true, true, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1639,12 +1713,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,0,1, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, true, true, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1668,12 +1742,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,0,1, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, true, false, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1697,12 +1771,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 2,0,1, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, true, false, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1726,12 +1800,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,0,1, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, false, true, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1755,12 +1829,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 2,0,1, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, false, true, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1782,15 +1856,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 2,0,1, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, false, false, true>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1812,15 +1885,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,0,1, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 0, 1, false, false, false>(file,
+        passed = passed && run<std::ostream, 2, 0, 1, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1842,10 +1914,9 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
         file << "---------------------------------------------------\n";
 
         file << "Permutation 2,1,0\n";
@@ -1853,7 +1924,7 @@ namespace halo_exchange_3D_generic_full {
         file << "run<std::ostream, 2,1,0, true, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, true, true, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1875,15 +1946,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,1,0, true, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, true, true, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1905,15 +1975,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,1,0, true, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, true, false, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1935,15 +2004,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 2,1,0, true, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, true, false, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, true, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1965,15 +2033,14 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,1,0, false, true, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                 "_b, "
                 "_c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, false, true, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, true, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -1997,12 +2064,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 2,1,0, false, true, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, false, true, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, true, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2026,12 +2093,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file
             << "run<std::ostream, 2,1,0, false, false, true>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, _a, "
                "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, false, false, true>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, false, true>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2055,12 +2122,12 @@ namespace halo_exchange_3D_generic_full {
                                 H3p3,
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
 
         file << "run<std::ostream, 2,1,0, false, false, false>(file, DIM1, DIM2, DIM3, H1m, H1p, H2m, H2p, H3m, H3p, "
                 "_a, "
                 "_b, _c)\n";
-        passed = passed and run<std::ostream, 2, 1, 0, false, false, false>(file,
+        passed = passed && run<std::ostream, 2, 1, 0, false, false, false>(file,
                                 DIM1,
                                 DIM2,
                                 DIM3,
@@ -2082,12 +2149,11 @@ namespace halo_exchange_3D_generic_full {
                                 H2p3,
                                 H3m3,
                                 H3p3,
-
                                 _a,
                                 _b,
-                                _c);
+                                _c, use_gpu, world);
         file << "---------------------------------------------------\n";
-        
+         
         
         delete[] _a;
         delete[] _b;
@@ -2114,7 +2180,7 @@ int main(int argc, char **argv)
     if (provided < required)
         throw std::runtime_error("MPI does not support required threading level");
 #else
-    boost::mpi::environment env(argc, argv);
+    MPI_Init(&argc,&argv);
 #endif
 
     if (argc != 22) {
@@ -2168,17 +2234,51 @@ int main(int argc, char **argv)
         H3m3,
         H3p3);
 
-#ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
     MPI_Finalize();
-#endif
     return 0;
 }
 #else
 TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
+    bool passed = true;
+
+    //const int Nx = 98*2;
+    //const int Ny = 54*3;
+    //const int Nz = 87*2;
+    const int Nx = 260;
+    const int Ny = 260;
+    const int Nz = 80;
+
+#ifdef __CUDACC__
+    gridtools::ghex::mpi::mpi_comm mpi_comm;
+    int num_devices_per_node;
+    cudaGetDeviceCount(&num_devices_per_node);
+    MPI_Comm raw_local_comm;
+    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::gehx::mpi::comm_take_ownership);
+    if (local_comm.rank()<num_devices_per_node)
+    {
+        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
+        << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
 #ifndef GHEX_1_PATTERN_BENCHMARK
-    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+        passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
 #else
-    bool passed = halo_exchange_3D_generic_full::test(98, 54, 87, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+        //passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+        passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
+#endif
+    }
+    else
+    {
+#endif
+
+#ifndef GHEX_1_PATTERN_BENCHMARK
+    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
+#else
+    //passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
+    passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
+#endif
+#ifdef __CUDACC__
+    }
 #endif
 
     EXPECT_TRUE(passed);
