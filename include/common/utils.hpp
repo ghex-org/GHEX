@@ -213,10 +213,9 @@ namespace gridtools {
              * @param coordinate_offset distance from first coordinate in the multi-dimensional array to the origin (0,0,...). 
              * An array without buffer zones has a coordinate offset of (0,0,...), while the offset is (1,1,...) for an array with buffer zone of 1.
              */
-            template<typename Func, typename Array, typename Array2>
-            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset) noexcept
+            template<typename Func, typename Array, typename Strides, typename Array2>
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides, Array2&& coordinate_offset) noexcept
             {
-                std::size_t offset = 0;
                 std::size_t iter = 0;
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
                 {
@@ -224,19 +223,19 @@ namespace gridtools {
                         std::forward<Func>(f), 
                         std::forward<Array>(first), 
                         std::forward<Array>(last), 
-                        std::forward<Array2>(extent), 
+                        std::forward<Strides>(byte_strides), 
                         std::forward<Array2>(coordinate_offset), 
-                        offset+i+coordinate_offset[idx::value], 
+                        (i+coordinate_offset[idx::value])*byte_strides[idx::value], 
                         iter);
                 }
             }
 
         private: // implementation details
-            template<typename Func, typename Array, typename Array2>
-            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& extent, Array2&& coordinate_offset, 
+            template<typename Func, typename Array, typename Strides, typename Array2>
+            GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides, Array2&& coordinate_offset, 
                                      std::size_t offset, std::size_t iter) noexcept
             {
-                offset *= extent[idx::value];
+                //offset *= extent[idx::value];
                 iter   *= last[idx::value]-first[idx::value]+1;
                 for(auto i=first[idx::value]; i<=last[idx::value]; ++i, ++iter)
                 {
@@ -244,9 +243,9 @@ namespace gridtools {
                         std::forward<Func>(f), 
                         std::forward<Array>(first), 
                         std::forward<Array>(last), 
-                        std::forward<Array2>(extent), 
+                        std::forward<Strides>(byte_strides), 
                         std::forward<Array2>(coordinate_offset), 
-                        offset+i+coordinate_offset[idx::value], 
+                        offset+(i+coordinate_offset[idx::value])*byte_strides[idx::value], 
                         iter);
                 }
             }
@@ -256,18 +255,51 @@ namespace gridtools {
         template<int D, int... Args>
         struct for_loop_pointer_arithmetic<D,0,gridtools::layout_map<Args...>>
         {
-            template<typename Func, typename Array, typename Array2>
-            GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&&, Array2&&, 
+            using layout_t = gridtools::layout_map<Args...>;
+            template<typename Func, typename Array, typename Strides, typename Array2>
+            GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Strides&& byte_strides, Array2&&, 
                                      std::size_t offset, std::size_t iter) noexcept
             {
                 // functor call with two arguments
                 // argument 1: offset in global multi-dimensional array
                 // argument 2: offset within region defined by [first, last]
-                f(offset, iter);
+                using idx0 = std::integral_constant<int, layout_t::template find<D-1>()>;
+                f(offset, iter*byte_strides[idx0::value]);
             }
         };
 
+        // forward declaration
+        template<typename Tuple>
+        struct transform;
+
+        // transform a tuple of types into another tuple of types
+        template<template<typename...> class Tuple, typename... Ts>
+        struct transform<Tuple<Ts...>>
+        {
+            // by applying the compile-time transform CT
+            template<template<typename> class CT>
+            using with = Tuple<CT<Ts>...>;
+        };
+
     }   // namespace detail
+    namespace detail {
+
+        // helper template metafunction to test equality of a type with respect to all element types of a tuple
+        template<typename Test, typename... Ts>
+        struct test_eq_t {};
+
+        template<typename Test, typename T0, typename T1, typename... Ts>
+        struct test_eq_t<Test,T0,T1,Ts...> : public 
+            std::integral_constant<
+                bool, 
+                std::is_same<Test,T0>::value && test_eq_t<Test,T1,Ts...>::value
+            > {};
+
+        template<typename Test, typename T0>
+        struct test_eq_t<Test,T0> : public 
+            std::integral_constant<bool, std::is_same<Test,T0>::value> {};
+
+    } // namespace detail
 
 } // namespace gridtools
 

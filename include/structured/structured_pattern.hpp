@@ -12,8 +12,8 @@
 #define INCLUDED_STRUCTURED_PATTERN_HPP
 
 #include "./structured_grid.hpp"
-#include "./protocol/communicator_base.hpp"
-#include "./pattern.hpp"
+#include "../protocol/communicator_base.hpp"
+#include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
 
@@ -31,6 +31,7 @@ namespace gridtools {
     class pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>
     {
     public: // member types
+        using this_type               = pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>;
         using grid_type               = detail::structured_grid<CoordinateArrayType>;
         using coordinate_type         = typename grid_type::coordinate_type;
         using coordinate_element_type = typename grid_type::coordinate_element_type;
@@ -45,6 +46,7 @@ namespace gridtools {
         // Invariant: first <= last
         struct iteration_space
         {
+            using dimension = typename this_type::dimension;
         public: // member functions
                   coordinate_type& first()       noexcept { return _min; }
                   coordinate_type& last()        noexcept { return _max; }
@@ -92,6 +94,7 @@ namespace gridtools {
         {
         public: // member types
             using pattern_type = pattern; 
+            using dimension = typename this_type::dimension;
 
         public: // member functions
             iteration_space& local() noexcept { return m_local; }
@@ -158,6 +161,8 @@ namespace gridtools {
     private: // members
         communicator_type       m_comm;
         iteration_space_pair    m_domain;
+        coordinate_type         m_global_first;
+        coordinate_type         m_global_last;
         extended_domain_id_type m_id;
         map_type                m_send_map;
         map_type                m_recv_map;
@@ -179,6 +184,11 @@ namespace gridtools {
         communicator_type& communicator() noexcept { return m_comm; }
         const communicator_type& communicator() const noexcept { return m_comm; }
         const pattern_container_type& container() const noexcept { return *m_container; }
+        coordinate_type& global_first() noexcept { return m_global_first; }
+        coordinate_type& global_last()  noexcept { return m_global_last; }
+        const coordinate_type& global_first() const noexcept { return m_global_first; }
+        const coordinate_type& global_last()  const noexcept { return m_global_last; }
+        const iteration_space& global_domain() const noexcept { return m_domain.global(); }
 
         /** @brief tie pattern to field
          * @tparam Field field type
@@ -207,7 +217,7 @@ namespace gridtools {
                 using grid_type                 = detail::structured_grid<CoordinateArrayType>;
                 using pattern_type              = pattern<P, grid_type, domain_id_type>;
                 using iteration_space           = typename pattern_type::iteration_space;
-                using iteration_space_pair          = typename pattern_type::iteration_space_pair;
+                using iteration_space_pair      = typename pattern_type::iteration_space_pair;
                 using coordinate_type           = typename pattern_type::coordinate_type;
                 using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
 
@@ -216,8 +226,8 @@ namespace gridtools {
                 
                 // set up domain ids, extents and recv halos
                 std::vector<iteration_space_pair>              my_domain_extents;
-                std::vector<extended_domain_id_type>       my_domain_ids;
-                std::vector<pattern_type>                  my_patterns;
+                std::vector<extended_domain_id_type>           my_domain_ids;
+                std::vector<pattern_type>                      my_patterns;
                 std::vector<std::vector<iteration_space_pair>> my_generated_recv_halos;
                 // loop over domains and fill vectors with
                 // - extended domain ids
@@ -258,6 +268,21 @@ namespace gridtools {
                 auto domain_ids      = comm.all_gather(my_domain_ids, num_domain_ids).get();
                 auto domain_extents  = comm.all_gather(my_domain_extents, num_domain_ids).get();
                 const int world_size = num_domain_ids.size();
+
+                // find global extents
+                auto global_min = my_domain_extents[0].global().first();
+                auto global_max = my_domain_extents[0].global().last();
+                for (const auto& vec : domain_extents)
+                    for (const auto& it_space_pair : vec)
+                    {
+                        global_min = min(global_min, it_space_pair.global().first());
+                        global_max = max(global_max, it_space_pair.global().last());
+                    }
+                for (auto& pat : my_patterns)
+                {
+                    pat.global_first() = global_min;
+                    pat.global_last()  = global_max;
+                }
                 
                 // check my receive halos against all existing domains (i.e. intersection check)
                 // in order to decide from which domain I shall be receiving from.

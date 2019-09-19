@@ -2,7 +2,15 @@ cmake_minimum_required(VERSION 3.12.4)
 
 cmake_policy(SET CMP0048 NEW)
 
-project(GHEX VERSION 0.1 LANGUAGES CXX)
+set(USE_GPU "OFF" CACHE BOOL "use cuda")
+set(USE_MPI_WITH_UCX_IN_TESTS "OFF" CACHE BOOL "use ucx for unit test")
+
+if(USE_GPU)
+    project(GHEX VERSION 0.1 LANGUAGES CXX CUDA)
+else()
+    project(GHEX VERSION 0.1 LANGUAGES CXX)
+endif()
+
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -15,8 +23,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 find_package(MPI REQUIRED)
-find_package(GridTools REQUIRED)
-find_package(Boost COMPONENTS mpi REQUIRED)
+find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
+find_package(Boost)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
@@ -30,7 +38,7 @@ target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
 
 enable_testing()
 
-set(GTEST_DIR ${GridTools_DIR}/_deps/googletest-src)
+set(GTEST_DIR ${GridTools_DIR}/_deps/googletest-src CACHE FILEPATH "Place where to find googletest installation")
 
 find_path(GTEST_INC_DIR
     "gtest/gtest.h"

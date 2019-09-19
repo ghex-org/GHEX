@@ -16,10 +16,6 @@
 //#include "mpi_listener.hpp"
 #include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
 
-#ifndef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-#include <boost/mpi/environment.hpp>
-#endif
-
 
 GTEST_API_ int main(int argc, char **argv) {
 #ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
@@ -31,7 +27,7 @@ GTEST_API_ int main(int argc, char **argv) {
     if (provided < required)
         throw std::runtime_error("MPI does not support required threading level");
 #else
-    boost::mpi::environment env(argc, argv);
+    MPI_Init(&argc,&argv);
 #endif
 
     // printf("Running main() from %s\n", __FILE__);
@@ -56,9 +52,7 @@ GTEST_API_ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-#ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
     MPI_Finalize();
-#endif
 
     return global_result;
 
