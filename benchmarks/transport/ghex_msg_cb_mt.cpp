@@ -26,7 +26,7 @@ using namespace gridtools::ghex::ucx;
 #endif
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
@@ -109,25 +109,29 @@ int main(int argc, char *argv[])
 	/* send / recv niter messages, work in inflight requests at a time */
 	while(i<niter){
 
+#pragma omp atomic
+	    ongoing_comm += inflight;
+
 	    /* submit inflight requests */
 	    for(int j=0; j<inflight; j++){
 		if(rank==0 && thrid==0 && dbg>=(niter/10)) {fprintf(stderr, "%d iters\n", i); dbg=0;}
 		submit_cnt++;
 		i += nthr;
 		dbg += nthr; 
-#pragma omp atomic
-		ongoing_comm++;
 		if(rank==0)
 		    comm.send(msgs[j], 1, thrid*inflight+j, send_callback);
 		else
 		    comm.recv(msgs[j], 0, thrid*inflight+j, recv_callback);
 		if(i >= niter) break;
 	    }
-		
+
 	    /* complete all inflight requests before moving on */
 	    while(ongoing_comm){
 		comm.progress();
 	    }
+
+	    /* have to have the barrier since any thread can complete any request in UCX */
+#pragma omp barrier
 	}
 
 #pragma omp master
@@ -137,6 +141,6 @@ int main(int argc, char *argv[])
 	}
 
 #pragma omp barrier
-	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
+	fprintf(stderr, "rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
     }
 }
