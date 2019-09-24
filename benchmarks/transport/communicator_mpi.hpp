@@ -23,6 +23,8 @@
 #include <deque>
 #include <string>
 
+#include "threads.hpp"
+
 namespace gridtools
 {
 namespace ghex
@@ -40,6 +42,7 @@ namespace mpi
 #endif
 
 class communicator;
+extern communicator comm;
 
 namespace _impl
 {
@@ -140,24 +143,52 @@ public:
     using cb_container_t = std::deque<element_t>;
     std::array<cb_container_t,2> m_callbacks;
     MPI_Comm m_mpi_comm;
-    rank_type m_rank, m_size;
+
+    static rank_type m_rank;
+    static rank_type m_size;
+
+    rank_type m_thrid;
+    rank_type m_nthr;
 
     static const std::string name;
     
 public:
 
+    void whoami(){
+	printf("I am %d/%d:%d/%d\n", m_rank, m_size, m_thrid, m_nthr);
+    }
+
+    /*
+      Has to be called at in the begining of the parallel region.
+     */
+    void init_mt(){
+	m_thrid = GET_THREAD_NUM();
+	m_nthr = GET_NUM_THREADS();
+	printf("create communicator %d:%d/%d pointer %x\n", m_rank, m_thrid, m_nthr, this);
+
+	/* duplicate the communicator - all threads in order: this is a collective! */
+	for(int tid=0; tid<m_nthr; tid++){
+	    if(m_thrid==tid) {
+		MPI_Comm_dup(MPI_COMM_WORLD, &m_mpi_comm);
+	    }
+#pragma omp barrier
+	}
+	MPI_Barrier(m_mpi_comm);
+    }
+
     communicator()
     {
 	int mode;
+
+	if(!IN_PARALLEL()){
 #ifdef THREAD_MODE_MULTIPLE
-	MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+	    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
 #else
-	// MPI_Init(NULL, NULL);
-	MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+	    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
 #endif
-	MPI_Comm_dup(MPI_COMM_WORLD, &m_mpi_comm);
-	MPI_Comm_rank(m_mpi_comm, &m_rank);
-	MPI_Comm_size(m_mpi_comm, &m_size);    
+	    MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
+	    MPI_Comm_size(MPI_COMM_WORLD, &m_size);
+	}
     }
 
     ~communicator()
@@ -240,7 +271,13 @@ public:
 
 };
 
+/** this has to be here, because the class needs to be complete */
+DECLARE_THREAD_PRIVATE(comm)
+communicator comm;
+
 const std::string communicator::name = "ghex::mpi";
+communicator::rank_type communicator::m_rank;
+communicator::rank_type communicator::m_size;
 
 } //namespace mpi
 } // namespace ghex

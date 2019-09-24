@@ -15,6 +15,7 @@
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
+using namespace gridtools::ghex::mpi;
 #else
 #ifdef USE_UCX_NBR
 #include "communicator_ucx_nbr.hpp"
@@ -26,7 +27,7 @@ using namespace gridtools::ghex::ucx;
 #endif
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
+using MsgType = gridtools::ghex::mpi::shared_message<>;
 
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
@@ -105,8 +106,6 @@ int main(int argc, char *argv[])
 	
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
-	printf("rank %d thrid %d started\n", rank, thrid);
-
 
 	/** initialize request availability arrays */
 #pragma omp master

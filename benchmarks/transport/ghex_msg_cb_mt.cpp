@@ -15,6 +15,7 @@
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
+using namespace gridtools::ghex::mpi;
 #else
 #ifdef USE_UCX_NBR
 #include "communicator_ucx_nbr.hpp"
@@ -99,7 +100,6 @@ int main(int argc, char *argv[])
 	
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
-	printf("rank %d thrid %d started\n", rank, thrid);
 
 	comm_cnt = 0;
 	nlcomm_cnt = 0;
