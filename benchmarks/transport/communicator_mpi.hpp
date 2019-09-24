@@ -188,6 +188,7 @@ public:
 #endif
 	    MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
 	    MPI_Comm_size(MPI_COMM_WORLD, &m_size);
+	    m_mpi_comm = MPI_COMM_WORLD;
 	}
     }
 

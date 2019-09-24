@@ -347,6 +347,11 @@ struct raw_shared_message
 	m_sptr = new refcount_message<Allocator>(capacity, size, allc);
     }
 
+    raw_shared_message(raw_shared_message const &other){
+    	m_sptr = other.m_sptr;
+	m_sptr->refcount++;	
+    }
+
     raw_shared_message(raw_shared_message &&other){
     	m_sptr = other.m_sptr;
     	other.m_sptr = NULL;	
