@@ -88,10 +88,11 @@ int main(int argc, char *argv[])
 	    
 		/* progress a bit: for large inflight values this yields better performance */
 		/* over simply calling the progress once */
-		int p = 0.1*inflight-1;
-		do {
-		    p-=comm.progress();
-		} while(ongoing_comm && p>0);
+		// int p = 0.1*inflight-1;
+		// do {
+		//     p-=comm.progress();
+		// } while(ongoing_comm && p>0);
+		comm.progress();
 	    }
 
 	} else {
@@ -111,10 +112,11 @@ int main(int argc, char *argv[])
 	    
 		/* progress a bit: for large inflight values this yields better performance */
 		/* over simply calling the progress once */
-		int p = 0.1*inflight-1;
-		do {
-		    p-=comm.progress();
-		} while(ongoing_comm && p>0);
+		// int p = 0.1*inflight-1;
+		// do {
+		//     p-=comm.progress();
+		// } while(ongoing_comm && p>0);
+		comm.progress();
 	    }	    
 	}
 

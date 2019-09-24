@@ -14,12 +14,13 @@
 #include <iostream>
 #include <time.h>
 #include <map>
-#include <omp.h>
 #include <functional>
 
 #include <ucp/api/ucp.h>
 #include "debug.h"
 #include "pmi.h"
+#include "locks.hpp"
+#include "threads.hpp"
 
 namespace gridtools
 {
@@ -70,7 +71,7 @@ extern communicator comm;
     thread inside the constructor.
  */
 communicator *pcomm;
-#pragma omp threadprivate(pcomm)
+DECLARE_THREAD_PRIVATE(pcomm)
 
 /** completion callbacks registered in UCX, defined later */
 template <typename MsgType>
@@ -224,9 +225,12 @@ public:
 	}
     }
 
+    /*
+      Has to be called at in the begining of the parallel region.
+     */
     void init_mt(){
-	m_thrid = omp_get_thread_num();
-	m_nthr = omp_get_num_threads();
+	m_thrid = GET_THREAD_NUM();
+	m_nthr = GET_NUM_THREADS();
 	pcomm = this;
 	printf("create communicator %d:%d/%d pointer %x\n", m_rank, m_thrid, m_nthr, pcomm);
     }
@@ -240,7 +244,7 @@ public:
 	pcomm = this;
 
 	/* only one thread must initialize UCX */
-	if(!omp_in_parallel()) {
+	if(!IN_PARALLEL()) {
 	    pmi_init();
 
 	    // communicator rank and world size
@@ -384,7 +388,11 @@ public:
 	memset(&ep_params, 0, sizeof(ep_params));
 	ep_params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
 	ep_params.address    = worker_address;
-	status = ucp_ep_create (ucp_worker, &ep_params, &ucp_ep);
+	    
+	CRITICAL_BEGIN(ucp) {
+	    status = ucp_ep_create (ucp_worker, &ep_params, &ucp_ep);
+	} CRITICAL_END(ucp)
+
 	if(UCS_OK != status) ERR("ucp_ep_create failed");
 	free(worker_address);
 	
@@ -489,25 +497,28 @@ public:
 
 	ep = rank_to_ep(dst);
 
-	/* send with callback */
-	status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				 GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<MsgType>);
+	CRITICAL_BEGIN(ucp) {
 
-	// TODO !! C++ doesn't like it..
-	istatus = (uintptr_t)status;
-	if(UCS_OK == (ucs_status_t)(istatus)){
-	    cb(dst, tag, msg);
-	} else if(!UCS_PTR_IS_ERR(status)) {
-	    ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
+	    /* send with callback */
+	    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				     GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<MsgType>);
 
-	    /* fill in useful request data */
-	    ghex_request->peer_rank = dst;
-	    ghex_request->tag = tag;
-	    ghex_request->cb = cb;
-	    ghex_request->h_msg = msg;
-	} else {
-	    ERR("ucp_tag_send_nb failed");
-	}
+	    // TODO !! C++ doesn't like it..
+	    istatus = (uintptr_t)status;
+	    if(UCS_OK == (ucs_status_t)(istatus)){
+		cb(dst, tag, msg);
+	    } else if(!UCS_PTR_IS_ERR(status)) {
+		ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
+
+		/* fill in useful request data */
+		ghex_request->peer_rank = dst;
+		ghex_request->tag = tag;
+		ghex_request->cb = cb;
+		ghex_request->h_msg = msg;
+	    } else {
+		ERR("ucp_tag_send_nb failed");
+	    }
+	} CRITICAL_END(ucp)
     }
     
 
@@ -582,50 +593,68 @@ public:
 	/* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
 	/* and the callback is called earlier than we initialize the data inside it */
 
-	/* sanity check! we could be recursive... OMG! */
-	if(early_completion){
-	    /* TODO: VERIFY */
-	    /* This should never happen, and even if, should not be a problem: */
-	    /* we do not modify anything in the early callback, and the values */
-	    /* set here are never used anywhere else. Unless user re-uses the message */
-	    /* in his callback after re-submitting a send... Should be told not to. */
-	    ERR("cannot handle recv submitted inside early completion");
-	}
-	
-	early_rank = src;
-	early_tag = tag;
-	std::function<void(int, int, MsgType&)> tmpcb = cb;
-	early_cb = &tmpcb;  // this is cast to proper type inside the callback, which knows MsgType
-	early_msg = &msg;
-	early_completion = 1;
+	// TODO need to lock the worker progress, but this is bad for performance with many threads
+	CRITICAL_BEGIN(ucp) {
 
-	/* recv with callback */
-	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<MsgType>);
-
-	early_completion = 0;
-
-	if(!UCS_PTR_IS_ERR(status)) {
-
-	    ucs_status_t rstatus;
-	    rstatus = ucp_request_check_status (status);
-	    if(rstatus != UCS_INPROGRESS){
-		/* early completion */
-		ucp_request_free(status);
-		return;
+	    /* sanity check! we could be recursive... OMG! */
+	    if(early_completion){
+		/* TODO: VERIFY. Error just to catch such situation, if it happens. */
+		/* This should never happen, and even if, should not be a problem: */
+		/* we do not modify anything in the early callback, and the values */
+		/* set here are never used anywhere else. Unless user re-uses the message */
+		/* in his callback after re-submitting a send... Should be told not to. */
+		ERR("cannot handle recv submitted inside early completion");
 	    }
 
-	    ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
+	    early_rank = src;
+	    early_tag = tag;
+	    std::function<void(int, int, MsgType&)> tmpcb = cb;
+	    early_cb = &tmpcb;  // this is cast to proper type inside the callback, which knows MsgType
+	    early_msg = &msg;
+	    early_completion = 1;
 
-	    /* fill in useful request data */
-	    ghex_request->peer_rank = src;
-	    ghex_request->tag = tag;
-	    ghex_request->cb = cb;
-	    ghex_request->h_msg = msg;
-	} else {
-	    ERR("ucp_tag_send_nb failed");
-	}
+	    /* recv with callback */
+	    GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
+	    status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				     ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<MsgType>);
+
+	    early_completion = 0;
+
+	    if(!UCS_PTR_IS_ERR(status)) {
+
+		ucs_status_t rstatus;
+		rstatus = ucp_request_check_status (status);
+		if(rstatus != UCS_INPROGRESS){
+
+		    /* early recv completion - callback has been called */
+
+		    /*
+		      TODO: ask if we need the free. this causes an assertion in UCX, which indicates
+		      that for early completion the request is already freed:
+		      [c3-4:105532:0:105538] ucp_request.c:76   Assertion `!(flags & UCP_REQUEST_FLAG_RELEASED)' failed
+		      0 0x000000000001d370 ucs_fatal_error_message()  ucx-1.6.0/src/ucs/debug/assert.c:36
+		      1 0x000000000001d4d6 ucs_fatal_error_format()  ucx-1.6.0/src/ucs/debug/assert.c:52
+		      2 0x0000000000016d5d ucp_request_release_common()  ucx-1.6.0/src/ucp/core/ucp_request.c:76
+		      3 0x0000000000016d5d ucp_request_free()  ucx-1.6.0/src/ucp/core/ucp_request.c:96
+		      4 0x0000000000402fa8 main._omp_fn.0()  GHEX/benchmarks/transport/communicator_ucx.hpp:616
+		    */
+
+		    // ucp_request_free(status);
+		    // return;
+		} else {
+
+		    ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
+
+		    /* fill in useful request data */
+		    ghex_request->peer_rank = src;
+		    ghex_request->tag = tag;
+		    ghex_request->cb = cb;
+		    ghex_request->h_msg = msg;
+		}
+	    } else {
+		ERR("ucp_tag_send_nb failed");
+	    }
+	} CRITICAL_END(ucp)
     }
     
     /** Function to invoke to poll the transport layer and check for the completions
@@ -641,18 +670,18 @@ public:
 	// spinning on progress without any delay is sometimes very slow (?)
 
 	int p = 0, i = 0;
-	p+= ucp_worker_progress(ucp_worker);
-	if(m_nthr>1){
+
+	CRITICAL_BEGIN(ucp) {
 	    p+= ucp_worker_progress(ucp_worker);
-	    p+= ucp_worker_progress(ucp_worker);
-	    p+= ucp_worker_progress(ucp_worker);
-	    sched_yield();
-	}
+	     if(m_nthr>1){
+	     	p+= ucp_worker_progress(ucp_worker);
+	     	p+= ucp_worker_progress(ucp_worker);
+		p+= ucp_worker_progress(ucp_worker);
+	     }
+	} CRITICAL_END(ucp);
 	
-	// do {
-	//     p+= ucp_worker_progress(ucp_worker);
-	//     i++;
-	// } while(p == 0 && i<4);
+	// the critical section is MUCH better (!!) than the yield
+	if(m_nthr>1) sched_yield();
 	
 	return p;
     }
@@ -743,7 +772,7 @@ void ghex_tag_send_callback(void *request, ucs_status_t status)
 }
 
 /** this has to be here, because the class needs to be complete */
-#pragma omp threadprivate(comm, pcomm)
+DECLARE_THREAD_PRIVATE(comm)
 communicator comm;
 
 /** static communicator properties, shared between threads */

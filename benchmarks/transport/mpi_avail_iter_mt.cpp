@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     int niter, buff_size;
     int inflight;
     MPI_Comm mpi_comm;
-    int ncomm;
+    int ncomm = 0;
 
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
@@ -65,7 +65,6 @@ int main(int argc, char *argv[])
 		MPI_Irecv(buffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &req[j]);
 	}
 	int i = 0, dbg = 0;
-	ncomm = 0;
 	while(i<niter){
 	    for(int j=0; j<inflight; j++){
 
@@ -86,6 +85,7 @@ int main(int argc, char *argv[])
 	    if(nthr>2) sched_yield();
 	}
 
+#pragma omp barrier
 #pragma omp master
 	if(rank == 1) toc();	
     }

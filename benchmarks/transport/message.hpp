@@ -331,6 +331,7 @@ template <typename Allocator = std::allocator<unsigned char>>
 struct raw_shared_message
 {
     refcount_message<Allocator> *m_sptr;
+    int thrid;
 
     static constexpr bool can_be_shared = true;
 

@@ -26,7 +26,7 @@ using namespace gridtools::ghex::ucx;
 #endif
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
@@ -60,11 +60,11 @@ void send_callback(int rank, int tag, MsgType &mesg)
 
 void recv_callback(int rank, int tag, MsgType &mesg)
 {
+    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " pthr " <<  pthr << " ongoing " << ongoing_comm << "\n";
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
     available[pthr][pos] = 1;
-    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " pthr " <<  pthr << " ongoing " << ongoing_comm << "\n";
 
 #pragma omp atomic
     ongoing_comm--;
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
-	fprintf(stderr, "rank %d thrid %d started\n", rank, thrid);
+	printf("rank %d thrid %d started\n", rank, thrid);
 
 
 	/** initialize request availability arrays */
@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
 	comm_cnt = 0;
 	nlcomm_cnt = 0;
 	submit_cnt = 0;
+
 	int i = 0, dbg = 0, blk;
 	blk = niter / 10;
 	dbg = dbg + blk;
@@ -184,12 +185,12 @@ int main(int argc, char *argv[])
 
 #pragma omp barrier
 #pragma omp master
-	if(rank == 1) toc();
+	{
+	    if(rank == 1) toc();
+	    comm.fence();
+	}
 
 	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", 
 	       rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
-
-	comm.fence();
-
     }
 }

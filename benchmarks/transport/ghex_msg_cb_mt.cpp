@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 	
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
-	fprintf(stderr, "rank %d thrid %d started\n", rank, thrid);
+	printf("rank %d thrid %d started\n", rank, thrid);
 
 	comm_cnt = 0;
 	nlcomm_cnt = 0;
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 	    comm.fence();
 	}
 
-#pragma omp barrier
-	fprintf(stderr, "rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
+	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", 
+	       rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
     }
 }
