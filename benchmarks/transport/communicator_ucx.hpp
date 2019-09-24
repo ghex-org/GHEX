@@ -213,18 +213,6 @@ public:
 	printf("I am %d/%d:%d/%d, worker %x\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
     }
 
-    ~communicator()
-    {
-	if(!omp_in_parallel()) {
-	    ucp_worker_flush(ucp_worker);
-	    /* TODO: this needs to be done correctly. Right now lots of warnings
-	       about used / unfreed resources. */
-	    // ucp_worker_destroy(ucp_worker);
-	    // ucp_cleanup(ucp_context);
-	    pmi_finalize();
-	}
-    }
-
     /*
       Has to be called at in the begining of the parallel region.
      */
@@ -235,16 +223,27 @@ public:
 	printf("create communicator %d:%d/%d pointer %x\n", m_rank, m_thrid, m_nthr, pcomm);
     }
 
+    ~communicator()
+    {
+	if(!IN_PARALLEL()) {
+	    ucp_worker_flush(ucp_worker);
+	    /* TODO: this needs to be done correctly. Right now lots of warnings
+	       about used / unfreed resources. */
+	    // ucp_worker_destroy(ucp_worker);
+	    // ucp_cleanup(ucp_context);
+	    pmi_finalize();
+	}
+    }
+
     communicator()
     {
-
 	/* need to set this for single threaded runs */
 	m_thrid = 0;
 	m_nthr = 1;
 	pcomm = this;
 
 	/* only one thread must initialize UCX */
-	if(!IN_PARALLEL()) {
+	if(!IN_PARALLEL()) {    
 	    pmi_init();
 
 	    // communicator rank and world size
@@ -273,7 +272,6 @@ public:
 		    UCP_PARAM_FIELD_TAG_SENDER_MASK   |
 		    UCP_PARAM_FIELD_MT_WORKERS_SHARED |
 		    UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
-		// UCP_PARAM_FIELD_REQUEST_INIT      ;
 
 		/* request transport support for tag matching */
 		ucp_params.features =
@@ -387,12 +385,8 @@ public:
 	/* create endpoint */
 	memset(&ep_params, 0, sizeof(ep_params));
 	ep_params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
-	ep_params.address    = worker_address;
-	    
-	CRITICAL_BEGIN(ucp) {
-	    status = ucp_ep_create (ucp_worker, &ep_params, &ucp_ep);
-	} CRITICAL_END(ucp)
-
+	ep_params.address    = worker_address;	    
+	status = ucp_ep_create (ucp_worker, &ep_params, &ucp_ep);
 	if(UCS_OK != status) ERR("ucp_ep_create failed");
 	free(worker_address);
 	
@@ -442,6 +436,7 @@ public:
     {
 	ucs_status_t status;
 	char *request;
+	request_type *ghex_request;
 	ucp_ep_h ep;
 	
 	// Dynamic allocation of requests is very slow - need a pool
@@ -451,25 +446,29 @@ public:
 
 	ep = rank_to_ep(dst);
 
-	/* send without callback */
-	status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				  GHEX_MAKE_SEND_TAG(tag, m_rank), request + _impl::ucp_request_size);
-	
-	if(UCS_OK == status){
+	CRITICAL_BEGIN(ucp) {
 	    
-	    /* send completed immediately */
-	    return nullptr;
-	}
+	    /* send without callback */
+	    status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				      GHEX_MAKE_SEND_TAG(tag, m_rank), request + _impl::ucp_request_size);
+	
+	    if(UCS_OK == status){
+	    
+		/* send completed immediately */
+		ghex_request = nullptr;
+	    } else {
 
-	/* update request pool */
-	ucp_request_pos++;
-	if(ucp_request_pos == REQUEST_POOL_SIZE)
-	    ucp_request_pos = 0;
+		/* update request pool */
+		ucp_request_pos++;
+		if(ucp_request_pos == REQUEST_POOL_SIZE)
+		    ucp_request_pos = 0;
 
-	/* return the future with the request id */
-	request_type *ghex_request;
-	ghex_request = (request_type*)(request + _impl::ucp_request_size);
-	ghex_request->ucp_worker = ucp_worker;
+		/* return the future with the request id */
+		ghex_request = (request_type*)(request + _impl::ucp_request_size);
+		ghex_request->ucp_worker = ucp_worker;
+	    }
+	} CRITICAL_END(ucp);
+
 	return ghex_request;
     }
 
@@ -538,6 +537,7 @@ public:
     [[nodiscard]] future_type recv(MsgType &msg, rank_type src, tag_type tag) {
 	ucs_status_t status;
 	char *request;
+	request_type *ghex_request;
 	ucp_ep_h ep;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
@@ -548,23 +548,26 @@ public:
 
 	ep = rank_to_ep(src);
 
-	/* recv */
-	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-	status = ucp_tag_recv_nbr(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				  ucp_tag, ucp_tag_mask, request + _impl::ucp_request_size);
-	if(UCS_OK != status){
-	    ERR("ucx recv operation failed");
-	}
+	CRITICAL_BEGIN(ucp) {
 
-	/* update request pool */
-	ucp_request_pos++;
-	if(ucp_request_pos == REQUEST_POOL_SIZE)
-	    ucp_request_pos = 0;
+	    /* recv */
+	    GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
+	    status = ucp_tag_recv_nbr(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				      ucp_tag, ucp_tag_mask, request + _impl::ucp_request_size);
+	    if(UCS_OK != status){
+		ERR("ucx recv operation failed");
+	    }
 
-	/* return the future with the request id */
-	request_type *ghex_request;
-	ghex_request = (request_type*)(request + _impl::ucp_request_size);
-	ghex_request->ucp_worker = ucp_worker;
+	    /* update request pool */
+	    ucp_request_pos++;
+	    if(ucp_request_pos == REQUEST_POOL_SIZE)
+		ucp_request_pos = 0;
+
+	    /* return the future with the request id */
+	    ghex_request = (request_type*)(request + _impl::ucp_request_size);
+	    ghex_request->ucp_worker = ucp_worker;
+	} CRITICAL_END(ucp);
+
 	return ghex_request;
     }
 

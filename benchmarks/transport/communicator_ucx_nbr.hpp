@@ -24,9 +24,10 @@
 #include <omp.h>
 
 #include <ucp/api/ucp.h>
-#include "./message.hpp"
 #include "debug.h"
 #include "pmi.h"
+#include "locks.hpp"
+#include "threads.hpp"
 
 namespace gridtools
 {
@@ -70,6 +71,14 @@ namespace ucx
 
     
 class communicator;
+extern communicator comm;
+
+/** Communication freezes when I try to access comm from the callbacks 
+    I have to access it through a pointer, which is initialized for each
+    thread inside the constructor.
+ */
+communicator *pcomm;
+DECLARE_THREAD_PRIVATE(pcomm)
 
 namespace _impl
 {
@@ -84,10 +93,6 @@ static std::size_t   request_size;     // total request size in bytes (UCX + our
 /** request structure and init function */
 struct ghex_ucx_request {
     ucp_worker_h ucp_worker; // worker thread handling this request
-    uint32_t peer_rank;
-    uint32_t tag;
-    void *cb;                // user-side callback, if any
-    void *h_msg;             // user-side message handle
 };
 
 /** user-side callback */
@@ -126,9 +131,18 @@ struct ucx_future
     {
 	ucs_status_t status;
 	if(NULL == m_req) return true;
-	ucp_worker_progress(m_req->ucp_worker);
 	status = ucp_request_check_status(m_req);
-	return status != UCS_INPROGRESS;
+	if(status != UCS_INPROGRESS) return true;
+
+	/* progress UCX */
+	CRITICAL_BEGIN(ucp) {
+	    ucp_worker_progress(m_req->ucp_worker);
+	} CRITICAL_END(ucp);
+
+	status = ucp_request_check_status(m_req);
+	if(status != UCS_INPROGRESS) return true;
+	
+	return false;
     }
 
     /** Cancel the future.
@@ -166,15 +180,18 @@ public:
     using rank_type = int;
     using request_type = _impl::ghex_ucx_request;
 
-    rank_type m_rank;
-    rank_type m_size;
+    static rank_type m_rank;
+    static rank_type m_size;
+
+    rank_type m_thrid;
+    rank_type m_nthr;
 
     static const std::string name;
 
 private:
 
-    ucp_context_h ucp_context;
-    ucp_worker_h  ucp_worker;
+    static ucp_context_h ucp_context;
+    static ucp_worker_h  ucp_worker;
 
     /** known connection pairs <rank, endpoint address>, 
 	created as rquired by the communication pattern
@@ -219,135 +236,159 @@ public:
     using cb_container_t = std::deque<element_t>;
     std::array<cb_container_t,2> m_callbacks;
 
+    void whoami(){
+	printf("I am %d/%d:%d/%d, worker %x\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
+    }
+
+    /*
+      Has to be called at in the begining of the parallel region.
+     */
+    void init_mt(){
+	m_thrid = GET_THREAD_NUM();
+	m_nthr = GET_NUM_THREADS();
+	pcomm = this;
+	printf("create communicator %d:%d/%d pointer %x\n", m_rank, m_thrid, m_nthr, pcomm);
+    }
+
     ~communicator()
     {
-	ucp_worker_flush(ucp_worker);
-	ucp_worker_destroy(ucp_worker);
-	ucp_cleanup(ucp_context);
-	pmi_finalize();
+	if(!IN_PARALLEL()) {
+	    ucp_worker_flush(ucp_worker);
+	    /* TODO: this needs to be done correctly. Right now lots of warnings
+	       about used / unfreed resources. */
+	    // ucp_worker_destroy(ucp_worker);
+	    // ucp_cleanup(ucp_context);
+	    pmi_finalize();
+	}
     }
 
     communicator() 
     {
-
-	pmi_init();
-
-	// communicator rank and world size
-	m_rank = pmi_get_rank();
-	m_size = pmi_get_size();
-
-	// UCX initialization
-	ucs_status_t status;
-	ucp_params_t ucp_params;
-	ucp_config_t *config = NULL;
-	ucp_worker_params_t worker_params;
-	ucp_address_t *worker_address;
-	size_t address_length;
+	/* need to set this for single threaded runs */
+	m_thrid = 0;
+	m_nthr = 1;
+	pcomm = this;
 	
-	status = ucp_config_read(NULL, NULL, &config);
-	if(UCS_OK != status) ERR("ucp_config_read failed");
+	/* only one thread must initialize UCX */
+	if(!IN_PARALLEL()) {
+	    pmi_init();
 
-	/* Initialize UCP */
-	{
-	    memset(&ucp_params, 0, sizeof(ucp_params));
+	    // communicator rank and world size
+	    m_rank = pmi_get_rank();
+	    m_size = pmi_get_size();
 
-	    /* pass features, request size, and request init function */
-	    ucp_params.field_mask =
-		UCP_PARAM_FIELD_FEATURES          |
-		UCP_PARAM_FIELD_REQUEST_SIZE      |
-		UCP_PARAM_FIELD_TAG_SENDER_MASK   |
-		UCP_PARAM_FIELD_MT_WORKERS_SHARED |
-		UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
+	    // UCX initialization
+	    ucs_status_t status;
+	    ucp_params_t ucp_params;
+	    ucp_config_t *config = NULL;
+	    ucp_worker_params_t worker_params;
+	    ucp_address_t *worker_address;
+	    size_t address_length;
+	
+	    status = ucp_config_read(NULL, NULL, &config);
+	    if(UCS_OK != status) ERR("ucp_config_read failed");
 
-	    /* request transport support for tag matching */
-	    ucp_params.features =
-		UCP_FEATURE_TAG ;
+	    /* Initialize UCP */
+	    {
+		memset(&ucp_params, 0, sizeof(ucp_params));
 
-	    // request transport support for wakeup on events
-	    // if(use_events){
-	    //     ucp_params.features |=
-	    // 	UCP_FEATURE_WAKEUP ;
-	    // }
+		/* pass features, request size, and request init function */
+		ucp_params.field_mask =
+		    UCP_PARAM_FIELD_FEATURES          |
+		    UCP_PARAM_FIELD_REQUEST_SIZE      |
+		    UCP_PARAM_FIELD_TAG_SENDER_MASK   |
+		    UCP_PARAM_FIELD_MT_WORKERS_SHARED |
+		    UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
 
-	    ucp_params.request_size = sizeof(request_type);
+		/* request transport support for tag matching */
+		ucp_params.features =
+		    UCP_FEATURE_TAG ;
 
-	    /* this should be true if we have per-thread workers 
-	       otherwise, if one worker is shared by each thread, it should be false
-	       This requires benchmarking. */
-	    ucp_params.mt_workers_shared = false;
+		// request transport support for wakeup on events
+		// if(use_events){
+		//     ucp_params.features |=
+		// 	UCP_FEATURE_WAKEUP ;
+		// }
 
-	    /* estimated number of end-points - 
-	       affects transport selection criteria and theresulting performance */
-	    ucp_params.estimated_num_eps = m_size;
+		ucp_params.request_size = sizeof(request_type);
 
-	    /* Mask which specifies particular bits of the tag which can uniquely identify
-	       the sender (UCP endpoint) in tagged operations. */
-	    ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
+		/* this should be true if we have per-thread workers 
+		   otherwise, if one worker is shared by each thread, it should be false
+		   This requires benchmarking. */
+		ucp_params.mt_workers_shared = false;
+
+		/* estimated number of end-points - 
+		   affects transport selection criteria and theresulting performance */
+		ucp_params.estimated_num_eps = m_size;
+
+		/* Mask which specifies particular bits of the tag which can uniquely identify
+		   the sender (UCP endpoint) in tagged operations. */
+		ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
 	    
 
 #if (GHEX_DEBUG_LEVEL == 2)
-	    if(0 == pmi_get_rank()){
-		LOG("ucp version %s", ucp_get_version_string());
-		LOG("ucp features %lx", ucp_params.features);
-		ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
-	    }
+		if(0 == pmi_get_rank()){
+		    LOG("ucp version %s", ucp_get_version_string());
+		    LOG("ucp features %lx", ucp_params.features);
+		    ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
+		}
 #endif
 
-	    status = ucp_init(&ucp_params, config, &ucp_context);
-	    ucp_config_release(config);
+		status = ucp_init(&ucp_params, config, &ucp_context);
+		ucp_config_release(config);
 	
-	    if(UCS_OK != status) ERR("ucp_config_init");
-	    if(0 == pmi_get_rank()) LOG("UCX initialized");
-	}
+		if(UCS_OK != status) ERR("ucp_config_init");
+		if(0 == pmi_get_rank()) LOG("UCX initialized");
+	    }
 
-	/* ask for UCP request size */
-	{
-	    ucp_context_attr_t attr = {};
-	    attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
-	    ucp_context_query (ucp_context, &attr);
+	    /* ask for UCP request size */
+	    {
+		ucp_context_attr_t attr = {};
+		attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
+		ucp_context_query (ucp_context, &attr);
 
-	    /* UCP request size */
-	    _impl::ucp_request_size = attr.request_size;
+		/* UCP request size */
+		_impl::ucp_request_size = attr.request_size;
 
-	    /* Total request size: UCP + GHEX struct*/
-	    _impl::request_size = attr.request_size + sizeof(struct _impl::ghex_ucx_request);
-	}
+		/* Total request size: UCP + GHEX struct*/
+		_impl::request_size = attr.request_size + sizeof(struct _impl::ghex_ucx_request);
+	    }
 
-	/* create a worker */
-	{
-	    memset(&worker_params, 0, sizeof(worker_params));
+	    /* create a worker */
+	    {
+		memset(&worker_params, 0, sizeof(worker_params));
 
-	    /* this should not be used if we have a single worker per thread */
-	    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+		/* this should not be used if we have a single worker per thread */
+		worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
 #ifdef THREAD_MODE_MULTIPLE
-	    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+		worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
 #else
-	    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+		worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
 #endif
 	    
-	    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
-	    if(UCS_OK != status) ERR("ucp_worker_create failed");
-	    if(0 == pmi_get_rank()) LOG("UCP worker created");
+		status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
+		if(UCS_OK != status) ERR("ucp_worker_create failed");
+		if(0 == pmi_get_rank()) LOG("UCP worker created");
+	    }
+
+	    /* obtain the worker endpoint address and post it to PMI */
+	    {
+		status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
+		if(UCS_OK != status) ERR("ucp_worker_get_address failed");
+		if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
+
+		/* update pmi with local address information */
+		pmi_set_string("ghex-rank-address", worker_address, address_length);
+		ucp_worker_release_address(ucp_worker, worker_address);
+
+		/* invoke global pmi data exchange */
+		// pmi_exchange();
+	    }
+
+	    /* allocate comm request pool */
+	    ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
+	    ucp_request_pos = 0;
 	}
-
-	/* obtain the worker endpoint address and post it to PMI */
-	{
-	    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
-	    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
-	    if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
-
-	    /* update pmi with local address information */
-	    pmi_set_string("ghex-rank-address", worker_address, address_length);
-	    ucp_worker_release_address(ucp_worker, worker_address);
-
-	    /* invoke global pmi data exchange */
-	    // pmi_exchange();
-	}
-
-	/* allocate comm request pool */
-	ucp_requests = new char[REQUEST_POOL_SIZE * _impl::request_size];
-	ucp_request_pos = 0;
-
     }
 
     rank_type rank() const noexcept { return m_rank; }
@@ -390,16 +431,13 @@ public:
 
 	/* look for a connection to a given peer
 	   create it if it does not yet exist */
-#pragma omp critical(ucp_connection)
-	{
-	    auto conn = connections.find(rank);
-	    if(conn == connections.end()){
-		ep = connect(rank);
-		connections.emplace(rank, ep);
-	    } else {
-		/* found an existing connection - return the corresponding endpoint handle */
-		ep = conn->second;
-	    }
+	auto conn = connections.find(rank);
+	if(conn == connections.end()){
+	    ep = connect(rank);
+	    connections.emplace(rank, ep);
+	} else {
+	    /* found an existing connection - return the corresponding endpoint handle */
+	    ep = conn->second;
 	}
 
         return ep;
@@ -422,6 +460,7 @@ public:
     {
 	ucs_status_t status;
 	char *request;
+	request_type *ghex_request;
 	ucp_ep_h ep;
 	
 	// Dynamic allocation of requests is very slow - need a pool
@@ -430,28 +469,30 @@ public:
 	// TODO: check if request is free, if not - look for next one
 	
 	ep = rank_to_ep(dst);
-
-	/* send without callback */
-	status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				  GHEX_MAKE_SEND_TAG(tag, m_rank), request + _impl::ucp_request_size);
 	
-	if(UCS_OK == status){
+	CRITICAL_BEGIN(ucp) {
 	    
-	    /* send completed immediately */
-	    return nullptr;
-	}
+	    /* send without callback */
+	    status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				      GHEX_MAKE_SEND_TAG(tag, m_rank), request + _impl::ucp_request_size);
+	
+	    if(UCS_OK == status){
+	    
+		/* send completed immediately */
+		ghex_request = nullptr;
+	    } else {
 
-	/* update request pool */
-	ucp_request_pos++;
-	if(ucp_request_pos == REQUEST_POOL_SIZE)
-	    ucp_request_pos = 0;
+		/* update request pool */
+		ucp_request_pos++;
+		if(ucp_request_pos == REQUEST_POOL_SIZE)
+		    ucp_request_pos = 0;
 
-	/* return the future with the request id */
-	request_type *ghex_request;
-	ghex_request = (request_type*)(request + _impl::ucp_request_size);
-	ghex_request->ucp_worker = ucp_worker;
-	ghex_request->tag = tag;
-	ghex_request->peer_rank = dst;
+		/* return the future with the request id */
+		ghex_request = (request_type*)(request + _impl::ucp_request_size);
+		ghex_request->ucp_worker = ucp_worker;
+	    }
+	} CRITICAL_END(ucp);
+
 	return ghex_request;
     }
 
@@ -494,6 +535,7 @@ public:
     [[nodiscard]] future_type recv(MsgType &msg, rank_type src, tag_type tag) {
 	ucs_status_t status;
 	char *request;
+	request_type *ghex_request;
 	ucp_ep_h ep;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
@@ -504,25 +546,26 @@ public:
 	
 	ep = rank_to_ep(src);
 
-	/* recv */
-	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-	status = ucp_tag_recv_nbr(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-				  ucp_tag, ucp_tag_mask, request + _impl::ucp_request_size);
-	if(UCS_OK != status){
-	    ERR("ucx recv operation failed");
-	}
+	CRITICAL_BEGIN(ucp) {
 
-	/* update request pool */
-	ucp_request_pos++;
-	if(ucp_request_pos == REQUEST_POOL_SIZE)
-	    ucp_request_pos = 0;
+	    /* recv */
+	    GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
+	    status = ucp_tag_recv_nbr(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
+				      ucp_tag, ucp_tag_mask, request + _impl::ucp_request_size);
+	    if(UCS_OK != status){
+		ERR("ucx recv operation failed");
+	    }
 
-	/* return the future with the request id */
-	request_type *ghex_request;
-	ghex_request = (request_type*)(request + _impl::ucp_request_size);
-	ghex_request->ucp_worker = ucp_worker;
-	ghex_request->tag = tag;
-	ghex_request->peer_rank = src;
+	    /* update request pool */
+	    ucp_request_pos++;
+	    if(ucp_request_pos == REQUEST_POOL_SIZE)
+		ucp_request_pos = 0;
+
+	    /* return the future with the request id */
+	    ghex_request = (request_type*)(request + _impl::ucp_request_size);
+	    ghex_request->ucp_worker = ucp_worker;
+	} CRITICAL_END(ucp);
+
 	return ghex_request;
     }
 
@@ -560,6 +603,7 @@ public:
     unsigned progress()
     {
 	int completed = 0;
+
         for (auto& cb_container : m_callbacks) 
         {
             const unsigned int size = cb_container.size();
@@ -615,7 +659,16 @@ public:
     }
 };
 
+/** this has to be here, because the class needs to be complete */
+DECLARE_THREAD_PRIVATE(comm)
+communicator comm;
+
+/** static communicator properties, shared between threads */
 const std::string communicator::name = "ghex::ucx_nbr";
+communicator::rank_type communicator::m_rank;
+communicator::rank_type communicator::m_size;
+ucp_context_h communicator::ucp_context;
+ucp_worker_h  communicator::ucp_worker;
 
 } // namespace ucx
 } // namespace ghex

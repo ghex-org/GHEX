@@ -18,13 +18,13 @@
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
 using FutureType = gridtools::ghex::mpi::communicator::future_type;
+using namespace gridtools::ghex::mpi;
 #else
 #include "communicator_ucx.hpp"
 using CommType = gridtools::ghex::ucx::communicator;
 using FutureType = gridtools::ghex::ucx::communicator::future_type;
+using namespace gridtools::ghex::ucx;
 #endif
-
-CommType comm;
 
 #include "message.hpp"
 using MsgType = gridtools::ghex::mpi::shared_message<>;

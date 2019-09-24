@@ -5,6 +5,7 @@
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
+using namespace gridtools::ghex::mpi;
 #else
 #ifdef USE_UCX_NBR
 #include "communicator_ucx_nbr.hpp"
@@ -12,10 +13,8 @@ using CommType = gridtools::ghex::mpi::communicator;
 #include "communicator_ucx.hpp"
 #endif
 using CommType = gridtools::ghex::ucx::communicator;
+using namespace gridtools::ghex::ucx;
 #endif
-
-CommType comm;
-
 
 #include "message.hpp"
 using MsgType = gridtools::ghex::mpi::raw_shared_message<>;

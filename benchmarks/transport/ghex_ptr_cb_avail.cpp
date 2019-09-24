@@ -14,7 +14,7 @@
 #include "pmi.h"
 #include "communicator_ucx.hpp"
 using CommType = gridtools::ghex::ucx::communicator;
-CommType comm;
+using namespace gridtools::ghex::ucx;
 
 /* available request slots */
 int *available = NULL;
