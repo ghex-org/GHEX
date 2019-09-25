@@ -19,67 +19,31 @@ namespace gridtools {
 #ifdef __CUDACC__
         struct cuda_stream
         {
-            cudaStream_t m_stream;
-            bool m_valid = true;
-
-            // default construct
-            cuda_stream()
+            struct stream_deleter
             {
-                cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking);
-            }
+                void operator()(cudaStream_t* s_ptr)
+                {
+                    cudaStreamDestroy(*s_ptr);
+                    delete s_ptr;
+                }
+            };
 
-            cuda_stream(bool create)
+            std::unique_ptr<cudaStream_t,stream_deleter> m_ptr;
+
+            cudaStream_t* get() 
             {
-                if (create)
-                    cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking);
-                m_valid = create;
-            }
-
-            // non-copyable
-            cuda_stream(const cuda_stream&) noexcept = delete;
-            cuda_stream& operator=(const cuda_stream&)= delete;
-
-            // movable
-            cuda_stream(cuda_stream&& other)
-            : m_stream{std::move(other.m_stream)}
-            {
-                other.m_valid = false;
-            }
-
-            cuda_stream& operator=(cuda_stream&& other)
-            {
-                if (m_valid)
-                    cudaStreamDestroy(m_stream);
-                m_stream.~cudaStream_t();
-                new((void*)(&m_stream)) cudaStream_t{std::move(other.m_stream)};
-                m_valid = other.m_valid;
-                other.m_valid = false;
-                return *this;
-            }
-
-            ~cuda_stream()
-            {
-                if (m_valid)
-                    cudaStreamDestroy(m_stream);
+                if (!m_ptr)
+                {
+                    m_ptr.reset(new cudaStream_t());
+                    cudaStreamCreateWithFlags(m_ptr.get(), cudaStreamNonBlocking);
+                }
+                return m_ptr.get();
             }
 
             void sync()
             {
-                cudaStreamSynchronize(m_stream);
+                cudaStreamSynchronize(*m_ptr);
             }
-
-            void activate()
-            {
-                if (!m_valid)
-                    cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking);
-                m_valid = true;    
-            }
-
-            bool active() const noexcept { return m_valid; }
-
-            // implicit conversion
-            operator       cudaStream_t&() noexcept { return m_stream; }
-            operator const cudaStream_t&() const noexcept { return m_stream; }
         };
 #else
         struct cuda_stream

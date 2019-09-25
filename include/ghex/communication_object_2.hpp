@@ -477,7 +477,7 @@ namespace gridtools {
                             Device::template make_vector<char>(device_id),
                             0,
                             std::vector<typename BufferType::field_info_type>(),
-                            ::gridtools::ghex::cuda_stream(false)
+                            ::gridtools::ghex::cuda_stream()
                         })).first;
                 }
                 else if (it->second.size==0)
