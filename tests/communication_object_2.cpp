@@ -210,9 +210,20 @@ bool test0()
     const int max_memory = local_ext_buffer[0]*local_ext_buffer[1]*local_ext_buffer[2];
 
     // allocate fields
+#if defined(GHEX_TEST_SERIAL_VECTOR)          \
+|| defined(GHEX_TEST_SERIAL_SPLIT_VECTOR)     \
+|| defined(GHEX_TEST_THREADS_VECTOR)          \
+|| defined(GHEX_TEST_ASYNC_ASYNC_VECTOR)      \
+|| defined(GHEX_TEST_ASYNC_DEFERRED_VECTOR)   \
+|| defined(GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR)
+    using T1 = double;
+    using T2 = double;
+    using T3 = double;
+#else
     using T1 = double;
     using T2 = float;
     using T3 = int;
+#endif
     using TT1 = array_type<T1,3>;
     using TT2 = array_type<T2,3>;
     using TT3 = array_type<T3,3>;
@@ -302,11 +313,17 @@ bool test0()
     //}
 
 #ifndef GHEX_TEST_SERIAL
+#ifndef GHEX_TEST_SERIAL_VECTOR
 #ifndef GHEX_TEST_SERIAL_SPLIT
+#ifndef GHEX_TEST_SERIAL_SPLIT_VECTOR
 #ifndef GHEX_TEST_THREADS
+#ifndef GHEX_TEST_THREADS_VECTOR
 #ifndef GHEX_TEST_ASYNC_ASYNC
+#ifndef GHEX_TEST_ASYNC_ASYNC_VECTOR
 #ifndef GHEX_TEST_ASYNC_DEFERRED
+#ifndef GHEX_TEST_ASYNC_DEFERRED_VECTOR
 #ifndef GHEX_TEST_ASYNC_ASYNC_WAIT
+#ifndef GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR
 #error "At least one of the following macros should be defined: GHEX_TEST_SERIAL GHEX_TEST_SERIAL_SPLIT GHEX_TEST_EXCHANGE_THREADS GHEX_TEST_ASYNC_ASYNC GHEX_TEST_ASYNC_DEFERRED GHEX_TEST_ASYNC_ASYNC_WAIT"
 #endif
 #endif
@@ -314,6 +331,19 @@ bool test0()
 #endif
 #endif
 #endif
+#endif
+#endif
+#endif
+#endif
+#endif
+#endif
+
+#ifdef GHEX_TEST_SERIAL_VECTOR
+#ifdef GHEX_HYBRID_TESTS
+#error "hybrid tests are not possible with vector interface"
+#endif
+#endif
+
 #if defined(__CUDACC__) || (!defined(__CUDACC__) && defined(GHEX_EMULATE_GPU))
 
     if (local_comm.rank()<num_devices_per_node)
@@ -401,6 +431,16 @@ bool test0()
     );
 #endif
 #endif
+#ifdef GHEX_TEST_SERIAL_VECTOR
+    std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec{
+        pattern1(field_1a_gpu),
+        pattern1(field_1b_gpu),
+        pattern2(field_2a_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3a_gpu),
+        pattern1(field_3b_gpu)};
+    co.exchange(field_vec.data(), field_vec.size()).wait();
+#endif
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
     // non-blocking variant
@@ -410,6 +450,22 @@ bool test0()
 #else
     auto h2 = co_2.exchange(pattern1(field_1b_gpu), pattern2(field_2b_gpu), pattern1(field_3b_gpu));
 #endif
+    // ... overlap communication (packing, posting) with computation here
+    // wait and upack:
+    h1.wait();
+    h2.wait();
+#endif
+#ifdef GHEX_TEST_SERIAL_SPLIT_VECTOR
+    std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec_a{
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu)};
+    std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec_b{
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu)};
+    auto h1 = co_1.exchange(field_vec_a.data(), field_vec_a.size());
+    auto h2 = co_2.exchange(field_vec_b.data(), field_vec_b.size());
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
     h1.wait();
@@ -442,6 +498,28 @@ bool test0()
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #endif
+#ifdef GHEX_TEST_THREADS_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        co_.exchange(vec.data(), vec.size()).wait();
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    std::vector<std::thread> threads;
+    field_vec_type field_vec_a{
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu)};
+    threads.push_back(std::thread{func, std::ref(co_1), std::ref(field_vec_a)});
+    threads.push_back(std::thread{func, std::ref(co_2), std::ref(field_vec_b)});
+    // ... overlap communication with computation here
+    for (auto& t : threads) t.join();
+#endif
 
 #ifdef GHEX_TEST_ASYNC_ASYNC
     auto func = [](decltype(co)& co_, auto... bis)
@@ -466,6 +544,29 @@ bool test0()
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu));
 #endif
+    // ... overlap communication with computation here
+    future_1.wait();
+    future_2.wait();
+#endif
+#ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        co_.exchange(vec.data(), vec.size()).wait();
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    auto policy = std::launch::async;
+    field_vec_type field_vec_a{
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu)};
+    auto future_1 = std::async(policy, func, std::ref(co_1), std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
@@ -502,6 +603,33 @@ bool test0()
     h1.wait();
     h2.wait();
 #endif
+#ifdef GHEX_TEST_ASYNC_DEFERRED_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        return co_.exchange(vec.data(), vec.size());
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    auto policy = std::launch::deferred;
+    field_vec_type field_vec_a{
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu)};
+    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
+    // deferred policy: essentially serial on current thread
+    auto h1 = future_1.get();
+    auto h2 = future_2.get();
+    // ... overlap communication (packing, posting) with computation here
+    // waiting and unpacking is serial here
+    h1.wait();
+    h2.wait();
+#endif
 
 #ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
     auto func_h = [](decltype(co)& co_, auto... bis)
@@ -526,6 +654,30 @@ bool test0()
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu));
 #endif
+    // ... overlap communication (packing, posting) with computation here
+    // waiting and unpacking is serial here
+    future_1.get().wait();
+    future_2.get().wait();
+#endif
+#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        return co_.exchange(vec.data(), vec.size());
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    auto policy = std::launch::async;
+    field_vec_type field_vec_a{
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu)};
+    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
     future_1.get().wait();
@@ -590,11 +742,37 @@ bool test0()
         pattern1(field_3b)
     );
 #endif
+#ifdef GHEX_TEST_SERIAL_VECTOR
+    std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec{
+        pattern1(field_1a),
+        pattern1(field_1b),
+        pattern2(field_2a),
+        pattern2(field_2b),
+        pattern1(field_3a),
+        pattern1(field_3b)};
+    co.exchange(field_vec.data(), field_vec.size()).wait();
+#endif
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
     // non-blocking variant
     auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
     auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
+    // ... overlap communication (packing, posting) with computation here
+    // wait and upack:
+    h1.wait();
+    h2.wait();
+#endif
+#ifdef GHEX_TEST_SERIAL_SPLIT_VECTOR
+    std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec_a{
+        pattern1(field_1a),
+        pattern2(field_2a),
+        pattern1(field_3a)};
+    std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec_b{
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b)};
+    auto h1 = co_1.exchange(field_vec_a.data(), field_vec_a.size());
+    auto h2 = co_2.exchange(field_vec_b.data(), field_vec_b.size());
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
     h1.wait();
@@ -620,6 +798,28 @@ bool test0()
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #endif
+#ifdef GHEX_TEST_THREADS_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        co_.exchange(vec.data(), vec.size()).wait();
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    std::vector<std::thread> threads;
+    field_vec_type field_vec_a{
+        pattern1(field_1a),
+        pattern2(field_2a),
+        pattern1(field_3a)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b)};
+    threads.push_back(std::thread{func, std::ref(co_1), std::ref(field_vec_a)});
+    threads.push_back(std::thread{func, std::ref(co_2), std::ref(field_vec_b)});
+    // ... overlap communication with computation here
+    for (auto& t : threads) t.join();
+#endif
 
 #ifdef GHEX_TEST_ASYNC_ASYNC
     auto func = [](decltype(co)& co_, auto... bis)
@@ -637,6 +837,29 @@ bool test0()
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
+    // ... overlap communication with computation here
+    future_1.wait();
+    future_2.wait();
+#endif
+#ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        co_.exchange(vec.data(), vec.size()).wait();
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    auto policy = std::launch::async;
+    field_vec_type field_vec_a{
+        pattern1(field_1a),
+        pattern2(field_2a),
+        pattern1(field_3a)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b)};
+    auto future_1 = std::async(policy, func, std::ref(co_1), std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
@@ -666,6 +889,33 @@ bool test0()
     h1.wait();
     h2.wait();
 #endif
+#ifdef GHEX_TEST_ASYNC_DEFERRED_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        return co_.exchange(vec.data(), vec.size());
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    auto policy = std::launch::deferred;
+    field_vec_type field_vec_a{
+        pattern1(field_1a),
+        pattern2(field_2a),
+        pattern1(field_3a)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b)};
+    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
+    // deferred policy: essentially serial on current thread
+    auto h1 = future_1.get();
+    auto h2 = future_2.get();
+    // ... overlap communication (packing, posting) with computation here
+    // waiting and unpacking is serial here
+    h1.wait();
+    h2.wait();
+#endif
 
 #ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
     auto func_h = [](decltype(co)& co_, auto... bis)
@@ -683,6 +933,30 @@ bool test0()
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
+    // ... overlap communication (packing, posting) with computation here
+    // waiting and unpacking is serial here
+    future_1.get().wait();
+    future_2.get().wait();
+#endif
+#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    {
+        return co_.exchange(vec.data(), vec.size());
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    auto policy = std::launch::async;
+    field_vec_type field_vec_a{
+        pattern1(field_1a),
+        pattern2(field_2a),
+        pattern1(field_3a)};
+    field_vec_type field_vec_b{
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b)};
+    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
     future_1.get().wait();
