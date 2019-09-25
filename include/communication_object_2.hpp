@@ -11,6 +11,7 @@
 #ifndef INCLUDED_COMMUNICATION_OBJECT_2_HPP
 #define INCLUDED_COMMUNICATION_OBJECT_2_HPP
 
+#include "./cuda_utils/stream.hpp"
 #include "./packer.hpp"
 #include "./common/utils.hpp"
 #include "./buffer_info.hpp"
@@ -152,6 +153,7 @@ namespace gridtools {
             Vector buffer;
             std::size_t size;
             std::vector<field_info_type> field_infos;
+            ::gridtools::ghex::cuda_stream m_cuda_stream;
         };
 
         /** @brief Holds maps of buffers for send and recieve operations indexed by a domain_id_pair and a device id
@@ -474,7 +476,8 @@ namespace gridtools {
                             p_id_c.first.tag+tag_offset,
                             Device::template make_vector<char>(device_id),
                             0,
-                            std::vector<typename BufferType::field_info_type>()
+                            std::vector<typename BufferType::field_info_type>(),
+                            ::gridtools::ghex::cuda_stream(false)
                         })).first;
                 }
                 else if (it->second.size==0)
