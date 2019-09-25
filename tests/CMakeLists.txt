@@ -29,6 +29,39 @@ foreach(_var ${_variants})
         NAME communication_object_2_${_var}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} communication_object_2_${_var} ${MPIEXEC_POSTFLAGS}
     )
+    if (USE_HYBRID_TESTS)
+        add_executable(communication_object_2_${_var}_hybrid communication_object_2.cpp )
+        target_compile_definitions(communication_object_2_${_var}_hybrid PUBLIC GHEX_TEST_${define})
+        target_compile_definitions(communication_object_2_${_var}_hybrid PUBLIC GHEX_EMULATE_GPU)
+        target_compile_definitions(communication_object_2_${_var}_hybrid PUBLIC GHEX_HYBRID_TESTS)
+        target_include_directories(communication_object_2_${_var}_hybrid PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+        target_link_libraries(communication_object_2_${_var}_hybrid MPI::MPI_CXX GridTools::gridtools gtest_main_mt)
+        add_test(
+            NAME communication_object_2_${_var}_hybrid
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} communication_object_2_${_var}_hybrid ${MPIEXEC_POSTFLAGS}
+        )
+    endif()
+    if (USE_GPU)
+        add_executable(communication_object_2_${_var}_gpu communication_object_2.cu)
+        target_compile_definitions(communication_object_2_${_var}_gpu PUBLIC GHEX_TEST_${define})
+        target_include_directories(communication_object_2_${_var}_gpu PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+        target_link_libraries(communication_object_2_${_var}_gpu MPI::MPI_CXX GridTools::gridtools gtest_main_mt)
+        add_test(
+            NAME communication_object_2_${_var}_gpu
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} communication_object_2_${_var}_gpu ${MPIEXEC_POSTFLAGS}
+        )
+        if (USE_HYBRID_TESTS)
+            add_executable(communication_object_2_${_var}_hybrid_gpu communication_object_2.cpp )
+            target_compile_definitions(communication_object_2_${_var}_hybrid_gpu PUBLIC GHEX_TEST_${define})
+            target_compile_definitions(communication_object_2_${_var}_hybrid_gpu PUBLIC GHEX_HYBRID_TESTS)
+            target_include_directories(communication_object_2_${_var}_hybrid_gpu PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+            target_link_libraries(communication_object_2_${_var}_hybrid_gpu MPI::MPI_CXX GridTools::gridtools gtest_main_mt)
+            add_test(
+                NAME communication_object_2_${_var}_hybrid_gpu
+                COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_ucx_params} communication_object_2_${_var}_hybrid_gpu ${MPIEXEC_POSTFLAGS}
+            )
+        endif()
+    endif()
 endforeach(_var)
 
 #add_executable(communication_object_2_serial communication_object_2.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})

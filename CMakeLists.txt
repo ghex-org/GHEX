@@ -4,6 +4,7 @@ cmake_policy(SET CMP0048 NEW)
 
 set(USE_GPU "OFF" CACHE BOOL "use cuda")
 set(USE_MPI_WITH_UCX_IN_TESTS "OFF" CACHE BOOL "use ucx for unit test")
+set(USE_HYBRID_TESTS "ON" CACHE BOOL "use cuda")
 
 if(USE_GPU)
     project(GHEX VERSION 0.1 LANGUAGES CXX CUDA)

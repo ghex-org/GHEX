@@ -15,7 +15,7 @@
 #include <gridtools/storage/storage_facility.hpp>
 
 #include <gtest/gtest.h>
-#include "./gtest_main.cpp"
+//#include "./gtest_main.cpp"
 
 TEST(data_store, make)
 {
@@ -49,9 +49,9 @@ TEST(data_store, make)
     using host_storage_info_t   = gridtools::storage_traits<host_backend_t>::storage_info_t<0, 3, halo_t>;
     using host_data_store_t     = gridtools::storage_traits<host_backend_t>::data_store_t<double, host_storage_info_t>;
 #ifdef __CUDACC__
-    using target_backend_t      = gridtools::backend::cuda;
+    //using target_backend_t      = gridtools::backend::cuda;
 #else
-    using target_backend_t      = gridtools::backend::mc;
+    //using target_backend_t      = gridtools::backend::mc;
 #endif
     //using target_storage_info_t = gridtools::storage_traits<target_backend_t>::select_storage_info<0, 3, halo_t>;
     //using target_data_store_t   = gridtools::storage_traits<host_backend_t>::data_store_t<double, target_storage_info_t>;
@@ -85,7 +85,7 @@ TEST(data_store, make)
         passed = passed && passed_this;
     }
 
-    auto target_view = gridtools::make_target_view(host_data_store);
+    //auto target_view = gridtools::make_target_view(host_data_store);
 
     EXPECT_TRUE(passed);
 

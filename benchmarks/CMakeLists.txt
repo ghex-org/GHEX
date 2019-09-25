@@ -3,7 +3,7 @@
 # -----------------
 
 # Variable used for benchmarks that DO NOT require multithreading support
-set(_benchmarks_simple )simple_comm_test_halo_exchange_3D_generic_full
+set(_benchmarks_simple simple_comm_test_halo_exchange_3D_generic_full)
 # Variable used for benchmarks that require multithreading support
 set(_benchmarks_simple_mt )
 

@@ -22,7 +22,7 @@ namespace gridtools {
         /** @brief special mpi communicator used for setup phase */
         class setup_communicator
         {
-            struct setup_handle
+            /*struct setup_handle
             {
                 MPI_Request m_req;
                 void wait()
@@ -33,7 +33,7 @@ namespace gridtools {
                         (&m_req, &status)
                     );
                 }
-            };
+            };*/
         public:
             using handle_type = ::gridtools::ghex::mpi::request;
             using address_type = int;

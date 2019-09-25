@@ -7,7 +7,7 @@ foreach(t_ ${_tests})
 
     add_executable( ${t_} ./${t_}.cpp )
     target_include_directories(${t_} PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-    target_link_libraries(${t_}  GridTools::gridtools MPI::MPI_CXX Boost::mpi gtest_main_mt)
+    target_link_libraries(${t_}  GridTools::gridtools MPI::MPI_CXX gtest_main_mt)
     add_test(
         NAME ${t_}.cpp
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${t_} ${MPIEXEC_POSTFLAGS}

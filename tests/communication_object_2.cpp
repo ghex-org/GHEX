@@ -301,7 +301,6 @@ bool test0()
     //    comm.barrier();
     //}
 
-<<<<<<< HEAD
 #ifndef GHEX_TEST_SERIAL
 #ifndef GHEX_TEST_SERIAL_SPLIT
 #ifndef GHEX_TEST_THREADS
@@ -315,67 +314,66 @@ bool test0()
 #endif
 #endif
 #endif
-=======
 #if defined(__CUDACC__) || (!defined(__CUDACC__) && defined(GHEX_EMULATE_GPU))
 
     if (local_comm.rank()<num_devices_per_node)
     {
         // allocate on the gpu
         TT1* gpu_1a_raw;
-        TT1* gpu_1b_raw;
         TT2* gpu_2a_raw;
-#ifndef GHEX_HYBRID_TESTS
-        TT2* gpu_2b_raw;
         TT3* gpu_3a_raw;
+#ifndef GHEX_HYBRID_TESTS
+        TT1* gpu_1b_raw;
+        TT2* gpu_2b_raw;
         TT3* gpu_3b_raw;
 #endif
 #ifdef __CUDACC__
         GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1a_raw, max_memory*sizeof(TT1)));
-        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1b_raw, max_memory*sizeof(TT1)));
         GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2a_raw, max_memory*sizeof(TT2)));
-#ifndef GHEX_HYBRID_TESTS
-        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2b_raw, max_memory*sizeof(TT2)));
         GT_CUDA_CHECK(cudaMalloc((void**)&gpu_3a_raw, max_memory*sizeof(TT3)));
+#ifndef GHEX_HYBRID_TESTS
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1b_raw, max_memory*sizeof(TT1)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2b_raw, max_memory*sizeof(TT2)));
         GT_CUDA_CHECK(cudaMalloc((void**)&gpu_3b_raw, max_memory*sizeof(TT3)));
 #endif
 #else
         gpu_1a_raw = new TT1[max_memory];
-        gpu_1b_raw = new TT1[max_memory];
         gpu_2a_raw = new TT2[max_memory];
-#ifndef GHEX_HYBRID_TESTS
-        gpu_2b_raw = new TT2[max_memory];
         gpu_3a_raw = new TT3[max_memory];
+#ifndef GHEX_HYBRID_TESTS
+        gpu_1b_raw = new TT1[max_memory];
+        gpu_2b_raw = new TT2[max_memory];
         gpu_3b_raw = new TT3[max_memory];
 #endif
 #endif
 
         // wrap raw fields
         auto field_1a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_1a_raw, offset, local_ext_buffer);
-        auto field_1b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_1b_raw, offset, local_ext_buffer);
         auto field_2a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_2a_raw, offset, local_ext_buffer);
-#ifndef GHEX_HYBRID_TESTS
-        auto field_2b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_2b_raw, offset, local_ext_buffer);
         auto field_3a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_3a_raw, offset, local_ext_buffer);
+#ifndef GHEX_HYBRID_TESTS
+        auto field_1b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_1b_raw, offset, local_ext_buffer);
+        auto field_2b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_2b_raw, offset, local_ext_buffer);
         auto field_3b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_3b_raw, offset, local_ext_buffer);
 #endif
 
 #ifdef __CUDACC__
         // copy
         GT_CUDA_CHECK(cudaMemcpy(field_1a_gpu.data(), field_1a.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
-        GT_CUDA_CHECK(cudaMemcpy(field_1b_gpu.data(), field_1b.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
         GT_CUDA_CHECK(cudaMemcpy(field_2a_gpu.data(), field_2a.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
-#ifndef GHEX_HYBRID_TESTS
-        GT_CUDA_CHECK(cudaMemcpy(field_2b_gpu.data(), field_2b.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
         GT_CUDA_CHECK(cudaMemcpy(field_3a_gpu.data(), field_3a.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice));
+#ifndef GHEX_HYBRID_TESTS
+        GT_CUDA_CHECK(cudaMemcpy(field_1b_gpu.data(), field_1b.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_2b_gpu.data(), field_2b.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
         GT_CUDA_CHECK(cudaMemcpy(field_3b_gpu.data(), field_3b.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice));
 #endif
 #else
         std::memcpy(field_1a_gpu.data(), field_1a.data(), max_memory*sizeof(TT1));
-        std::memcpy(field_1b_gpu.data(), field_1b.data(), max_memory*sizeof(TT1));
         std::memcpy(field_2a_gpu.data(), field_2a.data(), max_memory*sizeof(TT2));
-#ifndef GHEX_HYBRID_TESTS
-        std::memcpy(field_2b_gpu.data(), field_2b.data(), max_memory*sizeof(TT2));
         std::memcpy(field_3a_gpu.data(), field_3a.data(), max_memory*sizeof(TT3));
+#ifndef GHEX_HYBRID_TESTS
+        std::memcpy(field_1b_gpu.data(), field_1b.data(), max_memory*sizeof(TT1));
+        std::memcpy(field_2b_gpu.data(), field_2b.data(), max_memory*sizeof(TT2));
         std::memcpy(field_3b_gpu.data(), field_3b.data(), max_memory*sizeof(TT3));
 #endif
 #endif
@@ -540,18 +538,18 @@ bool test0()
         GT_CUDA_CHECK(cudaMemcpy(field_2a.data(), field_2a_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));
         GT_CUDA_CHECK(cudaMemcpy(field_3a.data(), field_3a_gpu.data(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost));
 #ifndef GHEX_HYBRID_TESTS
-        GT_CUDA_CHECK(cudaMemcpy(field_2b.data(), field_2b_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));
         GT_CUDA_CHECK(cudaMemcpy(field_1b.data(), field_1b_gpu.data(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_2b.data(), field_2b_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));
         GT_CUDA_CHECK(cudaMemcpy(field_3b.data(), field_3b_gpu.data(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost));
 #endif
 
         // free
         cudaFree(gpu_1a_raw);
-        cudaFree(gpu_1b_raw);
         cudaFree(gpu_2a_raw);
-#ifndef GHEX_HYBRID_TESTS
-        cudaFree(gpu_2b_raw);
         cudaFree(gpu_3a_raw);
+#ifndef GHEX_HYBRID_TESTS
+        cudaFree(gpu_1b_raw);
+        cudaFree(gpu_2b_raw);
         cudaFree(gpu_3b_raw);
 #endif
 #else
