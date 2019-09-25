@@ -8,7 +8,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 
-#include "../include/protocol/setup.hpp"
+#include <ghex/protocol/setup.hpp>
 #include <gtest/gtest.h>
 
 TEST(all_gather, all_gather_fixed)

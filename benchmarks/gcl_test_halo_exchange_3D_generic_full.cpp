@@ -28,8 +28,8 @@
 #include <iomanip>
 
 #include "../utils/triplet.hpp"
-#include "../include/protocol/mpi_comm.hpp"
-#include "../include/common/timer.hpp"
+#include <ghex/protocol/mpi_comm.hpp>
+#include <ghex/common/timer.hpp>
 //#include "triplet.hpp"
 
 #ifdef __CUDACC__

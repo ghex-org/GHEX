@@ -9,8 +9,8 @@
  * 
  */
 
-#include "../include/communication_object_2.hpp"
-#include "../include/glue/gridtools/gt_glue.hpp"
+#include <ghex/communication_object_2.hpp>
+#include <ghex/glue/gridtools/gt_glue.hpp>
 
 #include <gridtools/storage/storage_facility.hpp>
 

@@ -9,21 +9,19 @@
  */
 
 #include <gtest/gtest.h>
-//#include "gtest_main.cpp"
 #include <vector>
 #include <array>
 #include <utility>
 #include <thread>
 #include <cstring>
 #include <gridtools/common/layout_map.hpp>
-#include "../include/gridtools_arch.hpp"
-#include "../include/communication_object.hpp"
-#include "../include/protocol/communicator_base.hpp"
-#include "../include/protocol/mpi.hpp"
-#include "../include/pattern.hpp"
-#include "../include/structured/structured_pattern.hpp"
-#include "../include/structured/structured_domain_descriptor.hpp"
-//#include "triplet.hpp"
+#include <ghex/gridtools_arch.hpp>
+#include <ghex/communication_object.hpp>
+#include <ghex/protocol/communicator_base.hpp>
+#include <ghex/protocol/mpi.hpp>
+#include <ghex/pattern.hpp>
+#include <ghex/structured/structured_pattern.hpp>
+#include <ghex/structured/structured_domain_descriptor.hpp>
 #include "../utils/triplet.hpp"
 
 

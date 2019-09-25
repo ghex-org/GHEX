@@ -23,12 +23,11 @@
 #include "../utils/triplet.hpp"
 //#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
 
-#include "../include/communication_object_2.hpp"
-#include "../include/structured/structured_pattern.hpp"
-#include "../include/structured/structured_domain_descriptor.hpp"
-#include "../include/structured/simple_field_wrapper.hpp"
-#include "../include/common/timer.hpp"
-//#include "triplet.hpp"
+#include <ghex/communication_object_2.hpp>
+#include <ghex/structured/structured_pattern.hpp>
+#include <ghex/structured/structured_domain_descriptor.hpp>
+#include <ghex/structured/simple_field_wrapper.hpp>
+#include <ghex/common/timer.hpp>
 
 #include <gridtools/common/array.hpp>
 #ifdef __CUDACC__

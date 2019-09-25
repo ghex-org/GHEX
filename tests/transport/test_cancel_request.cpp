@@ -1,5 +1,5 @@
-#include <transport_layer/callback_communicator.hpp>
-#include <transport_layer/mpi/communicator.hpp>
+#include <ghex/transport_layer/callback_communicator.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include <iostream>
 #include <iomanip>
 #include <functional>

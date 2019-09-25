@@ -17,8 +17,8 @@
 //#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
 //#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
-#include "../include/structured/structured_pattern.hpp"
-#include "../include/communication_object_2.hpp"
+#include <ghex/structured/structured_pattern.hpp>
+#include <ghex/communication_object_2.hpp>
 #include <array>
 #include <iomanip>
 
