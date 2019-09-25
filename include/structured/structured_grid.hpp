@@ -11,7 +11,7 @@
 #ifndef INCLUDED_STRUCTURED_GRID_HPP
 #define INCLUDED_STRUCTURED_GRID_HPP
 
-#include "./coordinate.hpp"
+#include "../common/coordinate.hpp"
 
 namespace gridtools {
 

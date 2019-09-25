@@ -10,10 +10,15 @@
  */
 //#define STANDALONE
 
-#include "../include/simple_field_wrapper.hpp"
-#include "../include/structured_pattern.hpp"
+//#define SERIAL_SPLIT
+//#define MULTI_THREADED_EXCHANGE
+//#define MULTI_THREADED_EXCHANGE_THREADS
+//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
+//#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
+//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
+
+#include "../include/structured/structured_pattern.hpp"
 #include "../include/communication_object_2.hpp"
-#include <boost/mpi/environment.hpp>
 #include <array>
 #include <iomanip>
 
@@ -24,8 +29,26 @@
 #include <gtest/gtest.h>
 #endif
 
+#include <gridtools/common/array.hpp>
+#ifdef __CUDACC__
+#include <gridtools/common/cuda_util.hpp>
+#include <gridtools/common/host_device.hpp>
+#endif
+
+template<typename T, std::size_t N>
+using array_type = gridtools::array<T,N>;
+
 template<typename T, long unsigned N>
 std::ostream& operator<<(std::ostream& os, const std::array<T,N>& arr)
+{
+    os << "(";
+    for (unsigned int i=0; i<N-1; ++i) os << std::setw(2) << std::right << arr[i] << ",";
+    os << std::setw(2) << std::right << arr[N-1] << ")";
+    return os;
+}
+
+template<typename T, long unsigned N>
+std::ostream& operator<<(std::ostream& os, const array_type<T,N>& arr)
 {
     os << "(";
     for (unsigned int i=0; i<N-1; ++i) os << std::setw(2) << std::right << arr[i] << ",";
@@ -51,7 +74,7 @@ void fill_values(const Domain& d, Field& f)
             int zl = 0;
             for (int z=d.first()[2]; z<=d.last()[2]; ++z, ++zl)
             {
-                f(xl,yl,zl) = std::array<T,3>{(T)x,(T)y,(T)z};
+                f(xl,yl,zl) = array_type<T,3>{(T)x,(T)y,(T)z};
             }
         }
     }
@@ -119,7 +142,33 @@ TEST(communication_object_2, exchange)
 bool test0()
 #endif
 {
-    boost::mpi::communicator mpi_comm;
+    gridtools::ghex::mpi::mpi_comm mpi_comm;
+
+#ifdef __CUDACC__
+    int num_devices_per_node;
+    cudaGetDeviceCount(&num_devices_per_node);
+    MPI_Comm raw_local_comm;
+    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
+    if (local_comm.rank()<num_devices_per_node)
+    {
+        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
+        << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+    }
+#else
+#ifdef GHEX_EMULATE_GPU
+    int num_devices_per_node = 1;
+    MPI_Comm raw_local_comm;
+    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
+    if (local_comm.rank()<num_devices_per_node)
+    {
+        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
+        << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+    }
+#endif
+#endif
 
     // need communicator to decompose domain
     gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
@@ -164,9 +213,9 @@ bool test0()
     using T1 = double;
     using T2 = float;
     using T3 = int;
-    using TT1 = std::array<T1,3>;
-    using TT2 = std::array<T2,3>;
-    using TT3 = std::array<T3,3>;
+    using TT1 = array_type<T1,3>;
+    using TT2 = array_type<T2,3>;
+    using TT3 = array_type<T3,3>;
     std::vector<TT1> field_1a_raw(max_memory);
     std::vector<TT1> field_1b_raw(max_memory);
     std::vector<TT2> field_2a_raw(max_memory);
@@ -196,9 +245,9 @@ bool test0()
     auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
 
     // communication object
-    auto co   = gridtools::make_communication_object(pattern1,pattern2);
-    auto co_1 = gridtools::make_communication_object(pattern1,pattern2);
-    auto co_2 = gridtools::make_communication_object(pattern1,pattern2);
+    auto co   = gridtools::make_communication_object<decltype(pattern1)>();
+    auto co_1 = gridtools::make_communication_object<decltype(pattern1)>();
+    auto co_2 = gridtools::make_communication_object<decltype(pattern1)>();
 
     // wrap raw fields
     auto field_1a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer);
@@ -252,6 +301,7 @@ bool test0()
     //    comm.barrier();
     //}
 
+<<<<<<< HEAD
 #ifndef GHEX_TEST_SERIAL
 #ifndef GHEX_TEST_SERIAL_SPLIT
 #ifndef GHEX_TEST_THREADS
@@ -265,6 +315,270 @@ bool test0()
 #endif
 #endif
 #endif
+=======
+#if defined(__CUDACC__) || (!defined(__CUDACC__) && defined(GHEX_EMULATE_GPU))
+
+    if (local_comm.rank()<num_devices_per_node)
+    {
+        // allocate on the gpu
+        TT1* gpu_1a_raw;
+        TT1* gpu_1b_raw;
+        TT2* gpu_2a_raw;
+#ifndef GHEX_HYBRID_TESTS
+        TT2* gpu_2b_raw;
+        TT3* gpu_3a_raw;
+        TT3* gpu_3b_raw;
+#endif
+#ifdef __CUDACC__
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1a_raw, max_memory*sizeof(TT1)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1b_raw, max_memory*sizeof(TT1)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2a_raw, max_memory*sizeof(TT2)));
+#ifndef GHEX_HYBRID_TESTS
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2b_raw, max_memory*sizeof(TT2)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_3a_raw, max_memory*sizeof(TT3)));
+        GT_CUDA_CHECK(cudaMalloc((void**)&gpu_3b_raw, max_memory*sizeof(TT3)));
+#endif
+#else
+        gpu_1a_raw = new TT1[max_memory];
+        gpu_1b_raw = new TT1[max_memory];
+        gpu_2a_raw = new TT2[max_memory];
+#ifndef GHEX_HYBRID_TESTS
+        gpu_2b_raw = new TT2[max_memory];
+        gpu_3a_raw = new TT3[max_memory];
+        gpu_3b_raw = new TT3[max_memory];
+#endif
+#endif
+
+        // wrap raw fields
+        auto field_1a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_1a_raw, offset, local_ext_buffer);
+        auto field_1b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_1b_raw, offset, local_ext_buffer);
+        auto field_2a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_2a_raw, offset, local_ext_buffer);
+#ifndef GHEX_HYBRID_TESTS
+        auto field_2b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_2b_raw, offset, local_ext_buffer);
+        auto field_3a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_3a_raw, offset, local_ext_buffer);
+        auto field_3b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_3b_raw, offset, local_ext_buffer);
+#endif
+
+#ifdef __CUDACC__
+        // copy
+        GT_CUDA_CHECK(cudaMemcpy(field_1a_gpu.data(), field_1a.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_1b_gpu.data(), field_1b.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_2a_gpu.data(), field_2a.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
+#ifndef GHEX_HYBRID_TESTS
+        GT_CUDA_CHECK(cudaMemcpy(field_2b_gpu.data(), field_2b.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_3a_gpu.data(), field_3a.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice));
+        GT_CUDA_CHECK(cudaMemcpy(field_3b_gpu.data(), field_3b.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice));
+#endif
+#else
+        std::memcpy(field_1a_gpu.data(), field_1a.data(), max_memory*sizeof(TT1));
+        std::memcpy(field_1b_gpu.data(), field_1b.data(), max_memory*sizeof(TT1));
+        std::memcpy(field_2a_gpu.data(), field_2a.data(), max_memory*sizeof(TT2));
+#ifndef GHEX_HYBRID_TESTS
+        std::memcpy(field_2b_gpu.data(), field_2b.data(), max_memory*sizeof(TT2));
+        std::memcpy(field_3a_gpu.data(), field_3a.data(), max_memory*sizeof(TT3));
+        std::memcpy(field_3b_gpu.data(), field_3b.data(), max_memory*sizeof(TT3));
+#endif
+#endif
+        
+        // exchange
+#ifdef GHEX_TEST_SERIAL
+    // blocking variant
+#ifdef GHEX_HYBRID_TESTS
+    co.bexchange(
+        pattern1(field_1a_gpu),
+        pattern1(field_1b),
+        pattern2(field_2a_gpu),
+        pattern2(field_2b),
+        pattern1(field_3a_gpu),
+        pattern1(field_3b)
+    );
+#else
+    co.bexchange(
+        pattern1(field_1a_gpu),
+        pattern1(field_1b_gpu),
+        pattern2(field_2a_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3a_gpu),
+        pattern1(field_3b_gpu)
+    );
+#endif
+#endif
+
+#ifdef GHEX_TEST_SERIAL_SPLIT
+    // non-blocking variant
+    auto h1 = co_1.exchange(pattern1(field_1a_gpu), pattern2(field_2a_gpu), pattern1(field_3a_gpu));
+#ifdef GHEX_HYBRID_TESTS
+    auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
+#else
+    auto h2 = co_2.exchange(pattern1(field_1b_gpu), pattern2(field_2b_gpu), pattern1(field_3b_gpu));
+#endif
+    // ... overlap communication (packing, posting) with computation here
+    // wait and upack:
+    h1.wait();
+    h2.wait();
+#endif
+
+#ifdef GHEX_TEST_THREADS
+    auto func = [](decltype(co)& co_, auto... bis)
+    {
+        co_.bexchange(bis...);
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    std::vector<std::thread> threads;
+    threads.push_back(std::thread{func, std::ref(co_1),
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu)});
+#ifdef GHEX_HYBRID_TESTS
+    threads.push_back(std::thread{func, std::ref(co_2),
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b)});
+#else
+    threads.push_back(std::thread{func, std::ref(co_2),
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu)});
+#endif
+    // ... overlap communication with computation here
+    for (auto& t : threads) t.join();
+#endif
+
+#ifdef GHEX_TEST_ASYNC_ASYNC
+    auto func = [](decltype(co)& co_, auto... bis)
+    {
+        co_.bexchange(bis...);
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking may be done concurrently
+    auto policy = std::launch::async;
+    auto future_1 = std::async(policy, func, std::ref(co_1),
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu));
+#ifdef GHEX_HYBRID_TESTS
+    auto future_2 = std::async(policy, func, std::ref(co_2),
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b));
+#else
+    auto future_2 = std::async(policy, func, std::ref(co_2),
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu));
+#endif
+    // ... overlap communication with computation here
+    future_1.wait();
+    future_2.wait();
+#endif
+
+#ifdef GHEX_TEST_ASYNC_DEFERRED
+    auto func_h = [](decltype(co)& co_, auto... bis)
+    {
+        return co_.exchange(bis...);
+    };
+    // packing and posting serially on current thread
+    // waiting and unpacking serially on current thread
+    auto policy = std::launch::deferred;
+    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu));
+#ifdef GHEX_HYBRID_TESTS
+    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b));
+#else
+    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu));
+#endif
+    // deferred policy: essentially serial on current thread
+    auto h1 = future_1.get();
+    auto h2 = future_2.get();
+    // ... overlap communication (packing, posting) with computation here
+    // waiting and unpacking is serial here
+    h1.wait();
+    h2.wait();
+#endif
+
+#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
+    auto func_h = [](decltype(co)& co_, auto... bis)
+    {
+        return co_.exchange(bis...);
+    };
+    // packing and posting may be done concurrently
+    // waiting and unpacking serially
+    auto policy = std::launch::async;
+    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+        pattern1(field_1a_gpu),
+        pattern2(field_2a_gpu),
+        pattern1(field_3a_gpu));
+#ifdef GHEX_HYBRID_TESTS
+    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+        pattern1(field_1b),
+        pattern2(field_2b),
+        pattern1(field_3b));
+#else
+    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+        pattern1(field_1b_gpu),
+        pattern2(field_2b_gpu),
+        pattern1(field_3b_gpu));
+#endif
+    // ... overlap communication (packing, posting) with computation here
+    // waiting and unpacking is serial here
+    future_1.get().wait();
+    future_2.get().wait();
+#endif
+
+#ifdef __CUDACC__
+        // copy back
+        GT_CUDA_CHECK(cudaMemcpy(field_1a.data(), field_1a_gpu.data(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_2a.data(), field_2a_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_3a.data(), field_3a_gpu.data(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost));
+#ifndef GHEX_HYBRID_TESTS
+        GT_CUDA_CHECK(cudaMemcpy(field_2b.data(), field_2b_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_1b.data(), field_1b_gpu.data(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost));
+        GT_CUDA_CHECK(cudaMemcpy(field_3b.data(), field_3b_gpu.data(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost));
+#endif
+
+        // free
+        cudaFree(gpu_1a_raw);
+        cudaFree(gpu_1b_raw);
+        cudaFree(gpu_2a_raw);
+#ifndef GHEX_HYBRID_TESTS
+        cudaFree(gpu_2b_raw);
+        cudaFree(gpu_3a_raw);
+        cudaFree(gpu_3b_raw);
+#endif
+#else
+        // copy back
+        std::memcpy(field_1a.data(), field_1a_gpu.data(), max_memory*sizeof(TT1));
+        std::memcpy(field_2a.data(), field_2a_gpu.data(), max_memory*sizeof(TT2));
+        std::memcpy(field_3a.data(), field_3a_gpu.data(), max_memory*sizeof(TT3));
+#ifndef GHEX_HYBRID_TESTS
+        std::memcpy(field_1b.data(), field_1b_gpu.data(), max_memory*sizeof(TT1));
+        std::memcpy(field_2b.data(), field_2b_gpu.data(), max_memory*sizeof(TT2));
+        std::memcpy(field_3b.data(), field_3b_gpu.data(), max_memory*sizeof(TT3));
+#endif
+
+        // free
+        delete[] gpu_1a_raw;
+        delete[] gpu_2a_raw;
+        delete[] gpu_3a_raw;
+#ifndef GHEX_HYBRID_TESTS
+        delete[] gpu_1b_raw;
+        delete[] gpu_2b_raw;
+        delete[] gpu_3b_raw;
+#endif
+#endif
+    }
+    else
+#endif // ifdef CUDA or HYBRID
+    {
 
     // exchange
 #ifdef GHEX_TEST_SERIAL
@@ -377,6 +691,7 @@ bool test0()
     future_2.get().wait();
 #endif
 
+    }
 
     //// print arrays
     //std::cout.flush();
@@ -434,6 +749,7 @@ bool test0()
 }
 
 #ifdef STANDALONE
+#include <boost/mpi/environment.hpp>
 int main(int argc, char* argv[])
 {
     //MPI_Init(&argc,&argv);

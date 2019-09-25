@@ -17,7 +17,7 @@
 #include <vector>
 #include <algorithm>
 
-#include "./utils.hpp"
+#include "../common/utils.hpp"
 #include "./structured_grid.hpp"
 
 namespace gridtools {

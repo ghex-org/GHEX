@@ -194,17 +194,11 @@ namespace gridtools {
         return l;
     }
 
-    template<typename A1, typename A2>
-    auto dot(A1&& l, A2&& r) noexcept
+    template<typename A>
+    auto dot(const coordinate<A>& l, const coordinate<A>& r) noexcept
     {
-        using A1_t = typename std::remove_cv<typename std::remove_reference<A1>::type>::type;
-        using A2_t = typename std::remove_cv<typename std::remove_reference<A2>::type>::type;
-        static_assert(is_coordinate<A1_t>::value, "Type in dot function should be coordinate<T>");
-        static_assert(is_coordinate<A2_t>::value, "Type in dot function should be coordinate<T>");
-        static_assert(A1_t::size() == A2_t::size(), "Types do not match in size"); // if size if constexpr...
-
-        auto res = std::forward<A1>(l)[0]*std::forward<A2>(r)[0];
-        for (int i=1; i<A1_t::size(); ++i) res += std::forward<A1>(l)[i]*std::forward<A2>(r)[i];
+        auto res = l[0]*r[0];
+        for (int i=1; i<A::size(); ++i) res += l[i]*r[i];
         return res;
     }
 
