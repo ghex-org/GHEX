@@ -11,6 +11,8 @@
 #ifndef INCLUDED_CUDA_STREAM_HPP
 #define INCLUDED_CUDA_STREAM_HPP
 
+#include <memory>
+
 namespace gridtools {
     namespace ghex {
 

@@ -273,14 +273,14 @@ namespace gridtools {
             // adjust base pointer
             m_data = reinterpret_cast<value_type*>(reinterpret_cast<char*>(m_data)+delta);
         }
-        GT_FUNCTION_HOST
+        //GT_FUNCTION_HOST
         simple_field_wrapper(simple_field_wrapper&&) noexcept = default;
-        GT_FUNCTION_HOST
+        //GT_FUNCTION_HOST
         simple_field_wrapper(const simple_field_wrapper&) noexcept = default;
 
-        GT_FUNCTION_HOST
+        //GT_FUNCTION_HOST
         simple_field_wrapper& operator=(simple_field_wrapper&&) noexcept = default;
-        GT_FUNCTION_HOST
+        //GT_FUNCTION_HOST
         simple_field_wrapper& operator=(const simple_field_wrapper&) noexcept = default;
 
     public: // member functions

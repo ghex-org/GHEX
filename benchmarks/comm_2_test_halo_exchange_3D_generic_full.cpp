@@ -2245,7 +2245,7 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::gehx::mpi::comm_take_ownership);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 

@@ -14,6 +14,7 @@
 #include "./devices.hpp"
 #include "./structured/field_utils.hpp"
 #include "./cuda_utils/kernel_argument.hpp"
+#include <gridtools/common/array.hpp>
 
 namespace gridtools {
 
@@ -351,7 +352,7 @@ namespace gridtools {
             using field_info_type      = typename recv_buffer_type::field_info_type;
             using index_container_type = typename field_info_type::index_container_type;
             using dimension            = typename index_container_type::value_type::dimension;
-            using array_t              = array<int, dimension::value>;
+            using array_t              = ::gridtools::array<int, dimension::value>;
 
             using arg_t = kernel_args<T,array_t,FieldType>;
             std::vector<arg_t> args;
