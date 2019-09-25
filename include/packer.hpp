@@ -139,13 +139,11 @@ namespace gridtools {
                     if (p1.second.size > 0u)
                     {
                         p1.second.buffer.resize(p1.second.size);
+                        p1.second.m_cuda_stream.activate();
                         ++num_streams;
                     }
                 }
             }
-            std::vector<cudaStream_t> streams(num_streams);
-            for (auto& x : streams) 
-                cudaStreamCreate(&x);
             num_streams = 0;
             for (auto& p0 : map.send_memory)
             {
@@ -155,7 +153,7 @@ namespace gridtools {
                     {
                         for (const auto& fb : p1.second.field_infos)
                         {
-                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&streams[num_streams]));
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&p1.second.m_cuda_stream.m_stream));
                         }
                         ++num_streams;
                     }
@@ -168,7 +166,7 @@ namespace gridtools {
                 {
                     if (p1.second.size > 0u)
                     {
-                        cudaStreamSynchronize(streams[num_streams]);
+                        p1.second.m_cuda_stream.sync();
                         send_futures.push_back(comm.isend(
                             p1.second.address,
                             p1.second.tag,
@@ -177,21 +175,26 @@ namespace gridtools {
                     }
                 }
             }
-            for (auto& x : streams) 
-                cudaStreamDestroy(x);
         }
 
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
-            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
+            std::vector<cudaStream_t*> stream_ptrs(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
             std::size_t i = 0;
-            for (auto& x : streams)
+            for (auto& p0 : m.recv_memory)
             {
-                cudaStreamCreate(&x);
-                index_list[i] = i;
-                ++i;
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.m_cuda_stream.activate();
+                        stream_ptrs[i] = &(p1.second.m_cuda_stream.m_stream);
+                        index_list[i] = i;
+                        ++i;
+                    }
+                }
             }
             std::size_t size = index_list.size();
             while(size>0u)
@@ -204,14 +207,13 @@ namespace gridtools {
                         if (j < --size)
                             index_list[j--] = index_list[size];
                         for (const auto& fb : *m.m_recv_hooks[k].second)
-                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(&streams[k]));
+                            fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container, (void*)(stream_ptrs[k]));
                     }
                 }
             }
-            for (auto& x : streams) 
+            for (auto x : stream_ptrs) 
             {
-                cudaStreamSynchronize(x);
-                cudaStreamDestroy(x);
+                cudaStreamSynchronize(*x);
             }
         }
 
@@ -236,13 +238,11 @@ namespace gridtools {
                     if (p1.second.size > 0u)
                     {
                         p1.second.buffer.resize(p1.second.size);
+                        p1.second.m_cuda_stream.activate();
                         ++num_streams;
                     }
                 }
             }
-            std::vector<cudaStream_t> streams(num_streams);
-            for (auto& x : streams) 
-                cudaStreamCreate(&x);
             const int block_size = 128;
             num_streams = 0;
             for (auto& p0 : map.send_memory)
@@ -283,7 +283,7 @@ namespace gridtools {
                             {
                                 dim3 dimBlock(block_size, 1);
                                 dim3 dimGrid(num_blocks_x, 36);
-                                pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.m_stream>>>(
                                     make_kernel_arg<36>(args.data()+count, 36)
                                 );
                                 count += 36;
@@ -295,25 +295,25 @@ namespace gridtools {
                                 dim3 dimGrid(num_blocks_x, num_blocks_y);
                                 if (num_blocks_y < 7)
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.m_stream>>>(
                                         make_kernel_arg< 6>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 13)
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.m_stream>>>(
                                         make_kernel_arg<12>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 25)
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.m_stream>>>(
                                         make_kernel_arg<24>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[num_streams]>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.m_stream>>>(
                                         make_kernel_arg<36>(args.data()+count, num_blocks_y)
                                     );
                                 }
@@ -333,8 +333,7 @@ namespace gridtools {
                 {
                     if (p1.second.size > 0u)
                     {
-                        cudaStreamSynchronize(streams[num_streams]);
-                        cudaStreamDestroy(streams[num_streams]);
+                        p1.second.m_cuda_stream.sync();
                         send_futures.push_back(comm.isend(
                             p1.second.address,
                             p1.second.tag,
@@ -358,14 +357,21 @@ namespace gridtools {
             std::vector<arg_t> args;
             args.reserve(64);
 
-            std::vector<cudaStream_t> streams(m.m_recv_futures.size());
+            std::vector<cudaStream_t*> stream_ptrs(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
             std::size_t i = 0;
-            for (auto& x : streams)
+            for (auto& p0 : m.recv_memory)
             {
-                cudaStreamCreate(&x);
-                index_list[i] = i;
-                ++i;
+                for (auto& p1: p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        p1.second.m_cuda_stream.activate();
+                        stream_ptrs[i] = &(p1.second.m_cuda_stream.m_stream);
+                        index_list[i] = i;
+                        ++i;
+                    }
+                }
             }
             const int block_size = 128;
             std::size_t size = index_list.size();
@@ -410,7 +416,7 @@ namespace gridtools {
                             {
                                 dim3 dimBlock(block_size, 1);
                                 dim3 dimGrid(num_blocks_x, 36);
-                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptrs[k]>>>(
                                     make_kernel_arg<36>(args.data()+count, 36)
                                 );
                                 count += 36;
@@ -422,25 +428,25 @@ namespace gridtools {
                                 dim3 dimGrid(num_blocks_x, num_blocks_y);
                                 if (num_blocks_y < 7)
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptrs[k]>>>(
                                         make_kernel_arg<6>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 13)
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptrs[k]>>>(
                                         make_kernel_arg<12>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 25)
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptrs[k]>>>(
                                         make_kernel_arg<24>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, streams[k]>>>(
+                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptrs[k]>>>(
                                         make_kernel_arg<36>(args.data()+count, num_blocks_y)
                                     );
                                 }
@@ -451,10 +457,9 @@ namespace gridtools {
                     }
                 }
             }
-            for (auto& x : streams) 
+            for (auto x : stream_ptrs) 
             {
-                cudaStreamSynchronize(x);
-                cudaStreamDestroy(x);
+                cudaStreamSynchronize(*x);
             }
         }
     };
