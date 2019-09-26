@@ -35,6 +35,14 @@
 #include <gridtools/common/host_device.hpp>
 #endif
 
+// stupid kernel to test whether cuda is working
+#ifdef __CUDACC__
+#include <stdio.h>
+__global__ void print_kernel() {
+    printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
+}
+#endif
+
 template<typename T, std::size_t N>
 using array_type = gridtools::array<T,N>;
 
@@ -155,6 +163,8 @@ bool test0()
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
         << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
         GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        print_kernel<<<1, 1>>>();
+        cudaDeviceSynchronize();
     }
 #else
 #ifdef GHEX_EMULATE_GPU

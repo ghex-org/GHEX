@@ -71,7 +71,7 @@ foreach(_var ${_variants})
         )
 
         if (USE_HYBRID_TESTS)
-            add_executable(communication_object_2_${_var}_hybrid_gpu communication_object_2.cpp )
+            add_executable(communication_object_2_${_var}_hybrid_gpu communication_object_2.cu)
             target_compile_definitions(communication_object_2_${_var}_hybrid_gpu PUBLIC GHEX_TEST_${define})
             target_compile_definitions(communication_object_2_${_var}_hybrid_gpu PUBLIC GHEX_HYBRID_TESTS)
             target_include_directories(communication_object_2_${_var}_hybrid_gpu PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
