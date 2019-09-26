@@ -18,7 +18,6 @@
 #include <unordered_map>
 #include <tuple>
 #include <cassert>
-#include "./message.hpp"
 #include <algorithm>
 #include <deque>
 #include <string>
@@ -42,7 +41,6 @@ namespace mpi
 #endif
 
 class communicator;
-extern communicator comm;
 
 namespace _impl
 {
@@ -106,42 +104,10 @@ class communicator
 {
 public:
     using future_type = _impl::mpi_future;
-
-private:
     using tag_type = int;
     using rank_type = int;
 
-    template<typename Msg>
-    struct call_back_owning   // TODO: non-owning is faster :(
-    {
-        Msg m_msg;
-	std::function<void(rank_type, tag_type, Msg&)> m_inner_cb;
-
-        template<typename Callback>
-        call_back_owning(Msg& msg, Callback&& cb)
-	    : m_msg(msg), m_inner_cb(std::forward<Callback>(cb))
-        {}
-    
-        template<typename Callback>
-        call_back_owning(Msg&& msg, Callback&& cb)
-	    : m_msg(std::move(msg)), m_inner_cb(std::forward<Callback>(cb))
-        {}
-    
-        call_back_owning(const call_back_owning& x) = default;
-        call_back_owning(call_back_owning&&) = default;
-
-        void operator()(rank_type r, tag_type t)
-        {
-            m_inner_cb(r,t,m_msg);
-        }
-    
-        Msg& message() { return m_msg; }
-    };
-
 public:
-    using element_t = std::tuple<std::function<void(rank_type, tag_type)>, rank_type, tag_type, future_type>;
-    using cb_container_t = std::deque<element_t>;
-    std::array<cb_container_t,2> m_callbacks;
     MPI_Comm m_mpi_comm;
 
     static rank_type m_rank;
@@ -209,60 +175,11 @@ public:
         return req;
     }
 
-    template <typename MsgType, typename CallBack>
-    void 
-    send(MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
-    {
-        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
-        MPI_Request req;
-        CHECK_MPI_ERROR(MPI_Isend(cb2.message().data(), cb2.message().size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
-        m_callbacks[0].push_back( std::make_tuple(std::move(cb2), dst, tag, future_type(req)) );
-    }
-
     template <typename MsgType>
     [[nodiscard]] future_type recv(MsgType &msg, rank_type src, tag_type tag) const {
         MPI_Request request;
         CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
         return request;
-    }
-
-    // uses msg reference (user is not allowed to delete it)
-    template <typename MsgType, typename CallBack>
-    void
-    recv(MsgType& msg, rank_type src, tag_type tag, CallBack &&cb)
-    {
-        call_back_owning<MsgType> cb2(msg, std::forward<CallBack>(cb));
-        MPI_Request req;
-        CHECK_MPI_ERROR(MPI_Irecv(cb2.message().data(), cb2.message().size(), MPI_BYTE, src, tag, m_mpi_comm, &req));
-        m_callbacks[1].push_back( std::make_tuple(std::move(cb2), src, tag, future_type(req)) );
-    }
-
-    unsigned progress()
-    {
-	int completed = 0;
-        for (auto& cb_container : m_callbacks) 
-        {
-            const unsigned int size = cb_container.size();
-            for (unsigned int i=0; i<size; ++i) 
-            {
-                element_t element = std::move(cb_container.front());
-                cb_container.pop_front();
-
-                if (std::get<3>(element).ready())
-                {
-                    auto f = std::move(std::get<0>(element));
-                    auto x = std::get<1>(element);
-                    auto y = std::get<2>(element);
-                    f(x, y);
-		    completed++;
-                }
-                else
-                {
-                    cb_container.push_back(std::move(element));
-                }
-            }
-        }
-        return completed;
     }
 
     void fence()
@@ -273,6 +190,7 @@ public:
 };
 
 /** this has to be here, because the class needs to be complete */
+extern communicator comm;
 DECLARE_THREAD_PRIVATE(comm)
 communicator comm;
 

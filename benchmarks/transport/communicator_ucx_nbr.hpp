@@ -71,7 +71,7 @@ namespace ucx
 
     
 class communicator;
-extern communicator comm;
+// extern communicator comm;
 
 /** Communication freezes when I try to access comm from the callbacks 
     I have to access it through a pointer, which is initialized for each
@@ -659,9 +659,9 @@ public:
     }
 };
 
-/** this has to be here, because the class needs to be complete */
-DECLARE_THREAD_PRIVATE(comm)
-communicator comm;
+// /** this has to be here, because the class needs to be complete */
+// DECLARE_THREAD_PRIVATE(comm)
+// communicator comm;
 
 /** static communicator properties, shared between threads */
 const std::string communicator::name = "ghex::ucx_nbr";

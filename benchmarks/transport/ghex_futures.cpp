@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
     
     {
 	std::vector<MsgType> msgs;
-	FutureType reqs[inflight];	
+	FutureType reqs[inflight];
 	
 	for(int j=0; j<inflight; j++){
 	    msgs.push_back(MsgType(buff_size, buff_size));

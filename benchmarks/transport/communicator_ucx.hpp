@@ -64,7 +64,6 @@ namespace ucx
 
    
 class communicator;
-extern communicator comm;
 
 /** Communication freezes when I try to access comm from the callbacks 
     I have to access it through a pointer, which is initialized for each
@@ -93,7 +92,7 @@ struct ghex_ucx_request {
 
 /** request structure for callback-based comm */
 template<typename MsgType>
-struct ghex_ucx_request_template {
+struct ghex_ucx_request_cb {
     uint32_t peer_rank;
     uint32_t tag; 
     std::function<void(int, int, MsgType&)> cb;
@@ -137,9 +136,18 @@ struct ucx_future
     {
 	ucs_status_t status;
 	if(NULL == m_req) return true;
-	ucp_worker_progress(m_req->ucp_worker);
 	status = ucp_request_check_status(m_req);
-	return status != UCS_INPROGRESS;
+	if(status != UCS_INPROGRESS) return true;
+
+	/* progress UCX */
+	CRITICAL_BEGIN(ucp) {
+	    ucp_worker_progress(m_req->ucp_worker);
+	} CRITICAL_END(ucp);
+
+	status = ucp_request_check_status(m_req);
+	if(status != UCS_INPROGRESS) return true;
+	
+	return false;
     }
 
     /** Cancel the future.
@@ -491,7 +499,7 @@ public:
     {
 	ucs_status_ptr_t status;
 	uintptr_t istatus;
-	_impl::ghex_ucx_request_template<MsgType> *ghex_request;
+	_impl::ghex_ucx_request_cb<MsgType> *ghex_request;
 	ucp_ep_h ep;
 
 	ep = rank_to_ep(dst);
@@ -507,7 +515,7 @@ public:
 	    if(UCS_OK == (ucs_status_t)(istatus)){
 		cb(dst, tag, msg);
 	    } else if(!UCS_PTR_IS_ERR(status)) {
-		ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
+		ghex_request = (_impl::ghex_ucx_request_cb<MsgType> *)status;
 
 		/* fill in useful request data */
 		ghex_request->peer_rank = dst;
@@ -590,7 +598,7 @@ public:
     void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
     {
 	ucs_status_ptr_t status;
-	_impl::ghex_ucx_request_template<MsgType> *ghex_request;
+	_impl::ghex_ucx_request_cb<MsgType> *ghex_request;
 	ucp_tag_t ucp_tag, ucp_tag_mask;
 
 	/* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
@@ -646,7 +654,7 @@ public:
 		    // return;
 		} else {
 
-		    ghex_request = (_impl::ghex_ucx_request_template<MsgType> *)status;
+		    ghex_request = (_impl::ghex_ucx_request_cb<MsgType> *)status;
 
 		    /* fill in useful request data */
 		    ghex_request->peer_rank = src;
@@ -752,7 +760,7 @@ void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_inf
     } else {
 	
 	/* here we know the thrid of the submitting thread, if it is not us */
-	_impl::ghex_ucx_request_template<MsgType> *r = static_cast<_impl::ghex_ucx_request_template<MsgType>*>(request);
+	_impl::ghex_ucx_request_cb<MsgType> *r = static_cast<_impl::ghex_ucx_request_cb<MsgType>*>(request);
 	r->cb(peer_rank, tag, r->h_msg);
 	r->h_msg.release();
 	ucp_request_free(request);
@@ -768,13 +776,14 @@ void ghex_tag_send_callback(void *request, ucs_status_t status)
        4. call user callback
        5. release / free the message (ghex is done with it)
     */
-    _impl::ghex_ucx_request_template<MsgType> *r = static_cast<_impl::ghex_ucx_request_template<MsgType>*>(request);
+    _impl::ghex_ucx_request_cb<MsgType> *r = static_cast<_impl::ghex_ucx_request_cb<MsgType>*>(request);
     r->cb(r->peer_rank, r->tag, r->h_msg);
     r->h_msg.release();
     ucp_request_free(request);
 }
 
 /** this has to be here, because the class needs to be complete */
+extern communicator comm;
 DECLARE_THREAD_PRIVATE(comm)
 communicator comm;
 

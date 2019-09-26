@@ -6,14 +6,30 @@
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
 using namespace gridtools::ghex::mpi;
+#define USE_CALLBACK_COMM
 #else
 #ifdef USE_UCX_NBR
+
+/* use the GHEX callback framework */
 #include "communicator_ucx_nbr.hpp"
+#define USE_CALLBACK_COMM
 #else
+
+/* use the UCX's own callback framework */
 #include "communicator_ucx.hpp"
+#undef  USE_CALLBACK_COMM
 #endif
 using CommType = gridtools::ghex::ucx::communicator;
 using namespace gridtools::ghex::ucx;
+#endif
+
+#ifdef USE_CALLBACK_COMM
+#include "callback_communicator.hpp"
+CommType comm;
+gridtools::ghex::callback_communicator<CommType> comm_cb(comm);
+#else
+CommType comm;
+#define comm_cb comm
 #endif
 
 #include "message.hpp"
@@ -23,14 +39,14 @@ using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 int *available = NULL;
 int ongoing_comm = 0;
 
-void send_callback(int rank, int tag, MsgType &mesg)
+void send_callback(int rank, int tag, const MsgType &mesg)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     available[tag] = 1;
     ongoing_comm--;
 }
 
-void recv_callback(int rank, int tag, MsgType &mesg)
+void recv_callback(int rank, int tag, const MsgType &mesg)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     available[tag] = 1;
@@ -79,7 +95,7 @@ int main(int argc, char *argv[])
 			available[j] = 0;
 			sent++;
 			ongoing_comm++;
-			comm.send(msgs[j], 1, j, send_callback);
+			comm_cb.send(msgs[j], 1, j, send_callback);
 			if(sent==niter) break;
 		    }
 		}
@@ -90,7 +106,7 @@ int main(int argc, char *argv[])
 		/* over simply calling the progress once */
 		int p = 0.1*inflight-1;
 		do {
-		    p-=comm.progress();
+		    p-=comm_cb.progress();
 		} while(ongoing_comm && p>0);
 	    }
 
@@ -105,7 +121,7 @@ int main(int argc, char *argv[])
 		for(int j=0; j<inflight; j++){
 		    if(available[j]){
 			available[j] = 0;
-			comm.recv(msgs[j], 0, j, recv_callback);
+			comm_cb.recv(msgs[j], 0, j, recv_callback);
 		    }
 		}
 	    
@@ -114,14 +130,14 @@ int main(int argc, char *argv[])
 		/* over simply calling the progress once */
 		int p = 0.1*inflight-1;
 		do {
-		    p-=comm.progress();
+		    p-=comm_cb.progress();
 		} while(ongoing_comm && p>0);
-	    }	    
+	    }
 	}
 
 	/* complete all comm */
 	while(ongoing_comm){
-	    comm.progress();
+	    comm_cb.progress();
 	}
 
 	if(rank == 1) toc();

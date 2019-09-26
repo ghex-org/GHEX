@@ -16,18 +16,36 @@
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
 using namespace gridtools::ghex::mpi;
+#define USE_CALLBACK_COMM
 #else
 #ifdef USE_UCX_NBR
 #include "communicator_ucx_nbr.hpp"
+#define USE_CALLBACK_COMM
 #else
 #include "communicator_ucx.hpp"
+#undef  USE_CALLBACK_COMM
 #endif
 using CommType = gridtools::ghex::ucx::communicator;
 using namespace gridtools::ghex::ucx;
 #endif
 
+/* TODO: this cannot be here, because it doesn't compile. I have to have it in the communicator hpp */
+// extern CommType comm;
+// DECLARE_THREAD_PRIVATE(comm)
+// CommType comm;
+
+#ifdef USE_CALLBACK_COMM
+
+#include "callback_communicator.hpp"
+extern gridtools::ghex::callback_communicator<CommType> comm_cb;
+DECLARE_THREAD_PRIVATE(comm_cb)
+gridtools::ghex::callback_communicator<CommType> comm_cb(comm);
+#else
+#define comm_cb comm
+#endif
+
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
@@ -49,7 +67,7 @@ int total_sent = 0;
 int ongoing_comm = 0;
 int inflight;
 
-void send_callback(int rank, int tag, MsgType &mesg)
+void send_callback(int rank, int tag, const MsgType &mesg)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
@@ -59,7 +77,7 @@ void send_callback(int rank, int tag, MsgType &mesg)
     comm_cnt++;
 }
 
-void recv_callback(int rank, int tag, MsgType &mesg)
+void recv_callback(int rank, int tag, const MsgType &mesg)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " pthr " <<  pthr << " ongoing " << ongoing_comm << "\n";
     int pthr = tag/inflight;
@@ -150,11 +168,11 @@ int main(int argc, char *argv[])
 			submit_cnt++;
 
 			available[thrid][j] = 0;
-			comm.send(msgs[j], 1, thrid*inflight+j, send_callback);
+			comm_cb.send(msgs[j], 1, thrid*inflight+j, send_callback);
 		    }
 		}
 
-		comm.progress();
+		comm_cb.progress();
 	    }
 
 	} else {
@@ -174,11 +192,11 @@ int main(int argc, char *argv[])
 			submit_cnt++;
 
 			available[thrid][j] = 0;
-			comm.recv(msgs[j], 0, thrid*inflight+j, recv_callback);
+			comm_cb.recv(msgs[j], 0, thrid*inflight+j, recv_callback);
 		    }
 		}
 
-		comm.progress();
+		comm_cb.progress();
 	    }	    
 	}
 
