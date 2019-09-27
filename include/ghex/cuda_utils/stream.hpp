@@ -20,6 +20,7 @@ namespace gridtools {
 
 #ifdef __CUDACC__
 
+        /** @brief thin wrapper around a cuda stream */
         struct cuda_stream
         {
             

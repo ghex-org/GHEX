@@ -21,6 +21,8 @@ namespace gridtools {
     namespace ghex {
         namespace cuda {
 
+            /** @brief A future-like type that becomes ready once a cuda event is ready. The corresponding cuda stream
+              * will be syncronized when waiting on this object. */
             template<typename T>
             struct future
             {
