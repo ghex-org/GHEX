@@ -67,11 +67,11 @@ namespace gridtools {
 
                 event_type m_event;
 
-                future(T&& data, ::gridtools::ghex::cuda_stream& stream)
+                future(::gridtools::ghex::cuda_stream& stream)
                 : m_event{cudaEventDisableTiming}
                 //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
                 {
-                    GHEX_CHECK_CUDA_RESULT( cudaEventRecord(m_event, *stream.get()) );
+                    GHEX_CHECK_CUDA_RESULT( cudaEventRecord(m_event, stream) );
                 }
 
                 future(const future&) = delete;
