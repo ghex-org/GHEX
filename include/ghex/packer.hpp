@@ -11,9 +11,11 @@
 #ifndef INCLUDED_PACKER_HPP
 #define INCLUDED_PACKER_HPP
 
+#include "./common/await_futures.hpp"
 #include "./devices.hpp"
 #include "./structured/field_utils.hpp"
 #include "./cuda_utils/kernel_argument.hpp"
+#include "./cuda_utils/future.hpp"
 #include <gridtools/common/array.hpp>
 
 namespace gridtools {
@@ -46,7 +48,7 @@ namespace gridtools {
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
-            std::vector<std::size_t> index_list(m.m_recv_futures.size());
+            /*std::vector<std::size_t> index_list(m.m_recv_futures.size());
             for (std::size_t i = 0; i < index_list.size(); ++i)
                 index_list[i] = i;
             std::size_t size = index_list.size();
@@ -63,7 +65,15 @@ namespace gridtools {
                                     fb.call_back(m.m_recv_hooks[k].first + fb.offset, *fb.index_container,nullptr);
                     }
                 }
-            }
+            }*/
+
+            ::gridtools::ghex::await_futures(
+                m.m_recv_futures,
+                [](typename BufferMem::hook_type hook)
+                {
+                    for (const auto& fb :  hook->field_infos)
+                        fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, nullptr);
+                });
         }
     };
 
@@ -181,7 +191,7 @@ namespace gridtools {
         template<typename BufferMem>
         static void unpack(BufferMem& m)
         {
-            std::vector<cudaStream_t*> stream_ptrs(m.m_recv_futures.size());
+            /*std::vector<cudaStream_t*> stream_ptrs(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
             std::size_t i = 0;
             for (auto& p0 : m.recv_memory)
@@ -215,6 +225,22 @@ namespace gridtools {
             for (auto x : stream_ptrs) 
             {
                 cudaStreamSynchronize(*x);
+            }*/
+            std::vector<cudaStream_t*> stream_ptrs;
+            stream_ptrs.reserve(m.m_recv_futures.size());
+            ::gridtools::ghex::await_futures(
+                m.m_recv_futures,
+                [&stream_ptrs](typename BufferMem::hook_type hook)
+                {
+                    auto stream_ptr = hook->m_cuda_stream.get();
+                    for (const auto& fb : hook->field_infos)
+                            fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(stream_ptr));
+                    stream_ptrs.push_back(stream_ptr);
+
+                });
+            for (auto x : stream_ptrs) 
+            {
+                cudaStreamSynchronize(*x);
             }
         }
 
@@ -243,6 +269,11 @@ namespace gridtools {
                     }
                 }
             }
+
+            using future_type = ::gridtools::ghex::cuda::future<send_buffer_type*>;
+            std::vector<future_type> stream_futures;
+            stream_futures.reserve(num_streams);
+
             const int block_size = 128;
             num_streams = 0;
             for (auto& p0 : map.send_memory)
@@ -321,12 +352,27 @@ namespace gridtools {
                                 num_blocks_y = 0;
                             }
                         }
+                        stream_futures.push_back( future_type{&(p1.second), p1.second.m_cuda_stream} );
                         ++num_streams;
                     }
                 }
             }
 
-            num_streams=0;
+            ::gridtools::ghex::await_futures(
+                stream_futures, 
+                [&comm,&send_futures](send_buffer_type* b)
+                {
+                    send_futures.push_back(comm.isend( b->address, b->tag, b->buffer));
+                });
+            /*for (auto& f : stream_futures)
+            {
+                send_buffer_type& b = *(f.get());
+                send_futures.push_back(comm.isend(
+                            b.address,
+                            b.tag,
+                            b.buffer));
+            }*/
+            /*num_streams=0;
             for (auto& p0 : map.send_memory)
             {
                 for (auto& p1: p0.second)
@@ -341,7 +387,7 @@ namespace gridtools {
                         ++num_streams;
                     }
                 }
-            }
+            }*/
         }
 
         template<typename T, typename FieldType, typename BufferMem>
@@ -352,12 +398,99 @@ namespace gridtools {
             using index_container_type = typename field_info_type::index_container_type;
             using dimension            = typename index_container_type::value_type::dimension;
             using array_t              = ::gridtools::array<int, dimension::value>;
-
             using arg_t = kernel_args<T,array_t,FieldType>;
+            const int block_size = 128;
+
             std::vector<arg_t> args;
             args.reserve(64);
 
-            std::vector<cudaStream_t*> stream_ptrs(m.m_recv_futures.size());
+            std::vector<cudaStream_t*> stream_ptrs;
+            stream_ptrs.reserve(m.m_recv_futures.size());
+            ::gridtools::ghex::await_futures(
+                m.m_recv_futures,
+                [&block_size,&stream_ptrs,&args](typename BufferMem::hook_type hook)
+                {
+                    auto stream_ptr = hook->m_cuda_stream.get();
+                    //for (const auto& fb : hook->field_infos)
+                    //        fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(stream_ptr));
+                    args.resize(0);
+                    int num_blocks_y = 0;
+                    int max_size = 0;
+                    for (const auto& fb : hook->field_infos)
+                    {
+                        T* buffer_address = reinterpret_cast<T*>(hook->buffer.data()+fb.offset);
+                        for (const auto& it_space_pair : *fb.index_container)
+                        {
+                            ++num_blocks_y;
+                            const int size = it_space_pair.size();
+                            max_size = std::max(size,max_size);
+                            array_t first, last;
+                            std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
+                            std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
+                            array_t local_extents, local_strides;
+                            for (std::size_t i=0; i<dimension::value; ++i)  
+                                local_extents[i] = 1 + last[i] - first[i];
+                            detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
+                            args.push_back( arg_t{size, buffer_address, first, local_strides, *reinterpret_cast<FieldType*>(fb.field_ptr)} );
+                            buffer_address += size;
+                        }
+                    }
+                    const int num_blocks_x = (max_size+block_size-1)/block_size;
+                    // unroll kernels: can fit at most 36 arguments as unpack kernel argument
+                    // invoke new kernels until all data is unpacked
+                    unsigned int count = 0;
+                    while (num_blocks_y)
+                    {
+                        if (num_blocks_y > 36)
+                        {
+                            dim3 dimBlock(block_size, 1);
+                            dim3 dimGrid(num_blocks_x, 36);
+                            unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                make_kernel_arg<36>(args.data()+count, 36)
+                            );
+                            count += 36;
+                            num_blocks_y -= 36;
+                        }
+                        else 
+                        {
+                            dim3 dimBlock(block_size, 1);
+                            dim3 dimGrid(num_blocks_x, num_blocks_y);
+                            if (num_blocks_y < 7)
+                            {
+                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    make_kernel_arg<6>(args.data()+count, num_blocks_y)
+                                );
+                            }
+                            else if (num_blocks_y < 13)
+                            {
+                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    make_kernel_arg<12>(args.data()+count, num_blocks_y)
+                                );
+                            }
+                            else if (num_blocks_y < 25)
+                            {
+                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    make_kernel_arg<24>(args.data()+count, num_blocks_y)
+                                );
+                            }
+                            else
+                            {
+                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    make_kernel_arg<36>(args.data()+count, num_blocks_y)
+                                );
+                            }
+                            count += num_blocks_y;
+                            num_blocks_y = 0;
+                        }
+                    }
+                    stream_ptrs.push_back(stream_ptr);
+                });
+            for (auto x : stream_ptrs) 
+            {
+                cudaStreamSynchronize(*x);
+            }
+
+            /*std::vector<cudaStream_t*> stream_ptrs(m.m_recv_futures.size());
             std::vector<std::size_t> index_list(m.m_recv_futures.size());
             std::size_t i = 0;
             for (auto& p0 : m.recv_memory)
@@ -459,7 +592,7 @@ namespace gridtools {
             for (auto x : stream_ptrs) 
             {
                 cudaStreamSynchronize(*x);
-            }
+            }*/
         }
     };
 #endif

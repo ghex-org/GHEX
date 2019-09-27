@@ -35,8 +35,8 @@ namespace gridtools {
                 if (!m_ptr)
                 {
                     m_ptr.reset(new cudaStream_t());
-                    //cudaStreamCreateWithFlags(m_ptr.get(), cudaStreamNonBlocking);
-                    cudaStreamCreate(m_ptr.get());
+                    cudaStreamCreateWithFlags(m_ptr.get(), cudaStreamNonBlocking);
+                    //cudaStreamCreate(m_ptr.get());
                 }
                 return m_ptr.get();
             }

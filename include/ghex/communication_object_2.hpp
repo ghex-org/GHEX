@@ -174,8 +174,12 @@ namespace gridtools {
             recv_memory_type recv_memory;
 
             // additional members needed for receive operations used for scheduling calls to unpack
-            std::vector<typename communicator_type::template future<void>> m_recv_futures;
-            std::vector<std::pair<char*,std::vector<field_info<unpack_function_type>>*>> m_recv_hooks;
+            //std::vector<typename communicator_type::template future<void>> m_recv_futures;
+            //std::vector<std::pair<char*,std::vector<field_info<unpack_function_type>>*>> m_recv_hooks;
+            //using hook_type   = std::pair<char*,std::vector<field_info<unpack_function_type>>*>;
+            using hook_type   = recv_buffer_type*;
+            using future_type = typename communicator_type::template future<hook_type>;
+            std::vector<future_type> m_recv_futures;
         };
         
         /** tuple type of buffer_memory (one element for each device in device::device_list) */
@@ -350,13 +354,22 @@ namespace gridtools {
                     {
                         if (p1.second.size > 0u)
                         {
-                            p1.second.buffer.resize(p1.second.size);
+                            /*p1.second.buffer.resize(p1.second.size);
                             m.m_recv_futures.push_back(comm.irecv(
                                 p1.second.address,
                                 p1.second.tag,
                                 p1.second.buffer.data(),
                                 p1.second.buffer.size()));
-                            m.m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_infos))); 
+                            m.m_recv_hooks.push_back(std::make_pair(p1.second.buffer.data(),&(p1.second.field_infos))); */
+                            m.m_recv_futures.emplace_back(
+                                //std::make_pair(p1.second.buffer.data(),&(p1.second.field_infos)),
+                                typename std::remove_reference_t<decltype(m)>::future_type{
+                                    &p1.second,
+                                    comm.irecv(
+                                        p1.second.address,
+                                        p1.second.tag,
+                                        p1.second.buffer.data(),
+                                        p1.second.buffer.size()).m_handle});
                         }
                     }
                 }
@@ -412,7 +425,7 @@ namespace gridtools {
             detail::for_each(m_mem, [this](auto& m)
             {
                 m.m_recv_futures.clear();
-                m.m_recv_hooks.resize(0);
+                //m.m_recv_hooks.resize(0);
                 for (auto& p0 : m.send_memory)
                     for (auto& p1 : p0.second)
                     {

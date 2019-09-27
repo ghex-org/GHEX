@@ -174,7 +174,7 @@ bool test0()
     gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
+        std::cout << "I am rank " << mpi_comm.rank() << " and I own emulated GPU " 
         << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
     }
 #endif
