@@ -13,7 +13,6 @@
 
 #include "./field_utils.hpp"
 #include "./structured_domain_descriptor.hpp"
-#include <iostream>
 #include <cstring>
 #include <cstdint>
 #include <gridtools/common/array.hpp>

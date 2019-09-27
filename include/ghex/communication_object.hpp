@@ -14,7 +14,6 @@
 #include <vector>
 #include <map>
 #include <tuple>
-#include <iostream>
 #include "./gridtools_arch.hpp"
 #include "./common/utils.hpp"
 #include "./allocator/default_init_allocator.hpp"

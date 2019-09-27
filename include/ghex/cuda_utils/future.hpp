@@ -60,6 +60,42 @@ namespace gridtools {
                 }
             };
 
+            template<>
+            struct future<void>
+            {
+                GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t, cudaEventCreateWithFlags, cudaEventDestroy)
+
+                event_type m_event;
+
+                future(T&& data, ::gridtools::ghex::cuda_stream& stream)
+                : m_event{cudaEventDisableTiming}
+                //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
+                {
+                    GHEX_CHECK_CUDA_RESULT( cudaEventRecord(m_event, *stream.get()) );
+                }
+
+                future(const future&) = delete;
+                future& operator=(const future&) = delete;
+                future(future&& other) = default;
+                future& operator=(future&&) = default;
+
+                bool test() noexcept
+                {
+                    return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); 
+                }
+
+                void wait()
+                {
+                    if (m_event)
+                        GHEX_CHECK_CUDA_RESULT( cudaEventSynchronize(m_event) );
+                }
+
+                void get()
+                {
+                    wait();
+                }
+            };
+
             //template<typename T>
             //struct future
             //{
@@ -147,44 +183,44 @@ namespace gridtools {
 
             //};
 
-            template<>
-            struct future<void>
-            {
-                cudaEvent_t m_event;
-            
-                future(const future&) = delete;
-                future(future&&) = default;
-                future& operator=(const future&) = delete;
-                future& operator=(future&&) = default;
+            //template<>
+            //struct future<void>
+            //{
+            //    cudaEvent_t m_event;
+            //
+            //    future(const future&) = delete;
+            //    future(future&&) = default;
+            //    future& operator=(const future&) = delete;
+            //    future& operator=(future&&) = default;
 
-                future(::gridtools::ghex::cuda_stream& stream)
-                {
-                    GHEX_CHECK_CUDA_RESULT(
-                        cudaEventCreateWithFlags (&m_event, /*cudaEventBlockingSync |*/ cudaEventDisableTiming) 
-                    );
-                    GHEX_CHECK_CUDA_RESULT(
-                        cudaEventRecord(m_event, *stream.get()) 
-                    );
-                }
+            //    future(::gridtools::ghex::cuda_stream& stream)
+            //    {
+            //        GHEX_CHECK_CUDA_RESULT(
+            //            cudaEventCreateWithFlags (&m_event, /*cudaEventBlockingSync |*/ cudaEventDisableTiming) 
+            //        );
+            //        GHEX_CHECK_CUDA_RESULT(
+            //            cudaEventRecord(m_event, *stream.get()) 
+            //        );
+            //    }
 
-                bool test()
-                {
-                    return cudaSuccess == cudaEventQuery(m_event); 
-                }
+            //    bool test()
+            //    {
+            //        return cudaSuccess == cudaEventQuery(m_event); 
+            //    }
 
-                void wait()
-                {
-                    GHEX_CHECK_CUDA_RESULT(
-                        cudaEventSynchronize(m_event)
-                    );
-                }
+            //    void wait()
+            //    {
+            //        GHEX_CHECK_CUDA_RESULT(
+            //            cudaEventSynchronize(m_event)
+            //        );
+            //    }
 
-                void get()
-                {
-                    wait();
-                }
+            //    void get()
+            //    {
+            //        wait();
+            //    }
 
-            };
+            //};
         }
     }
 }

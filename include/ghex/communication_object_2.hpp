@@ -354,8 +354,8 @@ namespace gridtools {
                     {
                         if (p1.second.size > 0u)
                         {
-                            /*p1.second.buffer.resize(p1.second.size);
-                            m.m_recv_futures.push_back(comm.irecv(
+                            p1.second.buffer.resize(p1.second.size);
+                            /*m.m_recv_futures.push_back(comm.irecv(
                                 p1.second.address,
                                 p1.second.tag,
                                 p1.second.buffer.data(),

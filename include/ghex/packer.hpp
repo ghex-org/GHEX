@@ -163,7 +163,8 @@ namespace gridtools {
                     {
                         for (const auto& fb : p1.second.field_infos)
                         {
-                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(p1.second.m_cuda_stream.get()));
+                            //fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(p1.second.m_cuda_stream.get()));
+                            fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, (void*)(&p1.second.m_cuda_stream.get()));
                         }
                         ++num_streams;
                     }
@@ -232,7 +233,8 @@ namespace gridtools {
                 m.m_recv_futures,
                 [&stream_ptrs](typename BufferMem::hook_type hook)
                 {
-                    auto stream_ptr = hook->m_cuda_stream.get();
+                    //auto stream_ptr = hook->m_cuda_stream.get();
+                    auto stream_ptr = &hook->m_cuda_stream.get();
                     for (const auto& fb : hook->field_infos)
                             fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(stream_ptr));
                     stream_ptrs.push_back(stream_ptr);
@@ -314,7 +316,7 @@ namespace gridtools {
                             {
                                 dim3 dimBlock(block_size, 1);
                                 dim3 dimGrid(num_blocks_x, 36);
-                                pack_kernel_u<T><<<dimGrid, dimBlock, 0, *p1.second.m_cuda_stream.get()>>>(
+                                pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.get()>>>(
                                     make_kernel_arg<36>(args.data()+count, 36)
                                 );
                                 count += 36;
@@ -326,25 +328,25 @@ namespace gridtools {
                                 dim3 dimGrid(num_blocks_x, num_blocks_y);
                                 if (num_blocks_y < 7)
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, *p1.second.m_cuda_stream.get()>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.get()>>>(
                                         make_kernel_arg< 6>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 13)
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, *p1.second.m_cuda_stream.get()>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.get()>>>(
                                         make_kernel_arg<12>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 25)
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, *p1.second.m_cuda_stream.get()>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.get()>>>(
                                         make_kernel_arg<24>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else
                                 {
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, *p1.second.m_cuda_stream.get()>>>(
+                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream.get()>>>(
                                         make_kernel_arg<36>(args.data()+count, num_blocks_y)
                                     );
                                 }
@@ -410,7 +412,8 @@ namespace gridtools {
                 m.m_recv_futures,
                 [&block_size,&stream_ptrs,&args](typename BufferMem::hook_type hook)
                 {
-                    auto stream_ptr = hook->m_cuda_stream.get();
+                    //auto stream_ptr = hook->m_cuda_stream.get();
+                    auto stream_ptr = &hook->m_cuda_stream.get();
                     //for (const auto& fb : hook->field_infos)
                     //        fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(stream_ptr));
                     args.resize(0);

@@ -1,4 +1,15 @@
-
+/* 
+ * GridTools
+ * 
+ * Copyright (c) 2014-2019, ETH Zurich
+ * All rights reserved.
+ * 
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * 
+ */
+#ifndef INCLUDED_GHEX_COMMON_C_MANAGED_STRUCT_HPP
+#define INCLUDED_GHEX_COMMON_C_MANAGED_STRUCT_HPP
 
 #include <utility>
 
@@ -52,3 +63,5 @@ struct name                                                                     
     const c_type& get() const noexcept {return m_struct;}                               \
                                                                                         \
 };
+
+#endif /* INCLUDED_GHEX_COMMON_C_MANAGED_STRUCT_HPP */
