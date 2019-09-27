@@ -47,36 +47,6 @@ namespace gridtools {
             }
             
         };
-
-        /*struct cuda_stream
-        {
-            struct stream_deleter
-            {
-                void operator()(cudaStream_t* s_ptr)
-                {
-                    cudaStreamDestroy(*s_ptr);
-                    delete s_ptr;
-                }
-            };
-
-            std::unique_ptr<cudaStream_t,stream_deleter> m_ptr;
-
-            cudaStream_t* get() 
-            {
-                if (!m_ptr)
-                {
-                    m_ptr.reset(new cudaStream_t());
-                    cudaStreamCreateWithFlags(m_ptr.get(), cudaStreamNonBlocking);
-                    //cudaStreamCreate(m_ptr.get());
-                }
-                return m_ptr.get();
-            }
-
-            void sync()
-            {
-                cudaStreamSynchronize(*m_ptr);
-            }
-        };*/
 #else
         struct cuda_stream
         {
