@@ -210,7 +210,7 @@ namespace gridtools {
         struct make_pattern_impl<::gridtools::ghex::structured::detail::grid<CoordinateArrayType>>
         {
             template<typename P, typename HaloGenerator, typename DomainRange>
-            static auto apply(protocol::setup_communicator& comm, protocol::communicator<P>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
+            static auto apply(tl::mpi::setup_communicator& comm, protocol::communicator<P>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
             {
                 // typedefs
                 using domain_type               = typename std::remove_reference_t<DomainRange>::value_type;

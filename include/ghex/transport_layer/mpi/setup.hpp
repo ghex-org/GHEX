@@ -12,33 +12,34 @@
 #define INCLUDED_SETUP_HPP
 
 #include "./communicator_base.hpp"
-#include "./mpi_comm.hpp"
+#include "./future.hpp"
 #include <vector>
 
-namespace gridtools {
-
+namespace gridtools{
     namespace ghex {
-
-        namespace protocol {
+        namespace tl {
+            namespace mpi {
 
             /** @brief special mpi communicator used for setup phase */
             class setup_communicator
             {
             public:
-                using handle_type = ::gridtools::ghex::mpi::request;
-                using address_type = int;
+                using handle_type = request;
+                using address_type = communicator_base::rank_type;
                 template<typename T>
-                using future = future_base<handle_type,T>;
+                using future = future<T>;
 
             private:
-                ::gridtools::ghex::mpi::mpi_comm m_comm;
+                communicator_base m_comm;
 
             public:
-                setup_communicator(const MPI_Comm& comm)
-                :   m_comm(comm) {}
+                setup_communicator(const MPI_Comm& comm) noexcept
+                :   m_comm{comm} {}
 
-                setup_communicator(const setup_communicator& other) 
-                : setup_communicator(other.m_comm) {} 
+                setup_communicator(const setup_communicator&) = delete;
+                setup_communicator& operator=(const setup_communicator&) = delete;
+                setup_communicator(setup_communicator&&) noexcept = default;
+                setup_communicator& operator=(setup_communicator&&) noexcept = default;
 
                 address_type address() const { return m_comm.rank(); }
 
@@ -53,7 +54,7 @@ namespace gridtools {
                 }
 
                 template<typename T>
-                ::gridtools::ghex::mpi::status recv(int source, int tag, T & value)
+                status recv(int source, int tag, T & value)
                 {
                     MPI_Status status;
                     GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(&value), sizeof(T), MPI_BYTE, source, tag, m_comm, &status));
@@ -67,7 +68,7 @@ namespace gridtools {
                 }
 
                 template<typename T>
-                ::gridtools::ghex::mpi::status recv(int source, int tag, T* values, int n)
+                status recv(int source, int tag, T* values, int n)
                 {
                     MPI_Status status;
                     GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(values), sizeof(T)*n, MPI_BYTE, source, tag, m_comm, &status));
@@ -99,12 +100,12 @@ namespace gridtools {
                     for (int neigh=0; neigh<m_comm.size(); ++neigh)
                     {
                         m_reqs.push_back( handle_type{} );
-                        GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(res[neigh].data()), sizeof(T)*sizes[neigh], MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().m_req));
+                        GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(res[neigh].data()), sizeof(T)*sizes[neigh], MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().get()));
                     }
                     for (int neigh=0; neigh<m_comm.size(); ++neigh)
                     {
                         m_reqs.push_back( handle_type{} );
-                        GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(payload.data()), sizeof(T)*payload.size(), MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().m_req));
+                        GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(payload.data()), sizeof(T)*payload.size(), MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().get()));
                     }
                     for (auto& r : m_reqs)
                         r.wait();
@@ -139,16 +140,15 @@ namespace gridtools {
                         (&payload, sizeof(T), MPI_BYTE,
                         &res[0], sizeof(T), MPI_BYTE,
                         m_comm,
-                        &h.m_req));
+                        &h.get()));
                     return {std::move(res), std::move(h)};
                 } 
 
             };
 
-        } // namespace protocol
-
+            } // namespace mpi
+        } // namespace tl
     } // namespace ghex
-
 } // namespace gridtools
 
 #endif /* INCLUDED_SETUP_HPP */

@@ -11,8 +11,6 @@
 #ifndef INCLUDED_COMMUNICATOR_BASE_HPP
 #define INCLUDED_COMMUNICATOR_BASE_HPP
 
-#include "./future.hpp"
-
 namespace gridtools {
 
     namespace ghex {
@@ -30,7 +28,7 @@ namespace gridtools {
                 // using handle_type   = ...;
                 // using address_type  = ...;
                 // template<typename T>
-                // using future = future_base<handle_type,T>;
+                // using future = ...;
             };
 
         } // namespace protocol

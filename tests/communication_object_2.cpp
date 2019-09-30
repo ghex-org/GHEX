@@ -150,14 +150,15 @@ TEST(communication_object_2, exchange)
 bool test0()
 #endif
 {
-    gridtools::ghex::mpi::mpi_comm mpi_comm;
+    //gridtools::ghex::mpi::mpi_comm mpi_comm;
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
 
 #ifdef __CUDACC__
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
+    gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
@@ -171,7 +172,7 @@ bool test0()
     int num_devices_per_node = 1;
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
+    gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own emulated GPU " 
@@ -262,8 +263,8 @@ bool test0()
     auto halo_gen2 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos2, periodic);
 
     // make patterns
-    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(mpi_comm, halo_gen1, local_domains);
-    auto pattern2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(mpi_comm, halo_gen2, local_domains);
+    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(comm, halo_gen1, local_domains);
+    auto pattern2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(comm, halo_gen2, local_domains);
 
     // communication object
     auto co   = gridtools::ghex::make_communication_object<decltype(pattern1)>();

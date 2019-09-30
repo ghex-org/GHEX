@@ -115,7 +115,7 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::mpi::mpi_comm& world) 
+        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::tl::mpi::communicator_base& world) 
     {
         // compute total domain
         const std::array<int,3> g_first{             0,              0,              0};
@@ -686,7 +686,7 @@ namespace halo_exchange_3D_generic_full {
         int H3m3,
         int H3p3)
     {
-        gridtools::ghex::mpi::mpi_comm world;
+        gridtools::ghex::tl::mpi::communicator_base world;
         //std::cout << world.rank() << " " << world.size() << "\n";
 
         std::stringstream ss;
