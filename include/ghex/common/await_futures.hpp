@@ -44,6 +44,7 @@ namespace gridtools {
         }
 
     } // namespace ghex
+
 } // namespace gridtools
 
 #endif // INCLUDED_GHEX_COMMON_AWAIT_FUTURES_HPP

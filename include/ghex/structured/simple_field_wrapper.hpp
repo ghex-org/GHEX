@@ -12,7 +12,7 @@
 #define INCLUDED_SIMPLE_FIELD_WRAPPER_HPP
 
 #include "./field_utils.hpp"
-#include "./structured_domain_descriptor.hpp"
+#include "./domain_descriptor.hpp"
 #include <cstring>
 #include <cstdint>
 #include <gridtools/common/array.hpp>
@@ -46,7 +46,8 @@ namespace gridtools {
         return res;
     }
 
-    
+namespace ghex {
+namespace structured {    
 #ifdef __CUDACC__
     template<typename Layout, typename T, std::size_t D, typename I, typename S>
     __global__ void pack_kernel(int size, const T* data, T* buffer, 
@@ -97,7 +98,7 @@ namespace gridtools {
         {
             for (const auto& is : c)
             {
-                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                ::gridtools::ghex::detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
                     [m_data,buffer](auto o_data, auto o_buffer)
                     {
                         *reinterpret_cast<T*>(reinterpret_cast<char*>(buffer)+o_buffer) = 
@@ -119,7 +120,7 @@ namespace gridtools {
         {
             for (const auto& is : c)
             {
-                detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
+                ::gridtools::ghex::detail::for_loop_pointer_arithmetic<Dimension::value,Dimension::value,Layout>::apply(
                     [m_data,buffer](auto o_data, auto o_buffer)
                     {
                         *reinterpret_cast<T*>(reinterpret_cast<char*>(m_data)+o_data) = 
@@ -199,18 +200,18 @@ namespace gridtools {
      * @tparam Dimension N
      * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)*/
     template<typename T, typename Device, typename DomainIdType, int Dimension, int... Order>
-    class simple_field_wrapper<T,Device,structured_domain_descriptor<DomainIdType,Dimension>, Order...>
+    class simple_field_wrapper<T,Device,domain_descriptor<DomainIdType,Dimension>, Order...>
     {
     public: // member types
         using value_type             = T;
         using device_type            = Device;
         using device_id_type         = typename device_type::device_id_type;
-        using domain_descriptor_type = structured_domain_descriptor<DomainIdType,Dimension>;
+        using domain_descriptor_type = domain_descriptor<DomainIdType,Dimension>;
         using dimension              = typename domain_descriptor_type::dimension;
-        using layout_map             = gridtools::layout_map<Order...>;
+        using layout_map             = ::gridtools::layout_map<Order...>;
         using domain_id_type         = DomainIdType;
-        using coordinate_type        = array<typename domain_descriptor_type::halo_generator_type::coordinate_type::element_type, dimension::value>;
-        using strides_type           = array<std::size_t, dimension::value>;
+        using coordinate_type        = ::gridtools::array<typename domain_descriptor_type::halo_generator_type::coordinate_type::element_type, dimension::value>;
+        using strides_type           = ::gridtools::array<std::size_t, dimension::value>;
 
     private: // members
         domain_id_type  m_dom_id;
@@ -328,6 +329,7 @@ namespace gridtools {
             serialization<Device,dimension,layout_map>::unpack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
         }
     };
+} // namespace structured
 
     /** @brief wrap a N-dimensional array (field) of contiguous memory 
      * @tparam Device device type the data lives on
@@ -341,11 +343,12 @@ namespace gridtools {
      * @param extents extent of the wrapped N-dimensional array (including buffer regions)
      * @return wrapped field*/
     template<typename Device, int... Order, typename DomainIdType, typename T, typename Array>
-    simple_field_wrapper<T,Device,structured_domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
+    structured::simple_field_wrapper<T,Device,structured::domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
     wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents, typename Device::device_id_type device_id = 0)
     {
         return {dom_id, data, offsets, extents, device_id};     
     }
+} // namespace ghex
 } // namespace gridtools
 
 #endif /* INCLUDED_SIMPLE_FIELD_WRAPPER_HPP */

@@ -14,11 +14,13 @@
 #include "../common/coordinate.hpp"
 
 namespace gridtools {
+    namespace ghex {
+        namespace structured {
 
     namespace detail {
 
         template<typename CoordinateArrayType>
-        struct structured_grid 
+        struct grid 
         {
             using coordinate_base_type    = CoordinateArrayType;
             using coordinate_type         = coordinate<coordinate_base_type>;
@@ -29,11 +31,13 @@ namespace gridtools {
     } // namespace detail
 
     /** @brief type to indicate structured grids */
-    struct structured_grid 
+    struct grid 
     {
         template<typename Domain>
-        using type = detail::structured_grid<typename Domain::coordinate_type>;
+        using type = detail::grid<typename Domain::coordinate_type>;
     };
+        } //namespace structured
+    } // namespace ghex
 
 } // namespace gridtools
 

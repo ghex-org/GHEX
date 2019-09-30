@@ -15,16 +15,6 @@
 #include <string>
 #include <stdexcept>
 
-/*
-// adapted from boost
-#define GHEX_MPI_CHECK_RESULT( MPIFunc, Args )                                  \
-{                                                                               \
-   int _check_result = MPIFunc Args;                                            \
-   assert(_check_result == MPI_SUCCESS);                                        \
-   if (_check_result != MPI_SUCCESS)                                            \
-        throw std::runtime_error(#MPIFunc);                                     \
-}
-*/
 //#ifdef NDEBUG
 //    #define GHEX_CHECK_MPI_RESULT(x) x;
 //#else
@@ -33,9 +23,10 @@
         throw std::runtime_error("GHEX Error: MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":" + std::to_string(__LINE__));
 //#endif
 
-
 namespace gridtools {
+
     namespace ghex {
+
         namespace mpi {
 
             /** @brief thin wrapper around MPI_Request */
@@ -116,7 +107,9 @@ namespace gridtools {
             };
 
         } // namespace mpi
+
     } // namespace ghex
+
 } // namespace gridtools
 
 #endif /* INCLUDED_MPI_COMM_HPP */

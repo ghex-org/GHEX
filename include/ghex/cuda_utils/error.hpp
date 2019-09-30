@@ -21,7 +21,7 @@
     #define GHEX_CHECK_CUDA_RESULT(x)                                                       \
     if (x != cudaSuccess)                                                                   \
         throw std::runtime_error("GHEX Error: CUDA Call failed " + std::string(#x) + " ("   \
-                                 + std::string(cudaGetErrorString( x ))+ ") in "          \
+                                 + std::string(cudaGetErrorString( x ))+ ") in "            \
                                  + std::string(__FILE__) + ":" + std::to_string(__LINE__));
 //#endif
 

@@ -19,6 +19,7 @@
 #include <vector>
 
 namespace gridtools {
+
     namespace ghex {
 
         /** @brief accumulates samples and computes basic statistics on-line in a numerically stable fashion. */
@@ -163,6 +164,7 @@ namespace gridtools {
         }
 
     } // namespace ghex
+
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_ACCUMULATOR_HPP */

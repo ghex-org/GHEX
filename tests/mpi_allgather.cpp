@@ -15,7 +15,7 @@ TEST(all_gather, all_gather_fixed)
 {
     using T = double;
     gridtools::ghex::mpi::mpi_comm mpi_comm;
-    gridtools::protocol::setup_communicator comm{mpi_comm};
+    gridtools::ghex::protocol::setup_communicator comm{mpi_comm};
 
     std::vector<T> values;
     {
@@ -37,7 +37,7 @@ TEST(all_gather, all_gather_vector)
 {
     using T = double;
     gridtools::ghex::mpi::mpi_comm mpi_comm;
-    gridtools::protocol::setup_communicator comm{mpi_comm};
+    gridtools::ghex::protocol::setup_communicator comm{mpi_comm};
 
     int my_num_values = (comm.address()+1)*2;
     std::vector<T> my_values(my_num_values);

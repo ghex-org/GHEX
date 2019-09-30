@@ -15,23 +15,27 @@
 
 namespace gridtools {
 
-    namespace protocol {
+    namespace ghex {
 
-        /** @brief communicator class which exposes basic communication primitives 
-         * @tparam P transport protocl tag*/
-        template<typename P>
-        class communicator 
-        {
-            // concept
-            // -------
-            // using protocol_type = P;
-            // using handle_type   = ...;
-            // using address_type  = ...;
-            // template<typename T>
-            // using future = future_base<handle_type,T>;
-        };
+        namespace protocol {
 
-    } // namespace protocol
+            /** @brief communicator class which exposes basic communication primitives 
+             * @tparam P transport protocl tag*/
+            template<typename P>
+            class communicator 
+            {
+                // concept
+                // -------
+                // using protocol_type = P;
+                // using handle_type   = ...;
+                // using address_type  = ...;
+                // template<typename T>
+                // using future = future_base<handle_type,T>;
+            };
+
+        } // namespace protocol
+
+    } // namespace ghex
 
 } // namespace gridtools
 

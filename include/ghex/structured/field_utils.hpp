@@ -15,6 +15,8 @@
 #include <cstddef> 
 
 namespace gridtools {
+    namespace ghex {
+    namespace structured {
 
     namespace detail {
 
@@ -114,6 +116,8 @@ namespace gridtools {
         };
 
     } // namespace detail
+    } // namespace structured
+    } // namespace ghex
 
 } // namespace gridtools
 

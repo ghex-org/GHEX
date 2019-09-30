@@ -11,13 +11,14 @@
 #ifndef INCLUDED_STRUCTURED_PATTERN_HPP
 #define INCLUDED_STRUCTURED_PATTERN_HPP
 
-#include "./structured_grid.hpp"
+#include "./grid.hpp"
 #include "../protocol/communicator_base.hpp"
 #include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
 
 namespace gridtools {
+    namespace ghex {
 
     /** @brief structured pattern specialization
      *
@@ -28,11 +29,11 @@ namespace gridtools {
      * @tparam CoordinateArrayType coordinate-like array type
      * @tparam DomainIdType domain id type*/
     template<typename P, typename CoordinateArrayType, typename DomainIdType>
-    class pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>
+    class pattern<P,structured::detail::grid<CoordinateArrayType>,DomainIdType>
     {
     public: // member types
-        using this_type               = pattern<P,detail::structured_grid<CoordinateArrayType>,DomainIdType>;
-        using grid_type               = detail::structured_grid<CoordinateArrayType>;
+        using grid_type               = structured::detail::grid<CoordinateArrayType>;
+        using this_type               = pattern<P, grid_type, DomainIdType>;
         using coordinate_type         = typename grid_type::coordinate_type;
         using coordinate_element_type = typename grid_type::coordinate_element_type;
         using dimension               = typename grid_type::dimension;
@@ -206,7 +207,7 @@ namespace gridtools {
 
         // construct pattern with the help of all to all communication
         template<typename CoordinateArrayType>
-        struct make_pattern_impl<detail::structured_grid<CoordinateArrayType>>
+        struct make_pattern_impl<::gridtools::ghex::structured::detail::grid<CoordinateArrayType>>
         {
             template<typename P, typename HaloGenerator, typename DomainRange>
             static auto apply(protocol::setup_communicator& comm, protocol::communicator<P>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
@@ -214,7 +215,7 @@ namespace gridtools {
                 // typedefs
                 using domain_type               = typename std::remove_reference_t<DomainRange>::value_type;
                 using domain_id_type            = typename domain_type::domain_id_type;
-                using grid_type                 = detail::structured_grid<CoordinateArrayType>;
+                using grid_type                 = ::gridtools::ghex::structured::detail::grid<CoordinateArrayType>;
                 using pattern_type              = pattern<P, grid_type, domain_id_type>;
                 using iteration_space           = typename pattern_type::iteration_space;
                 using iteration_space_pair      = typename pattern_type::iteration_space_pair;
@@ -574,6 +575,7 @@ namespace gridtools {
         };
 
     } // namespace detail
+    } // namespace ghex
 
 } // namespace gridtools
 

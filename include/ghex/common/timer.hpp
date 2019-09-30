@@ -15,6 +15,7 @@
 #include <chrono>
 
 namespace gridtools {
+
     namespace ghex {
 
         /** @brief timer with built-in statistics */
@@ -69,8 +70,8 @@ namespace gridtools {
         }
 
     } // namespace ghex
-} // namespace gridtools
 
+} // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TIMER_HPP */
 

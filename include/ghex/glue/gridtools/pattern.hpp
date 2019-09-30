@@ -12,20 +12,24 @@
 #define INCLUDED_GT_GLUE_PATTERN_HPP
 
 #include <array>
-#include "../../structured/structured_pattern.hpp"
+#include "../../structured/pattern.hpp"
 
 namespace gridtools {
 
-    template<typename Grid, typename Halos>
-    auto make_gt_pattern(Grid& grid, Halos&& halos)
-    {
-        const std::array<int,3> first{0,0,0};
-        const std::array<int,3> last{grid.m_global_extents[0]-1, grid.m_global_extents[1]-1, grid.m_global_extents[2]-1};
-        using halo_gen_type = typename Grid::domain_descriptor_type::halo_generator_type;
-        auto halo_gen = halo_gen_type(first,last, std::forward<Halos>(halos), grid.m_periodic);
+    namespace ghex {
 
-        return make_pattern<structured_grid>(grid.m_setup_comm, grid.m_comm, halo_gen, grid.m_domains);
-    }
+        template<typename Grid, typename Halos>
+        auto make_gt_pattern(Grid& grid, Halos&& halos)
+        {
+            const std::array<int,3> first{0,0,0};
+            const std::array<int,3> last{grid.m_global_extents[0]-1, grid.m_global_extents[1]-1, grid.m_global_extents[2]-1};
+            using halo_gen_type = typename Grid::domain_descriptor_type::halo_generator_type;
+            auto halo_gen = halo_gen_type(first,last, std::forward<Halos>(halos), grid.m_periodic);
+
+            return make_pattern<structured::grid>(grid.m_setup_comm, grid.m_comm, halo_gen, grid.m_domains);
+        }
+
+    } // namespace ghex
 
 } // namespace gridtools
 

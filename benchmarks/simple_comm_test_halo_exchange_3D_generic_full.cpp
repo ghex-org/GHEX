@@ -30,8 +30,8 @@
 #include <ghex/protocol/communicator_base.hpp>
 #include <ghex/protocol/mpi.hpp>
 #include <ghex/pattern.hpp>
-#include <ghex/structured/structured_pattern.hpp>
-#include <ghex/structured/structured_domain_descriptor.hpp>
+#include <ghex/structured/pattern.hpp>
+#include <ghex/structured/domain_descriptor.hpp>
 #include "../utils/triplet.hpp"
 
 /* CPU data descriptor */
@@ -71,7 +71,7 @@ public:
         //std::cout << "DEBUG: is.first()[2] = " << is.local().first()[2] << "\n";
         //std::cout << "DEBUG: is.last()[2] = " << is.local().last()[2] << "\n";
         //std::cout.flush();
-        gridtools::detail::for_loop<3, 3, LayoutMap>::apply([this, &buffer](auto... indices){
+        gridtools::ghex::detail::for_loop<3, 3, LayoutMap>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
             //std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
             //std::cout.flush();
@@ -84,7 +84,7 @@ public:
 
     template <typename IterationSpace>
     void get(const IterationSpace& is, Byte* buffer) const {
-        gridtools::detail::for_loop<3, 3, LayoutMap>::apply([this, &buffer](auto... indices){
+        gridtools::ghex::detail::for_loop<3, 3, LayoutMap>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
             //std::cout << "DEBUG: coords = " << coords[0] << ", " << coords[1] << ", " << coords[2] << "\n";
             //std::cout.flush();
@@ -101,10 +101,10 @@ public:
 
 namespace halo_exchange_3D_generic_full {
 
-    using domain_descriptor_t = gridtools::structured_domain_descriptor<int,3>;
+    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int,3>;
     using domain_id_t = domain_descriptor_t::domain_id_type;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
 
     int pid;
     int nprocs;
@@ -183,11 +183,11 @@ namespace halo_exchange_3D_generic_full {
         auto halo_gen_2 = halo_generator_t{g_first, g_last, halos_2, periodic};
         auto halo_gen_3 = halo_generator_t{g_first, g_last, halos_3, periodic};
 
-        auto patterns_1 = gridtools::make_pattern<gridtools::structured_grid>(CartComm, halo_gen_1, local_domains);
-        auto patterns_2 = gridtools::make_pattern<gridtools::structured_grid>(CartComm, halo_gen_2, local_domains);
-        auto patterns_3 = gridtools::make_pattern<gridtools::structured_grid>(CartComm, halo_gen_3, local_domains);
+        auto patterns_1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(CartComm, halo_gen_1, local_domains);
+        auto patterns_2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(CartComm, halo_gen_2, local_domains);
+        auto patterns_3 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(CartComm, halo_gen_3, local_domains);
 
-        using communication_object_t = gridtools::communication_object<decltype(patterns_1)::value_type, gridtools::cpu>; // same type for all patterns
+        using communication_object_t = gridtools::ghex::communication_object<decltype(patterns_1)::value_type, gridtools::ghex::cpu>; // same type for all patterns
 
         std::vector<communication_object_t> cos_1;
         for (const auto& p : patterns_1) cos_1.push_back(communication_object_t{p});

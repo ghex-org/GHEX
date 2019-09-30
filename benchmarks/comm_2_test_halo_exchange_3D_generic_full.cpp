@@ -24,8 +24,8 @@
 //#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
 
 #include <ghex/communication_object_2.hpp>
-#include <ghex/structured/structured_pattern.hpp>
-#include <ghex/structured/structured_domain_descriptor.hpp>
+#include <ghex/structured/pattern.hpp>
+#include <ghex/structured/domain_descriptor.hpp>
 #include <ghex/structured/simple_field_wrapper.hpp>
 #include <ghex/common/timer.hpp>
 
@@ -50,19 +50,28 @@ namespace halo_exchange_3D_generic_full {
     typedef int T1;
     typedef double T2;
     typedef long long int T3;
+/*#ifdef VECTOR_INTERFACE
+    typedef int T1;
+    typedef int T2;
+    typedef int T3;
+#else
+    typedef int T1;
+    typedef double T2;
+    typedef long long int T3;
+#endif*/
 
-    using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
+    using domain_descriptor_type = gridtools::ghex::structured::domain_descriptor<int,3>;
     template<typename T, typename Device, int... Is>
-    using field_descriptor_type  = gridtools::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
+    using field_descriptor_type  = gridtools::ghex::structured::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
 
 #ifdef __CUDACC__
-    using arch_type = gridtools::device::gpu;
+    using arch_type = gridtools::ghex::device::gpu;
 #else
-    using arch_type = gridtools::device::cpu;
+    using arch_type = gridtools::ghex::device::cpu;
 #endif
 
     template<typename T, typename Device, typename DomainDescriptor, int... Order>
-    void printbuff(std::ostream& file, const gridtools::simple_field_wrapper<T,Device,DomainDescriptor, Order...>& field)
+    void printbuff(std::ostream& file, const gridtools::ghex::structured::simple_field_wrapper<T,Device,DomainDescriptor, Order...>& field)
     {
         if (field.extents()[0] <= 10 && field.extents()[1] <= 10 && field.extents()[2] <= 6)
         {
@@ -130,13 +139,13 @@ namespace halo_exchange_3D_generic_full {
         std::vector<domain_descriptor_type> local_domains{local_domain};
 
         // wrap raw fields
-        auto a = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
+        auto a = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
             std::array<int,3>{H1m1,H2m1,H3m1},
             std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-        auto b = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
+        auto b = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
             std::array<int,3>{H1m2,H2m2,H3m2},
             std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-        auto c = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
+        auto c = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
             std::array<int,3>{H1m3,H2m3,H3m3},
             std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -148,13 +157,13 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
         // make patterns
-        auto pattern_1 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_1, local_domains);
+        auto pattern_1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_1, local_domains);
 #ifndef GHEX_1_PATTERN_BENCHMARK
-        auto pattern_2 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_2, local_domains);
-        auto pattern_3 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_3, local_domains);
+        auto pattern_2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_2, local_domains);
+        auto pattern_3 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_3, local_domains);
 #endif
         // communication object
-        auto co = gridtools::make_communication_object<decltype(pattern_1)>();
+        auto co = gridtools::ghex::make_communication_object<decltype(pattern_1)>();
 
 
         file << "Proc: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
@@ -250,13 +259,13 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
             // wrap raw fields
-            auto field1 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
+            auto field1 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
                 std::array<int,3>{H1m1,H2m1,H3m1},
                 std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-            auto field2 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
+            auto field2 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
                 std::array<int,3>{H1m2,H2m2,H3m2},
                 std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-            auto field3 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
+            auto field3 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
                 std::array<int,3>{H1m3,H2m3,H3m3},
                 std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 

@@ -15,49 +15,53 @@
 
 namespace gridtools {
 
-    namespace allocator {
+    namespace ghex {
 
-        template <class T>
-        struct mpi_allocator {
-            
-            typedef T value_type;
+        namespace allocator {
 
-            mpi_allocator() = default;
-            
-            template <class U> constexpr mpi_allocator(const mpi_allocator<U>&) noexcept {}
-            
-            [[nodiscard]] T* allocate(std::size_t n) 
-            {
-                if(n > std::size_t(-1) / sizeof(T)) throw std::bad_alloc();
-                void* baseptr;
-                if (MPI_SUCCESS == MPI_Alloc_mem(n*sizeof(T), MPI_INFO_NULL, &baseptr)) 
-                    return static_cast<T*>(baseptr);
-                throw std::bad_alloc();
-            }
+            template <class T>
+            struct mpi_allocator {
+                
+                typedef T value_type;
 
-            void deallocate(T* p, std::size_t) noexcept 
-            { 
-                MPI_Free_mem(p);
-            }
+                mpi_allocator() = default;
+                
+                template <class U> constexpr mpi_allocator(const mpi_allocator<U>&) noexcept {}
+                
+                [[nodiscard]] T* allocate(std::size_t n) 
+                {
+                    if(n > std::size_t(-1) / sizeof(T)) throw std::bad_alloc();
+                    void* baseptr;
+                    if (MPI_SUCCESS == MPI_Alloc_mem(n*sizeof(T), MPI_INFO_NULL, &baseptr)) 
+                        return static_cast<T*>(baseptr);
+                    throw std::bad_alloc();
+                }
 
-            template <typename U>
-            void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) 
-            {
-                ::new(static_cast<void*>(ptr)) U;
-            }
-          
-            template <typename U, typename...Args>
-            void construct(U* ptr, Args&&... args) 
-            {
-                ::new (static_cast<void*>(ptr)) U(std::forward<Args>(args)...);
-            }
-        };
-        template <class T, class U>
-        bool operator==(const mpi_allocator<T>&, const mpi_allocator<U>&) { return true; }
-        template <class T, class U>
-        bool operator!=(const mpi_allocator<T>&, const mpi_allocator<U>&) { return false; }
+                void deallocate(T* p, std::size_t) noexcept 
+                { 
+                    MPI_Free_mem(p);
+                }
 
-    } // namespace allocator
+                template <typename U>
+                void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) 
+                {
+                    ::new(static_cast<void*>(ptr)) U;
+                }
+              
+                template <typename U, typename...Args>
+                void construct(U* ptr, Args&&... args) 
+                {
+                    ::new (static_cast<void*>(ptr)) U(std::forward<Args>(args)...);
+                }
+            };
+            template <class T, class U>
+            bool operator==(const mpi_allocator<T>&, const mpi_allocator<U>&) { return true; }
+            template <class T, class U>
+            bool operator!=(const mpi_allocator<T>&, const mpi_allocator<U>&) { return false; }
+
+        } // namespace allocator
+
+    } // namespace ghex
 
 } // namespace gridtools
 

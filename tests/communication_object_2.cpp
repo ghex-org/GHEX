@@ -17,7 +17,7 @@
 //#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
 //#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
-#include <ghex/structured/structured_pattern.hpp>
+#include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object_2.hpp>
 #include <array>
 #include <iomanip>
@@ -65,9 +65,9 @@ std::ostream& operator<<(std::ostream& os, const array_type<T,N>& arr)
 }
 
 
-using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
+using domain_descriptor_type = gridtools::ghex::structured::domain_descriptor<int,3>;
 template<typename T, typename Device, int... Is>
-using field_descriptor_type  = gridtools::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
+using field_descriptor_type  = gridtools::ghex::structured::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
 
 
 template<typename T, typename Domain, typename Field>
@@ -181,7 +181,7 @@ bool test0()
 #endif
 
     // need communicator to decompose domain
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{mpi_comm};
+    gridtools::ghex::protocol::communicator<gridtools::ghex::protocol::mpi> comm{mpi_comm};
 
     // local portion per domain
     const std::array<int,3> local_ext{10,15,20};
@@ -262,21 +262,21 @@ bool test0()
     auto halo_gen2 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos2, periodic);
 
     // make patterns
-    auto pattern1 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen1, local_domains);
-    auto pattern2 = gridtools::make_pattern<gridtools::structured_grid>(mpi_comm, halo_gen2, local_domains);
+    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(mpi_comm, halo_gen1, local_domains);
+    auto pattern2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(mpi_comm, halo_gen2, local_domains);
 
     // communication object
-    auto co   = gridtools::make_communication_object<decltype(pattern1)>();
-    auto co_1 = gridtools::make_communication_object<decltype(pattern1)>();
-    auto co_2 = gridtools::make_communication_object<decltype(pattern1)>();
+    auto co   = gridtools::ghex::make_communication_object<decltype(pattern1)>();
+    auto co_1 = gridtools::ghex::make_communication_object<decltype(pattern1)>();
+    auto co_2 = gridtools::ghex::make_communication_object<decltype(pattern1)>();
 
     // wrap raw fields
-    auto field_1a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer);
-    auto field_1b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_1b_raw.data(), offset, local_ext_buffer);
-    auto field_2a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_2a_raw.data(), offset, local_ext_buffer);
-    auto field_2b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_2b_raw.data(), offset, local_ext_buffer);
-    auto field_3a = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[0].domain_id(), field_3a_raw.data(), offset, local_ext_buffer);
-    auto field_3b = gridtools::wrap_field<gridtools::device::cpu,2,1,0>(local_domains[1].domain_id(), field_3b_raw.data(), offset, local_ext_buffer);
+    auto field_1a = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,2,1,0>(local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer);
+    auto field_1b = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,2,1,0>(local_domains[1].domain_id(), field_1b_raw.data(), offset, local_ext_buffer);
+    auto field_2a = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,2,1,0>(local_domains[0].domain_id(), field_2a_raw.data(), offset, local_ext_buffer);
+    auto field_2b = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,2,1,0>(local_domains[1].domain_id(), field_2b_raw.data(), offset, local_ext_buffer);
+    auto field_3a = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,2,1,0>(local_domains[0].domain_id(), field_3a_raw.data(), offset, local_ext_buffer);
+    auto field_3b = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,2,1,0>(local_domains[1].domain_id(), field_3b_raw.data(), offset, local_ext_buffer);
 
     // fill arrays
     fill_values<T1>(local_domains[0], field_1a);
@@ -388,13 +388,13 @@ bool test0()
 #endif
 
         // wrap raw fields
-        auto field_1a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_1a_raw, offset, local_ext_buffer);
-        auto field_2a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_2a_raw, offset, local_ext_buffer);
-        auto field_3a_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_3a_raw, offset, local_ext_buffer);
+        auto field_1a_gpu = gridtools::ghex::wrap_field<gridtools::ghex::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_1a_raw, offset, local_ext_buffer);
+        auto field_2a_gpu = gridtools::ghex::wrap_field<gridtools::ghex::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_2a_raw, offset, local_ext_buffer);
+        auto field_3a_gpu = gridtools::ghex::wrap_field<gridtools::ghex::device::gpu,2,1,0>(local_domains[0].domain_id(), gpu_3a_raw, offset, local_ext_buffer);
 #ifndef GHEX_HYBRID_TESTS
-        auto field_1b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_1b_raw, offset, local_ext_buffer);
-        auto field_2b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_2b_raw, offset, local_ext_buffer);
-        auto field_3b_gpu = gridtools::wrap_field<gridtools::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_3b_raw, offset, local_ext_buffer);
+        auto field_1b_gpu = gridtools::ghex::wrap_field<gridtools::ghex::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_1b_raw, offset, local_ext_buffer);
+        auto field_2b_gpu = gridtools::ghex::wrap_field<gridtools::ghex::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_2b_raw, offset, local_ext_buffer);
+        auto field_3b_gpu = gridtools::ghex::wrap_field<gridtools::ghex::device::gpu,2,1,0>(local_domains[1].domain_id(), gpu_3b_raw, offset, local_ext_buffer);
 #endif
 
 #ifdef __CUDACC__

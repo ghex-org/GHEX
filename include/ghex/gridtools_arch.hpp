@@ -12,11 +12,15 @@
 
 namespace gridtools {
 
-    struct cpu {};
+    namespace ghex {
 
-    struct gpu {};
+        struct cpu {};
 
-}
+        struct gpu {};
+
+    } // namespace ghex
+
+} // namespace gridtools
 
 #endif /* INCLUDED_GRIDTOOLS_ARCH_HPP */
 

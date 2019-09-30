@@ -18,7 +18,9 @@
 #ifdef __CUDACC__
 
 namespace gridtools {
+
     namespace ghex {
+
         namespace cuda {
 
             /** @brief A future-like type that becomes ready once a cuda event is ready. The corresponding cuda stream
@@ -31,7 +33,7 @@ namespace gridtools {
                 event_type m_event;
                 T m_data;
 
-                future(T&& data, ::gridtools::ghex::cuda_stream& stream)
+                future(T&& data, stream& stream)
                 : m_event{cudaEventDisableTiming}
                 //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
                 , m_data{std::move(data)}
@@ -69,7 +71,7 @@ namespace gridtools {
 
                 event_type m_event;
 
-                future(::gridtools::ghex::cuda_stream& stream)
+                future(stream& stream)
                 : m_event{cudaEventDisableTiming}
                 //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
                 {
@@ -97,9 +99,12 @@ namespace gridtools {
                     wait();
                 }
             };
-        }
-    }
-}
+
+        } // namespace cuda
+
+    } // namespace ghex
+
+} // namespace gridtools
 
 #endif
 

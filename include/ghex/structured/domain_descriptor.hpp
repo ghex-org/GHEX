@@ -18,25 +18,27 @@
 #include <algorithm>
 
 #include "../common/utils.hpp"
-#include "./structured_grid.hpp"
+#include "./grid.hpp"
 
 namespace gridtools {
+    namespace ghex {
+    namespace structured {
 
     // forward declaration
     template<typename DomainIdType, int Dimension>
-    class structured_halo_generator;
+    class halo_generator;
 
     /** @brief implements domain descriptor concept for structured domains
      * @tparam DomainIdType domain id type
      * @tparam Dimension dimension of domain*/
     template<typename DomainIdType, int Dimension>
-    class structured_domain_descriptor
+    class domain_descriptor
     {
     public: // member types
         using domain_id_type      = DomainIdType;
         using dimension           = std::integral_constant<int,Dimension>;
         using coordinate_type     = std::array<int,dimension::value>;
-        using halo_generator_type = structured_halo_generator<DomainIdType,Dimension>;
+        using halo_generator_type = halo_generator<DomainIdType,Dimension>;
 
     public: // ctors
         /** @brief construct a local domain
@@ -45,7 +47,7 @@ namespace gridtools {
          * @param first first coordinate in domain (global coordinate)
          * @param last last coordinate in domain (including, global coordinate) */
         template<typename Array>
-        structured_domain_descriptor(domain_id_type id, const Array& first, const Array& last)
+        domain_descriptor(domain_id_type id, const Array& first, const Array& last)
         : m_id{id}
         {
             std::copy(first.begin(), first.end(), m_first.begin());
@@ -67,12 +69,12 @@ namespace gridtools {
      * @tparam DomainIdType domain id type
      * @tparam Dimension dimension of domain*/
     template<typename DomainIdType, int Dimension>
-    class structured_halo_generator
+    class halo_generator
     {
     public: // member types
-        using domain_type     = structured_domain_descriptor<DomainIdType,Dimension>;
+        using domain_type     = domain_descriptor<DomainIdType,Dimension>;
         using dimension       = typename domain_type::dimension;
-        using coordinate_type = typename structured_grid::template type<domain_type>::coordinate_type;
+        using coordinate_type = typename grid::template type<domain_type>::coordinate_type;
 
     private: // member types
         struct box
@@ -105,7 +107,7 @@ namespace gridtools {
          * @param halos list of halo sizes (dim0_dir-, dim0_dir+, dim1_dir-, dim1_dir+, ...)
          * @param periodic list of bools indicating periodicity per dimension (true, true, false, ...) */
         template<typename Array, typename RangeHalos, typename RangePeriodic>
-        structured_halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic)
+        halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic)
         {
             std::copy(g_first.begin(), g_first.end(), m_first.begin());
             std::copy(g_last.begin(), g_last.end(), m_last.begin());
@@ -116,7 +118,7 @@ namespace gridtools {
         }
 
         // construct without periodicity
-        structured_halo_generator(std::initializer_list<int> halos)
+        halo_generator(std::initializer_list<int> halos)
         {
             m_halos.fill(0);
             m_periodic.fill(false);
@@ -161,7 +163,7 @@ namespace gridtools {
             decltype(outer_halos) halos;
             for (int j=0; j<static_cast<int>(outer_halos.size()); ++j)
             {
-                if (j==(detail::ct_pow(3,dimension::value)/2)) continue;
+                if (j==(::gridtools::ghex::detail::ct_pow(3,dimension::value)/2)) continue;
                 if (outer_halos[j].local().last() >= outer_halos[j].local().first())
                     halos.push_back(outer_halos[j]);
             }
@@ -188,7 +190,7 @@ namespace gridtools {
         std::vector<Box> compute_spaces(const Spaces& spaces) const
         {
             std::vector<Box> x;
-            x.reserve(detail::ct_pow(3,dimension::value));
+            x.reserve(::gridtools::ghex::detail::ct_pow(3,dimension::value));
             Box b;
             compute_spaces<Box>(0, spaces, b, x);
             return x;
@@ -229,6 +231,8 @@ namespace gridtools {
         std::array<int,dimension::value*2> m_halos;
         std::array<bool,dimension::value> m_periodic;
     };
+    } // namespace structured
+    } // namespace ghex
 
 } // namespac gridtools
 
