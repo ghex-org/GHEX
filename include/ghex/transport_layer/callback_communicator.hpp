@@ -19,7 +19,7 @@
 #include <boost/callable_traits.hpp>
 #include <boost/optional.hpp>
 //#include <iostream>
-#include "./mpi/message.hpp"
+#include "./message.hpp"
 
 /** @brief checks the arguments of callback function object */
 #define GHEX_CHECK_CALLBACK                                                            \

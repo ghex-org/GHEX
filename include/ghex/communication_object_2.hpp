@@ -358,7 +358,7 @@ namespace gridtools {
                                 m.m_recv_futures.emplace_back(
                                     typename std::remove_reference_t<decltype(m)>::future_type{
                                         &p1.second,
-                                        comm.irecv(
+                                        comm.recv(
                                             p1.second.address,
                                             p1.second.tag,
                                             p1.second.buffer.data(),

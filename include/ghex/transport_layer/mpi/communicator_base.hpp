@@ -28,13 +28,12 @@ namespace gridtools{
                 {
                     using rank_type = int;
                     using size_type = int;
-                    //GHEX_C_STRUCT(comm_type, MPI_Comm)
+                    using tag_type  = int;
                     using comm_type = std::shared_ptr<MPI_Comm>;
 
                     comm_type m_comm;
                     rank_type m_rank;
                     size_type m_size;
-                    //bool m_owns = false;
 
                     communicator_base()
                     : m_comm{ new MPI_Comm{MPI_COMM_WORLD} }
@@ -54,21 +53,10 @@ namespace gridtools{
                     , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(c) }
                     {}
 
-                    //communicator_base(MPI_Comm c, comm_take_ownership_tag)
-                    //: communicator_base(c)
-                    ////, m_owns{true}
-                    //{ m_owns = true; }
-
                     communicator_base(const communicator_base&) = default;
                     communicator_base& operator=(const communicator_base&) = default;
                     communicator_base(communicator_base&&) noexcept = default;
                     communicator_base& operator=(communicator_base&&) noexcept = default;
-
-                    //~communicator_base() noexcept
-                    //{
-                    //    if (m_comm && m_owns)
-                    //        MPI_Comm_free(&m_comm.get());
-                    //}
 
                     inline rank_type rank() const noexcept { return m_rank; }
                     inline size_type size() const noexcept { return m_size; }

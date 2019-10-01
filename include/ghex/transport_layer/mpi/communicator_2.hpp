@@ -14,6 +14,7 @@
 #include "../communicator.hpp"
 #include "./communicator_base.hpp"
 #include "./future.hpp"
+#include "./communicator_traits.hpp"
 
 namespace gridtools {
     
@@ -30,37 +31,41 @@ namespace gridtools {
             {
             public:
                 using protocol_type = mpi_tag;
-                //using handle_type = ::gridtools::ghex::mpi::request;
-                using handle_type = ::gridtools::ghex::tl::mpi::request;
-                using address_type = int;
+                using base_type     = mpi::communicator_base;
+                using address_type  = typename base_type::rank_type;
+                using rank_type     = typename base_type::rank_type;
+                using size_type     = typename base_type::size_type;
+                using tag_type      = typename base_type::tag_type;
+                using request       = mpi::request;
+                using status        = mpi::status;
                 template<typename T>
-                using future = ::gridtools::ghex::tl::mpi::future<T>; //future_base<handle_type,T>;
-                using size_type = int;
+                using future        = mpi::future<T>;
+                using traits        = mpi::communicator_traits;
 
             //private:
-                //::gridtools::ghex::mpi::mpi_comm m_comm;
-                ::gridtools::ghex::tl::mpi::communicator_base m_comm;
+                base_type m_comm;
 
                 operator const MPI_Comm&() const noexcept { return m_comm; }
                 operator       MPI_Comm&()       noexcept { return m_comm; }
 
             public:
-                ///**
-                // * @brief construct from MPI_Comm object
-                // * @param comm MPI_Comm communicator
-                // */
-                //communicator(const MPI_Comm& comm)
-                //:   m_comm(comm) {}
 
-                ///** @brief copy construct */
-                //communicator(const communicator& other) = delete; 
-                //: communicator(other.m_comm) {}
+                communicator() = default;
+                communicator(const base_type& c) : m_comm{c} {}
+                communicator(const MPI_Comm& c) : m_comm{c} {}
+                communicator(const traits& t = traits{}) : m_comm{t.communicator()} {}
+                
+                communicator(const communicator&) = default;
+                communicator(communicator&&) = default;
+
+                communicator& operator=(const communicator&) = default;
+                communicator& operator=(communicator&&) = default;
 
                 /** @return address of this process */
                 address_type address() const { return m_comm.rank(); }
                 
                 /** @return rank of this process */
-                address_type rank() const { return m_comm.rank(); }
+                rank_type rank() const { return m_comm.rank(); }
 
                 /** @return size of communicator group*/
                 size_type size() const { return m_comm.size(); }
@@ -77,9 +82,9 @@ namespace gridtools {
                  * @return completion handle
                  */
                 template<typename T>
-                [[nodiscard]] future<void> isend(address_type dest, int tag, const T* buffer, int n) const
+                [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const T* buffer, int n) const
                 {
-                    handle_type req;
+                    request req;
                     GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(buffer),sizeof(T)*n, MPI_BYTE, dest, tag, m_comm, &req.get()));
                     return req;
                 }
@@ -94,9 +99,9 @@ namespace gridtools {
                  * @return completion handle
                  */
                 template<typename T>
-                [[nodiscard]] future<void> irecv(address_type source, int tag, T* buffer, int n) const
+                [[nodiscard]] future<void> recv(rank_type source, tag_type tag, T* buffer, int n) const
                 {
-                    handle_type req;
+                    request req;
                     GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(buffer),sizeof(T)*n, MPI_BYTE, source, tag, m_comm, &req.get()));
                     return req;
                 }
@@ -112,9 +117,9 @@ namespace gridtools {
                  * @return completion handle
                  */
                 template<typename T, template<typename, typename> class Vector, typename Allocator> 
-                [[nodiscard]] future<void> isend(address_type dest, int tag, const Vector<T,Allocator>& vec) const
+                [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const Vector<T,Allocator>& vec) const
                 {
-                    handle_type req;
+                    request req;
                     GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(vec.data()),sizeof(T)*vec.size(), MPI_BYTE, dest, tag, m_comm, &req.get()));
                     return req;
                 }
@@ -131,12 +136,12 @@ namespace gridtools {
                  * @return future with vector of data
                  */
                 template<typename T, template<typename, typename> class Vector = std::vector, typename Allocator = std::allocator<T>> 
-                [[nodiscard]] future<Vector<T,Allocator>> irecv(address_type source, int tag, int n, const Allocator& a = Allocator()) const
+                [[nodiscard]] future<Vector<T,Allocator>> recv(rank_type source, tag_type tag, int n, const Allocator& a = Allocator()) const
                 {
                     using vector_type = Vector<T,Allocator>;
                     using size_type   = typename vector_type::size_type;
                     vector_type vec( size_type(n), a );
-                    handle_type req;
+                    request req;
                     GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(vec.data()),sizeof(T)*n, MPI_BYTE, source, tag, m_comm, &req.get()));
                     return { vec, req };
                 }

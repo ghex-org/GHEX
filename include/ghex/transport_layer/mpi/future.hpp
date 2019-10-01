@@ -78,6 +78,7 @@ namespace gridtools{
 
                     handle_type m_handle;
 
+                    future() noexcept = default; 
                     future(handle_type&& h) 
                     :   m_handle(std::move(h))
                     {}
