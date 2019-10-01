@@ -10,8 +10,7 @@
  */
 
 #ifndef STANDALONE
-    #include "gtest/gtest.h"
-//#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
+#include "gtest/gtest.h"
 #endif
 #include <sstream>
 #include <string>
