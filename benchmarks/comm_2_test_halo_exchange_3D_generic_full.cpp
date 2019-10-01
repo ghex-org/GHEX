@@ -10,9 +10,7 @@
  */
 
 #ifndef STANDALONE
-    #include "gtest/gtest.h"
-//#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    //#include "gtest_main.cpp"
+#include "gtest/gtest.h"
 #endif
 #include <sstream>
 #include <string>
@@ -21,7 +19,6 @@
 #include <array>
 
 #include "../utils/triplet.hpp"
-//#include <gridtools/tools/mpi_unit_test_driver/device_binding.hpp>
 
 #include <ghex/communication_object_2.hpp>
 #include <ghex/structured/pattern.hpp>
@@ -47,10 +44,7 @@ namespace halo_exchange_3D_generic_full {
 #define B_ADD 1
 #define C_ADD 2
 
-    typedef int T1;
-    typedef double T2;
-    typedef long long int T3;
-/*#ifdef VECTOR_INTERFACE
+#ifdef VECTOR_INTERFACE
     typedef int T1;
     typedef int T2;
     typedef int T3;
@@ -58,7 +52,7 @@ namespace halo_exchange_3D_generic_full {
     typedef int T1;
     typedef double T2;
     typedef long long int T3;
-#endif*/
+#endif
 
     using domain_descriptor_type = gridtools::ghex::structured::domain_descriptor<int,3>;
     template<typename T, typename Device, int... Is>
