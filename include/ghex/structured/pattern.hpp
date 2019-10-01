@@ -12,7 +12,8 @@
 #define INCLUDED_STRUCTURED_PATTERN_HPP
 
 #include "./grid.hpp"
-#include "../protocol/communicator_base.hpp"
+//#include "../protocol/communicator_base.hpp"
+#include "../transport_layer/communicator.hpp"
 #include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
@@ -37,7 +38,7 @@ namespace gridtools {
         using coordinate_type         = typename grid_type::coordinate_type;
         using coordinate_element_type = typename grid_type::coordinate_element_type;
         using dimension               = typename grid_type::dimension;
-        using communicator_type       = protocol::communicator<P>;
+        using communicator_type       = tl::communicator<P>;
         using address_type            = typename communicator_type::address_type;
         using domain_id_type          = DomainIdType;
         using pattern_container_type  = pattern_container<P,grid_type,DomainIdType>;
@@ -210,7 +211,7 @@ namespace gridtools {
         struct make_pattern_impl<::gridtools::ghex::structured::detail::grid<CoordinateArrayType>>
         {
             template<typename P, typename HaloGenerator, typename DomainRange>
-            static auto apply(tl::mpi::setup_communicator& comm, protocol::communicator<P>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
+            static auto apply(tl::mpi::setup_communicator& comm, tl::communicator<P>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
             {
                 // typedefs
                 using domain_type               = typename std::remove_reference_t<DomainRange>::value_type;

@@ -15,7 +15,8 @@
 #include "./packer.hpp"
 #include "./common/utils.hpp"
 #include "./buffer_info.hpp"
-#include "./protocol/communicator_base.hpp"
+//#include "./protocol/communicator_base.hpp"
+#include "./transport_layer/communicator.hpp"
 #include "./structured/simple_field_wrapper.hpp"
 #include <map>
 #include <stdio.h>
@@ -44,7 +45,7 @@ namespace gridtools {
         private: // member types
 
             using co_t              = communication_object<P,GridType,DomainIdType>;
-            using communicator_type = protocol::communicator<P>;
+            using communicator_type = tl::communicator<P>;
 
         private: // members
 

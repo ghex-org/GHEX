@@ -13,7 +13,7 @@
 
 //#include "./protocol/setup.hpp"
 #include "./transport_layer/mpi/setup.hpp"
-#include "./protocol/mpi.hpp"
+#include "./transport_layer/mpi/communicator_2.hpp"
 #include "./buffer_info.hpp"
 
 namespace gridtools {
@@ -86,7 +86,7 @@ namespace gridtools {
         namespace detail {
             // implementation detail
             template<typename GridType, typename P, typename HaloGenerator, typename DomainRange>
-            auto make_pattern(tl::mpi::setup_communicator& setup_comm, protocol::communicator<P>& comm, HaloGenerator&& hgen, DomainRange&& d_range)
+            auto make_pattern(tl::mpi::setup_communicator& setup_comm, tl::communicator<P>& comm, HaloGenerator&& hgen, DomainRange&& d_range)
             {
                 using grid_type = typename GridType::template type<typename std::remove_reference_t<DomainRange>::value_type>;
                 return detail::make_pattern_impl<grid_type>::apply(setup_comm, comm, std::forward<HaloGenerator>(hgen), std::forward<DomainRange>(d_range)); 
@@ -97,7 +97,7 @@ namespace gridtools {
         template<typename GridType, typename HaloGenerator, typename DomainRange>
         auto make_pattern(MPI_Comm mpi_comm, HaloGenerator&& hgen, DomainRange&& d_range)
         {
-            protocol::communicator<protocol::mpi> mpi_comm_{mpi_comm};
+            tl::communicator<tl::mpi_tag> mpi_comm_{mpi_comm};
             tl::mpi::setup_communicator setup_comm(mpi_comm);
             return detail::make_pattern<GridType>(setup_comm, mpi_comm_, hgen, d_range);
         }
@@ -115,7 +115,7 @@ namespace gridtools {
          * @return iterable of patterns (one per domain) 
          */
         template<typename GridType, typename P, typename HaloGenerator, typename DomainRange>
-        auto make_pattern(MPI_Comm mpi_comm, protocol::communicator<P>& comm, HaloGenerator&& hgen, DomainRange&& d_range)
+        auto make_pattern(MPI_Comm mpi_comm, tl::communicator<P>& comm, HaloGenerator&& hgen, DomainRange&& d_range)
         {
             tl::mpi::setup_communicator setup_comm(mpi_comm);
             return detail::make_pattern<GridType>(setup_comm, comm, hgen, d_range);

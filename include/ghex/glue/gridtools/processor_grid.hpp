@@ -15,7 +15,7 @@
 #include <array>
 
 #include "../../structured/domain_descriptor.hpp"
-#include "../../protocol/mpi.hpp"
+#include "../../transport_layer/mpi/communicator_2.hpp"
 
 #include <numeric>
 
@@ -30,14 +30,14 @@ namespace gridtools {
             using domain_id_type         = typename domain_descriptor_type::domain_id_type;
             //protocol::setup_communicator m_setup_comm;
             MPI_Comm m_setup_comm;
-            protocol::communicator<Protocol> m_comm;
+            tl::communicator<Protocol> m_comm;
             std::vector<domain_descriptor_type> m_domains;
             std::array<int, 3> m_global_extents;
             std::array<bool, 3> m_periodic;
         };
         
         template<typename Layout = ::gridtools::layout_map<0,1,2>, typename Array0, typename Array1>
-        gt_grid<protocol::mpi>
+        gt_grid<tl::mpi_tag>
         make_gt_processor_grid(const Array0& local_extents, const Array1& periodicity, MPI_Comm cart_comm)
         {
             int dims[3];
@@ -143,7 +143,7 @@ namespace gridtools {
 
             structured::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
 
-            return {cart_comm, protocol::communicator<protocol::mpi>{cart_comm}, {local_domain}, global_extents, periodic}; 
+            return {cart_comm, tl::communicator<tl::mpi_tag>{cart_comm}, {local_domain}, global_extents, periodic}; 
 
         }
 

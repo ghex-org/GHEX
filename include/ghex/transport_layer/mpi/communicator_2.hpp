@@ -11,26 +11,25 @@
 #ifndef INCLUDED_MPI_HPP
 #define INCLUDED_MPI_HPP
 
+#include "../communicator.hpp"
 #include "./communicator_base.hpp"
-//#include "./mpi_comm.hpp"
-#include "../transport_layer/mpi/communicator_base.hpp"
-#include "../transport_layer/mpi/future.hpp"
+#include "./future.hpp"
 
 namespace gridtools {
     
     namespace ghex {
 
-        namespace protocol {
+        namespace tl {
 
             /** @brief mpi transport protocol tag */
-            struct mpi {};
+            struct mpi_tag {};
 
             /** @brief mpi communicator */
             template<>
-            class communicator<mpi>
+            class communicator<mpi_tag>
             {
             public:
-                using protocol_type = mpi;
+                using protocol_type = mpi_tag;
                 //using handle_type = ::gridtools::ghex::mpi::request;
                 using handle_type = ::gridtools::ghex::tl::mpi::request;
                 using address_type = int;
@@ -143,7 +142,7 @@ namespace gridtools {
                 }
             };
 
-        } // namespace protocol
+        } // namespace tl
 
     } // namespace ghex
 
