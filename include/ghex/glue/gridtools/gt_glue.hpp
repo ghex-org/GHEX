@@ -8,6 +8,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
+#ifndef INCLUDED_GT_GLUE_HPP
+#define INCLUDED_GT_GLUE_HPP
 
-#include "./data_store_test.cpp"
+
+#include "./processor_grid.hpp"
+#include "./make_gt_pattern.hpp"
+#include "./field.hpp"
+
+
+#endif /* INCLUDED_GT_GLUE_HPP */
 

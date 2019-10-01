@@ -11,9 +11,7 @@
 //#define GHEX_1_PATTERN_BENCHMARK
 
 #ifndef STANDALONE
-    #include "gtest/gtest.h"
-//#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main.cpp"
+#include "gtest/gtest.h"
 #endif
 #include <fstream>
 #include <gridtools/common/boollist.hpp>
@@ -27,9 +25,10 @@
 #include <sys/time.h>
 #include <iomanip>
 
-#include "../include/protocol/mpi_comm.hpp"
-#include "../include/common/timer.hpp"
-#include "triplet.hpp"
+#include "../utils/triplet.hpp"
+#include <ghex/protocol/mpi_comm.hpp>
+#include <ghex/common/timer.hpp>
+//#include "triplet.hpp"
 
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
@@ -2157,4 +2156,3 @@ TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
     EXPECT_TRUE(passed);
 }
 #endif
-
