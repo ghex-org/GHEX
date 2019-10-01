@@ -13,7 +13,7 @@
 
 
 #include "./processor_grid.hpp"
-#include "./pattern.hpp"
+#include "./make_gt_pattern.hpp"
 #include "./field.hpp"
 
 

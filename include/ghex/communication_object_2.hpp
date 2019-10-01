@@ -14,6 +14,7 @@
 #include "./cuda_utils/stream.hpp"
 #include "./packer.hpp"
 #include "./common/utils.hpp"
+#include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
 #include "./protocol/communicator_base.hpp"
 #include "./structured/simple_field_wrapper.hpp"

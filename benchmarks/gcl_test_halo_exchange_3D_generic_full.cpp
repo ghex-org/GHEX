@@ -13,7 +13,6 @@
 #ifndef STANDALONE
     #include "gtest/gtest.h"
 //#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    //#include "gtest_main.cpp"
 #endif
 #include <fstream>
 #include <gridtools/common/boollist.hpp>
