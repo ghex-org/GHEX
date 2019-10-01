@@ -9,13 +9,13 @@
  * 
  */
 
-#include "../include/communication_object_2.hpp"
-#include "../include/glue/gridtools/gt_glue.hpp"
+#include <ghex/communication_object_2.hpp>
+#include <ghex/glue/gridtools/gt_glue.hpp>
 
 #include <gridtools/storage/storage_facility.hpp>
 
 #include <gtest/gtest.h>
-#include "./gtest_main.cpp"
+//#include "./gtest_main.cpp"
 
 TEST(data_store, make)
 {
@@ -41,17 +41,17 @@ TEST(data_store, make)
     const std::array<int, 3>  extents{Nx0,Ny0,Nz0};
 
     //auto grid = gridtools::make_gt_processor_grid<gridtools::layout_map<0,1,2>>(extents, periodicity, CartComm); 
-    auto grid     = gridtools::make_gt_processor_grid(extents, periodicity, CartComm); 
-    auto pattern1 = gridtools::make_gt_pattern(grid, std::array<int,6>{1,1,1,1,0,0});
-    auto co       = gridtools::make_communication_object<decltype(pattern1)>();
+    auto grid     = gridtools::ghex::make_gt_processor_grid(extents, periodicity, CartComm); 
+    auto pattern1 = gridtools::ghex::make_gt_pattern(grid, std::array<int,6>{1,1,1,1,0,0});
+    auto co       = gridtools::ghex::make_communication_object<decltype(pattern1)>();
 
     using host_backend_t        = gridtools::backend::mc;
     using host_storage_info_t   = gridtools::storage_traits<host_backend_t>::storage_info_t<0, 3, halo_t>;
     using host_data_store_t     = gridtools::storage_traits<host_backend_t>::data_store_t<double, host_storage_info_t>;
 #ifdef __CUDACC__
-    using target_backend_t      = gridtools::backend::cuda;
+    //using target_backend_t      = gridtools::backend::cuda;
 #else
-    using target_backend_t      = gridtools::backend::mc;
+    //using target_backend_t      = gridtools::backend::mc;
 #endif
     //using target_storage_info_t = gridtools::storage_traits<target_backend_t>::select_storage_info<0, 3, halo_t>;
     //using target_data_store_t   = gridtools::storage_traits<host_backend_t>::data_store_t<double, target_storage_info_t>;
@@ -61,7 +61,7 @@ TEST(data_store, make)
     //target_storage_info_t target_info(Nx, Ny, Nz);
     //target_data_store_t   target_data_store(target_info, -1., "field");
 
-    auto host_ghex_field   = gridtools::wrap_gt_field(grid, host_data_store);
+    auto host_ghex_field   = gridtools::ghex::wrap_gt_field(grid, host_data_store);
     //auto target_ghex_field = gridtools::wrap_field(domain_id, target_data_store);
 
     auto host_view = gridtools::make_host_view(host_data_store);
@@ -85,7 +85,7 @@ TEST(data_store, make)
         passed = passed && passed_this;
     }
 
-    auto target_view = gridtools::make_target_view(host_data_store);
+    //auto target_view = gridtools::make_target_view(host_data_store);
 
     EXPECT_TRUE(passed);
 

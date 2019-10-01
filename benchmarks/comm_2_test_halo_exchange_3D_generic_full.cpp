@@ -1,18 +1,16 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 
 #ifndef STANDALONE
-    #include "gtest/gtest.h"
-//#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main.cpp"
+#include "gtest/gtest.h"
 #endif
 #include <sstream>
 #include <string>
@@ -20,12 +18,13 @@
 #include <iomanip>
 #include <array>
 
-#include "../include/communication_object_2.hpp"
-#include "../include/structured/structured_pattern.hpp"
-#include "../include/structured/structured_domain_descriptor.hpp"
-#include "../include/structured/simple_field_wrapper.hpp"
-#include "../include/common/timer.hpp"
-#include "triplet.hpp"
+#include "../utils/triplet.hpp"
+
+#include <ghex/communication_object_2.hpp>
+#include <ghex/structured/pattern.hpp>
+#include <ghex/structured/domain_descriptor.hpp>
+#include <ghex/structured/simple_field_wrapper.hpp>
+#include <ghex/common/timer.hpp>
 
 #include <gridtools/common/array.hpp>
 #ifdef __CUDACC__
@@ -45,22 +44,28 @@ namespace halo_exchange_3D_generic_full {
 #define B_ADD 1
 #define C_ADD 2
 
+#ifdef VECTOR_INTERFACE
+    typedef int T1;
+    typedef int T2;
+    typedef int T3;
+#else
     typedef int T1;
     typedef double T2;
     typedef long long int T3;
+#endif
 
-    using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
+    using domain_descriptor_type = gridtools::ghex::structured::domain_descriptor<int,3>;
     template<typename T, typename Device, int... Is>
-    using field_descriptor_type  = gridtools::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
+    using field_descriptor_type  = gridtools::ghex::structured::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
 
 #ifdef __CUDACC__
-    using arch_type = gridtools::device::gpu;
+    using arch_type = gridtools::ghex::device::gpu;
 #else
-    using arch_type = gridtools::device::cpu;
+    using arch_type = gridtools::ghex::device::cpu;
 #endif
-    
+
     template<typename T, typename Device, typename DomainDescriptor, int... Order>
-    void printbuff(std::ostream& file, const gridtools::simple_field_wrapper<T,Device,DomainDescriptor, Order...>& field)
+    void printbuff(std::ostream& file, const gridtools::ghex::structured::simple_field_wrapper<T,Device,DomainDescriptor, Order...>& field)
     {
         if (field.extents()[0] <= 10 && field.extents()[1] <= 10 && field.extents()[2] <= 6)
         {
@@ -106,12 +111,6 @@ namespace halo_exchange_3D_generic_full {
         triple_t<USE_DOUBLE, T2> *_b,
         triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::mpi::mpi_comm& world) 
     {
-        //gridtools::device::gpu::sync();
-        //gridtools::device::gpu::check_error("error at begin of run");
-        file << "enter run" << std::endl;
-        //gridtools::device::gpu::sync();
-        //gridtools::device::gpu::check_error("error at begin of run 2");
-        
         // compute total domain
         const std::array<int,3> g_first{             0,              0,              0};
         const std::array<int,3> g_last {dims[0]*DIM1-1, dims[1]*DIM2-1, dims[2]*DIM3-1};
@@ -132,15 +131,15 @@ namespace halo_exchange_3D_generic_full {
             std::array<int,3>{coords[0]*DIM1,coords[1]*DIM2,coords[2]*DIM3},
             std::array<int,3>{(coords[0]+1)*DIM1-1,(coords[1]+1)*DIM2-1,(coords[2]+1)*DIM3-1}};
         std::vector<domain_descriptor_type> local_domains{local_domain};
-        
+
         // wrap raw fields
-        auto a = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
+        auto a = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
             std::array<int,3>{H1m1,H2m1,H3m1},
             std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-        auto b = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
+        auto b = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
             std::array<int,3>{H1m2,H2m2,H3m2},
             std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-        auto c = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
+        auto c = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
             std::array<int,3>{H1m3,H2m3,H3m3},
             std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -152,17 +151,13 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
         // make patterns
-        auto pattern_1 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_1, local_domains);
+        auto pattern_1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_1, local_domains);
 #ifndef GHEX_1_PATTERN_BENCHMARK
-        auto pattern_2 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_2, local_domains);
-        auto pattern_3 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_3, local_domains);
+        auto pattern_2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_2, local_domains);
+        auto pattern_3 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_3, local_domains);
 #endif
-        file << "run after pattern creation" << std::endl;
-        
         // communication object
-        auto co = gridtools::make_communication_object<decltype(pattern_1)>();
-
-        file << "run after co creation" << std::endl;
+        auto co = gridtools::ghex::make_communication_object<decltype(pattern_1)>();
 
 
         file << "Proc: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
@@ -185,19 +180,19 @@ namespace halo_exchange_3D_generic_full {
 
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     a(ii, jj, kk) = triple_t<USE_DOUBLE, T1>(
                         ii + (DIM1)*coords[0], jj + (DIM2)*coords[1], kk + (DIM3)*coords[2]);
 
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     b(ii, jj, kk) = triple_t<USE_DOUBLE, T2>(
                         ii + (DIM1)*coords[0] + B_ADD, jj + (DIM2)*coords[1] + B_ADD, kk + (DIM3)*coords[2] + B_ADD);
-        
+
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     c(ii, jj, kk) = triple_t<USE_DOUBLE, T3>(
                         ii + (DIM1)*coords[0] + C_ADD, jj + (DIM2)*coords[1] + C_ADD, kk + (DIM3)*coords[2] + C_ADD);
 
@@ -258,13 +253,13 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
             // wrap raw fields
-            auto field1 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
+            auto field1 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
                 std::array<int,3>{H1m1,H2m1,H3m1},
                 std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-            auto field2 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
+            auto field2 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
                 std::array<int,3>{H1m2,H2m2,H3m2},
                 std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-            auto field3 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
+            auto field3 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
                 std::array<int,3>{H1m3,H2m3,H3m3},
                 std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -683,11 +678,11 @@ namespace halo_exchange_3D_generic_full {
         int H2m3,
         int H2p3,
         int H3m3,
-        int H3p3) 
+        int H3p3)
     {
         gridtools::ghex::mpi::mpi_comm world;
         //std::cout << world.rank() << " " << world.size() << "\n";
-        
+
         std::stringstream ss;
         ss << world.rank();
         std::string filename = "comm_2_out" + ss.str() + ".txt";
@@ -695,7 +690,6 @@ namespace halo_exchange_3D_generic_full {
         std::ofstream file(filename.c_str());
 
         file << world.rank() << "  " << world.size() << "\n";
-        
         dims[2] = 1;
         MPI_Dims_create(world.size(), 3, dims);
         int period[3] = {1, 1, 1};
@@ -740,7 +734,7 @@ namespace halo_exchange_3D_generic_full {
             new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
         triple_t<USE_DOUBLE, T3> *_c =
             new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
-        
+
         bool passed = true;
 
         file << "Permutation 0,1,2\n";
@@ -2153,8 +2147,7 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c, use_gpu, world);
         file << "---------------------------------------------------\n";
-         
-        
+
         delete[] _a;
         delete[] _b;
         delete[] _c;
@@ -2165,7 +2158,7 @@ namespace halo_exchange_3D_generic_full {
 } // namespace halo_exchange_3D_generic_full
 
 #ifdef STANDALONE
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
 #ifdef GT_USE_GPU
     device_binding();
@@ -2254,7 +2247,7 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::gehx::mpi::comm_take_ownership);
+    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
@@ -2284,4 +2277,3 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     EXPECT_TRUE(passed);
 }
 #endif
-
