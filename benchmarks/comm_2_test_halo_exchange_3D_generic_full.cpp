@@ -2248,12 +2248,12 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     const int Nz = 80;
 
 #ifdef __CUDACC__
-    gridtools::ghex::mpi::mpi_comm mpi_comm;
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
+    gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
