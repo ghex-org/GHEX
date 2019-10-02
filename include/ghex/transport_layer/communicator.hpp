@@ -30,6 +30,10 @@ namespace gridtools {
                 // template<typename T>
                 // using future = ...;
 
+            /** @brief mpi transport protocol tag */
+            struct mpi_tag {};
+
+
         } // namespace tl
 
     } // namespace ghex

@@ -24,9 +24,6 @@ namespace gridtools {
 
         namespace tl {
 
-            /** @brief mpi transport protocol tag */
-            struct mpi_tag {};
-
             /** @brief mpi communicator */
             template<>
             class communicator<mpi_tag>

@@ -19,6 +19,7 @@
 
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object_2.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include <array>
 #include <iomanip>
 

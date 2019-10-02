@@ -24,6 +24,7 @@
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
 #include <ghex/structured/simple_field_wrapper.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include <ghex/common/timer.hpp>
 
 #include <gridtools/common/array.hpp>

@@ -17,11 +17,11 @@
 #include <gridtools/common/layout_map.hpp>
 #include <ghex/gridtools_arch.hpp>
 #include <ghex/communication_object.hpp>
-#include <ghex/transport_layer/communicator.hpp>
-#include <ghex/transport_layer/mpi/communicator_2.hpp>
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
+#include <ghex/transport_layer/communicator.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include "../utils/triplet.hpp"
 
 
