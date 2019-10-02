@@ -52,7 +52,7 @@ namespace gridtools {
 
             public:
 
-                communicator() = default;
+                //communicator() = default;
                 communicator(const base_type& c) : m_comm{c} {}
                 communicator(const MPI_Comm& c) : m_comm{c} {}
                 communicator(const traits& t = traits{}) : m_comm{t.communicator()} {}
@@ -103,15 +103,10 @@ namespace gridtools {
                  * @param vec source vector
                  * @return completion handle
                  */
-                //template<typename T, template<typename, typename> class Vector, typename Allocator> 
-                //[[nodiscard]] future<void> send(rank_type dest, tag_type tag, const Vector<T,Allocator>& vec) const
                 template<typename Message> 
                 [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const Message& msg) const
                 {
                     return send(dest, tag, msg.data(), msg.size()); 
-                    /*request req;
-                    GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(msg.data()),sizeof(typename Message::value_type)*msg.size(), MPI_BYTE, dest, tag, m_comm, &req.get()));
-                    return req;*/
                 }
             
             public: // recv
@@ -139,48 +134,48 @@ namespace gridtools {
                     return recv(source, tag, msg.data(), msg.size());
                 }
 
-                //template<typename T, typename Allocator>
-                template<typename Allocator, typename T = unsigned char>
-                [[nodiscard]] future<message_buffer<Allocator>> recv(rank_type source, tag_type tag, int n, Allocator alloc = Allocator{}) const
-                {
-                    message_buffer<Allocator> msg(n*sizeof(T), alloc);
-                    return{ msg, recv(source, tag, msg.data(), msg.size()).m_handle };
-                }
+                ////template<typename T, typename Allocator>
+                //template<typename Allocator, typename T = unsigned char>
+                //[[nodiscard]] future<message_buffer<Allocator>> recv(rank_type source, tag_type tag, int n, Allocator alloc = Allocator{}) const
+                //{
+                //    message_buffer<Allocator> msg(n*sizeof(T), alloc);
+                //    return{ msg, recv(source, tag, msg.data(), msg.size()).m_handle };
+                //}
 
-                template<typename Allocator>
-                [[nodiscard]] boost::optional<std::tuple<rank_type, tag_type, future<message_buffer<Allocator>>>>
-                recv_any(rank_type source, tag_type tag, Allocator alloc = Allocator{}) const
-                {
-                    MPI_Message mpi_msg;
-                    status st;
-                    int flag = 0;
-                    GHEX_CHECK_MPI_RESULT(MPI_Improbe(source, tag, m_comm, &flag, &mpi_msg, &st.get()));
-                    if (flag)
-                    {
-                        int count;
-                        MPI_Get_count(&st.get(), MPI_CHAR, &count);
-                        message_buffer<Allocator> msg(count, alloc);
-                        request req;
-                        GHEX_CHECK_MPI_RESULT(MPI_Imrecv(msg.data(), count, MPI_CHAR, &mpi_msg, &req.get()));
-                        using future_t = future<message_buffer<Allocator>>;
-                        return std::make_tuple( st.source(), st.tag(), future_t{ msg, req }); 
-                    }
-                    return boost::none;
-                }
+                //template<typename Allocator>
+                //[[nodiscard]] boost::optional<std::tuple<rank_type, tag_type, future<message_buffer<Allocator>>>>
+                //recv_any(rank_type source, tag_type tag, Allocator alloc = Allocator{}) const
+                //{
+                //    MPI_Message mpi_msg;
+                //    status st;
+                //    int flag = 0;
+                //    GHEX_CHECK_MPI_RESULT(MPI_Improbe(source, tag, m_comm, &flag, &mpi_msg, &st.get()));
+                //    if (flag)
+                //    {
+                //        int count;
+                //        MPI_Get_count(&st.get(), MPI_CHAR, &count);
+                //        message_buffer<Allocator> msg(count, alloc);
+                //        request req;
+                //        GHEX_CHECK_MPI_RESULT(MPI_Imrecv(msg.data(), count, MPI_CHAR, &mpi_msg, &req.get()));
+                //        using future_t = future<message_buffer<Allocator>>;
+                //        return std::make_tuple( st.source(), st.tag(), future_t{ msg, req }); 
+                //    }
+                //    return boost::none;
+                //}
 
-                template<typename Allocator>
-                [[nodiscard]] auto
-                recv_any(rank_type source, Allocator alloc = Allocator{}) const
-                {
-                    return recv_any(source, MPI_ANY_TAG, alloc);
-                }
+                //template<typename Allocator>
+                //[[nodiscard]] auto
+                //recv_any(rank_type source, Allocator alloc = Allocator{}) const
+                //{
+                //    return recv_any(source, MPI_ANY_TAG, alloc);
+                //}
 
-                template<typename Allocator>
-                [[nodiscard]] auto
-                recv_any(Allocator alloc = Allocator{}) const
-                {
-                    return recv_any(MPI_ANY_SOURCE, MPI_ANY_TAG, alloc);
-                }
+                //template<typename Allocator>
+                //[[nodiscard]] auto
+                //recv_any(Allocator alloc = Allocator{}) const
+                //{
+                //    return recv_any(MPI_ANY_SOURCE, MPI_ANY_TAG, alloc);
+                //}
 
                 ///**
                 // * @brief non-blocking receive (vector interface)
