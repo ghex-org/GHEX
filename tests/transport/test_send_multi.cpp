@@ -22,19 +22,16 @@ TEST(transport, send_multi) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    gridtools::ghex::mpi::communicator comm;
+    using comm_type = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
+    comm_type comm;
 
     using allocator_type = std::allocator<unsigned char>;
-    //using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(comm)>;
 
-    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(comm);
+    gridtools::ghex::tl::callback_communicator<comm_type,allocator_type> cb_comm(comm);
 
     if (mpi_rank == 0) {
 
-
-        //smsg_type smsg{SIZE, SIZE};
         smsg_type smsg{SIZE};
 
         int * data = smsg.data<int>();
@@ -45,7 +42,7 @@ TEST(transport, send_multi) {
 
         std::array<int, 3> dsts = {1,2,3};
 
-        cb_comm.send_multi(smsg, dsts, 42);
+        cb_comm.send_multi(dsts, 42, smsg);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     int c = 0;
@@ -64,11 +61,9 @@ TEST(transport, send_multi) {
     std::cout  << "***********\n";
 #endif
 
-
     } else {
-        //gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
         gridtools::ghex::tl::message_buffer<> rmsg{SIZE};
-        auto fut = comm.recv(rmsg, 0, 42);
+        auto fut = comm.recv(0, 42, rmsg);
         fut.wait();
 
         bool ok = true;

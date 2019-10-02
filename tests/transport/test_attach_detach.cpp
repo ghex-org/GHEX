@@ -17,8 +17,8 @@
 
 
 using allocator_type     = std::allocator<unsigned char>;
-using comm_type          = gridtools::ghex::mpi::communicator;
-using callback_comm_type = gridtools::ghex::callback_communicator<comm_type,allocator_type>;
+using comm_type          = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
+using callback_comm_type = gridtools::ghex::tl::callback_communicator<comm_type,allocator_type>;
 using message_type       = typename callback_comm_type::message_type;
 
 const unsigned int SIZE = 1<<12;
@@ -30,9 +30,7 @@ TEST(attach, attach_progress)
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
-    //message_type send_msg{SIZE,SIZE};
     message_type send_msg{SIZE};
-    //message_type recv_msg{SIZE,SIZE};
     message_type recv_msg{SIZE};
 
     for (unsigned int i=0; i<SIZE/sizeof(int); ++i)
@@ -43,11 +41,11 @@ TEST(attach, attach_progress)
 
     const auto dst = (comm.rank()+comm.size()+1)%comm.size();
     const auto src = (comm.rank()+comm.size()-1)%comm.size();
-    auto send_future = comm.send(send_msg, dst, 0);
-    auto recv_future = comm.recv(recv_msg, src, 0);
+    auto send_future = comm.send(dst, 0, send_msg);
+    auto recv_future = comm.recv(src, 0, recv_msg);
 
-    cb_comm.attach_send(std::move(send_future), send_msg, dst, 0, [&cb_count](int,int,const message_type&){++cb_count;});
-    cb_comm.attach_recv(std::move(recv_future), recv_msg, src, 0, [&cb_count](int,int,const message_type&){++cb_count;});
+    cb_comm.attach_send(std::move(send_future), dst, 0, send_msg, [&cb_count](int,int,const message_type&){++cb_count;});
+    cb_comm.attach_recv(std::move(recv_future), src, 0, recv_msg, [&cb_count](int,int,const message_type&){++cb_count;});
 
     ok = ok && (cb_comm.pending_sends()==1);
     ok = ok && (cb_comm.pending_recvs()==1);
@@ -71,9 +69,7 @@ TEST(detach, detach_wait)
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
-    //message_type send_msg{SIZE,SIZE};
     message_type send_msg{SIZE};
-    //message_type recv_msg{SIZE,SIZE};
     message_type recv_msg{SIZE};
 
     for (unsigned int i=0; i<SIZE/sizeof(int); ++i)
@@ -85,8 +81,8 @@ TEST(detach, detach_wait)
     const auto dst = (comm.rank()+comm.size()+1)%comm.size();
     const auto src = (comm.rank()+comm.size()-1)%comm.size();
 
-    cb_comm.send(send_msg, dst, 0, [&cb_count](int,int,const message_type&){++cb_count;});
-    cb_comm.recv(recv_msg, src, 0, [&cb_count](int,int,const message_type&){++cb_count;});
+    cb_comm.send(dst, 0, send_msg, [&cb_count](int,int,const message_type&){++cb_count;});
+    cb_comm.recv(src, 0, recv_msg, [&cb_count](int,int,const message_type&){++cb_count;});
 
     ok = ok && (cb_comm.pending_sends()==1);
     ok = ok && (cb_comm.pending_recvs()==1);
@@ -117,9 +113,7 @@ TEST(detach, detach_cancel_unexpected)
     comm_type     comm;
     callback_comm_type cb_comm(comm);
 
-    //message_type send_msg{SIZE,SIZE};
     message_type send_msg{SIZE};
-    //message_type recv_msg{SIZE,SIZE};
     message_type recv_msg{SIZE};
     message_type unexpected_msg;
 
@@ -131,8 +125,8 @@ TEST(detach, detach_cancel_unexpected)
 
     const auto dst = (comm.rank()+comm.size()+1)%comm.size();
     const auto src = (comm.rank()+comm.size()-1)%comm.size();
-    cb_comm.send(send_msg, dst, 0, [](int,int,const message_type&){ std::cout << "should not be invoked!\n"; });
-    cb_comm.recv(recv_msg, src, 1, [](int,int,const message_type&){ std::cout << "should not be invoked!\n"; });
+    cb_comm.send(dst, 0, send_msg, [](int,int,const message_type&){ std::cout << "should not be invoked!\n"; });
+    cb_comm.recv(src, 1, recv_msg, [](int,int,const message_type&){ std::cout << "should not be invoked!\n"; });
 
     if (auto o = cb_comm.detach_send(dst,0))
     {

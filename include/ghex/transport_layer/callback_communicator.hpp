@@ -18,22 +18,20 @@
 #include <tuple>
 #include <boost/callable_traits.hpp>
 #include <boost/optional.hpp>
-//#include <iostream>
-//#include "./message.hpp"
 #include "./shared_message_buffer.hpp"
 
 /** @brief checks the arguments of callback function object */
-#define GHEX_CHECK_CALLBACK                                                            \
-    using args_t = boost::callable_traits::args_t<CallBack>;                           \
-    using arg0_t = std::tuple_element_t<0, args_t>;                                    \
-    using arg1_t = std::tuple_element_t<1, args_t>;                                    \
-    using arg2_t = std::tuple_element_t<2, args_t>;                                    \
-    static_assert(std::tuple_size<args_t>::value==3,                                   \
-        "callback must have 3 arguments");                                             \
-    static_assert(std::is_convertible<arg0_t,rank_type>::value,                        \
-        "rank_type is not convertible to first callback argument type");               \
-    static_assert(std::is_convertible<arg1_t,tag_type>::value,                         \
-        "tag_type is not convertible to second callback argument type");               \
+#define GHEX_CHECK_CALLBACK                                                                   \
+    using args_t = boost::callable_traits::args_t<CallBack>;                                  \
+    using arg0_t = std::tuple_element_t<0, args_t>;                                           \
+    using arg1_t = std::tuple_element_t<1, args_t>;                                           \
+    using arg2_t = std::tuple_element_t<2, args_t>;                                           \
+    static_assert(std::tuple_size<args_t>::value==3,                                          \
+        "callback must have 3 arguments");                                                    \
+    static_assert(std::is_convertible<arg0_t,rank_type>::value,                               \
+        "rank_type is not convertible to first callback argument type");                      \
+    static_assert(std::is_convertible<arg1_t,tag_type>::value,                                \
+        "tag_type is not convertible to second callback argument type");                      \
     static_assert(std::is_convertible<arg2_t,typename element_type::message_arg_type>::value, \
         "third callback argument type is not a const reference of message_type");
 
@@ -64,12 +62,10 @@ namespace gridtools
             public: // member types
                 
                 using communicator_type = Communicator;
-                //using future_type       = typename communicator_type::future_type;
                 using future_type       = typename communicator_type::template future<void>;
                 using tag_type          = typename communicator_type::tag_type;
                 using rank_type         = typename communicator_type::rank_type;
                 using allocator_type    = Allocator;
-                //using message_type      = mpi::shared_message<allocator_type>;
                 using message_type      = shared_message_buffer<allocator_type>;
 
             private: // member types
@@ -223,12 +219,10 @@ namespace gridtools
                     const auto not_completed = progress();
                     if (!not_completed)
                     {
-                        if (auto o = m_comm.recv_any(m_alloc))
+                        if (auto o = m_comm.template recv_any_source_any_tag<message_type>(m_alloc))
                         {
-                            const auto r = std::get<0>(*o);
-                            const auto t = std::get<1>(*o);
-                            auto msg = std::get<2>(*o);
-                            unexpected_cb(r,t,msg);
+                            auto t = o->get();
+                            unexpected_cb(std::get<0>(t),std::get<1>(t),std::get<2>(t));
                         }
                     }
                     return not_completed;
@@ -267,14 +261,14 @@ namespace gridtools
                   * @param tag associated tag
                   * @param cb  Callback function object */
                 template<typename CallBack>
-                void attach_send(future_type&& fut, const message_type& msg, rank_type dst, tag_type tag, CallBack&& cb)
+                void attach_send(future_type&& fut, rank_type dst, tag_type tag, const message_type& msg, CallBack&& cb)
                 {
                     GHEX_CHECK_CALLBACK
                     m_sends.push_back( send_element_type{ std::forward<CallBack>(cb), dst, tag, std::move(fut), msg } );
                 }
 
                 /** @brief Register a send without associated callback. */
-                void attach_send(future_type&& fut, const message_type& msg, rank_type dst, tag_type tag)
+                void attach_send(future_type&& fut, rank_type dst, tag_type tag, const message_type& msg)
                 {
                     m_sends.push_back( send_element_type{ [](rank_type,tag_type,const message_type&){}, dst, tag, std::move(fut), msg } );
                 }
@@ -288,14 +282,14 @@ namespace gridtools
                   * @param tag associated tag
                   * @param cb  Callback function object */
                 template<typename CallBack>
-                void attach_recv(future_type&& fut, const message_type& msg, rank_type src, tag_type tag, CallBack&& cb)
+                void attach_recv(future_type&& fut, rank_type src, tag_type tag, const message_type& msg, CallBack&& cb)
                 {
                     GHEX_CHECK_CALLBACK
                     m_recvs.push_back( send_element_type{ std::forward<CallBack>(cb), src, tag, std::move(fut), msg } );
                 }
 
                 /** @brief Register a receive without associated callback. */
-                void attach_recv(future_type&& fut, const message_type& msg, rank_type src, tag_type tag)
+                void attach_recv(future_type&& fut, rank_type src, tag_type tag, const message_type& msg)
                 {
                     m_recvs.push_back( send_element_type{ [](rank_type,tag_type,const message_type&){}, src, tag, std::move(fut), msg } );
                 }
@@ -329,7 +323,7 @@ namespace gridtools
                         {
                             element.m_future.wait();
                             element.m_cb(element.m_rank, element.m_tag, element.m_msg);
-                            break;
+                            //break;
                         }
                         else
                         {

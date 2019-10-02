@@ -15,19 +15,20 @@
 int rank;
 
 auto test1() {
-    gridtools::ghex::mpi::communicator sr;
+    using comm_type = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
+    comm_type sr;
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     std::vector<unsigned char> rmsg(40, 40);
 
-    gridtools::ghex::mpi::communicator::future_type rfut;
+    comm_type::future<void> rfut;
 
     if ( rank == 0 ) {
-        sr.blocking_send(smsg, 1, 1);
-        rfut = sr.recv(rmsg, 1, 2);
+        sr.send(1, 1, smsg).get();
+        rfut = sr.recv(1, 2, rmsg);
     } else if (rank == 1) {
-        sr.blocking_send(smsg, 0, 2);
-        rfut = sr.recv(rmsg, 0, 1);
+        sr.send(0, 2, smsg).get();
+        rfut = sr.recv(0, 1, rmsg);
     }
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -49,27 +50,26 @@ auto test1() {
 }
 
 auto test2() {
-    gridtools::ghex::mpi::communicator sr;
+    using sr_comm_type   = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
     using allocator_type = std::allocator<unsigned char>;
-    //using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(sr)>;
+    using cb_comm_type   = gridtools::ghex::tl::callback_communicator<sr_comm_type,allocator_type>;
 
-    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
+    sr_comm_type sr;
+    cb_comm_type cb_comm(sr);
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
-    //smsg_type rmsg(40, 40);
     smsg_type rmsg(40);
 
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(smsg, 1, 1);
-        cb_comm.recv(rmsg, 1, 2, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
+        auto fut = sr.send(1, 1, smsg);
+        cb_comm.recv(1, 2, rmsg, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
-        auto fut = sr.send(smsg, 0, 2);
-        cb_comm.recv(rmsg, 0, 1, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
+        auto fut = sr.send(0, 2, smsg);
+        cb_comm.recv(0, 1, rmsg, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     }
 
@@ -95,9 +95,8 @@ auto test2() {
 }
 
 auto test1_mesg() {
-    gridtools::ghex::mpi::communicator sr;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
 
-    //gridtools::ghex::mpi::message<> smsg{40, 40};
     gridtools::ghex::tl::message_buffer<> smsg{40};
 
     int* data = smsg.data<int>();
@@ -106,17 +105,16 @@ auto test1_mesg() {
         data[i] = i;
     }
 
-    //gridtools::ghex::mpi::message<> rmsg{40, 40};
     gridtools::ghex::tl::message_buffer<> rmsg{40};
 
-    gridtools::ghex::mpi::communicator::future_type rfut;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void> rfut;
 
     if ( rank == 0 ) {
-        sr.blocking_send(smsg, 1, 1);
-        rfut = sr.recv(rmsg, 1, 2);
+        sr.send(1, 1, smsg).get();
+        rfut = sr.recv(1, 2, rmsg);
     } else if (rank == 1) {
-        sr.blocking_send(smsg, 0, 2);
-        rfut = sr.recv(rmsg, 0, 1);
+        sr.send(0, 2, smsg).get();
+        rfut = sr.recv(0, 1, rmsg);
     }
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -139,15 +137,14 @@ auto test1_mesg() {
 }
 
 auto test2_mesg() {
-    gridtools::ghex::mpi::communicator sr;
+    using sr_comm_type   = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
     using allocator_type = std::allocator<unsigned char>;
-    //using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(sr)>;
+    using cb_comm_type   = gridtools::ghex::tl::callback_communicator<sr_comm_type,allocator_type>;
 
-    gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
+    sr_comm_type sr;
+    cb_comm_type cb_comm(sr);
 
-    //gridtools::ghex::mpi::message<> smsg{40, 40};
     gridtools::ghex::tl::message_buffer<> smsg{40};
 
     int* data = smsg.data<int>();
@@ -156,18 +153,17 @@ auto test2_mesg() {
         data[i] = i;
     }
 
-    //smsg_type rmsg{40, 40};
     smsg_type rmsg{40};
 
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(smsg, 1, 1);
-        cb_comm.recv(rmsg, 1, 2, [ &arrived](int, int, const smsg_type&) { arrived = true; });
+        auto fut = sr.send(1, 1, smsg);
+        cb_comm.recv(1, 2, rmsg, [ &arrived](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
-        auto fut = sr.send(smsg, 0, 2);
-        cb_comm.recv(rmsg, 0, 1, [ &arrived](int, int, const smsg_type&) { arrived = true; });
+        auto fut = sr.send(0, 2, smsg);
+        cb_comm.recv(0, 1, rmsg, [ &arrived](int, int, const smsg_type&) { arrived = true; });
         fut.wait();
     }
 
@@ -194,9 +190,8 @@ auto test2_mesg() {
 }
 
 auto test1_shared_mesg() {
-    gridtools::ghex::mpi::communicator sr;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
 
-    //gridtools::ghex::mpi::shared_message<> smsg{40, 40};
     gridtools::ghex::tl::shared_message_buffer<> smsg{40};
     int* data = smsg.data<int>();
 
@@ -204,18 +199,17 @@ auto test1_shared_mesg() {
         data[i] = i;
     }
 
-    //gridtools::ghex::mpi::shared_message<> rmsg{40, 40};
     gridtools::ghex::tl::shared_message_buffer<> rmsg{40};
 
-    gridtools::ghex::mpi::communicator::future_type rfut;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void> rfut;
 
     if ( rank == 0 ) {
-        auto sf = sr.send(smsg, 1, 1);
-        rfut = sr.recv(rmsg, 1, 2);
+        auto sf = sr.send(1, 1, smsg);
+        rfut = sr.recv(1, 2, rmsg);
         sf.wait();
     } else if (rank == 1) {
-        auto sf = sr.send(smsg, 0, 2);
-        rfut = sr.recv(rmsg, 0, 1);
+        auto sf = sr.send(0, 2, smsg);
+        rfut = sr.recv(0, 1, rmsg);
         sf.wait();
     }
 
