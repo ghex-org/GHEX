@@ -13,6 +13,7 @@
 
 #include <tuple>
 #include "allocator/default_init_allocator.hpp"
+#include "transport_layer/message_buffer.hpp"
 #include <boost/align/aligned_allocator_adaptor.hpp>
 #include <vector>
 
@@ -44,6 +45,12 @@ namespace gridtools {
                 { 
                     static_assert(std::is_same<decltype(index),device_id_type>::value, "trick to prevent warnings");
                     return vector_type<T>{aligned_allocator_type<T>()}; 
+                }
+
+                static ::gridtools::ghex::tl::message_buffer<aligned_allocator_type<unsigned char>> make_msg_buffer(device_id_type index = default_id()) 
+                { 
+                    static_assert(std::is_same<decltype(index),device_id_type>::value, "trick to prevent warnings");
+                    return ::gridtools::ghex::tl::message_buffer<aligned_allocator_type<unsigned char>>{};
                 }
 
                 static void sync(device_id_type index = default_id()) 

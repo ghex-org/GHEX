@@ -30,8 +30,10 @@ TEST(attach, attach_progress)
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
-    message_type send_msg{SIZE,SIZE};
-    message_type recv_msg{SIZE,SIZE};
+    //message_type send_msg{SIZE,SIZE};
+    message_type send_msg{SIZE};
+    //message_type recv_msg{SIZE,SIZE};
+    message_type recv_msg{SIZE};
 
     for (unsigned int i=0; i<SIZE/sizeof(int); ++i)
     {
@@ -69,8 +71,10 @@ TEST(detach, detach_wait)
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
-    message_type send_msg{SIZE,SIZE};
-    message_type recv_msg{SIZE,SIZE};
+    //message_type send_msg{SIZE,SIZE};
+    message_type send_msg{SIZE};
+    //message_type recv_msg{SIZE,SIZE};
+    message_type recv_msg{SIZE};
 
     for (unsigned int i=0; i<SIZE/sizeof(int); ++i)
     {
@@ -113,8 +117,10 @@ TEST(detach, detach_cancel_unexpected)
     comm_type     comm;
     callback_comm_type cb_comm(comm);
 
-    message_type send_msg{SIZE,SIZE};
-    message_type recv_msg{SIZE,SIZE};
+    //message_type send_msg{SIZE,SIZE};
+    message_type send_msg{SIZE};
+    //message_type recv_msg{SIZE,SIZE};
+    message_type recv_msg{SIZE};
     message_type unexpected_msg;
 
     for (unsigned int i=0; i<SIZE/sizeof(int); ++i)

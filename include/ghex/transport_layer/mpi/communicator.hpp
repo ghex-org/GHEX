@@ -15,7 +15,8 @@
 #include <tuple>
 #include <cassert>
 #include <boost/optional.hpp>
-#include "../message.hpp"
+//#include "../message.hpp"
+#include "../shared_message_buffer.hpp"
 #include "./communicator_traits.hpp"
 #include "./future.hpp"
 
@@ -181,7 +182,8 @@ public:
          * @return Optional which may hold a tuple of rank, tag and message
          */
     template < typename Allocator = std::allocator<unsigned char> >
-    boost::optional<std::tuple<rank_type,tag_type,shared_message<Allocator>>> 
+    //boost::optional<std::tuple<rank_type,tag_type,shared_message<Allocator>>> 
+    boost::optional<std::tuple<rank_type,tag_type,::gridtools::ghex::tl::shared_message_buffer<Allocator>>> 
     recv_any(Allocator alloc = Allocator{}) const 
     {
         MPI_Message mpi_msg;
@@ -190,7 +192,8 @@ public:
         GHEX_CHECK_MPI_RESULT(MPI_Improbe(MPI_ANY_SOURCE, MPI_ANY_TAG, m_mpi_comm, &flag, &mpi_msg, &st));
         if (flag)
         {
-            shared_message<Allocator> msg(alloc);
+            //shared_message<Allocator> msg(alloc);
+            ::gridtools::ghex::tl::shared_message_buffer<Allocator> msg(alloc);
             int count;
             MPI_Get_count(&st, MPI_CHAR, &count);
             msg.reserve(count);

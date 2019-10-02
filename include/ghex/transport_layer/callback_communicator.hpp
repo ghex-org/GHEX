@@ -19,7 +19,8 @@
 #include <boost/callable_traits.hpp>
 #include <boost/optional.hpp>
 //#include <iostream>
-#include "./message.hpp"
+//#include "./message.hpp"
+#include "./shared_message_buffer.hpp"
 
 /** @brief checks the arguments of callback function object */
 #define GHEX_CHECK_CALLBACK                                                            \
@@ -33,7 +34,7 @@
         "rank_type is not convertible to first callback argument type");               \
     static_assert(std::is_convertible<arg1_t,tag_type>::value,                         \
         "tag_type is not convertible to second callback argument type");               \
-    static_assert(std::is_same<arg2_t,typename element_type::message_arg_type>::value, \
+    static_assert(std::is_convertible<arg2_t,typename element_type::message_arg_type>::value, \
         "third callback argument type is not a const reference of message_type");
 
 namespace gridtools
@@ -66,7 +67,8 @@ namespace gridtools
             using tag_type          = typename communicator_type::tag_type;
             using rank_type         = typename communicator_type::rank_type;
             using allocator_type    = Allocator;
-            using message_type      = mpi::shared_message<allocator_type>;
+            //using message_type      = mpi::shared_message<allocator_type>;
+            using message_type      = tl::shared_message_buffer<allocator_type>;
 
         private: // member types
 
@@ -173,7 +175,7 @@ namespace gridtools
               * @param tag Tag associated with the message
               * @param cb  Callback function object */
             template<typename CallBack>
-            void recv(const message_type& msg, rank_type src, tag_type tag, CallBack&& cb)
+            void recv(message_type& msg, rank_type src, tag_type tag, CallBack&& cb)
             {
                 GHEX_CHECK_CALLBACK
                 m_recvs.push_back( recv_element_type{ std::forward<CallBack>(cb), src, tag, m_comm.recv(msg, src, tag), msg } );
@@ -183,11 +185,11 @@ namespace gridtools
             template<typename CallBack>
             void recv(std::size_t size, rank_type src, tag_type tag, CallBack&& cb)
             {
-                recv(message_type{size,size}, src, tag, std::forward<CallBack>(cb));
+                recv(message_type{size,m_alloc}, src, tag, std::forward<CallBack>(cb));
             }
 
             /** @brief Receive a message without registering a callback. */
-            void recv(const message_type& msg, rank_type src, tag_type tag)
+            void recv(message_type& msg, rank_type src, tag_type tag)
             {
                 recv(msg,src,tag,[](rank_type,tag_type,const message_type&){});
             }

@@ -51,13 +51,15 @@ auto test1() {
 auto test2() {
     gridtools::ghex::mpi::communicator sr;
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
+    //using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
+    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
 
     gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
-    smsg_type rmsg(40, 40);
+    //smsg_type rmsg(40, 40);
+    smsg_type rmsg(40);
 
     bool arrived = false;
 
@@ -95,7 +97,8 @@ auto test2() {
 auto test1_mesg() {
     gridtools::ghex::mpi::communicator sr;
 
-    gridtools::ghex::mpi::message<> smsg{40, 40};
+    //gridtools::ghex::mpi::message<> smsg{40, 40};
+    gridtools::ghex::tl::message_buffer<> smsg{40};
 
     int* data = smsg.data<int>();
 
@@ -103,7 +106,8 @@ auto test1_mesg() {
         data[i] = i;
     }
 
-    gridtools::ghex::mpi::message<> rmsg{40, 40};
+    //gridtools::ghex::mpi::message<> rmsg{40, 40};
+    gridtools::ghex::tl::message_buffer<> rmsg{40};
 
     gridtools::ghex::mpi::communicator::future_type rfut;
 
@@ -137,12 +141,14 @@ auto test1_mesg() {
 auto test2_mesg() {
     gridtools::ghex::mpi::communicator sr;
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
+    //using smsg_type      = gridtools::ghex::mpi::shared_message<allocator_type>;
+    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
 
     gridtools::ghex::callback_communicator<comm_type,allocator_type> cb_comm(sr);
 
-    gridtools::ghex::mpi::message<> smsg{40, 40};
+    //gridtools::ghex::mpi::message<> smsg{40, 40};
+    gridtools::ghex::tl::message_buffer<> smsg{40};
 
     int* data = smsg.data<int>();
 
@@ -150,7 +156,8 @@ auto test2_mesg() {
         data[i] = i;
     }
 
-    smsg_type rmsg{40, 40};
+    //smsg_type rmsg{40, 40};
+    smsg_type rmsg{40};
 
     bool arrived = false;
 
@@ -189,14 +196,16 @@ auto test2_mesg() {
 auto test1_shared_mesg() {
     gridtools::ghex::mpi::communicator sr;
 
-    gridtools::ghex::mpi::shared_message<> smsg{40, 40};
+    //gridtools::ghex::mpi::shared_message<> smsg{40, 40};
+    gridtools::ghex::tl::shared_message_buffer<> smsg{40};
     int* data = smsg.data<int>();
 
     for (int i = 0; i < 10; ++i) {
         data[i] = i;
     }
 
-    gridtools::ghex::mpi::shared_message<> rmsg{40, 40};
+    //gridtools::ghex::mpi::shared_message<> rmsg{40, 40};
+    gridtools::ghex::tl::shared_message_buffer<> rmsg{40};
 
     gridtools::ghex::mpi::communicator::future_type rfut;
 
@@ -235,7 +244,7 @@ bool check_msg(M const& msg) {
     if (rank > 1)
         return ok;
 
-    int* data = msg.template data<int>();
+    const int* data = msg.template data<int>();
     for (size_t i = 0; i < msg.size()/sizeof(int); ++i) {
         if ( data[i] != static_cast<int>(i) )
             ok = false;
