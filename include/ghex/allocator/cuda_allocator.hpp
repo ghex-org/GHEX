@@ -24,6 +24,7 @@ namespace gridtools {
                 template<typename T>
                 struct allocator
                 {
+                    using size_type = std::size_t;
                     using value_type = T;
                     using traits = std::allocator_traits<allocator<T>>;
                     using is_always_equal = std::true_type;
@@ -34,14 +35,14 @@ namespace gridtools {
                     template<typename U>
                     allocator(allocator<U>&&) noexcept {}
 
-                    [[nodiscard]] T* allocate(typename traits::size_type n, const void* cvptr = nullptr)
+                    [[nodiscard]] T* allocate(size_type n, const void* cvptr = nullptr)
                     {
                         T* ptr = nullptr;
                         GHEX_CHECK_CUDA_RESULT(cudaMalloc((void**)ptr, n*sizeof(T)));
                         return ptr;
                     }
 
-                    void deallocate(T* ptr, typename traits::size_type n)
+                    void deallocate(T* ptr, size_type n)
                     {
                         // not freeing because of CRAY-BUG
                         //GHEX_CHECK_CUDA_RESULT(cudaFree(ptr));
