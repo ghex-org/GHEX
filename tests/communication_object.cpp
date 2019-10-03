@@ -15,7 +15,7 @@
 #include <thread>
 #include <cstring>
 #include <gridtools/common/layout_map.hpp>
-#include <ghex/gridtools_arch.hpp>
+#include <ghex/arch_list.hpp>
 #include <ghex/communication_object.hpp>
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>

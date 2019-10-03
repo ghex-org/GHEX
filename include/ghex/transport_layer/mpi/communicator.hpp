@@ -30,17 +30,17 @@ namespace gridtools {
             : public mpi::communicator_base
             {
             public:
-                using protocol_type = mpi_tag;
-                using base_type     = mpi::communicator_base;
-                using address_type  = typename base_type::rank_type;
-                using rank_type     = typename base_type::rank_type;
-                using size_type     = typename base_type::size_type;
-                using tag_type      = typename base_type::tag_type;
-                using request       = mpi::request;
-                using status        = mpi::status;
+                using transport_type = mpi_tag;
+                using base_type      = mpi::communicator_base;
+                using address_type   = typename base_type::rank_type;
+                using rank_type      = typename base_type::rank_type;
+                using size_type      = typename base_type::size_type;
+                using tag_type       = typename base_type::tag_type;
+                using request        = mpi::request;
+                using status         = mpi::status;
                 template<typename T>
-                using future        = mpi::future<T>;
-                using traits        = mpi::communicator_traits;
+                using future         = mpi::future<T>;
+                using traits         = mpi::communicator_traits;
 
             public:
 

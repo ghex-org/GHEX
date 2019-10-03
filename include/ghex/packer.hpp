@@ -12,7 +12,7 @@
 #define INCLUDED_PACKER_HPP
 
 #include "./common/await_futures.hpp"
-#include "./devices.hpp"
+#include "./arch_list.hpp"
 #include "./structured/field_utils.hpp"
 #include "./cuda_utils/kernel_argument.hpp"
 #include "./cuda_utils/future.hpp"
@@ -23,7 +23,7 @@ namespace gridtools {
     namespace ghex {
 
         /** @brief generic implementation of pack and unpack */
-        template<typename Device>
+        template<typename Arch>
         struct packer
         {
             template<typename Map, typename Futures, typename Communicator>
@@ -119,7 +119,7 @@ namespace gridtools {
 
         /** @brief specialization for gpus, including vector interface special functions */
         template<>
-        struct packer<device::gpu>
+        struct packer<gpu>
         {
             template<typename Map, typename Futures, typename Communicator>
             static void pack(Map& map, Futures& send_futures,Communicator& comm)

@@ -12,7 +12,7 @@
 #define INCLUDED_GT_GLUE_FIELD_HPP
 
 #include "../../structured/simple_field_wrapper.hpp"
-#include "../../devices.hpp"
+#include "../../arch_traits.hpp"
 #include <gridtools/storage/data_store.hpp>
 #include <gridtools/meta/list_to_iseq.hpp>
 #ifdef __CUDACC__
@@ -55,35 +55,35 @@ namespace gridtools {
     namespace ghex {
         namespace _impl {
 
-            template<typename T, typename Device, typename DomainDescriptor, typename Seq>
+            template<typename T, typename Arch, typename DomainDescriptor, typename Seq>
             struct get_simple_field_wrapper_type;
 
-            template<typename T, typename Device, typename DomainDescriptor, template <class J, J...> class Seq, typename I, I... Is>
-            struct get_simple_field_wrapper_type<T,Device,DomainDescriptor, Seq<I, Is...>>
+            template<typename T, typename Arch, typename DomainDescriptor, template <class J, J...> class Seq, typename I, I... Is>
+            struct get_simple_field_wrapper_type<T,Arch,DomainDescriptor, Seq<I, Is...>>
             {
-                using type = structured::simple_field_wrapper<T,Device,DomainDescriptor,Is...>;
+                using type = structured::simple_field_wrapper<T,Arch,DomainDescriptor,Is...>;
             };
 
             template<typename Storage>
-            struct get_device
+            struct get_arch
             {
-                using type = device::cpu;
+                using type = ::gridtools::ghex::cpu;
             };
 #ifdef __CUDACC__
             template<typename DataType>
-            struct get_device<cuda_storage<DataType>>
+            struct get_arch<cuda_storage<DataType>>
             {
-                using type = device::gpu;
+                using type = ::gridtools::ghex::gpu;
             };
 #endif
         } // namespace _impl
 
         template <typename Grid, typename Storage, typename StorageInfo>
-        auto wrap_gt_field(Grid& grid, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename _impl::get_device<Storage>::type::device_id_type device_id = 0)
+        auto wrap_gt_field(Grid& grid, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename arch_traits<typename _impl::get_arch<Storage>::type>::device_id_type device_id = 0)
         {
             using domain_id_type    = typename Grid::domain_id_type;
             using data_store_t      = ::gridtools::data_store<Storage,StorageInfo>;
-            using device_t          = typename _impl::get_device<Storage>::type;
+            using arch_t          = typename _impl::get_arch<Storage>::type;
             using value_t           = typename data_store_t::data_t;
             using layout_t          = typename StorageInfo::layout_t;
             using integer_seq       = typename ::gridtools::_impl::get_unmasked_layout_map<layout_t>::integer_seq;
@@ -93,7 +93,7 @@ namespace gridtools {
 
             using sfw_t             = typename _impl::get_simple_field_wrapper_type<
                                           value_t,
-                                          device_t,
+                                          arch_t,
                                           structured::domain_descriptor<domain_id_type, dimension::value>,
                                           integer_seq>::type;
 

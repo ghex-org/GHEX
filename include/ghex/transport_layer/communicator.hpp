@@ -24,13 +24,13 @@ namespace gridtools {
             
                 // concept
                 // -------
-                // using protocol_type = P;
+                // using transport_type = P;
                 // using handle_type   = ...;
                 // using address_type  = ...;
                 // template<typename T>
                 // using future = ...;
 
-            /** @brief mpi transport protocol tag */
+            /** @brief mpi transport tag */
             struct mpi_tag {};
 
 

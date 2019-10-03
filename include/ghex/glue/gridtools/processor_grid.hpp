@@ -24,14 +24,13 @@ namespace gridtools {
 
     namespace ghex {
 
-        template<typename Protocol>
+        template<typename Transport>
         struct gt_grid
         {
             using domain_descriptor_type = structured::domain_descriptor<int,3>;
             using domain_id_type         = typename domain_descriptor_type::domain_id_type;
-            //protocol::setup_communicator m_setup_comm;
             MPI_Comm m_setup_comm;
-            tl::communicator<Protocol> m_comm;
+            tl::communicator<Transport> m_comm;
             std::vector<domain_descriptor_type> m_domains;
             std::array<int, 3> m_global_extents;
             std::array<bool, 3> m_periodic;
