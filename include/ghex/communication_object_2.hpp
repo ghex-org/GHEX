@@ -16,7 +16,6 @@
 #include "./common/utils.hpp"
 #include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
-//#include "./protocol/communicator_base.hpp"
 #include "./transport_layer/communicator.hpp"
 #include "./structured/simple_field_wrapper.hpp"
 #include <map>
@@ -167,7 +166,8 @@ namespace gridtools {
             {
                 using device_type    = Device;
                 using device_id_type = typename device_type::device_id_type;
-                using vector_type    = typename device_type::template vector_type<char>;
+                //using vector_type    = typename device_type::template vector_type<char>;
+                using vector_type    = typename device_type::message_type;
                 
                 using send_buffer_type = buffer<vector_type,pack_function_type>; 
                 using recv_buffer_type = buffer<vector_type,unpack_function_type>; 
@@ -480,7 +480,8 @@ namespace gridtools {
                             BufferType{
                                 remote_address,
                                 p_id_c.first.tag+tag_offset,
-                                Device::template make_vector<char>(device_id),
+                                //Device::template make_vector<char>(device_id),
+                                Device::make_msg_buffer(device_id),
                                 0,
                                 std::vector<typename BufferType::field_info_type>(),
                                 cuda::stream()

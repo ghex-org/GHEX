@@ -12,8 +12,10 @@
 #define INCLUDED_DEVICES_HPP
 
 #include <tuple>
-#include "allocator/default_init_allocator.hpp"
-#include "transport_layer/message_buffer.hpp"
+#include "./allocator/default_init_allocator.hpp"
+#include "./allocator/cuda_allocator.hpp"
+#include "./allocator/aligned_allocator_adaptor.hpp"
+#include "./transport_layer/message_buffer.hpp"
 #include <boost/align/aligned_allocator_adaptor.hpp>
 #include <vector>
 
@@ -47,10 +49,13 @@ namespace gridtools {
                     return vector_type<T>{aligned_allocator_type<T>()}; 
                 }
 
-                static ::gridtools::ghex::tl::message_buffer<aligned_allocator_type<unsigned char>> make_msg_buffer(device_id_type index = default_id()) 
+                using message_type = ::gridtools::ghex::tl::message_buffer<
+                    ::gridtools::ghex::allocator::aligned_allocator_adaptor<std::allocator<unsigned char>,64>>;//  aligned_allocator_type<unsigned char>>;
+
+                static message_type make_msg_buffer(device_id_type index = default_id()) 
                 { 
                     static_assert(std::is_same<decltype(index),device_id_type>::value, "trick to prevent warnings");
-                    return ::gridtools::ghex::tl::message_buffer<aligned_allocator_type<unsigned char>>{};
+                    return {};
                 }
 
                 static void sync(device_id_type index = default_id()) 
@@ -130,6 +135,14 @@ namespace gridtools {
                 { 
                     static_assert(std::is_same<decltype(index),device_id_type>::value, "trick to prevent warnings");
                     return {}; 
+                }
+                
+                using message_type = ::gridtools::ghex::tl::message_buffer<::gridtools::ghex::allocator::cuda::allocator<unsigned char>>;
+
+                static ::gridtools::ghex::tl::message_buffer<::gridtools::ghex::allocator::cuda::allocator<unsigned char>> make_msg_buffer(device_id_type index = default_id()) 
+                { 
+                    static_assert(std::is_same<decltype(index),device_id_type>::value, "trick to prevent warnings");
+                    return ::gridtools::ghex::tl::message_buffer<::gridtools::ghex::allocator::cuda::allocator<unsigned char>>{};
                 }
 
                 static void sync(device_id_type index = default_id()) 
