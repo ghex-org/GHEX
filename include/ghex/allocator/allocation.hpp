@@ -50,13 +50,13 @@ namespace gridtools {
 
                 allocation(alloc_type alloc, std::size_t n)
                 : m_alloc{alloc}
-                , m_pointer{alloc_traits::allocate(m_alloc, n)}
+                , m_pointer{n>0u ? alloc_traits::allocate(m_alloc, n): nullptr}
                 , m_capacity{n}
                 {}
 
                 allocation(const allocation& other)
                 : m_alloc{alloc_traits::select_on_container_copy_construction(other.m_alloc)}
-                , m_pointer{alloc_traits::allocate(m_alloc, other.m_capacity)}
+                , m_pointer{other.m_capacity>0u ? alloc_traits::allocate(m_alloc, other.m_capacity) : nullptr}
                 , m_capacity{other.m_capacity}
                 { }
 
@@ -78,7 +78,7 @@ namespace gridtools {
                         void* ptr = &m_alloc;
                         m_alloc.~alloc_type();
                         new(ptr) alloc_type(other.m_alloc);
-                        m_pointer = alloc_traits::allocate(m_alloc, other.m_capacity);
+                        m_pointer = other.m_capacity>0u ? alloc_traits::allocate(m_alloc, other.m_capacity) : nullptr;
                         m_capacity = other.m_capacity;
                     }
                     if ( propagate::value && m_alloc == other.m_alloc)

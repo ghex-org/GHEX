@@ -126,6 +126,14 @@ namespace gridtools
                 /** returns the number of unprocessed recv handles in the queue. */
                 std::size_t pending_recvs() const { return m_recvs.size(); }
 
+            public: // get a message
+
+                /** get a message with size n from the communicator */
+                message_type make_message(std::size_t n = 0u) const
+                {
+                    return { m_alloc, n };
+                }
+
             public: // send
 
                 /** @brief Send a message to a destination with the given tag and register a callback which will be 
