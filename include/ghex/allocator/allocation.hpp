@@ -17,6 +17,12 @@ namespace gridtools {
     namespace ghex {
         namespace allocator {
 
+            /** @brief allocation is a building block for an allocator-aware container. It is responsible for holding
+              * a contiguous memory buffer and reallocates said buffer when necessary depending on the allocator's
+              * requirements. 
+              * An implementation of an allocator-aware container may choose to hold a member of this class. Thus, it 
+              * only needs to have additional code to handle construction/destruction of the managed objects (again 
+              * based on the allocator's requirements). */
             template<typename Allocator, typename ValueType = typename Allocator::value_type>
             struct allocation
             {
@@ -37,8 +43,6 @@ namespace gridtools {
                     m_pointer = nullptr;
                     m_capacity = 0u;
                 }
-
-                //operator value_type*() { return m_pointer; }
 
                 allocation(alloc_type alloc)
                 : m_alloc{alloc}

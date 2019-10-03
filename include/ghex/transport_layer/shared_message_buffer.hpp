@@ -18,6 +18,9 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
+            /** shared_message_buffer is a copyable version of message_buffer which internally holds a shared_ptr to
+              * a message_buffer instance and forwards all calls to this shared instance (the interface is identical 
+              * to message_buffer. */
             template<typename Allocator = std::allocator<unsigned char>>
             class shared_message_buffer
             {

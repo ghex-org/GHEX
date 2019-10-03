@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_CALLBACK_COMMUNICATOR_HPP
-#define INCLUDED_CALLBACK_COMMUNICATOR_HPP
+#ifndef INCLUDED_GHEX_TL_CALLBACK_COMMUNICATOR_HPP
+#define INCLUDED_GHEX_TL_CALLBACK_COMMUNICATOR_HPP
 
 #include <deque>
 #include <algorithm>
@@ -41,12 +41,17 @@ namespace gridtools
     {
         namespace tl {
 
-            /** callback_communicator is a class to dispatch send and receive operations to. Each operation can optionally 
-              * be tied to a user defined callback function / function object. The payload of each send/receive operation
-              * must be a ghex::shared_message<Allocator>. This class will keep a (shallow) copy of each message, thus
-              * it is safe to release the message at the caller's site.
+            /** callback_communicator is a class to dispatch send and receive operations to. Each operation can 
+              * optionally be tied to a user defined callback function / function object. The payload of each 
+              * send/receive operation must be a ghex::shared_message_buffer<Allocator>. 
+              * This class will keep a (shallow) copy of each message, thus it is safe to release the message at 
+              * the caller's site.
               *
-              * The communication must be explicitely progressed using the function call operator().
+              * The user defined callback must define void operator()(rank_type,tag_type,const message_type&), where
+              * message_type is a shared_message_buffer that can be cheaply copied/moved from within the callback body 
+              * if needed.
+              *
+              * The communication must be explicitely progressed using the member function progress.
               *
               * An instance of this class is 
               * - a move-only.
@@ -55,7 +60,7 @@ namespace gridtools
               * If unprogressed operations remain at time of destruction, std::terminate will be called.
               *
               * @tparam Communicator underlying transport communicator
-              * @tparam Allocator    allocator type used for allocating shared messages */
+              * @tparam Allocator    allocator type used for allocating shared message buffers */
             template<class Communicator, class Allocator = std::allocator<unsigned char>>
             class callback_communicator
             {
@@ -94,12 +99,18 @@ namespace gridtools
 
             public: // ctors
 
+                /** @brief construct from a basic transport communicator
+                  * @param comm  the underlying transport communicator
+                  * @param alloc the allocator instance to be used for constructing messages */
                 callback_communicator(const communicator_type& comm, allocator_type alloc = allocator_type{}) 
                 : m_comm(comm), m_alloc(alloc) {}
                 callback_communicator(communicator_type&& comm, allocator_type alloc = allocator_type{}) 
                 : m_comm(std::move(comm)), m_alloc(alloc) {}
+
                 callback_communicator(const callback_communicator&) = delete;
                 callback_communicator(callback_communicator&&) = default;
+
+                /** terminates the program if the queues are not empty */
                 ~callback_communicator() 
                 { 
                     if (m_sends.size() != 0 || m_recvs.size() != 0)  
@@ -110,17 +121,20 @@ namespace gridtools
                 
             public: // queries
 
+                /** returns the number of unprocessed send handles in the queue. */
                 std::size_t pending_sends() const { return m_sends.size(); }
+                /** returns the number of unprocessed recv handles in the queue. */
                 std::size_t pending_recvs() const { return m_recvs.size(); }
 
             public: // send
 
-                /** @brief Send a message to a destination with the given tag and register a callback which will be invoked
-                  * when the send operation is completed.
-                  * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
-                  * @param msg Message to be sent
+                /** @brief Send a message to a destination with the given tag and register a callback which will be 
+                  * invoked when the send operation is completed.
+                  * @tparam CallBack User defined callback class which defines 
+                  *                  void Callback::operator()(rank_type,tag_type,const message_type&)
                   * @param dst Destination of the message
                   * @param tag Tag associated with the message
+                  * @param msg Message to be sent
                   * @param cb  Callback function object */
                 template<typename CallBack>
                 void send(rank_type dst, tag_type tag, const message_type& msg, CallBack&& cb)
@@ -137,10 +151,11 @@ namespace gridtools
 
                 /** @brief Send a message to multiple destinations with the same rank an register an associated callback. 
                   * @tparam Neighs Range over rank_type
-                  * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
-                  * @param msg Message to be sent
+                  * @tparam CallBack User defined callback class which defines 
+                  *                  void Callback::operator()(rank_type,tag_type,const message_type&)
                   * @param neighs Range of destination ranks
                   * @param tag Tag associated with the message
+                  * @param msg Message to be sent
                   * @param cb Callback function object */
                 template <typename Neighs, typename CallBack>
                 void send_multi(Neighs const &neighs, int tag, const message_type& msg, CallBack&& cb)
@@ -156,7 +171,7 @@ namespace gridtools
                                 });
                 }
 
-                /** @brief Send a message to multiple destination without registering a callback */
+                /** @brief Send a message to multiple destinations without registering a callback */
                 template <typename Neighs>
                 void send_multi(Neighs const &neighs, int tag, const message_type& msg)
                 {
@@ -165,12 +180,13 @@ namespace gridtools
 
             public: // recieve
 
-                /** @brief Receive a message from a source rank with the given tag and register a callback which will be invoked
-                  * when the receive operation is completed.
-                  * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
-                  * @param msg Message where data will be received
+                /** @brief Receive a message from a source rank with the given tag and register a callback which will
+                  * be invoked when the receive operation is completed.
+                  * @tparam CallBack User defined callback class which defines 
+                  *                  void Callback::operator()(rank_type,tag_type,const message_type&)
                   * @param src Source of the message
                   * @param tag Tag associated with the message
+                  * @param msg Message where data will be received
                   * @param cb  Callback function object */
                 template<typename CallBack>
                 void recv(rank_type src, tag_type tag, message_type& msg, CallBack&& cb)
@@ -206,11 +222,13 @@ namespace gridtools
                 }
 
                 /** @brief Progress the communication. This function checks whether any receive and send operation is 
-                  * completed and calls the associated callback (if it exists). When all registered operations have been
-                  * completed this function checks for further unexpected incoming messages which will be received in a
-                  * newly allocated shared_message and returned to the user through invocation of the provided callback.
-                  * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
-                  * @param unexpected_cb Callback function object
+                  * completed and calls the associated callback (if it exists). When all registered operations have 
+                  * been completed this function checks for further unexpected incoming messages which will be received 
+                  * in a newly allocated shared_message_buffer and returned to the user through invocation of the 
+                  * provided callback.
+                  * @tparam CallBack User defined callback class which defines 
+                  *                  void Callback::operator()(rank_type,tag_type,const message_type&)
+                  * @param unexpected_cb callback function object
                   * @return returns false if all registered operations have been completed. */
                 template<typename CallBack>
                 bool progress(CallBack&& unexpected_cb)
@@ -231,34 +249,36 @@ namespace gridtools
             public: // attach/detach
                 
                 /** @brief Deregister a send operation from this object which matches the given destination and tag.
-                  * If such operation is found the callback will be discared and the message will be returned to the caller
-                  * together with a future object on which completion can be awaited.
+                  * If such operation is found the callback will be discared and the message will be returned to the
+                  * caller together with a future on which completion can be awaited.
                   * @param dst Destination of the message
                   * @param tag Tag associated with the message
-                  * @return Either a pair of future and message or none*/
+                  * @return Either a pair of future and message or none */
                 boost::optional<std::pair<future_type,message_type>> detach_send(rank_type dst, tag_type tag)
                 {
                     return detach(dst,tag,m_sends);
                 }
 
                 /** @brief Deregister a receive operation from this object which matches the given destination and tag.
-                  * If such operation is found the callback will be discared and the message will be returned to the caller
-                  * together with a future object on which completion can be awaited.
+                  * If such operation is found the callback will be discared and the message will be returned to the 
+                  * caller together with a future on which completion can be awaited.
                   * @param src Source of the message
                   * @param tag Tag associated with the message
-                  * @return Either a pair of future and message or none*/
+                  * @return Either a pair of future and message or none */
                 boost::optional<std::pair<future_type,message_type>> detach_recv(rank_type src, tag_type tag)
                 {
                     return detach(src,tag,m_recvs);
                 }
 
-                /** @brief Register a send operation with this object which matches the given future, destination and tag
-                  * and associate it with a callback.
-                  * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+                /** @brief Register a send operation with this object with future, destination and tag and associate it
+                  * with a callback. This is the inverse operation of detach. Note, that attaching of a send operation
+                  * originating from the underlying basic communicator is supported.
+                  * @tparam CallBack User defined callback class which defines 
+                  *                  void Callback::operator()(rank_type,tag_type,const message_type&)
                   * @param fut future object
-                  * @param msg message data
                   * @param dst destination rank
                   * @param tag associated tag
+                  * @param msg message data
                   * @param cb  Callback function object */
                 template<typename CallBack>
                 void attach_send(future_type&& fut, rank_type dst, tag_type tag, const message_type& msg, CallBack&& cb)
@@ -273,13 +293,15 @@ namespace gridtools
                     m_sends.push_back( send_element_type{ [](rank_type,tag_type,const message_type&){}, dst, tag, std::move(fut), msg } );
                 }
 
-                /** @brief Register a receive operation with this object which matches the given future, source and tag
-                  * and associate it with a callback.
-                  * @tparam CallBack User defined callback class which defines void Callback::operator()(rank_type,tag_type,const message_type&)
+                /** @brief Register a receive operation with this object with future, source and tag and associate it
+                  * with a callback. This is the inverse operation of detach. Note, that attaching of a recv operation
+                  * originating from the underlying basic communicator is supported.
+                  * @tparam CallBack User defined callback class which defines 
+                  *                  void Callback::operator()(rank_type,tag_type,const message_type&)
                   * @param fut future object
-                  * @param msg message data
                   * @param dst source rank
                   * @param tag associated tag
+                  * @param msg message data
                   * @param cb  Callback function object */
                 template<typename CallBack>
                 void attach_recv(future_type&& fut, rank_type src, tag_type tag, const message_type& msg, CallBack&& cb)
@@ -305,7 +327,12 @@ namespace gridtools
                     return s && r;
                 }
 
+                /** @brief Deregister all send operations from this object and attempt to cancel the communication.
+                  * @return true if cancelling was successful. */
                 bool cancel_sends() { return cancel(m_sends); }
+
+                /** @brief Deregister all recv operations from this object and attempt to cancel the communication.
+                  * @return true if cancelling was successful. */
                 bool cancel_recvs() { return cancel(m_recvs); }
 
             private: // implementation
@@ -375,5 +402,5 @@ namespace gridtools
     } // namespace ghex
 }// namespace gridtools
 
-#endif /* INCLUDED_CALLBACK_COMMUNICATOR_HPP */
+#endif /* INCLUDED_GHEX_TL_CALLBACK_COMMUNICATOR_HPP */
 

@@ -19,6 +19,23 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
+            /** message_buffer is a class that represents a buffer of bytes.
+              *
+              * A message can be resized and storage can be reserved. However, these operations will destroy the content
+              * of the message, i.e. the old content is not copied over to the new allocation! This is done in contrast
+              * to std::vector and saves some time when allocating and reallocating.
+              * 
+              * On the other hand, this class is fully allocator-aware as far as memory allocation goes. It is therefore
+              * safe to plug in a pool allocator or any other custom allocator.
+              * 
+              * Furthermore, this message does take into account that the allocator may return a fancy pointer instead
+              * of a raw pointer (such as boost::offset_ptr for example). Theses fancy pointers will work as intended
+              * as long one overloads the gridtools::ghex::to_address function template with the custom pointer type.
+              *
+              * A message is a move-only object. It's capacity indicates the size of the allocated storage, while the
+              * size indicates the amnount bytes used in the message.
+              *
+              * @tparam Allocator The allocator used to allocate the memory for the message */
             template<typename Allocator = std::allocator<unsigned char>>
             class message_buffer
             {
@@ -42,11 +59,12 @@ namespace gridtools {
 
             public: // ctors
     
-                //template<typename Alloc = Allocator>
+                /** @brief construct an empty message */
                 message_buffer(Allocator alloc = Allocator{})
                 : m_allocation( alloc )
                 { }
     
+                /** @brief construct a message with given size */
                 template<typename Alloc = Allocator>
                 message_buffer(size_t size_, Alloc alloc = Alloc{})
                 : m_allocation( alloc, size_ )
@@ -79,9 +97,11 @@ namespace gridtools {
                 std::size_t size() const noexcept { return m_size; }
                 std::size_t capacity() const noexcept { return m_allocation.m_capacity; }
 
+                /** @brief returns a raw pointer to the beginning of the allocated memory, akin to std::vector */
                 raw_const_pointer data() const noexcept { return ::gridtools::ghex::to_address(m_allocation.m_pointer); }
                 raw_pointer data() noexcept { return ::gridtools::ghex::to_address(m_allocation.m_pointer); }
 
+                /** @brief returns a raw pointer to the beginning of the allocated memory, interpreted as T*. */
                 template <typename T>
                 T* data() noexcept
                 {
@@ -97,11 +117,13 @@ namespace gridtools {
                     return reinterpret_cast<const T*>(byte_ptr);
                 }
 
+                /** @brief basic range support */
                 raw_const_pointer begin() const noexcept { return data(); }
                 raw_const_pointer end() const noexcept { return data()+m_size; }
                 raw_pointer begin() noexcept { return data(); }
                 raw_pointer end() noexcept { return data()+m_size; }
 
+                 /** @brief reserves n bytes of memory and will allocate if n is smaller than the current capacaty. */
                 void reserve(std::size_t n)
                 {
                     if (n<=m_allocation.m_capacity) return;
@@ -111,25 +133,17 @@ namespace gridtools {
                     new(ptr) allocation_type(std::move(new_allocation));
                 }
 
+                 /** @brief resizes to n bytes of memory by calling reserve. */
                 void resize(std::size_t n)
                 {
-                    if (n==m_size) return;
-                    if (n==0)
-                    {
-                        m_size = 0;
-                        return;
-                    }
-                    if (n < m_size)
-                    {
-                        m_size = n;
-                        return;
-                    }
                     reserve(n);
                     m_size = n;
                 }
 
+                /** @brief make the buffer empty (no deallocation actually happens). */
                 void clear() { resize(0); }
 
+                /** @brief swap support. */
                 void swap(message_buffer& other)
                 {
                     m_allocation.swap(other.m_allocation);
@@ -139,6 +153,7 @@ namespace gridtools {
                 }
             };
 
+            /** @brief swap support. */
             template<typename A>
             void swap(message_buffer<A>& a, message_buffer<A>& b)
             {
@@ -149,5 +164,5 @@ namespace gridtools {
     } // namespace ghex
 } // namespace gridtools
 
-#endif/*INCLUDED_GHEX_TL_MESSAGE_BUFFER_HPP */
+#endif /* INCLUDED_GHEX_TL_MESSAGE_BUFFER_HPP */
 

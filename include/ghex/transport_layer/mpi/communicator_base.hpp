@@ -58,7 +58,9 @@ namespace gridtools{
                     communicator_base(communicator_base&&) noexcept = default;
                     communicator_base& operator=(communicator_base&&) noexcept = default;
 
+                    /** @return rank of this process */
                     inline rank_type rank() const noexcept { return m_rank; }
+                    /** @return size of communicator group*/
                     inline size_type size() const noexcept { return m_size; }
 
                     void barrier() const { MPI_Barrier(*m_comm); }

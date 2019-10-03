@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_SETUP_HPP
-#define INCLUDED_SETUP_HPP
+#ifndef INCLUDED_GHEX_TL_MPI_SETUP_HPP
+#define INCLUDED_GHEX_TL_MPI_SETUP_HPP
 
 #include "./communicator_base.hpp"
 #include "./future.hpp"
@@ -22,90 +22,83 @@ namespace gridtools{
 
             /** @brief special mpi communicator used for setup phase */
             class setup_communicator
+            : public communicator_base
             {
             public:
-                using handle_type = request;
-                using address_type = communicator_base::rank_type;
+                using base_type    = communicator_base;
+                using handle_type  = request;
+                using address_type = base_type::rank_type;
                 template<typename T>
                 using future = future<T>;
 
-            private:
-                communicator_base m_comm;
-
             public:
-                setup_communicator(const MPI_Comm& comm) noexcept
-                :   m_comm{comm} {}
-
-                setup_communicator(const setup_communicator&) = delete;
-                setup_communicator& operator=(const setup_communicator&) = delete;
+                setup_communicator(const MPI_Comm& comm) : base_type{comm} {}
+                setup_communicator(const setup_communicator&) = default;
+                setup_communicator& operator=(const setup_communicator&) = default;
                 setup_communicator(setup_communicator&&) noexcept = default;
                 setup_communicator& operator=(setup_communicator&&) noexcept = default;
 
-                address_type address() const { return m_comm.rank(); }
-
-                address_type rank() const { return m_comm.rank(); }
-
-                void barrier() { m_comm.barrier(); }
+                address_type address() const { return rank(); }
 
                 template<typename T>
                 void send(int dest, int tag, const T & value)
                 {
-                    GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(&value), sizeof(T), MPI_BYTE, dest, tag, m_comm));
+                    GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(&value), sizeof(T), MPI_BYTE, dest, tag, *this));
                 }
 
                 template<typename T>
                 status recv(int source, int tag, T & value)
                 {
                     MPI_Status status;
-                    GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(&value), sizeof(T), MPI_BYTE, source, tag, m_comm, &status));
+                    GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(&value), sizeof(T), MPI_BYTE, source, tag, *this, &status));
                     return {status};
                 }
 
                 template<typename T>
                 void send(int dest, int tag, const T* values, int n)
                 {
-                    GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(values), sizeof(T)*n, MPI_BYTE, dest, tag, m_comm));
+                    GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(values), sizeof(T)*n, MPI_BYTE, dest, tag, *this));
                 }
 
                 template<typename T>
                 status recv(int source, int tag, T* values, int n)
                 {
                     MPI_Status status;
-                    GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(values), sizeof(T)*n, MPI_BYTE, source, tag, m_comm, &status));
+                    GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(values), sizeof(T)*n, MPI_BYTE, source, tag, *this, &status));
                     return {status};
                 }
 
                 template<typename T> 
                 void broadcast(T& value, int root)
                 {
-                    GHEX_CHECK_MPI_RESULT(MPI_Bcast(&value, sizeof(T), MPI_BYTE, root, m_comm));
+                    GHEX_CHECK_MPI_RESULT(MPI_Bcast(&value, sizeof(T), MPI_BYTE, root, *this));
                 }
 
                 template<typename T> 
                 void broadcast(T * values, int n, int root)
                 {
-                    GHEX_CHECK_MPI_RESULT(MPI_Bcast(values, sizeof(T)*n, MPI_BYTE, root, m_comm));
+                    GHEX_CHECK_MPI_RESULT(MPI_Bcast(values, sizeof(T)*n, MPI_BYTE, root, *this));
                 }
 
                 template<typename T>
                 future< std::vector<std::vector<T>> > all_gather(const std::vector<T>& payload, const std::vector<int>& sizes)
                 {
-                    std::vector<std::vector<T>> res(m_comm.size());
-                    for (int neigh=0; neigh<m_comm.size(); ++neigh)
+                    std::vector<std::vector<T>> res(size());
+                    for (int neigh=0; neigh<size(); ++neigh)
                     {
                         res[neigh].resize(sizes[neigh]);
                     }
                     std::vector<handle_type> m_reqs;
-                    m_reqs.reserve((m_comm.size())*2);
-                    for (int neigh=0; neigh<m_comm.size(); ++neigh)
+                    m_reqs.reserve((size())*2);
+                    for (int neigh=0; neigh<size(); ++neigh)
                     {
                         m_reqs.push_back( handle_type{} );
-                        GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(res[neigh].data()), sizeof(T)*sizes[neigh], MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().get()));
+                        GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(res[neigh].data()), sizeof(T)*sizes[neigh], MPI_BYTE, neigh, 99, *this, &m_reqs.back().get()));
                     }
-                    for (int neigh=0; neigh<m_comm.size(); ++neigh)
+                    for (int neigh=0; neigh<size(); ++neigh)
                     {
                         m_reqs.push_back( handle_type{} );
-                        GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(payload.data()), sizeof(T)*payload.size(), MPI_BYTE, neigh, 99, m_comm, &m_reqs.back().get()));
+                        GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(payload.data()), sizeof(T)*payload.size(), MPI_BYTE, neigh, 99, *this, &m_reqs.back().get()));
                     }
                     for (auto& r : m_reqs)
                         r.wait();
@@ -113,10 +106,10 @@ namespace gridtools{
                     return {std::move(res), std::move(m_reqs.front())};
 
                     /*handle_type h;
-                    std::vector<int> displs(m_comm.size());
-                    std::vector<int> recvcounts(m_comm.size());
-                    std::vector<std::vector<T>> res(m_comm.size());
-                    for (int i=0; i<m_comm.size(); ++i)
+                    std::vector<int> displs(size());
+                    std::vector<int> recvcounts(size());
+                    std::vector<std::vector<T>> res(size());
+                    for (int i=0; i<size(); ++i)
                     {
                         res[i].resize(sizes[i]);
                         recvcounts[i] = sizes[i]*sizeof(T);
@@ -125,7 +118,7 @@ namespace gridtools{
                     GHEX_CHECK_MPI_RESULT( MPI_Iallgatherv(
                         &payload[0], payload.size()*sizeof(T), MPI_BYTE,
                         &res[0][0], &recvcounts[0], &displs[0], MPI_BYTE,
-                        m_comm, 
+                        *this, 
                         &h.m_req));
                     return {std::move(res), std::move(h)};*/
                 }
@@ -133,13 +126,13 @@ namespace gridtools{
                 template<typename T>
                 future< std::vector<T> > all_gather(const T& payload)
                 {
-                    std::vector<T> res(m_comm.size());
+                    std::vector<T> res(size());
                     handle_type h;
                     GHEX_CHECK_MPI_RESULT(
                         MPI_Iallgather
                         (&payload, sizeof(T), MPI_BYTE,
                         &res[0], sizeof(T), MPI_BYTE,
-                        m_comm,
+                        *this,
                         &h.get()));
                     return {std::move(res), std::move(h)};
                 } 
@@ -151,5 +144,5 @@ namespace gridtools{
     } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_SETUP_HPP */
+#endif /* INCLUDED_GHEX_TL_MPI_SETUP_HPP */
 

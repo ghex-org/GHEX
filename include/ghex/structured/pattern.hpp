@@ -12,7 +12,6 @@
 #define INCLUDED_STRUCTURED_PATTERN_HPP
 
 #include "./grid.hpp"
-//#include "../protocol/communicator_base.hpp"
 #include "../transport_layer/communicator.hpp"
 #include "../pattern.hpp"
 #include <map>

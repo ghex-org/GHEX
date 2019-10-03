@@ -11,9 +11,7 @@
 #ifndef INCLUDED_PATTERN_HPP
 #define INCLUDED_PATTERN_HPP
 
-//#include "./protocol/setup.hpp"
 #include "./transport_layer/mpi/setup.hpp"
-//#include "./transport_layer/mpi/communicator.hpp"
 #include "./transport_layer/communicator.hpp"
 #include "./buffer_info.hpp"
 

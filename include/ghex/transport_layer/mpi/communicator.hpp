@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_MPI_HPP
-#define INCLUDED_MPI_HPP
+#ifndef INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP
+#define INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP
 
 #include <boost/optional.hpp>
 #include "../communicator.hpp"
@@ -23,9 +23,11 @@ namespace gridtools {
 
         namespace tl {
 
-            /** @brief mpi communicator */
+            /** Mpi communicator which exposes basic non-blocking transport functionality and 
+              * returns futures to await said transports to complete. */
             template<>
             class communicator<mpi_tag>
+            : public mpi::communicator_base
             {
             public:
                 using protocol_type = mpi_tag;
@@ -40,63 +42,44 @@ namespace gridtools {
                 using future        = mpi::future<T>;
                 using traits        = mpi::communicator_traits;
 
-                base_type m_comm;
-
-                operator const MPI_Comm&() const noexcept { return m_comm; }
-                operator       MPI_Comm&()       noexcept { return m_comm; }
-
             public:
 
-                communicator(const traits& t = traits{}) : m_comm{t.communicator()} {}
-                communicator(const base_type& c) : m_comm{c} {}
-                communicator(const MPI_Comm& c) : m_comm{c} {}
+                communicator(const traits& t = traits{}) : base_type{t.communicator()} {}
+                communicator(const base_type& c) : base_type{c} {}
+                communicator(const MPI_Comm& c) : base_type{c} {}
                 
                 communicator(const communicator&) = default;
-                communicator(communicator&&) = default;
+                communicator(communicator&&) noexcept = default;
 
                 communicator& operator=(const communicator&) = default;
-                communicator& operator=(communicator&&) = default;
+                communicator& operator=(communicator&&) noexcept = default;
 
                 /** @return address of this process */
-                address_type address() const { return m_comm.rank(); }
-                
-                /** @return rank of this process */
-                rank_type rank() const { return m_comm.rank(); }
-
-                /** @return size of communicator group*/
-                size_type size() const { return m_comm.size(); }
-
-                void barrier() { m_comm.barrier(); }
+                address_type address() const { return rank(); }
 
             public: // send
 
-                /**
-                 * @brief non-blocking send
-                 * @tparam T data type
-                 * @param dest destination rank
-                 * @param tag message tag
-                 * @param buffer pointer to source buffer
-                 * @param n number of elements in buffer
-                 * @return completion handle
-                 */
+                /** @brief non-blocking send
+                  * @tparam T data type
+                  * @param dest destination rank
+                  * @param tag message tag
+                  * @param buffer pointer to source buffer
+                  * @param n number of elements in buffer
+                  * @return completion handle */
                 template<typename T>
                 [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const T* buffer, int n) const
                 {
                     request req;
-                    GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(buffer),sizeof(T)*n, MPI_BYTE, dest, tag, m_comm, &req.get()));
+                    GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(buffer),sizeof(T)*n, MPI_BYTE, dest, tag, *this, &req.get()));
                     return req;
                 }
 
-                /**
-                 * @brief non-blocking send (vector interface)
-                 * @tparam T data type
-                 * @tparam Vector vector type (contiguous memory)
-                 * @tparam Allocator allocator type
-                 * @param dest destination rank
-                 * @param tag message tag
-                 * @param vec source vector
-                 * @return completion handle
-                 */
+                /** @brief non-blocking send
+                  * @tparam Message a container type
+                  * @param dest destination rank
+                  * @param tag message tag
+                  * @param msg source container
+                  * @return completion handle */
                 template<typename Message> 
                 [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const Message& msg) const
                 {
@@ -105,29 +88,42 @@ namespace gridtools {
             
             public: // recv
 
-                /**
-                 * @brief non-blocking receive
-                 * @tparam T data type
-                 * @param source source rank
-                 * @param tag message tag
-                 * @param buffer pointer destination buffer
-                 * @param n number of elements in buffer
-                 * @return completion handle
-                 */
+                /** @brief non-blocking receive
+                  * @tparam T data type
+                  * @param source source rank
+                  * @param tag message tag
+                  * @param buffer pointer destination buffer
+                  * @param n number of elements in buffer
+                  * @return completion handle */
                 template<typename T>
                 [[nodiscard]] future<void> recv(rank_type source, tag_type tag, T* buffer, int n) const
                 {
                     request req;
-                    GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(buffer),sizeof(T)*n, MPI_BYTE, source, tag, m_comm, &req.get()));
+                    GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(buffer),sizeof(T)*n, MPI_BYTE, source, tag, *this, &req.get()));
                     return req;
                 }
 
+                /** @brief non-blocking receive
+                  * @tparam Message a container type
+                  * @param source source rank
+                  * @param tag message tag
+                  * @param msg destination container
+                  * @return completion handle */
                 template<typename Message>
                 [[nodiscard]] future<void> recv(rank_type source, tag_type tag, Message& msg) const
                 {
                     return recv(source, tag, msg.data(), msg.size());
                 }
 
+                /** @brief non-blocking receive which allocates the container within this function and returns it
+                  * in the future 
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param source source rank
+                  * @param tag message tag
+                  * @param n number of elements to be received
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return completion handle with message as payload */
                 template<typename Message, typename... Args>
                 [[nodiscard]] future<Message> recv(rank_type source, tag_type tag, int n, Args&& ...args) const
                 {
@@ -136,18 +132,42 @@ namespace gridtools {
 
                 }
 
+                /** @brief non-blocking receive which maches any tag from the given source. If a match is found, it
+                  * allocates the container of type Message within this function and returns it in the future.
+                  * The container size will be set according to the matched receive operation.
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param source source rank
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return optional which may hold a future< std::tuple<rank_type,tag_type,Message> > */
                 template<typename Message, typename... Args>
                 [[nodiscard]] auto recv_any_tag(rank_type source, Args&& ...args) const
                 {
                     return recv_any<Message>(source, MPI_ANY_TAG, std::forward<Args>(args)...);
                 }
 
+                /** @brief non-blocking receive which maches any source using the given tag. If a match is found, it
+                  * allocates the container of type Message within this function and returns it in the future.
+                  * The container size will be set according to the matched receive operation.
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param tag message tag
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return optional which may hold a future< std::tuple<rank_type,tag_type,Message> > */
                 template<typename Message, typename... Args>
                 [[nodiscard]] auto recv_any_source(tag_type tag, Args&& ...args) const
                 {
                     return recv_any<Message>(MPI_ANY_SOURCE, tag, std::forward<Args>(args)...);
                 }
 
+                /** @brief non-blocking receive which maches any source and any tag. If a match is found, it
+                  * allocates the container of type Message within this function and returns it in the future.
+                  * The container size will be set according to the matched receive operation.
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param tag message tag
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return optional which may hold a future< std::tuple<rank_type,tag_type,Message> > */
                 template<typename Message, typename... Args>
                 [[nodiscard]] auto recv_any_source_any_tag(Args&& ...args) const
                 {
@@ -163,12 +183,12 @@ namespace gridtools {
                     MPI_Message mpi_msg;
                     status st;
                     int flag = 0;
-                    GHEX_CHECK_MPI_RESULT(MPI_Improbe(source, tag, m_comm, &flag, &mpi_msg, &st.get()));
+                    GHEX_CHECK_MPI_RESULT(MPI_Improbe(source, tag, *this, &flag, &mpi_msg, &st.get()));
                     if (flag)
                     {
                         int count;
                         GHEX_CHECK_MPI_RESULT(MPI_Get_count(&st.get(), MPI_CHAR, &count));
-                        Message msg(count, std::forward<Args>(args)...);
+                        Message msg(count/sizeof(typename Message::value_type), std::forward<Args>(args)...);
                         request req;
                         GHEX_CHECK_MPI_RESULT(MPI_Imrecv(msg.data(), count, MPI_CHAR, &mpi_msg, &req.get()));
                         using future_t = future<std::tuple<rank_type,tag_type,Message>>;
@@ -184,5 +204,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_MPI_HPP */
+#endif /* INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP */
 
