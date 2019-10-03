@@ -30,7 +30,7 @@ namespace gridtools {
               * 
               * Furthermore, this message does take into account that the allocator may return a fancy pointer instead
               * of a raw pointer (such as boost::offset_ptr for example). Theses fancy pointers will work as intended
-              * as long one overloads the gridtools::ghex::to_address function template with the custom pointer type.
+              * as the gridtools::ghex::to_address function template works for the custom pointer type.
               *
               * A message is a move-only object. It's capacity indicates the size of the allocated storage, while the
               * size indicates the amnount bytes used in the message.
