@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_ARCH_TRAITS_HPP
 #define INCLUDED_GHEX_ARCH_TRAITS_HPP
 
+#include "./allocator/pool_allocator_adaptor.hpp"
 #include "./allocator/aligned_allocator_adaptor.hpp"
 #include "./allocator/cuda_allocator.hpp"
 #include "./transport_layer/message_buffer.hpp"
@@ -28,15 +29,21 @@ namespace gridtools {
             static constexpr const char* name = "CPU";
 
             using device_id_type          = int;
-            using message_allocator_type  = allocator::aligned_allocator_adaptor<std::allocator<unsigned char>,64>;
+            using basic_allocator_type    = std::allocator<unsigned char>;
+            using pool_type               = allocator::pool<basic_allocator_type>;
+            using pool_allocator_type     = typename pool_type::allocator_type;
+            
+            //using message_allocator_type  = allocator::aligned_allocator_adaptor<std::allocator<unsigned char>,64>;
+            using message_allocator_type  = allocator::aligned_allocator_adaptor<pool_allocator_type,64>;
             using message_type            = tl::message_buffer<message_allocator_type>;
 
             static device_id_type default_id() { return 0; }
 
-            static message_type make_message(device_id_type index = default_id()) 
+            static message_type make_message(pool_type& pool, device_id_type index = default_id()) 
             { 
                 static_assert(std::is_same<decltype(index),device_id_type>::value, "trick to prevent warnings");
-                return {};
+                //return {};
+                return { message_allocator_type{pool.get_allocator()} };
             }
         };
 
@@ -47,15 +54,21 @@ namespace gridtools {
             static constexpr const char* name = "GPU";
 
             using device_id_type          = int;
-            using message_allocator_type  = allocator::cuda::allocator<unsigned char>;
+            using basic_allocator_type    = allocator::cuda::allocator<unsigned char>;
+            using pool_type               = allocator::pool<basic_allocator_type>;
+            using pool_allocator_type     = typename pool_type::allocator_type;
+
+            //using message_allocator_type  = allocator::cuda::allocator<unsigned char>;
+            using message_allocator_type  = pool_allocator_type;
             using message_type            = tl::message_buffer<message_allocator_type>;
 
             static device_id_type default_id() { return 0; }
 
-            static message_type make_message(device_id_type index = default_id()) 
+            static message_type make_message(pool_type& pool, device_id_type index = default_id()) 
             { 
                 static_assert(std::is_same<decltype(index),device_id_type>::value, "trick to prevent warnings");
-                return {};
+                //return {};
+                return { message_allocator_type{pool.get_allocator()} };
             }
         };
 #else

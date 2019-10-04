@@ -100,7 +100,7 @@ namespace gridtools {
 
             /** @brief handle type returned by exhange operation */
             using handle_type             = communication_handle<Transport,GridType,DomainIdType>;
-            using transport_type           = Transport;
+            using transport_type          = Transport;
             using grid_type               = GridType;
             using domain_id_type          = DomainIdType;
             using pattern_type            = pattern<Transport,GridType,DomainIdType>;
@@ -165,22 +165,24 @@ namespace gridtools {
             template<typename Arch>
             struct buffer_memory
             {
-                using arch_type    = Arch;
-                using device_id_type = typename arch_traits<Arch>::device_id_type;
-                using vector_type    = typename arch_traits<Arch>::message_type;
+                using arch_type        = Arch;
+                using device_id_type   = typename arch_traits<Arch>::device_id_type;
+                using vector_type      = typename arch_traits<Arch>::message_type;
                 
                 using send_buffer_type = buffer<vector_type,pack_function_type>; 
                 using recv_buffer_type = buffer<vector_type,unpack_function_type>; 
                 using send_memory_type = std::map<device_id_type, std::map<domain_id_pair,send_buffer_type>>;
                 using recv_memory_type = std::map<device_id_type, std::map<domain_id_pair,recv_buffer_type>>;
 
+                std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
                 send_memory_type send_memory;
                 recv_memory_type recv_memory;
 
                 // additional members needed for receive operations used for scheduling calls to unpack
-                using hook_type   = recv_buffer_type*;
-                using future_type = typename communicator_type::template future<hook_type>;
+                using hook_type       = recv_buffer_type*;
+                using future_type     = typename communicator_type::template future<hook_type>;
                 std::vector<future_type> m_recv_futures;
+
             };
             
             /** tuple type of buffer_memory (one element for each device in arch_list) */
@@ -441,18 +443,44 @@ namespace gridtools {
             template<typename Arch, typename T, typename Memory, typename Field, typename O>
             void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id, typename arch_traits<Arch>::device_id_type device_id, O tag_offset)
             {
-                allocate<Arch,T,typename buffer_memory<Arch>::recv_buffer_type>( mem->recv_memory[device_id], pattern.recv_halos(),
-                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) { field_ptr->unpack(reinterpret_cast<const T*>(buffer),c,arg); },
-                    dom_id, device_id, tag_offset, true, field_ptr);
-                allocate<Arch,T,typename buffer_memory<Arch>::send_buffer_type>( mem->send_memory[device_id], pattern.send_halos(),
-                    [field_ptr](void* buffer, const index_container_type& c, void* arg) { field_ptr->pack(reinterpret_cast<T*>(buffer),c,arg); },
-                    dom_id, device_id, tag_offset, false, field_ptr);
+                auto& pool = mem->m_pools[device_id];
+                if (!pool)
+                {
+                    pool.reset( new typename arch_traits<Arch>::pool_type{ typename arch_traits<Arch>::basic_allocator_type{} } );
+                }
+                allocate<Arch,T,typename buffer_memory<Arch>::recv_buffer_type>( 
+                    mem->recv_memory[device_id], 
+                    pattern.recv_halos(),
+                    [field_ptr](const void* buffer, const index_container_type& c, void* arg) 
+                    {
+                        field_ptr->unpack(reinterpret_cast<const T*>(buffer),c,arg); 
+                    },
+                    dom_id, 
+                    device_id, 
+                    tag_offset, 
+                    true, 
+                    *pool,
+                    field_ptr);
+                allocate<Arch,T,typename buffer_memory<Arch>::send_buffer_type>(
+                    mem->send_memory[device_id], 
+                    pattern.send_halos(),
+                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
+                    {
+                        field_ptr->pack(reinterpret_cast<T*>(buffer),c,arg);
+                    },
+                    dom_id, 
+                    device_id, 
+                    tag_offset, 
+                    false, 
+                    *pool, 
+                    field_ptr);
             }
 
             // compute memory requirements to be allocated on the device
-            template<typename Arch, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType, typename Field = void>
+            template<typename Arch, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType, 
+                typename Pool, typename Field = void>
             void allocate(Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id, DeviceIdType device_id, 
-                          int tag_offset, bool receive, Field* field_ptr = nullptr)
+                          int tag_offset, bool receive, Pool& pool, Field* field_ptr = nullptr)
             {
                 for (const auto& p_id_c : halos)
                 {
@@ -480,7 +508,7 @@ namespace gridtools {
                             BufferType{
                                 remote_address,
                                 p_id_c.first.tag+tag_offset,
-                                arch_traits<Arch>::make_message(device_id),
+                                arch_traits<Arch>::make_message(pool, device_id),
                                 0,
                                 std::vector<typename BufferType::field_info_type>(),
                                 cuda::stream()
