@@ -38,7 +38,7 @@ namespace gridtools {
                     [[nodiscard]] T* allocate(size_type n, const void* cvptr = nullptr)
                     {
                         T* ptr = nullptr;
-                        GHEX_CHECK_CUDA_RESULT(cudaMalloc((void**)ptr, n*sizeof(T)));
+                        GHEX_CHECK_CUDA_RESULT(cudaMalloc((void**)&ptr, n*sizeof(T)));
                         return ptr;
                     }
 
