@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_SIMPLE_FIELD_WRAPPER_HPP
-#define INCLUDED_SIMPLE_FIELD_WRAPPER_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP
+#define INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP
 
 #include "./field_utils.hpp"
 #include "./domain_descriptor.hpp"
@@ -351,5 +351,5 @@ namespace structured {
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_SIMPLE_FIELD_WRAPPER_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP */
 

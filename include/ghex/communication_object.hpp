@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef INCLUDED_COMMUNICATION_OBJECT_HPP
-#define INCLUDED_COMMUNICATION_OBJECT_HPP
+#ifndef INCLUDED_GHEX_COMMUNICATION_OBJECT_HPP
+#define INCLUDED_GHEX_COMMUNICATION_OBJECT_HPP
 
 #include <vector>
 #include <map>
@@ -308,5 +308,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_COMMUNICATION_OBJECT_HPP */
+#endif /* INCLUDED_GHEX_COMMUNICATION_OBJECT_HPP */
 

@@ -7,8 +7,8 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef INCLUDED_UTILS_HPP
-#define INCLUDED_UTILS_HPP
+#ifndef INCLUDED_GHEX_COMMON_UTILS_HPP
+#define INCLUDED_GHEX_COMMON_UTILS_HPP
 
 #include <utility>
 #include <tuple>
@@ -289,5 +289,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_UTILS_HPP */
+#endif /* INCLUDED_GHEX_COMMON_UTILS_HPP */
 

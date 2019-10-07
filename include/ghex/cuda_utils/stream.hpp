@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_CUDA_STREAM_HPP
-#define INCLUDED_CUDA_STREAM_HPP
+#ifndef INCLUDED_GHEX_CUDA_STREAM_HPP
+#define INCLUDED_GHEX_CUDA_STREAM_HPP
 
 #include "../common/c_managed_struct.hpp"
 #include "./error.hpp"
@@ -73,5 +73,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_CUDA_STREAM_HPP */
+#endif /* INCLUDED_GHEX_CUDA_STREAM_HPP */
 

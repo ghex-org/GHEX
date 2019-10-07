@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_ACCUMULATOR_HPP
-#define INCLUDED_GHEX_ACCUMULATOR_HPP
+#ifndef INCLUDED_GHEX_COMMON_ACCUMULATOR_HPP
+#define INCLUDED_GHEX_COMMON_ACCUMULATOR_HPP
 
 #include <limits>
 #include <algorithm>
@@ -167,5 +167,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_ACCUMULATOR_HPP */
+#endif /* INCLUDED_GHEX_COMMON_ACCUMULATOR_HPP */
 

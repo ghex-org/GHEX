@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_FIELD_UTILS_HPP
-#define INCLUDED_FIELD_UTILS_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_FIELD_UTILS_HPP
+#define INCLUDED_GHEX_STRUCTURED_FIELD_UTILS_HPP
 
 #include <gridtools/common/host_device.hpp>
 #include <cstddef> 
@@ -121,5 +121,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_FIELD_UTILS_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_FIELD_UTILS_HPP */
 

@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GT_GLUE_FIELD_HPP
-#define INCLUDED_GT_GLUE_FIELD_HPP
+#ifndef INCLUDED_GHEX_GLUE_GRIDTOOLS_FIELD_HPP
+#define INCLUDED_GHEX_GLUE_GRIDTOOLS_FIELD_HPP
 
 #include "../../structured/simple_field_wrapper.hpp"
 #include "../../arch_traits.hpp"
@@ -115,5 +115,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_GT_GLUE_FIELD_HPP */
+#endif /* INCLUDED_GHEX_GLUE_GRIDTOOLS_FIELD_HPP */
 

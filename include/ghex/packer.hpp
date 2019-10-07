@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_PACKER_HPP
-#define INCLUDED_PACKER_HPP
+#ifndef INCLUDED_GHEX_PACKER_HPP
+#define INCLUDED_GHEX_PACKER_HPP
 
 #include "./common/await_futures.hpp"
 #include "./arch_list.hpp"
@@ -411,5 +411,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_PACKER_HPP */
+#endif /* INCLUDED_GHEX_PACKER_HPP */
 

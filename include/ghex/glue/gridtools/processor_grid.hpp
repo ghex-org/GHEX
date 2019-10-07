@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_PROCESSOR_GRID_HPP
-#define INCLUDED_PROCESSOR_GRID_HPP
+#ifndef INCLUDED_GLUE_GRIDTOOLS_PROCESSOR_GRID_HPP
+#define INCLUDED_GLUE_GRIDTOOLS_PROCESSOR_GRID_HPP
 
 #include <mpi.h>
 #include <array>
@@ -151,5 +151,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_PROCESSOR_GRID_HPP */
+#endif /* INCLUDED_GLUE_GRIDTOOLS_PROCESSOR_GRID_HPP */
 

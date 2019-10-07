@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_STRUCTURED_GRID_HPP
-#define INCLUDED_STRUCTURED_GRID_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_GRID_HPP
+#define INCLUDED_GHEX_STRUCTURED_GRID_HPP
 
 #include "../common/coordinate.hpp"
 
@@ -41,5 +41,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_STRUCTURED_GRID_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_GRID_HPP */
 

@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_MPI_ALLOCATOR_HPP
-#define INCLUDED_MPI_ALLOCATOR_HPP
+#ifndef INCLUDED_GHEX_ALLOCATOR_MPI_ALLOCATOR_HPP
+#define INCLUDED_GHEX_ALLOCATOR_MPI_ALLOCATOR_HPP
 
 #include <mpi.h>
 
@@ -65,5 +65,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_MPI_ALLOCATOR_HPP */
+#endif /* INCLUDED_GHEX_ALLOCATOR_MPI_ALLOCATOR_HPP */
 

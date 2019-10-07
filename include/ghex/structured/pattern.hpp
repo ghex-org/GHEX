@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_STRUCTURED_PATTERN_HPP
-#define INCLUDED_STRUCTURED_PATTERN_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
+#define INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
 
 #include "./grid.hpp"
 #include "../transport_layer/communicator.hpp"
@@ -579,5 +579,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_STRUCTURED_PATTERN_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_PATTERN_HPP */
 

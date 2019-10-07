@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GT_GLUE_HPP
-#define INCLUDED_GT_GLUE_HPP
+#ifndef INCLUDED_GHEX_GLUE_GRIDTOOLS_GT_GLUE_HPP
+#define INCLUDED_GHEX_GLUE_GRIDTOOLS_GT_GLUE_HPP
 
 
 #include "./processor_grid.hpp"
@@ -17,5 +17,5 @@
 #include "./field.hpp"
 
 
-#endif /* INCLUDED_GT_GLUE_HPP */
+#endif /* INCLUDED_GHEX_GLUE_GRIDTOOLS_GT_GLUE_HPP */
 

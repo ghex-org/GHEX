@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_BUFFER_INFO_HPP
-#define INCLUDED_BUFFER_INFO_HPP
+#ifndef INCLUDED_GHEX_BUFFER_INFO_HPP
+#define INCLUDED_GHEX_BUFFER_INFO_HPP
 
 #include <vector>
 #include "./arch_traits.hpp"
@@ -73,5 +73,5 @@ namespace gridtools {
 } // namespace gridtools
 
 
-#endif /* INCLUDED_BUFFER_INFO_HPP */
+#endif /* INCLUDED_GHEX_BUFFER_INFO_HPP */
 

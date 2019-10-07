@@ -32,5 +32,5 @@ namespace gridtools {
     } // namespace ghex
 } // namespace gridtools
 
-#endif/*INCLUDED_GHEX_TL_MESSAGE_BUFFER_HPP */
+#endif /* INCLUDED_GHEX_TL_MESSAGE_BUFFER_HPP */
 
