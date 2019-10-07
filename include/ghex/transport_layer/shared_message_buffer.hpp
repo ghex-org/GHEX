@@ -44,13 +44,33 @@ namespace gridtools {
 
             public: // ctors
 
-                template<typename Alloc = Allocator>
+                template<
+                    typename Alloc = Allocator, 
+                    typename std::enable_if<    std::is_default_constructible<Alloc>::value 
+                                            && !std::is_convertible<Alloc,std::size_t>::value, int>::type = 0>
                 shared_message_buffer(Alloc alloc = Alloc{})
                 : m_message{std::make_shared<message_type>(alloc)}
                 {}
+
+                template<
+                    typename Alloc, 
+                    typename std::enable_if<   !std::is_default_constructible<Alloc>::value 
+                                            && !std::is_convertible<Alloc,std::size_t>::value, int>::type = 0>
+                shared_message_buffer(Alloc alloc)
+                : m_message{std::make_shared<message_type>(alloc)}
+                {}
     
-                template<typename Alloc = Allocator>
+                template<
+                    typename Alloc = Allocator, 
+                    typename std::enable_if< std::is_default_constructible<Alloc>::value, int>::type = 0>
                 shared_message_buffer(size_t size_, Alloc alloc = Alloc{})
+                : m_message{std::make_shared<message_type>(size_,alloc)}
+                {}
+
+                template<
+                    typename Alloc, 
+                    typename std::enable_if<!std::is_default_constructible<Alloc>::value, int>::type = 0>
+                shared_message_buffer(size_t size_, Alloc alloc)
                 : m_message{std::make_shared<message_type>(size_,alloc)}
                 {}
 

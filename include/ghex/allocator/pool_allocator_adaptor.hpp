@@ -109,8 +109,15 @@ namespace gridtools {
 
             public: // ctors
 
+                template<typename Alloc = Allocator, typename std::enable_if<std::is_default_constructible<Alloc>::value, int>::type=0>
                 pool_allocator_adaptor(pool_impl<byte_base>* p)
                 : base()
+                , m_pool{ p }
+                {
+                    static_assert(std::is_same<Alloc, Allocator>::value, "this is not a function template");
+                }
+                pool_allocator_adaptor(pool_impl<byte_base>* p, Allocator alloc)
+                : base(alloc)
                 , m_pool{ p }
                 {}
 

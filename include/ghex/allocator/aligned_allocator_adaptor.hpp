@@ -61,7 +61,11 @@ namespace gridtools {
 
             public: // ctors
 
-                aligned_allocator_adaptor() : base_byte() {};
+                template<typename Alloc = Allocator, typename std::enable_if<std::is_default_constructible<Alloc>::value, int>::type=0>
+                aligned_allocator_adaptor() : base_byte()
+                {
+                    static_assert(std::is_same<Alloc, Allocator>::value, "this is not a function template");
+                }
                 aligned_allocator_adaptor(const Allocator& alloc) : base_byte{alloc} {}
                 aligned_allocator_adaptor(const aligned_allocator_adaptor&) = default;
                 aligned_allocator_adaptor(Allocator&& alloc) : base_byte{std::move(alloc)} {}

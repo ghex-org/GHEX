@@ -45,7 +45,7 @@ namespace gridtools {
                     void deallocate(T* ptr, size_type n)
                     {
                         // not freeing because of CRAY-BUG
-                        //GHEX_CHECK_CUDA_RESULT(cudaFree(ptr));
+                        GHEX_CHECK_CUDA_RESULT(cudaFree(ptr));
                     }
 
                     void swap(const allocator&) {}

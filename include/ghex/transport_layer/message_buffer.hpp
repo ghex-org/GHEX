@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_TL_MESSAGE_BUFFER_HPP
 
 #include <cassert>
+#include <type_traits>
 #include "../allocator/allocation.hpp"
 #include "../common/to_address.hpp"
 
@@ -58,15 +59,37 @@ namespace gridtools {
                 std::size_t m_size = 0u;
 
             public: // ctors
-    
+
                 /** @brief construct an empty message */
-                message_buffer(Allocator alloc = Allocator{})
+                template<
+                    typename Alloc = Allocator, 
+                    typename std::enable_if<    std::is_default_constructible<Alloc>::value 
+                                            && !std::is_convertible<Alloc,std::size_t>::value, int>::type = 0>
+                message_buffer(Alloc alloc = Alloc{})
                 : m_allocation( alloc )
-                { }
+                {}
+
+                template<
+                    typename Alloc, 
+                    typename std::enable_if<   !std::is_default_constructible<Alloc>::value 
+                                            && !std::is_convertible<Alloc,std::size_t>::value, int>::type = 0>
+                message_buffer(Alloc alloc)
+                : m_allocation( alloc )
+                {}
     
                 /** @brief construct a message with given size */
-                template<typename Alloc = Allocator>
+                template<
+                    typename Alloc = Allocator, 
+                    typename std::enable_if< std::is_default_constructible<Alloc>::value, int>::type = 0>
                 message_buffer(size_t size_, Alloc alloc = Alloc{})
+                : m_allocation( alloc, size_ )
+                , m_size{size_}
+                {}
+
+                template<
+                    typename Alloc, 
+                    typename std::enable_if<!std::is_default_constructible<Alloc>::value, int>::type = 0>
+                message_buffer(size_t size_, Alloc alloc)
                 : m_allocation( alloc, size_ )
                 , m_size{size_}
                 {}
