@@ -80,12 +80,11 @@ struct message
      */
     message(message const& other)
         : m_alloc{other.m_alloc}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
-    {fprintf(stderr, "message const& other\n");}
+    {}
 
     message(message &&other)
         : m_alloc{std::move(other.m_alloc)}, m_capacity{other.m_capacity}, m_payload{other.m_payload}, m_size(other.m_size)
     {
-	fprintf(stderr, "message && other\n");
         other.m_capacity = 0;
         other.m_payload = nullptr;
         other.m_size = 0;
@@ -93,7 +92,6 @@ struct message
 
     ~message()
     {
-	//fprintf(stderr, "oooops!!! %d free %x\n", grank, m_payload);
 	if (m_payload)
 	    std::allocator_traits<Allocator>::deallocate(m_alloc, m_payload, m_capacity);
 	m_payload = nullptr;
@@ -204,6 +202,8 @@ struct shared_message
 
     static constexpr bool can_be_shared = true;
 
+    shared_message() = default;
+
     /** Constructor that take capacity and allocator. Size is kept to 0
          *
          * @param capacity Capacity
@@ -211,8 +211,7 @@ struct shared_message
          */
     shared_message(size_t capacity, Allocator allc = Allocator{})
         : m_s_message{std::make_shared<message<Allocator>>(capacity, allc)}
-    {
-    }
+    {}
 
     /** Constructor that take capacity size and allocator.
          * The size elements are un-initialzed. Requires size>=capacity.
@@ -223,12 +222,19 @@ struct shared_message
          */
     shared_message(size_t capacity, size_t size, Allocator allc = Allocator{})
         : m_s_message{std::make_shared<message<Allocator>>(capacity, size, allc)}
-    {
-    }
+    {}
 
     /* Showing these to highlight the semantics */
     shared_message(shared_message const &) = default;
     shared_message(shared_message &&) = default;
+
+    void operator=(shared_message const &other){
+	m_s_message = other.m_s_message;
+    }
+
+    void release(){
+	m_s_message.reset();
+    }
 
     /** This is the main function used by the communicator to access the
          * message to send or receive data. This is done so that a std::vector
@@ -301,6 +307,104 @@ struct shared_message
     unsigned char *begin() { return m_s_message->begin(); }
     unsigned char *end() const { return m_s_message->end(); }
 };
+
+
+template <typename Allocator>
+struct refcount_message {
+    message<Allocator> msg;
+    int refcount;
+    
+    refcount_message(size_t capacity, Allocator allc):
+	msg(std::move(message<Allocator>(capacity, allc))), refcount{1}
+    {}
+    
+    refcount_message(size_t capacity, size_t size, Allocator allc):
+	msg(std::move(message<Allocator>(capacity, size, allc))), refcount{1}
+    {}
+
+    // ~refcount_message(){
+    // 	fprintf(stderr, "refcount_message deleted\n");
+    // }
+};
+
+template <typename Allocator = std::allocator<unsigned char>>
+struct raw_shared_message
+{
+    refcount_message<Allocator> *m_sptr;
+
+    static constexpr bool can_be_shared = true;
+
+    raw_shared_message() = default;
+
+    raw_shared_message(size_t capacity, Allocator allc = Allocator{})
+    {
+	m_sptr = new refcount_message<Allocator>(capacity, allc);
+    }
+
+    raw_shared_message(size_t capacity, size_t size, Allocator allc = Allocator{})
+    {
+	m_sptr = new refcount_message<Allocator>(capacity, size, allc);
+    }
+
+    raw_shared_message(raw_shared_message &&other){
+    	m_sptr = other.m_sptr;
+    	other.m_sptr = NULL;	
+    }
+
+    void operator=(raw_shared_message const &other){
+	m_sptr = other.m_sptr;
+	m_sptr->refcount++;
+    }
+
+    ~raw_shared_message(){
+	if(m_sptr){
+	    m_sptr->refcount--;
+	    if(m_sptr->refcount==0) delete m_sptr;
+	}
+    }
+
+    void release(){
+	m_sptr->refcount--;
+	if(m_sptr->refcount==0) delete m_sptr;
+    }
+
+    unsigned char *data() const
+    {
+        return m_sptr->msg.data();
+    }
+
+    bool is_shared() { return m_sptr->refcount > 1; }
+
+    long use_count() const { return m_sptr->refcount; }
+
+    bool is_valid() const { return m_sptr != nullptr; }
+
+    size_t size() const
+    {
+        return m_sptr->msg.size();
+    }
+
+    void resize(size_t s)
+    {
+	m_sptr->msg.resize(s);
+    }
+
+    void reserve(size_t new_capacity)
+    {
+        m_sptr->msg.reserve(new_capacity);
+    }
+
+    void empty()
+    {
+        m_sptr->msg.empty();
+    }
+
+    size_t capacity() const { return m_sptr->msg.capacity(); }
+
+    unsigned char *begin() { return m_sptr->msg.begin(); }
+    unsigned char *end() const { return m_sptr->msg.end(); }
+};
+
 } // namespace mpi
 } // namespace ghex
 } // namespace gridtools

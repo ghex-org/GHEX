@@ -28,11 +28,16 @@ int pmi_set_string(const char *key, void *data, size_t size)
         ERR("Client ns %s rank %d: PMIx_Put failed: %d\n", myproc.nspace, myproc.rank, rc);
     }
 
+    if (PMIX_SUCCESS != (rc = PMIx_Commit())) {
+        ERR("Client ns %s rank %d: PMIx_Commit failed: %d\n", myproc.nspace, myproc.rank, rc);
+    }
+
     /* protect the data */
     value.data.bo.bytes = NULL;
     value.data.bo.size  = 0;
     PMIX_VALUE_DESTRUCT(&value);
     printf("PMIx_Put on %s\n", key);
+
 
     return 0;
 }
@@ -68,7 +73,7 @@ int pmi_get_string(uint32_t peer_rank, const char *key, void **data_out, size_t 
 
 int main(int argc, char *argv[])
 {
-    char data[256];
+    char data[256] = {};
     char *data_out;
     size_t size_out;
     int rc;
@@ -83,24 +88,19 @@ int main(int argc, char *argv[])
     }
     if(myproc.rank == 0) printf("PMIx initialized\n");
 
-    sprintf(data, "this is data for rank %d", myproc.rank);
-    pmi_set_string("ghex-rank-address", data, 256);
-    sprintf(data, "blah blah rank %d", myproc.rank);
-    pmi_set_string("ghex-test", data, 256);
-
-    /* if (PMIX_SUCCESS != (rc = PMIx_Commit())) { */
-    /*     ERR("Client ns %s rank %d: PMIx_Commit failed: %d\n", myproc.nspace, myproc.rank, rc); */
-    /* } */
-    /* printf("PMIx_Commit\n"); */
+    sprintf(data, "rank %d", myproc.rank);
+    pmi_set_string("test-key", data, 256);
+    pmi_set_string("test-key2", data, 256);
 
     // if MPI_Init is executed after PMIx_set, PMIx_Get works fine
     MPI_Init(&argc, &argv);
 
-    pmi_get_string((myproc.rank+1)%2, "ghex-rank-address", (void**)&data_out, &size_out);
-    printf("%d received \"%s\"\n", myproc.rank, data_out);
+    
+    pmi_get_string((myproc.rank+1)%2, "test-key", (void**)&data_out, &size_out);
+    printf("%d: obtained data \"%s\"\n", myproc.rank, data_out);
 
-    pmi_get_string((myproc.rank+1)%2, "ghex-test", (void**)&data_out, &size_out);
-    printf("%d received \"%s\"\n", myproc.rank, data_out);
+    pmi_get_string((myproc.rank+1)%2, "test-key2", (void**)&data_out, &size_out);
+    printf("%d: obtained data \"%s\"\n", myproc.rank, data_out);
 
     if (PMIX_SUCCESS != (rc = PMIx_Finalize(NULL, 0))) {
         ERR("Client ns %s rank %d:PMIx_Finalize failed: %d\n", myproc.nspace, myproc.rank, rc);

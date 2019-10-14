@@ -5,8 +5,6 @@
 /* TODO: temporary. UCX communicator creates a new msg object */
 /* and stores it with the comm request to pass it to the callback. */
 /* This introduces overhead, and is turned off by default */
-#define GHEX_CB_NEED_MESSAGE
-
 #ifdef USE_MPI
 #include "communicator_mpi.hpp"
 using CommType = gridtools::ghex::mpi::communicator;
@@ -23,7 +21,7 @@ CommType comm;
 
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::shared_message<>;
+using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* available comm slots */
 int *available = NULL;
@@ -93,6 +91,8 @@ int main(int argc, char *argv[])
 	    
 		/* progress a bit: for large inflight values this yields better performance */
 		/* over simply calling the progress once */
+		/* TODO: optimization target: funny that the below loop is faster for 1k inflight */
+		// for(int i=0; i<100; i++) comm.progress();
 		int p = 0.1*inflight-1;
 		do {
 		    p-=comm.progress();
