@@ -13,17 +13,16 @@
 #include <array>
 #include <utility>
 #include <thread>
-#include <boost/mpi/communicator.hpp>
+#include <cstring>
 #include <gridtools/common/layout_map.hpp>
-#include "../include/gridtools_arch.hpp"
-#include "../include/communication_object.hpp"
-#include "../include/protocol/communicator_base.hpp"
-#include "../include/protocol/mpi.hpp"
-#include "../include/pattern.hpp"
-#include "../include/structured_pattern.hpp"
-#include "../include/structured_domain_descriptor.hpp"
+#include <ghex/arch_list.hpp>
+#include <ghex/communication_object.hpp>
+#include <ghex/pattern.hpp>
+#include <ghex/structured/pattern.hpp>
+#include <ghex/structured/domain_descriptor.hpp>
+#include <ghex/transport_layer/communicator.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include "../utils/triplet.hpp"
-#include "../include/utils.hpp"
 
 
 /* CPU data descriptor */
@@ -68,7 +67,7 @@ public:
      * @param buffer buffer with the data to be set back*/
     template <typename IterationSpace>
     void set(const IterationSpace& is, const Byte* buffer) {
-        gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
+        gridtools::ghex::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
             set(*(reinterpret_cast<const T*>(buffer)), coords);
             buffer += sizeof(T);
@@ -81,7 +80,7 @@ public:
      * @param buffer buffer to be filled*/
     template <typename IterationSpace>
     void get(const IterationSpace& is, Byte* buffer) const {
-        gridtools::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
+        gridtools::ghex::detail::for_loop<3, 3, layout_map_t>::apply([this, &buffer](auto... indices){
             coordinate_t coords{indices...};
             const T* tmp_ptr{&get(coords)};
             std::memcpy(buffer, tmp_ptr, sizeof(T));
@@ -94,13 +93,12 @@ public:
 
 TEST(communication_object, constructor) {
 
-    using domain_descriptor_t = gridtools::structured_domain_descriptor<int,3>;
-    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int,3>;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured::halo_generator<domain_id_t, 3>;
 
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -131,9 +129,9 @@ TEST(communication_object, constructor) {
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -147,14 +145,13 @@ TEST(communication_object, constructor) {
 
 TEST(communication_object, exchange) {
 
-    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
-    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -186,9 +183,9 @@ TEST(communication_object, exchange) {
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -253,14 +250,13 @@ TEST(communication_object, exchange) {
 
 TEST(communication_object, exchange_asymmetric_halos) {
 
-    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
-    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -292,9 +288,9 @@ TEST(communication_object, exchange_asymmetric_halos) {
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -359,14 +355,13 @@ TEST(communication_object, exchange_asymmetric_halos) {
 
 TEST(communication_object, exchange_multiple_fields) {
 
-    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
-    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -399,9 +394,9 @@ TEST(communication_object, exchange_multiple_fields) {
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -496,14 +491,13 @@ TEST(communication_object, exchange_multiple_fields) {
 
 TEST(communication_object, multithreading) {
 
-    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
-    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -542,9 +536,9 @@ TEST(communication_object, multithreading) {
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
@@ -653,14 +647,13 @@ TEST(communication_object, multithreading) {
 
 TEST(communication_object, multithreading_multiple_fileds) {
 
-    using domain_descriptor_t = gridtools::structured_domain_descriptor<int, 3>;
-    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -699,9 +692,9 @@ TEST(communication_object, multithreading_multiple_fileds) {
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
 
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {

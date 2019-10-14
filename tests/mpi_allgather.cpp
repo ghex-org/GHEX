@@ -8,15 +8,14 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 
-#include "../include/protocol/setup.hpp"
-#include <boost/mpi/communicator.hpp>
+#include <ghex/transport_layer/mpi/setup.hpp>
 #include <gtest/gtest.h>
 
 TEST(all_gather, all_gather_fixed)
 {
     using T = double;
-    boost::mpi::communicator mpi_comm;
-    gridtools::protocol::setup_communicator comm{mpi_comm};
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+    gridtools::ghex::tl::mpi::setup_communicator comm{mpi_comm};
 
     std::vector<T> values;
     {
@@ -37,8 +36,8 @@ TEST(all_gather, all_gather_fixed)
 TEST(all_gather, all_gather_vector)
 {
     using T = double;
-    boost::mpi::communicator mpi_comm;
-    gridtools::protocol::setup_communicator comm{mpi_comm};
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+    gridtools::ghex::tl::mpi::setup_communicator comm{mpi_comm};
 
     int my_num_values = (comm.address()+1)*2;
     std::vector<T> my_values(my_num_values);
