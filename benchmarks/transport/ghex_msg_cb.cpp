@@ -90,9 +90,9 @@ int main(int argc, char *argv[])
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 
     {
-	std::vector<MsgType> msgs;
 	gridtools::ghex::timer timer;
 	long bytes = 0;
+	std::vector<MsgType> msgs;
 	
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
