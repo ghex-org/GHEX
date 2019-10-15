@@ -12,7 +12,7 @@ all: test
 clean:
 	rm *.o test
 
-pmi.o: pmi.c pmi.h
+pmi.o: pmi.c
 	$(CC) $(FLAGS) -I$(PMIX_DIR)/include pmi.c -c
 
 test: ghex_msg_cb.cpp pmi.o
