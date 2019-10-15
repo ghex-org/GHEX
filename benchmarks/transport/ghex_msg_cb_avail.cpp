@@ -25,10 +25,8 @@ using namespace gridtools::ghex::ucx;
 
 #ifdef USE_CALLBACK_COMM
 #include "callback_communicator.hpp"
-CommType comm;
 gridtools::ghex::callback_communicator<CommType> comm_cb(comm);
 #else
-CommType comm;
 #define comm_cb comm
 #endif
 

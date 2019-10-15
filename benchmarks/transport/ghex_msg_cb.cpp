@@ -2,10 +2,11 @@
 #include <vector>
 #include "tictoc.h"
 
+#include <ghex/transport_layer/callback_communicator.hpp>
+
 #ifdef USE_MPI
-#include "communicator_mpi.hpp"
-using CommType = gridtools::ghex::mpi::communicator;
-using namespace gridtools::ghex::mpi;
+#include <ghex/transport_layer/mpi/communicator.hpp>
+using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 #define USE_CALLBACK_COMM
 #else
 #ifdef USE_UCX_NBR
@@ -20,20 +21,10 @@ using namespace gridtools::ghex::mpi;
 #undef  USE_CALLBACK_COMM
 #endif
 using CommType = gridtools::ghex::ucx::communicator;
-using namespace gridtools::ghex::ucx;
-#endif
-
-#ifdef USE_CALLBACK_COMM
-#include "callback_communicator.hpp"
-CommType comm;
-gridtools::ghex::callback_communicator<CommType> comm_cb(comm);
-#else
-CommType comm;
-#define comm_cb comm
 #endif
 
 #include "message.hpp"
-using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
+using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 /* comm requests currently in-flight */
 int ongoing_comm = 0;
@@ -56,6 +47,31 @@ int main(int argc, char *argv[])
     int niter, buff_size;
     int inflight;
 
+#ifdef USE_MPI
+    int mode;
+#ifdef THREAD_MODE_MULTIPLE
+    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+    if(mode != MPI_THREAD_MULTIPLE){
+	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
+	std::terminate();
+    }
+#else
+    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+#endif
+#endif
+
+    /* TODO this needs to be made per-thread. 
+       If we make 'static' variables, then we can't initialize m_rank and anything else
+       that used MPI in the constructor, as it will be executed before MPI_Init.
+    */
+    CommType comm;
+
+#ifdef USE_CALLBACK_COMM
+    gridtools::ghex::tl::callback_communicator<CommType> comm_cb(comm);
+#else
+#define comm_cb comm
+#endif
+    
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
@@ -64,13 +80,13 @@ int main(int argc, char *argv[])
     size = comm.m_size;
     peer_rank = (rank+1)%2;
 
-    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << comm.name << "\n\n";
+    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 
     {
 	std::vector<MsgType> msgs;
 
 	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size, buff_size);
+	    msgs.emplace_back(buff_size);
 	}
 	
 	if(rank == 1) {
@@ -88,9 +104,9 @@ int main(int argc, char *argv[])
 		i++;
 		ongoing_comm++;
 		if(rank==0)
-		    comm_cb.send(msgs[j], 1, j, send_callback);
+		    comm_cb.send(1, j, msgs[j], send_callback);
 		else
-		    comm_cb.recv(msgs[j], 0, j, recv_callback);
+		    comm_cb.recv(0, j, msgs[j], recv_callback);
 		if(i==niter) break;
 	    }
 		
@@ -101,6 +117,10 @@ int main(int argc, char *argv[])
 	}
 
 	if(rank == 1) toc();
-	comm.fence();
+	// comm.fence();
     }
+
+#ifdef USE_MPI
+    MPI_Finalize();
+#endif
 }

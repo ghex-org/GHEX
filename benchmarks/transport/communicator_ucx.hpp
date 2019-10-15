@@ -204,7 +204,7 @@ private:
     */
     std::map<rank_type, ucp_ep_h> connections;
 
-    int early_completion;
+    int early_completion = 0;
     int early_rank;
     int early_tag;
     void *early_cb;
@@ -212,13 +212,13 @@ private:
 
     /* request pool for nbr communications (futures) */
 #define REQUEST_POOL_SIZE 10000
-    char *ucp_requests;
+    char *ucp_requests = NULL;
     int ucp_request_pos = 0;
 
 public:
 
     void whoami(){
-	printf("I am %d/%d:%d/%d, worker %x\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
+	printf("I am %d/%d:%d/%d, worker %p\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
     }
 
     /*
@@ -228,7 +228,7 @@ public:
 	m_thrid = GET_THREAD_NUM();
 	m_nthr = GET_NUM_THREADS();
 	pcomm = this;
-	printf("create communicator %d:%d/%d pointer %x\n", m_rank, m_thrid, m_nthr, pcomm);
+	printf("create communicator %d:%d/%d pointer %p\n", m_rank, m_thrid, m_nthr, pcomm);
     }
 
     ~communicator()
@@ -440,7 +440,7 @@ public:
          * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
          */
     template <typename MsgType>
-    [[nodiscard]] future_type send(MsgType const &msg, rank_type dst, tag_type tag)
+    [[nodiscard]] future_type send(rank_type dst, tag_type tag, MsgType const &msg)
     {
 	ucs_status_t status;
 	char *request;
@@ -495,7 +495,7 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    void send(MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
+    void send(rank_type dst, tag_type tag, MsgType &msg, CallBack &&cb)
     {
 	ucs_status_ptr_t status;
 	uintptr_t istatus;
@@ -542,7 +542,7 @@ public:
          * @return A future that will be ready when the message can be read
          */
     template <typename MsgType>
-    [[nodiscard]] future_type recv(MsgType &msg, rank_type src, tag_type tag) {
+    [[nodiscard]] future_type recv(rank_type src, tag_type tag, MsgType &msg) {
 	ucs_status_t status;
 	char *request;
 	request_type *ghex_request;
@@ -595,7 +595,7 @@ public:
          * @return A value of type `request_type` that can be used to cancel the request if needed.
          */
     template <typename MsgType, typename CallBack>
-    void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
+    void recv(rank_type src, tag_type tag, MsgType &msg, CallBack &&cb)
     {
 	ucs_status_ptr_t status;
 	_impl::ghex_ucx_request_cb<MsgType> *ghex_request;
@@ -614,7 +614,7 @@ public:
 		/* we do not modify anything in the early callback, and the values */
 		/* set here are never used anywhere else. Unless user re-uses the message */
 		/* in his callback after re-submitting a send... Should be told not to. */
-		ERR("cannot handle recv submitted inside early completion");
+		std::cerr << "recv submitted inside early completion\n";
 	    }
 
 	    early_rank = src;
