@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_COMMON_TIMER_HPP
 #define INCLUDED_GHEX_COMMON_TIMER_HPP
@@ -50,6 +50,21 @@ namespace gridtools {
             inline void toc() noexcept
             {
                 this->operator()( std::chrono::duration_cast<std::chrono::microseconds>(clock_type::now() - m_time_point).count() );
+            }
+
+            /** @brief stop timings, verbose: print measured time */
+            inline void vtoc() noexcept
+            {
+		double t = std::chrono::duration_cast<std::chrono::microseconds>(clock_type::now() - m_time_point).count();
+		std::cout << "time:      " << t/1000000 << "s\n";
+            }
+
+            /** @brief stop timings, verbose: print measured time and bandwidth */
+            inline void vtoc(long bytes) noexcept
+            {
+		double t = std::chrono::duration_cast<std::chrono::microseconds>(clock_type::now() - m_time_point).count();
+		std::cout << "time:      " << t/1000000 << "s\n";
+		std::cout << "MB/s:      " << bytes/t << "\n";
             }
 
             /** @brief stop and start another timing period */
