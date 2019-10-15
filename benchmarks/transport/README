@@ -2,5 +2,3 @@
    managed inside communicator_ucx.hpp. Currently this is a circular buffer with pointer
    at the first known `free` request. The buffer is static, and searched linearly. If there
    are no more free requests, it fails.
-
-2. 
