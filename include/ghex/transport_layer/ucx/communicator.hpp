@@ -368,7 +368,7 @@ namespace gridtools
 		 * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
 		 */
 		template <typename MsgType>
-		[[nodiscard]] future<void> send(rank_type dst, tag_type tag, MsgType const &msg)
+		[[nodiscard]] future<void> send(rank_type dst, tag_type tag, const MsgType &msg)
 		{
 		    ucp_ep_h ep;
 		    ucs_status_t status;
@@ -423,7 +423,7 @@ namespace gridtools
 		 * @return A value of type `request_type` that can be used to cancel the request if needed.
 		 */
 		template <typename MsgType, typename CallBack>
-		void send(rank_type dst, tag_type tag, MsgType &msg, CallBack &&cb)
+		void send(rank_type dst, tag_type tag, const MsgType &msg, CallBack &&cb)
 		{
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;

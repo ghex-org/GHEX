@@ -38,7 +38,7 @@ namespace gridtools{
                 {
 
 		    using req_type = ghex_ucx_request*;
-                    req_type m_req;
+                    req_type m_req = NULL;
 
                     void wait()
                     {

@@ -18,3 +18,8 @@
    in UCX any thread attached to a given worker can be called back. Hence the pool allocator must
    dynamically add / remove allocations, or redistribute them among threads, if there is a large load
    imbalance.
+
+5. the callbacks now take a const message reference
+   void recv_callback(int rank, int tag, const MsgType &mesg)
+   However, in this form I have to discard the const qualifier when I submit the recv request inside the callback, because
+   the recv function in the callback communicator takes MsgType without const.
