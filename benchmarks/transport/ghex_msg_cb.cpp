@@ -1,29 +1,32 @@
 #include <iostream>
 #include <vector>
-#include "tictoc.h"
 
+#include <ghex/common/timer.hpp>
 #include <ghex/transport_layer/callback_communicator.hpp>
 
 #ifdef USE_MPI
+
+/* MPI backend */
 #include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 #define USE_CALLBACK_COMM
 #else
-#ifdef USE_UCX_NBR
 
+/* UCX backend */
+#include <ghex/transport_layer/ucx/communicator.hpp>
+using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
+
+#ifdef USE_UCX_NBR
 /* use the GHEX callback framework */
-#include "communicator_ucx_nbr.hpp"
 #define USE_CALLBACK_COMM
 #else
-
 /* use the UCX's own callback framework */
-#include "communicator_ucx.hpp"
+#include <ghex/transport_layer/ucx/communicator.hpp>
 #undef  USE_CALLBACK_COMM
-#endif
-using CommType = gridtools::ghex::ucx::communicator;
-#endif
+#endif /* USE_UCX_NBR */
 
-#include "message.hpp"
+#endif /* USE_MPI */
+
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 /* comm requests currently in-flight */
@@ -84,13 +87,15 @@ int main(int argc, char *argv[])
 
     {
 	std::vector<MsgType> msgs;
-
+	gridtools::ghex::timer timer;
+	long bytes = 0;
+	
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
 	}
 	
 	if(rank == 1) {
-	    tic();
+	    timer.tic();
 	    bytes = (double)niter*size*buff_size/2;
 	}
 
@@ -116,7 +121,7 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	if(rank == 1) toc();
+	if(rank == 1) timer.vtoc(bytes);
 	// comm.fence();
     }
 

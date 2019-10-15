@@ -1,9 +1,8 @@
-#include "pmi.h"
-#include "debug.h"
-
 #include <stdio.h>
 #include <pmix.h>
 #include <pthread.h>
+
+#include <ghex/common/debug.hpp>
 
 static pmix_proc_t allproc = {};
 static pmix_proc_t myproc = {};
