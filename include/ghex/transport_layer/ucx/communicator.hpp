@@ -91,6 +91,10 @@ namespace gridtools
 		static std::size_t   request_size;     // total request size in bytes (UCX + our data)
 
 		void empty_send_cb(void *request, ucs_status_t status) {}
+
+		void ghex_request_init_cb(void *request){
+		    bzero(request, GHEX_REQUEST_SIZE);
+		}
 	    }
 
 
@@ -152,7 +156,7 @@ namespace gridtools
 		}
 		
 		void whoami(){
-		    printf("I am %d/%d:%d/%d, worker %p\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
+		    printf("I am Groot! %d/%d:%d/%d, worker %p\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
 		}
 
 		/*
@@ -219,7 +223,8 @@ namespace gridtools
 				UCP_PARAM_FIELD_REQUEST_SIZE      |
 				UCP_PARAM_FIELD_TAG_SENDER_MASK   |
 				UCP_PARAM_FIELD_MT_WORKERS_SHARED |
-				UCP_PARAM_FIELD_ESTIMATED_NUM_EPS ;
+				UCP_PARAM_FIELD_ESTIMATED_NUM_EPS |
+				UCP_PARAM_FIELD_REQUEST_INIT      ;
 
 			    /* request transport support for tag matching */
 			    ucp_params.features =
@@ -248,6 +253,8 @@ namespace gridtools
 			    /* Mask which specifies particular bits of the tag which can uniquely identify
 			       the sender (UCP endpoint) in tagged operations. */
 			    ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
+
+			    ucp_params.request_init = ucx::ghex_request_init_cb;
 
 
 #if (GHEX_DEBUG_LEVEL == 2)
@@ -458,7 +465,8 @@ namespace gridtools
 			    
 			    /* TODO: investigate */
 			    /* OBS: this is needed, otherwise the cb assignment below sometimes segfaults! */
-			    bzero(ghex_request, GHEX_REQUEST_SIZE);
+			    /* request_init function seems to solve this problem */
+			    // bzero(ghex_request, GHEX_REQUEST_SIZE);
 			    
 			    /* fill in useful request data */
 			    ghex_request->peer_rank = dst;
@@ -592,16 +600,18 @@ namespace gridtools
 				  3 0x0000000000016d5d ucp_request_free()  ucx-1.6.0/src/ucp/core/ucp_request.c:96
 				  4 0x0000000000402fa8 main._omp_fn.0()  GHEX/benchmarks/transport/communicator_ucx.hpp:616
 				*/
-
-				// ucp_request_free(status);
-				// return;
+				
+				/* on the other hand, if I don't free this request, then UCX keeps
+				   making new requests, so there must be a leak. */
+				ucp_request_free(status);
 			    } else {
 
 				ghex_request = (ucx::ghex_ucx_request_cb<MsgType> *)status;
 
 				/* TODO: investigate */
 				/* OBS: this is needed, otherwise the cb assignment below sometimes segfaults! */
-				bzero(ghex_request, GHEX_REQUEST_SIZE);
+				/* request_init function seems to solve this problem */
+				// bzero(ghex_request, GHEX_REQUEST_SIZE);
 
 				/* fill in useful request data */
 				ghex_request->peer_rank = src;
