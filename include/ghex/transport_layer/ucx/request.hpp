@@ -29,9 +29,12 @@ namespace gridtools{
 		struct ghex_ucx_request_cb {
 		    uint32_t peer_rank;
 		    uint32_t tag; 
-		    std::function<void(int, int, MsgType&)> cb;
+		    std::function<void(int, int, const MsgType&)> cb;
 		    MsgType h_msg;
 		};
+
+		/** size of the above struct for actual MsgType */
+		#define GHEX_REQUEST_SIZE 48
 
                 /** @brief thin wrapper around UCX Request */
                 struct request

@@ -7,45 +7,44 @@
 #include <array>
 #include <unistd.h>
 #include <sched.h>
-
-#include "pmi.h"
-#include "tictoc.h"
 #include <omp.h>
 
+/* define to use the raw shared message - lower overhead */
+#define GHEX_USE_RAW_SHARED_MESSAGE
+
+#include <ghex/common/timer.hpp>
+#include <ghex/transport_layer/callback_communicator.hpp>
+using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
+
+
 #ifdef USE_MPI
-#include "communicator_mpi.hpp"
-using CommType = gridtools::ghex::mpi::communicator;
-using namespace gridtools::ghex::mpi;
+
+/* MPI backend */
+#include <ghex/transport_layer/mpi/communicator.hpp>
+using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 #define USE_CALLBACK_COMM
 #else
+
+/* UCX backend */
+#include <ghex/transport_layer/ucx/communicator.hpp>
+using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
+
 #ifdef USE_UCX_NBR
-#include "communicator_ucx_nbr.hpp"
+/* use the GHEX callback framework */
 #define USE_CALLBACK_COMM
 #else
-#include "communicator_ucx.hpp"
+/* use the UCX's own callback framework */
+#include <ghex/transport_layer/ucx/communicator.hpp>
 #undef  USE_CALLBACK_COMM
-#endif
-using CommType = gridtools::ghex::ucx::communicator;
-using namespace gridtools::ghex::ucx;
-#endif
+#endif /* USE_UCX_NBR */
+
+#endif /* USE_MPI */
 
 /* TODO: this cannot be here, because it doesn't compile. I have to have it in the communicator hpp */
+/* or - better? - allocate the communicaor object dynamically inside the parallel region */
 // extern CommType comm;
 // DECLARE_THREAD_PRIVATE(comm)
 // CommType comm;
-
-#ifdef USE_CALLBACK_COMM
-
-#include "callback_communicator.hpp"
-extern gridtools::ghex::callback_communicator<CommType> comm_cb;
-DECLARE_THREAD_PRIVATE(comm_cb)
-gridtools::ghex::callback_communicator<CommType> comm_cb(comm);
-#else
-#define comm_cb comm
-#endif
-
-#include "message.hpp"
-using MsgType = gridtools::ghex::mpi::raw_shared_message<>;
 
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
@@ -89,30 +88,65 @@ int main(int argc, char *argv[])
     int rank, size, threads, peer_rank;
     int niter, buff_size;
 
+#ifdef USE_MPI
+    int mode;
+#ifdef THREAD_MODE_MULTIPLE
+    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+    if(mode != MPI_THREAD_MULTIPLE){
+	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
+	std::terminate();
+    }
+#else
+    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+#endif
+#endif
+    
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
 
-    rank = comm.m_rank;
-    size = comm.m_size;
-    peer_rank = (rank+1)%2;
+#ifndef USE_MPI
+    std::cout << "ghex request size: " << CommType::get_request_size<MsgType>() << "\n";
+#endif	
     
-    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << comm.name << "\n\n";
-
 #pragma omp parallel
     {
+
+	/* TODO this needs to be made per-thread. 
+	   If we make 'static' variables, then we can't initialize m_rank and anything else
+	   that used MPI in the constructor, as it will be executed before MPI_Init.
+	*/
+	CommType *comm = new CommType();
+
+#ifdef USE_CALLBACK_COMM
+	gridtools::ghex::tl::callback_communicator<CommType> comm_cb(*comm);
+#else
+#define comm_cb (*comm)
+#endif
+
+#pragma omp master
+	{
+	    rank = comm->m_rank;
+	    size = comm->m_size;
+	    peer_rank = (rank+1)%2;
+	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
+	}
+	
+	gridtools::ghex::timer timer;
+	long bytes = 0;
 	std::vector<MsgType> msgs;
 
-	comm.init_mt();
-	comm.whoami();
+	comm->init_mt();
+#pragma omp barrier
+	comm->whoami();
 
 	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size, buff_size);
+	    msgs.emplace_back(buff_size);
 	}
 	
 #pragma omp master
 	if(rank == 1) {
-	    tic();
+	    timer.tic();
 	    bytes = (double)niter*size*buff_size/2;
 	}
 	
@@ -137,9 +171,9 @@ int main(int argc, char *argv[])
 		i += nthr;
 		dbg += nthr; 
 		if(rank==0)
-		    comm_cb.send(msgs[j], 1, thrid*inflight+j, send_callback);
+		    comm_cb.send(1, thrid*inflight+j, msgs[j], send_callback);
 		else
-		    comm_cb.recv(msgs[j], 0, thrid*inflight+j, recv_callback);
+		    comm_cb.recv(0, thrid*inflight+j, msgs[j], recv_callback);
 		if(i >= niter) break;
 	    }
 
@@ -154,11 +188,16 @@ int main(int argc, char *argv[])
 
 #pragma omp master
 	{
-	    if(rank == 1) toc();
-	    comm.fence();
+	    if(rank == 1) timer.vtoc(bytes);
+	    // comm->fence();
 	}
 
 	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", 
 	       rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
     }
+
+#ifdef USE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
+#endif
 }

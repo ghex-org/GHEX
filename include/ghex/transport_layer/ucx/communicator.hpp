@@ -73,7 +73,7 @@ namespace gridtools
 		thread inside the constructor.
 	    */
 	    class communicator<ucx_tag>;
-	    communicator<ucx_tag> *pcomm;
+	    communicator<ucx_tag> *pcomm = NULL;
 	    DECLARE_THREAD_PRIVATE(pcomm)
 
 
@@ -146,6 +146,11 @@ namespace gridtools
 
 	    public:
 
+		template<typename MsgType>
+		static int get_request_size(){
+		    return sizeof(ucx::ghex_ucx_request_cb<MsgType>);
+		}
+		
 		void whoami(){
 		    printf("I am %d/%d:%d/%d, worker %p\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
 		}
@@ -175,12 +180,18 @@ namespace gridtools
 		communicator()
 		{
 		    /* need to set this for single threaded runs */
-		    m_thrid = 0;
-		    m_nthr = 1;
-		    pcomm = this;
+		    if(!IN_PARALLEL()) {
+			m_thrid = 0;
+			m_nthr = 1;
+			pcomm = this;
+		    } else {
+			m_thrid = GET_THREAD_NUM();
+			m_nthr = GET_NUM_THREADS();
+			pcomm = this;
+		    }
 
 		    /* only one thread must initialize UCX */
-		    if(!IN_PARALLEL()) {
+		    if(m_thrid == 0) {
 			pmi_init();
 
 			// communicator rank and world size
@@ -223,7 +234,7 @@ namespace gridtools
 
 			    // TODO: templated request type - how do we know the size??
 			    // ucp_params.request_size = sizeof(request_type);
-			    ucp_params.request_size = 64;
+			    ucp_params.request_size = GHEX_REQUEST_SIZE;
 
 			    /* this should be true if we have per-thread workers
 			       otherwise, if one worker is shared by each thread, it should be false
@@ -297,11 +308,11 @@ namespace gridtools
 			    /* invoke global pmi data exchange */
 			    // pmi_exchange();
 			}
-
-			/* allocate comm request pool */
-			ucp_requests = new char[REQUEST_POOL_SIZE * ucx::request_size];
-			ucp_request_pos = 0;
 		    }
+
+		    /* allocate comm request pool */
+		    ucp_requests = new char[REQUEST_POOL_SIZE * ucx::request_size];
+		    ucp_request_pos = 0;
 		}
 
 		rank_type rank() const noexcept { return m_rank; }
@@ -444,11 +455,15 @@ namespace gridtools
 			    cb(dst, tag, msg);
 			} else if(!UCS_PTR_IS_ERR(status)) {
 			    ghex_request = (ucx::ghex_ucx_request_cb<MsgType> *)status;
-
+			    
+			    /* TODO: investigate */
+			    /* OBS: this is needed, otherwise the cb assignment below sometimes segfaults! */
+			    bzero(ghex_request, GHEX_REQUEST_SIZE);
+			    
 			    /* fill in useful request data */
 			    ghex_request->peer_rank = dst;
 			    ghex_request->tag = tag;
-			    ghex_request->cb = cb;
+			    ghex_request->cb = std::forward<CallBack>(cb);
 			    ghex_request->h_msg = msg;
 			} else {
 			    ERR("ucp_tag_send_nb failed");
@@ -547,7 +562,7 @@ namespace gridtools
 
 			early_rank = src;
 			early_tag = tag;
-			std::function<void(int, int, MsgType&)> tmpcb = cb;
+			std::function<void(int, int, const MsgType&)> tmpcb = cb;
 			early_cb = &tmpcb;  // this is cast to proper type inside the callback, which knows MsgType
 			early_msg = &msg;
 			early_completion = 1;
@@ -584,10 +599,14 @@ namespace gridtools
 
 				ghex_request = (ucx::ghex_ucx_request_cb<MsgType> *)status;
 
+				/* TODO: investigate */
+				/* OBS: this is needed, otherwise the cb assignment below sometimes segfaults! */
+				bzero(ghex_request, GHEX_REQUEST_SIZE);
+
 				/* fill in useful request data */
 				ghex_request->peer_rank = src;
 				ghex_request->tag = tag;
-				ghex_request->cb = cb;
+				ghex_request->cb = std::forward<CallBack>(cb);
 				ghex_request->h_msg = msg;
 			    }
 			} else {

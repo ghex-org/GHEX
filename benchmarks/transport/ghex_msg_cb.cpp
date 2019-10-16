@@ -130,6 +130,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef USE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 #endif
 }
