@@ -171,7 +171,7 @@ namespace gridtools
 
 		~communicator()
 		{
-		    if(!IN_PARALLEL()) {
+		    if(m_thrid == 0) {
 			ucp_worker_flush(ucp_worker);
 			/* TODO: this needs to be done correctly. Right now lots of warnings
 			   about used / unfreed resources. */
@@ -194,7 +194,8 @@ namespace gridtools
 			pcomm = this;
 		    }
 
-		    /* only one thread must initialize UCX */
+		    /* only one thread must initialize UCX. 
+		       TODO: This should probably be a static method, called once, explicitly, by the user */
 		    if(m_thrid == 0) {
 			pmi_init();
 
