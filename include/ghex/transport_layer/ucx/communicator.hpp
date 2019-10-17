@@ -243,7 +243,7 @@ namespace gridtools
 			    ucp_params.request_size = GHEX_REQUEST_SIZE;
 
 			    /* this should be true if we have per-thread workers
-			       otherwise, if one worker is shared by each thread, it should be false
+			       otherwise, if one worker is shared by all thread, it should be false
 			       This requires benchmarking. */
 			    ucp_params.mt_workers_shared = false;
 
@@ -255,8 +255,9 @@ namespace gridtools
 			       the sender (UCP endpoint) in tagged operations. */
 			    ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
 
+			    /* Needed to zero the memory region. Otherwise segfaults occured
+			       when a std::function destructor was called on an invalid object */
 			    ucp_params.request_init = ucx::ghex_request_init_cb;
-
 
 #if (GHEX_DEBUG_LEVEL == 2)
 			    if(0 == pmi_get_rank()){
