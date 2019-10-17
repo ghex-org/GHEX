@@ -507,8 +507,6 @@ namespace gridtools
 		    ucp_request = ucp_requests + ucx::request_size * ucp_request_pos;
 		    // TODO: check if request is free, if not - look for next one
 
-		    ep = rank_to_ep(src);
-
 		    CRITICAL_BEGIN(ucp) {
 
 			/* recv */
