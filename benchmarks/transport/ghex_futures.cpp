@@ -90,7 +90,9 @@ int main(int argc, char *argv[])
 		if(!reqs[j].ready()) continue;
 
 		i++;
-		if(rank==0 && (i)%(niter/10)==0) fprintf(stderr, "%d iters\n", i);
+		if(rank==0 && (i)%(niter/10)==0) {
+		    std::cout << i << " iters\n";		    
+		}
 
 		if(rank == 0)
 		    reqs[j] = comm.send(1, j, msgs[j]);

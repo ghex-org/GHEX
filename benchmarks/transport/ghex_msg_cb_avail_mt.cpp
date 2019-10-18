@@ -40,10 +40,6 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 
 #endif /* USE_MPI */
 
-/* TODO: this cannot be here, because it doesn't compile. I have to have it in the communicator hpp */
-// extern CommType comm;
-// DECLARE_THREAD_PRIVATE(comm)
-// CommType comm;
 
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
@@ -175,20 +171,24 @@ int main(int argc, char *argv[])
 	nlcomm_cnt = 0;
 	submit_cnt = 0;
 
-	int i = 0, dbg = 0, blk;
+#define NOPROGRESS_CNT 10000
+	int i = 0, dbg = 0, blk, noprogress = 0;
 	blk = niter / 10;
 	dbg = dbg + blk;
 
 	if(rank == 0){
 
 	    /* send niter messages - as soon as a slot becomes free */
-	    while(total_sent < niter){
+	    while(total_sent < niter && noprogress < NOPROGRESS_CNT){
 		for(int j=0; j<inflight; j++){
 		    if(available[thrid][j]){
 
+			// reset the no-progress counter
+			noprogress = 0;
+
 			// progress output
 			if(rank==0 && thrid==0 && total_sent >= dbg) {
-			    fprintf(stderr, "%d iters\n", total_sent);
+			    std::cout << total_sent << " iters\n";
 			    dbg = dbg + blk;
 			}
 
@@ -203,9 +203,10 @@ int main(int argc, char *argv[])
 			comm_cb.send(1, thrid*inflight+j, msgs[j], send_callback);
 		    }
 		}
-
 		comm_cb.progress();
+		noprogress++;
 	    }
+	    if(noprogress >= NOPROGRESS_CNT) std::cout << "sender finished: no progress threashold\n";
 
 	} else {
 
@@ -239,7 +240,8 @@ int main(int argc, char *argv[])
 	    // comm.fence();
 	}
 
-	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", 
-	       rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
+#pragma omp critical
+	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
+		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
     }
 }

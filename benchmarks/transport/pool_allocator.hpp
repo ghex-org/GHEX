@@ -57,7 +57,7 @@ namespace ghex {
 		    return temp->buffer;
 		}
 
-		fprintf(stderr, "%s:%d ooops? no free buffers..\n", __FILE__, __LINE__);
+		std::cerr << __FILE__ << ":" << __LINE__ << "ooops? no free buffers..\n";
 		return NULL;
             }
 
@@ -72,7 +72,7 @@ namespace ghex {
 		    return;
 		}
 
-		fprintf(stderr, "%s:%d ooops? no free buffer containers..\n", __FILE__, __LINE__);
+		std::cerr << __FILE__ << ":" << __LINE__ << "ooops? no free buffer containers..\n";
 		return;
             }
         };

@@ -60,7 +60,10 @@ int main(int argc, char *argv[])
 	    // MPI_Testany(inflight, req, &completed, &flag, MPI_STATUS_IGNORE);
 	    // if(!flag) continue;
 	    
-	    if(rank==0 && i%(niter/10)==0) fprintf(stderr, "%d iters\n", i);
+	    if(rank==0 && i%(niter/10)==0) {
+		std::cout << i << " iters\n";
+	    }
+
 	    if(rank==0)
 		MPI_Isend(buffers[completed], buff_size, MPI_BYTE, peer_rank, completed, mpi_comm, &req[completed]);
 	    else

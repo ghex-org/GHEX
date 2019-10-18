@@ -109,7 +109,9 @@ int main(int argc, char *argv[])
 
 	    /* submit inflight requests */
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && (i)%(niter/10)==0) fprintf(stderr, "%d iters\n", i);
+		if(rank==0 && (i)%(niter/10)==0) {
+		    std::cout << i << " iters\n";
+		}
 		i++;
 		ongoing_comm++;
 		if(rank==0)

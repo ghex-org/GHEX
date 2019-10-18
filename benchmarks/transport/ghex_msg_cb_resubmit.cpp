@@ -122,7 +122,9 @@ int main(int argc, char *argv[])
 
 		for(int j=0; j<inflight; j++){
 		    if(available[j]){
-			if(rank==0 && (sent)%(niter/10)==0) fprintf(stderr, "%d iters\n", sent);
+			if(rank==0 && (sent)%(niter/10)==0){
+			    std::cout << sent << " iters\n";
+			}
 			available[j] = 0;
 			sent++;
 			ongoing_comm++;

@@ -40,11 +40,6 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 
 #endif /* USE_MPI */
 
-/* TODO: this cannot be here, because it doesn't compile. I have to have it in the communicator hpp */
-/* or - better? - allocate the communicaor object dynamically inside the parallel region */
-// extern CommType comm;
-// DECLARE_THREAD_PRIVATE(comm)
-// CommType comm;
 
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
@@ -63,7 +58,6 @@ void send_callback(int rank, int tag, const MsgType &mesg)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
-    int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
 
 #pragma omp atomic
@@ -75,7 +69,6 @@ void recv_callback(int rank, int tag, const MsgType &mesg)
 {
     //std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
-    int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
 
 #pragma omp atomic
@@ -166,7 +159,10 @@ int main(int argc, char *argv[])
 
 	    /* submit inflight requests */
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && thrid==0 && dbg>=(niter/10)) {fprintf(stderr, "%d iters\n", i); dbg=0;}
+		if(rank==0 && thrid==0 && dbg>=(niter/10)) {
+		    std::cout << i << " iters\n";
+		    dbg=0;
+		}
 		submit_cnt++;
 		i += nthr;
 		dbg += nthr; 
@@ -192,8 +188,9 @@ int main(int argc, char *argv[])
 	    // comm->fence();
 	}
 
-	printf("rank %d thread %d submitted %d serviced %d completion events, non-local %d\n", 
-	       rank, thrid, submit_cnt, comm_cnt, nlcomm_cnt);
+#pragma omp critical
+	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
+		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
     }
 
 #ifdef USE_MPI

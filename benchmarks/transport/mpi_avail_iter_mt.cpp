@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(mpi_comm, &rank);
     MPI_Comm_size(mpi_comm, &size);
     if(size!=2){
-	fprintf(stderr, "ERROR: only works for 2 MPI ranks\n");
+	std::err<< "ERROR: only works for 2 MPI ranks\n";
 	exit(1);
     }
     peer_rank = (rank+1)%2;
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 
-	fprintf(stderr, "rank %d thrid %d started\n", rank, thrid);
+	std::cout << "rank " << rank << " thrid "<< thrid << " started\n";
 
 	for(int j=0; j<inflight; j++){
 	    req[j] = MPI_REQUEST_NULL;
@@ -72,7 +72,10 @@ int main(int argc, char *argv[])
 		MPI_Test(&req[j], &flag, MPI_STATUS_IGNORE);
 		if(!flag) continue;
 
-		if(rank==0 && thrid==0 && dbg>=(niter/10)) {fprintf(stderr, "%d iters\n", i); dbg=0;}
+		if(rank==0 && thrid==0 && dbg>=(niter/10)) {
+		    std::cout << i << " iters\n";
+		    dbg=0;
+		}
 		if(rank==0)
 		    MPI_Isend(buffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &req[j]);
 		else
@@ -90,6 +93,6 @@ int main(int argc, char *argv[])
 	if(rank == 1) toc();	
     }
 
-    printf("rank %d ncomm %d\n", rank, ncomm);    
+    std::cout << "rank " << rank << " ncomm " << ncomm << "\n";
     MPI_Finalize();
 }

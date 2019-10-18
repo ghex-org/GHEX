@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     if(size!=2){
-	fprintf(stderr, "ERROR: only works for 2 MPI ranks\n");
+	std::err<< "ERROR: only works for 2 MPI ranks\n";
 	exit(1);
     }
     peer_rank = (rank+1)%2;
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 	}
 	MPI_Barrier(mpi_comm);
 
-	fprintf(stderr, "rank %d thrid %d started\n", rank, thrid);
+	std::cout << "rank " << rank << " thrid "<< thrid << " started\n";
 
 	for(int j=0; j<inflight; j++){
 	    req[j] = MPI_REQUEST_NULL;
@@ -70,7 +70,10 @@ int main(int argc, char *argv[])
 
 	    /* submit inflight async requests */
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && thrid==0 && dbg>=(niter/10)) {fprintf(stderr, "%d iters\n", i); dbg=0;}
+		if(rank==0 && thrid==0 && dbg>=(niter/10)) {
+		    std::cout << i << " iters\n";
+		    dbg=0;
+		}
 		if(rank==0)
 		    MPI_Isend(buffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &req[j]);
 		else
@@ -91,6 +94,6 @@ int main(int argc, char *argv[])
 	if(rank == 1) toc();	
     }
 
-    printf("rank %d ncomm %d\n", rank, ncomm);    
+    std::cout << "rank " << rank << " ncomm " << ncomm << "\n";
     MPI_Finalize();
 }
