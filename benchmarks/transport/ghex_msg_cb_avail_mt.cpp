@@ -88,6 +88,8 @@ int main(int argc, char *argv[])
 {
     int rank, size, threads, peer_rank;
     int niter, buff_size;
+    gridtools::ghex::timer timer;
+    long bytes = 0;
 
 #ifdef USE_MPI
     int mode;
@@ -101,7 +103,7 @@ int main(int argc, char *argv[])
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
 #endif
 #endif
-    
+
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
@@ -132,8 +134,6 @@ int main(int argc, char *argv[])
 	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
 	}
 
-	gridtools::ghex::timer timer;
-	long bytes = 0;
 	std::vector<MsgType> msgs;
 	
 	comm->init_mt();
@@ -164,15 +164,18 @@ int main(int argc, char *argv[])
 	    available[thrid][j] = 1;
 	}
 
-	/* just in case, make sure all threads have their arrays initialized */
-#pragma omp barrier
+	/* make sure both ranks are started and all threads initialized */
+	comm->barrier();
 
 	comm_cnt = 0;
 	nlcomm_cnt = 0;
 	submit_cnt = 0;
 
-#define NOPROGRESS_CNT 10000
-	int i = 0, dbg = 0, blk, noprogress = 0;
+	/* to tackle inacurate message counting, quit the benchmark if we don't see progress */
+#define NOPROGRESS_CNT 100000
+	int noprogress = 0;
+	
+	int i = 0, dbg = 0, blk;
 	blk = niter / 10;
 	dbg = dbg + blk;
 
@@ -206,7 +209,6 @@ int main(int argc, char *argv[])
 		comm_cb.progress();
 		noprogress++;
 	    }
-	    if(noprogress >= NOPROGRESS_CNT) std::cout << "sender finished: no progress threashold\n";
 
 	} else {
 
@@ -216,10 +218,13 @@ int main(int argc, char *argv[])
 	    ongoing_comm = niter;
 #pragma omp barrier
 
-	    while(ongoing_comm>0){
+	    while(ongoing_comm>0 && noprogress < NOPROGRESS_CNT){
 
 		for(int j=0; j<inflight; j++){
 		    if(available[thrid][j]){
+
+			// reset the no-progress counter
+			noprogress = 0;
 
 			// number of requests per thread
 			submit_cnt++;
@@ -230,18 +235,31 @@ int main(int argc, char *argv[])
 		}
 
 		comm_cb.progress();
+		noprogress++;
 	    }	    
-	}
 
 #pragma omp barrier
 #pragma omp master
-	{
-	    if(rank == 1) timer.vtoc(bytes);
-	    // comm.fence();
+	    {
+		if(ongoing_comm<0) ongoing_comm = 0;
+		std::cout << "unreceived messages: " << ongoing_comm << " noprogress " << noprogress << "\n";
+	    }
 	}
+
+	if(noprogress >= NOPROGRESS_CNT) std::cout << "rank " << rank << " finished: no progress threashold\n";
+
+	comm->fence();
 
 #pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
 		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
+	
     }
+    
+    if(rank == 1) timer.vtoc(bytes);
+
+#ifdef USE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
+#endif
 }

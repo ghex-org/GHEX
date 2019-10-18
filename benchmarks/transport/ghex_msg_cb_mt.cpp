@@ -80,6 +80,8 @@ int main(int argc, char *argv[])
 {
     int rank, size, threads, peer_rank;
     int niter, buff_size;
+    gridtools::ghex::timer timer;
+    long bytes = 0;
 
 #ifdef USE_MPI
     int mode;
@@ -125,8 +127,6 @@ int main(int argc, char *argv[])
 	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
 	}
 	
-	gridtools::ghex::timer timer;
-	long bytes = 0;
 	std::vector<MsgType> msgs;
 
 	comm->init_mt();
@@ -145,6 +145,9 @@ int main(int argc, char *argv[])
 	
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
+
+	/* make sure both ranks are started and all threads initialized */
+	comm->barrier();
 
 	comm_cnt = 0;
 	nlcomm_cnt = 0;
@@ -182,17 +185,15 @@ int main(int argc, char *argv[])
 #pragma omp barrier
 	}
 
-#pragma omp master
-	{
-	    if(rank == 1) timer.vtoc(bytes);
-	    // comm->fence();
-	}
+	comm->fence();
 
 #pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
 		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
     }
 
+    if(rank == 1) timer.vtoc(bytes);
+    
 #ifdef USE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

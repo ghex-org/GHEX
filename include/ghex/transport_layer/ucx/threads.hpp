@@ -10,5 +10,7 @@
 #define IN_PARALLEL()     omp_in_parallel()
 
 #define DECLARE_THREAD_PRIVATE(names) DO_PRAGMA(omp threadprivate(names))
+#define THREAD_BARRIER()              DO_PRAGMA(omp barrier)
+#define THREAD_MASTER()               DO_PRAGMA(omp master)
 
 #endif /* _THREADS_HPP */

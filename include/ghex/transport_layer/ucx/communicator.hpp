@@ -294,7 +294,7 @@ namespace gridtools
 			    /* this should not be used if we have a single worker per thread */
 			    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
 #ifdef THREAD_MODE_MULTIPLE
-			    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+			    worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
 #else
 			    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
 #endif
@@ -656,13 +656,44 @@ namespace gridtools
 
 		void fence()
 		{
-		    flush();
+		    /* this should only be executed by a single thread */
+		    THREAD_MASTER () {
+			flush();
 
-		    // TODO: how to assure that all comm is completed before we quit a rank?
-		    // if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
-		    for(int i=0; i<100000; i++) {
-			ucp_worker_progress(ucp_worker);
+			// TODO: how to assure that all comm is completed before we quit a rank?
+			// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
+			for(int i=0; i<100000; i++) {
+			    ucp_worker_progress(ucp_worker);
+			}
 		    }
+		    THREAD_BARRIER();
+		}
+
+		void barrier()
+		{
+		    if(m_size > 2) ERR("barrier not implemented for more than 2 ranks");
+
+		    /* this should only be executed by a single thread */
+		    THREAD_MASTER () {
+			/* do a simple send and recv */
+			/* has to be run on master thread thrid 0 */
+			future<void> sf, rf;
+			rank_type peer_rank = (m_rank+1)%2;
+			tag_type tag;
+			std::array<int,1> smsg = {1}, rmsg = {0};
+
+			if(m_thrid!=0) ERR("barrier must be run on thread id 0");
+			tag = m_nthr-(m_rank+peer_rank+1);
+
+			sf = send(peer_rank, tag, smsg);
+			rf = recv(peer_rank, tag, rmsg);
+			while(true){
+			    if(sf.test() && rf.test()) break;
+			    this->progress();
+			}
+			fprintf(stderr, "barrier done\n");
+		    }
+		    THREAD_BARRIER();
 		}
 
 		void flush()
