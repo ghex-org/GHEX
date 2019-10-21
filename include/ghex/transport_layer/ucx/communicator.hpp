@@ -167,6 +167,13 @@ namespace gridtools
 		    m_nthr = GET_NUM_THREADS();
 		    pcomm = this;
 		    printf("create communicator %d:%d/%d pointer %p\n", m_rank, m_thrid, m_nthr, pcomm);
+
+		    if(m_thrid!=0){
+			
+			/* allocate comm request pool */
+			ucp_requests = new char[REQUEST_POOL_SIZE * ucx::request_size];
+			ucp_request_pos = 0;
+		    }
 		}
 
 		~communicator()
@@ -317,11 +324,11 @@ namespace gridtools
 			    /* invoke global pmi data exchange */
 			    // pmi_exchange();
 			}
+			
+			/* allocate comm request pool */
+			ucp_requests = new char[REQUEST_POOL_SIZE * ucx::request_size];
+			ucp_request_pos = 0;
 		    }
-
-		    /* allocate comm request pool */
-		    ucp_requests = new char[REQUEST_POOL_SIZE * ucx::request_size];
-		    ucp_request_pos = 0;
 		}
 
 		rank_type rank() const noexcept { return m_rank; }
