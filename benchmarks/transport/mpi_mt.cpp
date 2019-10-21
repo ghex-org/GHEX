@@ -95,5 +95,6 @@ int main(int argc, char *argv[])
     }
 
     std::cout << "rank " << rank << " ncomm " << ncomm << "\n";
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 }

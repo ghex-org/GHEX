@@ -174,6 +174,10 @@ namespace gridtools {
                     return recv_any<Message>(MPI_ANY_SOURCE, MPI_ANY_TAG, std::forward<Args>(args)...);
                 }
 
+		void fence(){
+		    GHEX_CHECK_MPI_RESULT(MPI_Barrier(*m_comm));
+		}
+
             private: // implementation
 
                 template<typename Message, typename... Args>

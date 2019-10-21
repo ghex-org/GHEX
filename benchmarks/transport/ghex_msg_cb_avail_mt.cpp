@@ -108,10 +108,6 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
 
-#ifndef USE_MPI
-    std::cout << "ghex request size: " << CommType::get_request_size<MsgType>() << "\n";
-#endif	
-
 #pragma omp parallel
     {
 	/* TODO this needs to be made per-thread. 

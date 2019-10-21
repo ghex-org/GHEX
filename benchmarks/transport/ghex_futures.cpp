@@ -10,7 +10,14 @@
 #include <mpi.h>
 #include <omp.h>
 
+
+/* define to use the raw shared message - lower overhead */
+#define GHEX_USE_RAW_SHARED_MESSAGE
+
 #include <ghex/common/timer.hpp>
+#include <ghex/transport_layer/callback_communicator.hpp>
+using MsgType = gridtools::ghex::tl::message_buffer<>;
+
 
 #ifdef USE_MPI
 
@@ -18,17 +25,24 @@
 #include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void>;
+#define USE_CALLBACK_COMM
 #else
 
 /* UCX backend */
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
+
+#ifdef USE_UCX_NBR
+/* use the GHEX callback framework */
+#define USE_CALLBACK_COMM
+#else
+/* use the UCX's own callback framework */
+#include <ghex/transport_layer/ucx/communicator.hpp>
+#undef  USE_CALLBACK_COMM
+#endif /* USE_UCX_NBR */
+
 #endif /* USE_MPI */
-
-
-#include <ghex/transport_layer/message_buffer.hpp>
-using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 
 int main(int argc, char *argv[])
@@ -36,6 +50,8 @@ int main(int argc, char *argv[])
     int rank, size, threads, peer_rank;
     int niter, buff_size;
     int inflight;
+    gridtools::ghex::timer timer;
+    long bytes = 0;
     
 #ifdef USE_MPI
     int mode;
@@ -67,8 +83,6 @@ int main(int argc, char *argv[])
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
     
     {
-	gridtools::ghex::timer timer;
-	long bytes = 0;
 	std::vector<MsgType> msgs;
 	FutureType reqs[inflight];
 	
@@ -102,11 +116,13 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	if(rank == 1) timer.vtoc(bytes);
-	// comm.fence();
+	comm.fence();
     }
 
+    if(rank == 1) timer.vtoc(bytes);
+
 #ifdef USE_MPI
-    MPI_Finalize();
+    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Finalize(); segfault ??
 #endif
 }
