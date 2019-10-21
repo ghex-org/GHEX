@@ -135,18 +135,14 @@ int main(int argc, char *argv[])
 		if(i >= niter) break;
 	    }
 	}
-#pragma omp barrier
-	for(int j=0; j<inflight; j++){
-	    reqs[i].cancel();
-	}
 
-	comm->fence();
+	comm->barrier();
     }
 
     if(rank == 1) timer.vtoc(bytes);
 
 #ifdef USE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+    // MPI_Finalize(); segfault ??
 #endif
 }
