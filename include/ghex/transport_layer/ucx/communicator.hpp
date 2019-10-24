@@ -27,6 +27,7 @@
 #include "threads.hpp"
 #include "request.hpp"
 #include "future.hpp"
+#include "address.hpp"
 
 namespace gridtools
 {
@@ -115,6 +116,7 @@ namespace gridtools
 		using request_type = ucx::request;
 		template<typename T>
 		using future = ucx::future<T>;
+                using address_type   = ucx::address;
 
 		/* these are static, i.e., shared by threads */
 		static rank_type m_rank;
@@ -320,16 +322,26 @@ namespace gridtools
 		rank_type rank() const noexcept { return m_rank; }
 		rank_type size() const noexcept { return m_size; }
 
-		ucp_ep_h connect(rank_type rank)
+		address_type address(){
+		    ucs_status_t status;
+		    ucp_address_t *worker_address;
+		    size_t address_length;
+
+		    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
+		    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
+		    return address_type(ucp_worker, worker_address, address_length);
+		}
+
+		ucp_ep_h connect(address_type worker_address)
+		{
+		    return connect(worker_address.addr);
+		}
+
+		ucp_ep_h connect(ucp_address_t *worker_address)
 		{
 		    ucs_status_t status;
 		    ucp_ep_params_t ep_params;
-		    ucp_address_t *worker_address;
-		    size_t address_length;
 		    ucp_ep_h ucp_ep;
-
-		    /* get peer address */
-		    pmi_get_string(rank, "ghex-rank-address", (void**)&worker_address, &address_length);
 
 		    /* create endpoint */
 		    memset(&ep_params, 0, sizeof(ep_params));
@@ -337,7 +349,6 @@ namespace gridtools
 		    ep_params.address    = worker_address;
 		    status = ucp_ep_create (ucp_worker, &ep_params, &ucp_ep);
 		    if(UCS_OK != status) ERR("ucp_ep_create failed");
-		    free(worker_address);
 
 #if (GHEX_DEBUG_LEVEL == 2)
 		    if(0==m_thrid && 0 == pmi_get_rank()){
@@ -358,8 +369,18 @@ namespace gridtools
 		       create it if it does not yet exist */
 		    auto conn = connections.find(rank);
 		    if(conn == connections.end()){
-			ep = connect(rank);
+			
+			ucp_address_t *worker_address;
+			size_t address_length;
+
+			/* get peer address - we have ownership of the address */
+			pmi_get_string(rank, "ghex-rank-address", (void**)&worker_address, &address_length);
+
+			ep = connect(worker_address);
 			connections.emplace(rank, ep);
+
+			/* cleanup after pmi */
+			free(worker_address);
 		    } else {
 			/* found an existing connection - return the corresponding endpoint handle */
 			ep = conn->second;
