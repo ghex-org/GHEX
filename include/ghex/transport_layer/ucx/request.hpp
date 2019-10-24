@@ -54,7 +54,11 @@ namespace gridtools{
 			ucs_status_t status;
 			if(NULL == m_req) return true;
 			status = ucp_request_check_status(m_req);
-			if(status != UCS_INPROGRESS) return true;
+			if(status != UCS_INPROGRESS) {
+			    ucp_request_free(m_req);
+			    m_req = NULL;
+			    return true;
+			}
 
 			/* progress UCX */
 			CRITICAL_BEGIN(ucp) {
@@ -62,7 +66,11 @@ namespace gridtools{
 			} CRITICAL_END(ucp);
 
 			status = ucp_request_check_status(m_req);
-			if(status != UCS_INPROGRESS) return true;
+			if(status != UCS_INPROGRESS) {
+			    ucp_request_free(m_req);
+			    m_req = NULL;
+			    return true;
+			}
 	
 			return false;
                     }

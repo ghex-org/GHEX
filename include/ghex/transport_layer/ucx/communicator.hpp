@@ -92,6 +92,8 @@ namespace gridtools
 
 		void empty_send_cb(void *request, ucs_status_t status) {}
 
+		void empty_recv_cb(void *request, ucs_status_t status, ucp_tag_recv_info_t *info) {}
+
 		void ghex_request_init_cb(void *request){
 		    bzero(request, GHEX_REQUEST_SIZE);
 		}
@@ -143,11 +145,6 @@ namespace gridtools
 		void *early_cb;
 		void *early_msg;
 
-		/* request pool for nbr communications (futures) */
-#define REQUEST_POOL_SIZE 10000
-		char *ucp_requests = NULL;
-		int ucp_request_pos = 0;
-
 	    public:
 
 		template<typename MsgType>
@@ -167,13 +164,6 @@ namespace gridtools
 		    m_nthr = GET_NUM_THREADS();
 		    pcomm = this;
 		    printf("create communicator %d:%d/%d pointer %p\n", m_rank, m_thrid, m_nthr, pcomm);
-
-		    if(m_thrid!=0){
-			
-			/* allocate comm request pool */
-			ucp_requests = new char[REQUEST_POOL_SIZE * ucx::request_size];
-			ucp_request_pos = 0;
-		    }
 		}
 
 		~communicator()
@@ -324,10 +314,6 @@ namespace gridtools
 			    /* invoke global pmi data exchange */
 			    // pmi_exchange();
 			}
-			
-			/* allocate comm request pool */
-			ucp_requests = new char[REQUEST_POOL_SIZE * ucx::request_size];
-			ucp_request_pos = 0;
 		    }
 		}
 
@@ -398,37 +384,32 @@ namespace gridtools
 		[[nodiscard]] future<void> send(rank_type dst, tag_type tag, const MsgType &msg)
 		{
 		    ucp_ep_h ep;
-		    ucs_status_t status;
+		    ucs_status_ptr_t status;
+		    uintptr_t istatus;
 		    char *ucp_request;
 		    request_type req;
-
-		    // Dynamic allocation of requests is very slow - need a pool
-		    // request = (char*)malloc(_impl::request_size);
-		    ucp_request = ucp_requests + ucx::request_size * ucp_request_pos;
-		    // TODO: check if request is free, if not - look for next one
 
 		    ep = rank_to_ep(dst);
 
 		    CRITICAL_BEGIN(ucp) {
 
 			/* send without callback */
-			status = ucp_tag_send_nbr(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						  GHEX_MAKE_SEND_TAG(tag, m_rank), ucp_request + ucx::ucp_request_size);
-
-			if(UCS_OK == status){
+			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+						 GHEX_MAKE_SEND_TAG(tag, m_rank), ucx::empty_send_cb);
+			
+			// TODO !! C++ doesn't like it..
+			istatus = (uintptr_t)status;
+			if(UCS_OK == (ucs_status_t)(istatus)){
 
 			    /* send completed immediately */
 			    req.m_req = nullptr;
-			} else {
-
-			    /* update request pool */
-			    ucp_request_pos++;
-			    if(ucp_request_pos == REQUEST_POOL_SIZE)
-				ucp_request_pos = 0;
-
-			    /* return the future with the request id */
-			    req.m_req = (request_type::req_type)(ucp_request + ucx::ucp_request_size);
+			} else if(!UCS_PTR_IS_ERR(status)) {
+			    
+			    /* store the request */
+			    req.m_req = (request_type::req_type)status;
 			    req.m_req->ucp_worker = ucp_worker;
+			} else {
+			    ERR("ucp_tag_recv_nb failed");
 			}
 		    } CRITICAL_END(ucp);
 
@@ -505,33 +486,34 @@ namespace gridtools
 		[[nodiscard]] future<void> recv(rank_type src, tag_type tag, MsgType &msg) {
 		    ucp_ep_h ep;
 		    ucp_tag_t ucp_tag, ucp_tag_mask;
-		    ucs_status_t status;
+		    ucs_status_ptr_t status;
 		    char *ucp_request;
 		    request_type req;
-
-		    // Dynamic allocation of requests is very slow - need a pool
-		    // request = (char*)malloc(_impl::request_size);
-		    ucp_request = ucp_requests + ucx::request_size * ucp_request_pos;
-		    // TODO: check if request is free, if not - look for next one
 
 		    CRITICAL_BEGIN(ucp) {
 
 			/* recv */
 			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-			status = ucp_tag_recv_nbr(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						  ucp_tag, ucp_tag_mask, ucp_request + ucx::ucp_request_size);
-			if(UCS_OK != status){
-			    ERR("ucx recv operation failed");
+			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
+						 ucp_tag, ucp_tag_mask, ucx::empty_recv_cb);
+
+			if(!UCS_PTR_IS_ERR(status)) {
+
+			    ucs_status_t rstatus;
+			    rstatus = ucp_request_check_status (status);
+			    if(rstatus != UCS_INPROGRESS){
+				
+				/* recv completed immediately */
+				req.m_req = nullptr;
+			    } else {
+
+				/* store the request */
+				req.m_req = (request_type::req_type)(status);
+				req.m_req->ucp_worker = ucp_worker;
+			    }
+			} else {
+			    ERR("ucp_tag_send_nb failed");
 			}
-
-			/* update request pool */
-			ucp_request_pos++;
-			if(ucp_request_pos == REQUEST_POOL_SIZE)
-			    ucp_request_pos = 0;
-
-			/* return the future with the request id */
-			req.m_req = (request_type::req_type)(ucp_request + ucx::ucp_request_size);
-			req.m_req->ucp_worker = ucp_worker;
 		    } CRITICAL_END(ucp);
 
 		    return req;
@@ -641,9 +623,6 @@ namespace gridtools
 		 */
 		unsigned progress()
 		{
-		    // TODO: do we need this? where to place this? user code, or here?
-		    // spinning on progress without any delay is sometimes very slow (?)
-
 		    int p = 0, i = 0;
 
 		    CRITICAL_BEGIN(ucp) {

@@ -100,9 +100,9 @@ int main(int argc, char *argv[])
 	    
 	    /* submit comm */
 	    for(int j=0; j<inflight; j++){
-
+		
 		if(!reqs[j].ready()) continue;
-
+		
 		i++;
 		if(rank==0 && (i)%(niter/10)==0) {
 		    std::cout << i << " iters\n";		    
