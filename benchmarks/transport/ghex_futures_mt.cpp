@@ -92,7 +92,6 @@ int main(int argc, char *argv[])
 	std::vector<MsgType> msgs;
 	FutureType reqs[inflight];
 
-	comm->init_mt();
 #pragma omp barrier
 	comm->whoami();
 
@@ -136,6 +135,7 @@ int main(int argc, char *argv[])
 	    }
 	}
 
+	comm->fence();
 	comm->barrier();
 
 	delete comm;

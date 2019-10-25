@@ -132,7 +132,6 @@ int main(int argc, char *argv[])
 
 	std::vector<MsgType> msgs;
 	
-	comm->init_mt();
 #pragma omp barrier
 	comm->whoami();
 
@@ -245,17 +244,19 @@ int main(int argc, char *argv[])
 	if(noprogress >= NOPROGRESS_CNT) std::cout << "rank " << rank << " finished: no progress threashold\n";
 
 	comm->fence();
+	comm->barrier();
 
 #pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
 		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
 	
+	delete comm;
     }
     
     if(rank == 1) timer.vtoc(bytes);
 
 #ifdef USE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+    // MPI_Finalize();
 #endif
 }

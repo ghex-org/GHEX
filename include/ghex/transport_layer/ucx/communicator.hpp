@@ -21,8 +21,12 @@
 #include "../communicator.hpp"
 #include "../../common/debug.hpp"
 
-/* TODO: move to a different location */
-#include "pmi.h"
+#ifdef USE_PMIX
+#define USE_PMI
+#include "../util/pmi/pmix/pmi.hpp"
+using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
+#endif
+
 #include "locks.hpp"
 #include "threads.hpp"
 #include "request.hpp"
@@ -134,6 +138,10 @@ namespace gridtools
 
 		/* these are per-thread */
 
+#ifdef USE_PMI
+		/** PMI interface to obtain peer addresses */
+		PmiType pmi_impl;
+#endif
 		/** known connection pairs <rank, endpoint address>,
 		    created as rquired by the communication pattern
 		    Has to be per-thread
@@ -157,50 +165,32 @@ namespace gridtools
 		void whoami(){
 		    printf("I am Groot! %d/%d:%d/%d, worker %p\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
 		}
-
-		/*
-		  Has to be called at in the begining of the parallel region.
-		*/
-		void init_mt(){
-		    m_thrid = GET_THREAD_NUM();
-		    m_nthr = GET_NUM_THREADS();
-		    pcomm = this;
-		    printf("create communicator %d:%d/%d pointer %p\n", m_rank, m_thrid, m_nthr, pcomm);
-		}
-
+		
 		~communicator()
 		{
-		    if(m_thrid == 0) {
+		    THREAD_MASTER (){
 			ucp_worker_flush(ucp_worker);
-			/* TODO: this needs to be done correctly. Right now lots of warnings
-			   about used / unfreed resources. */
-			// ucp_worker_destroy(ucp_worker);
-			// ucp_cleanup(ucp_context);
-			pmi_finalize();
+			ucp_worker_destroy(ucp_worker);
+			ucp_cleanup(ucp_context);
 		    }
 		}
 
 		communicator()
 		{
 		    /* need to set this for single threaded runs */
-		    if(!IN_PARALLEL()) {
-			m_thrid = 0;
-			m_nthr = 1;
-			pcomm = this;
-		    } else {
-			m_thrid = GET_THREAD_NUM();
-			m_nthr = GET_NUM_THREADS();
-			pcomm = this;
-		    }
+		    m_thrid = GET_THREAD_NUM();
+		    m_nthr = GET_NUM_THREADS();
+		    pcomm = this;
 
 		    /* only one thread must initialize UCX. 
 		       TODO: This should probably be a static method, called once, explicitly, by the user */
-		    if(m_thrid == 0) {
-			pmi_init();
+		    THREAD_MASTER (){
 
+#ifdef USE_PMI
 			// communicator rank and world size
-			m_rank = pmi_get_rank();
-			m_size = pmi_get_size();
+			m_rank = pmi_impl.rank();
+			m_size = pmi_impl.size();
+#endif
 
 			// UCX initialization
 			ucs_status_t status;
@@ -259,10 +249,10 @@ namespace gridtools
 			    ucp_params.request_init = ucx::ghex_request_init_cb;
 
 #if (GHEX_DEBUG_LEVEL == 2)
-			    if(0 == pmi_get_rank()){
-				LOG("ucp version %s", ucp_get_version_string());
-				LOG("ucp features %lx", ucp_params.features);
-				ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
+			    if(0 == m_rank){
+			    	LOG("ucp version %s", ucp_get_version_string());
+			    	LOG("ucp features %lx", ucp_params.features);
+			    	ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
 			    }
 #endif
 
@@ -270,7 +260,7 @@ namespace gridtools
 			    ucp_config_release(config);
 
 			    if(UCS_OK != status) ERR("ucp_config_init");
-			    if(0 == pmi_get_rank()) LOG("UCX initialized");
+			    if(0 == m_rank) LOG("UCX initialized");
 			}
 
 			/* ask for UCP request size - non-templated version for the futures */
@@ -300,22 +290,25 @@ namespace gridtools
 
 			    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 			    if(UCS_OK != status) ERR("ucp_worker_create failed");
-			    if(0 == pmi_get_rank()) LOG("UCP worker created");
+			    if(0 == m_rank) LOG("UCP worker created");
 			}
 
+#ifdef USE_PMI
 			/* obtain the worker endpoint address and post it to PMI */
 			{
 			    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
 			    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
-			    if(0 == pmi_get_rank()) LOG("UCP worker addres length %zu", address_length);
+			    if(0 == m_rank) LOG("UCP worker addres length %zu", address_length);
 
 			    /* update pmi with local address information */
-			    pmi_set_string("ghex-rank-address", worker_address, address_length);
+			    std::vector<char> data((const char*)worker_address, (const char*)worker_address + address_length);
+			    pmi_impl.set("ghex-rank-address", data);
 			    ucp_worker_release_address(ucp_worker, worker_address);
 
 			    /* invoke global pmi data exchange */
 			    // pmi_exchange();
 			}
+#endif
 		    }
 		}
 
@@ -351,9 +344,9 @@ namespace gridtools
 		    if(UCS_OK != status) ERR("ucp_ep_create failed");
 
 #if (GHEX_DEBUG_LEVEL == 2)
-		    if(0==m_thrid && 0 == pmi_get_rank()){
-			ucp_ep_print_info(ucp_ep, stdout);
-			ucp_worker_print_info(ucp_worker, stdout);
+		    if(0 == m_thrid && 0 == m_rank){
+		    	ucp_ep_print_info(ucp_ep, stdout);
+		    	ucp_worker_print_info(ucp_worker, stdout);
 		    }
 #endif
 
@@ -368,20 +361,21 @@ namespace gridtools
 		    /* look for a connection to a given peer
 		       create it if it does not yet exist */
 		    auto conn = connections.find(rank);
-		    if(conn == connections.end()){
-			
-			ucp_address_t *worker_address;
-			size_t address_length;
+		    if(conn == connections.end()){			
 
+			ucp_address_t *worker_address;
+#ifdef USE_PMI
 			/* get peer address - we have ownership of the address */
-			pmi_get_string(rank, "ghex-rank-address", (void**)&worker_address, &address_length);
+			std::vector<char> data = pmi_impl.get_bytes(rank, "ghex-rank-address");
+			worker_address = (ucp_address_t*)data.data();
+#else
+			ERR("PMI is not enabled. Don't know how to obtain peer address.");
+#endif
 
 			ep = connect(worker_address);
 			connections.emplace(rank, ep);
-
-			/* cleanup after pmi */
-			free(worker_address);
 		    } else {
+
 			/* found an existing connection - return the corresponding endpoint handle */
 			ep = conn->second;
 		    }
@@ -787,8 +781,8 @@ namespace gridtools
 	    /** static communicator properties, shared between threads */
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_rank;
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_size;
-	    ucp_context_h communicator<ucx_tag>::ucp_context;
-	    ucp_worker_h  communicator<ucx_tag>::ucp_worker;
+	    ucp_context_h communicator<ucx_tag>::ucp_context = 0;
+	    ucp_worker_h  communicator<ucx_tag>::ucp_worker = 0;
 
 	    namespace ucx {
 
@@ -803,7 +797,6 @@ namespace gridtools
 		    ucp_worker_progress(pcomm->ucp_worker);
 		}
 	    }
-
 	} // namespace tl
     } // namespace ghex
 } // namespace gridtools
