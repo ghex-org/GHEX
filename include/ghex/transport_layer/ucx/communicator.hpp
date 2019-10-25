@@ -74,7 +74,7 @@ namespace gridtools
 		thread inside the constructor.
 	    */
 	    class communicator<ucx_tag>;
-	    communicator<ucx_tag> *pcomm = NULL;
+	    static communicator<ucx_tag> *pcomm = NULL;
 	    DECLARE_THREAD_PRIVATE(pcomm)
 
 
@@ -426,9 +426,8 @@ namespace gridtools
 			    req.m_req = nullptr;
 			} else if(!UCS_PTR_IS_ERR(status)) {
 			    
-			    /* store the request */
-			    req.m_req = (request_type::req_type)status;
-			    req.m_req->ucp_worker = ucp_worker;
+			    /* return the request */
+			    req.m_req = (request_type::req_type)(status);
 			} else {
 			    ERR("ucp_tag_recv_nb failed");
 			}
@@ -528,9 +527,8 @@ namespace gridtools
 				req.m_req = nullptr;
 			    } else {
 
-				/* store the request */
+				/* return the request */
 				req.m_req = (request_type::req_type)(status);
-				req.m_req->ucp_worker = ucp_worker;
 			    }
 			} else {
 			    ERR("ucp_tag_send_nb failed");
@@ -649,6 +647,7 @@ namespace gridtools
 		    CRITICAL_BEGIN(ucp) {
 			p+= ucp_worker_progress(ucp_worker);
 			if(m_nthr>1){
+			    /* TODO: this may not be necessary when critical is no longer used */
 			    p+= ucp_worker_progress(ucp_worker);
 			    p+= ucp_worker_progress(ucp_worker);
 			    p+= ucp_worker_progress(ucp_worker);
@@ -656,7 +655,7 @@ namespace gridtools
 		    } CRITICAL_END(ucp);
 
 		    // the critical section is MUCH better (!!) than the yield
-		    if(m_nthr>1) sched_yield();
+		    // if(m_nthr>1) sched_yield();
 
 		    return p;
 		}
@@ -690,7 +689,9 @@ namespace gridtools
 			std::array<int,1> smsg = {1}, rmsg = {0};
 
 			if(m_thrid!=0) ERR("barrier must be run on thread id 0");
-			tag = m_nthr-(m_rank+peer_rank+1);
+
+			// TODO: use something that cannot be used by the user. otherwise trouble...
+			tag = 0x800000;
 
 			sf = send(peer_rank, tag, smsg);
 			rf = recv(peer_rank, tag, rmsg);
@@ -728,6 +729,7 @@ namespace gridtools
 		friend void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info);
 		template <typename MsgType>
 		friend void ghex_tag_send_callback(void *request, ucs_status_t status);
+		friend void ucx::worker_progress();
 	    };
 
 
@@ -782,16 +784,25 @@ namespace gridtools
 		ucp_request_free(request);
 	    }
 
-	    /** this has to be here, because the class needs to be complete */
-	    // extern communicator<ucx_tag> comm;
-	    // DECLARE_THREAD_PRIVATE(comm)
-	    // communicator<ucx_tag> comm;
-
 	    /** static communicator properties, shared between threads */
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_rank;
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_size;
 	    ucp_context_h communicator<ucx_tag>::ucp_context;
 	    ucp_worker_h  communicator<ucx_tag>::ucp_worker;
+
+	    namespace ucx {
+
+		/** this is used by the request test() function
+		    since it has no access to the communicator. 
+		*/
+		void worker_progress(){
+		    /* TODO: this may not be necessary when critical is no longer used */
+		    ucp_worker_progress(pcomm->ucp_worker);
+		    ucp_worker_progress(pcomm->ucp_worker);
+		    ucp_worker_progress(pcomm->ucp_worker);
+		    ucp_worker_progress(pcomm->ucp_worker);
+		}
+	    }
 
 	} // namespace tl
     } // namespace ghex

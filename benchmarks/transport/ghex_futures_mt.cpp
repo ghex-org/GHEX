@@ -137,6 +137,8 @@ int main(int argc, char *argv[])
 	}
 
 	comm->barrier();
+
+	delete comm;
     }
 
     if(rank == 1) timer.vtoc(bytes);

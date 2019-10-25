@@ -21,7 +21,6 @@ namespace gridtools{
 
 		/** request structure for futures-based comm */
 		struct ghex_ucx_request {
-		    ucp_worker_h ucp_worker; // worker thread handling this request
 		};
 		
 		/** request structure for callback-based comm */
@@ -35,6 +34,12 @@ namespace gridtools{
 
 		/** size of the above struct for actual MsgType */
 		#define GHEX_REQUEST_SIZE 48
+
+		/** this is defined in ucx communicator.hpp.
+		    Requests have no access to the worker, and we
+		    need to progess the engine here 
+		*/
+		extern void worker_progress();
 
                 /** @brief thin wrapper around UCX Request */
                 struct request
@@ -52,27 +57,34 @@ namespace gridtools{
                     bool test()
                     {
 			ucs_status_t status;
+			bool retval = false;
+			
 			if(NULL == m_req) return true;
-			status = ucp_request_check_status(m_req);
-			if(status != UCS_INPROGRESS) {
-			    ucp_request_free(m_req);
-			    m_req = NULL;
-			    return true;
-			}
 
-			/* progress UCX */
+			/* ucp_request_check_status has to be locked also:
+			   it does access the worker!
+			*/
 			CRITICAL_BEGIN(ucp) {
-			    ucp_worker_progress(m_req->ucp_worker);
-			} CRITICAL_END(ucp);
+			    status = ucp_request_check_status(m_req);
+			    if(status != UCS_INPROGRESS) {
+				ucp_request_free(m_req);
+				m_req = NULL;
+				retval = true;
+			    } else {
 
-			status = ucp_request_check_status(m_req);
-			if(status != UCS_INPROGRESS) {
-			    ucp_request_free(m_req);
-			    m_req = NULL;
-			    return true;
-			}
-	
-			return false;
+				/* progress UCX */
+				worker_progress();
+
+				status = ucp_request_check_status(m_req);
+				if(status != UCS_INPROGRESS) {
+				    ucp_request_free(m_req);
+				    m_req = NULL;
+				    retval = true;
+				}
+			    }
+			} CRITICAL_END(ucp);
+			
+			return retval;
                     }
                 };
 
