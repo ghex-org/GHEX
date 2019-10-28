@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	
 	for(int j=0; j<inflight; j++){
 	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &buffers[j]);
-	    req[j] = MPI_REQUEST_NULL;	    
+	    req[j] = MPI_REQUEST_NULL;
 	    for(int i=0; i<buff_size; i++) {
 		buffers[j][i] = i%(rank+1);
 	    }
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	    tic();
 	    bytes = (double)niter*size*buff_size/2;
 	}
-	
+
 	/* submit inflight async requests */
 	for(int j=0; j<inflight; j++){
 	    if(rank==0)
@@ -51,29 +51,29 @@ int main(int argc, char *argv[])
 	    else
 		MPI_Irecv(buffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[j]);
 	}
-
+	
 	int i = 0;
 	while(i<niter){
-	    int completed, flag;
+	    for(int j=0; j<inflight; j++){
 
-	    MPI_Waitany(inflight, req, &completed, MPI_STATUS_IGNORE);
-	    // MPI_Testany(inflight, req, &completed, &flag, MPI_STATUS_IGNORE);
-	    // if(!flag) continue;
+		int flag;
+		MPI_Test(&req[j], &flag, MPI_STATUS_IGNORE);
+		if(!flag) continue;
 	    
-	    if(rank==0 && i%(niter/10)==0) {
-		std::cout << i << " iters\n";
+		if(rank==0 && i%(niter/10)==0) {
+		    std::cout << i << " iters\n";
+		}
+		
+		if(rank==0)
+		    MPI_Isend(buffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[j]);
+		else
+		    MPI_Irecv(buffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &req[j]);
+		i++; if(i==niter) break;		
 	    }
-
-	    if(rank==0)
-		MPI_Isend(buffers[completed], buff_size, MPI_BYTE, peer_rank, completed, mpi_comm, &req[completed]);
-	    else
-		MPI_Irecv(buffers[completed], buff_size, MPI_BYTE, peer_rank, completed, mpi_comm, &req[completed]);	    
-	    i++; if(i==niter) break;
 	}
 
 	if(rank == 1) toc();
     }
-    
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 }
