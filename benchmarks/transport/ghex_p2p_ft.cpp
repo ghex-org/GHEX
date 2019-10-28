@@ -113,6 +113,7 @@ int main(int argc, char *argv[])
 	}
 
 	comm.fence();
+	comm.barrier();
     }
 
     if(rank == 1) timer.vtoc(bytes);

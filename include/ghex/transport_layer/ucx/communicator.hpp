@@ -663,8 +663,10 @@ namespace gridtools
 			}
 		    } CRITICAL_END(ucp_lock);
 
-		    // the critical section is MUCH better (!!) than the yield
-		    // if(m_nthr>1) sched_yield();
+#ifdef USE_PTHREAD_LOCKS
+		    // the below is necessary when using spin-locks
+		    if(m_nthr>1) sched_yield();
+#endif
 
 		    return p;
 		}
@@ -677,9 +679,9 @@ namespace gridtools
 
 			// TODO: how to assure that all comm is completed before we quit a rank?
 			// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
-			for(int i=0; i<100000; i++) {
-			    ucp_worker_progress(ucp_worker);
-			}
+			// for(int i=0; i<100000; i++) {
+			//     ucp_worker_progress(ucp_worker);
+			// }
 		    }
 		    THREAD_BARRIER();
 		}
@@ -706,21 +708,22 @@ namespace gridtools
 			rf = recv(peer_rank, tag, rmsg);
 			while(true){
 			    if(sf.test() && rf.test()) break;
-			    this->progress();
+			    progress();
 			}
 			fprintf(stderr, "barrier done\n");
 		    }
 		    THREAD_BARRIER();
 		}
 
+		/* this must only be executed by a single thread */
 		void flush()
 		{
 		    void *request = ucp_worker_flush_nb(ucp_worker, 0, ucx::empty_send_cb);
 		    if (request == NULL) {
-			return;
+			/* done */
 		    } else if (UCS_PTR_IS_ERR(request)) {
+			/* terminate */
 			ERR("flush failed");
-			return;
 		    } else {
 			ucs_status_t status;
 			do {

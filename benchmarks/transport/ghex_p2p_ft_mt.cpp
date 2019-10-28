@@ -132,7 +132,8 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	// comm->fence();
+#pragma omp barrier
+	comm->fence();
 	comm->barrier();
 
 	delete comm;

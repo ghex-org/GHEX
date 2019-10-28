@@ -163,7 +163,9 @@ int main(int argc, char *argv[])
 	}
 
 	if(rank == 1) timer.vtoc(bytes);
+	
 	comm.fence();
+	comm.barrier();
     }
 
 #ifdef USE_MPI

@@ -172,12 +172,11 @@ int main(int argc, char *argv[])
 	    /* complete all inflight requests before moving on */
 	    while(ongoing_comm){
 		comm_cb.progress();
+		sched_yield();
 	    }
-
-	    /* have to have the barrier since any thread can complete any request in UCX */
-#pragma omp barrier
 	}
 
+#pragma omp barrier
 	comm->fence();
 	comm->barrier();
 

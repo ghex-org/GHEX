@@ -201,6 +201,7 @@ int main(int argc, char *argv[])
 		comm_cb.progress();
 		noprogress++;
 	    }
+#pragma omp barrier
 
 	} else {
 
@@ -240,6 +241,7 @@ int main(int argc, char *argv[])
 
 	if(noprogress >= NOPROGRESS_CNT) std::cout << "rank " << rank << " finished: no progress threashold\n";
 
+#pragma omp barrier
 	comm->fence();
 	comm->barrier();
 
