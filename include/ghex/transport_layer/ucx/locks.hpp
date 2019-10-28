@@ -3,8 +3,8 @@
 
 #ifdef THREAD_MODE_MULTIPLE
 
-// #define USE_OPENMP_LOCKS
-// #define USE_PTHREAD_LOCKS
+//#define USE_OPENMP_LOCKS
+//#define USE_PTHREAD_LOCKS
 #define USE_STD_LOCKS
 
 #if defined USE_OPENMP_LOCKS
@@ -59,7 +59,7 @@ using lock_t = pthread_mutex_t;
 #else
 
 /* no locking */
-using lock_t int;
+using lock_t = int;
 #define LOCK_INIT(l)
 #define CRITICAL_BEGIN(name)
 #define CRITICAL_END(name)   

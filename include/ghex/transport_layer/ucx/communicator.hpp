@@ -812,6 +812,7 @@ namespace gridtools
 		    ucp_worker_progress(pcomm->ucp_worker);
 		    ucp_worker_progress(pcomm->ucp_worker);
 		    ucp_worker_progress(pcomm->ucp_worker);
+		    // if(pcomm->m_nthr>1) sched_yield();
 		}
 	    }
 	} // namespace tl
