@@ -95,7 +95,7 @@ namespace gridtools {
 
                 shared_message_buffer(const shared_message_buffer& other){
 		    m_sptr = other.m_sptr;
-		    m_sptr->refcount++;	
+		    m_sptr->refcount++;
 		}
 		
                 shared_message_buffer(shared_message_buffer&& other){
@@ -109,19 +109,26 @@ namespace gridtools {
 		    return *this;
 		}
 		
-		shared_message_buffer& operator=(shared_message_buffer&&) = default;
+		shared_message_buffer& operator=(shared_message_buffer&& other){
+		    m_sptr = other.m_sptr;
+		    other.m_sptr = NULL;
+		    return *this;
+		}
 
 		~shared_message_buffer(){
 		    if(m_sptr){
 			m_sptr->refcount--;
-			if(m_sptr->refcount==0) delete m_sptr;
+			if(m_sptr->refcount==0) {
+			    delete m_sptr;
+			    m_sptr = NULL;
+			}
 		    }
 		}
 
             public: // member functions
     
                 bool is_shared() const { return use_count() > 1; }
-                auto use_count() const { return m_sptr->m_message.use_count(); }
+                auto use_count() const { return m_sptr->refcount; }
 
                 std::size_t size() const noexcept { return m_sptr->m_message.size(); }
                 std::size_t capacity() const noexcept { return m_sptr->m_message.capacity(); }

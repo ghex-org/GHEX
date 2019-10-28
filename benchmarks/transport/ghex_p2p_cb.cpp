@@ -33,13 +33,13 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 /* comm requests currently in-flight */
 int ongoing_comm = 0;
 
-void send_callback(int rank, int tag, const MsgType &mesg)
+void send_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     ongoing_comm--;
 }
 
-void recv_callback(int rank, int tag, const MsgType &mesg)
+void recv_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     ongoing_comm--;
@@ -112,9 +112,9 @@ int main(int argc, char *argv[])
 		i++;
 		ongoing_comm++;
 		if(rank==0)
-		    comm_cb.send(1, j, msgs[j], send_callback);
+		    comm_cb.send(msgs[j], peer_rank, j, send_callback);
 		else
-		    comm_cb.recv(0, j, msgs[j], recv_callback);
+		    comm_cb.recv(msgs[j], peer_rank, j, recv_callback);
 		if(i==niter) break;
 	    }
 		

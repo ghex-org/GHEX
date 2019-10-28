@@ -120,7 +120,7 @@ namespace gridtools
                 { 
                     if (m_sends.size() != 0 || m_recvs.size() != 0)  
                     {
-                        std::terminate(); 
+                        // std::terminate(); 
                     }
                 }
                 

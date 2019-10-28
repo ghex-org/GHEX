@@ -125,9 +125,9 @@ int main(int argc, char *argv[])
 		dbg += nthr; 
 
 		if(rank == 0)
-		    reqs[j] = comm->send(1, j, msgs[j]);
+		    reqs[j] = comm->send(msgs[j], peer_rank, j);
 		else
-		    reqs[j] = comm->recv(0, j, msgs[j]);
+		    reqs[j] = comm->recv(msgs[j], peer_rank, j);
 		if(i >= niter) break;
 	    }
 	}

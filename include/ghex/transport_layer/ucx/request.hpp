@@ -30,7 +30,7 @@ namespace gridtools{
 		struct ghex_ucx_request_cb {
 		    uint32_t peer_rank;
 		    uint32_t tag; 
-		    std::function<void(int, int, const MsgType&)> cb;
+		    std::function<void(MsgType, int, int)> cb;
 		    MsgType h_msg;
 		};
 
@@ -91,7 +91,7 @@ namespace gridtools{
 				}
 			    }
 			} CRITICAL_END(ucp_lock);
-			// sched_yield();
+			
 			return retval;
                     }
                 };

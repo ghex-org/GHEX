@@ -411,7 +411,7 @@ namespace gridtools
 		 * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
 		 */
 		template <typename MsgType>
-		[[nodiscard]] future<void> send(rank_type dst, tag_type tag, const MsgType &msg)
+		[[nodiscard]] future<void> send(const MsgType &msg, rank_type dst, tag_type tag)
 		{
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;
@@ -460,7 +460,7 @@ namespace gridtools
 		 * @return A value of type `request_type` that can be used to cancel the request if needed.
 		 */
 		template <typename MsgType, typename CallBack>
-		void send(rank_type dst, tag_type tag, const MsgType &msg, CallBack &&cb)
+		void send(const MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
 		{
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;
@@ -478,14 +478,9 @@ namespace gridtools
 			// TODO !! C++ doesn't like it..
 			istatus = (uintptr_t)status;
 			if(UCS_OK == (ucs_status_t)(istatus)){
-			    cb(dst, tag, msg);
+			    cb(std::move(MsgType(msg)), dst, tag);
 			} else if(!UCS_PTR_IS_ERR(status)) {
 			    ghex_request = (ucx::ghex_ucx_request_cb<MsgType> *)status;
-			    
-			    /* TODO: investigate */
-			    /* OBS: this is needed, otherwise the cb assignment below sometimes segfaults! */
-			    /* request_init function seems to solve this problem */
-			    // bzero(ghex_request, GHEX_REQUEST_SIZE);
 			    
 			    /* fill in useful request data */
 			    ghex_request->peer_rank = dst;
@@ -512,7 +507,7 @@ namespace gridtools
 		 * @return A future that will be ready when the message can be read
 		 */
 		template <typename MsgType>
-		[[nodiscard]] future<void> recv(rank_type src, tag_type tag, MsgType &msg) {
+		[[nodiscard]] future<void> recv(MsgType &msg, rank_type src, tag_type tag) {
 		    ucp_ep_h ep;
 		    ucp_tag_t ucp_tag, ucp_tag_mask;
 		    ucs_status_ptr_t status;
@@ -563,7 +558,7 @@ namespace gridtools
 		 * @return A value of type `request_type` that can be used to cancel the request if needed.
 		 */
 		template <typename MsgType, typename CallBack>
-		void recv(rank_type src, tag_type tag, MsgType &msg, CallBack &&cb)
+		void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
 		{
 		    ucp_tag_t ucp_tag, ucp_tag_mask;
 		    ucs_status_ptr_t status;
@@ -587,12 +582,11 @@ namespace gridtools
 
 			early_rank = src;
 			early_tag = tag;
-			std::function<void(int, int, const MsgType&)> tmpcb = cb;
+			std::function<void(MsgType, int, int)> tmpcb = cb;
 			early_cb = &tmpcb;  // this is cast to proper type inside the callback, which knows MsgType
 			early_msg = &msg;
 			early_completion = 1;
 
-			/* recv with callback */
 			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 						 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<MsgType>);
@@ -605,30 +599,10 @@ namespace gridtools
 			    rstatus = ucp_request_check_status (status);
 			    if(rstatus != UCS_INPROGRESS){
 
-				/* early recv completion - callback has been called */
-
-				/*
-				  TODO: ask if we need the free. this causes an assertion in UCX, which indicates
-				  that for early completion the request is already freed:
-				  [c3-4:105532:0:105538] ucp_request.c:76   Assertion `!(flags & UCP_REQUEST_FLAG_RELEASED)' failed
-				  0 0x000000000001d370 ucs_fatal_error_message()  ucx-1.6.0/src/ucs/debug/assert.c:36
-				  1 0x000000000001d4d6 ucs_fatal_error_format()  ucx-1.6.0/src/ucs/debug/assert.c:52
-				  2 0x0000000000016d5d ucp_request_release_common()  ucx-1.6.0/src/ucp/core/ucp_request.c:76
-				  3 0x0000000000016d5d ucp_request_free()  ucx-1.6.0/src/ucp/core/ucp_request.c:96
-				  4 0x0000000000402fa8 main._omp_fn.0()  GHEX/benchmarks/transport/communicator_ucx.hpp:616
-				*/
-				
-				/* on the other hand, if I don't free this request, then UCX keeps
-				   making new requests, so there must be a leak. */
 				ucp_request_free(status);
 			    } else {
 
 				ghex_request = (ucx::ghex_ucx_request_cb<MsgType> *)status;
-
-				/* TODO: investigate */
-				/* OBS: this is needed, otherwise the cb assignment below sometimes segfaults! */
-				/* request_init function seems to solve this problem */
-				// bzero(ghex_request, GHEX_REQUEST_SIZE);
 
 				/* fill in useful request data */
 				ghex_request->peer_rank = src;
@@ -704,8 +678,8 @@ namespace gridtools
 			// TODO: use something that cannot be used by the user. otherwise trouble...
 			tag = 0x800000;
 
-			sf = send(peer_rank, tag, smsg);
-			rf = recv(peer_rank, tag, rmsg);
+			sf = send(smsg, peer_rank, tag);
+			rf = recv(rmsg, peer_rank, tag);
 			while(true){
 			    if(sf.test() && rf.test()) break;
 			    progress();
@@ -761,21 +735,18 @@ namespace gridtools
 		if(pcomm->early_completion){
 
 		    /* here we know that the submitting thread is also calling the callback */
-		    std::function<void(int, int, MsgType&)> *cb =
-			static_cast<std::function<void(int, int, MsgType&)>*>(pcomm->early_cb);
-		    MsgType *msg = static_cast<MsgType *>(pcomm->early_msg);
-		    (*cb)(pcomm->early_rank, pcomm->early_tag, *msg);
-		    // ERR("NEEDS TESTING...");
+		    std::function<void(MsgType, int, int)> *cb =
+			static_cast<std::function<void(MsgType, int, int)>*>(pcomm->early_cb);
+		    MsgType *tmsg = reinterpret_cast<MsgType *>(pcomm->early_msg);
+		    (*cb)(std::move(MsgType(*tmsg)), pcomm->early_rank, pcomm->early_tag);
 
 		    /* do not free the request - it has to be freed after tag_send_nb */
-		    /* also do not release the message - it is a pointer to a message owned by the user */
 		} else {
 
 		    /* here we know the thrid of the submitting thread, if it is not us */
 		    ucx::ghex_ucx_request_cb<MsgType> *r =
-			static_cast<ucx::ghex_ucx_request_cb<MsgType>*>(request);
-		    r->cb(peer_rank, tag, r->h_msg);
-		    r->h_msg.release();
+			reinterpret_cast<ucx::ghex_ucx_request_cb<MsgType>*>(request);
+		    r->cb(std::move(r->h_msg), peer_rank, tag);
 		    ucp_request_free(request);
 		}
 	    }
@@ -791,8 +762,7 @@ namespace gridtools
 		*/
 		ucx::ghex_ucx_request_cb<MsgType> *r =
 		    static_cast<ucx::ghex_ucx_request_cb<MsgType>*>(request);
-		r->cb(r->peer_rank, r->tag, r->h_msg);
-		r->h_msg.release();
+		r->cb(std::move(r->h_msg), r->peer_rank, r->tag);
 		ucp_request_free(request);
 	    }
 
@@ -812,9 +782,11 @@ namespace gridtools
 		void worker_progress(){
 		    /* TODO: this may not be necessary when critical is no longer used */
 		    ucp_worker_progress(pcomm->ucp_worker);
-		    ucp_worker_progress(pcomm->ucp_worker);
-		    ucp_worker_progress(pcomm->ucp_worker);
-		    ucp_worker_progress(pcomm->ucp_worker);
+		    if(pcomm->m_nthr > 1){
+			ucp_worker_progress(pcomm->ucp_worker);
+			ucp_worker_progress(pcomm->ucp_worker);
+			ucp_worker_progress(pcomm->ucp_worker);
+		    }
 		}
 	    }
 	} // namespace tl

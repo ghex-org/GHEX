@@ -44,7 +44,7 @@ int grank;
 int *available = NULL;
 int ongoing_comm = 0;
 
-void send_callback(int rank, int tag, const MsgType &mesg)
+void send_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     available[tag] = 1;
@@ -57,10 +57,10 @@ gridtools::ghex::tl::callback_communicator<CommType, AllocType> *p_comm_cb = NUL
 CommType *p_comm_cb = NULL;
 #endif
 
-void recv_callback(int rank, int tag, const MsgType &mesg)
+void recv_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    p_comm_cb->recv(rank, tag, (MsgType&)mesg, recv_callback);
+    p_comm_cb->recv(mesg, rank, tag, recv_callback);
     ongoing_comm--;
 }
 
@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
 			sent++;
 			ongoing_comm++;
 			MsgType msg = MsgType(buff_size, alloc);
-			comm_cb.send(1, j, msg, send_callback);
+			comm_cb.send(msg, peer_rank, j, send_callback);
 			if(sent==niter) break;
 		    }
 		}
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 	    /* submit all recv requests */
 	    for(int j=0; j<inflight; j++){
 		MsgType msg = MsgType(buff_size, alloc);
-		comm_cb.recv(0, j, msg, recv_callback);
+		comm_cb.recv(msg, peer_rank, j, recv_callback);
 	    }
 	    
 	    /* requests are re-submitted inside the calback. */

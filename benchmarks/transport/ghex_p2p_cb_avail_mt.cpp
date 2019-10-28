@@ -58,7 +58,7 @@ int total_sent = 0;
 int ongoing_comm = 0;
 int inflight;
 
-void send_callback(int rank, int tag, const MsgType &mesg)
+void send_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
@@ -68,7 +68,7 @@ void send_callback(int rank, int tag, const MsgType &mesg)
     comm_cnt++;
 }
 
-void recv_callback(int rank, int tag, const MsgType &mesg)
+void recv_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " pthr " <<  pthr << " ongoing " << ongoing_comm << "\n";
     int pthr = tag/inflight;
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 	submit_cnt = 0;
 
 	/* to tackle inacurate message counting, quit the benchmark if we don't see progress */
-#define NOPROGRESS_CNT 100000
+#define NOPROGRESS_CNT 10000
 	int noprogress = 0;
 	
 	int i = 0, dbg = 0, blk;
@@ -189,20 +189,21 @@ int main(int argc, char *argv[])
 
 			// don't really need atomic, because we dont' really care about precise number of messages
 			// as long as there are more than niter - we need to receive them
+			// However, due to counting errors we need to get out of the loop based on a noprogress condition,
+			// which would fire when we make counting mistakes.
+			// #pragma omp atomic
 			total_sent++;
 
 			// number of requests per thread
 			submit_cnt++;
 
 			available[thrid][j] = 0;
-			comm_cb.send(1, thrid*inflight+j, msgs[j], send_callback);
+			comm_cb.send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
 		    }
 		}
 		comm_cb.progress();
 		noprogress++;
 	    }
-#pragma omp barrier
-
 	} else {
 
 	    /* recv requests are resubmitted as soon as a request is completed */
@@ -223,7 +224,8 @@ int main(int argc, char *argv[])
 			submit_cnt++;
 
 			available[thrid][j] = 0;
-			comm_cb.recv(0, thrid*inflight+j, msgs[j], recv_callback);
+			if(msgs[j].use_count() == 0) fprintf(stderr, "BAD!\n");
+			comm_cb.recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		    }
 		}
 
