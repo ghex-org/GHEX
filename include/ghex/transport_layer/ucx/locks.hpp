@@ -31,26 +31,26 @@ using lock_t = std::mutex;
 
 #include <pthread.h>
 
-using lock_t = pthread_mutex_t;
+using lock_t = pthread_spinlock_t;
 
-#define LOCK_INIT(l)                            \
-    do {                                        \
-	pthread_mutex_init(&l, NULL);		\
+#define LOCK_INIT(l)					\
+    do {						\
+	pthread_spin_init(&l, PTHREAD_PROCESS_PRIVATE);	\
     } while(0);
 
 #define LOCK_DEL(l)                             \
     do {                                        \
-	pthread_mutex_destroy(&l);		\
+	pthread_spin_destroy(&l);		\
     } while(0);
 
 #define LOCK(l)					\
     do {					\
-	pthread_mutex_lock(&l);			\
+	pthread_spin_lock(&l);			\
     } while(0);
 
 #define UNLOCK(l)				\
     do {					\
-	pthread_mutex_unlock(&l);		\
+	pthread_spin_unlock(&l);		\
     } while(0);
 
 #define CRITICAL_BEGIN(name) LOCK(name)
