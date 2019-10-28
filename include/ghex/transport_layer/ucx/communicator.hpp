@@ -81,7 +81,6 @@ namespace gridtools
 	    static communicator<ucx_tag> *pcomm = NULL;
 	    DECLARE_THREAD_PRIVATE(pcomm)
 
-
 	    /** completion callbacks registered in UCX, defined later */
 	    template <typename MsgType>
 	    void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info);
@@ -102,8 +101,18 @@ namespace gridtools
 		void ghex_request_init_cb(void *request){
 		    bzero(request, GHEX_REQUEST_SIZE);
 		}
-	    }
 
+#ifdef THREAD_MODE_MULTIPLE
+#ifndef USE_OPENMP_LOCKS
+		/* shared lock */
+		lock_t ucp_lock;
+#define ucp_lock ucx::ucp_lock
+#else
+#define ucp_lock ucp_lock
+#endif
+#endif /* THREAD_MODE_MULTIPLE */
+
+	    }
 
 	    /** Class that provides the functions to send and receive messages. A message
 	     * is an object with .data() that returns a pointer to `unsigned char`
@@ -170,8 +179,8 @@ namespace gridtools
 		{
 		    THREAD_MASTER (){
 			ucp_worker_flush(ucp_worker);
-			ucp_worker_destroy(ucp_worker);
-			ucp_cleanup(ucp_context);
+			// ucp_worker_destroy(ucp_worker);
+			// ucp_cleanup(ucp_context);
 		    }
 		}
 
@@ -190,6 +199,12 @@ namespace gridtools
 			// communicator rank and world size
 			m_rank = pmi_impl.rank();
 			m_size = pmi_impl.size();
+#endif
+			
+#ifdef THREAD_MODE_MULTIPLE
+#ifndef USE_OPENMP_LOCKS
+			LOCK_INIT(ucp_lock);
+#endif
 #endif
 
 			// UCX initialization
@@ -283,7 +298,7 @@ namespace gridtools
 			    /* this should not be used if we have a single worker per thread */
 			    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
 #ifdef THREAD_MODE_MULTIPLE
-			    worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
+			    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
 #else
 			    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
 #endif
@@ -406,7 +421,7 @@ namespace gridtools
 
 		    ep = rank_to_ep(dst);
 
-		    CRITICAL_BEGIN(ucp) {
+		    CRITICAL_BEGIN(ucp_lock) {
 
 			/* send without callback */
 			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
@@ -425,7 +440,7 @@ namespace gridtools
 			} else {
 			    ERR("ucp_tag_recv_nb failed");
 			}
-		    } CRITICAL_END(ucp);
+		    } CRITICAL_END(ucp_lock);
 
 		    return req;
 		}
@@ -454,7 +469,7 @@ namespace gridtools
 
 		    ep = rank_to_ep(dst);
 
-		    CRITICAL_BEGIN(ucp) {
+		    CRITICAL_BEGIN(ucp_lock) {
 
 			/* send with callback */
 			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
@@ -480,7 +495,7 @@ namespace gridtools
 			} else {
 			    ERR("ucp_tag_send_nb failed");
 			}
-		    } CRITICAL_END(ucp);
+		    } CRITICAL_END(ucp_lock);
 		}
 
 
@@ -504,7 +519,7 @@ namespace gridtools
 		    char *ucp_request;
 		    request_type req;
 
-		    CRITICAL_BEGIN(ucp) {
+		    CRITICAL_BEGIN(ucp_lock) {
 
 			/* recv */
 			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
@@ -527,7 +542,7 @@ namespace gridtools
 			} else {
 			    ERR("ucp_tag_send_nb failed");
 			}
-		    } CRITICAL_END(ucp);
+		    } CRITICAL_END(ucp_lock);
 
 		    return req;
 		}
@@ -558,7 +573,7 @@ namespace gridtools
 		    /* and the callback is called earlier than we initialize the data inside it */
 
 		    // TODO need to lock the worker progress, but this is bad for performance with many threads
-		    CRITICAL_BEGIN(ucp) {
+		    CRITICAL_BEGIN(ucp_lock) {
 
 			/* sanity check! we could be recursive... OMG! */
 			if(early_completion){
@@ -624,7 +639,7 @@ namespace gridtools
 			} else {
 			    ERR("ucp_tag_send_nb failed");
 			}
-		    } CRITICAL_END(ucp);
+		    } CRITICAL_END(ucp_lock);
 		}
 
 		/** Function to invoke to poll the transport layer and check for the completions
@@ -638,7 +653,7 @@ namespace gridtools
 		{
 		    int p = 0, i = 0;
 
-		    CRITICAL_BEGIN(ucp) {
+		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
 			if(m_nthr>1){
 			    /* TODO: this may not be necessary when critical is no longer used */
@@ -646,7 +661,7 @@ namespace gridtools
 			    p+= ucp_worker_progress(ucp_worker);
 			    p+= ucp_worker_progress(ucp_worker);
 			}
-		    } CRITICAL_END(ucp);
+		    } CRITICAL_END(ucp_lock);
 
 		    // the critical section is MUCH better (!!) than the yield
 		    // if(m_nthr>1) sched_yield();
@@ -788,6 +803,8 @@ namespace gridtools
 
 		/** this is used by the request test() function
 		    since it has no access to the communicator. 
+
+		    NOTE: has to be ucp_lock'ed by the caller!
 		*/
 		void worker_progress(){
 		    /* TODO: this may not be necessary when critical is no longer used */

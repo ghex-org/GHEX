@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	comm->fence();
+	// comm->fence();
 	comm->barrier();
 
 	delete comm;

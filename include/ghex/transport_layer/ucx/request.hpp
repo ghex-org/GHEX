@@ -14,6 +14,8 @@
 #include <functional>
 #include <ucp/api/ucp.h>
 
+#include "locks.hpp"
+
 namespace gridtools{
     namespace ghex {
         namespace tl {
@@ -41,6 +43,12 @@ namespace gridtools{
 		*/
 		extern void worker_progress();
 
+#ifdef THREAD_MODE_MULTIPLE
+#ifndef USE_OPENMP_LOCKS
+		extern lock_t ucp_lock;
+#endif
+#endif
+
                 /** @brief thin wrapper around UCX Request */
                 struct request
                 {
@@ -64,7 +72,7 @@ namespace gridtools{
 			/* ucp_request_check_status has to be locked also:
 			   it does access the worker!
 			*/
-			CRITICAL_BEGIN(ucp) {
+			CRITICAL_BEGIN(ucp_lock) {
 			    status = ucp_request_check_status(m_req);
 			    if(status != UCS_INPROGRESS) {
 				ucp_request_free(m_req);
@@ -82,7 +90,7 @@ namespace gridtools{
 				    retval = true;
 				}
 			    }
-			} CRITICAL_END(ucp);
+			} CRITICAL_END(ucp_lock);
 			
 			return retval;
                     }
