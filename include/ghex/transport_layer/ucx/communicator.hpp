@@ -298,7 +298,7 @@ namespace gridtools
 			    /* this should not be used if we have a single worker per thread */
 			    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
 #ifdef THREAD_MODE_MULTIPLE
-			    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+			    worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
 #else
 			    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
 #endif
@@ -812,7 +812,6 @@ namespace gridtools
 		    ucp_worker_progress(pcomm->ucp_worker);
 		    ucp_worker_progress(pcomm->ucp_worker);
 		    ucp_worker_progress(pcomm->ucp_worker);
-		    // if(pcomm->m_nthr>1) sched_yield();
 		}
 	    }
 	} // namespace tl

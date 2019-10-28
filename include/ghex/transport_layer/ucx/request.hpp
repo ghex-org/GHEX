@@ -91,7 +91,7 @@ namespace gridtools{
 				}
 			    }
 			} CRITICAL_END(ucp_lock);
-			
+			// sched_yield();
 			return retval;
                     }
                 };
