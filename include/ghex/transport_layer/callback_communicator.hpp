@@ -19,7 +19,7 @@
 #include <boost/callable_traits.hpp>
 #include <boost/optional.hpp>
 
-#ifdef GHEX_USE_RAW_SHARED_MESSAGE
+#ifdef USE_RAW_SHARED_MESSAGE
 #include "./raw_shared_message_buffer.hpp"
 #else
 #include "./shared_message_buffer.hpp"

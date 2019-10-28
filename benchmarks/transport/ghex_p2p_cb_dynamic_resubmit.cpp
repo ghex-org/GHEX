@@ -9,9 +9,6 @@ using AllocType = ghex::allocator::pool_allocator<unsigned char, std::allocator<
 using AllocType = std::allocator<unsigned char>;
 #endif
 
-/* define to use the raw shared message - lower overhead */
-#define GHEX_USE_RAW_SHARED_MESSAGE
-
 #include <ghex/common/timer.hpp>
 #include <ghex/transport_layer/callback_communicator.hpp>
 using MsgType = gridtools::ghex::tl::shared_message_buffer<AllocType>;
