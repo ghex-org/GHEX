@@ -38,10 +38,7 @@ namespace gridtools {
                             p1.second.buffer.resize(p1.second.size);
                             for (const auto& fb : p1.second.field_infos)
                                 fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, nullptr);
-                            send_futures.push_back(comm.send(
-                                p1.second.address,
-                                p1.second.tag,
-                                p1.second.buffer));
+                            send_futures.push_back(comm.send(p1.second.buffer, p1.second.address, p1.second.tag));
                         }
                     }
                 }
@@ -160,7 +157,7 @@ namespace gridtools {
                     stream_futures, 
                     [&comm,&send_futures](send_buffer_type* b)
                     {
-                        send_futures.push_back(comm.send( b->address, b->tag, b->buffer));
+                        send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
                     });
             }
 
@@ -302,7 +299,7 @@ namespace gridtools {
                     stream_futures, 
                     [&comm,&send_futures](send_buffer_type* b)
                     {
-                        send_futures.push_back(comm.send( b->address, b->tag, b->buffer));
+                        send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
                     });
             }
 
