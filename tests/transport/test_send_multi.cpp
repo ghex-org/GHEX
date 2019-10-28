@@ -63,7 +63,7 @@ TEST(transport, send_multi) {
 
     } else {
         gridtools::ghex::tl::message_buffer<> rmsg{SIZE};
-        auto fut = comm.recv(0, 42, rmsg);
+        auto fut = comm.recv(rmsg, 0, 42);
         fut.wait();
 
         bool ok = true;

@@ -261,10 +261,8 @@ namespace gridtools {
 
                     m_receive_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
 
-                    ordered_receive_requests.push_back(std::make_tuple(halo_index, ordered_domain_id, m_communicator.recv(
-                                                                  source,
-                                                                  tag,
-                                                                  m_receive_buffers[halo_index])));
+                    ordered_receive_requests.push_back(std::make_tuple(halo_index, ordered_domain_id, 
+                                                                       m_communicator.recv(m_receive_buffers[halo_index],source,tag)));
 
                     ++halo_index;
 
@@ -282,9 +280,7 @@ namespace gridtools {
 
                     pack(halo_index, domain_id, data_descriptors);
 
-                    send_requests.push_back(m_communicator.send(dest,
-                                                                 tag,
-                                                                 m_send_buffers[halo_index]));
+                    send_requests.push_back(m_communicator.send(m_send_buffers[halo_index], dest, tag));
 
                     ++halo_index;
 

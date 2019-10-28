@@ -150,7 +150,7 @@ namespace gridtools
                     GHEX_CHECK_CALLBACK
                     auto& element = *m_sends.insert(m_sends.end(), send_element_type{std::forward<CallBack>(cb), dst, tag,
                                                                                      future_type{}, std::move(msg)});
-                    element.m_future = std::move( m_comm.send(dst, tag, element.m_msg) );
+                    element.m_future = std::move( m_comm.send(element.m_msg, dst, tag) );
                 }
 
                 /** @brief Send a message without registering a callback. */
@@ -205,7 +205,7 @@ namespace gridtools
                     GHEX_CHECK_CALLBACK
                     auto& element = *m_recvs.insert(m_recvs.end(), recv_element_type{std::forward<CallBack>(cb), src, tag,
                                                                                      future_type{}, std::move(msg)});
-                    element.m_future = std::move( m_comm.recv(src, tag, element.m_msg) );
+                    element.m_future = std::move( m_comm.recv(element.m_msg, src, tag) );
                 }
 
                 /** @brief Receive a message with length size (storage is allocated accordingly). */

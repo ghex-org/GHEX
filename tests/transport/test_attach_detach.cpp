@@ -41,8 +41,8 @@ TEST(attach, attach_progress)
 
     const auto dst = (comm.rank()+comm.size()+1)%comm.size();
     const auto src = (comm.rank()+comm.size()-1)%comm.size();
-    auto send_future = comm.send(dst, 0, send_msg);
-    auto recv_future = comm.recv(src, 0, recv_msg);
+    auto send_future = comm.send(send_msg, dst, 0);
+    auto recv_future = comm.recv(recv_msg, src, 0);
 
     cb_comm.attach_send(std::move(send_future), send_msg, dst, 0, [&cb_count](const message_type&,int,int){++cb_count;});
     cb_comm.attach_recv(std::move(recv_future), recv_msg, src, 0, [&cb_count](const message_type&,int,int){++cb_count;});

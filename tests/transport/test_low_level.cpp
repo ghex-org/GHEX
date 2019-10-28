@@ -18,10 +18,9 @@ void test1() {
     std::vector<unsigned char> rmsg(10);
 
     if ( rank == 0 ) {
-        //sr.blocking_send(smsg, 1, 1);
-        sr.send(1, 1, smsg).get();
+        sr.send(smsg, 1, 1).get();
     } else if (rank == 1) {
-        auto fut = sr.recv(0, 1, rmsg);
+        auto fut = sr.recv(rmsg, 0, 1);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -60,7 +59,7 @@ void test2() {
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(1, 1, smsg);
+        auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
         cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /*src*/, int /* tag */) { arrived = true; });
@@ -106,9 +105,9 @@ void test1_mesg() {
     gridtools::ghex::tl::message_buffer<> rmsg{40};
 
     if ( rank == 0 ) {
-        sr.send(1, 1, smsg).get();
+        sr.send(smsg, 1, 1).get();
     } else if (rank == 1) {
-        auto fut = sr.recv(0, 1, rmsg);
+        auto fut = sr.recv(rmsg, 0, 1);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -152,7 +151,7 @@ void test2_mesg() {
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(1, 1, smsg);
+        auto fut = sr.send(smsg, 1, 1);
         fut.wait();
     } else if (rank == 1) {
         cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /* src */, int /* tag */) { arrived = true; });
@@ -199,9 +198,9 @@ void test1_shared_mesg() {
     gridtools::ghex::tl::shared_message_buffer<> rmsg{40};
 
     if ( rank == 0 ) {
-        sr.send(1, 1, smsg).get();
+        sr.send(smsg, 1, 1).get();
     } else if (rank == 1) {
-        auto fut = sr.recv(0, 1, rmsg);
+        auto fut = sr.recv(rmsg, 0, 1);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;

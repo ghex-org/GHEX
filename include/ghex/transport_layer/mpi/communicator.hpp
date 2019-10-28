@@ -61,12 +61,12 @@ namespace gridtools {
 
                 /** @brief non-blocking send
                   * @tparam Message a container type
+                  * @param msg source container
                   * @param dest destination rank
                   * @param tag message tag
-                  * @param msg source container
                   * @return completion handle */
                 template<typename Message> 
-                [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const Message& msg) const
+                [[nodiscard]] future<void> send(const Message& msg, rank_type dest, tag_type tag) const
                 {
                     request req;
                     GHEX_CHECK_MPI_RESULT(
@@ -80,12 +80,12 @@ namespace gridtools {
 
                 /** @brief non-blocking receive
                   * @tparam Message a container type
+                  * @param msg destination container
                   * @param source source rank
                   * @param tag message tag
-                  * @param msg destination container
                   * @return completion handle */
                 template<typename Message>
-                [[nodiscard]] future<void> recv(rank_type source, tag_type tag, Message& msg) const
+                [[nodiscard]] future<void> recv(Message& msg, rank_type source, tag_type tag) const
                 {
                     request req;
                     GHEX_CHECK_MPI_RESULT(
@@ -98,16 +98,16 @@ namespace gridtools {
                   * in the future 
                   * @tparam Message a container type
                   * @tparam Args additional argument types for construction of Message
+                  * @param n number of elements to be received
                   * @param source source rank
                   * @param tag message tag
-                  * @param n number of elements to be received
                   * @param args additional arguments to be passed to new container of type Message at construction 
                   * @return completion handle with message as payload */
                 template<typename Message, typename... Args>
-                [[nodiscard]] future<Message> recv(rank_type source, tag_type tag, int n, Args&& ...args) const
+                [[nodiscard]] future<Message> recv(int n, rank_type source, tag_type tag, Args&& ...args) const
                 {
                     Message msg{n, std::forward<Args>(args)...};
-                    return { std::move(msg), recv(source, tag, msg.data(), msg.size()).m_handle };
+                    return { std::move(msg), recv(msg, source, tag).m_handle };
 
                 }
 

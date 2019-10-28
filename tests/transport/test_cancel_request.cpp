@@ -35,7 +35,7 @@ bool test_simple(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
         return ok;
     } else {
         gridtools::ghex::tl::message_buffer<> rmsg{SIZE};
-        auto fut = comm.recv(0, 42, rmsg); // ~wrong tag to then cancel the calls
+        auto fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
 
         bool ok = fut.cancel();
 

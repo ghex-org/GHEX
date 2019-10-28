@@ -24,11 +24,11 @@ auto test1() {
     comm_type::future<void> rfut;
 
     if ( rank == 0 ) {
-        sr.send(1, 1, smsg).get();
-        rfut = sr.recv(1, 2, rmsg);
+        sr.send(smsg, 1, 1).get();
+        rfut = sr.recv(rmsg, 1, 2);
     } else if (rank == 1) {
-        sr.send(0, 2, smsg).get();
-        rfut = sr.recv(0, 1, rmsg);
+        sr.send(smsg, 0, 2).get();
+        rfut = sr.recv(rmsg, 0, 1);
     }
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -64,11 +64,11 @@ auto test2() {
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(1, 1, smsg);
+        auto fut = sr.send(smsg, 1, 1);
         cb_comm.recv(rmsg, 1, 2, [ &arrived,&rmsg](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
-        auto fut = sr.send(0, 2, smsg);
+        auto fut = sr.send(smsg, 0, 2);
         cb_comm.recv(rmsg, 0, 1, [ &arrived,&rmsg](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     }
@@ -110,11 +110,11 @@ auto test1_mesg() {
     gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void> rfut;
 
     if ( rank == 0 ) {
-        sr.send(1, 1, smsg).get();
-        rfut = sr.recv(1, 2, rmsg);
+        sr.send(smsg, 1, 1).get();
+        rfut = sr.recv(rmsg, 1, 2);
     } else if (rank == 1) {
-        sr.send(0, 2, smsg).get();
-        rfut = sr.recv(0, 1, rmsg);
+        sr.send(smsg, 0, 2).get();
+        rfut = sr.recv(rmsg, 0, 1);
     }
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -158,11 +158,11 @@ auto test2_mesg() {
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(1, 1, smsg);
+        auto fut = sr.send(smsg, 1, 1);
         cb_comm.recv(rmsg, 1, 2, [ &arrived](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
-        auto fut = sr.send(0, 2, smsg);
+        auto fut = sr.send(smsg, 0, 2);
         cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     }
@@ -204,12 +204,12 @@ auto test1_shared_mesg() {
     gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void> rfut;
 
     if ( rank == 0 ) {
-        auto sf = sr.send(1, 1, smsg);
-        rfut = sr.recv(1, 2, rmsg);
+        auto sf = sr.send(smsg, 1, 1);
+        rfut = sr.recv(rmsg, 1, 2);
         sf.wait();
     } else if (rank == 1) {
-        auto sf = sr.send(0, 2, smsg);
-        rfut = sr.recv(0, 1, rmsg);
+        auto sf = sr.send(smsg, 0, 2);
+        rfut = sr.recv(rmsg, 0, 1);
         sf.wait();
     }
 
