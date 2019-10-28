@@ -65,11 +65,11 @@ auto test2() {
 
     if ( rank == 0 ) {
         auto fut = sr.send(1, 1, smsg);
-        cb_comm.recv(1, 2, rmsg, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 1, 2, [ &arrived,&rmsg](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
         auto fut = sr.send(0, 2, smsg);
-        cb_comm.recv(0, 1, rmsg, [ &arrived,&rmsg](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived,&rmsg](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     }
 
@@ -159,11 +159,11 @@ auto test2_mesg() {
 
     if ( rank == 0 ) {
         auto fut = sr.send(1, 1, smsg);
-        cb_comm.recv(1, 2, rmsg, [ &arrived](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 1, 2, [ &arrived](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
         auto fut = sr.send(0, 2, smsg);
-        cb_comm.recv(0, 1, rmsg, [ &arrived](int, int, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int, int) { arrived = true; });
         fut.wait();
     }
 

@@ -44,8 +44,8 @@ TEST(attach, attach_progress)
     auto send_future = comm.send(dst, 0, send_msg);
     auto recv_future = comm.recv(src, 0, recv_msg);
 
-    cb_comm.attach_send(std::move(send_future), dst, 0, send_msg, [&cb_count](int,int,const message_type&){++cb_count;});
-    cb_comm.attach_recv(std::move(recv_future), src, 0, recv_msg, [&cb_count](int,int,const message_type&){++cb_count;});
+    cb_comm.attach_send(std::move(send_future), send_msg, dst, 0, [&cb_count](const message_type&,int,int){++cb_count;});
+    cb_comm.attach_recv(std::move(recv_future), recv_msg, src, 0, [&cb_count](const message_type&,int,int){++cb_count;});
 
     ok = ok && (cb_comm.pending_sends()==1);
     ok = ok && (cb_comm.pending_recvs()==1);
@@ -81,8 +81,8 @@ TEST(detach, detach_wait)
     const auto dst = (comm.rank()+comm.size()+1)%comm.size();
     const auto src = (comm.rank()+comm.size()-1)%comm.size();
 
-    cb_comm.send(dst, 0, send_msg, [&cb_count](int,int,const message_type&){++cb_count;});
-    cb_comm.recv(src, 0, recv_msg, [&cb_count](int,int,const message_type&){++cb_count;});
+    cb_comm.send(send_msg, dst, 0, [&cb_count](const message_type&,int,int){++cb_count;});
+    cb_comm.recv(recv_msg, src, 0, [&cb_count](const message_type&,int,int){++cb_count;});
 
     ok = ok && (cb_comm.pending_sends()==1);
     ok = ok && (cb_comm.pending_recvs()==1);
@@ -125,8 +125,8 @@ TEST(detach, detach_cancel_unexpected)
 
     const auto dst = (comm.rank()+comm.size()+1)%comm.size();
     const auto src = (comm.rank()+comm.size()-1)%comm.size();
-    cb_comm.send(dst, 0, send_msg, [](int,int,const message_type&){ std::cout << "should not be invoked!\n"; });
-    cb_comm.recv(src, 1, recv_msg, [](int,int,const message_type&){ std::cout << "should not be invoked!\n"; });
+    cb_comm.send(send_msg, dst, 0, [](const message_type&,int,int){ std::cout << "should not be invoked!\n"; });
+    cb_comm.recv(recv_msg, src, 1, [](const message_type&,int,int){ std::cout << "should not be invoked!\n"; });
 
     if (auto o = cb_comm.detach_send(dst,0))
     {
@@ -148,7 +148,7 @@ TEST(detach, detach_cancel_unexpected)
 
     MPI_Barrier(comm); 
 
-    ok = ok && !cb_comm.progress([&unexpected_msg](int,int,const message_type& x){ 
+    ok = ok && !cb_comm.progress([&unexpected_msg](const message_type& x,int,int){ 
         std::cout << "received unexpected message!\n"; 
         unexpected_msg = x; });
     if (unexpected_msg.size())

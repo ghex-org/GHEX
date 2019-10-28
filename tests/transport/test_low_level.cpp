@@ -63,7 +63,7 @@ void test2() {
         auto fut = sr.send(1, 1, smsg);
         fut.wait();
     } else if (rank == 1) {
-        cb_comm.recv(0, 1, rmsg, [ &arrived](int /*src*/, int /* tag */, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /*src*/, int /* tag */) { arrived = true; });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -155,7 +155,7 @@ void test2_mesg() {
         auto fut = sr.send(1, 1, smsg);
         fut.wait();
     } else if (rank == 1) {
-        cb_comm.recv(0, 1, rmsg, [ &arrived](int /* src */, int /* tag */, const smsg_type&) { arrived = true; });
+        cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /* src */, int /* tag */) { arrived = true; });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;

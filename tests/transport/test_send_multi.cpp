@@ -42,7 +42,7 @@ TEST(transport, send_multi) {
 
         std::array<int, 3> dsts = {1,2,3};
 
-        cb_comm.send_multi(dsts, 42, smsg);
+        cb_comm.send_multi(smsg, dsts, 42);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     int c = 0;
