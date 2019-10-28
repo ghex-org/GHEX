@@ -364,8 +364,7 @@ namespace gridtools {
                                         comm.recv(
                                             p1.second.address,
                                             p1.second.tag,
-                                            p1.second.buffer.data(),
-                                            p1.second.buffer.size()).m_handle});
+                                            p1.second.buffer).m_handle});
                             }
                         }
                     }

@@ -60,21 +60,6 @@ namespace gridtools {
             public: // send
 
                 /** @brief non-blocking send
-                  * @tparam T data type
-                  * @param dest destination rank
-                  * @param tag message tag
-                  * @param buffer pointer to source buffer
-                  * @param n number of elements in buffer
-                  * @return completion handle */
-                template<typename T>
-                [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const T* buffer, int n) const
-                {
-                    request req;
-                    GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(buffer),sizeof(T)*n, MPI_BYTE, dest, tag, *this, &req.get()));
-                    return req;
-                }
-
-                /** @brief non-blocking send
                   * @tparam Message a container type
                   * @param dest destination rank
                   * @param tag message tag
@@ -83,25 +68,15 @@ namespace gridtools {
                 template<typename Message> 
                 [[nodiscard]] future<void> send(rank_type dest, tag_type tag, const Message& msg) const
                 {
-                    return send(dest, tag, msg.data(), msg.size()); 
+                    request req;
+                    GHEX_CHECK_MPI_RESULT(
+                        MPI_Isend(reinterpret_cast<const void*>(msg.data()),sizeof(typename Message::value_type)*msg.size(), 
+                                  MPI_BYTE, dest, tag, *this, &req.get())
+                    );
+                    return req;
                 }
             
             public: // recv
-
-                /** @brief non-blocking receive
-                  * @tparam T data type
-                  * @param source source rank
-                  * @param tag message tag
-                  * @param buffer pointer destination buffer
-                  * @param n number of elements in buffer
-                  * @return completion handle */
-                template<typename T>
-                [[nodiscard]] future<void> recv(rank_type source, tag_type tag, T* buffer, int n) const
-                {
-                    request req;
-                    GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(buffer),sizeof(T)*n, MPI_BYTE, source, tag, *this, &req.get()));
-                    return req;
-                }
 
                 /** @brief non-blocking receive
                   * @tparam Message a container type
@@ -112,7 +87,11 @@ namespace gridtools {
                 template<typename Message>
                 [[nodiscard]] future<void> recv(rank_type source, tag_type tag, Message& msg) const
                 {
-                    return recv(source, tag, msg.data(), msg.size());
+                    request req;
+                    GHEX_CHECK_MPI_RESULT(
+                            MPI_Irecv(reinterpret_cast<void*>(msg.data()),sizeof(typename Message::value_type)*msg.size(), 
+                                      MPI_BYTE, source, tag, *this, &req.get()));
+                    return req;
                 }
 
                 /** @brief non-blocking receive which allocates the container within this function and returns it
