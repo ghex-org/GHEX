@@ -342,7 +342,7 @@ namespace gridtools
 
 		ucp_ep_h connect(address_type worker_address)
 		{
-		    return connect(worker_address.addr);
+		    return connect(worker_address.m_addr);
 		}
 
 		ucp_ep_h connect(ucp_address_t *worker_address)

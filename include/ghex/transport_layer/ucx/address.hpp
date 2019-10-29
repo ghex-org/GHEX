@@ -21,16 +21,16 @@ namespace gridtools{
                 /** @brief thin wrapper around UCX Request */
                 struct address
                 {
-		    ucp_worker_h  worker;
-		    ucp_address_t *addr;
-		    int size;
+		    ucp_worker_h  m_worker;
+		    ucp_address_t *m_addr;
+		    int m_size;
 
-		    address(ucp_worker_h _worker, ucp_address_t *_addr, int _size):
-			worker{_worker}, addr{_addr}, size{size}
+		    address(ucp_worker_h worker, ucp_address_t *addr, int size):
+			m_worker{worker}, m_addr{addr}, size{m_size}
 		    {}
 
 		    ~address(){
-			ucp_worker_release_address(worker, addr);
+			ucp_worker_release_address(m_worker, m_addr);
 		    }
                 };
 
