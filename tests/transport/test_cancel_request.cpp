@@ -7,6 +7,10 @@
 
 #include <gtest/gtest.h>
 
+template<typename Comm, typename Alloc>
+using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
+//using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
+
 int rank;
 const unsigned int SIZE = 1<<12;
 
@@ -16,7 +20,7 @@ bool test_simple(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(comm)>;
 
-    gridtools::ghex::tl::callback_communicator<comm_type,allocator_type> cb_comm(comm);
+    callback_comm_t<comm_type,allocator_type> cb_comm(comm);
 
     if (rank == 0) {
         smsg_type smsg{SIZE};
@@ -57,7 +61,7 @@ bool test_single(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(comm)>;
 
-    gridtools::ghex::tl::callback_communicator<comm_type,allocator_type> cb_comm(comm);
+    callback_comm_t<comm_type,allocator_type> cb_comm(comm);
 
     if (rank == 0) {
         smsg_type smsg{SIZE};
@@ -139,7 +143,7 @@ bool test_send_10(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(comm)>;
-    using cb_comm_type   = gridtools::ghex::tl::callback_communicator<comm_type,allocator_type>;
+    using cb_comm_type   = callback_comm_t<comm_type,allocator_type>;
    
     cb_comm_type cb_comm(comm);
 

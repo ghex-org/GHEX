@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_TL_CALLBACK_COMMUNICATOR_HPP
 
 #include <deque>
+#include <vector>
 #include <algorithm>
 #include <memory>
 #include <type_traits>
@@ -75,11 +76,52 @@ namespace gridtools
 
             private: // member types
 
+                struct type_erased_cb_t
+                {
+                    struct iface
+                    {
+                        virtual void fn(message_type&&, rank_type, tag_type) = 0;
+                        virtual ~iface() = default;
+                    };
+
+                    template<typename Func>
+                    struct function final : public iface
+                    {
+                        Func m_func;
+
+                        function(Func&& func) : m_func(std::move(func)) {}
+                        function(Func& func) : m_func(func) {}
+
+                        void fn(message_type&& msg, rank_type r, tag_type t) override
+                        {
+                            m_func(std::move(msg), r, t);
+                        }
+                    };
+
+                    std::unique_ptr<iface> m_impl;
+                    
+                    type_erased_cb_t() {}
+
+                    template<typename Func>
+                    type_erased_cb_t(Func&& func)
+                    : m_impl{
+                        std::make_unique<function<typename std::remove_cv<typename std::remove_reference<Func>::type>::type>>(
+                                std::forward<Func>(func))} {}
+
+                    inline void operator()(message_type&& msg, rank_type r, tag_type t) const noexcept
+                    {
+                        // unsafe here
+                        //if (m_impl) 
+                            m_impl->fn(std::move(msg), r, t);
+                    }
+                };
+
                 // necessary meta information for each send/receive operation
                 struct element_type
                 {
                     using message_arg_type = message_type;
-                    std::function<void(message_arg_type, rank_type, tag_type)> m_cb;
+                    //std::function<void(message_arg_type, rank_type, tag_type)> m_cb;
+                    type_erased_cb_t m_cb;
                     rank_type    m_rank;
                     tag_type     m_tag;
                     future_type  m_future;
@@ -87,15 +129,17 @@ namespace gridtools
                 };
                 using send_element_type   = element_type;
                 using recv_element_type   = element_type;
-                using send_container_type = std::deque<send_element_type>;
-                using recv_container_type = std::deque<recv_element_type>;
+                //using send_container_type = std::deque<send_element_type>;
+                //using recv_container_type = std::deque<recv_element_type>;
+                using send_container_type = std::vector<send_element_type>;
+                using recv_container_type = std::vector<recv_element_type>;
 
             private: // members
 
                 communicator_type   m_comm;
                 allocator_type      m_alloc;
                 send_container_type m_sends;
-                recv_container_type m_recvs; 
+                recv_container_type m_recvs;
 
             public: // ctors
 
@@ -103,9 +147,17 @@ namespace gridtools
                   * @param comm  the underlying transport communicator
                   * @param alloc the allocator instance to be used for constructing messages */
                 callback_communicator(const communicator_type& comm, allocator_type alloc = allocator_type{}) 
-                : m_comm(comm), m_alloc(alloc) {}
+                : m_comm(comm), m_alloc(alloc) 
+                {
+                    m_sends.reserve(128);
+                    m_recvs.reserve(128);
+                }
                 callback_communicator(communicator_type&& comm, allocator_type alloc = allocator_type{}) 
-                : m_comm(std::move(comm)), m_alloc(alloc) {}
+                : m_comm(std::move(comm)), m_alloc(alloc)
+                {
+                    m_sends.reserve(128);
+                    m_recvs.reserve(128);
+                }
 
                 callback_communicator(const callback_communicator&) = delete;
                 callback_communicator(callback_communicator&&) = default;
@@ -113,10 +165,10 @@ namespace gridtools
                 /** terminates the program if the queues are not empty */
                 ~callback_communicator() 
                 { 
-                    if (m_sends.size() != 0 || m_recvs.size() != 0)  
-                    {
-                        std::terminate(); 
-                    }
+                    //if (m_sends.size() != 0 || m_recvs.size() != 0)  
+                    //{
+                    //    std::terminate(); 
+                    //}
                 }
                 
             public: // queries
@@ -145,18 +197,20 @@ namespace gridtools
                   * @param tag Tag associated with the message
                   * @param cb  Callback function object */
                 template<typename CallBack>
-                void send(message_type msg, rank_type dst, tag_type tag, CallBack&& cb)
+                void send(const message_type& msg, rank_type dst, tag_type tag, CallBack&& cb)
                 {
                     GHEX_CHECK_CALLBACK
-                    auto& element = *m_sends.insert(m_sends.end(), send_element_type{std::forward<CallBack>(cb), dst, tag,
-                                                                                     future_type{}, std::move(msg)});
+                    auto& element = 
+                        *m_sends.insert(
+                            m_sends.end(), 
+                            send_element_type{std::forward<CallBack>(cb), dst, tag, future_type{}, msg});
                     element.m_future = std::move( m_comm.send(element.m_msg, dst, tag) );
                 }
 
                 /** @brief Send a message without registering a callback. */
-                void send(message_type msg, rank_type dst, tag_type tag)
+                void send(const message_type& msg, rank_type dst, tag_type tag)
                 {
-                    send(std::move(msg),dst,tag,[](message_type,rank_type,tag_type){});
+                    send(msg,dst,tag,[](message_type,rank_type,tag_type){});
                 }
 
                 /** @brief Send a message to multiple destinations with the same rank an register an associated callback. 
@@ -168,7 +222,7 @@ namespace gridtools
                   * @param tag Tag associated with the message
                   * @param cb Callback function object */
                 template <typename Neighs, typename CallBack>
-                void send_multi(message_type msg, Neighs const &neighs, int tag, CallBack&& cb)
+                void send_multi(const message_type& msg, Neighs const &neighs, int tag, CallBack&& cb)
                 {
                     GHEX_CHECK_CALLBACK
                     using cb_type = typename std::remove_cv<typename std::remove_reference<CallBack>::type>::type;
@@ -184,9 +238,9 @@ namespace gridtools
 
                 /** @brief Send a message to multiple destinations without registering a callback */
                 template <typename Neighs>
-                void send_multi(message_type msg, Neighs const &neighs, int tag)
+                void send_multi(const message_type& msg, Neighs const &neighs, int tag)
                 {
-                    send_multi(std::move(msg),neighs,tag,[](message_type, rank_type,tag_type){});
+                    send_multi(msg,neighs,tag,[](message_type, rank_type,tag_type){});
                 }
 
             public: // recieve
@@ -200,11 +254,11 @@ namespace gridtools
                   * @param tag Tag associated with the message
                   * @param cb  Callback function object */
                 template<typename CallBack>
-                void recv(message_type msg, rank_type src, tag_type tag, CallBack&& cb)
+                void recv(message_type& msg, rank_type src, tag_type tag, CallBack&& cb)
                 {
                     GHEX_CHECK_CALLBACK
                     auto& element = *m_recvs.insert(m_recvs.end(), recv_element_type{std::forward<CallBack>(cb), src, tag,
-                                                                                     future_type{}, std::move(msg)});
+                                                                                     future_type{}, msg});
                     element.m_future = std::move( m_comm.recv(element.m_msg, src, tag) );
                 }
 
@@ -216,9 +270,9 @@ namespace gridtools
                 }
 
                 /** @brief Receive a message without registering a callback. */
-                void recv(message_type msg, rank_type src, tag_type tag)
+                void recv(message_type& msg, rank_type src, tag_type tag)
                 {
-                    recv(std::move(msg),src,tag,[](message_type,rank_type,tag_type){});
+                    recv(msg,src,tag,[](message_type,rank_type,tag_type){});
                 }
 
             public: // progress
@@ -353,7 +407,7 @@ namespace gridtools
                 template<typename Deque>
                 bool run(Deque& d)
                 {
-                    const unsigned int size = d.size();
+                    /*const unsigned int size = d.size();
                     for (unsigned int i=0; i<size; ++i) 
                     {
                         auto element = std::move(d.front());
@@ -371,6 +425,22 @@ namespace gridtools
                         }
                     }
                     return (d.size()==0u);
+                    */
+                    for (unsigned int i=0; i<d.size(); ++i) 
+                    {
+                        auto& element = d[i];
+                        if (element.m_future.ready())
+                        {
+                            element.m_cb(std::move(element.m_msg), element.m_rank, element.m_tag);
+                            if (i+1 < d.size())
+                            {
+                                element = std::move(d.back());
+                                --i;
+                            }
+                            d.resize(d.size()-1);
+                        }
+                    }
+                    return (d.size()==0u);
                 }
 
                 template<typename Deque>
@@ -383,10 +453,15 @@ namespace gridtools
                         });
                     if (it != d.end())
                     {
-                        auto cb =  std::move(it->m_cb);
+                        //auto cb =  std::move(it->m_cb);
                         auto fut = std::move(it->m_future);
                         auto msg = std::move(it->m_msg);
-                        d.erase(it);
+                        //d.erase(it);
+                        if (it+1 != d.end())
+                        {
+                            *it = std::move(d.back());
+                        }
+                        d.resize(d.size()-1);
                         return std::pair<future_type,message_type>{std::move(fut), std::move(msg)}; 
                     }
                     return boost::none;
@@ -399,14 +474,16 @@ namespace gridtools
                     const unsigned int size = d.size();
                     for (unsigned int i=0; i<size; ++i) 
                     {
-                        auto element = std::move(d.front());
-                        d.pop_front();
+                        //auto element = std::move(d.front());
+                        //d.pop_front();
+                        auto& element = d[i];
                         auto& fut = element.m_future;
                         if (!fut.ready())
                             result = result && fut.cancel();
-                        else
-                            fut.wait();
+                        //else
+                        //    fut.wait();
                     }
+                    d.resize(0);
                     return result;
                 }
             };

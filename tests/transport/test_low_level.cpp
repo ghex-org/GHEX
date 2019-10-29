@@ -5,6 +5,10 @@
 
 #include <gtest/gtest.h>
 
+template<typename Comm, typename Alloc>
+using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
+//using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
+
 int rank;
 
 /**
@@ -51,7 +55,7 @@ void test2() {
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
-    gridtools::ghex::tl::callback_communicator<comm_type,allocator_type> cb_comm(sr);
+    callback_comm_t<comm_type,allocator_type> cb_comm(sr);
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
     smsg_type rmsg(10);
@@ -137,7 +141,7 @@ void test2_mesg() {
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
 
-    gridtools::ghex::tl::callback_communicator<comm_type,allocator_type> cb_comm(sr);
+    callback_comm_t<comm_type,allocator_type> cb_comm(sr);
 
     gridtools::ghex::tl::message_buffer<> smsg{40};
     smsg_type rmsg{40};
