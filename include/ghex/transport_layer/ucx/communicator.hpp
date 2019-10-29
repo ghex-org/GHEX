@@ -73,21 +73,6 @@ namespace gridtools
 	    ((_ucp_tag) >> GHEX_RANK_BITS)
 
 
-	    /** Communication freezes when I try to access comm from the callbacks
-		I have to access it through a pointer, which is initialized for each
-		thread inside the constructor.
-	    */
-	    class communicator<ucx_tag>;
-	    static communicator<ucx_tag> *pcomm = NULL;
-	    DECLARE_THREAD_PRIVATE(pcomm)
-
-	    /** completion callbacks registered in UCX, defined later */
-	    template <typename MsgType>
-	    void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info);
-	    template <typename MsgType>
-	    void ghex_tag_send_callback(void *request, ucs_status_t status);
-
-
 	    /* local definitions - request and future related things */
 	    namespace ucx
 	    {
@@ -189,7 +174,6 @@ namespace gridtools
 		    /* need to set this for single threaded runs */
 		    m_thrid = GET_THREAD_NUM();
 		    m_nthr = GET_NUM_THREADS();
-		    pcomm = this;
 
 		    /* only one thread must initialize UCX. 
 		       TODO: This should probably be a static method, called once, explicitly, by the user */
@@ -445,54 +429,6 @@ namespace gridtools
 		    return req;
 		}
 
-		/** Send a message to a destination with the given tag. When the message is sent, and
-		 * the message ready to be reused, the given call-back is invoked with the destination
-		 *  and tag of the message sent.
-		 *
-		 * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-		 * @tparam CallBack Funciton to call when the message has been sent and the message ready for reuse
-		 *
-		 * @param msg Const reference to a message to send
-		 * @param dst Destination of the message
-		 * @param tag Tag associated with the message
-		 * @param cb  Call-back function with signature void(int, int)
-		 *
-		 * @return A value of type `request_type` that can be used to cancel the request if needed.
-		 */
-		template <typename MsgType, typename CallBack>
-		void send(const MsgType &msg, rank_type dst, tag_type tag, CallBack &&cb)
-		{
-		    ucp_ep_h ep;
-		    ucs_status_ptr_t status;
-		    uintptr_t istatus;
-		    ucx::ghex_ucx_request_cb<MsgType> *ghex_request;
-
-		    ep = rank_to_ep(dst);
-
-		    CRITICAL_BEGIN(ucp_lock) {
-
-			/* send with callback */
-			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						 GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<MsgType>);
-
-			// TODO !! C++ doesn't like it..
-			istatus = (uintptr_t)status;
-			if(UCS_OK == (ucs_status_t)(istatus)){
-			    cb(std::move(MsgType(msg)), dst, tag);
-			} else if(!UCS_PTR_IS_ERR(status)) {
-			    ghex_request = (ucx::ghex_ucx_request_cb<MsgType> *)status;
-			    
-			    /* fill in useful request data */
-			    ghex_request->peer_rank = dst;
-			    ghex_request->tag = tag;
-			    ghex_request->cb = std::forward<CallBack>(cb);
-			    ghex_request->h_msg = msg;
-			} else {
-			    ERR("ucp_tag_send_nb failed");
-			}
-		    } CRITICAL_END(ucp_lock);
-		}
-
 
 		/** Receive a message from a destination with the given tag.
 		 * It returns a future that can be used to check when the message is available
@@ -542,79 +478,6 @@ namespace gridtools
 		    return req;
 		}
 
-
-		/** Receive a message from a source with the given tag. When the message arrives, and
-		 * the message ready to be read, the given call-back is invoked with the source
-		 *  and tag of the message sent.
-		 *
-		 * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-		 * @tparam CallBack Funciton to call when the message has been sent and the message ready to be read
-		 *
-		 * @param msg Const reference to a message that will contain the data
-		 * @param src Source of the message
-		 * @param tag Tag associated with the message
-		 * @param cb  Call-back function with signature void(int, int)
-		 *
-		 * @return A value of type `request_type` that can be used to cancel the request if needed.
-		 */
-		template <typename MsgType, typename CallBack>
-		void recv(MsgType &msg, rank_type src, tag_type tag, CallBack &&cb)
-		{
-		    ucp_tag_t ucp_tag, ucp_tag_mask;
-		    ucs_status_ptr_t status;
-		    ucx::ghex_ucx_request_cb<MsgType> *ghex_request;
-
-		    /* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
-		    /* and the callback is called earlier than we initialize the data inside it */
-
-		    // TODO need to lock the worker progress, but this is bad for performance with many threads
-		    CRITICAL_BEGIN(ucp_lock) {
-
-			/* sanity check! we could be recursive... OMG! */
-			if(early_completion){
-			    /* TODO: VERIFY. Error just to catch such situation, if it happens. */
-			    /* This should never happen, and even if, should not be a problem: */
-			    /* we do not modify anything in the early callback, and the values */
-			    /* set here are never used anywhere else. Unless user re-uses the message */
-			    /* in his callback after re-submitting a send... Should be told not to. */
-			    std::cerr << "recv submitted inside early completion\n";
-			}
-
-			early_rank = src;
-			early_tag = tag;
-			std::function<void(MsgType, int, int)> tmpcb = cb;
-			early_cb = &tmpcb;  // this is cast to proper type inside the callback, which knows MsgType
-			early_msg = &msg;
-			early_completion = 1;
-
-			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<MsgType>);
-
-			early_completion = 0;
-
-			if(!UCS_PTR_IS_ERR(status)) {
-
-			    ucs_status_t rstatus;
-			    rstatus = ucp_request_check_status (status);
-			    if(rstatus != UCS_INPROGRESS){
-
-				ucp_request_free(status);
-			    } else {
-
-				ghex_request = (ucx::ghex_ucx_request_cb<MsgType> *)status;
-
-				/* fill in useful request data */
-				ghex_request->peer_rank = src;
-				ghex_request->tag = tag;
-				ghex_request->cb = std::forward<CallBack>(cb);
-				ghex_request->h_msg = msg;
-			    }
-			} else {
-			    ERR("ucp_tag_send_nb failed");
-			}
-		    } CRITICAL_END(ucp_lock);
-		}
 
 		/** Function to invoke to poll the transport layer and check for the completions
 		 * of the operations without a future associated to them (that is, they are associated
@@ -708,63 +571,8 @@ namespace gridtools
 		    }
 		}
 
-		/** completion callbacks registered in UCX
-		 *  require access to private properties.
-		 */
-		template <typename MsgType>
-		friend void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info);
-		template <typename MsgType>
-		friend void ghex_tag_send_callback(void *request, ucs_status_t status);
 		friend void ucx::worker_progress();
 	    };
-
-
-	    /** completion callbacks registered in UCX */
-	    template <typename MsgType>
-	    void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info)
-	    {
-		/* 1. extract user callback info from request
-		   2. extract message object from request
-		   3. decode rank and tag
-		   4. call user callback
-		   5. release / free the message (ghex is done with it)
-		*/
-		uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
-		uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
-
-		if(pcomm->early_completion){
-
-		    /* here we know that the submitting thread is also calling the callback */
-		    std::function<void(MsgType, int, int)> *cb =
-			static_cast<std::function<void(MsgType, int, int)>*>(pcomm->early_cb);
-		    MsgType *tmsg = reinterpret_cast<MsgType *>(pcomm->early_msg);
-		    (*cb)(std::move(MsgType(*tmsg)), pcomm->early_rank, pcomm->early_tag);
-
-		    /* do not free the request - it has to be freed after tag_send_nb */
-		} else {
-
-		    /* here we know the thrid of the submitting thread, if it is not us */
-		    ucx::ghex_ucx_request_cb<MsgType> *r =
-			reinterpret_cast<ucx::ghex_ucx_request_cb<MsgType>*>(request);
-		    r->cb(std::move(r->h_msg), peer_rank, tag);
-		    ucp_request_free(request);
-		}
-	    }
-
-	    template <typename MsgType>
-	    void ghex_tag_send_callback(void *request, ucs_status_t status)
-	    {
-		/* 1. extract user callback info from request
-		   2. extract message object from request
-		   3. decode rank and tag
-		   4. call user callback
-		   5. release / free the message (ghex is done with it)
-		*/
-		ucx::ghex_ucx_request_cb<MsgType> *r =
-		    static_cast<ucx::ghex_ucx_request_cb<MsgType>*>(request);
-		r->cb(std::move(r->h_msg), r->peer_rank, r->tag);
-		ucp_request_free(request);
-	    }
 
 	    /** static communicator properties, shared between threads */
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_rank;
@@ -772,23 +580,6 @@ namespace gridtools
 	    ucp_context_h communicator<ucx_tag>::ucp_context = 0;
 	    ucp_worker_h  communicator<ucx_tag>::ucp_worker = 0;
 
-	    namespace ucx {
-
-		/** this is used by the request test() function
-		    since it has no access to the communicator. 
-
-		    NOTE: has to be ucp_lock'ed by the caller!
-		*/
-		void worker_progress(){
-		    /* TODO: this may not be necessary when critical is no longer used */
-		    ucp_worker_progress(pcomm->ucp_worker);
-		    if(pcomm->m_nthr > 1){
-			ucp_worker_progress(pcomm->ucp_worker);
-			ucp_worker_progress(pcomm->ucp_worker);
-			ucp_worker_progress(pcomm->ucp_worker);
-		    }
-		}
-	    }
 	} // namespace tl
     } // namespace ghex
 } // namespace gridtools

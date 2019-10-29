@@ -14,6 +14,12 @@
 #include <functional>
 #include <ucp/api/ucp.h>
 
+#ifdef USE_RAW_SHARED_MESSAGE
+#include "../raw_shared_message_buffer.hpp"
+#else
+#include "../shared_message_buffer.hpp"
+#endif
+
 #include "locks.hpp"
 
 namespace gridtools{
@@ -26,12 +32,15 @@ namespace gridtools{
 		};
 		
 		/** request structure for callback-based comm */
-		template<typename MsgType>
+		template<typename Allocator>
 		struct ghex_ucx_request_cb {
-		    uint32_t peer_rank;
-		    uint32_t tag; 
-		    std::function<void(MsgType, int, int)> cb;
-		    MsgType h_msg;
+		    
+		    using message_type = shared_message_buffer<Allocator>;
+
+		    uint32_t m_peer_rank;
+		    uint32_t m_tag; 
+		    std::function<void(message_type, int, int)> m_cb;
+		    message_type m_msg;
 		};
 
 		/** size of the above struct for actual MsgType */
