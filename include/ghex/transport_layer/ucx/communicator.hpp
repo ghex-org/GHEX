@@ -141,7 +141,9 @@ namespace gridtools
 		    Has to be per-thread
 		*/
 		std::map<rank_type, ucp_ep_h> connections;
-
+		
+	    public:
+	
 		/* early completion data used in the recv callback */
 		int early_completion = 0;
 		int early_rank;

@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_TL_CALLBACK_COMMUNICATOR_HPP
-#define INCLUDED_GHEX_TL_CALLBACK_COMMUNICATOR_HPP
+#ifndef INCLUDED_GHEX_TL_UCX_CALLBACK_COMMUNICATOR_HPP
+#define INCLUDED_GHEX_TL_UCX_CALLBACK_COMMUNICATOR_HPP
 
 #include <functional>
 #include <algorithm>
@@ -22,6 +22,7 @@
 #include <ucp/api/ucp.h>
 
 #include "communicator.hpp"
+#include "../callback_communicator.hpp"
 #include "../../common/debug.hpp"
 
 #ifdef USE_RAW_SHARED_MESSAGE
@@ -309,5 +310,5 @@ namespace gridtools
     } // namespace ghex
 }// namespace gridtools
 
-#endif /* INCLUDED_GHEX_TL_CALLBACK_COMMUNICATOR_HPP */
+#endif /* INCLUDED_GHEX_TL_UCX_CALLBACK_COMMUNICATOR_HPP */
 
