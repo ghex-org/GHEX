@@ -19,6 +19,8 @@
 #include <boost/callable_traits.hpp>
 #include <boost/optional.hpp>
 
+#include "../common/debug.hpp"
+
 #ifdef USE_RAW_SHARED_MESSAGE
 #include "./raw_shared_message_buffer.hpp"
 #else
@@ -61,8 +63,6 @@ namespace gridtools
               * An instance of this class is 
               * - a move-only.
               * - not thread-safe
-              *
-              * If unprogressed operations remain at time of destruction, std::terminate will be called.
               *
               * @tparam Communicator underlying transport communicator
               * @tparam Allocator    allocator type used for allocating shared message buffers */
@@ -120,7 +120,7 @@ namespace gridtools
                 { 
                     if (m_sends.size() != 0 || m_recvs.size() != 0)  
                     {
-                        // std::terminate(); 
+                        WARN("Uncompleted communication requests still in the queue in ~callback_communicator()");
                     }
                 }
                 

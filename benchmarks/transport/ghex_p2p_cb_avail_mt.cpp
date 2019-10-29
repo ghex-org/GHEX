@@ -224,7 +224,6 @@ int main(int argc, char *argv[])
 			submit_cnt++;
 
 			available[thrid][j] = 0;
-			if(msgs[j].use_count() == 0) fprintf(stderr, "BAD!\n");
 			comm_cb.recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		    }
 		}

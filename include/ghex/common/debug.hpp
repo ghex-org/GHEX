@@ -19,6 +19,15 @@
 #define LOG(msg, ...)
 #endif
 
+#define WARN(msg, ...)							\
+    do {								\
+	time_t tm = time(NULL);						\
+	char *stm = ctime(&tm);						\
+	stm[strlen(stm)-1] = 0;						\
+	fprintf(stderr, "%s WARNING: %s:%d  " msg "\n", stm, __FILE__, __LINE__, ## __VA_ARGS__); \
+    } while(0);
+
+
 #define ERR(msg, ...)							\
     do {								\
 	time_t tm = time(NULL);						\
