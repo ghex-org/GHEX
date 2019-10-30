@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 	    comm_cb.progress();
 	}
 
-	comm.fence();
+	comm.flush();
 	comm.barrier();
 
 	if(rank == 1) timer.vtoc(bytes);
