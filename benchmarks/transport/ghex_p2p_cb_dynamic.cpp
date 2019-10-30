@@ -2,6 +2,8 @@
 #include <vector>
 #include <unistd.h>
 
+#include <ghex/common/timer.hpp>
+
 #ifdef USE_POOL_ALLOCATOR
 #include "pool_allocator.hpp"
 using AllocType = ghex::allocator::pool_allocator<unsigned char, std::allocator<unsigned char>>;
@@ -9,33 +11,21 @@ using AllocType = ghex::allocator::pool_allocator<unsigned char, std::allocator<
 using AllocType = std::allocator<unsigned char>;
 #endif
 
-#include <ghex/common/timer.hpp>
-#include <ghex/transport_layer/callback_communicator.hpp>
-using MsgType = gridtools::ghex::tl::shared_message_buffer<AllocType>;
-
-
 #ifdef USE_MPI
 
 /* MPI backend */
+#include <ghex/transport_layer/callback_communicator.hpp>
 #include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
-#define USE_CALLBACK_COMM
 #else
 
 /* UCX backend */
+#include <ghex/transport_layer/ucx/callback_communicator.hpp>
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
-
-#ifdef USE_UCX_NBR
-/* use the GHEX callback framework */
-#define USE_CALLBACK_COMM
-#else
-/* use the UCX's own callback framework */
-#include <ghex/transport_layer/ucx/communicator.hpp>
-#undef  USE_CALLBACK_COMM
-#endif /* USE_UCX_NBR */
-
 #endif /* USE_MPI */
+
+using MsgType = gridtools::ghex::tl::shared_message_buffer<AllocType>;
 
 AllocType alloc;
 int grank;
@@ -77,17 +67,7 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
-    /* TODO this needs to be made per-thread. 
-       If we make 'static' variables, then we can't initialize m_rank and anything else
-       that used MPI in the constructor, as it will be executed before MPI_Init.
-    */
-    CommType comm;
-
-#ifdef USE_CALLBACK_COMM
-    gridtools::ghex::tl::callback_communicator<CommType, AllocType> comm_cb(comm);
-#else
-#define comm_cb comm
-#endif
+    gridtools::ghex::tl::callback_communicator<CommType, AllocType> comm;
 
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
@@ -134,7 +114,7 @@ int main(int argc, char *argv[])
 			sent++;
 			ongoing_comm++;
 			MsgType msg = MsgType(buff_size, alloc);
-			comm_cb.send(msg, peer_rank, j, send_callback);
+			comm.send(msg, peer_rank, j, send_callback);
 			if(sent==niter) break;
 		    }
 		}
@@ -144,7 +124,7 @@ int main(int argc, char *argv[])
 		/* over simply calling the progress once */
 		int p = 0.1*inflight-1;
 		do {
-		    p-=comm_cb.progress();
+		    p-=comm.progress();
 		} while(ongoing_comm && p>0);
 	    }
 
@@ -160,7 +140,7 @@ int main(int argc, char *argv[])
 		    if(available[j]){
 			available[j] = 0;
 			MsgType msg = MsgType(buff_size, alloc);
-			comm_cb.recv(msg, peer_rank, j, recv_callback);
+			comm.recv(msg, peer_rank, j, recv_callback);
 		    }
 		}
 	    
@@ -168,14 +148,14 @@ int main(int argc, char *argv[])
 		/* over simply calling the progress once */
 		int p = 0.1*inflight-1;
 		do {
-		    p-=comm_cb.progress();
+		    p-=comm.progress();
 		} while(ongoing_comm && p>0);
 	    }	    
 	}
 
 	/* complete all comm */
 	while(ongoing_comm){
-	    comm_cb.progress();
+	    comm.progress();
 	}
 
 	comm.flush();

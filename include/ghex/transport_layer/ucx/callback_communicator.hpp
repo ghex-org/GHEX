@@ -49,14 +49,6 @@ namespace gridtools
 	    template <typename Allocator>
 	    void ghex_tag_send_callback(void *request, ucs_status_t status);
 
-	    /** Communication freezes when I try to access comm from the callbacks
-		I have to access it through a pointer, which is initialized for each
-		thread inside the constructor.
-	    */
-	    class communicator<ucx_tag>;
-	    static communicator<ucx_tag> *pcomm = NULL;
-	    DECLARE_THREAD_PRIVATE(pcomm)
-
             /** callback_communicator is a class to dispatch send and receive operations to. Each operation can 
               * optionally be tied to a user defined callback function / function object. The payload of each 
               * send/receive operation must be a ghex::shared_message_buffer<Allocator>. 
@@ -104,9 +96,7 @@ namespace gridtools
                   * @param comm  the underlying transport communicator
                   * @param alloc the allocator instance to be used for constructing messages */
                 callback_communicator(allocator_type alloc = allocator_type{}) 
-		    : m_alloc(alloc) {
-		    pcomm = this;
-		}
+		    : m_alloc(alloc) {}
 
                 callback_communicator(const callback_communicator&) = delete;
                 callback_communicator(callback_communicator&&) = default;
@@ -310,7 +300,7 @@ namespace gridtools
 		uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
 
 		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
-		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
+		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
 		
 		/* pointer to request data */
 		ucx::ghex_ucx_request_cb<Allocator> *preq;
@@ -346,7 +336,7 @@ namespace gridtools
 		   5. release / free the message (ghex is done with it)
 		*/
 		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
-		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
+		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
 
 		ucx::ghex_ucx_request_cb<Allocator> *preq =
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
@@ -357,24 +347,6 @@ namespace gridtools
 		pc->m_completed.push_back(std::move(*preq));
 #endif
 		ucp_request_free(request);
-	    }
-
-	    namespace ucx {
-
-		/** this is used by the request test() function
-		    since it has no access to the communicator. 
-
-		    NOTE: has to be ucp_lock'ed by the caller!
-		*/
-		void worker_progress(){
-		    /* TODO: this may not be necessary when critical is no longer used */
-		    ucp_worker_progress(pcomm->ucp_worker);
-		    if(pcomm->m_nthr > 1){
-			ucp_worker_progress(pcomm->ucp_worker);
-			ucp_worker_progress(pcomm->ucp_worker);
-			ucp_worker_progress(pcomm->ucp_worker);
-		    }
-		}
 	    }
         } // namespace tl
     } // namespace ghex

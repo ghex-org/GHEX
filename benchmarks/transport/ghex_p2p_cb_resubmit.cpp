@@ -2,32 +2,23 @@
 #include <vector>
 
 #include <ghex/common/timer.hpp>
-#include <ghex/transport_layer/callback_communicator.hpp>
-using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
 #ifdef USE_MPI
 
 /* MPI backend */
+#include <ghex/transport_layer/callback_communicator.hpp>
 #include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
-#define USE_CALLBACK_COMM
 #else
 
 /* UCX backend */
+#include <ghex/transport_layer/ucx/callback_communicator.hpp>
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
-
-#ifdef USE_UCX_NBR
-/* use the GHEX callback framework */
-#define USE_CALLBACK_COMM
-#else
-/* use the UCX's own callback framework */
-#include <ghex/transport_layer/ucx/communicator.hpp>
-#undef  USE_CALLBACK_COMM
-#endif /* USE_UCX_NBR */
-
 #endif /* USE_MPI */
+
+using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 /* available comm slots */
 int *available = NULL;
@@ -40,16 +31,11 @@ void send_callback(MsgType mesg, int rank, int tag)
     ongoing_comm--;
 }
 
-#ifdef USE_CALLBACK_COMM
-gridtools::ghex::tl::callback_communicator<CommType> *p_comm_cb = NULL;
-#else
-CommType *p_comm_cb = NULL;
-#endif
-
+gridtools::ghex::tl::callback_communicator<CommType> *pcomm = NULL;
 void recv_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    p_comm_cb->recv(mesg, rank, tag, recv_callback);
+    pcomm->recv(mesg, rank, tag, recv_callback);
     ongoing_comm--;
 }
 
@@ -72,18 +58,10 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
-    /* TODO this needs to be made per-thread. 
-       If we make 'static' variables, then we can't initialize m_rank and anything else
-       that used MPI in the constructor, as it will be executed before MPI_Init.
-    */
-    CommType comm;
+    gridtools::ghex::tl::callback_communicator<CommType> comm;
 
-#ifdef USE_CALLBACK_COMM
-    gridtools::ghex::tl::callback_communicator<CommType> comm_cb(comm);
-#else
-#define comm_cb comm
-#endif
-    p_comm_cb = &comm_cb;
+    /* needed in the recv_callback to resubmit the recv request */
+    pcomm = &comm;
 
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
@@ -125,7 +103,7 @@ int main(int argc, char *argv[])
 			available[j] = 0;
 			sent++;
 			ongoing_comm++;
-			comm_cb.send(msgs[j], peer_rank, j, send_callback);
+			comm.send(msgs[j], peer_rank, j, send_callback);
 			if(sent==niter) break;
 		    }
 		}
@@ -137,7 +115,7 @@ int main(int argc, char *argv[])
 		// for(int i=0; i<100; i++) comm.progress();
 		int p = 0.1*inflight-1;
 		do {
-		    p-=comm_cb.progress();
+		    p-=comm.progress();
 		} while(ongoing_comm && p>0);
 	    }
 
@@ -150,7 +128,7 @@ int main(int argc, char *argv[])
 
 	    /* submit all recv requests */
 	    for(int j=0; j<inflight; j++){
-		comm_cb.recv(msgs[j], peer_rank, j, recv_callback);
+		comm.recv(msgs[j], peer_rank, j, recv_callback);
 	    }
 
 	    /* requests are re-submitted inside the calback. */
@@ -159,7 +137,7 @@ int main(int argc, char *argv[])
 
 	/* complete all comm */
 	while(ongoing_comm){
-	    comm_cb.progress();
+	    comm.progress();
 	}
 
 	if(rank == 1) timer.vtoc(bytes);

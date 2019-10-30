@@ -96,7 +96,13 @@ namespace gridtools
 #define ucp_lock ucp_lock
 #endif
 #endif /* THREAD_MODE_MULTIPLE */
+	    }
 
+	    class communicator<ucx_tag>;
+	    namespace ucx 
+	    {
+		static communicator<ucx_tag> *pcomm = NULL;
+		DECLARE_THREAD_PRIVATE(pcomm)
 	    }
 
 	    /** Class that provides the functions to send and receive messages. A message
@@ -167,6 +173,7 @@ namespace gridtools
 		    /* need to set this for single threaded runs */
 		    m_thrid = GET_THREAD_NUM();
 		    m_nthr = GET_NUM_THREADS();
+		    ucx::pcomm = this;
 
 		    /* only one thread must initialize UCX. 
 		       TODO: This should probably be a static method, called once, explicitly, by the user */
@@ -561,6 +568,24 @@ namespace gridtools
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_size;
 	    ucp_context_h communicator<ucx_tag>::ucp_context = 0;
 	    ucp_worker_h  communicator<ucx_tag>::ucp_worker = 0;
+
+	    namespace ucx {
+
+		/** this is used by the request test() function
+		    since it has no access to the communicator. 
+
+		    NOTE: has to be ucp_lock'ed by the caller!
+		*/
+		void worker_progress(){
+		    /* TODO: this may not be necessary when critical is no longer used */
+		    ucp_worker_progress(pcomm->ucp_worker);
+		    if(pcomm->m_nthr > 1){
+			ucp_worker_progress(pcomm->ucp_worker);
+			ucp_worker_progress(pcomm->ucp_worker);
+			ucp_worker_progress(pcomm->ucp_worker);
+		    }
+		}
+	    }
 
 	} // namespace tl
     } // namespace ghex

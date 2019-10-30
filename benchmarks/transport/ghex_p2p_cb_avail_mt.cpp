@@ -81,10 +81,6 @@ int main(int argc, char *argv[])
 
 #pragma omp parallel
     {
-	/* TODO this needs to be made per-thread. 
-	   If we make 'static' variables, then we can't initialize m_rank and anything else
-	   that used MPI in the constructor, as it will be executed before MPI_Init.
-	*/
 	gridtools::ghex::tl::callback_communicator<CommType> *comm 
 	    = new gridtools::ghex::tl::callback_communicator<CommType>();
 
@@ -121,10 +117,6 @@ int main(int argc, char *argv[])
 	nlcomm_cnt = 0;
 	submit_cnt = 0;
 
-	/* to tackle inacurate message counting, quit the benchmark if we don't see progress */
-#define NOPROGRESS_CNT 100000
-	int noprogress = 0;
-	
 	int i = 0, dbg = 0, blk;
 	blk = niter / 10;
 	dbg = dbg + blk;
@@ -166,16 +158,7 @@ int main(int argc, char *argv[])
 
 		comm->progress();
 	    }	    
-
-#pragma omp barrier
-#pragma omp master
-	    {
-		if(ongoing_comm<0) ongoing_comm = 0;
-		std::cout << "unreceived messages: " << ongoing_comm << " noprogress " << noprogress << "\n";
-	    }
 	}
-
-	if(noprogress >= NOPROGRESS_CNT) std::cout << "rank " << rank << " finished: no progress threashold\n";
 
 #pragma omp barrier
 	comm->flush();

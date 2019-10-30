@@ -20,21 +20,18 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
-/* available comm slots */
-int *available = NULL;
+/* comm requests currently in-flight */
 int ongoing_comm = 0;
 
 void send_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    available[tag] = 1;
     ongoing_comm--;
 }
 
 void recv_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    available[tag] = 1;
     ongoing_comm--;
 }
 
@@ -73,10 +70,8 @@ int main(int argc, char *argv[])
 	gridtools::ghex::timer timer;
 	long bytes = 0;
 	std::vector<MsgType> msgs;
-	available = new int[inflight];
 
 	for(int j=0; j<inflight; j++){
-	    available[j] = 1;
 	    msgs.emplace_back(buff_size);
 	}
 	
@@ -92,11 +87,10 @@ int main(int argc, char *argv[])
 	    while(sent != niter){
 
 		for(int j=0; j<inflight; j++){
-		    if(available[j]){
+		    if(msgs[j].use_count() == 1){
 			if(rank==0 && (sent)%(niter/10)==0) {
 			    std::cout << sent << " iters\n";
 			}
-			available[j] = 0;
 			sent++;
 			ongoing_comm++;
 			comm.send(msgs[j], peer_rank, j, send_callback);
@@ -123,8 +117,7 @@ int main(int argc, char *argv[])
 	    while(ongoing_comm){
 
 		for(int j=0; j<inflight; j++){
-		    if(available[j]){
-			available[j] = 0;
+		    if(msgs[j].use_count() == 1){
 			comm.recv(msgs[j], peer_rank, j, recv_callback);
 		    }
 		}

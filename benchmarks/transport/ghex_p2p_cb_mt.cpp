@@ -1,42 +1,25 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <iostream>
 #include <vector>
-#include <array>
-#include <unistd.h>
-#include <sched.h>
-#include <mpi.h>
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
-#include <ghex/transport_layer/callback_communicator.hpp>
-using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
 #ifdef USE_MPI
 
 /* MPI backend */
+#include <ghex/transport_layer/callback_communicator.hpp>
 #include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
-#define USE_CALLBACK_COMM
 #else
 
 /* UCX backend */
+#include <ghex/transport_layer/ucx/callback_communicator.hpp>
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
-
-#ifdef USE_UCX_NBR
-/* use the GHEX callback framework */
-#define USE_CALLBACK_COMM
-#else
-/* use the UCX's own callback framework */
-#include <ghex/transport_layer/ucx/communicator.hpp>
-#undef  USE_CALLBACK_COMM
-#endif /* USE_UCX_NBR */
-
 #endif /* USE_MPI */
+
+using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
 /* Track finished comm requests. 
@@ -100,18 +83,8 @@ int main(int argc, char *argv[])
 
 #pragma omp parallel
     {
-
-	/* TODO this needs to be made per-thread. 
-	   If we make 'static' variables, then we can't initialize m_rank and anything else
-	   that used MPI in the constructor, as it will be executed before MPI_Init.
-	*/
-	CommType *comm = new CommType();
-
-#ifdef USE_CALLBACK_COMM
-	gridtools::ghex::tl::callback_communicator<CommType> comm_cb(*comm);
-#else
-#define comm_cb (*comm)
-#endif
+	gridtools::ghex::tl::callback_communicator<CommType> *comm
+            = new gridtools::ghex::tl::callback_communicator<CommType>();
 
 #pragma omp master
 	{
@@ -163,15 +136,15 @@ int main(int argc, char *argv[])
 		i += nthr;
 		dbg += nthr; 
 		if(rank==0)
-		    comm_cb.send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
+		    comm->send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
 		else
-		    comm_cb.recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		    comm->recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		if(i >= niter) break;
 	    }
 
 	    /* complete all inflight requests before moving on */
 	    while(ongoing_comm){
-		comm_cb.progress();
+		comm->progress();
 	    }
 	}
 

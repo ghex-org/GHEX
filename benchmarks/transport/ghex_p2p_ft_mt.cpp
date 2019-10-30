@@ -1,19 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <iostream>
 #include <vector>
-#include <array>
-#include <unistd.h>
-#include <sched.h>
-#include <mpi.h>
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
-#include <ghex/transport_layer/callback_communicator.hpp>
-using MsgType = gridtools::ghex::tl::message_buffer<>;
-
 
 #ifdef USE_MPI
 
@@ -21,7 +10,6 @@ using MsgType = gridtools::ghex::tl::message_buffer<>;
 #include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void>;
-#define USE_CALLBACK_COMM
 #else
 
 /* UCX backend */
@@ -29,16 +17,9 @@ using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_ta
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
 
-#ifdef USE_UCX_NBR
-/* use the GHEX callback framework */
-#define USE_CALLBACK_COMM
-#else
-/* use the UCX's own callback framework */
-#include <ghex/transport_layer/ucx/communicator.hpp>
-#undef  USE_CALLBACK_COMM
-#endif /* USE_UCX_NBR */
-
 #endif /* USE_MPI */
+using MsgType = gridtools::ghex::tl::message_buffer<>;
+
 
 int thrid, nthr;
 #pragma omp threadprivate(thrid, nthr)
@@ -70,11 +51,6 @@ int main(int argc, char *argv[])
 
 #pragma omp parallel
     {
-
-	/* TODO this needs to be made per-thread. 
-	   If we make 'static' variables, then we can't initialize m_rank and anything else
-	   that used MPI in the constructor, as it will be executed before MPI_Init.
-	*/
 	CommType *comm = new CommType();
 
 #pragma omp master
