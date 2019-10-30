@@ -41,6 +41,8 @@ namespace gridtools{
 		    uint32_t m_tag; 
 		    std::function<void(message_type, int, int)> m_cb;
 		    message_type m_msg;
+
+		    ghex_ucx_request_cb() : m_peer_rank{0}, m_tag{0}, m_msg(0) {}
 		};
 
 		/** size of the above struct for actual MsgType */

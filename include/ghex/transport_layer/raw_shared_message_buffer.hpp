@@ -68,7 +68,7 @@ namespace gridtools {
     
                 static constexpr bool can_be_shared = true;
 
-            private: // members
+            public: // members
 
                 // std::shared_ptr<message_type> m_message;
 		refcounted_message<Allocator> *m_sptr;
@@ -117,6 +117,7 @@ namespace gridtools {
 
 		~shared_message_buffer(){
 		    if(m_sptr){
+			if(m_sptr->refcount==0) ERR("inconsistent refcount in shared message");
 			m_sptr->refcount--;
 			if(m_sptr->refcount==0) {
 			    delete m_sptr;

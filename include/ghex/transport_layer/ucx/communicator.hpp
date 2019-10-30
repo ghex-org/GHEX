@@ -143,15 +143,6 @@ namespace gridtools
 		std::map<rank_type, ucp_ep_h> connections;
 		
 	    public:
-	
-		/* early completion data used in the recv callback */
-		int early_completion = 0;
-		int early_rank;
-		int early_tag;
-		void *early_cb;
-		void *early_msg;
-
-	    public:
 
 		template<typename MsgType>
 		static int get_request_size(){

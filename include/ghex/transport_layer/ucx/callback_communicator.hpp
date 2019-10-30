@@ -93,6 +93,11 @@ namespace gridtools
 
                 allocator_type      m_alloc;
 
+		int m_early_completion = 0;
+		ucx::ghex_ucx_request_cb<Allocator> m_early_req;
+
+		std::vector<ucx::ghex_ucx_request_cb<Allocator>> m_completed;
+
             public: // ctors
 
                 /** @brief construct from a basic transport communicator
@@ -131,6 +136,7 @@ namespace gridtools
 		    ucs_status_ptr_t status;
 		    uintptr_t istatus;
 		    ucx::ghex_ucx_request_cb<Allocator> *ghex_request;
+		    int early = false;
 
 		    ep = rank_to_ep(dst);
 
@@ -143,11 +149,14 @@ namespace gridtools
 			// TODO !! C++ doesn't like it..
 			istatus = (uintptr_t)status;
 			if(UCS_OK == (ucs_status_t)(istatus)){
-			    cb(std::move(message_type(msg)), dst, tag);
+
+			    /* early completed */
+			    early = true;
+			    cb(msg, dst, tag);
 			} else if(!UCS_PTR_IS_ERR(status)) {
-			    ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;
-			    
-			    /* fill in useful request data */
+
+			    /* fill in request data */
+			    ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
 			    ghex_request->m_peer_rank = dst;
 			    ghex_request->m_tag = tag;
 			    ghex_request->m_cb = std::forward<CallBack>(cb);
@@ -156,6 +165,11 @@ namespace gridtools
 			    ERR("ucp_tag_send_nb failed");
 			}
 		    } CRITICAL_END(ucp_lock);
+
+		    /* call the callback outside of the critical region */
+		    // if(early){
+		    // 	cb(std::move(message_type(msg)), dst, tag);
+		    // }
 		}
 
 
@@ -189,7 +203,7 @@ namespace gridtools
 		    CRITICAL_BEGIN(ucp_lock) {
 
 			/* sanity check! we could be recursive... OMG! */
-			if(early_completion){
+			if(m_early_completion){
 			    /* TODO: VERIFY. Error just to catch such situation, if it happens. */
 			    /* This should never happen, and even if, should not be a problem: */
 			    /* we do not modify anything in the early callback, and the values */
@@ -198,18 +212,17 @@ namespace gridtools
 			    std::cerr << "recv submitted inside early completion\n";
 			}
 
-			early_rank = src;
-			early_tag = tag;
-			std::function<void(message_type, int, int)> tmpcb = cb;
-			early_cb = &tmpcb;  // this is cast to proper type inside the callback, which knows message_type
-			early_msg = &msg;
-			early_completion = 1;
+			m_early_req.m_peer_rank = src;
+			m_early_req.m_tag = tag;
+			m_early_req.m_cb = std::function<void(message_type, int, int)>(cb);
+			m_early_req.m_msg = msg;
+			m_early_completion = 1;
 
 			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 						 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<Allocator>);
-
-			early_completion = 0;
+			
+			m_early_completion = 0;
 
 			if(!UCS_PTR_IS_ERR(status)) {
 
@@ -217,21 +230,56 @@ namespace gridtools
 			    rstatus = ucp_request_check_status (status);
 			    if(rstatus != UCS_INPROGRESS){
 
+				/* early completed */
 				ucp_request_free(status);
 			    } else {
 
+				/* fill in request data */
 				ghex_request = (ucx::ghex_ucx_request_cb<Allocator> *)status;
-
-				/* fill in useful request data */
-				ghex_request->m_peer_rank = src;
-				ghex_request->m_tag = tag;
-				ghex_request->m_cb = std::forward<CallBack>(cb);
-				ghex_request->m_msg = msg;
+				(*ghex_request) = std::move(m_early_req);
 			    }
 			} else {
 			    ERR("ucp_tag_send_nb failed");
 			}
 		    } CRITICAL_END(ucp_lock);
+		}
+
+
+		/** Function to invoke to poll the transport layer and check for the completions
+		 * of the operations without a future associated to them (that is, they are associated
+		 * to a call-back). When an operation completes, the corresponfing call-back is invoked
+		 * with the rank and tag associated with that request.
+		 *
+		 * @return unsigned Non-zero if any communication was progressed, zero otherwise.
+		 */
+		unsigned progress()
+		{
+		    int p = 0, i = 0;
+
+		    CRITICAL_BEGIN(ucp_lock) {
+			p+= ucp_worker_progress(ucp_worker);
+			if(m_nthr>1){
+			    /* TODO: this may not be necessary when critical is no longer used */
+			    p+= ucp_worker_progress(ucp_worker);
+			    p+= ucp_worker_progress(ucp_worker);
+			    p+= ucp_worker_progress(ucp_worker);
+			}
+		    } CRITICAL_END(ucp_lock);
+
+		    // /* call the callbacks of completed requests outside of the critical region */
+		    // int pos = m_completed.size();
+		    // for(int i=0; i<m_completed.size(); i++){
+		    // 	ucx::ghex_ucx_request_cb<Allocator> req = std::move(m_completed[--pos]);
+		    // 	m_completed.pop_back();
+		    // 	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
+		    // }
+
+#ifdef USE_PTHREAD_LOCKS
+		    // the below is necessary when using spin-locks
+		    if(m_nthr>1) sched_yield();
+#endif
+
+		    return p;
 		}
 
 		/** completion callbacks registered in UCX
@@ -254,22 +302,24 @@ namespace gridtools
 		uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
 		uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
 
-		if(pcomm->early_completion){
-		    using MsgType      = shared_message_buffer<Allocator>;
+		callback_communicator<communicator<ucx_tag>, Allocator> *pc = NULL;
+		pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
+		
+		/* pointer to request data */
+		ucx::ghex_ucx_request_cb<Allocator> *preq;
 
-		    /* here we know that the submitting thread is also calling the callback */
-		    std::function<void(MsgType, int, int)> *cb =
-			static_cast<std::function<void(MsgType, int, int)>*>(pcomm->early_cb);
-		    MsgType *tmsg = reinterpret_cast<MsgType *>(pcomm->early_msg);
-		    (*cb)(std::move(MsgType(*tmsg)), pcomm->early_rank, pcomm->early_tag);
+		if(pc->m_early_completion){
 
+		    // printf("early\n");
+		    preq = &pc->m_early_req;
+		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
+		    // pc->m_completed.push_back(std::move(*preq));
 		    /* do not free the request - it has to be freed after tag_send_nb */
 		} else {
 
-		    /* here we know the thrid of the submitting thread, if it is not us */
-		    ucx::ghex_ucx_request_cb<Allocator> *r =
-			reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
-		    r->m_cb(std::move(r->m_msg), peer_rank, tag);
+		    preq = reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
+		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);		    
+		    // pc->m_completed.push_back(std::move(*preq));
 		    ucp_request_free(request);
 		}
 	    }
@@ -283,9 +333,14 @@ namespace gridtools
 		   4. call user callback
 		   5. release / free the message (ghex is done with it)
 		*/
-		ucx::ghex_ucx_request_cb<Allocator> *r =
-		    static_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
-		r->m_cb(std::move(r->m_msg), r->m_peer_rank, r->m_tag);
+		callback_communicator<communicator<ucx_tag>, Allocator> *pc = NULL;
+		pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
+
+		ucx::ghex_ucx_request_cb<Allocator> *preq =
+		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
+		
+		preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);		
+		// pc->m_completed.push_back(std::move(*preq));
 		ucp_request_free(request);
 	    }
 
