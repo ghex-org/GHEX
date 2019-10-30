@@ -152,12 +152,21 @@ namespace gridtools
                     m_sends.reserve(128);
                     m_recvs.reserve(128);
                 }
+
                 callback_communicator(communicator_type&& comm, allocator_type alloc = allocator_type{}) 
                 : m_comm(std::move(comm)), m_alloc(alloc)
                 {
                     m_sends.reserve(128);
                     m_recvs.reserve(128);
                 }
+
+                callback_communicator(allocator_type alloc = allocator_type{}) 
+                : m_comm{typename communicator_type::traits{}}, m_alloc(alloc)
+                {
+                    m_sends.reserve(128);
+                    m_recvs.reserve(128);
+                }
+
 
                 callback_communicator(const callback_communicator&) = delete;
                 callback_communicator(callback_communicator&&) = default;
@@ -170,8 +179,16 @@ namespace gridtools
                     //    std::terminate(); 
                     //}
                 }
+
+            public: // synchronization
+
+                void barrier() { m_comm.barrier(); }
+                void flush() { }
                 
             public: // queries
+
+                auto rank() const noexcept { return m_comm.rank(); }
+                auto size() const noexcept { return m_comm.size(); }
 
                 /** returns the number of unprocessed send handles in the queue. */
                 std::size_t pending_sends() const { return m_sends.size(); }
