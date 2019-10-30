@@ -27,16 +27,10 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
    there is no way of knowing which thread will service which requests,
    and how many.
 */
-int comm_cnt, nlcomm_cnt;
-int submit_cnt;
+int comm_cnt, nlcomm_cnt, submit_cnt;
 int thrid, nthr;
 #pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
 
-/* available comm slots, one array per thread:
-   MUST BE SHARED and long enough so that all threads can keep their
-   message status there. Note: other threads can complete the request.
- */
-int total_sent = 0;
 int ongoing_comm = 0;
 int inflight;
 
@@ -138,34 +132,20 @@ int main(int argc, char *argv[])
 	if(rank == 0){
 
 	    /* send niter messages - as soon as a slot becomes free */
-	    while(total_sent < niter && noprogress < NOPROGRESS_CNT){
+	    while(submit_cnt < niter){
 		for(int j=0; j<inflight; j++){
 		    if(msgs[j].use_count() == 1){
 
-			// reset the no-progress counter
-			noprogress = 0;
-
-			// progress output
-			if(rank==0 && thrid==0 && total_sent >= dbg) {
-			    std::cout << total_sent << " iters\n";
+			if(rank==0 && thrid==0 && submit_cnt >= dbg) {
+			    std::cout << submit_cnt << " iters\n";
 			    dbg = dbg + blk;
 			}
-
-			// don't really need atomic, because we dont' really care about precise number of messages
-			// as long as there are more than niter - we need to receive them
-			// However, due to counting errors we need to get out of the loop based on a noprogress condition,
-			// which would fire when we make counting mistakes.
-			// #pragma omp atomic
-			total_sent++;
-
-			// number of requests per thread
-			submit_cnt++;
+			submit_cnt += nthr;
 
 			comm->send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
 		    }
 		}
 		comm->progress();
-		noprogress++;
 	    }
 	} else {
 
@@ -175,23 +155,16 @@ int main(int argc, char *argv[])
 	    ongoing_comm = niter;
 #pragma omp barrier
 
-	    while(ongoing_comm>0 && noprogress < NOPROGRESS_CNT){
+	    while(ongoing_comm>0){
 
 		for(int j=0; j<inflight; j++){
 		    if(msgs[j].use_count() == 1){
-
-			// reset the no-progress counter
-			noprogress = 0;
-
-			// number of requests per thread
-			submit_cnt++;
-
+			submit_cnt += nthr;
 			comm->recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		    }
 		}
 
 		comm->progress();
-		noprogress++;
 	    }	    
 
 #pragma omp barrier
@@ -209,7 +182,7 @@ int main(int argc, char *argv[])
 	comm->barrier();
 
 #pragma omp critical
-	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
+	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
 	
 	delete comm;
