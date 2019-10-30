@@ -26,7 +26,7 @@ namespace gridtools{
 		    int m_size;
 
 		    address(ucp_worker_h worker, ucp_address_t *addr, int size):
-			m_worker{worker}, m_addr{addr}, size{m_size}
+			m_worker{worker}, m_addr{addr}, m_size{size}
 		    {}
 
 		    ~address(){
