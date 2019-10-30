@@ -36,8 +36,6 @@ int thrid, nthr;
    MUST BE SHARED and long enough so that all threads can keep their
    message status there. Note: other threads can complete the request.
  */
-int **available = NULL;
-
 int total_sent = 0;
 int ongoing_comm = 0;
 int inflight;
@@ -48,7 +46,6 @@ void send_callback(MsgType mesg, int rank, int tag)
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
-    available[pthr][pos] = 1;
     comm_cnt++;
 }
 
@@ -58,7 +55,6 @@ void recv_callback(MsgType mesg, int rank, int tag)
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
-    available[pthr][pos] = 1;
 
 #pragma omp atomic
     ongoing_comm--;
@@ -124,17 +120,6 @@ int main(int argc, char *argv[])
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 
-	/** initialize request availability arrays */
-#pragma omp master
-	available = new int *[nthr];
-
-#pragma omp barrier
-#pragma omp flush(available)
-	available[thrid] = new int[inflight];
-	for(int j=0; j<inflight; j++){
-	    available[thrid][j] = 1;
-	}
-
 	/* make sure both ranks are started and all threads initialized */
 	comm->barrier();
 
@@ -155,7 +140,7 @@ int main(int argc, char *argv[])
 	    /* send niter messages - as soon as a slot becomes free */
 	    while(total_sent < niter && noprogress < NOPROGRESS_CNT){
 		for(int j=0; j<inflight; j++){
-		    if(available[thrid][j]){
+		    if(msgs[j].use_count() == 1){
 
 			// reset the no-progress counter
 			noprogress = 0;
@@ -176,7 +161,6 @@ int main(int argc, char *argv[])
 			// number of requests per thread
 			submit_cnt++;
 
-			available[thrid][j] = 0;
 			comm->send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
 		    }
 		}
@@ -194,7 +178,7 @@ int main(int argc, char *argv[])
 	    while(ongoing_comm>0 && noprogress < NOPROGRESS_CNT){
 
 		for(int j=0; j<inflight; j++){
-		    if(available[thrid][j]){
+		    if(msgs[j].use_count() == 1){
 
 			// reset the no-progress counter
 			noprogress = 0;
@@ -202,7 +186,6 @@ int main(int argc, char *argv[])
 			// number of requests per thread
 			submit_cnt++;
 
-			available[thrid][j] = 0;
 			comm->recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		    }
 		}
