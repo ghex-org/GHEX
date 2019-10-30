@@ -151,7 +151,11 @@ namespace gridtools
 			if(UCS_OK == (ucs_status_t)(istatus)){
 
 			    /* early completed */
+#ifdef USE_HEAVY_CALLBACKS
+			    cb(msg, dst, tag);
+#else
 			    early = true;
+#endif
 			} else if(!UCS_PTR_IS_ERR(status)) {
 
 			    /* fill in request data */
@@ -165,10 +169,12 @@ namespace gridtools
 			}
 		    } CRITICAL_END(ucp_lock);
 
+#ifndef USE_HEAVY_CALLBACKS
 		    /* call the callback outside of the critical region */
 		    if(early){
 		    	cb(msg, dst, tag);
 		    }
+#endif
 		}
 
 
@@ -265,6 +271,7 @@ namespace gridtools
 			}
 		    } CRITICAL_END(ucp_lock);
 
+#ifndef USE_HEAVY_CALLBACKS
 		    /* call the callbacks of completed requests outside of the critical region */
 		    int pos = m_completed.size();
 		    for(int i=0; i<m_completed.size(); i++){
@@ -272,9 +279,10 @@ namespace gridtools
 		    	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
 		    	m_completed.pop_back();
 		    }
+#endif
 
 #ifdef USE_PTHREAD_LOCKS
-		    // the below is necessary when using spin-locks
+		    /* the below is necessary when using spin-locks */
 		    if(m_nthr>1) sched_yield();
 #endif
 
@@ -309,15 +317,21 @@ namespace gridtools
 
 		if(pc->m_early_completion){
 
-		    // preq = &pc->m_early_req;
-		    // preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
+#ifdef USE_HEAVY_CALLBACKS
+		    preq = &pc->m_early_req;
+		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
+#else
 		    pc->m_completed.push_back(std::move(pc->m_early_req));
+#endif
 		    /* do not free the request - it has to be freed after tag_send_nb */
 		} else {
 
 		    preq = reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
-		    // preq->m_cb(std::move(preq->m_msg), peer_rank, tag);		    
+#ifdef USE_HEAVY_CALLBACKS
+		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
+#else
 		    pc->m_completed.push_back(std::move(*preq));
+#endif
 		    ucp_request_free(request);
 		}
 	    }
@@ -337,8 +351,11 @@ namespace gridtools
 		ucx::ghex_ucx_request_cb<Allocator> *preq =
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 		
-		// preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);		
+#ifdef USE_HEAVY_CALLBACKS
+		preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);
+#else
 		pc->m_completed.push_back(std::move(*preq));
+#endif
 		ucp_request_free(request);
 	    }
 
