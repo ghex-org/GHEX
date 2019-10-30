@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 	submit_cnt = 0;
 
 	/* to tackle inacurate message counting, quit the benchmark if we don't see progress */
-#define NOPROGRESS_CNT 10000
+#define NOPROGRESS_CNT 100000
 	int noprogress = 0;
 	
 	int i = 0, dbg = 0, blk;

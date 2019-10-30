@@ -152,7 +152,6 @@ namespace gridtools
 
 			    /* early completed */
 			    early = true;
-			    cb(msg, dst, tag);
 			} else if(!UCS_PTR_IS_ERR(status)) {
 
 			    /* fill in request data */
@@ -167,9 +166,9 @@ namespace gridtools
 		    } CRITICAL_END(ucp_lock);
 
 		    /* call the callback outside of the critical region */
-		    // if(early){
-		    // 	cb(std::move(message_type(msg)), dst, tag);
-		    // }
+		    if(early){
+		    	cb(msg, dst, tag);
+		    }
 		}
 
 
@@ -266,13 +265,13 @@ namespace gridtools
 			}
 		    } CRITICAL_END(ucp_lock);
 
-		    // /* call the callbacks of completed requests outside of the critical region */
-		    // int pos = m_completed.size();
-		    // for(int i=0; i<m_completed.size(); i++){
-		    // 	ucx::ghex_ucx_request_cb<Allocator> req = std::move(m_completed[--pos]);
-		    // 	m_completed.pop_back();
-		    // 	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
-		    // }
+		    /* call the callbacks of completed requests outside of the critical region */
+		    int pos = m_completed.size();
+		    for(int i=0; i<m_completed.size(); i++){
+		    	ucx::ghex_ucx_request_cb<Allocator> &req = m_completed[--pos];
+		    	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
+		    	m_completed.pop_back();
+		    }
 
 #ifdef USE_PTHREAD_LOCKS
 		    // the below is necessary when using spin-locks
@@ -302,24 +301,23 @@ namespace gridtools
 		uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
 		uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
 
-		callback_communicator<communicator<ucx_tag>, Allocator> *pc = NULL;
-		pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
+		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
+		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
 		
 		/* pointer to request data */
 		ucx::ghex_ucx_request_cb<Allocator> *preq;
 
 		if(pc->m_early_completion){
 
-		    // printf("early\n");
-		    preq = &pc->m_early_req;
-		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
-		    // pc->m_completed.push_back(std::move(*preq));
+		    // preq = &pc->m_early_req;
+		    // preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
+		    pc->m_completed.push_back(std::move(pc->m_early_req));
 		    /* do not free the request - it has to be freed after tag_send_nb */
 		} else {
 
 		    preq = reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
-		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);		    
-		    // pc->m_completed.push_back(std::move(*preq));
+		    // preq->m_cb(std::move(preq->m_msg), peer_rank, tag);		    
+		    pc->m_completed.push_back(std::move(*preq));
 		    ucp_request_free(request);
 		}
 	    }
@@ -333,14 +331,14 @@ namespace gridtools
 		   4. call user callback
 		   5. release / free the message (ghex is done with it)
 		*/
-		callback_communicator<communicator<ucx_tag>, Allocator> *pc = NULL;
-		pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
+		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
+		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(pcomm);
 
 		ucx::ghex_ucx_request_cb<Allocator> *preq =
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 		
-		preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);		
-		// pc->m_completed.push_back(std::move(*preq));
+		// preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);		
+		pc->m_completed.push_back(std::move(*preq));
 		ucp_request_free(request);
 	    }
 
