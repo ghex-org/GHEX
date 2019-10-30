@@ -6,6 +6,10 @@
 
 #include <gtest/gtest.h>
 
+template<typename Comm, typename Alloc>
+using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
+//using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
+
 /**
  * Simple Send recv on two ranks.
  * P0 sends a message to P1 and receive from P1,
@@ -53,7 +57,7 @@ auto test2() {
     using sr_comm_type   = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using cb_comm_type   = gridtools::ghex::tl::callback_communicator<sr_comm_type,allocator_type>;
+    using cb_comm_type   = callback_comm_t<sr_comm_type,allocator_type>;
 
     sr_comm_type sr;
     cb_comm_type cb_comm(sr);
@@ -140,7 +144,7 @@ auto test2_mesg() {
     using sr_comm_type   = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using cb_comm_type   = gridtools::ghex::tl::callback_communicator<sr_comm_type,allocator_type>;
+    using cb_comm_type   = callback_comm_t<sr_comm_type,allocator_type>;
 
     sr_comm_type sr;
     cb_comm_type cb_comm(sr);
