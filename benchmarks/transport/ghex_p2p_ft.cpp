@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	comm.fence();
+	comm.flush();
 	comm.barrier();
     }
 

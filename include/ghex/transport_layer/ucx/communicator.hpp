@@ -423,7 +423,7 @@ namespace gridtools
 
 		    CRITICAL_BEGIN(ucp_lock) {
 
-			/* send without callback */
+			/* send */
 			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
 						 GHEX_MAKE_SEND_TAG(tag, m_rank), ucx::empty_send_cb);
 			
@@ -645,21 +645,6 @@ namespace gridtools
 		    return p;
 		}
 
-		void fence()
-		{
-		    /* this should only be executed by a single thread */
-		    THREAD_MASTER () {
-			flush();
-
-			// TODO: how to assure that all comm is completed before we quit a rank?
-			// if we quit too early, we risk infinite waiting on a peer. flush doesn't seem to do the job.
-			// for(int i=0; i<100000; i++) {
-			//     ucp_worker_progress(ucp_worker);
-			// }
-		    }
-		    THREAD_BARRIER();
-		}
-
 		void barrier()
 		{
 		    if(m_size > 2) ERR("barrier not implemented for more than 2 ranks");
@@ -692,20 +677,24 @@ namespace gridtools
 		/* this must only be executed by a single thread */
 		void flush()
 		{
-		    void *request = ucp_worker_flush_nb(ucp_worker, 0, ucx::empty_send_cb);
-		    if (request == NULL) {
-			/* done */
-		    } else if (UCS_PTR_IS_ERR(request)) {
-			/* terminate */
-			ERR("flush failed");
-		    } else {
-			ucs_status_t status;
-			do {
-			    ucp_worker_progress(ucp_worker);
-			    status = ucp_request_check_status(request);
-			} while (status == UCS_INPROGRESS);
-			ucp_request_release(request);
+		    /* this should only be executed by a single thread */
+		    THREAD_MASTER () {
+			void *request = ucp_worker_flush_nb(ucp_worker, 0, ucx::empty_send_cb);
+			if (request == NULL) {
+			    /* done */
+			} else if (UCS_PTR_IS_ERR(request)) {
+			    /* terminate */
+			    ERR("flush failed");
+			} else {
+			    ucs_status_t status;
+			    do {
+				ucp_worker_progress(ucp_worker);
+				status = ucp_request_check_status(request);
+			    } while (status == UCS_INPROGRESS);
+			    ucp_request_release(request);
+			}
 		    }
+		    THREAD_BARRIER();
 		}
 
 		/** completion callbacks registered in UCX
