@@ -82,32 +82,30 @@ namespace gridtools{
                     {
 			ucs_status_t status;
 			bool retval = false;
-			
+
 			if(NULL == m_req) return true;
 
 			/* ucp_request_check_status has to be locked also:
 			   it does access the worker!
 			*/
 			CRITICAL_BEGIN(ucp_lock) {
+			    
+			    /* always progress UCX */
+			    worker_progress();
+
+			    /* check request status */
 			    status = ucp_request_check_status(m_req);
 			    if(status != UCS_INPROGRESS) {
 				ucp_request_free(m_req);
 				m_req = NULL;
 				retval = true;
-			    } else {
-
-				/* progress UCX */
-				worker_progress();
-
-				status = ucp_request_check_status(m_req);
-				if(status != UCS_INPROGRESS) {
-				    ucp_request_free(m_req);
-				    m_req = NULL;
-				    retval = true;
-				}
 			    }
 			} CRITICAL_END(ucp_lock);
 			
+#ifdef USE_PTHREAD_LOCKS
+			// the below is necessary when using spin-locks
+			if(GET_NUM_THREADS() > 1) sched_yield();
+#endif
 			return retval;
                     }
                 };

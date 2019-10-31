@@ -77,6 +77,14 @@ namespace gridtools {
 
                 template<
                     typename Alloc = Allocator, 
+                    typename std::enable_if<    std::is_default_constructible<Alloc>::value 
+                                            && !std::is_convertible<Alloc,std::size_t>::value, int>::type = 0>
+                shared_message_buffer(Alloc alloc = Alloc{})
+                : m_sptr{nullptr}
+                {}
+
+                template<
+                    typename Alloc = Allocator, 
                     typename std::enable_if< std::is_default_constructible<Alloc>::value, int>::type = 0>
                 shared_message_buffer(size_t size_, Alloc alloc = Alloc{}){
 		    m_sptr = new refcounted_message<Allocator>(size_,alloc);
@@ -95,7 +103,7 @@ namespace gridtools {
 
                 shared_message_buffer(const shared_message_buffer& other){
 		    m_sptr = other.m_sptr;
-		    m_sptr->refcount++;
+		    if(m_sptr) m_sptr->refcount++;
 		}
 		
                 shared_message_buffer(shared_message_buffer&& other){
@@ -105,7 +113,7 @@ namespace gridtools {
 		
                 shared_message_buffer& operator=(const shared_message_buffer& other){
 		    m_sptr = other.m_sptr;
-		    m_sptr->refcount++;
+		    if(m_sptr) m_sptr->refcount++;
 		    return *this;
 		}
 		

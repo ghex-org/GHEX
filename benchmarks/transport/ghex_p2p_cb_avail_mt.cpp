@@ -49,7 +49,7 @@ void send_callback(MsgType mesg, int rank, int tag)
 
 void recv_callback(MsgType mesg, int rank, int tag)
 {
-    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " pthr " <<  pthr << " ongoing " << ongoing_comm << "\n";
+    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " ongoing " << ongoing_comm << "\n";
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
@@ -90,8 +90,8 @@ int main(int argc, char *argv[])
 
 #pragma omp master
 	{
-	    rank = comm->m_rank;
-	    size = comm->m_size;
+	    rank = comm->rank();
+	    size = comm->size();
 	    peer_rank = (rank+1)%2;
 	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
 	}
@@ -146,7 +146,6 @@ int main(int argc, char *argv[])
 #pragma omp barrier
 
 	    while(ongoing_comm>0){
-
 		for(int j=0; j<inflight; j++){
 		    if(msgs[j].use_count() == 1){
 			submit_cnt += nthr;

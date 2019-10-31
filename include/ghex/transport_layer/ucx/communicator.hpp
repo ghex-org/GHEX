@@ -106,10 +106,12 @@ namespace gridtools
 	    public:
 		using tag_type  = ucp_tag_t;
 		using rank_type = int;
+		using size_type = int;
 		using request_type = ucx::request;
 		template<typename T>
 		using future = ucx::future<T>;
                 using address_type   = ucx::address;
+                using traits         = int;
 
 		/* these are static, i.e., shared by threads */
 		static rank_type m_rank;
@@ -148,6 +150,9 @@ namespace gridtools
 		    printf("I am Groot! %d/%d:%d/%d, worker %p\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
 		}
 		
+                rank_type rank() const noexcept { return m_rank; }
+                size_type size() const noexcept { return m_size; }
+
 		~communicator()
 		{
 		    THREAD_MASTER (){
@@ -157,7 +162,7 @@ namespace gridtools
 		    }
 		}
 
-		communicator()
+		communicator(const traits& t = traits{})
 		{
 		    /* need to set this for single threaded runs */
 		    m_thrid = GET_THREAD_NUM();
@@ -299,9 +304,6 @@ namespace gridtools
 #endif
 		    }
 		}
-
-		rank_type rank() const noexcept { return m_rank; }
-		rank_type size() const noexcept { return m_size; }
 
 		address_type address(){
 		    ucs_status_t status;
@@ -478,7 +480,6 @@ namespace gridtools
 		unsigned progress()
 		{
 		    int p = 0, i = 0;
-
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
 			if(m_nthr>1){

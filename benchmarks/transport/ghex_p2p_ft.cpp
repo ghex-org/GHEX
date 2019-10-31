@@ -51,8 +51,8 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
 
-    rank = comm.m_rank;
-    size = comm.m_size;
+    rank = comm.rank();
+    size = comm.size();
     peer_rank = (rank+1)%2;
 
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";

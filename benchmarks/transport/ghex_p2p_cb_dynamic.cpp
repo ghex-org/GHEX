@@ -14,7 +14,11 @@ using AllocType = std::allocator<unsigned char>;
 #ifdef USE_MPI
 
 /* MPI backend */
+#ifdef USE_UCX_NBR
 #include <ghex/transport_layer/callback_communicator.hpp>
+#else
+#include <ghex/transport_layer/ucx/callback_communicator.hpp>
+#endif
 #include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 #else
@@ -73,8 +77,8 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
     
-    rank = comm.m_rank;
-    size = comm.m_size;
+    rank = comm.rank();
+    size = comm.size();
     peer_rank = (rank+1)%2;
 
     grank = rank;

@@ -13,7 +13,11 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
 #else
 
 /* UCX backend */
+#ifdef USE_UCX_NBR
+#include <ghex/transport_layer/callback_communicator.hpp>
+#else
 #include <ghex/transport_layer/ucx/callback_communicator.hpp>
+#endif
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
 #endif /* USE_MPI */
@@ -60,8 +64,8 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
     
-    rank = comm.m_rank;
-    size = comm.m_size;
+    rank = comm.rank();
+    size = comm.size();
     peer_rank = (rank+1)%2;
 
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
