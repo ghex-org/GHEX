@@ -27,8 +27,7 @@
 using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
 #endif
 
-#include "locks.hpp"
-#include "threads.hpp"
+#include "ucp_lock.hpp"
 #include "request.hpp"
 #include "future.hpp"
 #include "address.hpp"
@@ -86,16 +85,6 @@ namespace gridtools
 		void ghex_request_init_cb(void *request){
 		    bzero(request, GHEX_REQUEST_SIZE);
 		}
-
-#ifdef THREAD_MODE_MULTIPLE
-#ifndef USE_OPENMP_LOCKS
-		/* shared lock */
-		lock_t ucp_lock;
-#define ucp_lock ucx::ucp_lock
-#else
-#define ucp_lock ucp_lock
-#endif
-#endif /* THREAD_MODE_MULTIPLE */
 	    }
 
 	    class communicator<ucx_tag>;

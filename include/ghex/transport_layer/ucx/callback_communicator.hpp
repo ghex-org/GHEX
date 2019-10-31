@@ -31,8 +31,6 @@
 #include "../shared_message_buffer.hpp"
 #endif
 
-#include "locks.hpp"
-#include "threads.hpp"
 #include "request.hpp"
 #include "future.hpp"
 #include "address.hpp"
@@ -198,14 +196,14 @@ namespace gridtools
 		    CRITICAL_BEGIN(ucp_lock) {
 
 			/* sanity check! we could be recursive... OMG! */
-			if(m_early_completion){
+			// if(m_early_completion){
 			    /* TODO: VERIFY. Error just to catch such situation, if it happens. */
 			    /* This should never happen, and even if, should not be a problem: */
 			    /* we do not modify anything in the early callback, and the values */
 			    /* set here are never used anywhere else. Unless user re-uses the message */
 			    /* in his callback after re-submitting a send... Should be told not to. */
-			    std::cerr << "recv submitted inside early completion\n";
-			}
+			//    std::cerr << "recv submitted inside early completion\n";
+			// }
 
 			m_early_req.m_peer_rank = src;
 			m_early_req.m_tag = tag;
@@ -231,7 +229,7 @@ namespace gridtools
 
 				/* fill in request data */
 				ghex_request = (ucx::ghex_ucx_request_cb<Allocator> *)status;
-				(*ghex_request) = std::move(m_early_req);
+				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
 			    }
 			} else {
 			    ERR("ucp_tag_send_nb failed");
@@ -263,11 +261,10 @@ namespace gridtools
 
 #ifndef USE_HEAVY_CALLBACKS
 		    /* call the callbacks of completed requests outside of the critical region */
-		    int pos = m_completed.size();
-		    for(int i=0; i<m_completed.size(); i++){
-		    	ucx::ghex_ucx_request_cb<Allocator> &req = m_completed[--pos];
+		    while(m_completed.size()){
+		    	ucx::ghex_ucx_request_cb<Allocator> req = std::move(m_completed.back());
+			m_completed.resize(m_completed.size()-1);
 		    	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
-		    	m_completed.pop_back();
 		    }
 #endif
 
@@ -306,7 +303,6 @@ namespace gridtools
 		ucx::ghex_ucx_request_cb<Allocator> *preq;
 
 		if(pc->m_early_completion){
-
 #ifdef USE_HEAVY_CALLBACKS
 		    preq = &pc->m_early_req;
 		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);

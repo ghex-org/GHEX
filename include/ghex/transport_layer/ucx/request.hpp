@@ -20,7 +20,7 @@
 #include "../shared_message_buffer.hpp"
 #endif
 
-#include "locks.hpp"
+#include "ucp_lock.hpp"
 
 namespace gridtools{
     namespace ghex {
@@ -43,6 +43,17 @@ namespace gridtools{
 		    message_type m_msg;
 
 		    ghex_ucx_request_cb() : m_peer_rank{0}, m_tag{0}, m_msg(0) {}
+		    ~ghex_ucx_request_cb(){}
+
+		    ghex_ucx_request_cb(const ghex_ucx_request_cb&) = delete;
+		    ghex_ucx_request_cb(ghex_ucx_request_cb &&other) : 
+			m_msg{std::move(other.m_msg)}, 
+			m_cb{std::move(other.m_cb)}, 
+			m_peer_rank{other.m_peer_rank}, 
+			m_tag{other.m_tag}
+		    {}
+
+		    ghex_ucx_request_cb& operator=(const ghex_ucx_request_cb &other) = delete;
 		};
 
 		/** size of the above struct for actual MsgType */
@@ -53,12 +64,6 @@ namespace gridtools{
 		    need to progess the engine here 
 		*/
 		extern void worker_progress();
-
-#ifdef THREAD_MODE_MULTIPLE
-#ifndef USE_OPENMP_LOCKS
-		extern lock_t ucp_lock;
-#endif
-#endif
 
                 /** @brief thin wrapper around UCX Request */
                 struct request

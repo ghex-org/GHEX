@@ -100,7 +100,7 @@ namespace gridtools {
 		
                 shared_message_buffer(shared_message_buffer&& other){
 		    m_sptr = other.m_sptr;
-		    other.m_sptr = NULL;	
+		    other.m_sptr = nullptr;	
 		}
 		
                 shared_message_buffer& operator=(const shared_message_buffer& other){
@@ -111,7 +111,7 @@ namespace gridtools {
 		
 		shared_message_buffer& operator=(shared_message_buffer&& other){
 		    m_sptr = other.m_sptr;
-		    other.m_sptr = NULL;
+		    other.m_sptr = nullptr;
 		    return *this;
 		}
 
@@ -121,36 +121,76 @@ namespace gridtools {
 			m_sptr->refcount--;
 			if(m_sptr->refcount==0) {
 			    delete m_sptr;
-			    m_sptr = NULL;
+			    m_sptr = nullptr;
 			}
 		    }
 		}
 
             public: // member functions
     
-                bool is_shared() const { return use_count() > 1; }
-                auto use_count() const { return m_sptr->refcount; }
+                bool is_shared() const { 
+		    return use_count() > 1; 
+		}
+                auto use_count() const { 
+		    if(nullptr == m_sptr) return 0; 
+		    return m_sptr->refcount; 
+		}
 
-                std::size_t size() const noexcept { return m_sptr->m_message.size(); }
-                std::size_t capacity() const noexcept { return m_sptr->m_message.capacity(); }
+                std::size_t size() const noexcept { 
+		    if(nullptr == m_sptr) return 0; 
+		    return m_sptr->m_message.size(); 
+		}
+                std::size_t capacity() const noexcept { 
+		    if(nullptr == m_sptr) return 0; 
+		    return m_sptr->m_message.capacity(); 
+		}
 
-                raw_const_pointer data() const noexcept { return m_sptr->m_message.data(); }
-                raw_pointer data() noexcept { return m_sptr->m_message.data(); }
+                raw_const_pointer data() const noexcept { 
+		    if(nullptr == m_sptr) return nullptr; 
+		    return m_sptr->m_message.data(); 
+		}
+                raw_pointer data() noexcept { 
+		    if(nullptr == m_sptr) return nullptr; 
+		    return m_sptr->m_message.data(); 
+		}
 
                 // template <typename T>
                 // T* data() { return m_message->template data<T>(); }
                 // template <typename T>
                 // const T* data() const { return m_message->template data<T>(); }
 
-                raw_const_pointer begin() const noexcept { return m_sptr->m_message.begin(); }
-                raw_const_pointer end() const noexcept { return m_sptr->m_message.end(); }
-                raw_pointer begin() noexcept { return m_sptr->m_message.begin(); }
-                raw_pointer end() noexcept { return m_sptr->m_message.end(); }
+                raw_const_pointer begin() const noexcept { 
+		    if(nullptr == m_sptr) return nullptr; 
+		    return m_sptr->m_message.begin(); 
+		}
+                raw_const_pointer end() const noexcept { 
+		    if(nullptr == m_sptr) return nullptr; 
+		    return m_sptr->m_message.end(); 
+		}
+                raw_pointer begin() noexcept { 
+		    if(nullptr == m_sptr) return nullptr; 
+		    return m_sptr->m_message.begin(); 
+		}
+                raw_pointer end() noexcept { 
+		    if(nullptr == m_sptr) return nullptr; 
+		    return m_sptr->m_message.end(); 
+		}
 
-                void reserve(std::size_t n) { m_sptr->m_message.reserve(n); }
-                void resize(std::size_t n) { m_sptr->m_message.resize(n); }
-                void clear() { m_sptr->m_message.clear(); }
-                void swap(shared_message_buffer& other) { std::swap(m_sptr, other.m_sptr); }
+                void reserve(std::size_t n) { 
+		    if(nullptr == m_sptr) ERR("message is empty");
+		    m_sptr->m_message.reserve(n); 
+		}
+                void resize(std::size_t n) { 
+		    if(nullptr == m_sptr) ERR("message is empty");
+		    m_sptr->m_message.resize(n); 
+		}
+                void clear() { 
+		    if(nullptr == m_sptr) ERR("message is empty");
+		    m_sptr->m_message.clear(); 
+		}
+                void swap(shared_message_buffer& other) { 
+		    std::swap(m_sptr, other.m_sptr); 
+		}
 
 		/* manually decrease the use count. Needed in the UCX communicator */
 		void release(){

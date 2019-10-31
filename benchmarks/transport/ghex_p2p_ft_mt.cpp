@@ -65,13 +65,11 @@ int main(int argc, char *argv[])
 	std::vector<MsgType> msgs;
 	FutureType reqs[inflight];
 
-#pragma omp barrier
-	comm->whoami();
-
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
 	}
 
+#pragma omp barrier
 #pragma omp master
 	if(rank == 1) {
 	    timer.tic();

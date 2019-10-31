@@ -27,8 +27,7 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
    there is no way of knowing which thread will service which requests,
    and how many.
 */
-int comm_cnt, nlcomm_cnt;
-int submit_cnt;
+int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
 int thrid, nthr;
 #pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
 
@@ -96,13 +95,11 @@ int main(int argc, char *argv[])
 	
 	std::vector<MsgType> msgs;
 
-#pragma omp barrier
-	comm->whoami();
-
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
 	}
 	
+#pragma omp barrier
 #pragma omp master
 	if(rank == 1) {
 	    timer.tic();
@@ -115,9 +112,6 @@ int main(int argc, char *argv[])
 	/* make sure both ranks are started and all threads initialized */
 	comm->barrier();
 
-	comm_cnt = 0;
-	nlcomm_cnt = 0;
-	submit_cnt = 0;
 	int i = 0, dbg = 0;
 
 	/* send / recv niter messages, work in inflight requests at a time */
@@ -143,7 +137,7 @@ int main(int argc, char *argv[])
 	    }
 
 	    /* complete all inflight requests before moving on */
-	    while(ongoing_comm){
+	    while(ongoing_comm>0){
 		comm->progress();
 	    }
 	}

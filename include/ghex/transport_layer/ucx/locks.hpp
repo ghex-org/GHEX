@@ -43,14 +43,20 @@ using lock_t = pthread_spinlock_t;
 	pthread_spin_destroy(&l);		\
     } while(0);
 
-#define LOCK(l)					\
-    do {					\
-	pthread_spin_lock(&l);			\
+#define LOCK(l)						\
+    do {						\
+	if(l##_owner == 0) {				\
+	    pthread_spin_lock(&l);			\
+	}						\
+	l##_owner += 1;					\
     } while(0);
 
-#define UNLOCK(l)				\
-    do {					\
-	pthread_spin_unlock(&l);		\
+#define UNLOCK(l)					\
+    do {						\
+	l##_owner -= 1;					\
+	if(l##_owner == 0) {				\
+	    pthread_spin_unlock(&l);			\
+	}						\
     } while(0);
 
 #define CRITICAL_BEGIN(name) LOCK(name)
