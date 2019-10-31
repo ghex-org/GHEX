@@ -125,8 +125,8 @@ namespace gridtools
                 struct element_type
                 {
                     using message_arg_type = message_type;
-                    //std::function<void(message_arg_type, rank_type, tag_type)> m_cb;
-                    type_erased_cb_t m_cb;
+                    std::function<void(message_arg_type, rank_type, tag_type)> m_cb;
+                    //type_erased_cb_t m_cb;
                     rank_type    m_rank;
                     tag_type     m_tag;
                     future_type  m_future;
@@ -302,12 +302,11 @@ namespace gridtools
                 /** @brief Progress the communication. This function checks whether any receive and send operation is 
                   * completed and calls the associated callback (if it exists).
                   * @return returns false if all registered operations have been completed.*/
-                bool progress()
+                int progress()
                 {
                     const auto sends_completed = run(m_sends);
                     const auto recvs_completed = run(m_recvs);
-                    const auto completed = sends_completed && recvs_completed;
-                    return !completed;
+                    return sends_completed + recvs_completed;
                 }
 
                 /** @brief Progress the communication. This function checks whether any receive and send operation is 
@@ -320,11 +319,11 @@ namespace gridtools
                   * @param unexpected_cb callback function object
                   * @return returns false if all registered operations have been completed. */
                 template<typename CallBack>
-                bool progress(CallBack&& unexpected_cb)
+                int progress(CallBack&& unexpected_cb)
                 {
                     GHEX_CHECK_CALLBACK
-                    const auto not_completed = progress();
-                    if (!not_completed)
+                    const auto completed = progress();
+                    if (!completed)
                     {
                         if (auto o = m_comm.template recv_any_source_any_tag<message_type>(m_alloc))
                         {
@@ -332,7 +331,7 @@ namespace gridtools
                             unexpected_cb(std::move(std::get<2>(t)),std::get<0>(t),std::get<1>(t));
                         }
                     }
-                    return not_completed;
+                    return completed;
                 }
 
             public: // attach/detach
@@ -427,7 +426,7 @@ namespace gridtools
             private: // implementation
 
                 template<typename Deque>
-                bool run(Deque& d)
+                int run(Deque& d)
                 {
                     /*const unsigned int size = d.size();
                     for (unsigned int i=0; i<size; ++i) 
@@ -448,12 +447,14 @@ namespace gridtools
                     }
                     return (d.size()==0u);
                     */
+		    int completed = 0;
                     for (unsigned int i=0; i<d.size(); ++i) 
                     {
                         auto& element = d[i];
                         if (element.m_future.ready())
                         {
                             element.m_cb(std::move(element.m_msg), element.m_rank, element.m_tag);
+			    completed++;
                             if (i+1 < d.size())
                             {
                                 element = std::move(d.back());
@@ -462,7 +463,7 @@ namespace gridtools
                             d.resize(d.size()-1);
                         }
                     }
-                    return (d.size()==0u);
+                    return completed;
                 }
 
                 template<typename Deque>
