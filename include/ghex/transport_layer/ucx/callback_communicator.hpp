@@ -249,17 +249,7 @@ namespace gridtools
 		 */
 		unsigned progress()
 		{
-		    int p = 0, i = 0;
-
-		    CRITICAL_BEGIN(ucp_lock) {
-			p+= ucp_worker_progress(ucp_worker);
-			if(m_nthr>1){
-			    /* TODO: this may not be necessary when critical is no longer used */
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			}
-		    } CRITICAL_END(ucp_lock);
+		    unsigned p = communicator<ucx_tag>::progress();
 
 #ifndef USE_HEAVY_CALLBACKS
 		    /* call the callbacks of completed requests outside of the critical region */

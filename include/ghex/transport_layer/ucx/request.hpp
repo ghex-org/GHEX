@@ -64,6 +64,7 @@ namespace gridtools{
 		    need to progess the engine here 
 		*/
 		extern void worker_progress();
+		extern void worker_progress_send();
 
                 /** @brief thin wrapper around UCX Request */
                 struct request
@@ -88,6 +89,7 @@ namespace gridtools{
 			/* ucp_request_check_status has to be locked also:
 			   it does access the worker!
 			*/
+			worker_progress_send();
 			CRITICAL_BEGIN(ucp_lock) {
 			    
 			    /* always progress UCX */

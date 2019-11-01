@@ -126,6 +126,7 @@ namespace gridtools
 		/* these are static, i.e., shared by threads */
 		static ucp_context_h ucp_context;
 		static ucp_worker_h  ucp_worker;
+		ucp_worker_h  ucp_worker_send;
 
 		/* these are per-thread */
 
@@ -155,6 +156,7 @@ namespace gridtools
 
 		~communicator()
 		{
+		    ucp_worker_flush(ucp_worker_send);
 		    THREAD_MASTER (){
 			ucp_worker_flush(ucp_worker);
 			// ucp_worker_destroy(ucp_worker);
@@ -227,7 +229,7 @@ namespace gridtools
 			    /* this should be true if we have per-thread workers
 			       otherwise, if one worker is shared by all thread, it should be false
 			       This requires benchmarking. */
-			    ucp_params.mt_workers_shared = false;
+			    ucp_params.mt_workers_shared = true;
 
 			    /* estimated number of end-points -
 			       affects transport selection criteria and theresulting performance */
@@ -303,6 +305,25 @@ namespace gridtools
 			}
 #endif
 		    }
+
+		    THREAD_BARRIER();
+
+		    /* create a per-thread send worker */
+		    {
+			ucs_status_t status;
+			ucp_worker_params_t worker_params;
+			ucp_address_t *worker_address;
+			size_t address_length;
+			memset(&worker_params, 0, sizeof(worker_params));
+
+			/* this should not be used if we have a single worker per thread */
+			worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+			worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+
+			status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker_send);
+			if(UCS_OK != status) ERR("ucp_worker_create failed");
+			if(0 == m_rank) LOG("UCP worker created");
+		    }
 		}
 
 		address_type address(){
@@ -330,14 +351,12 @@ namespace gridtools
 		    memset(&ep_params, 0, sizeof(ep_params));
 		    ep_params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
 		    ep_params.address    = worker_address;
-		    status = ucp_ep_create (ucp_worker, &ep_params, &ucp_ep);
+		    status = ucp_ep_create (ucp_worker_send, &ep_params, &ucp_ep);
 		    if(UCS_OK != status) ERR("ucp_ep_create failed");
 
 #if (GHEX_DEBUG_LEVEL == 2)
-		    if(0 == m_thrid && 0 == m_rank){
-		    	ucp_ep_print_info(ucp_ep, stdout);
-		    	ucp_worker_print_info(ucp_worker, stdout);
-		    }
+		    ucp_ep_print_info(ucp_ep, stdout);
+		    ucp_worker_print_info(ucp_worker_send, stdout);
 #endif
 
 		    LOG("UCP connection established");
@@ -480,6 +499,15 @@ namespace gridtools
 		unsigned progress()
 		{
 		    int p = 0, i = 0;
+		    
+		    p+= ucp_worker_progress(ucp_worker_send);
+		    if(m_nthr>1){
+			/* TODO: this may not be necessary when critical is no longer used */
+			p+= ucp_worker_progress(ucp_worker_send);
+			p+= ucp_worker_progress(ucp_worker_send);
+			p+= ucp_worker_progress(ucp_worker_send);
+		    }
+
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
 			if(m_nthr>1){
@@ -547,10 +575,28 @@ namespace gridtools
 			    ucp_request_release(request);
 			}
 		    }
+
+		    {
+			void *request = ucp_worker_flush_nb(ucp_worker_send, 0, ucx::empty_send_cb);
+			if (request == NULL) {
+			    /* done */
+			} else if (UCS_PTR_IS_ERR(request)) {
+			    /* terminate */
+			    ERR("flush failed");
+			} else {
+			    ucs_status_t status;
+			    do {
+				ucp_worker_progress(ucp_worker_send);
+				status = ucp_request_check_status(request);
+			    } while (status == UCS_INPROGRESS);
+			    ucp_request_release(request);
+			}
+		    }
 		    THREAD_BARRIER();
 		}
 
 		friend void ucx::worker_progress();
+		friend void ucx::worker_progress_send();
 	    };
 
 	    /** static communicator properties, shared between threads */
@@ -573,6 +619,15 @@ namespace gridtools
 			ucp_worker_progress(pcomm->ucp_worker);
 			ucp_worker_progress(pcomm->ucp_worker);
 			ucp_worker_progress(pcomm->ucp_worker);
+		    }
+		}
+
+		void worker_progress_send(){
+		    ucp_worker_progress(pcomm->ucp_worker_send);
+		    if(pcomm->m_nthr > 1){
+			ucp_worker_progress(pcomm->ucp_worker_send);
+			ucp_worker_progress(pcomm->ucp_worker_send);
+			ucp_worker_progress(pcomm->ucp_worker_send);
 		    }
 		}
 	    }
