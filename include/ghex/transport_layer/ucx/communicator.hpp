@@ -118,8 +118,8 @@ namespace gridtools
 		static rank_type m_size;
 
 		/* these are per-thread */
-		rank_type m_thrid;
-		rank_type m_nthr;
+		thread_rank_type m_thrid;
+		thread_rank_type m_nthr;
 
 	    private:
 

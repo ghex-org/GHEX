@@ -3,6 +3,8 @@
 
 #include <omp.h>
 
+using thread_rank_type = int;
+
 #define DO_PRAGMA(x) _Pragma(#x)
 
 #define GET_THREAD_NUM()  omp_get_thread_num()
