@@ -39,11 +39,6 @@ int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
 int thrid, nthr;
 #pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
 
-/* per-thread allocator */
-extern AllocType alloc;
-#pragma omp threadprivate(alloc)
-AllocType alloc;
-
 /* available comm slots - per-thread */
 int **available = NULL;
 int ongoing_comm = 0;
@@ -104,8 +99,9 @@ int main(int argc, char *argv[])
     
 #pragma omp parallel
     {
-	gridtools::ghex::tl::callback_communicator<CommType> *comm 
-	    = new gridtools::ghex::tl::callback_communicator<CommType>();
+	gridtools::ghex::tl::callback_communicator<CommType, AllocType> *comm 
+	    = new gridtools::ghex::tl::callback_communicator<CommType, AllocType>();
+	AllocType alloc;
 
 #pragma omp master
 	{
@@ -118,10 +114,6 @@ int main(int argc, char *argv[])
 	/* needed in the recv_callback to resubmit the recv request */
 	pcomm = comm;
 
-#ifdef USE_POOL_ALLOCATOR
-	alloc.initialize(inflight+1, buff_size);
-#endif
-    
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 

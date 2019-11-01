@@ -30,9 +30,6 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 
 using MsgType = gridtools::ghex::tl::shared_message_buffer<AllocType>;
 
-AllocType alloc;
-int grank;
-
 /* available comm slots */
 int *available = NULL;
 int ongoing_comm = 0;
@@ -72,6 +69,7 @@ int main(int argc, char *argv[])
 #endif
 
     gridtools::ghex::tl::callback_communicator<CommType, AllocType> comm;
+    AllocType alloc;
 
     /* needed in the recv_callback to resubmit the recv request */
     pcomm = &comm;
@@ -84,19 +82,13 @@ int main(int argc, char *argv[])
     size = comm.size();
     peer_rank = (rank+1)%2;
 
-    grank = rank;
-
-#ifdef USE_POOL_ALLOCATOR
-    alloc.initialize(inflight+1, buff_size);
-#endif
-    
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 
     {
 	gridtools::ghex::timer timer;
 	long bytes = 0;
-	available = new int[inflight];	
-
+ 
+	available = new int[inflight];
 	for(int j=0; j<inflight; j++){
 	    available[j] = 1;
 	}

@@ -13,7 +13,7 @@ all: test
 clean:
 	rm *.o test
 
-test: ghex_p2p_cb_dynamic_resubmit.cpp
+test: ghex_p2p_cb_dynamic.cpp
 	$(CXX) $(UDEF) $(FLAGS) -I$(BOOST_DIR) -I$(UCX_DIR)/include -o $@ $^ -Wl,-rpath -Wl,$(PMIX_DIR)/lib -L$(PMIX_DIR)/lib -lpmix -L$(UCX_DIR)/lib -lucp -Wl,-rpath -Wl,$(UCX_DIR)/lib -Wl,-rpath -Wl,$(PMIX_DIR)/lib -fopenmp
 
 mpitest: mpi_avail_iter.cpp
