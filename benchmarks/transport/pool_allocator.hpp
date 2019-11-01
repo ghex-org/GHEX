@@ -27,16 +27,18 @@ namespace ghex {
 	template <typename T>
 	static std::vector<std::vector<buffer_ptr<T>>> buffers;
 
+	int thrid;
+	DECLARE_THREAD_PRIVATE(thrid)
+
         template <typename T, typename BaseAllocator>
         struct pool_allocator {
 
 	    typedef T value_type;
 
 	    BaseAllocator m_ba;
-	    thread_rank_type m_thrid;
 	    
             pool_allocator(){
-		m_thrid = GET_THREAD_NUM();
+		thrid = GET_THREAD_NUM();
 		THREAD_MASTER (){
 		    thread_rank_type nthr = GET_NUM_THREADS();
 		    if(buffers<T>.size() != nthr){
@@ -47,7 +49,7 @@ namespace ghex {
 	    }
 
             pool_allocator(const pool_allocator &other) :
-		m_ba{other.m_ba}, m_thrid{other.m_thrid}
+		m_ba{other.m_ba}
 	    {}
 
 	    void initialize(int nb, int size)
@@ -55,33 +57,33 @@ namespace ghex {
 		for(int i=0; i<nb; i++){
 		    buffer_ptr<T> container(m_ba.allocate(size), size);
 		    memset(container.m_buffer, 0, size);
-		    buffers<T>[m_thrid].push_back(container);
+		    buffers<T>[thrid].push_back(container);
 		}
 	    }
 
             [[nodiscard]] T* allocate(std::size_t size)
             {
-		if(0 == buffers<T>[m_thrid].size()){
+		if(0 == buffers<T>[thrid].size()){
 		    return m_ba.allocate(size);
 		} else {
-		    buffer_ptr<T> &container = buffers<T>[m_thrid].back();
+		    buffer_ptr<T> &container = buffers<T>[thrid].back();
 		    T *data = container.m_buffer;
-		    buffers<T>[m_thrid].pop_back();
+		    buffers<T>[thrid].pop_back();
 		    return data;
 		}
             }
 
             void deallocate(T* p, std::size_t size)
             {
-		buffers<T>[m_thrid].emplace_back(p, size);
+		buffers<T>[thrid].emplace_back(p, size);
             }
 
             void release(){
-		int size = buffers<T>[m_thrid].size();
+		int size = buffers<T>[thrid].size();
 		for(int i=0; i<size; i++){
-		    buffer_ptr<T> &container = buffers<T>[m_thrid].back();
+		    buffer_ptr<T> &container = buffers<T>[thrid].back();
 		    m_ba.deallocate(container.m_buffer, container.m_size);
-		    buffers<T>[m_thrid].pop_back();
+		    buffers<T>[thrid].pop_back();
 		}
 	    }
 

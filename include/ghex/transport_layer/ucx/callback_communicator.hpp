@@ -86,7 +86,9 @@ namespace gridtools
 		int m_early_completion = 0;
 		ucx::ghex_ucx_request_cb<Allocator> m_early_req;
 
+#ifndef USE_HEAVY_CALLBACKS
 		std::vector<ucx::ghex_ucx_request_cb<Allocator>> m_completed;
+#endif
 
             public: // ctors
 
@@ -263,7 +265,7 @@ namespace gridtools
 		    /* call the callbacks of completed requests outside of the critical region */
 		    while(m_completed.size()){
 		    	ucx::ghex_ucx_request_cb<Allocator> req = std::move(m_completed.back());
-			m_completed.resize(m_completed.size()-1);
+			m_completed.pop_back();
 		    	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
 		    }
 #endif
