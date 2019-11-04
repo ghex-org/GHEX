@@ -29,7 +29,7 @@ namespace gridtools {
                 using message_type      = message_buffer<Allocator>;
                 using byte              = typename message_type::byte;
                 using value_type        = typename message_type::value_type;
-                using allocation_type   = typename message_type::allocation_type;
+                using buffer_type       = typename message_type::buffer_type;
                 using allocator_type    = typename message_type::allocator_type;
                 using pointer           = typename message_type::pointer;
                 using const_pointer     = typename message_type::const_pointer;

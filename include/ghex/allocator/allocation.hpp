@@ -81,7 +81,7 @@ namespace gridtools {
                         m_pointer = other.m_capacity>0u ? alloc_traits::allocate(m_alloc, other.m_capacity) : nullptr;
                         m_capacity = other.m_capacity;
                     }
-                    if ( propagate::value && m_alloc == other.m_alloc)
+                    else if ( propagate::value && m_alloc == other.m_alloc)
                     {
                         if (m_capacity < other.m_capacity)
                         {
@@ -99,16 +99,7 @@ namespace gridtools {
                             new(ptr) alloc_type(other.m_alloc);
                         }
                     }
-                    if (!propagate::value && m_alloc == other.m_alloc)
-                    {
-                        if (m_capacity < other.m_capacity)
-                        {
-                            if (m_pointer) alloc_traits::deallocate(m_alloc, m_pointer, m_capacity);
-                            m_pointer = alloc_traits::allocate(m_alloc, other.m_capacity);
-                            m_capacity = other.m_capacity;
-                        }
-                    }
-                    if (!propagate::value && m_alloc != other.m_alloc)
+                    else // propagate::value == false
                     {
                         if (m_capacity < other.m_capacity)
                         {

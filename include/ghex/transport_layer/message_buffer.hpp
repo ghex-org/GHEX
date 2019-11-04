@@ -44,10 +44,10 @@ namespace gridtools {
 
                 using byte              = unsigned char;
                 using value_type        = byte;
-                using allocation_type   = ::gridtools::ghex::allocator::allocation<Allocator,byte>;
-                using allocator_type    = typename allocation_type::alloc_type;
-                using pointer           = typename allocation_type::pointer;
-                using const_pointer     = typename allocation_type::const_pointer;
+                using buffer_type       = ::gridtools::ghex::allocator::allocation<Allocator,byte>;
+                using allocator_type    = typename buffer_type::alloc_type;
+                using pointer           = typename buffer_type::pointer;
+                using const_pointer     = typename buffer_type::const_pointer;
                 using raw_pointer       = byte*;
                 using raw_const_pointer = const byte*;
 
@@ -55,7 +55,7 @@ namespace gridtools {
 
             private: // members
                 
-                allocation_type m_allocation;
+                buffer_type m_buffer;
                 std::size_t m_size = 0u;
 
             public: // ctors
@@ -66,7 +66,7 @@ namespace gridtools {
                     typename std::enable_if<    std::is_default_constructible<Alloc>::value 
                                             && !std::is_convertible<Alloc,std::size_t>::value, int>::type = 0>
                 message_buffer(Alloc alloc = Alloc{})
-                : m_allocation( alloc )
+                : m_buffer( alloc )
                 {}
 
                 template<
@@ -74,7 +74,7 @@ namespace gridtools {
                     typename std::enable_if<   !std::is_default_constructible<Alloc>::value 
                                             && !std::is_convertible<Alloc,std::size_t>::value, int>::type = 0>
                 message_buffer(Alloc alloc)
-                : m_allocation( alloc )
+                : m_buffer( alloc )
                 {}
     
                 /** @brief construct a message with given size */
@@ -82,7 +82,7 @@ namespace gridtools {
                     typename Alloc = Allocator, 
                     typename std::enable_if< std::is_default_constructible<Alloc>::value, int>::type = 0>
                 message_buffer(size_t size_, Alloc alloc = Alloc{})
-                : m_allocation( alloc, size_ )
+                : m_buffer( alloc, size_ )
                 , m_size{size_}
                 {}
 
@@ -90,20 +90,20 @@ namespace gridtools {
                     typename Alloc, 
                     typename std::enable_if<!std::is_default_constructible<Alloc>::value, int>::type = 0>
                 message_buffer(size_t size_, Alloc alloc)
-                : m_allocation( alloc, size_ )
+                : m_buffer( alloc, size_ )
                 , m_size{size_}
                 {}
 
                 message_buffer(message_buffer&& other)
-                : m_allocation{std::move(other.m_allocation)}
+                : m_buffer{std::move(other.m_buffer)}
                 , m_size{other.m_size}
                 {
-                    other.m_size = 0;
+                    other.m_size = 0u;
                 }
 
                 message_buffer& operator=(message_buffer& other)
                 {
-                    m_allocation = std::move(other.m_allocation);
+                    m_buffer = std::move(other.m_buffer);
                     m_size = other.m_size;
                     other.m_size = 0u;
                     return *this;
@@ -118,11 +118,11 @@ namespace gridtools {
                 std::size_t use_count() const { return 1; }
 
                 std::size_t size() const noexcept { return m_size; }
-                std::size_t capacity() const noexcept { return m_allocation.m_capacity; }
+                std::size_t capacity() const noexcept { return m_buffer.m_capacity; }
 
                 /** @brief returns a raw pointer to the beginning of the allocated memory, akin to std::vector */
-                raw_const_pointer data() const noexcept { return ::gridtools::ghex::to_address(m_allocation.m_pointer); }
-                raw_pointer data() noexcept { return ::gridtools::ghex::to_address(m_allocation.m_pointer); }
+                raw_const_pointer data() const noexcept { return ::gridtools::ghex::to_address(m_buffer.m_pointer); }
+                raw_pointer data() noexcept { return ::gridtools::ghex::to_address(m_buffer.m_pointer); }
 
                 /** @brief returns a raw pointer to the beginning of the allocated memory, interpreted as T*. */
                 template <typename T>
@@ -146,14 +146,14 @@ namespace gridtools {
                 raw_pointer begin() noexcept { return data(); }
                 raw_pointer end() noexcept { return data()+m_size; }
 
-                 /** @brief reserves n bytes of memory and will allocate if n is smaller than the current capacaty. */
+                 /** @brief reserves n bytes of memory and will allocate if n is greater than the current capacaty. */
                 void reserve(std::size_t n)
                 {
-                    if (n<=m_allocation.m_capacity) return;
-                    allocation_type new_allocation(m_allocation.m_alloc, n);
-                    void* ptr = &m_allocation;
-                    m_allocation.~allocation_type();
-                    new(ptr) allocation_type(std::move(new_allocation));
+                    if (n<=m_buffer.m_capacity) return;
+                    buffer_type new_allocation(m_buffer.m_alloc, n);
+                    void* ptr = &m_buffer;
+                    m_buffer.~buffer_type();
+                    new(ptr) buffer_type(std::move(new_allocation));
                 }
 
                  /** @brief resizes to n bytes of memory by calling reserve. */
@@ -169,7 +169,7 @@ namespace gridtools {
                 /** @brief swap support. */
                 void swap(message_buffer& other)
                 {
-                    m_allocation.swap(other.m_allocation);
+                    m_buffer.swap(other.m_buffer);
                     const auto s = m_size;
                     m_size = other.m_size;
                     other.m_size = s;
