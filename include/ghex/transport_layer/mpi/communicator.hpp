@@ -118,7 +118,7 @@ namespace gridtools {
                   * @tparam Args additional argument types for construction of Message
                   * @param source source rank
                   * @param args additional arguments to be passed to new container of type Message at construction 
-                  * @return optional which may hold a future< std::tuple<rank_type,tag_type,Message> > */
+                  * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
                 template<typename Message, typename... Args>
                 [[nodiscard]] auto recv_any_tag(rank_type source, Args&& ...args) const
                 {
@@ -132,7 +132,7 @@ namespace gridtools {
                   * @tparam Args additional argument types for construction of Message
                   * @param tag message tag
                   * @param args additional arguments to be passed to new container of type Message at construction 
-                  * @return optional which may hold a future< std::tuple<rank_type,tag_type,Message> > */
+                  * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
                 template<typename Message, typename... Args>
                 [[nodiscard]] auto recv_any_source(tag_type tag, Args&& ...args) const
                 {
@@ -146,7 +146,7 @@ namespace gridtools {
                   * @tparam Args additional argument types for construction of Message
                   * @param tag message tag
                   * @param args additional arguments to be passed to new container of type Message at construction 
-                  * @return optional which may hold a future< std::tuple<rank_type,tag_type,Message> > */
+                  * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
                 template<typename Message, typename... Args>
                 [[nodiscard]] auto recv_any_source_any_tag(Args&& ...args) const
                 {
@@ -156,7 +156,7 @@ namespace gridtools {
             private: // implementation
 
                 template<typename Message, typename... Args>
-                [[nodiscard]] boost::optional< future< std::tuple<rank_type, tag_type, Message> > >
+                [[nodiscard]] boost::optional< future< std::tuple<Message, rank_type, tag_type> > >
                 recv_any(rank_type source, tag_type tag, Args&& ...args) const
                 {
                     MPI_Message mpi_msg;
@@ -170,8 +170,8 @@ namespace gridtools {
                         Message msg(count/sizeof(typename Message::value_type), std::forward<Args>(args)...);
                         request req;
                         GHEX_CHECK_MPI_RESULT(MPI_Imrecv(msg.data(), count, MPI_CHAR, &mpi_msg, &req.get()));
-                        using future_t = future<std::tuple<rank_type,tag_type,Message>>;
-                        return future_t{ std::make_tuple( st.source(), st.tag(), std::move(msg) ), std::move(req) };
+                        using future_t = future<std::tuple<Message,rank_type,tag_type>>;
+                        return future_t{ std::make_tuple(std::move(msg), st.source(), st.tag()), std::move(req) };
                     }
                     return boost::none;
                 }
