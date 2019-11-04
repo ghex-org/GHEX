@@ -97,31 +97,29 @@ int main(int argc, char *argv[])
 
 	if(rank == 0){
 
+	    int i = 0, dbg = 0, blk;
+	    blk = niter / 10;
+	    dbg = dbg + blk;
+	    
 	    /* send niter messages - as soon as a slot becomes free */
 	    int sent = 0;
-	    while(sent != niter){
+	    while(sent < niter){
 		
 		for(int j=0; j<inflight; j++){
 		    if(available[j]){
-			if(rank==0 && (sent)%(niter/10)==0) {
+			if(rank==0 && sent >= dbg) {
 			    std::cout << sent << " iters\n";
+			    dbg = dbg + blk;
 			}
+
 			available[j] = 0;
 			sent++;
 			ongoing_comm++;
 			MsgType msg = MsgType(buff_size, alloc);
 			comm.send(msg, peer_rank, j, send_callback);
-			if(sent==niter) break;
 		    }
+		    else comm.progress();
 		}
-		if(sent==niter) break;
-	    
-		/* progress a bit: for large inflight values this yields better performance */
-		/* over simply calling the progress once */
-		int p = 0.1*inflight-1;
-		do {
-		    p-=comm.progress();
-		} while(ongoing_comm && p>0);
 	    }
 
 	} else {
@@ -130,7 +128,7 @@ int main(int argc, char *argv[])
 	    /* so the number of submitted recv requests is always constant (inflight) */
 	    /* expect niter messages (i.e., niter recv callbacks) on receiver  */
 	    ongoing_comm = niter;
-	    while(ongoing_comm){
+	    while(ongoing_comm > 0){
 		
 		for(int j=0; j<inflight; j++){
 		    if(available[j]){
@@ -138,19 +136,13 @@ int main(int argc, char *argv[])
 			MsgType msg = MsgType(buff_size, alloc);
 			comm.recv(msg, peer_rank, j, recv_callback);
 		    }
+		    else comm.progress();
 		}
-	    
-		/* progress a bit: for large inflight values this yields better performance */
-		/* over simply calling the progress once */
-		int p = 0.1*inflight-1;
-		do {
-		    p-=comm.progress();
-		} while(ongoing_comm && p>0);
 	    }	    
 	}
 
 	/* complete all comm */
-	while(ongoing_comm){
+	while(ongoing_comm > 0){
 	    comm.progress();
 	}
 

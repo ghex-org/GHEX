@@ -130,12 +130,12 @@ int main(int argc, char *argv[])
 			    std::cout << submit_cnt << " iters\n";
 			    dbg = dbg + blk;
 			}
-			submit_cnt += nthr;
 
+			submit_cnt += nthr;
 			comm->send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
-		    }
+		    } 
+		    else comm->progress();
 		}
-		comm->progress();
 	    }
 	} else {
 
@@ -145,15 +145,13 @@ int main(int argc, char *argv[])
 	    ongoing_comm = niter;
 #pragma omp barrier
 
-	    while(ongoing_comm>0){
+	    while(ongoing_comm > 0){
 		for(int j=0; j<inflight; j++){
 		    if(msgs[j].use_count() == 1){
 			submit_cnt += nthr;
 			comm->recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
-		    }
+		    } else comm->progress();
 		}
-
-		comm->progress();
 	    }	    
 	}
 

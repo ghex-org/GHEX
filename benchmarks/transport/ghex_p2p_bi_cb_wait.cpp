@@ -25,18 +25,19 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 /* comm requests currently in-flight */
-int ongoing_comm = 0;
+int sent = 0;
+int received = 0;
 
 void send_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    ongoing_comm--;
+    sent--;
 }
 
 void recv_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-    ongoing_comm--;
+    received--;
 }
 
 int main(int argc, char *argv[])
@@ -74,14 +75,33 @@ int main(int argc, char *argv[])
 	gridtools::ghex::timer timer;
 	long bytes = 0;
 	std::vector<MsgType> msgs;
+	std::vector<MsgType> rmsgs;
 	
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
+	    rmsgs.emplace_back(buff_size);
+	    
+	    /* initialize arrays */
+	    {
+		unsigned char *data;
+		MsgType &msg = msgs[j];
+		data = msg.data();
+		memset(data, 0, buff_size);
+	    }
+
+	    {
+		unsigned char *data;
+		MsgType &msg = rmsgs[j];
+		data = msg.data();
+		memset(data, 0, buff_size);
+	    }
 	}
 	
+	comm.barrier();
+
 	if(rank == 1) {
 	    timer.tic();
-	    bytes = (double)niter*size*buff_size/2;
+	    bytes = (double)niter*size*buff_size;
 	}
 
 	/* send / recv niter messages, work in inflight requests at a time */
@@ -94,16 +114,14 @@ int main(int argc, char *argv[])
 		    std::cout << i << " iters\n";
 		}
 		i++;
-		ongoing_comm++;
-		if(rank==0)
-		    comm.send(msgs[j], peer_rank, j, send_callback);
-		else
-		    comm.recv(msgs[j], peer_rank, j, recv_callback);
-		if(i==niter) break;
+		sent++;
+		received++;
+		comm.send(msgs[j], peer_rank, j, send_callback);
+		comm.recv(rmsgs[j], peer_rank, j, recv_callback);
 	    }
 		
 	    /* complete all inflight requests before moving on */
-	    while(ongoing_comm){
+	    while(sent || received){
 		comm.progress();
 	    }
 	}

@@ -1,12 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <iostream>
-#include <unistd.h>
 #include <mpi.h>
-#include <omp.h>
-#include "tictoc.h"
+
+#include <ghex/common/timer.hpp>
 
 int main(int argc, char *argv[])
 {
@@ -15,6 +10,9 @@ int main(int argc, char *argv[])
     int inflight;
     MPI_Comm mpi_comm;
     int ncomm = 0;
+
+    gridtools::ghex::timer timer;
+    long bytes = 0;
 
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
@@ -51,10 +49,12 @@ int main(int argc, char *argv[])
 	    }
 	}
 	
+#pragma omp barrier
 #pragma omp master
 	if(rank == 1) {
-	    tic();
-	    bytes = (double)niter*buff_size;
+	    MPI_Barrier(MPI_COMM_WORLD);
+	    timer.tic();
+	    bytes = (double)niter*size*buff_size/2;
 	}
 
 	/* submit inflight async requests */
@@ -90,7 +90,10 @@ int main(int argc, char *argv[])
 
 #pragma omp barrier
 #pragma omp master
-	if(rank == 1) toc();	
+	{
+	    MPI_Barrier(MPI_COMM_WORLD);
+	    if(rank == 1) timer.vtoc(bytes);
+	}
     }
 
     std::cout << "rank " << rank << " ncomm " << ncomm << "\n";

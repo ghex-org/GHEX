@@ -64,6 +64,7 @@ namespace gridtools{
 		    need to progess the engine here 
 		*/
 		extern void worker_progress();
+		static int ftest = 0;
 
                 /** @brief thin wrapper around UCX Request */
                 struct request
@@ -90,9 +91,6 @@ namespace gridtools{
 			*/
 			CRITICAL_BEGIN(ucp_lock) {
 			    
-			    /* always progress UCX */
-			    worker_progress();
-
 			    /* check request status */
 			    status = ucp_request_check_status(m_req);
 			    if(status != UCS_INPROGRESS) {
@@ -100,6 +98,11 @@ namespace gridtools{
 				m_req = NULL;
 				retval = true;
 			    }
+
+			    /* always progress UCX */
+			    if(ftest==0) worker_progress();
+			    ftest = (ftest+1)%50;
+
 			} CRITICAL_END(ucp_lock);
 			
 #ifdef USE_PTHREAD_LOCKS

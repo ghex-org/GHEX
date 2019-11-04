@@ -1,6 +1,7 @@
 #include <iostream>
 #include <mpi.h>
-#include "tictoc.h"
+
+#include <ghex/common/timer.hpp>
 
 int main(int argc, char *argv[])
 {
@@ -8,6 +9,9 @@ int main(int argc, char *argv[])
     int niter, buff_size;
     int inflight;
     MPI_Comm mpi_comm;
+
+    gridtools::ghex::timer timer;
+    long bytes = 0;
 
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
@@ -39,8 +43,9 @@ int main(int argc, char *argv[])
 	    }
 	}
 	
+	MPI_Barrier(MPI_COMM_WORLD);
 	if(rank == 1) {
-	    tic();
+	    timer.tic();
 	    bytes = (double)niter*size*buff_size/2;
 	}
 
@@ -72,7 +77,8 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	if(rank == 1) toc();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 1) timer.vtoc(bytes);
     }
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
