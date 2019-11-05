@@ -100,8 +100,7 @@ namespace gridtools{
 			    }
 
 			    /* always progress UCX */
-			    if(ftest==0) worker_progress();
-			    ftest = (ftest+1)%50;
+			    worker_progress();
 
 			} CRITICAL_END(ucp_lock);
 			

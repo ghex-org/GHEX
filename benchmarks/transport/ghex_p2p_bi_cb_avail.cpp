@@ -68,56 +68,55 @@ int main(int argc, char *argv[])
     rank = comm.rank();
     size = comm.size();
     peer_rank = (rank+1)%2;
-    
+
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 
     {
-	gridtools::ghex::timer timer;
-	long bytes = 0;
-	std::vector<MsgType> smsgs;
-	std::vector<MsgType> rmsgs;
+    	gridtools::ghex::timer timer;
+    	long bytes = 0;
+    	std::vector<MsgType> smsgs;
+    	std::vector<MsgType> rmsgs;
 
-	for(int j=0; j<inflight; j++){
-	    smsgs.emplace_back(buff_size);
-	    rmsgs.emplace_back(buff_size);
-	    make_zero(smsgs[j]);
-	    make_zero(rmsgs[j]);
-	}
+    	for(int j=0; j<inflight; j++){
+    	    smsgs.emplace_back(buff_size);
+    	    rmsgs.emplace_back(buff_size);
+    	    make_zero(smsgs[j]);
+    	    make_zero(rmsgs[j]);
+    	}
 	
-	comm.barrier();
+    	comm.barrier();
 
-	if(rank == 1) {
-	    timer.tic();
-	    bytes = (double)niter*size*buff_size;
-	}
+    	if(rank == 1) {
+    	    timer.tic();
+    	    bytes = (double)niter*size*buff_size;
+    	}
 
-	int i = 0, dbg = 0, blk;
-	blk = niter / 10;
-	dbg = dbg + blk;
+    	int i = 0, dbg = 0, blk;
+    	blk = niter / 10;
+    	dbg = dbg + blk;
 
-	/* send niter messages - as soon as a slot becomes free */
-	while(sent < niter || received < niter){
-	    for(int j=0; j<inflight; j++){
-		if(sent < niter && smsgs[j].use_count() == 1){
-		    if(rank==0 && sent > dbg) {
-			dbg = dbg + blk;
-			std::cout << sent << " iters\n";
-		    }
-		    comm.send(smsgs[j], peer_rank, j, send_callback);
-		} else comm.progress();
+    	/* send niter messages - as soon as a slot becomes free */
+    	while(sent < niter || received < niter){
+    	    for(int j=0; j<inflight; j++){
+    		if(sent < niter && smsgs[j].use_count() == 1){
+    		    if(rank==0 && sent > dbg) {
+    			dbg = dbg + blk;
+    			std::cout << sent << " iters\n";
+    		    }
+    		    comm.send(smsgs[j], peer_rank, j, send_callback);
+    		} else comm.progress();
 
-		if(received < niter && rmsgs[j].use_count() == 1){
-		    comm.recv(rmsgs[j], peer_rank, j, recv_callback);
-		} else comm.progress();
-	    }
-	    //comm.progress();
-	}
+    		if(received < niter && rmsgs[j].use_count() == 1){
+    		    comm.recv(rmsgs[j], peer_rank, j, recv_callback);
+    		} else comm.progress();
+    	    }
+	    // comm.progress();
+    	}
 
-	comm.flush();
-	comm.barrier();
+    	comm.flush();
+    	comm.barrier();
 	
-	if(rank == 1) timer.vtoc(bytes);
-	printf("empty progress %d\n", comm.empty_progress);
+    	if(rank == 1) timer.vtoc(bytes);
     }
 
 #ifdef USE_MPI

@@ -55,36 +55,29 @@ int main(int argc, char *argv[])
 
 	int sent = 0;
 	int received = 0;
+	int flag, j;
+
+	for(j=0; j<inflight; j++){
+	    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &sreq[j]);
+	    MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &rreq[j]);
+	}
+
 	while(sent < niter || received < niter){
-	    
-	    int sflags[inflight] = {1};
-	    int rflags[inflight] = {1};
 
-	    // MPI_Testall(inflight, sreq, sflags, MPI_STATUS_IGNORE);
-	    // MPI_Testall(inflight, rreq, rflags, MPI_STATUS_IGNORE);
-
-	    // for(int j=0; j<inflight; j++){
-	    // 	MPI_Test(&sreq[j], sflags+j, MPI_STATUS_IGNORE);
-	    // 	MPI_Test(&rreq[j], rflags+j, MPI_STATUS_IGNORE);
-	    // }
-
-	    for(int j=0; j<inflight; j++){
-		if(sflags[j]) {
-		    if(rank==0 && sent%(niter/10)==0) {
-			std::cout << sent << " iters\n";
-		    }
-		    sent++;
-		    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &sreq[j]);
+	    MPI_Testany(inflight, sreq, &j, &flag, MPI_STATUS_IGNORE);
+	    if(flag) {
+		if(rank==0 && sent%(niter/10)==0) {
+		    std::cout << sent << " iters\n";
 		}
-
-		if(rflags[j]) {
-		    MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &rreq[j]);
-		    received++;
-		}
+		sent++;
+		MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &sreq[j]);
 	    }
 
-	    MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
-	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
+	    MPI_Testany(inflight, rreq, &j, &flag, MPI_STATUS_IGNORE);
+	    if(flag){
+		MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &rreq[j]);
+		received++;
+	    }
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);

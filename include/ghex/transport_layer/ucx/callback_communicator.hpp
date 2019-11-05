@@ -89,6 +89,9 @@ namespace gridtools
 #ifndef USE_HEAVY_CALLBACKS
 		std::vector<ucx::ghex_ucx_request_cb<Allocator>> m_completed;
 #endif
+		std::deque<ucx::ghex_ucx_request_cb<Allocator>> m_send_queue;
+		int in_progress = 0;
+		int in_progress_thrs = 5;
 
             public: // ctors
 
@@ -129,8 +132,23 @@ namespace gridtools
 		    int early = false;
 
 		    ep = rank_to_ep(dst);
-
+		    
 		    CRITICAL_BEGIN(ucp_lock) {
+
+			/* queue the send operation for a later time */
+			/* Will eventually be submitted in progress() */
+			if(in_progress >= in_progress_thrs){
+
+			    /* prepare the request */
+			    m_early_req.m_peer_rank = dst;
+			    m_early_req.m_tag = tag;
+			    m_early_req.m_cb = std::forward<CallBack>(cb);
+			    m_early_req.m_msg = msg;
+
+			    /* push */
+			    m_send_queue.push_back(std::move(m_early_req));
+			    return;
+			}
 
 			/* send with callback */
 			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
@@ -148,12 +166,17 @@ namespace gridtools
 #endif
 			} else if(!UCS_PTR_IS_ERR(status)) {
 
+			    /* prepare the request */
+			    m_early_req.m_peer_rank = dst;
+			    m_early_req.m_tag = tag;
+			    m_early_req.m_cb = std::forward<CallBack>(cb);
+			    m_early_req.m_msg = msg;
+
 			    /* fill in request data */
 			    ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
-			    ghex_request->m_peer_rank = dst;
-			    ghex_request->m_tag = tag;
-			    ghex_request->m_cb = std::forward<CallBack>(cb);
-			    ghex_request->m_msg = msg;
+			    new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
+
+			    in_progress++;
 			} else {
 			    ERR("ucp_tag_send_nb failed");
 			}
@@ -252,6 +275,13 @@ namespace gridtools
 		    int p = 0, i = 0;
 
 		    communicator<ucx_tag>::progress();
+
+		    /* submit queued send requests */
+		    while(m_send_queue.size()>0 && in_progress<in_progress_thrs){
+		    	ucx::ghex_ucx_request_cb<Allocator> req = std::move(m_send_queue.front());
+		    	m_send_queue.pop_front();
+		    	send(req.m_msg, req.m_peer_rank, req.m_tag, req.m_cb);
+		    }
 		    
 #ifndef USE_HEAVY_CALLBACKS
 		    /* call the callbacks of completed requests outside of the critical region */
@@ -287,7 +317,7 @@ namespace gridtools
 
 		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
 		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
-		
+
 		/* pointer to request data */
 		ucx::ghex_ucx_request_cb<Allocator> *preq;
 
@@ -323,6 +353,8 @@ namespace gridtools
 		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
 		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
 
+		pc->in_progress--;
+		
 		ucx::ghex_ucx_request_cb<Allocator> *preq =
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 		

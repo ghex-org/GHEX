@@ -15,6 +15,7 @@
 #include <time.h>
 #include <map>
 #include <functional>
+#include <deque>
 
 #include <ucp/api/ucp.h>
 
@@ -94,6 +95,7 @@ namespace gridtools
 		DECLARE_THREAD_PRIVATE(pcomm)
 	    }
 
+
 	    /** Class that provides the functions to send and receive messages. A message
 	     * is an object with .data() that returns a pointer to `unsigned char`
 	     * and .size(), with the same behavior of std::vector<unsigned char>.
@@ -138,7 +140,7 @@ namespace gridtools
 		    Has to be per-thread
 		*/
 		std::map<rank_type, ucp_ep_h> connections;
-		
+
 	    public:
 
 		template<typename MsgType>
@@ -477,9 +479,31 @@ namespace gridtools
 		 *
 		 * @return unsigned Non-zero if any communication was progressed, zero otherwise.
 		 */
+		// #include <time.h>
+		// struct timespec progress_time;
+		// int time_init = 0;
+		// int tthreashold = 0;
+		// int empty_progress = 0;
 		unsigned progress()
 		{
 		    int p = 0, i = 0;
+
+		    // struct timespec time;
+		    // if(tthreashold){
+		    // 	if(!time_init){
+		    // 	    clock_gettime(CLOCK_REALTIME, &progress_time);
+		    // 	    time_init = 1;
+		    // 	} else {
+		    // 	    long tdiff;
+		    // 	    clock_gettime(CLOCK_REALTIME, &time);
+		    // 	    tdiff = (time.tv_sec-progress_time.tv_sec)*1000000000 + (time.tv_nsec-progress_time.tv_nsec);
+		    // 	    if(tdiff<tthreashold) {
+		    // 		return 0;
+		    // 	    }
+		    // 	    progress_time = time;
+		    // 	}
+		    // }
+
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
 			if(m_nthr>1){
