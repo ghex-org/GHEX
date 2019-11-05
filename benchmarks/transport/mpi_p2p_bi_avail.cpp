@@ -1,6 +1,6 @@
 #include <iostream>
 #include <mpi.h>
-
+#include <string.h>
 #include <ghex/common/timer.hpp>
 
 int main(int argc, char *argv[])
@@ -37,16 +37,16 @@ int main(int argc, char *argv[])
 	MPI_Request *rreq = new MPI_Request[inflight];
 	
 	for(int j=0; j<inflight; j++){
-	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffers[j]);
-	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &rbuffers[j]);
+	    // MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffers[j]);
+	    // MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &rbuffers[j]);
+	    sbuffers[j] = (unsigned char*)malloc(buff_size);
+	    rbuffers[j] = (unsigned char*)malloc(buff_size);
+	    memset(sbuffers[j], 1, buff_size);
+	    memset(rbuffers[j], 1, buff_size);
 	    sreq[j] = MPI_REQUEST_NULL;
 	    rreq[j] = MPI_REQUEST_NULL;
-	    for(int i=0; i<buff_size; i++) {
-		sbuffers[j][i] = i%(rank+1);
-		rbuffers[j][i] = i%(rank+1);
-	    }
 	}
-	
+
 	MPI_Barrier(MPI_COMM_WORLD);
 	if(rank == 1) {
 	    timer.tic();
@@ -57,11 +57,12 @@ int main(int argc, char *argv[])
 	int received = 0;
 	while(sent < niter || received < niter){
 	    
-	    int sflags[inflight] = {0};
-	    int rflags[inflight] = {0};
+	    int sflags[inflight] = {1};
+	    int rflags[inflight] = {1};
 
-	    MPI_Testall(inflight, sreq, sflags, MPI_STATUS_IGNORE);
-	    MPI_Testall(inflight, rreq, rflags, MPI_STATUS_IGNORE);
+	    // MPI_Testall(inflight, sreq, sflags, MPI_STATUS_IGNORE);
+	    // MPI_Testall(inflight, rreq, rflags, MPI_STATUS_IGNORE);
+
 	    // for(int j=0; j<inflight; j++){
 	    // 	MPI_Test(&sreq[j], sflags+j, MPI_STATUS_IGNORE);
 	    // 	MPI_Test(&rreq[j], rflags+j, MPI_STATUS_IGNORE);
@@ -80,8 +81,10 @@ int main(int argc, char *argv[])
 		    MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &rreq[j]);
 		    received++;
 		}
-
 	    }
+
+	    MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
+	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);

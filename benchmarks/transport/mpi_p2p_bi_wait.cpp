@@ -1,5 +1,6 @@
 #include <iostream>
 #include <mpi.h>
+#include <string.h>
 
 #include <ghex/common/timer.hpp>
 
@@ -39,12 +40,10 @@ int main(int argc, char *argv[])
 	for(int j=0; j<inflight; j++){
 	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffers[j]);
 	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &rbuffers[j]);
+	    memset(sbuffers[j], 1, buff_size);
+	    memset(rbuffers[j], 1, buff_size);
 	    sreq[j] = MPI_REQUEST_NULL;
 	    rreq[j] = MPI_REQUEST_NULL;
-	    for(int i=0; i<buff_size; i++) {
-		sbuffers[j][i] = i%(rank+1);
-		rbuffers[j][i] = i%(rank+1);
-	    }
 	}
 	
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -68,12 +67,17 @@ int main(int argc, char *argv[])
 	    }
 
 	    /* wait for all */
-	    for(int j=0; j<inflight; j++){
-		MPI_Wait(&sreq[j], MPI_STATUS_IGNORE);
-		MPI_Wait(&rreq[j], MPI_STATUS_IGNORE);			
-		sent++;
-		received++;
-	    }
+	    MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
+	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
+	    sent+=inflight;
+	    received+=inflight;
+	    
+	    // for(int j=0; j<inflight; j++){
+	    // 	MPI_Wait(&sreq[j], MPI_STATUS_IGNORE);
+	    // 	MPI_Wait(&rreq[j], MPI_STATUS_IGNORE);			
+	    // 	sent++;
+	    // 	received++;
+	    // }
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
