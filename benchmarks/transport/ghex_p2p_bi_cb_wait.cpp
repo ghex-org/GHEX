@@ -2,7 +2,7 @@
 #include <vector>
 
 #include <ghex/common/timer.hpp>
-
+#include "utils.hpp"
 
 #ifdef USE_MPI
 
@@ -74,27 +74,14 @@ int main(int argc, char *argv[])
     {
 	gridtools::ghex::timer timer;
 	long bytes = 0;
-	std::vector<MsgType> msgs;
+	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
 	
 	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size);
+	    smsgs.emplace_back(buff_size);
 	    rmsgs.emplace_back(buff_size);
-	    
-	    /* initialize arrays */
-	    {
-		unsigned char *data;
-		MsgType &msg = msgs[j];
-		data = msg.data();
-		memset(data, 0, buff_size);
-	    }
-
-	    {
-		unsigned char *data;
-		MsgType &msg = rmsgs[j];
-		data = msg.data();
-		memset(data, 0, buff_size);
-	    }
+	    make_zero(smsgs[j]);
+	    make_zero(rmsgs[j]);
 	}
 	
 	comm.barrier();
@@ -116,7 +103,7 @@ int main(int argc, char *argv[])
 		i++;
 		sent++;
 		received++;
-		comm.send(msgs[j], peer_rank, j, send_callback);
+		comm.send(smsgs[j], peer_rank, j, send_callback);
 		comm.recv(rmsgs[j], peer_rank, j, recv_callback);
 	    }
 		

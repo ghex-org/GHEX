@@ -251,16 +251,8 @@ namespace gridtools
 		{
 		    int p = 0, i = 0;
 
-		    CRITICAL_BEGIN(ucp_lock) {
-			p+= ucp_worker_progress(ucp_worker);
-			if(m_nthr>1){
-			    /* TODO: this may not be necessary when critical is no longer used */
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			}
-		    } CRITICAL_END(ucp_lock);
-
+		    communicator<ucx_tag>::progress();
+		    
 #ifndef USE_HEAVY_CALLBACKS
 		    /* call the callbacks of completed requests outside of the critical region */
 		    while(m_completed.size()){
@@ -268,11 +260,6 @@ namespace gridtools
 			m_completed.pop_back();
 		    	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
 		    }
-#endif
-
-#ifdef USE_PTHREAD_LOCKS
-		    /* the below is necessary when using spin-locks */
-		    if(m_nthr>1) sched_yield();
 #endif
 
 		    return p;

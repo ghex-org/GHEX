@@ -2,7 +2,7 @@
 #include <vector>
 
 #include <ghex/common/timer.hpp>
-
+#include "utils.hpp"
 
 #ifdef USE_MPI
 
@@ -74,27 +74,14 @@ int main(int argc, char *argv[])
     {
 	gridtools::ghex::timer timer;
 	long bytes = 0;
-	std::vector<MsgType> msgs;
+	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
 
 	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size);
+	    smsgs.emplace_back(buff_size);
 	    rmsgs.emplace_back(buff_size);
-
-	    /* initialize arrays */
-	    {
-		unsigned char *data;
-		MsgType &msg = msgs[j];
-		data = msg.data();
-		memset(data, 0, buff_size);
-	    }
-
-	    {
-		unsigned char *data;
-		MsgType &msg = rmsgs[j];
-		data = msg.data();
-		memset(data, 0, buff_size);
-	    }
+	    make_zero(smsgs[j]);
+	    make_zero(rmsgs[j]);
 	}
 	
 	comm.barrier();
@@ -111,26 +98,26 @@ int main(int argc, char *argv[])
 	/* send niter messages - as soon as a slot becomes free */
 	while(sent < niter || received < niter){
 	    for(int j=0; j<inflight; j++){
-		if(sent < niter && msgs[j].use_count() == 1){
+		if(sent < niter && smsgs[j].use_count() == 1){
 		    if(rank==0 && sent > dbg) {
 			dbg = dbg + blk;
 			std::cout << sent << " iters\n";
 		    }
-		    comm.send(msgs[j], peer_rank, j, send_callback);
-		} 
-		else comm.progress();
+		    comm.send(smsgs[j], peer_rank, j, send_callback);
+		} else comm.progress();
 
 		if(received < niter && rmsgs[j].use_count() == 1){
 		    comm.recv(rmsgs[j], peer_rank, j, recv_callback);
-		} 
-		else comm.progress();
+		} else comm.progress();
 	    }
+	    //comm.progress();
 	}
 
 	comm.flush();
 	comm.barrier();
 	
 	if(rank == 1) timer.vtoc(bytes);
+	printf("empty progress %d\n", comm.empty_progress);
     }
 
 #ifdef USE_MPI
