@@ -33,9 +33,9 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
    there is no way of knowing which thread will service which requests,
    and how many.
 */
-int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
+int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
 int thrid, nthr;
-#pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, submit_recv_cnt, thrid, nthr)
+#pragma omp threadprivate(comm_cnt, nlsend_cnt, nlrecv_cnt, submit_cnt, submit_recv_cnt, thrid, nthr)
 
 /* comm requests currently in-flight */
 std::atomic<int> sent = 0;
@@ -47,7 +47,7 @@ void send_callback(MsgType mesg, int rank, int tag)
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
-    if(pthr != thrid) nlcomm_cnt++;
+    if(pthr != thrid) nlsend_cnt++;
     comm_cnt++;
     sent++;
 }
@@ -57,7 +57,7 @@ void recv_callback(MsgType mesg, int rank, int tag)
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " ongoing " << ongoing_comm << "\n";
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
-    if(pthr != thrid) nlcomm_cnt++;
+    if(pthr != thrid) nlrecv_cnt++;
     comm_cnt++;
     received++;
 }
@@ -149,12 +149,11 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	comm->flush();
 	comm->barrier();
 
 #pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
-		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
+		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
 	
 	delete comm;
     }
