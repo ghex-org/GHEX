@@ -77,6 +77,9 @@ namespace gridtools{
 #pragma omp barrier
 		    }
 
+
+		    void flush() { }
+		    
 		    /*
 		      Has to be called at in the begining of the parallel region.
 		    */

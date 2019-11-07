@@ -134,12 +134,12 @@ int main(int argc, char *argv[])
 	    bytes = (double)niter*size*buff_size/2;
 	}
 
-	int i = 0, dbg = 0, blk;
-	blk = niter / 10;
-	dbg = dbg + blk;
-
 	if(rank == 0){
 
+	    int i = 0, dbg = 0, blk;
+	    blk = niter / 10;
+	    dbg = dbg + blk;
+	    
 	    /* send niter messages - as soon as a slot becomes free */
 	    while(submit_cnt < niter){
 		
@@ -153,9 +153,9 @@ int main(int argc, char *argv[])
 			submit_cnt += nthr;
 			MsgType msg = MsgType(buff_size, alloc);
 			comm->send(msg, peer_rank, thrid*inflight+j, send_callback);
-		    }
+		    } 
+		    else comm->progress();
 		}
-		comm->progress();
 	    }
 
 	} else {
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 	    /* progress (below) until niter messages have been received. */
 
 	    /* complete all comm */
-	    while(ongoing_comm>0){
+	    while(ongoing_comm > 0){
 		comm->progress();
 	    }
 	}

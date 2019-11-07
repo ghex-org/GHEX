@@ -3,6 +3,7 @@
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 #ifdef USE_MPI
 
@@ -18,6 +19,8 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
 
 #endif /* USE_MPI */
+
+#include <ghex/transport_layer/message_buffer.hpp>
 using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 
@@ -62,47 +65,50 @@ int main(int argc, char *argv[])
 	}
 #pragma omp barrier 
 
-	std::vector<MsgType> msgs;
-	FutureType reqs[inflight];
-
+	std::vector<MsgType> smsgs;
+	std::vector<MsgType> rmsgs;
+	FutureType sreqs[inflight];
+	FutureType rreqs[inflight];
+	
 	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size);
+	    smsgs.push_back(MsgType(buff_size));
+	    rmsgs.push_back(MsgType(buff_size));
+	    make_zero(smsgs[j]);
+	    make_zero(rmsgs[j]);
 	}
 
-#pragma omp barrier
+	comm->barrier();
+
 #pragma omp master
 	if(rank == 1) {
 	    timer.tic();
-	    bytes = (double)niter*size*buff_size/2;
+	    bytes = (double)niter*size*buff_size;
 	}
 
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 
-	/* make sure both ranks are started and all threads initialized */
-	comm->barrier();
-
-	int i = 0, dbg = 0;
-	
-	while(i<niter){
+	int sent = 0, received = 0;
+	int dbg = 0;	
+	while(sent < niter || received < niter){
 	    
 	    /* submit comm */
 	    for(int j=0; j<inflight; j++){
 
-		if(!reqs[j].ready()) continue;
-
-		if(rank==0 && thrid==0 && dbg>=(niter/10)) {
-		    std::cout << i << " iters\n";
-		    dbg=0;
+		if(sent < niter && sreqs[j].ready()) {
+		    if(rank==0 && thrid==0 && dbg >= (niter/10)) {
+			std::cout << sent << " iters\n";
+			dbg = 0;
+		    }
+		    sent+=nthr;
+		    dbg+=nthr;
+		    sreqs[j] = comm->send(smsgs[j], peer_rank, j);
 		}
-		i += nthr;
-		dbg += nthr; 
 
-		if(rank == 0)
-		    reqs[j] = comm->send(msgs[j], peer_rank, j);
-		else
-		    reqs[j] = comm->recv(msgs[j], peer_rank, j);
-		if(i >= niter) break;
+		if(received < niter && rreqs[j].ready()) {		
+		    received+=nthr;
+		    rreqs[j] = comm->recv(rmsgs[j], peer_rank, j);
+		}
 	    }
 	}
 
@@ -116,7 +122,7 @@ int main(int argc, char *argv[])
     if(rank == 1) timer.vtoc(bytes);
 
 #ifdef USE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);
     // MPI_Finalize(); segfault ??
 #endif
 }

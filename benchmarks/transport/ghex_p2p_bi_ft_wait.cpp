@@ -2,6 +2,7 @@
 #include <vector>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 #ifdef USE_MPI
 
@@ -17,6 +18,7 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
 
 #endif /* USE_MPI */
+#include <ghex/transport_layer/message_buffer.hpp>
 using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 
@@ -58,16 +60,23 @@ int main(int argc, char *argv[])
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
     
     {
-	std::vector<MsgType> msgs;
-	FutureType reqs[inflight];
+	std::vector<MsgType> smsgs;
+	std::vector<MsgType> rmsgs;
+	FutureType sreqs[inflight];
+	FutureType rreqs[inflight];
 	
 	for(int j=0; j<inflight; j++){
-	    msgs.push_back(MsgType(buff_size));
+	    smsgs.push_back(MsgType(buff_size));
+	    rmsgs.push_back(MsgType(buff_size));
+	    make_zero(smsgs[j]);
+	    make_zero(rmsgs[j]);
 	}
+
+	comm.barrier();
 
 	if(rank == 1) {
 	    timer.tic();
-	    bytes = (double)niter*size*buff_size/2;
+	    bytes = (double)niter*size*buff_size;
 	}
 
 	int i = 0;
@@ -76,19 +85,21 @@ int main(int argc, char *argv[])
 	    /* submit comm */
 	    for(int j=0; j<inflight; j++){
 		
-		if(!reqs[j].ready()) continue;
-		
 		i++;
+		sreqs[j] = comm.send(smsgs[j], peer_rank, j);
+		rreqs[j] = comm.recv(rmsgs[j], peer_rank, j);
+		
 		if(rank==0 && (i)%(niter/10)==0) {
-		    std::cout << i << " iters\n";		    
+		    std::cout << i << " iters\n";
 		}
-
-		if(rank == 0)
-		    reqs[j] = comm.send(msgs[j], peer_rank, j);
-		else
-		    reqs[j] = comm.recv(msgs[j], peer_rank, j);
-		if(i==niter) break;
 	    }
+	    
+	    /* wait for all */
+	    for(int j=0; j<inflight; j++){
+		sreqs[j].wait();
+		rreqs[j].wait();		
+	    }
+	    
 	}
 
 	comm.flush();

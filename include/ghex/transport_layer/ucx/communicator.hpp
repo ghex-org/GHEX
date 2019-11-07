@@ -15,6 +15,7 @@
 #include <time.h>
 #include <map>
 #include <functional>
+#include <deque>
 
 #include <ucp/api/ucp.h>
 
@@ -94,6 +95,7 @@ namespace gridtools
 		DECLARE_THREAD_PRIVATE(pcomm)
 	    }
 
+
 	    /** Class that provides the functions to send and receive messages. A message
 	     * is an object with .data() that returns a pointer to `unsigned char`
 	     * and .size(), with the same behavior of std::vector<unsigned char>.
@@ -139,7 +141,7 @@ namespace gridtools
 		    Has to be per-thread
 		*/
 		std::map<rank_type, ucp_ep_h> connections;
-		
+
 	    public:
 
 		template<typename MsgType>
@@ -496,32 +498,49 @@ namespace gridtools
 		 *
 		 * @return unsigned Non-zero if any communication was progressed, zero otherwise.
 		 */
+		// #include <time.h>
+		// struct timespec progress_time;
+		// int time_init = 0;
+		// int tthreashold = 0;
+		// int empty_progress = 0;
 		unsigned progress()
 		{
 		    int p = 0, i = 0;
-		    
-		    p+= ucp_worker_progress(ucp_worker_send);
-		    if(m_nthr>1){
-			/* TODO: this may not be necessary when critical is no longer used */
-			p+= ucp_worker_progress(ucp_worker_send);
-			p+= ucp_worker_progress(ucp_worker_send);
-			p+= ucp_worker_progress(ucp_worker_send);
-		    }
+
+		    // struct timespec time;
+		    // if(tthreashold){
+		    // 	if(!time_init){
+		    // 	    clock_gettime(CLOCK_REALTIME, &progress_time);
+		    // 	    time_init = 1;
+		    // 	} else {
+		    // 	    long tdiff;
+		    // 	    clock_gettime(CLOCK_REALTIME, &time);
+		    // 	    tdiff = (time.tv_sec-progress_time.tv_sec)*1000000000 + (time.tv_nsec-progress_time.tv_nsec);
+		    // 	    if(tdiff<tthreashold) {
+		    // 		return 0;
+		    // 	    }
+		    // 	    progress_time = time;
+		    // 	}
+		    // }
 
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
-			if(m_nthr>1){
-			    /* TODO: this may not be necessary when critical is no longer used */
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			}
+
+			/* the below improves one-directional tests, but substantially
+			   slows down the bi-directional ones!
+			*/
+			// if(m_nthr>1){
+			//     /* TODO: this may not be necessary when critical is no longer used */
+			//     p+= ucp_worker_progress(ucp_worker);
+			//     p+= ucp_worker_progress(ucp_worker);
+			//     p+= ucp_worker_progress(ucp_worker);
+			// }
 		    } CRITICAL_END(ucp_lock);
 
-#ifdef USE_PTHREAD_LOCKS
 		    // the below is necessary when using spin-locks
-		    if(m_nthr>1) sched_yield();
-#endif
+		    // NOTE: DO NOT USE! very strange effects in MT
+		    // send/receive is split into phases, e.g., first send, then receive on a given rank. WTF?
+		    // if(m_nthr>1) sched_yield();
 
 		    return p;
 		}
@@ -550,7 +569,6 @@ namespace gridtools
 			    if(sf.test() && rf.test()) break;
 			    progress();
 			}
-			fprintf(stderr, "barrier done\n");
 		    }
 		    THREAD_BARRIER();
 		}

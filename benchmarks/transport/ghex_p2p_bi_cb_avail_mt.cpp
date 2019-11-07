@@ -3,6 +3,7 @@
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 
 #ifdef USE_MPI
@@ -31,39 +32,40 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
    there is no way of knowing which thread will service which requests,
    and how many.
 */
-int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
+int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
 int thrid, nthr;
-#pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
+#pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, submit_recv_cnt, thrid, nthr)
 
-int ongoing_comm = 0;
+/* comm requests currently in-flight */
+std::atomic<int> sent = 0;
+std::atomic<int> received = 0;
 int inflight;
 
 void send_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
+    int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
-
-#pragma omp atomic
-    ongoing_comm--;
     comm_cnt++;
+    sent++;
 }
 
 void recv_callback(MsgType mesg, int rank, int tag)
 {
-    //std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " ongoing " << ongoing_comm << "\n";
     int pthr = tag/inflight;
+    int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
-
-#pragma omp atomic
-    ongoing_comm--;
     comm_cnt++;
+    received++;
 }
 
 int main(int argc, char *argv[])
 {
     int rank, size, threads, peer_rank;
     int niter, buff_size;
+
     gridtools::ghex::timer timer;
     long bytes = 0;
 
@@ -79,15 +81,15 @@ int main(int argc, char *argv[])
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
 #endif
 #endif
-    
+
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
 
 #pragma omp parallel
     {
-	gridtools::ghex::tl::callback_communicator<CommType> *comm
-            = new gridtools::ghex::tl::callback_communicator<CommType>();
+	gridtools::ghex::tl::callback_communicator<CommType> *comm 
+	    = new gridtools::ghex::tl::callback_communicator<CommType>();
 
 #pragma omp master
 	{
@@ -96,71 +98,79 @@ int main(int argc, char *argv[])
 	    peer_rank = (rank+1)%2;
 	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
 	}
-	
-	std::vector<MsgType> msgs;
 
+	std::vector<MsgType> smsgs;
+	std::vector<MsgType> rmsgs;
+	
 	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size);
+	    smsgs.emplace_back(buff_size);
+	    rmsgs.emplace_back(buff_size);
+    	    make_zero(smsgs[j]);
+    	    make_zero(rmsgs[j]);
 	}
 	
-#pragma omp barrier
+	comm->barrier();
+
+#pragma omp master
+	fprintf(stderr, "%d starting!\n", thrid);
+
 #pragma omp master
 	if(rank == 1) {
 	    timer.tic();
-	    bytes = (double)niter*size*buff_size/2;
+	    bytes = (double)niter*size*buff_size;
 	}
 	
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 
-	/* make sure both ranks are started and all threads initialized */
-	comm->barrier();
-
-	int i = 0, dbg = 0;
-
-	/* send / recv niter messages, work in inflight requests at a time */
-	while(i<niter){
-
-#pragma omp atomic
-	    ongoing_comm += inflight;
-
-	    /* submit inflight requests */
+	/* send/recv niter messages - as soon as a slot becomes free */
+	int i = 0, dbg = 0, rdbg = 0;
+	fprintf(stderr, "%d starting loop!\n", thrid);
+    	while(sent < niter || received < niter){
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && thrid==0 && dbg>=(niter/10)) {
-		    std::cout << i << " iters\n";
-		    dbg=0;
-		}
-		submit_cnt++;
-		i += nthr;
-		dbg += nthr; 
-		if(rank==0)
-		    comm->send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
-		else
-		    comm->recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
-		if(i >= niter) break;
-	    }
+		if(sent < niter && smsgs[j].use_count() == 1){
+		    if(dbg >= (niter/10)) {
+			std::cout << rank << ":" << thrid << "   " << submit_cnt << " sent dbg " << dbg << "\n";
+			dbg = 0;
+		    }
+		    submit_cnt += nthr;
+		    dbg += nthr;
+		    comm->send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
+		} else comm->progress();
 
-	    /* complete all inflight requests before moving on */
-	    while(ongoing_comm>0){
-		comm->progress();
+		if(received < niter && rmsgs[j].use_count() == 1){
+		    if(rdbg >= (niter/10)) {
+			std::cout << rank << ":" << thrid << "   " << submit_recv_cnt << " received dbg " << rdbg << "\n";
+			rdbg = 0;
+		    }
+		    submit_recv_cnt += nthr;
+		    rdbg += nthr;
+		    comm->recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		} else comm->progress();
 	    }
 	}
 
+	fprintf(stderr, "%d:%d runnig thread barrier!\n", rank, thrid);
+	comm->barrier();
+
 #pragma omp barrier
+
+	fprintf(stderr, "%d:%d trying to end!\n", rank, thrid);
+
 	comm->flush();
 	comm->barrier();
 
 #pragma omp critical
-	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
+	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
-
+	
 	delete comm;
     }
-
-    if(rank == 1) timer.vtoc(bytes);
     
+    if(rank == 1) timer.vtoc(bytes);
+
 #ifdef USE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+    // MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Finalize();
 #endif
 }

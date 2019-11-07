@@ -1,7 +1,9 @@
 #include <iostream>
 #include <vector>
+#include <omp.h>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 
 #ifdef USE_MPI
@@ -24,26 +26,45 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
-/* comm requests currently in-flight */
-int ongoing_comm = 0;
+
+/* Track finished comm requests. 
+   This is shared between threads, because in the shared-worker case
+   there is no way of knowing which thread will service which requests,
+   and how many.
+*/
+int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
+int thrid, nthr;
+#pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
+
+std::atomic<int> ongoing_comm = 0;
+int inflight;
 
 void send_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+    int pthr = tag/inflight;
+    if(pthr != thrid) nlcomm_cnt++;
+
     ongoing_comm--;
+    comm_cnt++;
 }
 
 void recv_callback(MsgType mesg, int rank, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+    int pthr = tag/inflight;
+    if(pthr != thrid) nlcomm_cnt++;
+
     ongoing_comm--;
+    comm_cnt++;
 }
 
 int main(int argc, char *argv[])
 {
     int rank, size, threads, peer_rank;
     int niter, buff_size;
-    int inflight;
+    gridtools::ghex::timer timer;
+    long bytes = 0;
 
 #ifdef USE_MPI
     int mode;
@@ -57,63 +78,87 @@ int main(int argc, char *argv[])
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
 #endif
 #endif
-
-    gridtools::ghex::tl::callback_communicator<CommType> comm;
     
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
-    
-    rank = comm.rank();
-    size = comm.size();
-    peer_rank = (rank+1)%2;
 
-    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
-
+#pragma omp parallel
     {
-	gridtools::ghex::timer timer;
-	long bytes = 0;
-	std::vector<MsgType> msgs;
-	
-	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size);
+	gridtools::ghex::tl::callback_communicator<CommType> *comm
+            = new gridtools::ghex::tl::callback_communicator<CommType>();
+
+#pragma omp master
+	{
+	    rank = comm->rank();
+	    size = comm->size();
+	    peer_rank = (rank+1)%2;
+	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
 	}
 	
+	std::vector<MsgType> msgs;
+
+	for(int j=0; j<inflight; j++){
+	    msgs.emplace_back(buff_size);
+	    make_zero(msgs[j]);
+	}
+	
+	/* make sure both ranks are started and all threads initialized */
+	comm->barrier();
+
+#pragma omp master
 	if(rank == 1) {
 	    timer.tic();
 	    bytes = (double)niter*size*buff_size/2;
 	}
+	
+	thrid = omp_get_thread_num();
+	nthr = omp_get_num_threads();
+
+	int i = 0, dbg = 0;
 
 	/* send / recv niter messages, work in inflight requests at a time */
-	int i = 0;
 	while(i<niter){
+
+	    ongoing_comm += inflight;
 
 	    /* submit inflight requests */
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && (i)%(niter/10)==0) {
+		if(rank==0 && thrid==0 && dbg>=(niter/10)) {
 		    std::cout << i << " iters\n";
+		    dbg=0;
 		}
-		i++;
-		ongoing_comm++;
+		submit_cnt++;
+		i += nthr;
+		dbg += nthr; 
 		if(rank==0)
-		    comm.send(msgs[j], peer_rank, j, send_callback);
+		    comm->send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
 		else
-		    comm.recv(msgs[j], peer_rank, j, recv_callback);
-		if(i==niter) break;
+		    comm->recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
 	    }
-		
+
 	    /* complete all inflight requests before moving on */
-	    while(ongoing_comm){
-		comm.progress();
+	    while(ongoing_comm > 0){
+		comm->progress();
 	    }
+
+	    /* have to wait for all to exit the progress loop! */
+#pragma omp barrier
 	}
 
-	comm.flush();
-	comm.barrier();
-	
-	if(rank == 1) timer.vtoc(bytes);
+#pragma omp barrier
+	comm->flush();
+	comm->barrier();
+
+#pragma omp critical
+	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt
+		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
+
+	delete comm;
     }
 
+    if(rank == 1) timer.vtoc(bytes);
+    
 #ifdef USE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

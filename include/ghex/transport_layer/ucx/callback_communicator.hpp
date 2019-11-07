@@ -18,6 +18,7 @@
 #include <tuple>
 #include <boost/callable_traits.hpp>
 #include <boost/optional.hpp>
+#include <atomic>
 
 #include <ucp/api/ucp.h>
 
@@ -47,24 +48,57 @@ namespace gridtools
 	    template <typename Allocator>
 	    void ghex_tag_send_callback(void *request, ucs_status_t status);
 
+
+	    /* An atomic data type to track the number of in-progress operations per thread. 
+	       Will not be needed if one send endpoint per thread is used. If the endpoint is shared
+	       then any thread can finish other thread's comm, and should then decrease the in_progress counter.
+
+	       A per-thread send queue is probably needed to avoid starvation. Otherwise, depending on the
+	       scheduling, some threads could never be given the opportunity to send their messages.
+	     */
+	    template <typename T>
+	    struct watomic
+	    {
+		std::atomic<T> m_value;
+
+		watomic()
+		    :m_value()
+		{}
+
+		watomic(const std::atomic<T> &a)
+		    :m_value(a.load())
+		{}
+
+		watomic(const watomic &other)
+		    :m_value(other.m_value.load())
+		{}
+
+		watomic &operator=(const watomic &other)
+		{
+		    m_value.store(other.m_value.load());
+		}
+	    };
+	    std::vector<watomic<int>> in_progress;
+
+
             /** callback_communicator is a class to dispatch send and receive operations to. Each operation can 
-              * optionally be tied to a user defined callback function / function object. The payload of each 
-              * send/receive operation must be a ghex::shared_message_buffer<Allocator>. 
-              * This class will keep a (shallow) copy of each message, thus it is safe to release the message at 
-              * the caller's site.
-              *
-              * The user defined callback must define void operator()(message_type,rank_type,tag_type), where
-              * message_type is a shared_message_buffer that can be cheaply copied/moved from within the callback body 
-              * if needed.
-              *
-              * The communication must be explicitely progressed using the member function progress.
-              *
-              * An instance of this class is 
-              * - a move-only.
-              * - not thread-safe
-              *
-              * @tparam Communicator underlying transport communicator
-              * @tparam Allocator    allocator type used for allocating shared message buffers */
+	     * optionally be tied to a user defined callback function / function object. The payload of each 
+	     * send/receive operation must be a ghex::shared_message_buffer<Allocator>. 
+	     * This class will keep a (shallow) copy of each message, thus it is safe to release the message at 
+	     * the caller's site.
+	     *
+	     * The user defined callback must define void operator()(message_type,rank_type,tag_type), where
+	     * message_type is a shared_message_buffer that can be cheaply copied/moved from within the callback body 
+	     * if needed.
+	     *
+	     * The communication must be explicitely progressed using the member function progress.
+	     *
+	     * An instance of this class is 
+	     * - a move-only.
+	     * - not thread-safe
+	     *
+	     * @tparam Communicator underlying transport communicator
+	     * @tparam Allocator    allocator type used for allocating shared message buffers */
             template<class Allocator>
 	    class callback_communicator<communicator<ucx_tag>, Allocator>: public communicator<ucx_tag>
             {
@@ -89,14 +123,23 @@ namespace gridtools
 #ifndef USE_HEAVY_CALLBACKS
 		std::vector<ucx::ghex_ucx_request_cb<Allocator>> m_completed;
 #endif
+		std::deque<ucx::ghex_ucx_request_cb<Allocator>> m_send_queue;
+		static const int in_progress_thrs = 10;
 
             public: // ctors
 
                 /** @brief construct from a basic transport communicator
-                  * @param comm  the underlying transport communicator
-                  * @param alloc the allocator instance to be used for constructing messages */
+		 * @param comm  the underlying transport communicator
+		 * @param alloc the allocator instance to be used for constructing messages */
                 callback_communicator(allocator_type alloc = allocator_type{}) 
-		    : m_alloc(alloc) {}
+		    : m_alloc(alloc) {
+		    THREAD_MASTER (){
+		    	rank_type nthr = GET_NUM_THREADS();
+		    	for(int i=in_progress.size(); i<nthr; i++){
+		    	    in_progress.push_back(watomic<int>(0));
+		    	}
+		    }
+		}
 
                 callback_communicator(const callback_communicator&) = delete;
                 callback_communicator(callback_communicator&&) = default;
@@ -129,33 +172,55 @@ namespace gridtools
 		    int early = false;
 
 		    ep = rank_to_ep(dst);
-
+		    
 		    CRITICAL_BEGIN(ucp_lock) {
 
-			/* send with callback */
-			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						 GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<Allocator>);
+			/* queue the send operation for a later time */
+			/* Will eventually be submitted in progress() */
+			if(in_progress[m_thrid].m_value >= in_progress_thrs){
 
-			// TODO !! C++ doesn't like it..
-			istatus = (uintptr_t)status;
-			if(UCS_OK == (ucs_status_t)(istatus)){
+			    /* prepare the request */
+			    m_early_req.m_peer_rank = dst;
+			    m_early_req.m_tag = tag;
+			    m_early_req.m_cb = std::forward<CallBack>(cb);
+			    m_early_req.m_msg = msg;
+			    m_early_req.m_thrid = m_thrid;
 
-			    /* early completed */
-#ifdef USE_HEAVY_CALLBACKS
-			    cb(msg, dst, tag);
-#else
-			    early = true;
-#endif
-			} else if(!UCS_PTR_IS_ERR(status)) {
-
-			    /* fill in request data */
-			    ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
-			    ghex_request->m_peer_rank = dst;
-			    ghex_request->m_tag = tag;
-			    ghex_request->m_cb = std::forward<CallBack>(cb);
-			    ghex_request->m_msg = msg;
+			    /* push */
+			    m_send_queue.push_back(std::move(m_early_req));
 			} else {
-			    ERR("ucp_tag_send_nb failed");
+
+			    /* send with callback */
+			    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+						     GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<Allocator>);
+
+			    // TODO !! C++ doesn't like it..
+			    istatus = (uintptr_t)status;
+			    if(UCS_OK == (ucs_status_t)(istatus)){
+
+				/* early completed */
+#ifdef USE_HEAVY_CALLBACKS
+				cb(msg, dst, tag);
+#else
+				early = true;
+#endif
+			    } else if(!UCS_PTR_IS_ERR(status)) {
+
+				/* prepare the request */
+				m_early_req.m_peer_rank = dst;
+				m_early_req.m_tag = tag;
+				m_early_req.m_cb = std::forward<CallBack>(cb);
+				m_early_req.m_msg = msg;
+				m_early_req.m_thrid = m_thrid;
+
+				/* fill in request data */
+				ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
+				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
+
+				in_progress[m_thrid].m_value++;
+			    } else {
+				ERR("ucp_tag_send_nb failed");
+			    }
 			}
 		    } CRITICAL_END(ucp_lock);
 
@@ -211,12 +276,12 @@ namespace gridtools
 			m_early_req.m_tag = tag;
 			m_early_req.m_cb = std::function<void(message_type, int, int)>(cb);
 			m_early_req.m_msg = msg;
-			m_early_completion = 1;
+			m_early_req.m_thrid = m_thrid;
 
+			m_early_completion = 1;
 			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 						 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<Allocator>);
-			
 			m_early_completion = 0;
 
 			if(!UCS_PTR_IS_ERR(status)) {
@@ -251,6 +316,13 @@ namespace gridtools
 		{
 		    unsigned p = communicator<ucx_tag>::progress();
 
+		    /* submit queued send requests */
+		    while(m_send_queue.size()>0 && in_progress[m_thrid].m_value<in_progress_thrs){
+		    	ucx::ghex_ucx_request_cb<Allocator> req = std::move(m_send_queue.front());
+		    	m_send_queue.pop_front();
+		    	send(req.m_msg, req.m_peer_rank, req.m_tag, req.m_cb);
+		    }
+		    
 #ifndef USE_HEAVY_CALLBACKS
 		    /* call the callbacks of completed requests outside of the critical region */
 		    while(m_completed.size()){
@@ -258,11 +330,6 @@ namespace gridtools
 			m_completed.pop_back();
 		    	req.m_cb(std::move(req.m_msg), req.m_peer_rank, req.m_tag);
 		    }
-#endif
-
-#ifdef USE_PTHREAD_LOCKS
-		    /* the below is necessary when using spin-locks */
-		    if(m_nthr>1) sched_yield();
 #endif
 
 		    return p;
@@ -274,6 +341,7 @@ namespace gridtools
 		friend void ghex_tag_recv_callback<Allocator>(void *request, ucs_status_t status, ucp_tag_recv_info_t *info);
 		friend void ghex_tag_send_callback<Allocator>(void *request, ucs_status_t status);
 	    };
+
 
 	    /** completion callbacks registered in UCX */
 	    template <typename Allocator>
@@ -290,7 +358,7 @@ namespace gridtools
 
 		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
 		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
-		
+
 		/* pointer to request data */
 		ucx::ghex_ucx_request_cb<Allocator> *preq;
 
@@ -334,6 +402,8 @@ namespace gridtools
 #else
 		pc->m_completed.push_back(std::move(*preq));
 #endif
+		in_progress[preq->m_thrid].m_value--;
+		
 		ucp_request_free(request);
 	    }
         } // namespace tl
