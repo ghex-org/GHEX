@@ -3,8 +3,8 @@
 
 #ifdef THREAD_MODE_MULTIPLE
 
-#define USE_OPENMP_LOCKS
-//#define USE_PTHREAD_LOCKS
+//#define USE_OPENMP_LOCKS
+#define USE_PTHREAD_LOCKS
 //#define USE_STD_LOCKS
 
 #if defined USE_OPENMP_LOCKS

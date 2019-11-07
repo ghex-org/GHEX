@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <atomic>
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
@@ -112,9 +113,6 @@ int main(int argc, char *argv[])
 	comm->barrier();
 
 #pragma omp master
-	fprintf(stderr, "%d starting!\n", thrid);
-
-#pragma omp master
 	if(rank == 1) {
 	    timer.tic();
 	    bytes = (double)niter*size*buff_size;
@@ -125,14 +123,13 @@ int main(int argc, char *argv[])
 
 	/* send/recv niter messages - as soon as a slot becomes free */
 	int i = 0, dbg = 0, rdbg = 0;
-	fprintf(stderr, "%d starting loop!\n", thrid);
     	while(sent < niter || received < niter){
 	    for(int j=0; j<inflight; j++){
 
 		/* only send niter/nthr messages, with any tag */
-		if(submit_cnt < niter && smsgs[j].use_count() == 1){
-		    if(dbg >= (niter/10)) {
-			std::cout << rank << ":" << thrid << "   " << submit_cnt << " sent dbg " << dbg << "\n";
+		if(sent < niter && smsgs[j].use_count() == 1){
+		    if(thrid==0 && dbg >= (niter/10)) {
+			std::cout << sent << " sent\n";
 			dbg = 0;
 		    }
 		    submit_cnt += nthr;
@@ -140,24 +137,17 @@ int main(int argc, char *argv[])
 		    comm->send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
 		} else comm->progress();
 
-		/* always submit a recv request for all tags - we don't know what will be sent */
 		if(received < niter && rmsgs[j].use_count() == 1){
-		    if(rdbg >= (niter/10)) {
-			std::cout << rank << ":" << thrid << "   " << received << " received dbg " << rdbg << "\n";
+		    if(thrid == 0 && rdbg >= (niter/10)) {
+			std::cout << received << " received\n";
 			rdbg = 0;
 		    }
+		    submit_recv_cnt += nthr;
 		    rdbg += nthr;
 		    comm->recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		} else comm->progress();
 	    }
 	}
-
-	fprintf(stderr, "%d:%d runnig thread barrier!\n", rank, thrid);
-	comm->barrier();
-
-#pragma omp barrier
-
-	fprintf(stderr, "%d:%d trying to end!\n", rank, thrid);
 
 	comm->flush();
 	comm->barrier();

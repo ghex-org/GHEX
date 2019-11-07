@@ -56,27 +56,49 @@ namespace gridtools
 	       A per-thread send queue is probably needed to avoid starvation. Otherwise, depending on the
 	       scheduling, some threads could never be given the opportunity to send their messages.
 	     */
+	    // template <typename T>
+	    // struct watomic
+	    // {
+	    // 	T m_value;
+
+	    // 	watomic()
+	    // 	    :m_value(0)
+	    // 	{}
+
+	    // 	watomic(const T &a)
+	    // 	    :m_value(a)
+	    // 	{}
+
+	    // 	watomic(const watomic &other)
+	    // 	    :m_value(other.m_value)
+	    // 	{}
+
+	    // 	watomic &operator=(const watomic &other)
+	    // 	{
+	    // 	    m_value = other.m_value;
+	    // 	}
+	    // };
 	    template <typename T>
 	    struct watomic
 	    {
-		std::atomic<T> m_value;
+	    	std::atomic<T> m_value;
 
-		watomic()
-		    :m_value()
-		{}
+	    	watomic()
+	    	    :m_value()
+	    	{}
 
-		watomic(const std::atomic<T> &a)
-		    :m_value(a.load())
-		{}
+	    	watomic(const std::atomic<T> &a)
+	    	    :m_value(a.load())
+	    	{}
 
-		watomic(const watomic &other)
-		    :m_value(other.m_value.load())
-		{}
+	    	watomic(const watomic &other)
+	    	    :m_value(other.m_value.load())
+	    	{}
 
-		watomic &operator=(const watomic &other)
-		{
-		    m_value.store(other.m_value.load());
-		}
+	    	watomic &operator=(const watomic &other)
+	    	{
+	    	    m_value.store(other.m_value.load());
+	    	}
 	    };
 	    std::vector<watomic<int>> in_progress;
 
@@ -124,7 +146,7 @@ namespace gridtools
 		std::vector<ucx::ghex_ucx_request_cb<Allocator>> m_completed;
 #endif
 		std::deque<ucx::ghex_ucx_request_cb<Allocator>> m_send_queue;
-		static const int in_progress_thrs = 15;
+		static const int in_progress_thrs = 5;
 
             public: // ctors
 
@@ -217,7 +239,7 @@ namespace gridtools
 				ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
 				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
 
-				// in_progress[m_thrid].m_value++;
+				in_progress[m_thrid].m_value++;
 			    } else {
 				ERR("ucp_tag_send_nb failed");
 			    }
