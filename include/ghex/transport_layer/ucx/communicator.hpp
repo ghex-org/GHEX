@@ -523,18 +523,18 @@ namespace gridtools
 		    // 	}
 		    // }
 
+		    p+= ucp_worker_progress(ucp_worker_send);
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
 
 			/* the below improves one-directional tests, but substantially
 			   slows down the bi-directional ones!
 			*/
-			// if(m_nthr>1){
-			//     /* TODO: this may not be necessary when critical is no longer used */
-			//     p+= ucp_worker_progress(ucp_worker);
-			//     p+= ucp_worker_progress(ucp_worker);
-			//     p+= ucp_worker_progress(ucp_worker);
-			// }
+			if(m_nthr>1){
+			    /* TODO: this may not be necessary when critical is no longer used */
+			    p+= ucp_worker_progress(ucp_worker);
+			    p+= ucp_worker_progress(ucp_worker);
+			}
 		    } CRITICAL_END(ucp_lock);
 
 		    // the below is necessary when using spin-locks

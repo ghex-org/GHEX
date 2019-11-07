@@ -128,7 +128,9 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "%d starting loop!\n", thrid);
     	while(sent < niter || received < niter){
 	    for(int j=0; j<inflight; j++){
-		if(sent < niter && smsgs[j].use_count() == 1){
+
+		/* only send niter/nthr messages, with any tag */
+		if(submit_cnt < niter && smsgs[j].use_count() == 1){
 		    if(dbg >= (niter/10)) {
 			std::cout << rank << ":" << thrid << "   " << submit_cnt << " sent dbg " << dbg << "\n";
 			dbg = 0;
@@ -138,12 +140,12 @@ int main(int argc, char *argv[])
 		    comm->send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
 		} else comm->progress();
 
+		/* always submit a recv request for all tags - we don't know what will be sent */
 		if(received < niter && rmsgs[j].use_count() == 1){
 		    if(rdbg >= (niter/10)) {
-			std::cout << rank << ":" << thrid << "   " << submit_recv_cnt << " received dbg " << rdbg << "\n";
+			std::cout << rank << ":" << thrid << "   " << received << " received dbg " << rdbg << "\n";
 			rdbg = 0;
 		    }
-		    submit_recv_cnt += nthr;
 		    rdbg += nthr;
 		    comm->recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		} else comm->progress();
@@ -161,7 +163,7 @@ int main(int argc, char *argv[])
 	comm->barrier();
 
 #pragma omp critical
-	std::cout << "rank " << rank << " thread " << thrid << " submitted " << submit_cnt/nthr
+	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local " << nlcomm_cnt << " completion events\n";
 	
 	delete comm;

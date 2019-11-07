@@ -124,7 +124,7 @@ namespace gridtools
 		std::vector<ucx::ghex_ucx_request_cb<Allocator>> m_completed;
 #endif
 		std::deque<ucx::ghex_ucx_request_cb<Allocator>> m_send_queue;
-		static const int in_progress_thrs = 10;
+		static const int in_progress_thrs = 15;
 
             public: // ctors
 
@@ -217,7 +217,7 @@ namespace gridtools
 				ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
 				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
 
-				in_progress[m_thrid].m_value++;
+				// in_progress[m_thrid].m_value++;
 			    } else {
 				ERR("ucp_tag_send_nb failed");
 			    }
