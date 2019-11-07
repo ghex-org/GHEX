@@ -3,6 +3,7 @@
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 #ifdef USE_MPI
 
@@ -69,9 +70,11 @@ int main(int argc, char *argv[])
 
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
+	    make_zero(msgs[j]);
 	}
 
-#pragma omp barrier
+	comm->barrier();
+
 #pragma omp master
 	if(rank == 1) {
 	    timer.tic();
@@ -81,11 +84,7 @@ int main(int argc, char *argv[])
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 
-	/* make sure both ranks are started and all threads initialized */
-	comm->barrier();
-
-	int i = 0, dbg = 0;
-	
+	int i = 0, dbg = 0;	
 	while(i<niter){
 	    
 	    /* submit comm */

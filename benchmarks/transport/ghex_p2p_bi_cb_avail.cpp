@@ -46,6 +46,9 @@ int main(int argc, char *argv[])
     int niter, buff_size;
     int inflight;
 
+    gridtools::ghex::timer timer;
+    long bytes = 0;
+
 #ifdef USE_MPI
     int mode;
 #ifdef THREAD_MODE_MULTIPLE
@@ -72,8 +75,6 @@ int main(int argc, char *argv[])
     if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 
     {
-    	gridtools::ghex::timer timer;
-    	long bytes = 0;
     	std::vector<MsgType> smsgs;
     	std::vector<MsgType> rmsgs;
 
@@ -91,18 +92,16 @@ int main(int argc, char *argv[])
     	    bytes = (double)niter*size*buff_size;
     	}
 
-    	int i = 0, dbg = 0, blk;
-    	blk = niter / 10;
-    	dbg = dbg + blk;
-
     	/* send niter messages - as soon as a slot becomes free */
+    	int i = 0, dbg = 0;
     	while(sent < niter || received < niter){
     	    for(int j=0; j<inflight; j++){
     		if(sent < niter && smsgs[j].use_count() == 1){
-    		    if(rank==0 && sent > dbg) {
-    			dbg = dbg + blk;
+    		    if(rank==0 && dbg >= (niter/10)) {
     			std::cout << sent << " iters\n";
+    			dbg = 0;
     		    }
+		    dbg++;
     		    comm.send(smsgs[j], peer_rank, j, send_callback);
     		} else comm.progress();
 
@@ -110,17 +109,16 @@ int main(int argc, char *argv[])
     		    comm.recv(rmsgs[j], peer_rank, j, recv_callback);
     		} else comm.progress();
     	    }
-	    // comm.progress();
     	}
 
     	comm.flush();
-    	comm.barrier();
-	
-    	if(rank == 1) timer.vtoc(bytes);
+    	comm.barrier();	
     }
+    
+    if(rank == 1) timer.vtoc(bytes);
 
 #ifdef USE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+    // MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Finalize();
 #endif
 }

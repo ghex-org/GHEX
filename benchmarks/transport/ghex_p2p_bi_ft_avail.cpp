@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 #ifdef USE_MPI
 
@@ -68,21 +69,8 @@ int main(int argc, char *argv[])
 	for(int j=0; j<inflight; j++){
 	    smsgs.push_back(MsgType(buff_size));
 	    rmsgs.push_back(MsgType(buff_size));
-
-	    /* initialize arrays */
-	    {
-		unsigned char *data;
-		MsgType &msg = smsgs[j];
-		data = msg.data();
-		memset(data, 0, buff_size);
-	    }
-
-	    {
-		unsigned char *data;
-		MsgType &msg = rmsgs[j];
-		data = msg.data();
-		memset(data, 0, buff_size);
-	    }
+	    make_zero(smsgs[j]);
+	    make_zero(rmsgs[j]);
 	}
 
 	comm.barrier();

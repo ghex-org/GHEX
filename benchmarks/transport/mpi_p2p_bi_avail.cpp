@@ -37,10 +37,8 @@ int main(int argc, char *argv[])
 	MPI_Request *rreq = new MPI_Request[inflight];
 	
 	for(int j=0; j<inflight; j++){
-	    // MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffers[j]);
-	    // MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &rbuffers[j]);
-	    sbuffers[j] = (unsigned char*)malloc(buff_size);
-	    rbuffers[j] = (unsigned char*)malloc(buff_size);
+	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffers[j]);
+	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &rbuffers[j]);
 	    memset(sbuffers[j], 1, buff_size);
 	    memset(rbuffers[j], 1, buff_size);
 	    sreq[j] = MPI_REQUEST_NULL;
@@ -63,6 +61,29 @@ int main(int argc, char *argv[])
 	}
 
 	while(sent < niter || received < niter){
+
+	    /*
+	      a version with explicit loop over inflight MPI_Test calls.
+	      very slow for large messages !
+	    */
+	    /*
+	    for(j=0; j<inflight; j++){
+	    	MPI_Test(&sreq[j], &flag, MPI_STATUS_IGNORE);
+		if(flag) {
+		    if(rank==0 && sent%(niter/10)==0) {
+			std::cout << sent << " iters\n";
+		    }
+		    sent++;
+		    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &sreq[j]);
+		}
+
+	    	MPI_Test(&rreq[j], &flag, MPI_STATUS_IGNORE);
+		if(flag){
+		    MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, j, mpi_comm, &rreq[j]);
+		    received++;
+		}
+	    }
+	    */
 
 	    MPI_Testany(inflight, sreq, &j, &flag, MPI_STATUS_IGNORE);
 	    if(flag) {

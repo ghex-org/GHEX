@@ -2,6 +2,7 @@
 #include <vector>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 
 #ifdef USE_MPI
@@ -77,8 +78,11 @@ int main(int argc, char *argv[])
 	
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
+	    make_zero(msgs[j]);
 	}
 	
+	comm.barrier();
+
 	if(rank == 1) {
 	    timer.tic();
 	    bytes = (double)niter*size*buff_size/2;

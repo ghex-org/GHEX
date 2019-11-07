@@ -2,6 +2,7 @@
 #include <vector>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 #ifdef USE_MPI
 
@@ -17,6 +18,8 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
 
 #endif /* USE_MPI */
+
+#include <ghex/transport_layer/message_buffer.hpp>
 using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 
@@ -63,7 +66,10 @@ int main(int argc, char *argv[])
 	
 	for(int j=0; j<inflight; j++){
 	    msgs.push_back(MsgType(buff_size));
+	    make_zero(msgs[j]);
 	}
+
+	comm.barrier();
 
 	if(rank == 1) {
 	    timer.tic();
