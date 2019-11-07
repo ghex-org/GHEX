@@ -8,11 +8,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_PACKER_HPP
-#define INCLUDED_PACKER_HPP
+#ifndef INCLUDED_GHEX_PACKER_HPP
+#define INCLUDED_GHEX_PACKER_HPP
 
 #include "./common/await_futures.hpp"
-#include "./devices.hpp"
+#include "./arch_list.hpp"
 #include "./structured/field_utils.hpp"
 #include "./cuda_utils/kernel_argument.hpp"
 #include "./cuda_utils/future.hpp"
@@ -23,7 +23,7 @@ namespace gridtools {
     namespace ghex {
 
         /** @brief generic implementation of pack and unpack */
-        template<typename Device>
+        template<typename Arch>
         struct packer
         {
             template<typename Map, typename Futures, typename Communicator>
@@ -38,10 +38,7 @@ namespace gridtools {
                             p1.second.buffer.resize(p1.second.size);
                             for (const auto& fb : p1.second.field_infos)
                                 fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, nullptr);
-                            send_futures.push_back(comm.isend(
-                                p1.second.address,
-                                p1.second.tag,
-                                p1.second.buffer));
+                            send_futures.push_back(comm.send(p1.second.buffer, p1.second.address, p1.second.tag));
                         }
                     }
                 }
@@ -119,7 +116,7 @@ namespace gridtools {
 
         /** @brief specialization for gpus, including vector interface special functions */
         template<>
-        struct packer<device::gpu>
+        struct packer<gpu>
         {
             template<typename Map, typename Futures, typename Communicator>
             static void pack(Map& map, Futures& send_futures,Communicator& comm)
@@ -160,7 +157,7 @@ namespace gridtools {
                     stream_futures, 
                     [&comm,&send_futures](send_buffer_type* b)
                     {
-                        send_futures.push_back(comm.isend( b->address, b->tag, b->buffer));
+                        send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
                     });
             }
 
@@ -302,7 +299,7 @@ namespace gridtools {
                     stream_futures, 
                     [&comm,&send_futures](send_buffer_type* b)
                     {
-                        send_futures.push_back(comm.isend( b->address, b->tag, b->buffer));
+                        send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
                     });
             }
 
@@ -411,5 +408,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_PACKER_HPP */
+#endif /* INCLUDED_GHEX_PACKER_HPP */
 

@@ -1,220 +1,187 @@
-/*
+/* 
  * GridTools
- *
- * Copyright (c) 2019, ETH Zurich
+ * 
+ * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- *
+ * 
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
+ * 
  */
+#ifndef INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP
+#define INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP
 
-#ifndef GHEX_MPI_COMMUNICATOR_HPP
-#define GHEX_MPI_COMMUNICATOR_HPP
-
-#include <mpi.h>
-#include <tuple>
-#include <cassert>
 #include <boost/optional.hpp>
-#include "./message.hpp"
+#include "../communicator.hpp"
+#include "./communicator_base.hpp"
+#include "./future.hpp"
 #include "./communicator_traits.hpp"
 
-namespace gridtools
-{
-namespace ghex
-{
-namespace mpi
-{
+namespace gridtools {
+    
+    namespace ghex {
 
-#ifdef NDEBUG
-#define CHECK_MPI_ERROR(x) x;
-#else
+        namespace tl {
 
-#define CHECK_MPI_ERROR(x) \
-    if (x != MPI_SUCCESS)  \
-        throw std::runtime_error("GHEX Error: MPI Call failed " + std::string(#x) + " in " + std::string(__FILE__) + ":" + std::to_string(__LINE__));
-#endif
+            /** Mpi communicator which exposes basic non-blocking transport functionality and 
+              * returns futures to await said transports to complete. */
+            template<>
+            class communicator<mpi_tag>
+            : public mpi::communicator_base
+            {
+            public:
+                using transport_type = mpi_tag;
+                using base_type      = mpi::communicator_base;
+                using address_type   = typename base_type::rank_type;
+                using rank_type      = typename base_type::rank_type;
+                using size_type      = typename base_type::size_type;
+                using tag_type       = typename base_type::tag_type;
+                using request        = mpi::request;
+                using status         = mpi::status;
+                template<typename T>
+                using future         = mpi::future<T>;
+                using traits         = mpi::communicator_traits;
 
-class communicator;
+            public:
 
-namespace _impl
-{
+                communicator(const traits& t = traits{}) : base_type{t.communicator()} {}
+                communicator(const base_type& c) : base_type{c} {}
+                communicator(const MPI_Comm& c) : base_type{c} {}
+                
+                communicator(const communicator&) = default;
+                communicator(communicator&&) noexcept = default;
 
-/** The future returned by the send and receive
-         * operations of a communicator object to check or wait on their status.
-        */
-struct mpi_future
-{
-    MPI_Request m_req;
+                communicator& operator=(const communicator&) = default;
+                communicator& operator=(communicator&&) noexcept = default;
 
-    mpi_future() = default;
-    mpi_future(MPI_Request req) : m_req{req} {}
+                /** @return address of this process */
+                address_type address() const { return rank(); }
 
-    /** Function to wait until the operation completed */
-    void wait()
-    {
-        MPI_Status status;
-        CHECK_MPI_ERROR(MPI_Wait(&m_req, &status));
-    }
+            public: // send
 
-    /** Function to test if the operation completed
-             *
-            * @return True if the operation is completed
-            */
-    bool ready()
-    {
-        MPI_Status status;
-        int flag;
-        CHECK_MPI_ERROR(MPI_Test(&m_req, &flag, &status));
-        return flag;
-    }
+                /** @brief non-blocking send
+                  * @tparam Message a container type
+                  * @param msg source container
+                  * @param dest destination rank
+                  * @param tag message tag
+                  * @return completion handle */
+                template<typename Message> 
+                [[nodiscard]] future<void> send(const Message& msg, rank_type dest, tag_type tag) const
+                {
+                    request req;
+                    GHEX_CHECK_MPI_RESULT(
+                        MPI_Isend(reinterpret_cast<const void*>(msg.data()),sizeof(typename Message::value_type)*msg.size(), 
+                                  MPI_BYTE, dest, tag, *this, &req.get())
+                    );
+                    return req;
+                }
+            
+            public: // recv
 
-    /** Cancel the future.
-             *
-            * @return True if the request was successfully canceled
-            */
-    bool cancel()
-    {
-        CHECK_MPI_ERROR(MPI_Cancel(&m_req));
-        MPI_Status st;
-        int flag = false;
-        CHECK_MPI_ERROR(MPI_Wait(&m_req, &st));
-        CHECK_MPI_ERROR(MPI_Test_cancelled(&st, &flag));
-        return flag;
-    }
+                /** @brief non-blocking receive
+                  * @tparam Message a container type
+                  * @param msg destination container
+                  * @param source source rank
+                  * @param tag message tag
+                  * @return completion handle */
+                template<typename Message>
+                [[nodiscard]] future<void> recv(Message& msg, rank_type source, tag_type tag) const
+                {
+                    request req;
+                    GHEX_CHECK_MPI_RESULT(
+                            MPI_Irecv(reinterpret_cast<void*>(msg.data()),sizeof(typename Message::value_type)*msg.size(), 
+                                      MPI_BYTE, source, tag, *this, &req.get()));
+                    return req;
+                }
 
-    private:
-        friend ::gridtools::ghex::mpi::communicator;
-        MPI_Request request() const { return m_req; }
-};
+                /** @brief non-blocking receive which allocates the container within this function and returns it
+                  * in the future 
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param n number of elements to be received
+                  * @param source source rank
+                  * @param tag message tag
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return completion handle with message as payload */
+                template<typename Message, typename... Args>
+                [[nodiscard]] future<Message> recv(int n, rank_type source, tag_type tag, Args&& ...args) const
+                {
+                    Message msg{n, std::forward<Args>(args)...};
+                    return { std::move(msg), recv(msg, source, tag).m_handle };
 
-} // namespace _impl
+                }
 
-/** Class that provides the functions to send and receive messages. A message
-     * is an object with .data() that returns a pointer to `unsigned char`
-     * and .size(), with the same behavior of std::vector<unsigned char>.
-     * Each message will be sent and received with a tag, bot of type int
-     */
-class communicator
-{
-public:
-    using future_type = _impl::mpi_future;
-    using tag_type = int;
-    using rank_type = int;
+                /** @brief non-blocking receive which maches any tag from the given source. If a match is found, it
+                  * allocates the container of type Message within this function and returns it in the future.
+                  * The container size will be set according to the matched receive operation.
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param source source rank
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
+                template<typename Message, typename... Args>
+                [[nodiscard]] auto recv_any_tag(rank_type source, Args&& ...args) const
+                {
+                    return recv_any<Message>(source, MPI_ANY_TAG, std::forward<Args>(args)...);
+                }
 
-private:
+                /** @brief non-blocking receive which maches any source using the given tag. If a match is found, it
+                  * allocates the container of type Message within this function and returns it in the future.
+                  * The container size will be set according to the matched receive operation.
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param tag message tag
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
+                template<typename Message, typename... Args>
+                [[nodiscard]] auto recv_any_source(tag_type tag, Args&& ...args) const
+                {
+                    return recv_any<Message>(MPI_ANY_SOURCE, tag, std::forward<Args>(args)...);
+                }
 
-    MPI_Comm m_mpi_comm;
-    rank_type m_rank;
-    rank_type m_size;
+                /** @brief non-blocking receive which maches any source and any tag. If a match is found, it
+                  * allocates the container of type Message within this function and returns it in the future.
+                  * The container size will be set according to the matched receive operation.
+                  * @tparam Message a container type
+                  * @tparam Args additional argument types for construction of Message
+                  * @param tag message tag
+                  * @param args additional arguments to be passed to new container of type Message at construction 
+                  * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
+                template<typename Message, typename... Args>
+                [[nodiscard]] auto recv_any_source_any_tag(Args&& ...args) const
+                {
+                    return recv_any<Message>(MPI_ANY_SOURCE, MPI_ANY_TAG, std::forward<Args>(args)...);
+                }
 
-public:
+            private: // implementation
 
-    communicator(communicator_traits const &ct = communicator_traits{}) 
-        : m_mpi_comm{ct.communicator()} 
-        , m_rank{ [this]() { 
-            int r; 
-            CHECK_MPI_ERROR(MPI_Comm_rank(m_mpi_comm, &r));
-            return r; }() }
-        , m_size{ [this]() {
-            int s;
-            CHECK_MPI_ERROR(MPI_Comm_size(m_mpi_comm, &s));
-            return s; }()}
-    {}
+                template<typename Message, typename... Args>
+                [[nodiscard]] boost::optional< future< std::tuple<Message, rank_type, tag_type> > >
+                recv_any(rank_type source, tag_type tag, Args&& ...args) const
+                {
+                    MPI_Message mpi_msg;
+                    status st;
+                    int flag = 0;
+                    GHEX_CHECK_MPI_RESULT(MPI_Improbe(source, tag, *this, &flag, &mpi_msg, &st.get()));
+                    if (flag)
+                    {
+                        int count;
+                        GHEX_CHECK_MPI_RESULT(MPI_Get_count(&st.get(), MPI_CHAR, &count));
+                        Message msg(count/sizeof(typename Message::value_type), std::forward<Args>(args)...);
+                        request req;
+                        GHEX_CHECK_MPI_RESULT(MPI_Imrecv(msg.data(), count, MPI_CHAR, &mpi_msg, &req.get()));
+                        using future_t = future<std::tuple<Message,rank_type,tag_type>>;
+                        return future_t{ std::make_tuple(std::move(msg), st.source(), st.tag()), std::move(req) };
+                    }
+                    return boost::none;
+                }
+            };
 
-    rank_type rank() const noexcept { return m_rank; }
-    rank_type size() const noexcept { return m_size; }
+        } // namespace tl
 
-    operator MPI_Comm() const { return m_mpi_comm; }
+    } // namespace ghex
 
-    /** Send a message to a destination with the given tag.
-         * It returns a future that can be used to check when the message is available
-         * again for the user.
-         *
-         * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-         *
-         * @param msg Const reference to a message to send
-         * @param dst Destination of the message
-         * @param tag Tag associated with the message
-         *
-         * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
-         */
-    template <typename MsgType>
-    [[nodiscard]] future_type send(MsgType const &msg, rank_type dst, tag_type tag) const {
-        MPI_Request req;
-        CHECK_MPI_ERROR(MPI_Isend(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm, &req));
-        return req;
-    }
-
-    /** Send a message to a destination with the given tag. This function blocks until the message has been sent and
-         * the message ready to be reused
-         *
-         * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-         *
-         * @param msg Const reference to a message to send
-         * @param dst Destination of the message
-         * @param tag Tag associated with the message
-         */
-    template <typename MsgType>
-    void blocking_send(MsgType const &msg, rank_type dst, tag_type tag) const
-    {
-        CHECK_MPI_ERROR(MPI_Send(msg.data(), msg.size(), MPI_BYTE, dst, tag, m_mpi_comm));
-    }
-
-    /** Receive a message from a destination with the given tag.
-         * It returns a future that can be used to check when the message is available
-         * to be read.
-         *
-         * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-         *
-         * @param msg Const reference to a message that will contain the data
-         * @param src Source of the message
-         * @param tag Tag associated with the message
-         *
-         * @return A future that will be ready when the message can be read
-         */
-    template <typename MsgType>
-    [[nodiscard]] future_type recv(MsgType &msg, rank_type src, tag_type tag) const {
-        MPI_Request request;
-        CHECK_MPI_ERROR(MPI_Irecv(msg.data(), msg.size(), MPI_BYTE, src, tag, m_mpi_comm, &request));
-        return request;
-    }
-
-    /** Receive a message from any destination with any tag.
-         * In case of success the function returns a tuple of rank, tag and message that has been received. The
-         * necessary storage will be allocated using a shared_message<Allocator>.
-         * It is safe to call this function in a multi-threaded mpi environment, however, there is no way to prevent
-         * one thread receiving a message intended for another thread.
-         *
-         * @tparam Allocator Allocator type used for creating a shared_message.
-         * @param alloc Allocator instance
-         * @return Optional which may hold a tuple of rank, tag and message
-         */
-    template < typename Allocator = std::allocator<unsigned char> >
-    boost::optional<std::tuple<rank_type,tag_type,shared_message<Allocator>>> 
-    recv_any(Allocator alloc = Allocator{}) const 
-    {
-        MPI_Message mpi_msg;
-        MPI_Status st;
-        int flag = 0;
-        CHECK_MPI_ERROR(MPI_Improbe(MPI_ANY_SOURCE, MPI_ANY_TAG, m_mpi_comm, &flag, &mpi_msg, &st));
-        if (flag)
-        {
-            shared_message<Allocator> msg(alloc);
-            int count;
-            MPI_Get_count(&st, MPI_CHAR, &count);
-            msg.reserve(count);
-            msg.resize(count);
-            rank_type r = st.MPI_SOURCE;
-            tag_type t = st.MPI_TAG;
-            CHECK_MPI_ERROR(MPI_Mrecv(msg.data(), count, MPI_CHAR, &mpi_msg, MPI_STATUS_IGNORE));
-            return std::make_tuple(r,t,msg);
-        }
-        return boost::none;
-    }
-};
-
-} //namespace mpi
-} // namespace ghex
 } // namespace gridtools
 
-#endif
+#endif /* INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP */
+

@@ -8,15 +8,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_SIMPLE_FIELD_WRAPPER_HPP
-#define INCLUDED_SIMPLE_FIELD_WRAPPER_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP
+#define INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP
 
 #include "./field_utils.hpp"
 #include "./domain_descriptor.hpp"
 #include <cstring>
 #include <cstdint>
 #include <gridtools/common/array.hpp>
-#include "../devices.hpp"
+#include "../arch_traits.hpp"
 
 
 #define NCTIS 128
@@ -88,7 +88,7 @@ namespace structured {
     }
 #endif
 
-    template<typename Device, typename Dimension, typename Layout>
+    template<typename Arch, typename Dimension, typename Layout>
     struct serialization
     {
         template<typename T, typename IndexContainer, typename Strides, typename Array>
@@ -139,7 +139,7 @@ namespace structured {
 
 #ifdef __CUDACC__
     template<typename Dimension, typename Layout>
-    struct serialization<device::gpu, Dimension, Layout>
+    struct serialization<gpu, Dimension, Layout>
     {
         template<typename T, typename IndexContainer, typename Strides, typename Array>
         GT_FUNCTION_HOST
@@ -190,22 +190,22 @@ namespace structured {
     struct padding_256 {};
 
     // forward declaration
-    template<typename T, typename Device, typename DomainDescriptor, int... Order>
+    template<typename T, typename Arch, typename DomainDescriptor, int... Order>
     class simple_field_wrapper;
 
     /** @brief wraps a contiguous N-dimensional array and implements the field descriptor concept
      * @tparam T field value type
-     * @tparam Device device type the data lives on
+     * @tparam Arch device type the data lives on
      * @tparam DomainIdType domain id type
      * @tparam Dimension N
      * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)*/
-    template<typename T, typename Device, typename DomainIdType, int Dimension, int... Order>
-    class simple_field_wrapper<T,Device,domain_descriptor<DomainIdType,Dimension>, Order...>
+    template<typename T, typename Arch, typename DomainIdType, int Dimension, int... Order>
+    class simple_field_wrapper<T,Arch,domain_descriptor<DomainIdType,Dimension>, Order...>
     {
     public: // member types
         using value_type             = T;
-        using device_type            = Device;
-        using device_id_type         = typename device_type::device_id_type;
+        using arch_type            = Arch;
+        using device_id_type         = typename arch_traits<arch_type>::device_id_type;
         using domain_descriptor_type = domain_descriptor<DomainIdType,Dimension>;
         using dimension              = typename domain_descriptor_type::dimension;
         using layout_map             = ::gridtools::layout_map<Order...>;
@@ -285,7 +285,7 @@ namespace structured {
 
     public: // member functions
         GT_FUNCTION
-        typename device_type::device_id_type device_id() const { return m_device_id; }
+        typename arch_traits<arch_type>::device_id_type device_id() const { return m_device_id; }
         GT_FUNCTION
         domain_id_type domain_id() const { return m_dom_id; }
 
@@ -320,19 +320,19 @@ namespace structured {
         template<typename IndexContainer>
         void pack(T* buffer, const IndexContainer& c, void* arg)
         {
-            serialization<Device,dimension,layout_map>::pack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
+            serialization<Arch,dimension,layout_map>::pack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
         }
 
         template<typename IndexContainer>
         void unpack(const T* buffer, const IndexContainer& c, void* arg)
         {
-            serialization<Device,dimension,layout_map>::unpack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
+            serialization<Arch,dimension,layout_map>::unpack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
         }
     };
 } // namespace structured
 
     /** @brief wrap a N-dimensional array (field) of contiguous memory 
-     * @tparam Device device type the data lives on
+     * @tparam Arch device type the data lives on
      * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)
      * @tparam DomainIdType domain id type
      * @tparam T field value type
@@ -342,14 +342,14 @@ namespace structured {
      * @param offsets coordinate of first physical coordinate (not buffer) from the orign of the wrapped N-dimensional array
      * @param extents extent of the wrapped N-dimensional array (including buffer regions)
      * @return wrapped field*/
-    template<typename Device, int... Order, typename DomainIdType, typename T, typename Array>
-    structured::simple_field_wrapper<T,Device,structured::domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
-    wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents, typename Device::device_id_type device_id = 0)
+    template<typename Arch, int... Order, typename DomainIdType, typename T, typename Array>
+    structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
+    wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents, typename arch_traits<Arch>::device_id_type device_id = 0)
     {
         return {dom_id, data, offsets, extents, device_id};     
     }
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_SIMPLE_FIELD_WRAPPER_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP */
 
