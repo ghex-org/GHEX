@@ -49,60 +49,6 @@ namespace gridtools
 	    void ghex_tag_send_callback(void *request, ucs_status_t status);
 
 
-	    /* An atomic data type to track the number of in-progress operations per thread. 
-	       Will not be needed if one send endpoint per thread is used. If the endpoint is shared
-	       then any thread can finish other thread's comm, and should then decrease the in_progress counter.
-
-	       A per-thread send queue is probably needed to avoid starvation. Otherwise, depending on the
-	       scheduling, some threads could never be given the opportunity to send their messages.
-	     */
-	    // template <typename T>
-	    // struct watomic
-	    // {
-	    // 	T m_value;
-
-	    // 	watomic()
-	    // 	    :m_value(0)
-	    // 	{}
-
-	    // 	watomic(const T &a)
-	    // 	    :m_value(a)
-	    // 	{}
-
-	    // 	watomic(const watomic &other)
-	    // 	    :m_value(other.m_value)
-	    // 	{}
-
-	    // 	watomic &operator=(const watomic &other)
-	    // 	{
-	    // 	    m_value = other.m_value;
-	    // 	}
-	    // };
-	    template <typename T>
-	    struct watomic
-	    {
-	    	std::atomic<T> m_value;
-
-	    	watomic()
-	    	    :m_value()
-	    	{}
-
-	    	watomic(const std::atomic<T> &a)
-	    	    :m_value(a.load())
-	    	{}
-
-	    	watomic(const watomic &other)
-	    	    :m_value(other.m_value.load())
-	    	{}
-
-	    	watomic &operator=(const watomic &other)
-	    	{
-	    	    m_value.store(other.m_value.load());
-	    	}
-	    };
-	    std::vector<watomic<int>> in_progress;
-
-
             /** callback_communicator is a class to dispatch send and receive operations to. Each operation can 
 	     * optionally be tied to a user defined callback function / function object. The payload of each 
 	     * send/receive operation must be a ghex::shared_message_buffer<Allocator>. 
@@ -147,6 +93,7 @@ namespace gridtools
 #endif
 		std::deque<ucx::ghex_ucx_request_cb<Allocator>> m_send_queue;
 		static const int in_progress_thrs = 5;
+		int in_progress = 0;
 
             public: // ctors
 
@@ -155,12 +102,6 @@ namespace gridtools
 		 * @param alloc the allocator instance to be used for constructing messages */
                 callback_communicator(allocator_type alloc = allocator_type{}) 
 		    : m_alloc(alloc) {
-		    THREAD_MASTER (){
-		    	rank_type nthr = GET_NUM_THREADS();
-		    	for(int i=in_progress.size(); i<nthr; i++){
-		    	    in_progress.push_back(watomic<int>(0));
-		    	}
-		    }
 		}
 
                 callback_communicator(const callback_communicator&) = delete;
@@ -199,14 +140,13 @@ namespace gridtools
 
 			/* queue the send operation for a later time */
 			/* Will eventually be submitted in progress() */
-			if(in_progress[m_thrid].m_value >= in_progress_thrs){
+			if(in_progress >= in_progress_thrs){
 
 			    /* prepare the request */
 			    m_early_req.m_peer_rank = dst;
 			    m_early_req.m_tag = tag;
 			    m_early_req.m_cb = std::forward<CallBack>(cb);
 			    m_early_req.m_msg = msg;
-			    m_early_req.m_thrid = m_thrid;
 
 			    /* push */
 			    m_send_queue.push_back(std::move(m_early_req));
@@ -233,13 +173,12 @@ namespace gridtools
 				m_early_req.m_tag = tag;
 				m_early_req.m_cb = std::forward<CallBack>(cb);
 				m_early_req.m_msg = msg;
-				m_early_req.m_thrid = m_thrid;
 
 				/* fill in request data */
 				ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
 				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
 
-				in_progress[m_thrid].m_value++;
+				in_progress++;
 			    } else {
 				ERR("ucp_tag_send_nb failed");
 			    }
@@ -298,7 +237,6 @@ namespace gridtools
 			m_early_req.m_tag = tag;
 			m_early_req.m_cb = std::function<void(message_type, int, int)>(cb);
 			m_early_req.m_msg = msg;
-			m_early_req.m_thrid = m_thrid;
 
 			m_early_completion = 1;
 			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
@@ -339,7 +277,7 @@ namespace gridtools
 		    unsigned p = communicator<ucx_tag>::progress();
 
 		    /* submit queued send requests */
-		    while(m_send_queue.size()>0 && in_progress[m_thrid].m_value<in_progress_thrs){
+		    while(m_send_queue.size()>0 && in_progress<in_progress_thrs){
 		    	ucx::ghex_ucx_request_cb<Allocator> req = std::move(m_send_queue.front());
 		    	m_send_queue.pop_front();
 		    	send(req.m_msg, req.m_peer_rank, req.m_tag, req.m_cb);
@@ -424,7 +362,7 @@ namespace gridtools
 #else
 		pc->m_completed.push_back(std::move(*preq));
 #endif
-		in_progress[preq->m_thrid].m_value--;
+		pc->in_progress--;
 		
 		ucp_request_free(request);
 	    }
