@@ -102,12 +102,12 @@ int main(int argc, char *argv[])
 		    }
 		    sent+=nthr;
 		    dbg+=nthr;
-		    sreqs[j] = comm->send(smsgs[j], peer_rank, j);
+		    sreqs[j] = comm->send(smsgs[j], peer_rank, thrid*inflight + j);
 		}
 
-		if(received < niter && rreqs[j].ready()) {		
+		if(received < niter && rreqs[j].ready()) {
 		    received+=nthr;
-		    rreqs[j] = comm->recv(rmsgs[j], peer_rank, j);
+		    rreqs[j] = comm->recv(rmsgs[j], peer_rank, thrid*inflight + j);
 		}
 	    }
 	}
