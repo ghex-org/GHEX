@@ -506,18 +506,24 @@ namespace gridtools
 
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
-			if(m_nthr>1){
-			    /* TODO: this may not be necessary when critical is no longer used */
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			    p+= ucp_worker_progress(ucp_worker);
-			}
+
+			/* the below improves one-directional tests, but substantially
+			   slows down the bi-directional ones in shared worker scenario!
+			   In split send/recv worker scenario the recv worker can still
+			   be progressed extra times to speed things up.
+			*/
+			// if(m_nthr>1){
+			//     /* TODO: this may not be necessary when critical is no longer used */
+			//     p+= ucp_worker_progress(ucp_worker);
+			//     p+= ucp_worker_progress(ucp_worker);
+			//     p+= ucp_worker_progress(ucp_worker);
+			// }
 		    } CRITICAL_END(ucp_lock);
 
-#ifdef USE_PTHREAD_LOCKS
 		    // the below is necessary when using spin-locks
-		    if(m_nthr>1) sched_yield();
-#endif
+		    // NOTE: DO NOT USE! very strange effects in MT
+		    // send/receive is split into phases, e.g., first send, then receive on a given rank. WTF?
+		    // if(m_nthr>1) sched_yield();
 
 		    return p;
 		}
@@ -546,7 +552,6 @@ namespace gridtools
 			    if(sf.test() && rf.test()) break;
 			    progress();
 			}
-			fprintf(stderr, "barrier done\n");
 		    }
 		    THREAD_BARRIER();
 		}

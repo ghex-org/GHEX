@@ -35,7 +35,8 @@ int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
 int thrid, nthr;
 #pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
 
-int ongoing_comm = 0;
+std::atomic<int> sent = 0;
+std::atomic<int> received = 0;
 int inflight;
 
 void send_callback(MsgType mesg, int rank, int tag)
@@ -44,6 +45,7 @@ void send_callback(MsgType mesg, int rank, int tag)
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
+    sent++;
     comm_cnt++;
 }
 
@@ -53,9 +55,7 @@ void recv_callback(MsgType mesg, int rank, int tag)
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
-
-#pragma omp atomic
-    ongoing_comm--;
+    received++;
     comm_cnt++;
 }
 
@@ -115,26 +115,23 @@ int main(int argc, char *argv[])
 	/* make sure both ranks are started and all threads initialized */
 	comm->barrier();
 
-	int i = 0, dbg = 0, blk;
-	blk = niter / 10;
-	dbg = dbg + blk;
-
+	int i = 0, dbg = 0;
 	if(rank == 0){
 
 	    /* send niter messages - as soon as a slot becomes free */
-	    while(submit_cnt < niter){
+	    while(sent < niter){
 		for(int j=0; j<inflight; j++){
 		    if(msgs[j].use_count() == 1){
 
-			if(rank==0 && thrid==0 && submit_cnt >= dbg) {
+			if(thrid==0 && dbg >= (niter/10)) {
 			    std::cout << submit_cnt << " iters\n";
-			    dbg = dbg + blk;
+			    dbg = 0;
 			}
 
 			submit_cnt += nthr;
+			dbg += nthr;
 			comm->send(msgs[j], peer_rank, thrid*inflight+j, send_callback);
-		    } 
-		    else comm->progress();
+		    } else comm->progress();
 		}
 	    }
 	} else {
@@ -142,13 +139,13 @@ int main(int argc, char *argv[])
 	    /* recv requests are resubmitted as soon as a request is completed */
 	    /* so the number of submitted recv requests is always ~constant (inflight) */
 	    /* expect niter messages (i.e., niter recv callbacks) on receiver  */
-	    ongoing_comm = niter;
 #pragma omp barrier
 
-	    while(ongoing_comm > 0){
+	    while(received < niter){
 		for(int j=0; j<inflight; j++){
 		    if(msgs[j].use_count() == 1){
 			submit_cnt += nthr;
+			dbg += nthr;
 			comm->recv(msgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		    } else comm->progress();
 		}

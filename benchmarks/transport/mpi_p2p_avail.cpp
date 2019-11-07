@@ -1,5 +1,6 @@
 #include <iostream>
 #include <mpi.h>
+#include <string.h>
 
 #include <ghex/common/timer.hpp>
 
@@ -38,9 +39,7 @@ int main(int argc, char *argv[])
 	for(int j=0; j<inflight; j++){
 	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &buffers[j]);
 	    req[j] = MPI_REQUEST_NULL;
-	    for(int i=0; i<buff_size; i++) {
-		buffers[j][i] = i%(rank+1);
-	    }
+	    memset(buffers[j], 1, buff_size);
 	}
 	
 	MPI_Barrier(MPI_COMM_WORLD);

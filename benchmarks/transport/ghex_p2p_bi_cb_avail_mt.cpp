@@ -1,8 +1,10 @@
 #include <iostream>
 #include <vector>
+#include <atomic>
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 
 #ifdef USE_MPI
@@ -31,11 +33,13 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
    there is no way of knowing which thread will service which requests,
    and how many.
 */
-int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
+int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
 int thrid, nthr;
-#pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
+#pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, submit_recv_cnt, thrid, nthr)
 
-int ongoing_comm = 0;
+/* comm requests currently in-flight */
+std::atomic<int> sent = 0;
+std::atomic<int> received = 0;
 int inflight;
 
 void send_callback(MsgType mesg, int rank, int tag)
@@ -45,6 +49,7 @@ void send_callback(MsgType mesg, int rank, int tag)
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
     comm_cnt++;
+    sent++;
 }
 
 void recv_callback(MsgType mesg, int rank, int tag)
@@ -53,16 +58,15 @@ void recv_callback(MsgType mesg, int rank, int tag)
     int pthr = tag/inflight;
     int pos = tag - pthr*inflight;
     if(pthr != thrid) nlcomm_cnt++;
-
-#pragma omp atomic
-    ongoing_comm--;
     comm_cnt++;
+    received++;
 }
 
 int main(int argc, char *argv[])
 {
     int rank, size, threads, peer_rank;
     int niter, buff_size;
+
     gridtools::ghex::timer timer;
     long bytes = 0;
 
@@ -96,58 +100,56 @@ int main(int argc, char *argv[])
 	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
 	}
 
-	std::vector<MsgType> msgs;
+	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
 	
 	for(int j=0; j<inflight; j++){
-	    msgs.emplace_back(buff_size);
+	    smsgs.emplace_back(buff_size);
 	    rmsgs.emplace_back(buff_size);
+    	    make_zero(smsgs[j]);
+    	    make_zero(rmsgs[j]);
 	}
 	
-	ongoing_comm = niter;
+	comm->barrier();
 
-#pragma omp barrier
 #pragma omp master
 	if(rank == 1) {
 	    timer.tic();
-	    bytes = (double)niter*size*buff_size/2;
+	    bytes = (double)niter*size*buff_size;
 	}
 	
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 
-	/* make sure both ranks are started and all threads initialized */
-	comm->barrier();
-
-	int i = 0, dbg = 0, blk;
-	blk = niter / 10;
-	dbg = dbg + blk;
-
 	/* send/recv niter messages - as soon as a slot becomes free */
-	while(ongoing_comm > 0){
+	int i = 0, dbg = 0, rdbg = 0;
+    	while(sent < niter || received < niter){
 	    for(int j=0; j<inflight; j++){
-		if(msgs[j].use_count() == 1){
-		    if(rank==0 && thrid==0 && submit_cnt >= dbg) {
-			std::cout << submit_cnt << " iters\n";
-			dbg = dbg + blk;
+
+		/* only send niter/nthr messages, with any tag */
+		if(sent < niter && smsgs[j].use_count() == 1){
+		    if(thrid==0 && dbg >= (niter/10)) {
+			std::cout << sent << " sent\n";
+			dbg = 0;
 		    }
 		    submit_cnt += nthr;
-		    comm->send(msgs[j], peer_rank, 44, send_callback);
-		}
-		if(rmsgs[j].use_count() == 1){
-		    if(thrid==0) {
-			std::cout << ongoing_comm << " on " << rank << "\n";
+		    dbg += nthr;
+		    comm->send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
+		} else comm->progress();
+
+		if(received < niter && rmsgs[j].use_count() == 1){
+		    if(thrid == 0 && rdbg >= (niter/10)) {
+			std::cout << received << " received\n";
+			rdbg = 0;
 		    }
-		    comm->recv(rmsgs[j], peer_rank, 44, recv_callback);
-		}
+		    submit_recv_cnt += nthr;
+		    rdbg += nthr;
+		    comm->recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		} else comm->progress();
 	    }
-	    comm->progress();
 	}
 
-	printf("flush\n");
-#pragma omp barrier
 	comm->flush();
-	fprintf(stderr, "barrier\n");
 	comm->barrier();
 
 #pragma omp critical
@@ -160,7 +162,7 @@ int main(int argc, char *argv[])
     if(rank == 1) timer.vtoc(bytes);
 
 #ifdef USE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);
     // MPI_Finalize();
 #endif
 }

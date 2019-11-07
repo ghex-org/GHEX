@@ -3,6 +3,7 @@
 #include <omp.h>
 
 #include <ghex/common/timer.hpp>
+#include "utils.hpp"
 
 
 #ifdef USE_MPI
@@ -35,7 +36,7 @@ int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
 int thrid, nthr;
 #pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
 
-int ongoing_comm = 0;
+std::atomic<int> ongoing_comm = 0;
 int inflight;
 
 void send_callback(MsgType mesg, int rank, int tag)
@@ -44,18 +45,16 @@ void send_callback(MsgType mesg, int rank, int tag)
     int pthr = tag/inflight;
     if(pthr != thrid) nlcomm_cnt++;
 
-#pragma omp atomic
     ongoing_comm--;
     comm_cnt++;
 }
 
 void recv_callback(MsgType mesg, int rank, int tag)
 {
-    //std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
     if(pthr != thrid) nlcomm_cnt++;
 
-#pragma omp atomic
     ongoing_comm--;
     comm_cnt++;
 }
@@ -101,9 +100,12 @@ int main(int argc, char *argv[])
 
 	for(int j=0; j<inflight; j++){
 	    msgs.emplace_back(buff_size);
+	    make_zero(msgs[j]);
 	}
 	
-#pragma omp barrier
+	/* make sure both ranks are started and all threads initialized */
+	comm->barrier();
+
 #pragma omp master
 	if(rank == 1) {
 	    timer.tic();
@@ -113,15 +115,11 @@ int main(int argc, char *argv[])
 	thrid = omp_get_thread_num();
 	nthr = omp_get_num_threads();
 
-	/* make sure both ranks are started and all threads initialized */
-	comm->barrier();
-
 	int i = 0, dbg = 0;
 
 	/* send / recv niter messages, work in inflight requests at a time */
 	while(i<niter){
 
-#pragma omp atomic
 	    ongoing_comm += inflight;
 
 	    /* submit inflight requests */
@@ -143,6 +141,9 @@ int main(int argc, char *argv[])
 	    while(ongoing_comm > 0){
 		comm->progress();
 	    }
+
+	    /* have to wait for all to exit the progress loop! */
+#pragma omp barrier
 	}
 
 #pragma omp barrier

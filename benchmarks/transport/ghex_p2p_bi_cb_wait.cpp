@@ -92,17 +92,19 @@ int main(int argc, char *argv[])
 	}
 
 	/* send / recv niter messages, work in inflight requests at a time */
-	int i = 0;
+	int i = 0, dbg = 0;
 	while(i<niter){
 
 	    /* submit inflight requests */
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && (i)%(niter/10)==0) {
+		if(rank==0 && dbg >= (niter/10)) {
 		    std::cout << i << " iters\n";
+		    dbg = 0;
 		}
-		i++;
 		sent++;
 		received++;
+		dbg++;
+		i++;
 		comm.send(smsgs[j], peer_rank, j, send_callback);
 		comm.recv(rmsgs[j], peer_rank, j, recv_callback);
 	    }
