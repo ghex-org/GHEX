@@ -15,13 +15,13 @@
 #include <thread>
 #include <cstring>
 #include <gridtools/common/layout_map.hpp>
-#include <ghex/gridtools_arch.hpp>
+#include <ghex/arch_list.hpp>
 #include <ghex/communication_object.hpp>
-#include <ghex/protocol/communicator_base.hpp>
-#include <ghex/protocol/mpi.hpp>
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
+#include <ghex/transport_layer/communicator.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include "../utils/triplet.hpp"
 
 
@@ -97,8 +97,8 @@ TEST(communication_object, constructor) {
     using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured::halo_generator<domain_id_t, 3>;
 
-    gridtools::ghex::mpi::mpi_comm world;
-    gridtools::ghex::protocol::communicator<gridtools::ghex::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -150,8 +150,8 @@ TEST(communication_object, exchange) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::mpi::mpi_comm world;
-    gridtools::ghex::protocol::communicator<gridtools::ghex::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -255,8 +255,8 @@ TEST(communication_object, exchange_asymmetric_halos) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::mpi::mpi_comm world;
-    gridtools::ghex::protocol::communicator<gridtools::ghex::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -360,8 +360,8 @@ TEST(communication_object, exchange_multiple_fields) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::mpi::mpi_comm world;
-    gridtools::ghex::protocol::communicator<gridtools::ghex::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -496,8 +496,8 @@ TEST(communication_object, multithreading) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::mpi::mpi_comm world;
-    gridtools::ghex::protocol::communicator<gridtools::ghex::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;
@@ -652,8 +652,8 @@ TEST(communication_object, multithreading_multiple_fileds) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::mpi::mpi_comm world;
-    gridtools::ghex::protocol::communicator<gridtools::ghex::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base world;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
 
     /* Problem sizes */
     const int d1 = 2;

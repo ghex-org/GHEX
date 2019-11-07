@@ -11,34 +11,34 @@
 #ifndef GHEX_MPI_COMMUNICATOR_TRAITS_HPP
 #define GHEX_MPI_COMMUNICATOR_TRAITS_HPP
 
-#include <mpi.h>
+//#include <mpi.h>
+#include "./communicator_base.hpp"
 
 namespace gridtools
 {
 namespace ghex
 {
+namespace tl {
 namespace mpi
 {
 
-class communicator_traits
+struct communicator_traits
 {
-    MPI_Comm m_comm;
+    communicator_base m_comm;
 
-public:
     communicator_traits(MPI_Comm comm)
-        : m_comm{comm}
-    {
-    }
+    : m_comm{comm}
+    { }
 
     communicator_traits()
-        : m_comm{MPI_COMM_WORLD}
-    {
-    }
+    : m_comm{MPI_COMM_WORLD}
+    { }
 
     MPI_Comm communicator() const { return m_comm; }
 };
 
 } // namespace mpi
+} // namespace tl
 } // namespace ghex
 } // namespace gridtools
 

@@ -11,11 +11,9 @@
 
 #include <ghex/communication_object_2.hpp>
 #include <ghex/glue/gridtools/gt_glue.hpp>
-
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include <gridtools/storage/storage_facility.hpp>
-
 #include <gtest/gtest.h>
-//#include "./gtest_main.cpp"
 
 TEST(data_store, make)
 {

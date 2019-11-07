@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_TIMER_HPP
-#define INCLUDED_GHEX_TIMER_HPP
+#ifndef INCLUDED_GHEX_COMMON_TIMER_HPP
+#define INCLUDED_GHEX_COMMON_TIMER_HPP
 
 #include "./accumulator.hpp"
 #include <chrono>
@@ -73,5 +73,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TIMER_HPP */
+#endif /* INCLUDED_GHEX_COMMON_TIMER_HPP */
 

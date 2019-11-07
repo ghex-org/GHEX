@@ -8,36 +8,37 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_COMMUNICATOR_BASE_HPP
-#define INCLUDED_COMMUNICATOR_BASE_HPP
-
-#include "./future.hpp"
+#ifndef INCLUDED_GHEX_TL_COMMUNICATOR_HPP
+#define INCLUDED_GHEX_TL_COMMUNICATOR_HPP
 
 namespace gridtools {
 
     namespace ghex {
-
-        namespace protocol {
+    
+        namespace tl {
 
             /** @brief communicator class which exposes basic communication primitives 
-             * @tparam P transport protocl tag*/
-            template<typename P>
-            class communicator 
-            {
+              * @tparam TransportTag transport protocol tag */
+            template<typename TransportTag>
+            class communicator; 
+            
                 // concept
                 // -------
-                // using protocol_type = P;
+                // using transport_type = P;
                 // using handle_type   = ...;
                 // using address_type  = ...;
                 // template<typename T>
-                // using future = future_base<handle_type,T>;
-            };
+                // using future = ...;
 
-        } // namespace protocol
+            /** @brief mpi transport tag */
+            struct mpi_tag {};
+
+
+        } // namespace tl
 
     } // namespace ghex
 
 } // namespace gridtools
 
-#endif /* INCLUDED_COMMUNICATOR_BASE_HPP */
+#endif /* INCLUDED_GHEX_TL_COMMUNICATOR_HPP */
 

@@ -24,6 +24,7 @@
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
 #include <ghex/structured/simple_field_wrapper.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include <ghex/common/timer.hpp>
 
 #include <gridtools/common/array.hpp>
@@ -55,17 +56,17 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
     using domain_descriptor_type = gridtools::ghex::structured::domain_descriptor<int,3>;
-    template<typename T, typename Device, int... Is>
-    using field_descriptor_type  = gridtools::ghex::structured::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
+    template<typename T, typename Arch, int... Is>
+    using field_descriptor_type  = gridtools::ghex::structured::simple_field_wrapper<T,Arch,domain_descriptor_type, Is...>;
 
 #ifdef __CUDACC__
-    using arch_type = gridtools::ghex::device::gpu;
+    using arch_type = gridtools::ghex::gpu;
 #else
-    using arch_type = gridtools::ghex::device::cpu;
+    using arch_type = gridtools::ghex::cpu;
 #endif
 
-    template<typename T, typename Device, typename DomainDescriptor, int... Order>
-    void printbuff(std::ostream& file, const gridtools::ghex::structured::simple_field_wrapper<T,Device,DomainDescriptor, Order...>& field)
+    template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+    void printbuff(std::ostream& file, const gridtools::ghex::structured::simple_field_wrapper<T,Arch,DomainDescriptor, Order...>& field)
     {
         if (field.extents()[0] <= 10 && field.extents()[1] <= 10 && field.extents()[2] <= 6)
         {
@@ -109,7 +110,7 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::mpi::mpi_comm& world) 
+        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::tl::mpi::communicator_base& world) 
     {
         // compute total domain
         const std::array<int,3> g_first{             0,              0,              0};
@@ -133,13 +134,13 @@ namespace halo_exchange_3D_generic_full {
         std::vector<domain_descriptor_type> local_domains{local_domain};
 
         // wrap raw fields
-        auto a = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
+        auto a = gridtools::ghex::wrap_field<gridtools::ghex::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
             std::array<int,3>{H1m1,H2m1,H3m1},
             std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-        auto b = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
+        auto b = gridtools::ghex::wrap_field<gridtools::ghex::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
             std::array<int,3>{H1m2,H2m2,H3m2},
             std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-        auto c = gridtools::ghex::wrap_field<gridtools::ghex::device::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
+        auto c = gridtools::ghex::wrap_field<gridtools::ghex::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
             std::array<int,3>{H1m3,H2m3,H3m3},
             std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -680,7 +681,7 @@ namespace halo_exchange_3D_generic_full {
         int H3m3,
         int H3p3)
     {
-        gridtools::ghex::mpi::mpi_comm world;
+        gridtools::ghex::tl::mpi::communicator_base world;
         //std::cout << world.rank() << " " << world.size() << "\n";
 
         std::stringstream ss;
@@ -2242,12 +2243,12 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     const int Nz = 80;
 
 #ifdef __CUDACC__
-    gridtools::ghex::mpi::mpi_comm mpi_comm;
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    gridtools::ghex::mpi::mpi_comm local_comm(raw_local_comm, gridtools::ghex::mpi::comm_take_ownership);
+    gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 

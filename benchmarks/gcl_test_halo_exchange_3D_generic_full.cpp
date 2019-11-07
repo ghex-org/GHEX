@@ -26,7 +26,7 @@
 #include <iomanip>
 
 #include "../utils/triplet.hpp"
-#include <ghex/protocol/mpi_comm.hpp>
+#include <ghex/transport_layer/mpi/communicator_base.hpp>
 #include <ghex/common/timer.hpp>
 //#include "triplet.hpp"
 
@@ -91,7 +91,7 @@ namespace halo_exchange_3D_generic_full {
 
         typedef gridtools::layout_map<I1, I2, I3> layoutmap;
 
-        gridtools::ghex::mpi::mpi_comm world;
+        gridtools::ghex::tl::mpi::communicator_base world;
 
         array<triple_t<USE_DOUBLE, T1>, layoutmap> a(
             _a, (DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1));
