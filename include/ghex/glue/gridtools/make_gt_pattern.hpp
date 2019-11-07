@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GT_GLUE_PATTERN_HPP
-#define INCLUDED_GT_GLUE_PATTERN_HPP
+#ifndef INCLUDED_GLUE_GRIDTOOLS_MAKE_GT_PATTERN_HPP
+#define INCLUDED_GLUE_GRIDTOOLS_MAKE_GT_PATTERN_HPP
 
 #include <array>
 #include "../../structured/pattern.hpp"
@@ -33,5 +33,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_GT_GLUE_PATTERN_HPP */
+#endif /* INCLUDED_GLUE_GRIDTOOLS_MAKE_GT_PATTERN_HPP */
 

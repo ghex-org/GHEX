@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_COORDINATE_HPP
-#define INCLUDED_COORDINATE_HPP
+#ifndef INCLUDED_GHEX_COMMON_COORDINATE_HPP
+#define INCLUDED_GHEX_COMMON_COORDINATE_HPP
 
 #include <array>
 #include <algorithm>
@@ -208,5 +208,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_COORDINATE_HPP */
+#endif /* INCLUDED_GHEX_COMMON_COORDINATE_HPP */
 

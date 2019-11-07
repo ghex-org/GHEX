@@ -8,44 +8,45 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_BUFFER_INFO_HPP
-#define INCLUDED_BUFFER_INFO_HPP
+#ifndef INCLUDED_GHEX_BUFFER_INFO_HPP
+#define INCLUDED_GHEX_BUFFER_INFO_HPP
 
 #include <vector>
+#include "./arch_traits.hpp"
 
 namespace gridtools {
 
     namespace ghex {
 
         // forward declaration
-        template<typename P, typename GridType, typename DomainIdType>
+        template<typename Transport, typename GridType, typename DomainIdType>
         class pattern;
-        template<typename P, typename GridType, typename DomainIdType>
+        template<typename Transport, typename GridType, typename DomainIdType>
         class pattern_container;
         
         // forward declaration
-        template<typename Pattern, typename Device, typename Field>
+        template<typename Pattern, typename Arch, typename Field>
         struct buffer_info;
 
         /** @brief ties together field, pattern and device
-         * @tparam P message transport protocol
+         * @tparam Transport message transport protocol
          * @tparam GridType grid tag type
          * @tparam DomainIdType domain id type
-         * @tparam Device device type
+         * @tparam Arch device type
          * @tparam Field field descriptor type */
-        template<typename P, typename GridType, typename DomainIdType, typename Device, typename Field>
-        struct buffer_info<pattern<P,GridType,DomainIdType>, Device, Field>
+        template<typename Transport, typename GridType, typename DomainIdType, typename Arch, typename Field>
+        struct buffer_info<pattern<Transport,GridType,DomainIdType>, Arch, Field>
         {
         public: // member types
-            using pattern_type             = pattern<P,GridType,DomainIdType>;
-            using pattern_container_type   = pattern_container<P,GridType,DomainIdType>;
-            using device_type              = Device;
+            using pattern_type             = pattern<Transport,GridType,DomainIdType>;
+            using pattern_container_type   = pattern_container<Transport,GridType,DomainIdType>;
+            using arch_type              = Arch;
             using field_type               = Field;
-            using device_id_type           = typename device_type::device_id_type;
+            using device_id_type           = typename arch_traits<arch_type>::device_id_type;
             using value_type               = typename field_type::value_type; 
        
         private: // friend class
-            friend class pattern<P,GridType,DomainIdType>;
+            friend class pattern<Transport,GridType,DomainIdType>;
 
         private: // private ctor
             buffer_info(const pattern_type& p, field_type& field, device_id_type id) noexcept
@@ -72,5 +73,5 @@ namespace gridtools {
 } // namespace gridtools
 
 
-#endif /* INCLUDED_BUFFER_INFO_HPP */
+#endif /* INCLUDED_GHEX_BUFFER_INFO_HPP */
 

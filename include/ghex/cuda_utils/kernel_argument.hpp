@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_KERNEL_ARGUMENT_HPP
-#define INCLUDED_KERNEL_ARGUMENT_HPP
+#ifndef INCLUDED_GHEX_CUDA_KERNEL_ARGUMENT_HPP
+#define INCLUDED_GHEX_CUDA_KERNEL_ARGUMENT_HPP
 
 namespace gridtools {
 
@@ -47,5 +47,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_KERNEL_ARGUMENT_HPP */
+#endif /* INCLUDED_GHEX_CUDA_KERNEL_ARGUMENT_HPP */
 

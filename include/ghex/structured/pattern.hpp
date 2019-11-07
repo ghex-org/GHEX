@@ -8,11 +8,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_STRUCTURED_PATTERN_HPP
-#define INCLUDED_STRUCTURED_PATTERN_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
+#define INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
 
 #include "./grid.hpp"
-#include "../protocol/communicator_base.hpp"
+#include "../transport_layer/communicator.hpp"
 #include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
@@ -25,22 +25,22 @@ namespace gridtools {
      * This class provides access to the receive and send iteration spaces, determined by the halos, and holds
      * all connections to the neighbors.
      *
-     * @tparam P transport protocol
+     * @tparam Transport transport protocol
      * @tparam CoordinateArrayType coordinate-like array type
      * @tparam DomainIdType domain id type*/
-    template<typename P, typename CoordinateArrayType, typename DomainIdType>
-    class pattern<P,structured::detail::grid<CoordinateArrayType>,DomainIdType>
+    template<typename Transport, typename CoordinateArrayType, typename DomainIdType>
+    class pattern<Transport,structured::detail::grid<CoordinateArrayType>,DomainIdType>
     {
     public: // member types
         using grid_type               = structured::detail::grid<CoordinateArrayType>;
-        using this_type               = pattern<P, grid_type, DomainIdType>;
+        using this_type               = pattern<Transport, grid_type, DomainIdType>;
         using coordinate_type         = typename grid_type::coordinate_type;
         using coordinate_element_type = typename grid_type::coordinate_element_type;
         using dimension               = typename grid_type::dimension;
-        using communicator_type       = protocol::communicator<P>;
+        using communicator_type       = tl::communicator<Transport>;
         using address_type            = typename communicator_type::address_type;
         using domain_id_type          = DomainIdType;
-        using pattern_container_type  = pattern_container<P,grid_type,DomainIdType>;
+        using pattern_container_type  = pattern_container<Transport,grid_type,DomainIdType>;
 
         // this struct holds the first and the last coordinate (inclusive)
         // of a hypercube in N-dimensional space.
@@ -157,7 +157,7 @@ namespace gridtools {
             return s;
         }
 
-        friend class pattern_container<P,grid_type,DomainIdType>;
+        friend class pattern_container<Transport,grid_type,DomainIdType>;
 
     private: // members
         communicator_type       m_comm;
@@ -197,7 +197,7 @@ namespace gridtools {
          * @param field field instance
          * @return buffer_info object which holds a refernce to the field, the pattern and the pattern container */
         template<typename Field>
-        buffer_info<pattern, typename Field::device_type, Field> operator()(Field& field) const
+        buffer_info<pattern, typename Field::arch_type, Field> operator()(Field& field) const
         {
             return {*this,field,field.device_id()};
         }
@@ -209,14 +209,14 @@ namespace gridtools {
         template<typename CoordinateArrayType>
         struct make_pattern_impl<::gridtools::ghex::structured::detail::grid<CoordinateArrayType>>
         {
-            template<typename P, typename HaloGenerator, typename DomainRange>
-            static auto apply(protocol::setup_communicator& comm, protocol::communicator<P>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
+            template<typename Transport, typename HaloGenerator, typename DomainRange>
+            static auto apply(tl::mpi::setup_communicator& comm, tl::communicator<Transport>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
             {
                 // typedefs
                 using domain_type               = typename std::remove_reference_t<DomainRange>::value_type;
                 using domain_id_type            = typename domain_type::domain_id_type;
                 using grid_type                 = ::gridtools::ghex::structured::detail::grid<CoordinateArrayType>;
-                using pattern_type              = pattern<P, grid_type, domain_id_type>;
+                using pattern_type              = pattern<Transport, grid_type, domain_id_type>;
                 using iteration_space           = typename pattern_type::iteration_space;
                 using iteration_space_pair      = typename pattern_type::iteration_space_pair;
                 using coordinate_type           = typename pattern_type::coordinate_type;
@@ -570,7 +570,7 @@ namespace gridtools {
                     }
                 }
 
-                return pattern_container<P,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
+                return pattern_container<Transport,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
             }
         };
 
@@ -579,5 +579,5 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_STRUCTURED_PATTERN_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_PATTERN_HPP */
 
