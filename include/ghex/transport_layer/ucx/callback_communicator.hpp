@@ -178,7 +178,7 @@ namespace gridtools
 				ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
 				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
 
-				in_progress++;
+				// in_progress++;
 			    } else {
 				ERR("ucp_tag_send_nb failed");
 			    }
