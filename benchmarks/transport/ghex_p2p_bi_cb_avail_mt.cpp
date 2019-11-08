@@ -1,8 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <atomic>
-#include <omp.h>
 
+#include <ghex/transport_layer/ucx/threads.hpp>
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
@@ -28,19 +28,27 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
+/* comm requests currently in-flight */
+std::atomic<int> sent = 0;
+std::atomic<int> received = 0;
+int inflight;
+
 /* Track finished comm requests. 
    This is shared between threads, because in the shared-worker case
    there is no way of knowing which thread will service which requests,
    and how many.
 */
 int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
-int thrid, nthr;
-#pragma omp threadprivate(comm_cnt, nlsend_cnt, nlrecv_cnt, submit_cnt, submit_recv_cnt, thrid, nthr)
+DECLARE_THREAD_PRIVATE(comm_cnt)
+DECLARE_THREAD_PRIVATE(nlsend_cnt)
+DECLARE_THREAD_PRIVATE(nlrecv_cnt)
+DECLARE_THREAD_PRIVATE(submit_cnt)
+DECLARE_THREAD_PRIVATE(submit_recv_cnt)
 
-/* comm requests currently in-flight */
-std::atomic<int> sent = 0;
-std::atomic<int> received = 0;
-int inflight;
+int thrid, nthr;
+DECLARE_THREAD_PRIVATE(thrid)
+DECLARE_THREAD_PRIVATE(nthr)
+
 
 void send_callback(MsgType mesg, int rank, int tag)
 {
@@ -87,18 +95,18 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
 
-#pragma omp parallel
-    {
-	gridtools::ghex::tl::callback_communicator<CommType> *comm 
-	    = new gridtools::ghex::tl::callback_communicator<CommType>();
+    THREAD_PARALLEL_BEG() {
+	gridtools::ghex::tl::callback_communicator<CommType> comm;
 
-#pragma omp master
-	{
-	    rank = comm->rank();
-	    size = comm->size();
+	THREAD_MASTER() {
+	    rank = comm.rank();
+	    size = comm.size();
 	    peer_rank = (rank+1)%2;
-	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
+	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 	}
+
+	thrid = GET_THREAD_NUM();
+	nthr = GET_NUM_THREADS();
 
 	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
@@ -110,53 +118,53 @@ int main(int argc, char *argv[])
     	    make_zero(rmsgs[j]);
 	}
 	
-	comm->barrier();
+	comm.barrier();
 
-#pragma omp master
-	if(rank == 1) {
-	    timer.tic();
-	    bytes = (double)niter*size*buff_size;
+	THREAD_MASTER() {
+	    if(rank == 1) {
+		std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
+		timer.tic();
+		bytes = (double)niter*size*buff_size;
+	    }
 	}
-	
-	thrid = omp_get_thread_num();
-	nthr = omp_get_num_threads();
 
+	
 	/* send/recv niter messages - as soon as a slot becomes free */
-	int i = 0, dbg = 0, rdbg = 0;
+	int i = 0, sdbg = 0, rdbg = 0;
     	while(sent < niter || received < niter){
 	    for(int j=0; j<inflight; j++){
 
 		/* only send niter/nthr messages, with any tag */
 		if(sent < niter && smsgs[j].use_count() == 1){
-		    if(thrid==0 && dbg >= (niter/10)) {
+		    if(rank==0 && thrid==0 && sdbg >= (niter/10)) {
 			std::cout << sent << " sent\n";
-			dbg = 0;
+			sdbg = 0;
 		    }
 		    submit_cnt += nthr;
-		    dbg += nthr;
-		    comm->send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
-		} else comm->progress();
+		    sdbg += nthr;
+		    comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
+		} else comm.progress();
 
 		if(received < niter && rmsgs[j].use_count() == 1){
-		    if(thrid == 0 && rdbg >= (niter/10)) {
+		    if(rank==0 && thrid == 0 && rdbg >= (niter/10)) {
 			std::cout << received << " received\n";
 			rdbg = 0;
 		    }
 		    submit_recv_cnt += nthr;
 		    rdbg += nthr;
-		    comm->recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
-		} else comm->progress();
+		    comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		} else comm.progress();
 	    }
 	}
 
-	comm->barrier();
+	comm.barrier();
+	comm.finalize();
 
 #pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
-	
-	delete comm;
-    }
+
+    } THREAD_PARALLEL_END();
     
     if(rank == 1) timer.vtoc(bytes);
 

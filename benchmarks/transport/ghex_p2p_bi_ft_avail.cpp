@@ -2,6 +2,7 @@
 #include <vector>
 #include <string.h>
 
+#include <ghex/transport_layer/ucx/threads.hpp>
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
@@ -108,7 +109,7 @@ int main(int argc, char *argv[])
     if(rank == 1) timer.vtoc(bytes);
 
 #ifdef USE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);
     // MPI_Finalize();
 #endif
 }

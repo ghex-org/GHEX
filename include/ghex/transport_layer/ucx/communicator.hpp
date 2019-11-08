@@ -157,11 +157,18 @@ namespace gridtools
                 size_type size() const noexcept { return m_size; }
 
 		~communicator()
+<<<<<<< HEAD
 		{
 		    ucp_worker_flush(ucp_worker_send);
+=======
+		{}
+
+		void finalize (){
+		    flush();
+>>>>>>> ucx_callback_comm
 		    THREAD_MASTER (){
-			ucp_worker_flush(ucp_worker);
-			// ucp_worker_destroy(ucp_worker);
+			ucp_worker_destroy(ucp_worker);
+			ucp_worker = nullptr;
 			// ucp_cleanup(ucp_context);
 		    }
 		}
@@ -549,6 +556,10 @@ namespace gridtools
 		{
 		    if(m_size > 2) ERR("barrier not implemented for more than 2 ranks");
 
+		    THREAD_BARRIER();
+
+		    flush();
+
 		    /* this should only be executed by a single thread */
 		    THREAD_MASTER () {
 			/* do a simple send and recv */
@@ -614,7 +625,11 @@ namespace gridtools
 		}
 
 		friend void ucx::worker_progress();
+<<<<<<< HEAD
 		friend void ucx::worker_progress_send();
+=======
+		friend void ucx::worker_request_cancel(ghex_ucx_request* req);
+>>>>>>> ucx_callback_comm
 	    };
 
 	    /** static communicator properties, shared between threads */
@@ -647,6 +662,9 @@ namespace gridtools
 			ucp_worker_progress(pcomm->ucp_worker_send);
 			ucp_worker_progress(pcomm->ucp_worker_send);
 		    }
+
+		void worker_request_cancel(ghex_ucx_request* req){
+		    ucp_request_cancel(pcomm->ucp_worker, req);
 		}
 	    }
 

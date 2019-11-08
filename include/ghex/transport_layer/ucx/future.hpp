@@ -62,8 +62,7 @@ namespace gridtools{
                       * @return True if the request was successfully canceled */
                     bool cancel()
                     {
-			/* TODO */
-                        return false;
+			return m_handle.cancel();
                     }
                 };
 

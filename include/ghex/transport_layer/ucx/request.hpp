@@ -65,6 +65,7 @@ namespace gridtools{
 		*/
 		extern void worker_progress();
 		extern void worker_progress_send();
+		extern void worker_request_cancel(ghex_ucx_request* req);
 
                 /** @brief thin wrapper around UCX Request */
                 struct request
@@ -111,6 +112,13 @@ namespace gridtools{
 #endif
 			return retval;
                     }
+
+		    bool cancel(){
+			CRITICAL_BEGIN(ucp_lock){
+			    worker_request_cancel(m_req);
+			} CRITICAL_END(ucp_lock);
+			return true;
+		    }
                 };
 
             } // namespace ucx
