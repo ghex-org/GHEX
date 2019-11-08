@@ -144,8 +144,8 @@ int main(int argc, char *argv[])
 		}
 		dbg+=nthr;
 		i+=nthr;
-		comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
 		comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
 	    }
 	
 	    /* complete all inflight requests before moving on */

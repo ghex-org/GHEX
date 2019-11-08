@@ -134,7 +134,16 @@ int main(int argc, char *argv[])
     	while(sent < niter || received < niter){
 	    for(int j=0; j<inflight; j++){
 
-		/* only send niter/nthr messages, with any tag */
+		if(rmsgs[j].use_count() == 1){
+		    if(rank==0 && thrid == 0 && rdbg >= (niter/10)) {
+			std::cout << received << " received\n";
+			rdbg = 0;
+		    }
+		    submit_recv_cnt += nthr;
+		    rdbg += nthr;
+		    comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		} else comm.progress();
+
 		if(sent < niter && smsgs[j].use_count() == 1){
 		    if(rank==0 && thrid==0 && sdbg >= (niter/10)) {
 			std::cout << sent << " sent\n";
@@ -143,16 +152,6 @@ int main(int argc, char *argv[])
 		    submit_cnt += nthr;
 		    sdbg += nthr;
 		    comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
-		} else comm.progress();
-
-		if(received < niter && rmsgs[j].use_count() == 1){
-		    if(rank==0 && thrid == 0 && rdbg >= (niter/10)) {
-			std::cout << received << " received\n";
-			rdbg = 0;
-		    }
-		    submit_recv_cnt += nthr;
-		    rdbg += nthr;
-		    comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		} else comm.progress();
 	    }
 	}

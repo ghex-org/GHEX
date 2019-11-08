@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 	    /* submit recv */
 	    if(thrid==0){
 		for(int j=0; j<nthr*inflight; j++){
-		    if(rreqs[j].ready() && received < niter) {
+		    if(rreqs[j].ready()) {
 			received++;
 			rreqs[j] = comm->recv(rmsgs[j], peer_rank, j);
 		    }
