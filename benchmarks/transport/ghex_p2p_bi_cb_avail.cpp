@@ -27,6 +27,7 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 /* comm requests currently in-flight */
 int sent = 0;
 int received = 0;
+int thrid = 0, nthr = 1;
 
 void send_callback(MsgType mesg, int rank, int tag)
 {
@@ -92,26 +93,32 @@ int main(int argc, char *argv[])
     	    bytes = (double)niter*size*buff_size;
     	}
 
-    	/* send niter messages - as soon as a slot becomes free */
-    	int i = 0, dbg = 0;
+	/* send/recv niter messages - as soon as a slot becomes free */
+	int i = 0, sdbg = 0, rdbg = 0;
     	while(sent < niter || received < niter){
-    	    for(int j=0; j<inflight; j++){
-    		if(sent < niter && smsgs[j].use_count() == 1){
-    		    if(rank==0 && dbg >= (niter/10)) {
-    			std::cout << sent << " iters\n";
-    			dbg = 0;
-    		    }
-		    dbg++;
-    		    comm.send(smsgs[j], peer_rank, j, send_callback);
-    		} else comm.progress();
+	    for(int j=0; j<inflight; j++){
 
-    		if(received < niter && rmsgs[j].use_count() == 1){
-    		    comm.recv(rmsgs[j], peer_rank, j, recv_callback);
-    		} else comm.progress();
-    	    }
-    	}
+		/* only send niter/nthr messages, with any tag */
+		if(sent < niter && smsgs[j].use_count() == 1){
+		    if(rank==0 && thrid==0 && sdbg >= (niter/10)) {
+			std::cout << sent << " sent\n";
+			sdbg = 0;
+		    }
+		    sdbg += nthr;
+		    comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
+		} else comm.progress();
 
-    	comm.flush();
+		if(received < niter && rmsgs[j].use_count() == 1){
+		    if(rank==0 && thrid == 0 && rdbg >= (niter/10)) {
+			std::cout << received << " received\n";
+			rdbg = 0;
+		    }
+		    rdbg += nthr;
+		    comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		} else comm.progress();
+	    }
+	}
+
     	comm.barrier();	
     }
     

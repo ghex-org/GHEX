@@ -76,6 +76,7 @@ namespace gridtools{
 			GHEX_CHECK_MPI_RESULT(MPI_Barrier(*m_comm));
 #pragma omp barrier
 		    }
+		    void finalize() const {}
 
 
 		    void flush() { }

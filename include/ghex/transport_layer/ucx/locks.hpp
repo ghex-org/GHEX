@@ -31,22 +31,22 @@ using lock_t = std::mutex;
 
 #include <pthread.h>
 
-using lock_t = pthread_spinlock_t;
+using lock_t = pthread_mutex_t;
 
 #define LOCK_INIT(l)					\
     do {						\
-	pthread_spin_init(&l, PTHREAD_PROCESS_PRIVATE);	\
+	pthread_mutex_init(&l, NULL);			\
     } while(0);
 
 #define LOCK_DEL(l)                             \
     do {                                        \
-	pthread_spin_destroy(&l);		\
+	pthread_mutex_destroy(&l);		\
     } while(0);
 
 #define LOCK(l)						\
     do {						\
 	if(l##_owner == 0) {				\
-	    pthread_spin_lock(&l);			\
+	    pthread_mutex_lock(&l);			\
 	}						\
 	l##_owner += 1;					\
     } while(0);
@@ -55,7 +55,7 @@ using lock_t = pthread_spinlock_t;
     do {						\
 	l##_owner -= 1;					\
 	if(l##_owner == 0) {				\
-	    pthread_spin_unlock(&l);			\
+	    pthread_mutex_unlock(&l);			\
 	}						\
     } while(0);
 

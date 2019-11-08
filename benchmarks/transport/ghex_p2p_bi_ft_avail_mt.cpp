@@ -1,7 +1,8 @@
 #include <iostream>
 #include <vector>
-#include <omp.h>
+#include <atomic>
 
+#include <ghex/transport_layer/ucx/threads.hpp>
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
@@ -24,8 +25,12 @@ using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_ta
 using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 
+std::atomic<int> sent = 0;
+std::atomic<int> received = 0;
+
 int thrid, nthr;
-#pragma omp threadprivate(thrid, nthr)
+DECLARE_THREAD_PRIVATE(thrid)
+DECLARE_THREAD_PRIVATE(nthr)
 
 int main(int argc, char *argv[])
 {
@@ -52,18 +57,18 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
 
-#pragma omp parallel
-    {
-	CommType *comm = new CommType();
+    THREAD_PARALLEL_BEG() {
+	CommType comm;
 
-#pragma omp master
-	{
-	    rank = comm->rank();
-	    size = comm->size();
+	THREAD_MASTER() {
+	    rank = comm.rank();
+	    size = comm.size();
 	    peer_rank = (rank+1)%2;
-	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
+	    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 	}
-#pragma omp barrier 
+
+	thrid = GET_THREAD_NUM();
+	nthr = GET_NUM_THREADS();
 
 	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
@@ -77,18 +82,17 @@ int main(int argc, char *argv[])
 	    make_zero(rmsgs[j]);
 	}
 
-	comm->barrier();
+	comm.barrier();
 
-#pragma omp master
-	if(rank == 1) {
-	    timer.tic();
-	    bytes = (double)niter*size*buff_size;
+	THREAD_MASTER() {
+	    if(rank == 1) {
+		std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
+		timer.tic();
+		bytes = (double)niter*size*buff_size;
+	    }
 	}
 
-	thrid = omp_get_thread_num();
-	nthr = omp_get_num_threads();
 
-	int sent = 0, received = 0;
 	int dbg = 0;	
 	while(sent < niter || received < niter){
 	    
@@ -100,24 +104,22 @@ int main(int argc, char *argv[])
 			std::cout << sent << " iters\n";
 			dbg = 0;
 		    }
-		    sent+=nthr;
+		    sent++;
 		    dbg+=nthr;
-		    sreqs[j] = comm->send(smsgs[j], peer_rank, thrid*inflight + j);
+		    sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight + j);
 		}
 
 		if(received < niter && rreqs[j].ready()) {
-		    received+=nthr;
-		    rreqs[j] = comm->recv(rmsgs[j], peer_rank, thrid*inflight + j);
+		    received++;
+		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
 		}
 	    }
 	}
 
-#pragma omp barrier
-	comm->flush();
-	comm->barrier();
+	comm.barrier();
+	comm.finalize();
 
-	delete comm;
-    }
+    } THREAD_PARALLEL_END();
 
     if(rank == 1) timer.vtoc(bytes);
 
