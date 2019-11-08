@@ -34,10 +34,12 @@ int main(int argc, char *argv[])
     THREAD_PARALLEL_BEG() {
 
 	int thrid, nthr;
-	unsigned char **buffers = new unsigned char *[inflight];
-	MPI_Request *req = new MPI_Request[inflight];
 	MPI_Comm mpi_comm;
-
+	unsigned char **sbuffers = new unsigned char *[inflight];
+	unsigned char **rbuffers = new unsigned char *[inflight];
+	MPI_Request *sreq = new MPI_Request[inflight];
+	MPI_Request *rreq = new MPI_Request[inflight];
+	
 	THREAD_MASTER() {
 	    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	    MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -57,9 +59,12 @@ int main(int argc, char *argv[])
 	}
 	
 	for(int j=0; j<inflight; j++){
-	    req[j] = MPI_REQUEST_NULL;
-	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &buffers[j]);	
-	    memset(buffers[j], 1, buff_size);
+	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffers[j]);
+	    MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &rbuffers[j]);
+	    memset(sbuffers[j], 1, buff_size);
+	    memset(rbuffers[j], 1, buff_size);
+	    sreq[j] = MPI_REQUEST_NULL;
+	    rreq[j] = MPI_REQUEST_NULL;
 	}
 
 	THREAD_MASTER(){
@@ -76,26 +81,24 @@ int main(int argc, char *argv[])
 	}
 
 	int i = 0, dbg = 0;
-	int ncomm;
 	while(i<niter){
 
-	    /* submit inflight async requests */
+	    if(rank==0 && thrid==0 && dbg>=(niter/10)) {
+		std::cout << i << " iters\n";
+		dbg=0;
+	    }
+
+	    /* submit comm */
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && thrid==0 && dbg>=(niter/10)) {
-		    std::cout << i << " iters\n";
-		    dbg=0;
-		}
-		if(rank==0)
-		    MPI_Isend(buffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &req[j]);
-		else
-		    MPI_Irecv(buffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &req[j]);
-		ncomm++;
-		dbg +=nthr; 
+		MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
+		MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
+		dbg +=nthr;
 		i+=nthr;
 	    }
 
 	    /* wait for all to complete */
-	    MPI_Waitall(inflight, req, MPI_STATUS_IGNORE);
+	    MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
+	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
 	}
 
 	MPI_Barrier(mpi_comm);
@@ -104,7 +107,6 @@ int main(int argc, char *argv[])
 	}
 	THREAD_BARRIER();
 
-	std::cout << rank << ":" << thrid << " ncomm " << ncomm << "\n";
     }
 
     if(rank == 1) timer.vtoc(bytes);
