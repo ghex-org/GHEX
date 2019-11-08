@@ -99,6 +99,11 @@ int main(int argc, char *argv[])
 	    /* submit comm */
 	    for(int j=0; j<inflight; j++){
 
+		if(rreqs[j].ready()) {
+		    received++;
+		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
+		}
+
 		if(sent < niter && sreqs[j].ready()) {
 		    if(rank==0 && thrid==0 && dbg >= (niter/10)) {
 			std::cout << sent << " iters\n";
@@ -107,11 +112,6 @@ int main(int argc, char *argv[])
 		    sent++;
 		    dbg+=nthr;
 		    sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight + j);
-		}
-
-		if(received < niter && rreqs[j].ready()) {
-		    received++;
-		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
 		}
 	    }
 	}

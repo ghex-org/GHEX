@@ -7,6 +7,9 @@
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
+std::atomic<int> sent = 0;
+std::atomic<int> received = 0;
+
 int main(int argc, char *argv[])
 {
     int rank, size, peer_rank;
@@ -80,25 +83,40 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	int i = 0, dbg = 0;
-	while(i<niter){
+	/* pre-post */
+	for(int j=0; j<inflight; j++){
+	    MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
+	    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
+	}
+
+	int i = 0, dbg = 0, rdbg = 0, flag, j;
+	while(sent<niter || received<niter){
 
 	    if(rank==0 && thrid==0 && dbg>=(niter/10)) {
-		std::cout << i << " iters\n";
+		std::cout << sent << " sent\n";
 		dbg=0;
 	    }
 
-	    /* submit comm */
-	    for(int j=0; j<inflight; j++){
-		MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
-		MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
-		dbg +=nthr;
-		i+=nthr;
+	    if(rank==0 && thrid==0 && rdbg>=(niter/10)) {
+		std::cout << received << " received\n";
+		rdbg=0;
 	    }
 
-	    /* wait for all to complete */
-	    MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
-	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
+	    MPI_Testany(inflight, rreq, &j, &flag, MPI_STATUS_IGNORE);
+	    if(flag) {
+		MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
+		rdbg +=nthr;
+		received++;
+	    }
+
+	    if(sent<niter){
+		MPI_Testany(inflight, sreq, &j, &flag, MPI_STATUS_IGNORE);
+		if(flag) {
+		    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
+		    dbg +=nthr;
+		    sent++;
+		}
+	    }
 	}
 
 	MPI_Barrier(mpi_comm);

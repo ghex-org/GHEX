@@ -103,8 +103,8 @@ int main(int argc, char *argv[])
 		sent += nthr;
 		received += nthr;
 
-		sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight + j);
 		rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
+		sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight + j);
 	    }
 
 	    /* wait for all */
