@@ -189,6 +189,7 @@ namespace gridtools
 
                 void barrier() { m_comm.barrier(); }
                 void flush() { }
+		void finalize() {}
                 
             public: // queries
 
