@@ -61,7 +61,7 @@ namespace gridtools{
 
 		/** this is defined in ucx communicator.hpp.
 		    Requests have no access to the worker, and we
-		    need to progess the engine here 
+		    need to progess the engine here.
 		*/
 		extern void worker_progress();
 		extern void worker_progress_send();
@@ -106,10 +106,6 @@ namespace gridtools{
 
 			} CRITICAL_END(ucp_lock);
 			
-#ifdef USE_PTHREAD_LOCKS
-			// the below is necessary when using spin-locks
-			if(GET_NUM_THREADS() > 1) sched_yield();
-#endif
 			return retval;
                     }
 

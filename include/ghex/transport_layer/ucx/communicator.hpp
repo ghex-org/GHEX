@@ -12,7 +12,6 @@
 #define INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP
 
 #include <iostream>
-#include <time.h>
 #include <map>
 #include <functional>
 #include <deque>
@@ -77,17 +76,17 @@ namespace gridtools
 	    namespace ucx
 	    {
 		static std::size_t   ucp_request_size; // size in bytes required for a request by the UCX library
-		static std::size_t   request_size;     // total request size in bytes (UCX + our data)
 
 		void empty_send_cb(void *request, ucs_status_t status) {}
-
 		void empty_recv_cb(void *request, ucs_status_t status, ucp_tag_recv_info_t *info) {}
-
 		void ghex_request_init_cb(void *request){
 		    bzero(request, GHEX_REQUEST_SIZE);
 		}
 	    }
 
+	    /** Pointer to the thread-local communicator. 
+	     *  Required by the future-based progress functions, and by the
+	     *  UCX callbacks.*/
 	    class communicator<ucx_tag>;
 	    namespace ucx 
 	    {
@@ -128,9 +127,9 @@ namespace gridtools
 		/* these are static, i.e., shared by threads */
 		static ucp_context_h ucp_context;
 		static ucp_worker_h  ucp_worker;
-		ucp_worker_h  ucp_worker_send;
 
 		/* these are per-thread */
+		ucp_worker_h  ucp_worker_send;
 
 #ifdef USE_PMI
 		/** PMI interface to obtain peer addresses */
@@ -144,15 +143,20 @@ namespace gridtools
 
 	    public:
 
+	
+		/** The ucx::ghex_ucx_request_cb is templated over message type, 
+		 *  and hence it's size cannot be established in the base communicator.
+		 *  The size is needed though to initialize UCX. We use a constant
+		 *  GHEX_REQUEST_SIZE defined in request.hpp. It should be modified
+		 *  if the request structure changes, or if other compilers produce
+		 *  a request of different size.		    
+		 *  TODO: how to do this nicely?
+		 */
 		template<typename MsgType>
 		static int get_request_size(){
 		    return sizeof(ucx::ghex_ucx_request_cb<MsgType>);
 		}
-		
-		void whoami(){
-		    printf("I am Groot! %d/%d:%d/%d, worker %p\n", m_rank, m_size, m_thrid, m_nthr, ucp_worker);
-		}
-		
+				
                 rank_type rank() const noexcept { return m_rank; }
                 size_type size() const noexcept { return m_size; }
 
@@ -161,6 +165,7 @@ namespace gridtools
 
 		void finalize (){
 		    flush();
+		    ucp_worker_destroy(ucp_worker_send);
 		    THREAD_MASTER (){
 			ucp_worker_destroy(ucp_worker);
 			ucp_worker = nullptr;
@@ -219,15 +224,7 @@ namespace gridtools
 			    ucp_params.features =
 				UCP_FEATURE_TAG ;
 
-			    // request transport support for wakeup on events
-			    // if(use_events){
-			    //     ucp_params.features |=
-			    // 	UCP_FEATURE_WAKEUP ;
-			    // }
-
-
 			    // TODO: templated request type - how do we know the size??
-			    // ucp_params.request_size = sizeof(request_type);
 			    ucp_params.request_size = GHEX_REQUEST_SIZE;
 
 			    /* this should be true if we have per-thread workers
@@ -270,9 +267,6 @@ namespace gridtools
 
 			    /* UCP request size */
 			    ucx::ucp_request_size = attr.request_size;
-
-			    /* Total request size: UCP + GHEX struct*/
-			    ucx::request_size = attr.request_size + sizeof(ucx::ghex_ucx_request);
 			}
 
 			/* create a worker */
@@ -500,30 +494,9 @@ namespace gridtools
 		 *
 		 * @return unsigned Non-zero if any communication was progressed, zero otherwise.
 		 */
-		// #include <time.h>
-		// struct timespec progress_time;
-		// int time_init = 0;
-		// int tthreashold = 0;
-		// int empty_progress = 0;
 		unsigned progress()
 		{
 		    int p = 0, i = 0;
-
-		    // struct timespec time;
-		    // if(tthreashold){
-		    // 	if(!time_init){
-		    // 	    clock_gettime(CLOCK_REALTIME, &progress_time);
-		    // 	    time_init = 1;
-		    // 	} else {
-		    // 	    long tdiff;
-		    // 	    clock_gettime(CLOCK_REALTIME, &time);
-		    // 	    tdiff = (time.tv_sec-progress_time.tv_sec)*1000000000 + (time.tv_nsec-progress_time.tv_nsec);
-		    // 	    if(tdiff<tthreashold) {
-		    // 		return 0;
-		    // 	    }
-		    // 	    progress_time = time;
-		    // 	}
-		    // }
 
 		    p+= ucp_worker_progress(ucp_worker_send);
 		    CRITICAL_BEGIN(ucp_lock) {
@@ -552,19 +525,16 @@ namespace gridtools
 		    if(m_size > 2) ERR("barrier not implemented for more than 2 ranks");
 
 		    THREAD_BARRIER();
-
 		    flush();
 
 		    /* this should only be executed by a single thread */
 		    THREAD_MASTER () {
+
 			/* do a simple send and recv */
-			/* has to be run on master thread thrid 0 */
 			future<void> sf, rf;
 			rank_type peer_rank = (m_rank+1)%2;
 			tag_type tag;
 			std::array<int,1> smsg = {1}, rmsg = {0};
-
-			if(m_thrid!=0) ERR("barrier must be run on thread id 0");
 
 			// TODO: use something that cannot be used by the user. otherwise trouble...
 			tag = 0x800000;
@@ -573,33 +543,18 @@ namespace gridtools
 			rf = recv(rmsg, peer_rank, tag);
 			while(true){
 			    if(sf.test() && rf.test()) break;
-			    progress();
 			}
 		    }
+
 		    THREAD_BARRIER();
 		}
 
 		/* this must only be executed by a single thread */
 		void flush()
 		{
-		    /* this should only be executed by a single thread */
-		    THREAD_MASTER () {
-			void *request = ucp_worker_flush_nb(ucp_worker, 0, ucx::empty_send_cb);
-			if (request == NULL) {
-			    /* done */
-			} else if (UCS_PTR_IS_ERR(request)) {
-			    /* terminate */
-			    ERR("flush failed");
-			} else {
-			    ucs_status_t status;
-			    do {
-				ucp_worker_progress(ucp_worker);
-				status = ucp_request_check_status(request);
-			    } while (status == UCS_INPROGRESS);
-			    ucp_request_release(request);
-			}
-		    }
-
+		    /** Flush all the send workers.
+		     *  This should only be executed by all threads
+		     */
 		    {
 			void *request = ucp_worker_flush_nb(ucp_worker_send, 0, ucx::empty_send_cb);
 			if (request == NULL) {
@@ -611,6 +566,26 @@ namespace gridtools
 			    ucs_status_t status;
 			    do {
 				ucp_worker_progress(ucp_worker_send);
+				status = ucp_request_check_status(request);
+			    } while (status == UCS_INPROGRESS);
+			    ucp_request_release(request);
+			}
+		    }
+
+		    /** Flush the recv worker.
+		     *  This should only be executed by a single thread
+		     */
+		    THREAD_MASTER () {
+			void *request = ucp_worker_flush_nb(ucp_worker, 0, ucx::empty_send_cb);
+			if (request == NULL) {
+			    /* done */
+			} else if (UCS_PTR_IS_ERR(request)) {
+			    /* terminate */
+			    ERR("flush failed");
+			} else {
+			    ucs_status_t status;
+			    do {
+				ucp_worker_progress(ucp_worker);
 				status = ucp_request_check_status(request);
 			    } while (status == UCS_INPROGRESS);
 			    ucp_request_release(request);
@@ -632,30 +607,27 @@ namespace gridtools
 
 	    namespace ucx {
 
-		/** this is used by the request test() function
-		    since it has no access to the communicator. 
+		/** Used by the request test() function to progress the worker.
+		    Requests have no direct access to the communicator. 
 
 		    NOTE: has to be ucp_lock'ed by the caller!
 		*/
 		void worker_progress(){
-		    /* TODO: this may not be necessary when critical is no longer used */
 		    ucp_worker_progress(pcomm->ucp_worker);
-		    if(pcomm->m_nthr > 1){
-			ucp_worker_progress(pcomm->ucp_worker);
-			ucp_worker_progress(pcomm->ucp_worker);
-			ucp_worker_progress(pcomm->ucp_worker);
-		    }
 		}
 
+		/** Used by the request test() function to progress the worker.
+		    Requests have no direct access to the communicator. 
+		*/
 		void worker_progress_send(){
 		    ucp_worker_progress(pcomm->ucp_worker_send);
-		    if(pcomm->m_nthr > 1){
-			ucp_worker_progress(pcomm->ucp_worker_send);
-			ucp_worker_progress(pcomm->ucp_worker_send);
-			ucp_worker_progress(pcomm->ucp_worker_send);
-		    }
 		}
 
+		/** Used by the request cancel() function.
+		    Requests have no direct access to the communicator. 
+
+		    NOTE: has to be ucp_lock'ed by the caller!
+		*/
 		void worker_request_cancel(ghex_ucx_request* req){
 		    ucp_request_cancel(pcomm->ucp_worker, req);
 		}
