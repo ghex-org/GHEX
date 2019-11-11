@@ -101,7 +101,6 @@ int main(int argc, char *argv[])
 	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
 	}
 
-	MPI_Barrier(mpi_comm);
 	THREAD_MASTER(){
 	    MPI_Barrier(mpi_comm);
 	}
