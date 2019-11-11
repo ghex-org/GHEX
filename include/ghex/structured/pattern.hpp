@@ -32,6 +32,7 @@ namespace gridtools {
     class pattern<Transport,structured::detail::grid<CoordinateArrayType>,DomainIdType>
     {
     public: // member types
+        using transport_type          = Transport;
         using grid_type               = structured::detail::grid<CoordinateArrayType>;
         using this_type               = pattern<Transport, grid_type, DomainIdType>;
         using coordinate_type         = typename grid_type::coordinate_type;
@@ -191,16 +192,6 @@ namespace gridtools {
         const coordinate_type& global_last()  const noexcept { return m_global_last; }
         const iteration_space& global_domain() const noexcept { return m_domain.global(); }
 
-        /** @brief tie pattern to field
-         * @tparam Field field type
-         * @param pc pattern container
-         * @param field field instance
-         * @return buffer_info object which holds a refernce to the field, the pattern and the pattern container */
-        template<typename Field>
-        buffer_info<pattern, typename Field::arch_type, Field> operator()(Field& field) const
-        {
-            return {*this,field,field.device_id()};
-        }
     };
 
     namespace detail {

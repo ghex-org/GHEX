@@ -15,7 +15,7 @@
 #include "./packer.hpp"
 #include "./common/utils.hpp"
 #include "./common/test_eq.hpp"
-#include "./buffer_info.hpp"
+#include "./halo.hpp"
 #include "./transport_layer/communicator.hpp"
 #include "./structured/simple_field_wrapper.hpp"
 #include "./arch_traits.hpp"
@@ -107,8 +107,8 @@ namespace gridtools {
             using pattern_container_type  = pattern_container<Transport,GridType,DomainIdType>;
             using this_type               = communication_object<Transport,GridType,DomainIdType>;
 
-            template<typename D, typename F>
-            using buffer_info_type        = buffer_info<pattern_type,D,F>;
+            template<typename Field>
+            using halo_type               = typename pattern_container_type::template halo_type<Field>;
 
         private: // member types
 
@@ -202,34 +202,23 @@ namespace gridtools {
 
         public: // exchange arbitrary field-device-pattern combinations
 
-            /** @brief blocking variant of halo exchange
-              * @tparam Archs list of device types
-              * @tparam Fields list of field types
-              * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern */
-            template<typename... Archs, typename... Fields>
-            void bexchange(buffer_info_type<Archs,Fields>... buffer_infos)
-            {
-                exchange(buffer_infos...).wait();
-            }
-
             /** @brief non-blocking exchange of halo data
-              * @tparam Archs list of device types
-              * @tparam Fields list of field types
-              * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
+              * @tparam Fields list of data descriptor types
+              * @param halos generated halos
               * @return handle to await communication */
-            template<typename... Archs, typename... Fields>
-            [[nodiscard]] handle_type exchange(buffer_info_type<Archs,Fields>... buffer_infos)
+            template<typename... Fields>
+            [[nodiscard]] handle_type exchange(halo_type<Fields>... halos)
             {
                 // check that arguments are compatible
                 using test_t = pattern_container<transport_type,grid_type,domain_id_type>;
-                static_assert(detail::test_eq_t<test_t, typename buffer_info_type<Archs,Fields>::pattern_container_type...>::value,
-                        "patterns are not compatible with this communication object");
+                static_assert(detail::test_eq_t<test_t, typename halo_type<Fields>::pattern_container_type...>::value,
+                        "halos are not compatible with this communication object");
                 if (m_valid) 
                     throw std::runtime_error("earlier exchange operation was not finished");
                 m_valid = true;
 
                 // temporarily store address of pattern containers
-                const test_t* ptrs[sizeof...(Fields)] = { &(buffer_infos.get_pattern_container())... };
+                const test_t* ptrs[sizeof...(Fields)] = { &(halos.get_pattern_container())... };
                 // build a tag map
                 std::map<const test_t*,int> pat_ptr_map;
                 int max_tag = 0;
@@ -240,24 +229,24 @@ namespace gridtools {
                         max_tag += ptrs[k]->max_tag()+1;
                 }
                 // compute tag offset for each field
-                int tag_offsets[sizeof...(Fields)] = { pat_ptr_map[&(buffer_infos.get_pattern_container())]... };
+                int tag_offsets[sizeof...(Fields)] = { pat_ptr_map[&(halos.get_pattern_container())]... };
                 // store arguments and corresponding memory in tuples
-                using buffer_infos_ptr_t     = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
-                using memory_t               = std::tuple<buffer_memory<Archs>*...>;
-                buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
-                memory_t memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
+                using halos_ptr_t            = std::tuple<halo_type<Fields>*...>;
+                using memory_t               = std::tuple<buffer_memory<typename halo_type<Fields>::arch_type>*...>;
+                halos_ptr_t halos_tuple{&halos...};
+                memory_t memory_tuple{&(std::get<buffer_memory<typename halo_type<Fields>::arch_type>>(m_mem))...};
                 // loop over buffer_infos/memory and compute required space
                 int i = 0;
-                detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&tag_offsets](auto mem, auto bi) 
+                detail::for_each(memory_tuple, halos_tuple, [this,&i,&tag_offsets](auto mem, auto halo) 
                 {
                     using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
-                    using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
-                    auto field_ptr = &(bi->get_field());
-                    const domain_id_type my_dom_id = bi->get_field().domain_id();
-                    allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
+                    using value_type  = typename std::remove_reference_t<decltype(*halo)>::value_type;
+                    auto field_ptr = &(halo->get_field());
+                    const domain_id_type my_dom_id = halo->domain_id();
+                    allocate<arch_type,value_type>(mem, halo->get_pattern(), field_ptr, my_dom_id, halo->device_id(), tag_offsets[i]);
                     ++i;
                 });
-                handle_type h(std::get<0>(buffer_info_tuple)->get_pattern().communicator(), [this](){this->wait();});
+                handle_type h(std::get<0>(halos_tuple)->get_pattern().communicator(), [this](){this->wait();});
                 post_recvs(h.m_comm);
                 pack(h.m_comm);
                 return h; 
@@ -266,13 +255,12 @@ namespace gridtools {
         public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
 
             /** @brief non-blocking exchange of data, vector interface
-              * @tparam Arch device type
               * @tparam Field field type
-              * @param first pointer to first buffer_info object
-              * @param length number of buffer_infos
+              * @param first pointer to halo exchange object
+              * @param length number of halo exhange objects
               * @return handle to await exchange */
-            template<typename Arch, typename Field>
-            [[nodiscard]] handle_type exchange(buffer_info_type<Arch,Field>* first, std::size_t length)
+            template<typename Field>
+            [[nodiscard]] handle_type exchange(halo_type<Field>* first, std::size_t length)
             {
                 auto h = exchange_impl(first, length);
                 post_recvs(h.m_comm);
@@ -286,7 +274,7 @@ namespace gridtools {
             template<typename Arch, typename T, int... Order>
             [[nodiscard]] std::enable_if_t<std::is_same<Arch,gpu>::value, handle_type>
             exchange_u(
-                buffer_info_type<Arch,structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+                halo_type<structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
                 std::size_t length)
             {
                 using memory_t   = buffer_memory<gpu>;
@@ -304,7 +292,7 @@ namespace gridtools {
             template<typename Arch, typename T, int... Order>
             [[nodiscard]] std::enable_if_t<std::is_same<Arch,cpu>::value, handle_type>
             exchange_u(
-                buffer_info_type<Arch,structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+                halo_type<structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
                 std::size_t length)
             {
                 return exchange(first, length);
@@ -312,13 +300,13 @@ namespace gridtools {
 
         private: // implementation
 
-            template<typename Arch, typename Field>
-            [[nodiscard]] handle_type exchange_impl(buffer_info_type<Arch,Field>* first, std::size_t length)
+            template<typename Field>
+            [[nodiscard]] handle_type exchange_impl(halo_type<Field>* first, std::size_t length)
             {
                 // check that arguments are compatible
                 using test_t = pattern_container<transport_type,grid_type,domain_id_type>;
-                static_assert(std::is_same<test_t, typename buffer_info_type<Arch,Field>::pattern_container_type>::value,
-                        "patterns are not compatible with this communication object");
+                static_assert(std::is_same<test_t, typename halo_type<Field>::pattern_container_type>::value,
+                        "halos are not compatible with this communication object");
                 if (m_valid)
                     throw std::runtime_error("earlier exchange operation was not finished");
                 m_valid = true;
@@ -334,15 +322,16 @@ namespace gridtools {
                         max_tag += ptr->max_tag()+1;
                 }
                 // loop over buffer_infos/memory and compute required space
-                using memory_t               = buffer_memory<Arch>*;
-                using value_type             = typename buffer_info_type<Arch,Field>::value_type;
-                memory_t mem{&(std::get<buffer_memory<Arch>>(m_mem))};
+                using arch_t                 = typename halo_type<Field>::arch_type;
+                using memory_t               = buffer_memory<arch_t>*;
+                using value_type             = typename halo_type<Field>::value_type;
+                memory_t mem{&(std::get<buffer_memory<arch_t>>(m_mem))};
                 for (std::size_t k=0; k<length; ++k)
                 {
                     auto field_ptr = &((first+k)->get_field());
                     auto tag_offset = pat_ptr_map[&((first+k)->get_pattern_container())];
-                    const auto my_dom_id  =(first+k)->get_field().domain_id();
-                    allocate<Arch,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offset);
+                    const auto my_dom_id  =(first+k)->domain_id();
+                    allocate<arch_t,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offset);
                 }
                 return handle_type(first->get_pattern().communicator(), [this](){this->wait();});
             }

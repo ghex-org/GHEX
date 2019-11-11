@@ -13,7 +13,7 @@
 
 #include "./transport_layer/mpi/setup.hpp"
 #include "./transport_layer/mpi/communicator.hpp"
-#include "./buffer_info.hpp"
+#include "./halo.hpp"
 
 namespace gridtools {
 
@@ -39,6 +39,8 @@ namespace gridtools {
         public: // member tyes
             /** @brief pattern type this object is holding */
             using value_type = pattern<Transport,GridType,DomainIdType>;
+            template<typename Field>
+            using halo_type  = halo_t<value_type,Field>;
 
         private: // private member types
             using data_type  = std::vector<value_type>;
@@ -64,17 +66,33 @@ namespace gridtools {
             auto end() const noexcept { return m_patterns.cend(); }
             int max_tag() const noexcept { return m_max_tag; }
 
-            /** @brief bind a field to a pattern
-             * @tparam Field field type
-             * @param field field instance
-             * @return lightweight buffer_info object. Attention: holds references to field and pattern! */
+            /** @brief generates halo exchange object for a given field.
+              * precondition: Field has a member function domain_id() which returns the id of the associated domain. 
+              * @tparam Field data descriptor type
+              * @param field data field
+              * @return halo exchange object*/
             template<typename Field>
-            buffer_info<value_type,typename Field::arch_type,Field> operator()(Field& field) const
+            halo_type<Field> generate_halo(Field& field) const
             {
                 // linear search here
-                for (auto& p : m_patterns)
-                    if (p.domain_id()==field.domain_id()) return p(field);
-                throw std::runtime_error("field incompatible with available domains!");
+                for (const auto& p : m_patterns)
+                    if (p.domain_id() == field.domain_id()) return { p, field.domain_id(), field};
+                throw std::runtime_error("domain incompatible with pattern!");
+            }
+
+            /** @brief generates halo exchange object for a given domain and field.
+              * @tparam Field data descriptor type
+              * @tparam Domain domain type
+              * @param domain domain instance
+              * @param field data field
+              * @return halo exchange object*/
+            template<typename Field, typename Domain>
+            halo_type<Field> generate_halo(const Domain& domain, Field& field) const
+            {
+                // linear search here
+                for (const auto& p : m_patterns)
+                    if (p.domain_id() == domain.domain_id()) return { p, p.domain_id(), field};
+                throw std::runtime_error("domain incompatible with pattern!");
             }
 
         private: // members

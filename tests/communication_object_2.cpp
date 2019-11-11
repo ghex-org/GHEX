@@ -424,43 +424,43 @@ bool test0()
 #ifdef GHEX_TEST_SERIAL
     // blocking variant
 #ifdef GHEX_HYBRID_TESTS
-    co.bexchange(
-        pattern1(field_1a_gpu),
-        pattern1(field_1b),
-        pattern2(field_2a_gpu),
-        pattern2(field_2b),
-        pattern1(field_3a_gpu),
-        pattern1(field_3b)
-    );
+    co.exchange(
+        pattern1.generate_halo(field_1a_gpu),
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3a_gpu),
+        pattern1.generate_halo(field_3b)
+    ).wait();
 #else
-    co.bexchange(
-        pattern1(field_1a_gpu),
-        pattern1(field_1b_gpu),
-        pattern2(field_2a_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3a_gpu),
-        pattern1(field_3b_gpu)
-    );
+    co.exchange(
+        pattern1.generate_halo(field_1a_gpu),
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3a_gpu),
+        pattern1.generate_halo(field_3b_gpu)
+    ).wait();
 #endif
 #endif
 #ifdef GHEX_TEST_SERIAL_VECTOR
-    std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec{
-        pattern1(field_1a_gpu),
-        pattern1(field_1b_gpu),
-        pattern2(field_2a_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3a_gpu),
-        pattern1(field_3b_gpu)};
+    std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a_gpu))>> field_vec{
+        pattern1.generate_halo(field_1a_gpu),
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3a_gpu),
+        pattern1.generate_halo(field_3b_gpu)};
     co.exchange(field_vec.data(), field_vec.size()).wait();
 #endif
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
     // non-blocking variant
-    auto h1 = co_1.exchange(pattern1(field_1a_gpu), pattern2(field_2a_gpu), pattern1(field_3a_gpu));
+    auto h1 = co_1.exchange(pattern1.generate_halo(field_1a_gpu), pattern2.generate_halo(field_2a_gpu), pattern1.generate_halo(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
-    auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
+    auto h2 = co_2.exchange(pattern1.generate_halo(field_1b), pattern2.generate_halo(field_2b), pattern1.generate_halo(field_3b));
 #else
-    auto h2 = co_2.exchange(pattern1(field_1b_gpu), pattern2(field_2b_gpu), pattern1(field_3b_gpu));
+    auto h2 = co_2.exchange(pattern1.generate_halo(field_1b_gpu), pattern2.generate_halo(field_2b_gpu), pattern1.generate_halo(field_3b_gpu));
 #endif
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
@@ -468,14 +468,14 @@ bool test0()
     h2.wait();
 #endif
 #ifdef GHEX_TEST_SERIAL_SPLIT_VECTOR
-    std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec_a{
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu)};
-    std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec_b{
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu)};
+    std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a_gpu))>> field_vec_a{
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu)};
+    std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a_gpu))>> field_vec_b{
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu)};
     auto h1 = co_1.exchange(field_vec_a.data(), field_vec_a.size());
     auto h2 = co_2.exchange(field_vec_b.data(), field_vec_b.size());
     // ... overlap communication (packing, posting) with computation here
@@ -487,31 +487,31 @@ bool test0()
 #ifdef GHEX_TEST_THREADS
     auto func = [](decltype(co)& co_, auto... bis)
     {
-        co_.bexchange(bis...);
+        co_.exchange(bis...).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
     threads.push_back(std::thread{func, std::ref(co_1),
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu)});
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu)});
 #ifdef GHEX_HYBRID_TESTS
     threads.push_back(std::thread{func, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b)});
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b)});
 #else
     threads.push_back(std::thread{func, std::ref(co_2),
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu)});
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu)});
 #endif
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #endif
 #ifdef GHEX_TEST_THREADS_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a_gpu))>>;
     auto func = [](decltype(co)& co_, field_vec_type& vec)
     {
         co_.exchange(vec.data(), vec.size()).wait();
@@ -520,13 +520,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
     field_vec_type field_vec_a{
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu)};
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu)};
     field_vec_type field_vec_b{
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu)};
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu)};
     threads.push_back(std::thread{func, std::ref(co_1), std::ref(field_vec_a)});
     threads.push_back(std::thread{func, std::ref(co_2), std::ref(field_vec_b)});
     // ... overlap communication with computation here
@@ -536,32 +536,32 @@ bool test0()
 #ifdef GHEX_TEST_ASYNC_ASYNC
     auto func = [](decltype(co)& co_, auto... bis)
     {
-        co_.bexchange(bis...);
+        co_.exchange(bis...).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func, std::ref(co_1),
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu));
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
     auto future_2 = std::async(policy, func, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b));
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b));
 #else
     auto future_2 = std::async(policy, func, std::ref(co_2),
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu));
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu));
 #endif
     // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a_gpu))>>;
     auto func = [](decltype(co)& co_, field_vec_type& vec)
     {
         co_.exchange(vec.data(), vec.size()).wait();
@@ -570,13 +570,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     field_vec_type field_vec_a{
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu)};
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu)};
     field_vec_type field_vec_b{
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu)};
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu)};
     auto future_1 = std::async(policy, func, std::ref(co_1), std::ref(field_vec_a));
     auto future_2 = std::async(policy, func, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication with computation here
@@ -593,19 +593,19 @@ bool test0()
     // waiting and unpacking serially on current thread
     auto policy = std::launch::deferred;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu));
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b));
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b));
 #else
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu));
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu));
 #endif
     // deferred policy: essentially serial on current thread
     auto h1 = future_1.get();
@@ -616,7 +616,7 @@ bool test0()
     h2.wait();
 #endif
 #ifdef GHEX_TEST_ASYNC_DEFERRED_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a_gpu))>>;
     auto func_h = [](decltype(co)& co_, field_vec_type& vec)
     {
         return co_.exchange(vec.data(), vec.size());
@@ -625,13 +625,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::deferred;
     field_vec_type field_vec_a{
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu)};
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu)};
     field_vec_type field_vec_b{
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu)};
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu)};
     auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
     // deferred policy: essentially serial on current thread
@@ -652,19 +652,19 @@ bool test0()
     // waiting and unpacking serially
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu));
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b));
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b));
 #else
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu));
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu));
 #endif
     // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
@@ -672,7 +672,7 @@ bool test0()
     future_2.get().wait();
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a_gpu))>>;
     auto func_h = [](decltype(co)& co_, field_vec_type& vec)
     {
         return co_.exchange(vec.data(), vec.size());
@@ -681,13 +681,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     field_vec_type field_vec_a{
-        pattern1(field_1a_gpu),
-        pattern2(field_2a_gpu),
-        pattern1(field_3a_gpu)};
+        pattern1.generate_halo(field_1a_gpu),
+        pattern2.generate_halo(field_2a_gpu),
+        pattern1.generate_halo(field_3a_gpu)};
     field_vec_type field_vec_b{
-        pattern1(field_1b_gpu),
-        pattern2(field_2b_gpu),
-        pattern1(field_3b_gpu)};
+        pattern1.generate_halo(field_1b_gpu),
+        pattern2.generate_halo(field_2b_gpu),
+        pattern1.generate_halo(field_3b_gpu)};
     auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication (packing, posting) with computation here
@@ -745,44 +745,44 @@ bool test0()
     // exchange
 #ifdef GHEX_TEST_SERIAL
     // blocking variant
-    co.bexchange(
-        pattern1(field_1a),
-        pattern1(field_1b),
-        pattern2(field_2a),
-        pattern2(field_2b),
-        pattern1(field_3a),
-        pattern1(field_3b)
-    );
+    co.exchange(
+        pattern1.generate_halo(field_1a),
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2a),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3a),
+        pattern1.generate_halo(field_3b)
+    ).wait();
 #endif
 #ifdef GHEX_TEST_SERIAL_VECTOR
-    std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec{
-        pattern1(field_1a),
-        pattern1(field_1b),
-        pattern2(field_2a),
-        pattern2(field_2b),
-        pattern1(field_3a),
-        pattern1(field_3b)};
+    std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a))>> field_vec{
+        pattern1.generate_halo(field_1a),
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2a),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3a),
+        pattern1.generate_halo(field_3b)};
     co.exchange(field_vec.data(), field_vec.size()).wait();
 #endif
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
     // non-blocking variant
-    auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
-    auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
+    auto h1 = co_1.exchange(pattern1.generate_halo(field_1a), pattern2.generate_halo(field_2a), pattern1.generate_halo(field_3a));
+    auto h2 = co_2.exchange(pattern1.generate_halo(field_1b), pattern2.generate_halo(field_2b), pattern1.generate_halo(field_3b));
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
     h1.wait();
     h2.wait();
 #endif
 #ifdef GHEX_TEST_SERIAL_SPLIT_VECTOR
-    std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec_a{
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a)};
-    std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec_b{
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b)};
+    std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a))>> field_vec_a{
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a)};
+    std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a))>> field_vec_b{
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b)};
     auto h1 = co_1.exchange(field_vec_a.data(), field_vec_a.size());
     auto h2 = co_2.exchange(field_vec_b.data(), field_vec_b.size());
     // ... overlap communication (packing, posting) with computation here
@@ -794,24 +794,24 @@ bool test0()
 #ifdef GHEX_TEST_THREADS
     auto func = [](decltype(co)& co_, auto... bis)
     {
-        co_.bexchange(bis...);
+        co_.exchange(bis...).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
     threads.push_back(std::thread{func, std::ref(co_1),
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a)});
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a)});
     threads.push_back(std::thread{func, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b)});
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b)});
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #endif
 #ifdef GHEX_TEST_THREADS_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a))>>;
     auto func = [](decltype(co)& co_, field_vec_type& vec)
     {
         co_.exchange(vec.data(), vec.size()).wait();
@@ -820,13 +820,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
     field_vec_type field_vec_a{
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a)};
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a)};
     field_vec_type field_vec_b{
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b)};
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b)};
     threads.push_back(std::thread{func, std::ref(co_1), std::ref(field_vec_a)});
     threads.push_back(std::thread{func, std::ref(co_2), std::ref(field_vec_b)});
     // ... overlap communication with computation here
@@ -836,25 +836,25 @@ bool test0()
 #ifdef GHEX_TEST_ASYNC_ASYNC
     auto func = [](decltype(co)& co_, auto... bis)
     {
-        co_.bexchange(bis...);
+        co_.exchange(bis...).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func, std::ref(co_1),
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a));
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a));
     auto future_2 = std::async(policy, func, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b));
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b));
     // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a))>>;
     auto func = [](decltype(co)& co_, field_vec_type& vec)
     {
         co_.exchange(vec.data(), vec.size()).wait();
@@ -863,13 +863,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     field_vec_type field_vec_a{
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a)};
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a)};
     field_vec_type field_vec_b{
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b)};
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b)};
     auto future_1 = std::async(policy, func, std::ref(co_1), std::ref(field_vec_a));
     auto future_2 = std::async(policy, func, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication with computation here
@@ -886,13 +886,13 @@ bool test0()
     // waiting and unpacking serially on current thread
     auto policy = std::launch::deferred;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a));
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b));
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b));
     // deferred policy: essentially serial on current thread
     auto h1 = future_1.get();
     auto h2 = future_2.get();
@@ -902,7 +902,7 @@ bool test0()
     h2.wait();
 #endif
 #ifdef GHEX_TEST_ASYNC_DEFERRED_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a))>>;
     auto func_h = [](decltype(co)& co_, field_vec_type& vec)
     {
         return co_.exchange(vec.data(), vec.size());
@@ -911,13 +911,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::deferred;
     field_vec_type field_vec_a{
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a)};
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a)};
     field_vec_type field_vec_b{
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b)};
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b)};
     auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
     // deferred policy: essentially serial on current thread
@@ -938,20 +938,20 @@ bool test0()
     // waiting and unpacking serially
     auto policy = std::launch::async;
     auto future_1 = std::async(policy, func_h, std::ref(co_1),
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a));
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2),
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b));
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b));
     // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
     future_1.get().wait();
     future_2.get().wait();
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR
-    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
+    using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1.generate_halo(field_1a))>>;
     auto func_h = [](decltype(co)& co_, field_vec_type& vec)
     {
         return co_.exchange(vec.data(), vec.size());
@@ -960,13 +960,13 @@ bool test0()
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
     field_vec_type field_vec_a{
-        pattern1(field_1a),
-        pattern2(field_2a),
-        pattern1(field_3a)};
+        pattern1.generate_halo(field_1a),
+        pattern2.generate_halo(field_2a),
+        pattern1.generate_halo(field_3a)};
     field_vec_type field_vec_b{
-        pattern1(field_1b),
-        pattern2(field_2b),
-        pattern1(field_3b)};
+        pattern1.generate_halo(field_1b),
+        pattern2.generate_halo(field_2b),
+        pattern1.generate_halo(field_3b)};
     auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
     auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
     // ... overlap communication (packing, posting) with computation here
