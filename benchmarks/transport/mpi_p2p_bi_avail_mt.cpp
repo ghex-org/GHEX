@@ -119,7 +119,6 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	MPI_Barrier(mpi_comm);
 	THREAD_MASTER(){
 	    MPI_Barrier(mpi_comm);
 	}
