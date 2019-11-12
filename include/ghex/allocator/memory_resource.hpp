@@ -23,8 +23,6 @@ namespace gridtools {
 
             using memory_resource = std::experimental::pmr::memory_resource;
 
-            //using unsynchronized_pool_resource = std::experimental::pmr::unsynchronized_pool_resource;
-
             using std::experimental::pmr::new_delete_resource;
             using std::experimental::pmr::get_default_resource;
             
@@ -37,7 +35,6 @@ namespace gridtools {
                 template<typename U>
                 struct rebind
                 {
-                    //using other = aligned_polymorphic_allocator<typename base_traits::template rebind_alloc<U>, Alignment>;
                     using other = aligned_polymorphic_allocator<U, Alignment>;
                 };
 
