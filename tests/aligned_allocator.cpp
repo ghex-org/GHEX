@@ -28,6 +28,10 @@ void test_std_alloc(int n)
     aligned_alloc_t aligned_alloc(std::move(aligned_alloc_other));
     
     auto ptr = aligned_alloc.allocate(n);
+    std::cout << "offset         = " << aligned_alloc_t::offset << std::endl;
+    std::cout << "actual space   = " << sizeof(T)*n << std::endl;
+    std::cout << "required space = " << aligned_alloc_t::offset+n*sizeof(T) << std::endl;
+    std::cout << "padding space  = " << (aligned_alloc_t::offset>0?(aligned_alloc_t::offset-sizeof(void*)):0) << std::endl;
     
     aligned_alloc.construct(ptr, Alignment);
     
