@@ -5,7 +5,7 @@ else()
     set(_ucx_params )
 endif()
 
-set(_serial_tests aligned_allocator)
+set(_serial_tests aligned_allocator test_memory_resource)
 
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)
