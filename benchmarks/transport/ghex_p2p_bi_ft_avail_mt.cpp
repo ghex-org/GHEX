@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	int dbg = 0, rdbg;
+	int dbg = 0, rdbg = 0;
 	while(sent < niter || received < niter){
 	    
 	    /* submit comm */
