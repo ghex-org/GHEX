@@ -6,14 +6,14 @@ BOOST_DIR ?= /usr/include
 CC=mpicc
 CXX=mpicxx
 
-FLAGS=-O3 -g -std=c++17 -I../../include
+FLAGS=-O3 -g -std=c++14 -I../../include
 
 all: test
 
 clean:
 	rm *.o test
 
-test: mpi_p2p_bi_wait_mt.cpp
+test: ghex_p2p_bi_cb_avail_mt.cpp
 	$(CXX) $(UDEF) $(FLAGS) -I$(BOOST_DIR) -I$(UCX_DIR)/include -o $@ $^ -Wl,-rpath -Wl,$(PMIX_DIR)/lib -L$(PMIX_DIR)/lib -lpmix -L$(UCX_DIR)/lib -lucp -Wl,-rpath -Wl,$(UCX_DIR)/lib -Wl,-rpath -Wl,$(PMIX_DIR)/lib -fopenmp
 
 mpitest: mpi_p2p_bi_avail.cpp

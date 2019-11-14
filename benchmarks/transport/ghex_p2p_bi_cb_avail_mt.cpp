@@ -29,8 +29,8 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
 /* comm requests currently in-flight */
-std::atomic<int> sent = 0;
-std::atomic<int> received = 0;
+std::atomic<int> sent(0);
+std::atomic<int> received(0);
 int last_received = 0;
 int last_sent = 0;
 

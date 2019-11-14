@@ -98,7 +98,7 @@ namespace gridtools {
 		}
 
 		shared_message_buffer(message_type&& m){
-		    m_sptr = new refcounted_message(m);
+		    m_sptr = new refcounted_message<Allocator>(m);
 		}
 
                 shared_message_buffer(const shared_message_buffer& other){

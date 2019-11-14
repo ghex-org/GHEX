@@ -11,8 +11,8 @@
 	time_t tm = time(NULL);						\
 	char *stm = ctime(&tm);						\
 	stm[strlen(stm)-1] = 0;						\
-	fprintf(stderr, "%s %s:%d  " msg "\n", stm, __FILE__, __LINE__, ## __VA_ARGS__); \
-	fflush(stderr);							\
+	(void)fprintf(stderr, "%s %s:%d  " msg "\n", stm, __FILE__, __LINE__, ## __VA_ARGS__); \
+	(void)fflush(stderr);						\
     } while(0);
 
 #else
@@ -24,7 +24,7 @@
 	time_t tm = time(NULL);						\
 	char *stm = ctime(&tm);						\
 	stm[strlen(stm)-1] = 0;						\
-	fprintf(stderr, "%s WARNING: %s:%d  " msg "\n", stm, __FILE__, __LINE__, ## __VA_ARGS__); \
+	(void)fprintf(stderr, "%s WARNING: %s:%d  " msg "\n", stm, __FILE__, __LINE__, ## __VA_ARGS__); \
     } while(0);
 
 
@@ -33,8 +33,8 @@
 	time_t tm = time(NULL);						\
 	char *stm = ctime(&tm);						\
 	stm[strlen(stm)-1] = 0;						\
-	fprintf(stderr, "%s ERROR: %s:%d  " msg "\n", stm, __FILE__, __LINE__, ## __VA_ARGS__); \
-	exit(1);							\
+	(void)fprintf(stderr, "%s ERROR: %s:%d  " msg "\n", stm, __FILE__, __LINE__, ## __VA_ARGS__); \
+	(void)exit(1);							\
     } while(0);
 
 #endif /* INCLUDED_GHEX_COMMON_DEBUG_HPP */
