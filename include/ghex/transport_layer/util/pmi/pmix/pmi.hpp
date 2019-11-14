@@ -62,7 +62,8 @@ namespace gridtools
 		     * wildcard rank as it doesn't relate to a specific rank. Setup
 		     * a name to retrieve such values */
 		    PMIX_PROC_CONSTRUCT(&allproc);
-		    (void)strncpy(allproc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
+		    // (void)strncpy(allproc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
+		    (void)memcpy(allproc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
 		    allproc.rank = PMIX_RANK_WILDCARD;
 
 		    /* get the number of procs in our job */
@@ -116,7 +117,8 @@ namespace gridtools
 		    pmix_value_t *pvalue;
 
 		    PMIX_PROC_CONSTRUCT(&proc);
-		    (void)strncpy(proc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
+		    // (void)strncpy(proc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
+		    (void)memcpy(proc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
 		    proc.rank = peer_rank;
 		    if (PMIX_SUCCESS != (rc = PMIx_Get(&proc, key.c_str(), NULL, 0, &pvalue))) {
 			ERR("Client ns %s rank %d: PMIx_Get %s: %d\n", myproc.nspace, myproc.rank, key.c_str(), rc);

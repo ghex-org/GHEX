@@ -7,8 +7,8 @@
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
-std::atomic<int> sent = 0;
-std::atomic<int> received = 0;
+std::atomic<int> sent(0);
+std::atomic<int> received(0);
 int last_received = 0;
 int last_sent = 0;
 
@@ -19,21 +19,24 @@ int main(int argc, char *argv[])
     int inflight;
 
     gridtools::ghex::timer timer, ttimer;
-    long bytes = 0;
 
+    if(argc != 4){
+	std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	std::terminate();
+    }
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
     
     int mode;
 #ifdef THREAD_MODE_MULTIPLE
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
 	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
 	std::terminate();
     }
 #else
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mode);
 #endif
 
     THREAD_PARALLEL_BEG() {
@@ -89,7 +92,7 @@ int main(int argc, char *argv[])
 	    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
 	}
 
-	int i = 0, dbg = 0, sdbg = 0, rdbg = 0, flag, j;
+	int dbg = 0, sdbg = 0, rdbg = 0, flag, j;
 	char header[256];
 	snprintf(header, 256, "%d total bwdt ", rank);
 	while(sent<niter || received<niter){

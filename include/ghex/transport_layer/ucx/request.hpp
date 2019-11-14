@@ -47,10 +47,10 @@ namespace gridtools{
 
 		    ghex_ucx_request_cb(const ghex_ucx_request_cb&) = delete;
 		    ghex_ucx_request_cb(ghex_ucx_request_cb &&other) : 
-			m_msg{std::move(other.m_msg)}, 
-			m_cb{std::move(other.m_cb)}, 
 			m_peer_rank{other.m_peer_rank}, 
-			m_tag{other.m_tag}
+			m_tag{other.m_tag},
+			m_cb{std::move(other.m_cb)},
+			m_msg{std::move(other.m_msg)}
 		    {}
 
 		    ghex_ucx_request_cb& operator=(const ghex_ucx_request_cb &other) = delete;

@@ -16,7 +16,8 @@
     } while(0);
 
 #else
-#define LOG(msg, ...)
+#define LOG(msg, ...)				\
+    do { } while(0);
 #endif
 
 #define WARN(msg, ...)							\

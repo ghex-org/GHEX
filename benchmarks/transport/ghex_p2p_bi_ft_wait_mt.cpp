@@ -34,24 +34,27 @@ int main(int argc, char *argv[])
     int niter, buff_size;
     int inflight;
     gridtools::ghex::timer timer, ttimer;
-    long bytes = 0;
 
 #ifdef USE_MPI
     int mode;
 #ifdef THREAD_MODE_MULTIPLE
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
 	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
 	std::terminate();
     }
 #else
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mode);
 #endif
 #endif
     
+    if(argc != 4){
+	std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	std::terminate();
+    }
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight = atoi(argv[3]);   
+    inflight = atoi(argv[3]);
 
     THREAD_PARALLEL_BEG() {
 	CommType comm;
@@ -68,8 +71,8 @@ int main(int argc, char *argv[])
 
 	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
-	FutureType sreqs[inflight];
-	FutureType rreqs[inflight];
+	FutureType *sreqs = new FutureType[inflight];
+	FutureType *rreqs = new FutureType[inflight];
 	
 	for(int j=0; j<inflight; j++){
 	    smsgs.push_back(MsgType(buff_size));

@@ -29,8 +29,8 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
 /* comm requests currently in-flight */
-std::atomic<int> sent = 0;
-std::atomic<int> received = 0;
+std::atomic<int> sent(0);
+std::atomic<int> received(0);
 int last_received = 0;
 
 int inflight;
@@ -52,21 +52,19 @@ DECLARE_THREAD_PRIVATE(thrid)
 DECLARE_THREAD_PRIVATE(nthr)
 
 
-void send_callback(MsgType mesg, int rank, int tag)
+void send_callback(MsgType, int, int tag)
 {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
-    int pos = tag - pthr*inflight;
     if(pthr != thrid) nlsend_cnt++;
     comm_cnt++;
     sent++;
 }
 
-void recv_callback(MsgType mesg, int rank, int tag)
+void recv_callback(MsgType, int, int tag)
 {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag/inflight;
-    int pos = tag - pthr*inflight;
     if(pthr != thrid) nlrecv_cnt++;
     comm_cnt++;
     received++;
@@ -74,11 +72,10 @@ void recv_callback(MsgType mesg, int rank, int tag)
 
 int main(int argc, char *argv[])
 {
-    int rank, size, threads, peer_rank;
+    int rank, size, peer_rank;
     int niter, buff_size;
 
     gridtools::ghex::timer timer, ttimer;
-    long bytes = 0;
 
 #ifdef USE_MPI
     int mode;
@@ -93,6 +90,10 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
+    if(argc != 4){
+	std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	std::terminate();
+    }
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);   
@@ -130,7 +131,7 @@ int main(int argc, char *argv[])
 	
 	/* send / recv niter messages, work in inflight requests at a time */
 	int i = 0, dbg = 0;
-	int last_i;
+	int last_i = 0;
 	char header[256];
 	snprintf(header, 256, "%d total bwdt ", rank);
 	while(i<niter){
@@ -166,7 +167,6 @@ int main(int argc, char *argv[])
 	comm.barrier();
 	comm.finalize();
 
-#pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
 

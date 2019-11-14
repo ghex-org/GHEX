@@ -14,21 +14,24 @@ int main(int argc, char *argv[])
     int inflight;
 
     gridtools::ghex::timer timer, ttimer;
-    long bytes = 0;
 
+    if(argc != 4){
+	std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	std::terminate();
+    }
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
     
     int mode;
 #ifdef THREAD_MODE_MULTIPLE
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
 	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
 	std::terminate();
     }
 #else
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &mode);
 #endif
 
     THREAD_PARALLEL_BEG() {

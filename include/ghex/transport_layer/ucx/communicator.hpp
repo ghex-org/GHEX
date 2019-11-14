@@ -77,8 +77,8 @@ namespace gridtools
 	    {
 		static std::size_t   ucp_request_size; // size in bytes required for a request by the UCX library
 
-		void empty_send_cb(void *request, ucs_status_t status) {}
-		void empty_recv_cb(void *request, ucs_status_t status, ucp_tag_recv_info_t *info) {}
+		void empty_send_cb(void *, ucs_status_t ) {}
+		void empty_recv_cb(void *, ucs_status_t , ucp_tag_recv_info_t *) {}
 		void ghex_request_init_cb(void *request){
 		    bzero(request, GHEX_REQUEST_SIZE);
 		}
@@ -201,8 +201,6 @@ namespace gridtools
 			ucp_params_t ucp_params;
 			ucp_config_t *config = NULL;
 			ucp_worker_params_t worker_params;
-			ucp_address_t *worker_address;
-			size_t address_length;
 
 			status = ucp_config_read(NULL, NULL, &config);
 			if(UCS_OK != status) ERR("ucp_config_read failed");
@@ -289,6 +287,9 @@ namespace gridtools
 #ifdef USE_PMI
 			/* obtain the worker endpoint address and post it to PMI */
 			{
+			    ucp_address_t *worker_address;
+			    size_t address_length;
+
 			    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
 			    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
 			    if(0 == m_rank) LOG("UCP worker addres length %zu", address_length);
@@ -310,8 +311,6 @@ namespace gridtools
 		    {
 			ucs_status_t status;
 			ucp_worker_params_t worker_params;
-			ucp_address_t *worker_address;
-			size_t address_length;
 			memset(&worker_params, 0, sizeof(worker_params));
 
 			/* this should not be used if we have a single worker per thread */
@@ -408,7 +407,6 @@ namespace gridtools
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;
 		    uintptr_t istatus;
-		    char *ucp_request;
 		    request_type req;
 
 		    ep = rank_to_ep(dst);
@@ -452,10 +450,8 @@ namespace gridtools
 		 */
 		template <typename MsgType>
 		[[nodiscard]] future<void> recv(MsgType &msg, rank_type src, tag_type tag) {
-		    ucp_ep_h ep;
 		    ucp_tag_t ucp_tag, ucp_tag_mask;
 		    ucs_status_ptr_t status;
-		    char *ucp_request;
 		    request_type req;
 
 		    CRITICAL_BEGIN(ucp_lock) {
@@ -496,7 +492,7 @@ namespace gridtools
 		 */
 		unsigned progress()
 		{
-		    int p = 0, i = 0;
+		    int p = 0;
 
 		    p+= ucp_worker_progress(ucp_worker_send);
 		    if(m_nthr>1){

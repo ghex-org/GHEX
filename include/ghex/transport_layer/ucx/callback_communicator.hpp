@@ -118,7 +118,6 @@ namespace gridtools
 		    ucs_status_ptr_t status;
 		    uintptr_t istatus;
 		    ucx::ghex_ucx_request_cb<Allocator> *ghex_request;
-		    int early = false;
 
 		    ep = rank_to_ep(dst);
 		    
@@ -244,7 +243,7 @@ namespace gridtools
 	    /** request completion callbacks registered in UCX 
 	     */    
 	    template <typename Allocator>
-	    void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info)
+	    void ghex_tag_recv_callback(void *request, ucs_status_t, ucp_tag_recv_info_t *info)
 	    {
 		uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
 		uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
@@ -276,7 +275,7 @@ namespace gridtools
 	    }
 
 	    template <typename Allocator>
-	    void ghex_tag_send_callback(void *request, ucs_status_t status)
+	    void ghex_tag_send_callback(void *request, ucs_status_t)
 	    {
 		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
 		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
