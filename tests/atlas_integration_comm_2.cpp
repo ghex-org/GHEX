@@ -103,10 +103,10 @@ TEST(atlas_integration, halo_exchange) {
     // Make patterns
     auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
 
-    // Istantiate communication objects
+    // Instantiate communication objects
     auto cos = gridtools::make_communication_object(patterns);
 
-    // Istantiate data descriptor
+    // Instantiate data descriptor
     gridtools::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // ==================== atlas halo exchange ====================
@@ -218,10 +218,10 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     auto patterns_1 = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains_1);
     auto patterns_2 = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains_2);
 
-    // Istantiate communication objects
+    // Instantiate communication objects
     auto cos = gridtools::make_communication_object(patterns_1, patterns_2);
 
-    // Istantiate data descriptors
+    // Instantiate data descriptors
     gridtools::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains_1.front(), fields_1["GHEX_field_1"]};
     gridtools::atlas_data_descriptor<double, domain_descriptor_t> data_2{local_domains_2.front(), fields_2["GHEX_field_2"]};
 
