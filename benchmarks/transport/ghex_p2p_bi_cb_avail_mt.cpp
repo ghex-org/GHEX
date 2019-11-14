@@ -31,6 +31,9 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 /* comm requests currently in-flight */
 std::atomic<int> sent = 0;
 std::atomic<int> received = 0;
+int last_received = 0;
+int last_sent = 0;
+
 int inflight;
 
 /* Track finished comm requests. 
@@ -75,7 +78,7 @@ int main(int argc, char *argv[])
     int rank, size, threads, peer_rank;
     int niter, buff_size;
 
-    gridtools::ghex::timer timer;
+    gridtools::ghex::timer timer, ttimer;
     long bytes = 0;
 
 #ifdef USE_MPI
@@ -121,36 +124,46 @@ int main(int argc, char *argv[])
 	comm.barrier();
 
 	THREAD_MASTER() {
-	    if(rank == 1) {
-		std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
-		timer.tic();
-		bytes = (double)niter*size*buff_size;
-	    }
+	    timer.tic();
+	    ttimer.tic();
+	    if(rank == 1) std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
 	}
-
 	
 	/* send/recv niter messages - as soon as a slot becomes free */
-	int i = 0, sdbg = 0, rdbg = 0;
+	int i = 0, dbg = 0, sdbg = 0, rdbg = 0;
+	char header[256];
+	snprintf(header, 256, "%d total bwdt ", rank);
     	while(sent < niter || received < niter){
-	    for(int j=0; j<inflight; j++){
 
+	    if(thrid == 0 && dbg >= (niter/10)) {
+		dbg = 0;
+		timer.vtoc(header, (double)(received-last_received + sent-last_sent)*size*buff_size/2);
+		timer.tic();
+		last_received = received;
+		last_sent = sent;
+	    }
+	    if(rank==0 && thrid==0 && rdbg >= (niter/10)) {
+		std::cout << received << " received\n";
+		rdbg = 0;
+	    }
+
+	    if(rank==0 && thrid==0 && sdbg >= (niter/10)) {
+		std::cout << sent << " sent\n";
+		sdbg = 0;
+	    }
+
+	    for(int j=0; j<inflight; j++){
 		if(rmsgs[j].use_count() == 1){
-		    if(rank==0 && thrid == 0 && rdbg >= (niter/10)) {
-			std::cout << received << " received\n";
-			rdbg = 0;
-		    }
 		    submit_recv_cnt += nthr;
 		    rdbg += nthr;
+		    dbg += nthr;
 		    comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		} else comm.progress();
 
 		if(sent < niter && smsgs[j].use_count() == 1){
-		    if(rank==0 && thrid==0 && sdbg >= (niter/10)) {
-			std::cout << sent << " sent\n";
-			sdbg = 0;
-		    }
 		    submit_cnt += nthr;
 		    sdbg += nthr;
+		    dbg += nthr;
 		    comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
 		} else comm.progress();
 	    }
@@ -163,9 +176,12 @@ int main(int argc, char *argv[])
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
 
-    } THREAD_PARALLEL_END();
-    
-    if(rank == 1) timer.vtoc(bytes);
+    } THREAD_PARALLEL_END();    
+
+    if(rank == 1) {
+	ttimer.vtoc();
+	ttimer.vtoc("final ", (double)niter*size*buff_size);
+    }
 
 #ifdef USE_MPI
     // MPI_Barrier(MPI_COMM_WORLD);

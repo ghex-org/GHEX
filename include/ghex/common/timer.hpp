@@ -60,11 +60,10 @@ namespace gridtools {
             }
 
             /** @brief stop timings, verbose: print measured time and bandwidth */
-            inline void vtoc(long bytes) noexcept
+            inline void vtoc(const char* header, long bytes) noexcept
             {
 		double t = std::chrono::duration_cast<std::chrono::microseconds>(clock_type::now() - m_time_point).count();
-		std::cout << "time:      " << t/1000000 << "s\n";
-		std::cout << "MB/s:      " << bytes/t << "\n";
+		std::cout << header << " MB/s:      " << bytes/t << "\n";
             }
 
             /** @brief stop and start another timing period */

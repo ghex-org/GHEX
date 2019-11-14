@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     int niter, buff_size;
     int inflight;
 
-    gridtools::ghex::timer timer;
+    gridtools::ghex::timer timer, ttimer;
     long bytes = 0;
 
     niter = atoi(argv[1]);
@@ -73,19 +73,22 @@ int main(int argc, char *argv[])
 	THREAD_BARRIER();
 
 	THREAD_MASTER() {
-	    if(rank == 1) {
-		std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
-		timer.tic();
-		bytes = (double)niter*size*buff_size;
-	    }
+	    timer.tic();
+	    ttimer.tic();
+	    if(rank == 1) std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
 	}
 
 	int i = 0, dbg = 0;
+	int last_i = 0;
+	char header[256];
+	snprintf(header, 256, "%d total bwdt ", rank);
 	while(i<niter){
 
-	    if(rank==0 && thrid==0 && dbg>=(niter/10)) {
-		std::cout << i << " iters\n";
-		dbg=0;
+	    if(thrid == 0 && dbg >= (niter/10)) {
+	    	dbg = 0;
+	    	timer.vtoc(header, (double)(i-last_i)*size*buff_size);
+	    	timer.tic();
+	    	last_i = i;
 	    }
 
 	    /* submit comm */
@@ -105,10 +108,12 @@ int main(int argc, char *argv[])
 	    MPI_Barrier(mpi_comm);
 	}
 	THREAD_BARRIER();
-
     }
 
-    if(rank == 1) timer.vtoc(bytes);
+    if(rank == 1) {
+	ttimer.vtoc();
+	ttimer.vtoc("final ", (double)niter*size*buff_size);
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

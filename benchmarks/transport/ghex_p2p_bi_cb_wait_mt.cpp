@@ -31,6 +31,7 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 /* comm requests currently in-flight */
 std::atomic<int> sent = 0;
 std::atomic<int> received = 0;
+int last_received = 0;
 
 int inflight;
 
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
     int rank, size, threads, peer_rank;
     int niter, buff_size;
 
-    gridtools::ghex::timer timer;
+    gridtools::ghex::timer timer, ttimer;
     long bytes = 0;
 
 #ifdef USE_MPI
@@ -122,26 +123,29 @@ int main(int argc, char *argv[])
 	comm.barrier();
 
 	THREAD_MASTER() {
-	    if(rank == 1) {
-		std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
-		timer.tic();
-		bytes = (double)niter*size*buff_size;
-	    }
+	    timer.tic();
+	    ttimer.tic();
+	    if(rank == 1) std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
 	}
-
 	
 	/* send / recv niter messages, work in inflight requests at a time */
 	int i = 0, dbg = 0;
+	int last_i;
+	char header[256];
+	snprintf(header, 256, "%d total bwdt ", rank);
 	while(i<niter){
 
 	    THREAD_BARRIER();
 
+	    if(thrid == 0 && dbg >= (niter/10)) {
+		dbg = 0;
+		timer.vtoc(header, (double)(i-last_i)*size*buff_size);
+		timer.tic();
+		last_i = i;
+	    }
+
 	    /* submit inflight requests */
 	    for(int j=0; j<inflight; j++){
-		if(rank==0 && thrid==0 && dbg >= (niter/10)) {
-		    std::cout << i << " iters\n";
-		    dbg = 0;
-		}
 		dbg+=nthr;
 		i+=nthr;
 		comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
@@ -168,7 +172,10 @@ int main(int argc, char *argv[])
 
     } THREAD_PARALLEL_END();
     
-    if(rank == 1) timer.vtoc(bytes);
+    if(rank == 1) {
+	ttimer.vtoc();
+	ttimer.vtoc("final ", (double)niter*size*buff_size);
+    }
 
 #ifdef USE_MPI
     // MPI_Barrier(MPI_COMM_WORLD);

@@ -499,6 +499,10 @@ namespace gridtools
 		    int p = 0, i = 0;
 
 		    p+= ucp_worker_progress(ucp_worker_send);
+		    if(m_nthr>1){
+		    	p+= ucp_worker_progress(ucp_worker_send);
+		    	p+= ucp_worker_progress(ucp_worker_send);
+		    }
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
 
@@ -621,6 +625,10 @@ namespace gridtools
 		*/
 		void worker_progress_send(){
 		    ucp_worker_progress(pcomm->ucp_worker_send);
+		    if(pcomm->m_nthr>1){
+			ucp_worker_progress(pcomm->ucp_worker_send);
+			ucp_worker_progress(pcomm->ucp_worker_send);
+		    }
 		}
 
 		/** Used by the request cancel() function.
