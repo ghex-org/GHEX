@@ -108,9 +108,6 @@ namespace gridtools {
                 void resize(std::size_t n) { m_message->resize(n); }
                 void clear() { m_message->clear(); }
                 void swap(shared_message_buffer& other) { std::swap(m_message, other.m_message); }
-
-		/* manually decrease the use count. Needed in the UCX communicator */
-		void release(){ m_message.reset(); }
             };
 
             template<typename A>
