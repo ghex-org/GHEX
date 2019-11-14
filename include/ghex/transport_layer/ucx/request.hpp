@@ -93,6 +93,9 @@ namespace gridtools{
 			worker_progress_send();
 			CRITICAL_BEGIN(ucp_lock) {
 			    
+			    /* always progress UCX */
+			    worker_progress();
+
 			    /* check request status */
 			    status = ucp_request_check_status(m_req);
 			    if(status != UCS_INPROGRESS) {
@@ -100,12 +103,8 @@ namespace gridtools{
 				m_req = NULL;
 				retval = true;
 			    }
-
-			    /* always progress UCX */
-			    worker_progress();
-
 			} CRITICAL_END(ucp_lock);
-			
+
 			return retval;
                     }
 
