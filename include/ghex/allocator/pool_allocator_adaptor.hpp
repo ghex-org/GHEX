@@ -61,10 +61,9 @@ namespace gridtools {
                     auto x = m_map.find(n);
                     if (x == m_map.end()) return traits::allocate(m_alloc, n, cvptr);
                     auto& kvp = *x;
-                    const auto size = kvp.second.size();
-                    if (size == 0u) return traits::allocate(m_alloc, n, cvptr);
+                    if (kvp.second.size() == 0u) return traits::allocate(m_alloc, n, cvptr);
                     byte* ptr = kvp.second.back();
-                    kvp.second.resize(size-1);
+                    kvp.second.pop_back();
                     return pointer_traits::pointer_to(*ptr);
                 }
 

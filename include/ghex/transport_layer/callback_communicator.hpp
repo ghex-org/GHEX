@@ -81,52 +81,11 @@ namespace gridtools
 
             private: // member types
 
-                struct type_erased_cb_t
-                {
-                    struct iface
-                    {
-                        virtual void fn(message_type&&, rank_type, tag_type) = 0;
-                        virtual ~iface() = default;
-                    };
-
-                    template<typename Func>
-                    struct function final : public iface
-                    {
-                        Func m_func;
-
-                        function(Func&& func) : m_func(std::move(func)) {}
-                        function(Func& func) : m_func(func) {}
-
-                        void fn(message_type&& msg, rank_type r, tag_type t) override
-                        {
-                            m_func(std::move(msg), r, t);
-                        }
-                    };
-
-                    std::unique_ptr<iface> m_impl;
-                    
-                    type_erased_cb_t() {}
-
-                    template<typename Func>
-                    type_erased_cb_t(Func&& func)
-                    : m_impl{
-                        std::make_unique<function<typename std::remove_cv<typename std::remove_reference<Func>::type>::type>>(
-                                std::forward<Func>(func))} {}
-
-                    inline void operator()(message_type&& msg, rank_type r, tag_type t) const noexcept
-                    {
-                        // unsafe here
-                        //if (m_impl) 
-                            m_impl->fn(std::move(msg), r, t);
-                    }
-                };
-
                 // necessary meta information for each send/receive operation
                 struct element_type
                 {
                     using message_arg_type = message_type;
                     std::function<void(message_arg_type, rank_type, tag_type)> m_cb;
-                    //type_erased_cb_t m_cb;
                     rank_type    m_rank;
                     tag_type     m_tag;
                     future_type  m_future;
@@ -329,7 +288,7 @@ namespace gridtools
                         if (auto o = m_comm.template recv_any_source_any_tag<message_type>(m_alloc))
                         {
                             auto t = o->get();
-                            unexpected_cb(std::move(std::get<2>(t)),std::get<0>(t),std::get<1>(t));
+                            unexpected_cb(std::move(std::get<0>(t)),std::get<1>(t),std::get<2>(t));
                         }
                     }
                     return completed;
@@ -379,7 +338,7 @@ namespace gridtools
                 /** @brief Register a send without associated callback. */
                 void attach_send(future_type&& fut, message_type msg, rank_type dst, tag_type tag)
                 {
-                    m_sends.push_back( send_element_type{ [](message_type,rank_type,tag_type){}, dst, tag, std::move(fut), std::move(msg) } );
+                    m_sends.push_back( recv_element_type{ [](message_type,rank_type,tag_type){}, dst, tag, std::move(fut), std::move(msg) } );
                 }
 
                 /** @brief Register a receive operation with this object with future, source and tag and associate it

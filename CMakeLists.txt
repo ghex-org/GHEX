@@ -23,9 +23,15 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+set(GHEX_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
+message(">>>>>>>>>>>>>>>>${CMAKE_MODULE_PATH}")
+
 find_package(MPI REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
 find_package(Boost)
+find_package(PMIx)
+find_package(UCP)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")

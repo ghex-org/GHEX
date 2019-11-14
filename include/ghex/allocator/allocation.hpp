@@ -81,7 +81,7 @@ namespace gridtools {
                         m_pointer = other.m_capacity>0u ? alloc_traits::allocate(m_alloc, other.m_capacity) : nullptr;
                         m_capacity = other.m_capacity;
                     }
-                    if ( propagate::value && m_alloc == other.m_alloc)
+                    else if ( propagate::value && m_alloc == other.m_alloc)
                     {
                         if (m_capacity < other.m_capacity)
                         {
@@ -99,16 +99,7 @@ namespace gridtools {
                             new(ptr) alloc_type(other.m_alloc);
                         }
                     }
-                    if (!propagate::value && m_alloc == other.m_alloc)
-                    {
-                        if (m_capacity < other.m_capacity)
-                        {
-                            if (m_pointer) alloc_traits::deallocate(m_alloc, m_pointer, m_capacity);
-                            m_pointer = alloc_traits::allocate(m_alloc, other.m_capacity);
-                            m_capacity = other.m_capacity;
-                        }
-                    }
-                    if (!propagate::value && m_alloc != other.m_alloc)
+                    else // propagate::value == false
                     {
                         if (m_capacity < other.m_capacity)
                         {
@@ -139,8 +130,9 @@ namespace gridtools {
                         other.m_pointer = nullptr;
                         other.m_capacity = 0u;
                     }
-                    else
+                    else // propagate::value == false && m_alloc != other.m_alloc
                     {
+                        // cheap move assignment is impossible under the above conditions
                         // reallocate memory if necessary
                         if (m_capacity < other.m_capacity)
                         {
@@ -155,22 +147,42 @@ namespace gridtools {
                 void swap(allocation& other)
                 {
                     using propagate = typename alloc_traits::propagate_on_container_swap;
-                    if (propagate::value || (!propagate::value && (m_alloc != other.m_alloc)))
+                    if (propagate::value || m_alloc == other.m_alloc)
                     {
-                        auto a = std::move(m_alloc);
-                        void* ptr_a = &m_alloc;
-                        void* ptr_b = &other.m_alloc;
-                        m_alloc.~alloc_type();
-                        new(ptr_a) alloc_type{std::move(other.m_alloc)};
-                        ~other.m_alloc();
-                        new(ptr_b) alloc_type{std::move(a)};
+                        if (propagate::value)
+                        {
+                            auto a = std::move(m_alloc);
+                            void* ptr_a = &m_alloc;
+                            void* ptr_b = &other.m_alloc;
+                            m_alloc.~alloc_type();
+                            new(ptr_a) alloc_type{std::move(other.m_alloc)};
+                            ~other.m_alloc();
+                            new(ptr_b) alloc_type{std::move(a)};
+                        }
+                        auto ptr = m_pointer;
+                        auto c   = m_capacity;
+                        m_pointer  = other.m_pointer;
+                        m_capacity = other.m_capacity;
+                        other.m_pointer  = ptr;
+                        other.m_capacity = c;
+                    } 
+                    else // propagate::value == false && m_alloc != other.m_alloc
+                    {
+                        // cheap swap is impossible under the above conditions
+                        // reallocate memory if necessary
+                        if (m_capacity < other.m_capacity)
+                        {
+                            if (m_pointer) alloc_traits::deallocate(m_alloc, m_pointer, m_capacity);
+                            m_pointer = alloc_traits::allocate(m_alloc, other.m_capacity);
+                            m_capacity = other.m_capacity;
+                        }
+                        else if (other.m_capacity < m_capacity)
+                        {
+                            if (other.m_pointer) alloc_traits::deallocate(other.m_alloc, other.m_pointer, other.m_capacity);
+                            other.m_pointer = alloc_traits::allocate(other.m_alloc, m_capacity);
+                            other.m_capacity = m_capacity;
+                        }
                     }
-                    auto ptr = m_pointer;
-                    auto c   = m_capacity;
-                    m_pointer  = other.m_pointer;
-                    m_capacity = other.m_capacity;
-                    other.m_pointer  = ptr;
-                    other.m_capacity = c;
                 }
             };
 
