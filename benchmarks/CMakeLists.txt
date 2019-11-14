@@ -31,6 +31,13 @@ foreach (_t ${_benchmarks_2})
     endif()
 endforeach()
 
+# Atlas benchmarks
 add_executable(atlas_halo_exchange_nodecolumns atlas_halo_exchange_nodecolumns.cpp ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
 target_include_directories(atlas_halo_exchange_nodecolumns PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_link_libraries(atlas_halo_exchange_nodecolumns MPI::MPI_CXX Boost::mpi GridTools::gridtools atlas)
+if(USE_GPU)
+    add_executable(atlas_halo_exchange_nodecolumns_gpu atlas_halo_exchange_nodecolumns.cu ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+    target_compile_definitions(atlas_halo_exchange_nodecolumns_gpu PUBLIC GT_USE_GPU)
+    target_include_directories(atlas_halo_exchange_nodecolumns_gpu PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+    target_link_libraries(atlas_halo_exchange_nodecolumns_gpu MPI::MPI_CXX Boost::mpi GridTools::gridtools atlas)
+endif()
