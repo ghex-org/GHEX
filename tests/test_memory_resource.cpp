@@ -45,24 +45,18 @@ void test_simple_aligned_message(int n)
 TEST(simple_message, integer)
 {
     test_simple_message<int>(1);
-    test_simple_message<int>(1);
-    test_simple_message<int>(1);
-    test_simple_message<int>(1);
-    test_simple_message<int>(19);
-    test_simple_message<int>(19);
-    test_simple_message<int>(19);
     test_simple_message<int>(19);
 }
 
 TEST(simple_aligned_message, integer)
 {
-    test_simple_aligned_message<int,16>(1);
-    test_simple_aligned_message<int,16>(1);
-    test_simple_aligned_message<int,16>(1);
-    test_simple_aligned_message<int,16>(1);
-    test_simple_aligned_message<int,16>(19);
-    test_simple_aligned_message<int,16>(19);
-    test_simple_aligned_message<int,16>(19);
-    test_simple_aligned_message<int,16>(19);
+    test_simple_aligned_message<int, 16>(1);
+    test_simple_aligned_message<int, 32>(1);
+    test_simple_aligned_message<int, 64>(1);
+    test_simple_aligned_message<int,128>(1);
+    test_simple_aligned_message<int, 16>(19);
+    test_simple_aligned_message<int, 32>(19);
+    test_simple_aligned_message<int, 64>(19);
+    test_simple_aligned_message<int,128>(19);
 }
 
