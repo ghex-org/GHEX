@@ -32,6 +32,9 @@ void test_std_alloc(int n)
     std::cout << "actual space   = " << sizeof(T)*n << std::endl;
     std::cout << "required space = " << aligned_alloc_t::offset+n*sizeof(T) << std::endl;
     std::cout << "padding space  = " << (aligned_alloc_t::offset>0?(aligned_alloc_t::offset-sizeof(void*)):0) << std::endl;
+    EXPECT_TRUE( aligned_alloc_t::offset == ((Alignment<=alignof(std::max_align_t))
+                                             ? 0u 
+                                             : (alignof(std::max_align_t) + (Alignment-alignof(std::max_align_t)))));
     
     aligned_alloc.construct(ptr, Alignment);
     
