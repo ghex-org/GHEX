@@ -19,9 +19,10 @@ namespace gridtools {
         // forward declaration
         template<typename Transport, typename GridType, typename DomainIdType>
         class pattern;
-        template<typename Transport, typename GridType, typename DomainIdType>
 
+        template<typename Transport, typename GridType, typename DomainIdType>
         class pattern_container;
+
         /** @brief class which combines pattern, field and domain into a halo handle
           * @tparam Pattern pattern type
           * @tparam Field field type*/
@@ -60,11 +61,11 @@ namespace gridtools {
             halo_t(halo_t&&) noexcept = default;
 
         public: // member functions
-            const pattern_type& get_pattern() const noexcept { return *m_p; }
-            const pattern_container_type& get_pattern_container() const noexcept { return m_p->container(); }
+            const pattern_type& pattern() const noexcept { return *m_p; }
+            const pattern_container_type& pattern_container() const noexcept { return m_p->container(); }
             
-            field_type& get_field() noexcept { return *m_field; }
-            const field_type& get_field() const noexcept { return *m_field; }
+            field_type& field() noexcept { return *m_field; }
+            const field_type& field() const noexcept { return *m_field; }
             
             domain_id_type domain_id() const noexcept { return m_domain_id; }
             device_id_type device_id() const noexcept { return m_field->device_id(); }

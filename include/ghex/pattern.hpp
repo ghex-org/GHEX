@@ -72,12 +72,12 @@ namespace gridtools {
               * @param field data field
               * @return halo exchange object*/
             template<typename Field>
-            halo_type<Field> generate_halo(Field& field) const
+            halo_type<Field> halo(Field& field) const
             {
                 // linear search here
                 for (const auto& p : m_patterns)
                     if (p.domain_id() == field.domain_id()) return { p, field.domain_id(), field};
-                throw std::runtime_error("domain incompatible with pattern!");
+                throw std::runtime_error("Domain incompatible with pattern!");
             }
 
             /** @brief generates halo exchange object for a given domain and field.
@@ -87,12 +87,12 @@ namespace gridtools {
               * @param field data field
               * @return halo exchange object*/
             template<typename Field, typename Domain>
-            halo_type<Field> generate_halo(const Domain& domain, Field& field) const
+            halo_type<Field> halo(const Domain& domain, Field& field) const
             {
                 // linear search here
                 for (const auto& p : m_patterns)
                     if (p.domain_id() == domain.domain_id()) return { p, p.domain_id(), field};
-                throw std::runtime_error("domain incompatible with pattern!");
+                throw std::runtime_error("Domain incompatible with pattern!");
             }
 
         private: // members

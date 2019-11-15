@@ -87,7 +87,7 @@ TEST(data_store, make)
 
     EXPECT_TRUE(passed);
 
-    auto h = co.exchange( pattern1.generate_halo(host_ghex_field) );
+    auto h = co.exchange( pattern1.halo(host_ghex_field) );
     h.wait();
 
     MPI_Comm_free(&CartComm);

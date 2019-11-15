@@ -283,13 +283,13 @@ namespace halo_exchange_3D_generic_full {
                 t_0.tic();
                 auto h = co.exchange(
 #ifndef GHEX_1_PATTERN_BENCHMARK
-                    pattern_1.generate_halo(field1),
-                    pattern_2.generate_halo(field2),
-                    pattern_3.generate_halo(field3));
+                    pattern_1.halo(field1),
+                    pattern_2.halo(field2),
+                    pattern_3.halo(field3));
 #else
-                    pattern_1.generate_halo(field1),
-                    pattern_1.generate_halo(field2),
-                    pattern_1.generate_halo(field3));
+                    pattern_1.halo(field1),
+                    pattern_1.halo(field2),
+                    pattern_1.halo(field3));
 #endif
                 t_0.toc();
                 t_1.tic();
@@ -427,13 +427,13 @@ namespace halo_exchange_3D_generic_full {
                 t_0.tic();
                 auto h = co.exchange(
 #ifndef GHEX_1_PATTERN_BENCHMARK
-                    pattern_1.generate_halo(field1),
-                    pattern_2.generate_halo(field2),
-                    pattern_3.generate_halo(field3));
+                    pattern_1.halo(field1),
+                    pattern_2.halo(field2),
+                    pattern_3.halo(field3));
 #else
-                    pattern_1.generate_halo(field1),
-                    pattern_1.generate_halo(field2),
-                    pattern_1.generate_halo(field3));
+                    pattern_1.halo(field1),
+                    pattern_1.halo(field2),
+                    pattern_1.halo(field3));
 #endif
                 t_0.toc();
                 t_1.tic();

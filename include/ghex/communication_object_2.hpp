@@ -218,7 +218,7 @@ namespace gridtools {
                 m_valid = true;
 
                 // temporarily store address of pattern containers
-                const test_t* ptrs[sizeof...(Fields)] = { &(halos.get_pattern_container())... };
+                const test_t* ptrs[sizeof...(Fields)] = { &(halos.pattern_container())... };
                 // build a tag map
                 std::map<const test_t*,int> pat_ptr_map;
                 int max_tag = 0;
@@ -229,7 +229,7 @@ namespace gridtools {
                         max_tag += ptrs[k]->max_tag()+1;
                 }
                 // compute tag offset for each field
-                int tag_offsets[sizeof...(Fields)] = { pat_ptr_map[&(halos.get_pattern_container())]... };
+                int tag_offsets[sizeof...(Fields)] = { pat_ptr_map[&(halos.pattern_container())]... };
                 // store arguments and corresponding memory in tuples
                 using halos_ptr_t            = std::tuple<halo_type<Fields>*...>;
                 using memory_t               = std::tuple<buffer_memory<typename halo_type<Fields>::arch_type>*...>;
@@ -241,12 +241,12 @@ namespace gridtools {
                 {
                     using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
                     using value_type  = typename std::remove_reference_t<decltype(*halo)>::value_type;
-                    auto field_ptr = &(halo->get_field());
+                    auto field_ptr = &(halo->field());
                     const domain_id_type my_dom_id = halo->domain_id();
-                    allocate<arch_type,value_type>(mem, halo->get_pattern(), field_ptr, my_dom_id, halo->device_id(), tag_offsets[i]);
+                    allocate<arch_type,value_type>(mem, halo->pattern(), field_ptr, my_dom_id, halo->device_id(), tag_offsets[i]);
                     ++i;
                 });
-                handle_type h(std::get<0>(halos_tuple)->get_pattern().communicator(), [this](){this->wait();});
+                handle_type h(std::get<0>(halos_tuple)->pattern().communicator(), [this](){this->wait();});
                 post_recvs(h.m_comm);
                 pack(h.m_comm);
                 return h; 
@@ -316,7 +316,7 @@ namespace gridtools {
                 int max_tag = 0;
                 for (unsigned int k=0; k<length; ++k)
                 {
-                    const test_t* ptr = &((first+k)->get_pattern_container());
+                    const test_t* ptr = &((first+k)->pattern_container());
                     auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptr, max_tag) );
                     if (p_it_bool.second == true)
                         max_tag += ptr->max_tag()+1;
@@ -328,12 +328,12 @@ namespace gridtools {
                 memory_t mem{&(std::get<buffer_memory<arch_t>>(m_mem))};
                 for (std::size_t k=0; k<length; ++k)
                 {
-                    auto field_ptr = &((first+k)->get_field());
-                    auto tag_offset = pat_ptr_map[&((first+k)->get_pattern_container())];
+                    auto field_ptr = &((first+k)->field());
+                    auto tag_offset = pat_ptr_map[&((first+k)->pattern_container())];
                     const auto my_dom_id  =(first+k)->domain_id();
-                    allocate<arch_t,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offset);
+                    allocate<arch_t,value_type>(mem, (first+k)->pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offset);
                 }
-                return handle_type(first->get_pattern().communicator(), [this](){this->wait();});
+                return handle_type(first->pattern().communicator(), [this](){this->wait();});
             }
 
             void post_recvs(communicator_type& comm)
