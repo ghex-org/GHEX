@@ -1,36 +1,31 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 
-//#define GHEX_COMM_2_TIMINGS
-
 #ifndef STANDALONE
-    #include "gtest/gtest.h"
-//#define GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
-    #include "gtest_main_boost.cpp"
+#include "gtest/gtest.h"
 #endif
-#include <boost/mpi/communicator.hpp>
-#include <boost/mpi/collectives.hpp>
 #include <sstream>
 #include <string>
 #include <fstream>
 #include <iomanip>
-#include <chrono>
 #include <array>
 
-#include "../include/communication_object_2.hpp"
-#include "../include/structured_pattern.hpp"
-#include "../include/structured_domain_descriptor.hpp"
-#include "../include/simple_field_wrapper.hpp"
-#include "../include/accumulator.hpp"
-#include "triplet.hpp"
+#include "../utils/triplet.hpp"
+
+#include <ghex/communication_object_2.hpp>
+#include <ghex/structured/pattern.hpp>
+#include <ghex/structured/domain_descriptor.hpp>
+#include <ghex/structured/simple_field_wrapper.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
+#include <ghex/common/timer.hpp>
 
 #include <gridtools/common/array.hpp>
 #ifdef __CUDACC__
@@ -40,22 +35,8 @@
 
 namespace halo_exchange_3D_generic_full {
 
-    using clock_type = std::chrono::high_resolution_clock;
-    using duration_type = typename clock_type::duration;
-    using time_point_type = typename clock_type::time_point;
-    using microseconds = std::chrono::microseconds;
+    using timer_type = gridtools::ghex::timer;
 
-
-#ifdef GHEX_COMM_2_TIMINGS
-    struct timings
-    {
-        using clock_type    = ::halo_exchange_3D_generic_full::clock_type;
-        //using duration_type = ::halo_exchange_3D_generic_full::duration_type;
-        using duration_type = typename clock_type::duration;
-        
-        duration_type unpack_launch_time = duration_type(0);
-    };
-#endif
 
     MPI_Comm CartComm;
     int dims[3] = {0, 0, 0};
@@ -64,22 +45,28 @@ namespace halo_exchange_3D_generic_full {
 #define B_ADD 1
 #define C_ADD 2
 
+#ifdef VECTOR_INTERFACE
+    typedef int T1;
+    typedef int T2;
+    typedef int T3;
+#else
     typedef int T1;
     typedef double T2;
     typedef long long int T3;
+#endif
 
-    using domain_descriptor_type = gridtools::structured_domain_descriptor<int,3>;
-    template<typename T, typename Device, int... Is>
-    using field_descriptor_type  = gridtools::simple_field_wrapper<T,Device,domain_descriptor_type, Is...>;
+    using domain_descriptor_type = gridtools::ghex::structured::domain_descriptor<int,3>;
+    template<typename T, typename Arch, int... Is>
+    using field_descriptor_type  = gridtools::ghex::structured::simple_field_wrapper<T,Arch,domain_descriptor_type, Is...>;
 
 #ifdef __CUDACC__
-    using arch_type = gridtools::device::gpu;
+    using arch_type = gridtools::ghex::gpu;
 #else
-    using arch_type = gridtools::device::cpu;
+    using arch_type = gridtools::ghex::cpu;
 #endif
-    
-    template<typename T, typename Device, typename DomainDescriptor, int... Order>
-    void printbuff(std::ostream& file, const gridtools::simple_field_wrapper<T,Device,DomainDescriptor, Order...>& field)
+
+    template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+    void printbuff(std::ostream& file, const gridtools::ghex::structured::simple_field_wrapper<T,Arch,DomainDescriptor, Order...>& field)
     {
         if (field.extents()[0] <= 10 && field.extents()[1] <= 10 && field.extents()[2] <= 6)
         {
@@ -123,17 +110,8 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, boost::mpi::communicator& world) 
+        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu, gridtools::ghex::tl::mpi::communicator_base& world) 
     {
-        //gridtools::device::gpu::sync();
-        //gridtools::device::gpu::check_error("error at begin of run");
-        file << "enter run" << std::endl;
-        // mpi communicator
-        //boost::mpi::communicator comm(CartComm,boost::mpi::comm_attach);
-        //boost::mpi::communicator world;
-        //gridtools::device::gpu::sync();
-        //gridtools::device::gpu::check_error("error at begin of run 2");
-        
         // compute total domain
         const std::array<int,3> g_first{             0,              0,              0};
         const std::array<int,3> g_last {dims[0]*DIM1-1, dims[1]*DIM2-1, dims[2]*DIM3-1};
@@ -154,15 +132,15 @@ namespace halo_exchange_3D_generic_full {
             std::array<int,3>{coords[0]*DIM1,coords[1]*DIM2,coords[2]*DIM3},
             std::array<int,3>{(coords[0]+1)*DIM1-1,(coords[1]+1)*DIM2-1,(coords[2]+1)*DIM3-1}};
         std::vector<domain_descriptor_type> local_domains{local_domain};
-        
+
         // wrap raw fields
-        auto a = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
+        auto a = gridtools::ghex::wrap_field<gridtools::ghex::cpu,I1,I2,I3>(local_domain.domain_id(), _a,
             std::array<int,3>{H1m1,H2m1,H3m1},
             std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-        auto b = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
+        auto b = gridtools::ghex::wrap_field<gridtools::ghex::cpu,I1,I2,I3>(local_domain.domain_id(), _b,
             std::array<int,3>{H1m2,H2m2,H3m2},
             std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-        auto c = gridtools::wrap_field<gridtools::device::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
+        auto c = gridtools::ghex::wrap_field<gridtools::ghex::cpu,I1,I2,I3>(local_domain.domain_id(), _c,
             std::array<int,3>{H1m3,H2m3,H3m3},
             std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -174,20 +152,13 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
         // make patterns
-        auto pattern_1 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_1, local_domains);
+        auto pattern_1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_1, local_domains);
 #ifndef GHEX_1_PATTERN_BENCHMARK
-        auto pattern_2 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_2, local_domains);
-        auto pattern_3 = gridtools::make_pattern<gridtools::structured_grid>(world, halo_gen_3, local_domains);
+        auto pattern_2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_2, local_domains);
+        auto pattern_3 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen_3, local_domains);
 #endif
-        file << "run after pattern creation" << std::endl;
-        
         // communication object
-#ifndef GHEX_1_PATTERN_BENCHMARK
-        auto co = gridtools::make_communication_object(pattern_1, pattern_2, pattern_3);
-#else
-        auto co = gridtools::make_communication_object(pattern_1);
-#endif
-        file << "run after co creation" << std::endl;
+        auto co = gridtools::ghex::make_communication_object<decltype(pattern_1)>();
 
 
         file << "Proc: (" << coords[0] << ", " << coords[1] << ", " << coords[2] << ")\n";
@@ -210,19 +181,19 @@ namespace halo_exchange_3D_generic_full {
 
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     a(ii, jj, kk) = triple_t<USE_DOUBLE, T1>(
                         ii + (DIM1)*coords[0], jj + (DIM2)*coords[1], kk + (DIM3)*coords[2]);
 
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     b(ii, jj, kk) = triple_t<USE_DOUBLE, T2>(
                         ii + (DIM1)*coords[0] + B_ADD, jj + (DIM2)*coords[1] + B_ADD, kk + (DIM3)*coords[2] + B_ADD);
-        
+
         for (int ii = 0; ii < DIM1; ++ii)
             for (int jj = 0; jj < DIM2; ++jj)
-                for (int kk = 0; kk < DIM3; ++kk) 
+                for (int kk = 0; kk < DIM3; ++kk)
                     c(ii, jj, kk) = triple_t<USE_DOUBLE, T3>(
                         ii + (DIM1)*coords[0] + C_ADD, jj + (DIM2)*coords[1] + C_ADD, kk + (DIM3)*coords[2] + C_ADD);
 
@@ -283,13 +254,13 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
             // wrap raw fields
-            auto field1 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
+            auto field1 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_a,
                 std::array<int,3>{H1m1,H2m1,H3m1},
                 std::array<int,3>{(DIM1 + H1m1 + H1p1), (DIM2 + H2m1 + H2p1), (DIM3 + H3m1 + H3p1)});
-            auto field2 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
+            auto field2 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_b,
                 std::array<int,3>{H1m2,H2m2,H3m2},
                 std::array<int,3>{(DIM1 + H1m2 + H1p2), (DIM2 + H2m2 + H2p2), (DIM3 + H3m2 + H3p2)});
-            auto field3 = gridtools::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
+            auto field3 = gridtools::ghex::wrap_field<arch_type,I1,I2,I3>(local_domain.domain_id(), gpu_c,
                 std::array<int,3>{H1m3,H2m3,H3m3},
                 std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
@@ -297,29 +268,19 @@ namespace halo_exchange_3D_generic_full {
 
             // do all the stuff here
             file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
-            gridtools::accumulator time_acc_local_0;
-            gridtools::accumulator time_acc_local_1;
-            gridtools::accumulator time_acc_local;
-            gridtools::accumulator time_acc_global_0;
-            gridtools::accumulator time_acc_global_1;
-            gridtools::accumulator time_acc_global;
-#ifdef GHEX_COMM_2_TIMINGS
-            gridtools::accumulator time_acc_local_2;
-            gridtools::accumulator time_acc_global_2;
-#endif
-
+            timer_type t_0_local;
+            timer_type t_1_local;
+            timer_type t_local;
+            timer_type t_0_global;
+            timer_type t_1_global;
+            timer_type t_global;
             const int k_start = 5;
             for (int k=0; k<25; ++k)
             {
-                gridtools::accumulator acc_global_0;
-                gridtools::accumulator acc_global_1;
-                gridtools::accumulator acc_global;
-#ifdef GHEX_COMM_2_TIMINGS
-                gridtools::accumulator acc_global_2;
-                timings t;
-#endif
+                timer_type t_0;
+                timer_type t_1;
                 world.barrier();
-                const auto t0 = clock_type::now();
+                t_0.tic();
                 auto h = co.exchange(
 #ifndef GHEX_1_PATTERN_BENCHMARK
                     pattern_1(field1),
@@ -330,131 +291,79 @@ namespace halo_exchange_3D_generic_full {
                     pattern_1(field2),
                     pattern_1(field3));
 #endif
-                const auto t1 = clock_type::now();
-#ifndef GHEX_COMM_2_TIMINGS
+                t_0.toc();
+                t_1.tic();
                 h.wait();
-#else
-                h.wait(t);
-#endif
-                const auto t2 = clock_type::now();
+                t_1.toc();
                 world.barrier();
 
-                const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
-                const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
-                const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
-#ifdef GHEX_COMM_2_TIMINGS
-                const auto dw = std::chrono::duration_cast<microseconds>(t.unpack_launch_time).count();
-#endif
+                timer_type t;
+                t(t_0.sum()+t_1.sum());
 
-                std::vector<typename microseconds::rep> tmp_0;
-                boost::mpi::all_gather(world, d0, tmp_0); 
-                std::vector<typename microseconds::rep> tmp_1;
-                boost::mpi::all_gather(world, d1, tmp_1); 
-                std::vector<typename microseconds::rep> tmp;
-                boost::mpi::all_gather(world, d01, tmp); 
-#ifdef GHEX_COMM_2_TIMINGS
-                std::vector<typename microseconds::rep> tmp_2;
-                boost::mpi::all_gather(world, dw, tmp_2); 
-#endif
-                for (unsigned int i=0; i<tmp_0.size(); ++i)
-                {
-                    acc_global_0(tmp_0[i]);
-                    acc_global_1(tmp_1[i]);
-                    acc_global(tmp[i]);
-#ifdef GHEX_COMM_2_TIMINGS
-                    acc_global_2(tmp_2[i]);
-#endif
-                    if (k >= k_start)
-                    {
-                        time_acc_global_0(tmp_0[i]);
-                        time_acc_global_1(tmp_1[i]);
-                        time_acc_global(tmp[i]);
-#ifdef GHEX_COMM_2_TIMINGS
-                        time_acc_global_2(tmp_2[i]);
-#endif
-                    }
-                }
+                auto t_0_all = gridtools::ghex::reduce(t_0,world);
+                auto t_1_all = gridtools::ghex::reduce(t_1,world);
+                auto t_all = gridtools::ghex::reduce(t,world);
                 if (k >= k_start)
                 {
-                    time_acc_local_0(d0);
-                    time_acc_local_1(d1);
-                    time_acc_local(d01);
-#ifdef GHEX_COMM_2_TIMINGS
-                    time_acc_local_2(dw);
-#endif
+                    t_0_local(t_0);
+                    t_1_local(t_1);
+                    t_local(t);
+                    t_0_global(t_0_all);
+                    t_1_global(t_1_all);
+                    t_global(t_all);
                 }
 
                 file << "TIME PACK/POST:   " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d0/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.mean()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.mean()/1000.0
                     << " ±"
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_0.stdev()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.min()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.max()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.max()/1000.0
                     << std::endl;
                 file << "TIME WAIT/UNPACK: " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0 
                     << " ±"
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_1.stdev()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.min()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.max()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.max()/1000.0
                     << std::endl;
-#ifdef GHEX_COMM_2_TIMINGS
-                file << "  TIME LAUNCH:    " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << dw/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_2.mean()/1000.0 
-                    << " ±"
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_2.stdev()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_2.min()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_2.max()/1000.0
-                    << std::endl;
-#endif
                 file << "TIME ALL:         " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0 
                     << " ±"
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global.stdev()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.min()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.max()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.max()/1000.0
                     << std::endl;
                 file << std::endl;
             }
 
             file << std::endl << "-----------------" << std::endl;
             file << "TIME PACK/POST:   " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_0.mean()/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.mean()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_0.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.max()/1000.0
                 << std::endl;
             file << "TIME WAIT/UNPACK: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_1.mean()/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.mean()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_1.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.max()/1000.0
                 << std::endl;
-#ifdef GHEX_COMM_2_TIMINGS
-            file << "  TIME LAUNCH:    " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_2.mean()/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_2.mean()/1000.0
-                << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_2.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_2.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_2.max()/1000.0
-                << std::endl;
-#endif
             file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local.mean()/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.mean()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.max()/1000.0
                 << std::endl;
 
 #ifdef __CUDACC__
@@ -503,21 +412,19 @@ namespace halo_exchange_3D_generic_full {
             world.barrier();
 
             file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
-            gridtools::accumulator time_acc_local_0;
-            gridtools::accumulator time_acc_local_1;
-            gridtools::accumulator time_acc_local;
-            gridtools::accumulator time_acc_global_0;
-            gridtools::accumulator time_acc_global_1;
-            gridtools::accumulator time_acc_global;
-
+            timer_type t_0_local;
+            timer_type t_1_local;
+            timer_type t_local;
+            timer_type t_0_global;
+            timer_type t_1_global;
+            timer_type t_global;
             const int k_start = 5;
             for (int k=0; k<25; ++k)
             {
-                gridtools::accumulator acc_global_0;
-                gridtools::accumulator acc_global_1;
-                gridtools::accumulator acc_global;
+                timer_type t_0;
+                timer_type t_1;
                 world.barrier();
-                const auto t0 = clock_type::now();
+                t_0.tic();
                 auto h = co.exchange(
 #ifndef GHEX_1_PATTERN_BENCHMARK
                     pattern_1(field1),
@@ -528,91 +435,79 @@ namespace halo_exchange_3D_generic_full {
                     pattern_1(field2),
                     pattern_1(field3));
 #endif
-                const auto t1 = clock_type::now();
+                t_0.toc();
+                t_1.tic();
                 h.wait();
-                const auto t2 = clock_type::now();
+                t_1.toc();
                 world.barrier();
 
-                const auto d0 = std::chrono::duration_cast<microseconds>(t1-t0).count();
-                const auto d1 = std::chrono::duration_cast<microseconds>(t2-t1).count();
-                const auto d01 = std::chrono::duration_cast<microseconds>(t2-t0).count();
+                timer_type t;
+                t(t_0.sum()+t_1.sum());
 
-                std::vector<typename microseconds::rep> tmp_0;
-                boost::mpi::all_gather(world, d0, tmp_0); 
-                std::vector<typename microseconds::rep> tmp_1;
-                boost::mpi::all_gather(world, d1, tmp_1); 
-                std::vector<typename microseconds::rep> tmp;
-                boost::mpi::all_gather(world, d01, tmp); 
-                for (unsigned int i=0; i<tmp_0.size(); ++i)
-                {
-                    acc_global_0(tmp_0[i]);
-                    acc_global_1(tmp_1[i]);
-                    acc_global(tmp[i]);
-                    if (k >= k_start)
-                    {
-                        time_acc_global_0(tmp_0[i]);
-                        time_acc_global_1(tmp_1[i]);
-                        time_acc_global(tmp[i]);
-                    }
-                }
+                auto t_0_all = gridtools::ghex::reduce(t_0,world);
+                auto t_1_all = gridtools::ghex::reduce(t_1,world);
+                auto t_all = gridtools::ghex::reduce(t,world);
                 if (k >= k_start)
                 {
-                    time_acc_local_0(d0);
-                    time_acc_local_1(d1);
-                    time_acc_local(d01);
+                    t_0_local(t_0);
+                    t_1_local(t_1);
+                    t_local(t);
+                    t_0_global(t_0_all);
+                    t_1_global(t_1_all);
+                    t_global(t_all);
                 }
 
                 file << "TIME PACK/POST:   " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d0/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.mean()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.mean()/1000.0
                     << " ±"
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_0.stdev()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.min()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_0.max()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.max()/1000.0
                     << std::endl;
                 file << "TIME WAIT/UNPACK: " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << d1/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0 
                     << " ±"
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global_1.stdev()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.min()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global_1.max()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.max()/1000.0
                     << std::endl;
                 file << "TIME ALL:         " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << (d01)/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0 
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0 
                     << " ±"
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << acc_global.stdev()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.min()/1000.0
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << acc_global.max()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_all.stddev()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.min()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.max()/1000.0
                     << std::endl;
                 file << std::endl;
             }
 
             file << std::endl << "-----------------" << std::endl;
             file << "TIME PACK/POST:   " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_0.mean()/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.mean()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_0.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_0.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.max()/1000.0
                 << std::endl;
             file << "TIME WAIT/UNPACK: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local_1.mean()/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.mean()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global_1.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global_1.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.max()/1000.0
                 << std::endl;
             file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_local.mean()/1000.0 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.mean()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0 
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.mean()/1000.0
                 << " ±"
-                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << time_acc_global.stdev()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.min()/1000.0
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << time_acc_global.max()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_global.stddev()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.min()/1000.0
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.max()/1000.0
                 << std::endl;
             //file << std::endl << std::endl;
 
@@ -784,11 +679,11 @@ namespace halo_exchange_3D_generic_full {
         int H2m3,
         int H2p3,
         int H3m3,
-        int H3p3) 
+        int H3p3)
     {
-        boost::mpi::communicator world;
+        gridtools::ghex::tl::mpi::communicator_base world;
         //std::cout << world.rank() << " " << world.size() << "\n";
-        
+
         std::stringstream ss;
         ss << world.rank();
         std::string filename = "comm_2_out" + ss.str() + ".txt";
@@ -796,7 +691,6 @@ namespace halo_exchange_3D_generic_full {
         std::ofstream file(filename.c_str());
 
         file << world.rank() << "  " << world.size() << "\n";
-        
         dims[2] = 1;
         MPI_Dims_create(world.size(), 3, dims);
         int period[3] = {1, 1, 1};
@@ -841,7 +735,7 @@ namespace halo_exchange_3D_generic_full {
             new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
         triple_t<USE_DOUBLE, T3> *_c =
             new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
-        
+
         bool passed = true;
 
         file << "Permutation 0,1,2\n";
@@ -2254,8 +2148,7 @@ namespace halo_exchange_3D_generic_full {
                                 _b,
                                 _c, use_gpu, world);
         file << "---------------------------------------------------\n";
-         
-        
+
         delete[] _a;
         delete[] _b;
         delete[] _c;
@@ -2266,7 +2159,7 @@ namespace halo_exchange_3D_generic_full {
 } // namespace halo_exchange_3D_generic_full
 
 #ifdef STANDALONE
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
 #ifdef GT_USE_GPU
     device_binding();
@@ -2281,7 +2174,7 @@ int main(int argc, char **argv)
     if (provided < required)
         throw std::runtime_error("MPI does not support required threading level");
 #else
-    boost::mpi::environment env(argc, argv);
+    MPI_Init(&argc,&argv);
 #endif
 
     if (argc != 22) {
@@ -2335,9 +2228,7 @@ int main(int argc, char **argv)
         H3m3,
         H3p3);
 
-#ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
     MPI_Finalize();
-#endif
     return 0;
 }
 #else
@@ -2352,12 +2243,12 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     const int Nz = 80;
 
 #ifdef __CUDACC__
-    boost::mpi::communicator mpi_comm;
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
-    boost::mpi::communicator local_comm(raw_local_comm, boost::mpi::comm_take_ownership);
+    gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
@@ -2387,4 +2278,3 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     EXPECT_TRUE(passed);
 }
 #endif
-
