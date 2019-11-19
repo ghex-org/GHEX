@@ -13,8 +13,6 @@
 #include <gtest/gtest.h>
 #include "gtest_main_atlas.cpp"
 
-#include <boost/mpi/communicator.hpp>
-
 #include <gridtools/common/layout_map.hpp>
 
 //#include "atlas/parallel/mpi/mpi.h"
@@ -27,7 +25,8 @@
 #include "atlas/output/Gmsh.h" // needed only for debug, should be removed later
 #include "atlas/runtime/Log.h" // needed only for debug, should be removed later
 
-#include "../include/protocol/mpi.hpp"
+#include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
+#include "../include/ghex/transport_layer/communicator.hpp"
 #include "../include/utils.hpp"
 #include "../include/unstructured_grid.hpp"
 #include "../include/unstructured_pattern.hpp"
@@ -62,8 +61,8 @@ TEST(atlas_integration, domain_descriptor) {
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
     // int size = ...
     // Using our communicator
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
     int rank = comm.rank();
 
     // Generate global classic reduced Gaussian grid
@@ -114,8 +113,8 @@ TEST(atlas_integration, halo_generator) {
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
     // int size = ...
     // Using our communicator
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
     int rank = comm.rank();
     int size = comm.size();
 
@@ -159,8 +158,8 @@ TEST(atlas_integration, make_pattern) {
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
     // int size = ...
     // Using our communicator
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
     int rank = comm.rank();
     int size = comm.size();
 
@@ -209,8 +208,8 @@ TEST(atlas_integration, halo_exchange) {
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
     // int size = ...
     // Using our communicator
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
     int rank = comm.rank();
     int size = comm.size();
 

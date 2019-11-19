@@ -19,8 +19,6 @@
 #include <gtest/gtest.h>
 #include "gtest_main_gpu_atlas.cpp"
 
-#include <boost/mpi/communicator.hpp>
-
 #include "atlas/grid.h"
 #include "atlas/mesh.h"
 #include "atlas/meshgenerator.h"
@@ -30,7 +28,8 @@
 #include "atlas/output/Gmsh.h" // needed only for debug, should be removed later
 #include "atlas/runtime/Log.h" // needed only for debug, should be removed later
 
-#include "../include/protocol/mpi.hpp"
+#include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
+#include "../include/ghex/transport_layer/communicator.hpp"
 #include "../include/unstructured_grid.hpp"
 #include "../include/unstructured_pattern.hpp"
 #include "../include/atlas_user_concepts.hpp"
@@ -41,8 +40,8 @@ TEST(atlas_integration, halo_exchange) {
 
     using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
 
-    boost::mpi::communicator world;
-    gridtools::protocol::communicator<gridtools::protocol::mpi> comm{world};
+    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
     int rank = comm.rank();
     int size = comm.size();
 
