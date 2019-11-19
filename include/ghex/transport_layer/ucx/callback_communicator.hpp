@@ -33,7 +33,6 @@
 
 #include "request.hpp"
 #include "future.hpp"
-#include "address.hpp"
 
 namespace gridtools
 {

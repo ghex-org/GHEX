@@ -30,7 +30,6 @@ using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
 #include "ucp_lock.hpp"
 #include "request.hpp"
 #include "future.hpp"
-#include "address.hpp"
 
 namespace gridtools
 {
@@ -111,7 +110,6 @@ namespace gridtools
 		using request_type = ucx::request;
 		template<typename T>
 		using future = ucx::future<T>;
-                using address_type   = ucx::address;
                 using traits         = int;
 
 		/* these are static, i.e., shared by threads */
@@ -323,21 +321,6 @@ namespace gridtools
 		    }
 		}
 
-		address_type address(){
-		    ucs_status_t status;
-		    ucp_address_t *worker_address;
-		    size_t address_length;
-
-		    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
-		    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
-		    return address_type(ucp_worker, worker_address, address_length);
-		}
-
-		ucp_ep_h connect(address_type worker_address)
-		{
-		    return connect(worker_address.m_addr);
-		}
-
 		ucp_ep_h connect(ucp_address_t *worker_address)
 		{
 		    ucs_status_t status;
@@ -512,10 +495,16 @@ namespace gridtools
 			// }
 		    } CRITICAL_END(ucp_lock);
 
-		    // the below is necessary when using spin-locks
-		    // NOTE: DO NOT USE! very strange effects in MT
-		    // send/receive is split into phases, e.g., first send, then receive on a given rank. WTF?
+		    // the below is necessary when using spin-locks, but not in ghex_p2p_bi_cb_avail_mt!!
+		    // That one seems much faster withtout the yield. 
+		    // On the other hand, it is really critical in these tests:
+		    //   ghex_p2p_bi_cb_wait_mt
+		    //   ghex_p2p_bi_ft_avail_mt
+		    //   ghex_p2p_bi_ft_wait_mt
+		    // How do we manage this?
+#ifdef USE_PTHREAD_SPIN
 		    // if(m_nthr>1) sched_yield();
+#endif
 
 		    return p;
 		}

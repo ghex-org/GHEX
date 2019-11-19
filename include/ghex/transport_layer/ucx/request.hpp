@@ -90,6 +90,11 @@ namespace gridtools{
 			/* ucp_request_check_status has to be locked also:
 			   it does access the worker!
 			*/
+
+#ifdef USE_PTHREAD_SPIN
+			/* this seems critical in MT mode, for both wait and avail ft benchmarks */
+			sched_yield();
+#endif
 			worker_progress_send();
 			CRITICAL_BEGIN(ucp_lock) {
 			    
