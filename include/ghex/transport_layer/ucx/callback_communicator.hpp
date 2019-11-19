@@ -120,37 +120,34 @@ namespace gridtools
 
 		    ep = rank_to_ep(dst);
 		    
-		    CRITICAL_BEGIN(ucp_lock) {
+		    /* send with callback */
+		    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+					     GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<Allocator>);
 
-			/* send with callback */
-			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						 GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<Allocator>);
+		    // TODO !! C++ doesn't like it..
+		    istatus = (uintptr_t)status;
+		    if(UCS_OK == (ucs_status_t)(istatus)){
 
-			// TODO !! C++ doesn't like it..
-			istatus = (uintptr_t)status;
-			if(UCS_OK == (ucs_status_t)(istatus)){
-
-			    /* early completed */
+			/* early completed */
 #ifdef USE_HEAVY_CALLBACKS
-			    cb(msg, dst, tag);
+			cb(msg, dst, tag);
 #else
-			    early = true;
+			early = true;
 #endif
-			} else if(!UCS_PTR_IS_ERR(status)) {
+		    } else if(!UCS_PTR_IS_ERR(status)) {
 
-			    /* prepare the request */
-			    m_early_req.m_peer_rank = dst;
-			    m_early_req.m_tag = tag;
-			    m_early_req.m_cb = std::forward<CallBack>(cb);
-			    m_early_req.m_msg = msg;
+			/* prepare the request */
+			m_early_req.m_peer_rank = dst;
+			m_early_req.m_tag = tag;
+			m_early_req.m_cb = std::forward<CallBack>(cb);
+			m_early_req.m_msg = msg;
 
-			    /* fill in request data */
-			    ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
-			    new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
-			} else {
-			    ERR("ucp_tag_send_nb failed");
-			}
-		    } CRITICAL_END(ucp_lock);
+			/* fill in request data */
+			ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
+			new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
+		    } else {
+			ERR("ucp_tag_send_nb failed");
+		    }
 
 #ifndef USE_HEAVY_CALLBACKS
 		    /* call the callback outside of the critical region */

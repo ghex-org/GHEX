@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     inflight = atoi(argv[3]);
     
     int mode;
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef USE_OPENMP
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
 	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";

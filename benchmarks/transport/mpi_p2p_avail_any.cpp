@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
     
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef USE_OPENMP
 	MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
 #else
 	// MPI_Init(NULL, NULL);

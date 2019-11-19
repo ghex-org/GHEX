@@ -5,7 +5,7 @@ using thread_rank_type = int;
 
 #ifdef USE_OPENMP
 
-#define THREAD_MODE_MULTIPLE
+#define THREAD_MODE_SERIALIZED
 #include <omp.h>
 #define DO_PRAGMA(x) _Pragma(#x)
 

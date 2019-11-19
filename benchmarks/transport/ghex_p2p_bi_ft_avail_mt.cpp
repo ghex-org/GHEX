@@ -15,6 +15,16 @@ using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_ta
 #else
 
 /* UCX backend */
+
+/* use internal UCX locks instead of
+   having  GHEX lock over the recv worker.
+   That works only in pure future-based code.
+*/
+#ifdef USE_OPENMP
+#undef THREAD_MODE_SERIALIZED
+#define THREAD_MODE_MULTIPLE
+#endif
+
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
 using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
@@ -43,7 +53,7 @@ int main(int argc, char *argv[])
 
 #ifdef USE_MPI
     int mode;
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
 	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";

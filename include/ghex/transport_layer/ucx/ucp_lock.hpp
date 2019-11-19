@@ -12,7 +12,7 @@ namespace gridtools
 	{
 	    namespace ucx
 	    {
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef THREAD_MODE_SERIALIZED
 #ifndef USE_OPENMP_LOCKS
 
 		/* shared lock */
@@ -28,7 +28,7 @@ namespace gridtools
 #else
 #define ucp_lock ucp_lock
 #endif
-#endif /* THREAD_MODE_MULTIPLE */
+#endif /* THREAD_MODE_SERIALIZED */
 	    }
 	}
     }

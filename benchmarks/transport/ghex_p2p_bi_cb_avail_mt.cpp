@@ -16,6 +16,10 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
 #else
 
 /* UCX backend */
+
+/* this test doesn't like sched_yield in the progress function */
+#define USE_NO_YIELD
+
 #ifdef USE_UCX_NBR
 #include <ghex/transport_layer/callback_communicator.hpp>
 #else
@@ -80,7 +84,7 @@ int main(int argc, char *argv[])
 
 #ifdef USE_MPI
     int mode;
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
 	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";

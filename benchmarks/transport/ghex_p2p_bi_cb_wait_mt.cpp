@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 
 #ifdef USE_MPI
     int mode;
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
 	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";

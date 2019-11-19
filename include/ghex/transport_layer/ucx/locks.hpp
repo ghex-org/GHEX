@@ -1,7 +1,7 @@
 #ifndef _LOCKS_HPP
 #define _LOCKS_HPP
 
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef THREAD_MODE_SERIALIZED
 
 //#define USE_OPENMP_LOCKS
 //#define USE_PTHREAD_LOCKS
@@ -108,11 +108,12 @@ using lock_t = int;
 
 #endif /* USE_OPENMP_LOCKS */
 
-#else /* THREAD_MODE_MULTIPLE */
+#else /* THREAD_MODE_SERIALIZED */
 
+#warning "UCP is not locked"
 #define CRITICAL_BEGIN(name)
 #define CRITICAL_END(name)
 
-#endif /* THREAD_MODE_MULTIPLE */
+#endif /* THREAD_MODE_SERIALIZED */
 
 #endif /* _LOCKS_HPP */

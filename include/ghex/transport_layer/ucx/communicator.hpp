@@ -188,7 +188,7 @@ namespace gridtools
 			m_size = pmi_impl.size();
 #endif
 			
-#ifdef THREAD_MODE_MULTIPLE
+#ifdef THREAD_MODE_SERIALIZED
 #ifndef USE_OPENMP_LOCKS
 			LOCK_INIT(ucp_lock);
 #endif
@@ -272,6 +272,8 @@ namespace gridtools
 			    /* this should not be used if we have a single worker per thread */
 			    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
 #ifdef THREAD_MODE_MULTIPLE
+			    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+#elif defined THREAD_MODE_SERIALIZED
 			    worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
 #else
 			    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
@@ -394,26 +396,23 @@ namespace gridtools
 
 		    ep = rank_to_ep(dst);
 
-		    CRITICAL_BEGIN(ucp_lock) {
-
-			/* send */
-			status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						 GHEX_MAKE_SEND_TAG(tag, m_rank), ucx::empty_send_cb);
+		    /* send */
+		    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
+					     GHEX_MAKE_SEND_TAG(tag, m_rank), ucx::empty_send_cb);
 			
-			// TODO !! C++ doesn't like it..
-			istatus = (uintptr_t)status;
-			if(UCS_OK == (ucs_status_t)(istatus)){
+		    // TODO !! C++ doesn't like it..
+		    istatus = (uintptr_t)status;
+		    if(UCS_OK == (ucs_status_t)(istatus)){
 
-			    /* send completed immediately */
-			    req.m_req = nullptr;
-			} else if(!UCS_PTR_IS_ERR(status)) {
+			/* send completed immediately */
+			req.m_req = nullptr;
+		    } else if(!UCS_PTR_IS_ERR(status)) {
 			    
-			    /* return the request */
-			    req.m_req = (request_type::req_type)(status);
-			} else {
-			    ERR("ucp_tag_recv_nb failed");
-			}
-		    } CRITICAL_END(ucp_lock);
+			/* return the request */
+			req.m_req = (request_type::req_type)(status);
+		    } else {
+			ERR("ucp_tag_recv_nb failed");
+		    }
 
 		    return req;
 		}
@@ -502,8 +501,11 @@ namespace gridtools
 		    //   ghex_p2p_bi_ft_avail_mt
 		    //   ghex_p2p_bi_ft_wait_mt
 		    // How do we manage this?
+#ifndef USE_NO_YIELD
 #ifdef USE_PTHREAD_SPIN
-		    // if(m_nthr>1) sched_yield();
+#warning Using sched_yield in UCX progress
+		    if(m_nthr>1) sched_yield();
+#endif
 #endif
 
 		    return p;
