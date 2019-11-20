@@ -494,20 +494,6 @@ namespace gridtools
 			// }
 		    } CRITICAL_END(ucp_lock);
 
-		    // the below is necessary when using spin-locks, but not in ghex_p2p_bi_cb_avail_mt!!
-		    // That one seems much faster withtout the yield. 
-		    // On the other hand, it is really critical in these tests:
-		    //   ghex_p2p_bi_cb_wait_mt
-		    //   ghex_p2p_bi_ft_avail_mt
-		    //   ghex_p2p_bi_ft_wait_mt
-		    // How do we manage this?
-#ifndef USE_NO_YIELD
-#ifdef USE_PTHREAD_SPIN
-#warning Using sched_yield in UCX progress
-		    if(m_nthr>1) sched_yield();
-#endif
-#endif
-
 		    return p;
 		}
 

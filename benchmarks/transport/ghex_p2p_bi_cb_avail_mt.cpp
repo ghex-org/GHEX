@@ -16,10 +16,6 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
 #else
 
 /* UCX backend */
-
-/* this test doesn't like sched_yield in the progress function */
-#define USE_NO_YIELD
-
 #ifdef USE_UCX_NBR
 #include <ghex/transport_layer/callback_communicator.hpp>
 #else

@@ -19,10 +19,10 @@ using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_ta
    having  GHEX lock over the recv worker.
    That works only in pure future-based code.
 */
-#ifdef USE_OPENMP
-#undef THREAD_MODE_SERIALIZED
-#define THREAD_MODE_MULTIPLE
-#endif
+// #ifdef USE_OPENMP
+// #undef THREAD_MODE_SERIALIZED
+// #define THREAD_MODE_MULTIPLE
+// #endif
 
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;

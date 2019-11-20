@@ -34,9 +34,12 @@ using lock_t = std::mutex;
 
 using lock_t = pthread_mutex_t;
 
-#define LOCK_INIT(l)					\
-    do {						\
-	pthread_mutex_init(&l, NULL);			\
+#define LOCK_INIT(l)							\
+    do {								\
+	pthread_mutexattr_t Attr;					\
+	pthread_mutexattr_init(&Attr);					\
+	pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);	\
+	pthread_mutex_init(&l, &Attr);					\
     } while(0);
 
 #define LOCK_DEL(l)                             \
@@ -46,18 +49,13 @@ using lock_t = pthread_mutex_t;
 
 #define LOCK(l)						\
     do {						\
-	if(l##_owner == 0) {				\
-	    pthread_mutex_lock(&l);			\
-	}						\
-	l##_owner += 1;					\
+	while(pthread_mutex_trylock(&l))		\
+	    sched_yield();				\
     } while(0);
 
-#define UNLOCK(l)					\
-    do {						\
-	l##_owner -= 1;					\
-	if(l##_owner == 0) {				\
-	    pthread_mutex_unlock(&l);			\
-	}						\
+#define UNLOCK(l)				\
+    do {					\
+	pthread_mutex_unlock(&l);		\
     } while(0);
 
 #define CRITICAL_BEGIN(name) LOCK(name)
@@ -82,17 +80,18 @@ using lock_t = pthread_spinlock_t;
 #define LOCK(l)						\
     do {						\
 	if(l##_owner == 0) {				\
-	    pthread_spin_lock(&l);			\
+	    while(pthread_spin_trylock(&l))		\
+		sched_yield();				\
 	}						\
 	l##_owner += 1;					\
     } while(0);
 
-#define UNLOCK(l)					\
-    do {						\
-	l##_owner -= 1;					\
-	if(l##_owner == 0) {				\
-	    pthread_spin_unlock(&l);			\
-	}						\
+#define UNLOCK(l)				\
+    do {					\
+	l##_owner -= 1;				\
+	    if(l##_owner == 0) {		\
+		pthread_spin_unlock(&l);	\
+	    }					\
     } while(0);
 
 #define CRITICAL_BEGIN(name) LOCK(name)
