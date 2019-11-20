@@ -148,8 +148,9 @@ namespace gridtools{
                     int send_count = send_buf.size() / comm_size * sizeof(T);
                     int recv_count = recv_buf.size() / comm_size * sizeof(T);
                     GHEX_CHECK_MPI_RESULT(
-                            MPI_Alltoall,
-                            (send_buf.data(), send_count, MPI_BYTE, recv_buf.data(), recv_count, MPI_BYTE, *this));
+                            MPI_Alltoall
+                            (send_buf.data(), send_count, MPI_BYTE,
+                             recv_buf.data(), recv_count, MPI_BYTE, *this));
                 }
                 
                 /** @brief just a wrapper using custom types*/
@@ -164,11 +165,10 @@ namespace gridtools{
                     for (auto i=0; i<comm_size; ++i) recv_counts_b[i] = recv_counts[i] * sizeof(T);
                     for (auto i=0; i<comm_size; ++i) recv_displs_b[i] = recv_displs[i] * sizeof(T);
                     GHEX_CHECK_MPI_RESULT(
-                            MPI_Alltoallv,
+                            MPI_Alltoallv
                             (reinterpret_cast<const void*>(send_buf), &send_counts_b[0], &send_displs_b[0], MPI_BYTE,
                              reinterpret_cast<void*>(recv_buf), &recv_counts_b[0], &recv_displs_b[0], MPI_BYTE,
-                             *this)
-                            );
+                             *this));
                 }
             
             };
