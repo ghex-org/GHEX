@@ -84,7 +84,7 @@ namespace gridtools{
                     {
 			ucs_status_t status;
 			bool retval = false;
-
+			
 			if(NULL == m_req) return true;
 
 			/* ucp_request_check_status has to be locked also:

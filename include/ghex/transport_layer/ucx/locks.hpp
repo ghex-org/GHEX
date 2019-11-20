@@ -1,6 +1,8 @@
 #ifndef _LOCKS_HPP
 #define _LOCKS_HPP
 
+#include "threads.hpp"
+
 #ifdef THREAD_MODE_SERIALIZED
 
 //#define USE_OPENMP_LOCKS
@@ -79,19 +81,19 @@ using lock_t = pthread_spinlock_t;
 
 #define LOCK(l)						\
     do {						\
-	if(l##_owner == 0) {				\
+	if(l##_counter == 0) {				\
 	    while(pthread_spin_trylock(&l))		\
 		sched_yield();				\
 	}						\
-	l##_owner += 1;					\
+        l##_counter += 1;				\
     } while(0);
 
 #define UNLOCK(l)				\
     do {					\
-	l##_owner -= 1;				\
-	    if(l##_owner == 0) {		\
-		pthread_spin_unlock(&l);	\
-	    }					\
+	l##_counter -= 1;			\
+        if(l##_counter == 0) {		        \
+	    pthread_spin_unlock(&l);		\
+	}					\
     } while(0);
 
 #define CRITICAL_BEGIN(name) LOCK(name)
