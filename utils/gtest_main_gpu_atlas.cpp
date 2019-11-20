@@ -20,7 +20,7 @@
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
-#include <gridtools/common/cuda_util.hpp>
+#include "../include/ghex/cuda_utils/error.hpp"
 #endif
 
 #include "atlas/library/Library.h"

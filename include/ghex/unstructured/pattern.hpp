@@ -15,10 +15,11 @@
 #include <cassert>
 #include <numeric>
 
-#include "./protocol/communicator_base.hpp"
-#include "./pattern.hpp"
-#include "./unstructured_grid.hpp"
-#include "./allocator/unified_memory_allocator.hpp"
+#include "../transport_layer/communicator.hpp"
+#include "../transport_layer/mpi/setup.hpp"
+#include "../pattern.hpp"
+#include "./grid.hpp"
+#include "../allocator/unified_memory_allocator.hpp"
 
 namespace gridtools {
 

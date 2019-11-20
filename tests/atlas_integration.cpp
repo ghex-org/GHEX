@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "gtest_main_atlas.cpp"
+#include "../utils/gtest_main_atlas.cpp"
 
 #include <gridtools/common/layout_map.hpp>
 
@@ -27,11 +27,11 @@
 
 #include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
 #include "../include/ghex/transport_layer/communicator.hpp"
-#include "../include/utils.hpp"
-#include "../include/unstructured_grid.hpp"
-#include "../include/unstructured_pattern.hpp"
-#include "../include/atlas_user_concepts.hpp"
-#include "../include/communication_object.hpp"
+// #include "../include/utils.hpp" TO_DO: check if it is needed anymore
+#include "../include/ghex/unstructured/grid.hpp"
+#include "../include/ghex/unstructured/pattern.hpp"
+#include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
+#include "../include/ghex/communication_object.hpp"
 
 
 TEST(atlas_integration, dependencies) {

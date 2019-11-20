@@ -19,13 +19,13 @@
 #include "atlas/field.h"
 #include "atlas/array/ArrayView.h"
 
-#ifdef __CUDACC__
-#include "gridtools/common/cuda_util.hpp"
-#endif
+#include "../../unstructured/grid.hpp"
+#include "../../arch_list.hpp"
+#include "../../allocator/unified_memory_allocator.hpp"
 
-#include "./unstructured_grid.hpp"
-#include "./devices.hpp"
-#include "./allocator/unified_memory_allocator.hpp"
+#ifdef __CUDACC__
+#include "../../cuda_utils/error.hpp"
+#endif
 
 
 namespace gridtools {

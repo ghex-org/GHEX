@@ -24,11 +24,11 @@
 
 #include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
 #include "../include/ghex/transport_layer/communicator.hpp"
-#include "../include/utils.hpp"
-#include "../include/unstructured_grid.hpp"
-#include "../include/unstructured_pattern.hpp"
-#include "../include/atlas_user_concepts.hpp"
-#include "../include/communication_object.hpp"
+// #include "../include/utils.hpp" TO_DO: check if it is needed anymore
+#include "../include/ghex/unstructured/grid.hpp"
+#include "../include/ghex/unstructured/pattern.hpp"
+#include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
+#include "../include/ghex/communication_object.hpp"
 
 
 int main(int argc, char **argv) {

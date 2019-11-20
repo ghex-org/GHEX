@@ -17,7 +17,7 @@
 #include <cuda_runtime.h>
 
 #include <gtest/gtest.h>
-#include "gtest_main_gpu_atlas.cpp"
+#include "../utils/gtest_main_gpu_atlas.cpp"
 
 #include "atlas/grid.h"
 #include "atlas/mesh.h"
@@ -30,10 +30,10 @@
 
 #include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
 #include "../include/ghex/transport_layer/communicator.hpp"
-#include "../include/unstructured_grid.hpp"
-#include "../include/unstructured_pattern.hpp"
-#include "../include/atlas_user_concepts.hpp"
-#include "../include/communication_object_2.hpp"
+#include "../include/ghex/unstructured/grid.hpp"
+#include "../include/ghex/unstructured/pattern.hpp"
+#include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
+#include "../include/ghex/communication_object_2.hpp"
 
 
 TEST(atlas_integration, halo_exchange) {

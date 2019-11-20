@@ -14,11 +14,6 @@
 
 #include <mpi.h>
 
-#ifdef __CUDACC__
-#include <cuda_runtime.h>
-#include <gridtools/common/cuda_util.hpp>
-#endif
-
 #include "atlas/library/Library.h"
 #include "atlas/grid.h"
 #include "atlas/mesh.h"
@@ -32,10 +27,15 @@
 
 #include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
 #include "../include/ghex/transport_layer/communicator.hpp"
-#include "../include/unstructured_grid.hpp"
-#include "../include/unstructured_pattern.hpp"
-#include "../include/atlas_user_concepts.hpp"
-#include "../include/communication_object_2.hpp"
+#include "../include/ghex/unstructured/grid.hpp"
+#include "../include/ghex/unstructured/pattern.hpp"
+#include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
+#include "../include/ghex/communication_object_2.hpp"
+
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#include "../include/ghex/cuda_utils/error.hpp"
+#endif
 
 
 int main(int argc, char** argv) {
