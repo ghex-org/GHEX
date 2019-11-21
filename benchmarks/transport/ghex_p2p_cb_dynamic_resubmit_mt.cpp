@@ -182,8 +182,6 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-#pragma omp barrier
-	comm->flush();
 	comm->barrier();
 	
 #pragma omp critical
