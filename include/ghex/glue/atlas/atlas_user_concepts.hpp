@@ -21,6 +21,7 @@
 
 #include "../../unstructured/grid.hpp"
 #include "../../arch_list.hpp"
+#include "../../arch_traits.hpp"
 #include "../../allocator/unified_memory_allocator.hpp"
 
 #ifdef __CUDACC__
@@ -164,7 +165,7 @@ namespace gridtools {
                     private:
 
                         int m_partition;
-                        std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>> m_local_index;
+                        std::vector<index_t, gridtools::ghex::allocator::unified_memory_allocator<index_t>> m_local_index;
                         std::vector<index_t> m_remote_index;
                         std::size_t m_levels;
 
@@ -178,7 +179,7 @@ namespace gridtools {
                             m_remote_index{},
                             m_levels{levels} {}
                         halo(const int partition,
-                             const std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>>& local_index,
+                             const std::vector<index_t, gridtools::ghex::allocator::unified_memory_allocator<index_t>>& local_index,
                              const std::vector<index_t>& remote_index,
                              const std::size_t levels = 1) noexcept :
                             m_partition{partition},
@@ -190,8 +191,8 @@ namespace gridtools {
 
                         // member functions
                         int partition() const noexcept { return m_partition; }
-                        std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>>& local_index() noexcept { return m_local_index; }
-                        const std::vector<index_t, gridtools::allocator::unified_memory_allocator<index_t>>& local_index() const noexcept { return m_local_index; }
+                        std::vector<index_t, gridtools::ghex::allocator::unified_memory_allocator<index_t>>& local_index() noexcept { return m_local_index; }
+                        const std::vector<index_t, gridtools::ghex::allocator::unified_memory_allocator<index_t>>& local_index() const noexcept { return m_local_index; }
                         std::vector<index_t>& remote_index() noexcept { return m_remote_index; }
                         const std::vector<index_t>& remote_index() const noexcept { return m_remote_index; }
                         std::size_t levels() const noexcept { return m_levels; }
@@ -271,8 +272,8 @@ namespace gridtools {
                 using value_type = T;
                 using index_t = typename DomainDescriptor::index_t;
                 using domain_id_t = typename DomainDescriptor::domain_id_type;
-                using device_type = gridtools::device::cpu;
-                using device_id_type = device_type::id_type;
+                using arch_type = gridtools::ghex::cpu;
+                using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
                 using Byte = unsigned char;
 
             private:
@@ -399,8 +400,8 @@ namespace gridtools {
                 using value_type = T;
                 using index_t = typename DomainDescriptor::index_t;
                 using domain_id_t = typename DomainDescriptor::domain_id_type;
-                using device_type = gridtools::device::gpu;
-                using device_id_type = device_type::id_type;
+                using arch_type = gridtools::ghex::gpu;
+                using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
 
             private:
 

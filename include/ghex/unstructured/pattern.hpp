@@ -12,12 +12,15 @@
 #define INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
 
 #include <vector>
+#include <map>
 #include <cassert>
 #include <numeric>
+#include <cstring>
 
 #include "../transport_layer/communicator.hpp"
 #include "../transport_layer/mpi/setup.hpp"
 #include "../pattern.hpp"
+#include "../buffer_info.hpp"
 #include "./grid.hpp"
 #include "../allocator/unified_memory_allocator.hpp"
 
@@ -29,24 +32,24 @@ namespace gridtools {
          * This class provides access to the receive and send iteration spaces, determined by the halos,
          * and holds all connections to the neighbors.
          *
-         * @tparam P transport protocol
+         * @tparam Transport transport protocol
          * @tparam Index index type for domain and iteration space
          * @tparam DomainId domain id type*/
-        template<typename P, typename Index, typename DomainId>
-        class pattern<P, unstructured::detail::grid<Index>, DomainId> {
+        template<typename Transport, typename Index, typename DomainId>
+        class pattern<Transport, unstructured::detail::grid<Index>, DomainId> {
 
             public:
 
                 // member types
 
-                using communicator_type = protocol::communicator<P>;
+                using communicator_type = tl::communicator<Transport>;
                 using address_type = typename communicator_type::address_type;
                 using index_type = Index;
                 using grid_type = unstructured::detail::grid<index_type>;
                 using domain_id_type = DomainId;
-                using pattern_container_type = pattern_container<P, grid_type, domain_id_type>;
+                using pattern_container_type = pattern_container<Transport, grid_type, domain_id_type>;
 
-                friend class pattern_container<P, grid_type, domain_id_type>;
+                friend class pattern_container<Transport, grid_type, domain_id_type>;
 
                 /** @brief essentially a partition index and a sequence of remote indexes;
                  * number of levels is provided as well, defaul is 1 (2D case):
@@ -58,7 +61,7 @@ namespace gridtools {
                     private:
 
                         int m_partition;
-                        std::vector<index_type, gridtools::allocator::unified_memory_allocator<index_type>> m_local_index;
+                        std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>> m_local_index;
                         std::size_t m_levels;
 
                     public:
@@ -66,13 +69,13 @@ namespace gridtools {
                         // ctors
                         iteration_space() noexcept = default;
                         iteration_space(const int partition,
-                                const std::vector<index_type, gridtools::allocator::unified_memory_allocator<index_type>>& local_index,
+                                const std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>& local_index,
                                 const std::size_t levels = 1) noexcept :
                             m_partition{partition},
                             m_local_index{local_index},
                             m_levels{levels} {}
                         iteration_space(const int partition,
-                                std::vector<index_type, gridtools::allocator::unified_memory_allocator<index_type>>&& local_index,
+                                std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>&& local_index,
                                 const std::size_t levels = 1) noexcept :
                             m_partition{partition},
                             m_local_index{std::move(local_index)},
@@ -95,7 +98,7 @@ namespace gridtools {
                         // member functions
                         int partition() const noexcept { return m_partition; }
                         // std::vector<index_type, gridtools::allocator::unified_memory_allocator<index_type>>& local_index() noexcept { return m_local_index; }
-                        const std::vector<index_type, gridtools::allocator::unified_memory_allocator<index_type>>& local_index() const noexcept { return m_local_index; }
+                        const std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>& local_index() const noexcept { return m_local_index; }
                         std::size_t levels() const noexcept { return m_levels; }
                         std::size_t size() const noexcept { return m_local_index.size() * m_levels; }
 
@@ -202,7 +205,7 @@ namespace gridtools {
                  * @param field field instance
                  * @return buffer_info object which holds a refernce to the field, the pattern and the pattern container*/
                 template<typename Field>
-                buffer_info<pattern, typename Field::device_type, Field> operator()(Field& field) const {
+                buffer_info<pattern, typename Field::arch_type, Field> operator()(Field& field) const {
                     return { *this, field, field.device_id() };
                 }
 
@@ -215,14 +218,14 @@ namespace gridtools {
             template<typename Index>
             struct make_pattern_impl<unstructured::detail::grid<Index>> {
 
-                template<typename P, typename HaloGenerator, typename DomainRange>
-                static auto apply(protocol::setup_communicator& comm, protocol::communicator<P>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range) {
+                template<typename Transport, typename HaloGenerator, typename DomainRange>
+                static auto apply(tl::mpi::setup_communicator& comm, tl::communicator<Transport>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range) {
 
                     // typedefs
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
                     using domain_id_type = typename domain_type::domain_id_type;
                     using grid_type = unstructured::detail::grid<Index>;
-                    using pattern_type = pattern<P, grid_type, domain_id_type>;
+                    using pattern_type = pattern<Transport, grid_type, domain_id_type>;
                     using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
                     using index_container_type = typename pattern_type::index_container_type;
                     using index_type = typename pattern_type::index_type;
@@ -314,7 +317,7 @@ namespace gridtools {
                                 // a more complex one is needed for multiple domains
                                 int tag = (my_address << 7) + rank; // WARN: maximum rank / address = 2^7 - 1
                                 extended_domain_id_type id{static_cast<int>(rank), static_cast<int>(rank), static_cast<address_type>(rank), tag};
-                                std::vector<index_type, gridtools::allocator::unified_memory_allocator<index_type>> remote_index{};
+                                std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>> remote_index{};
                                 remote_index.resize(send_counts[rank]);
                                 std::memcpy(&remote_index[0],
                                         &send_indexes[static_cast<std::size_t>(send_displs[rank])],
@@ -329,7 +332,7 @@ namespace gridtools {
 
                     }
 
-                    return pattern_container<P, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);
+                    return pattern_container<Transport, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);
 
                 }
 

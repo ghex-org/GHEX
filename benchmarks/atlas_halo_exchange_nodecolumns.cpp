@@ -29,6 +29,7 @@
 #include "../include/ghex/unstructured/pattern.hpp"
 #include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
 #include "../include/ghex/communication_object.hpp"
+#include "../include/ghex/arch_list.hpp"
 
 
 int main(int argc, char **argv) {
@@ -37,7 +38,7 @@ int main(int argc, char **argv) {
 
     atlas::Library::instance().initialise(argc, argv);
 
-    using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
     // Using atlas communicator
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
@@ -104,28 +105,28 @@ int main(int argc, char **argv) {
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     // Make patterns
-    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::unstructured::grid>(mpi_comm, hg, local_domains);
 
     // Istantiate communication object
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
         cos.push_back(communication_object_t{p});
     }
 
     // Istantiate data descriptor
-    gridtools::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // ==================== atlas halo exchange ====================
 
-    MPI_Barrier(world);
+    MPI_Barrier(mpi_comm);
 
     fs_nodes.haloExchange(fields["atlas_field_1"]);
 
-    MPI_Barrier(world);
+    MPI_Barrier(mpi_comm);
 
     gettimeofday(&start_atlas, nullptr);
 
@@ -135,7 +136,7 @@ int main(int argc, char **argv) {
 
     gettimeofday(&stop_atlas, nullptr);
 
-    MPI_Barrier(world);
+    MPI_Barrier(mpi_comm);
 
     lapse_time_atlas =
             ((static_cast<double>(stop_atlas.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop_atlas.tv_usec)) -
@@ -144,12 +145,12 @@ int main(int argc, char **argv) {
 
     // ==================== GHEX halo exchange ====================
 
-    MPI_Barrier(world);
+    MPI_Barrier(mpi_comm);
 
     auto h = cos.front().exchange(data_1);
     h.wait();
 
-    MPI_Barrier(world);
+    MPI_Barrier(mpi_comm);
 
     gettimeofday(&start_GHEX, nullptr);
 
@@ -160,7 +161,7 @@ int main(int argc, char **argv) {
 
     gettimeofday(&stop_GHEX, nullptr);
 
-    MPI_Barrier(world);
+    MPI_Barrier(mpi_comm);
 
     lapse_time_GHEX =
             ((static_cast<double>(stop_GHEX.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop_GHEX.tv_usec)) -

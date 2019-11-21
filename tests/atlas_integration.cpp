@@ -84,20 +84,20 @@ TEST(atlas_integration, domain_descriptor) {
     mesh.metadata().get( ss.str(), nb_nodes );
 
     EXPECT_NO_THROW(
-        gridtools::atlas_domain_descriptor<int> _d(0,
-                                                   rank,
-                                                   mesh.nodes().partition(),
-                                                   mesh.nodes().remote_index(),
-                                                   nb_levels,
-                                                   nb_nodes);
+        gridtools::ghex::atlas_domain_descriptor<int> _d(0,
+                                                         rank,
+                                                         mesh.nodes().partition(),
+                                                         mesh.nodes().remote_index(),
+                                                         nb_levels,
+                                                         nb_nodes);
     );
 
-    gridtools::atlas_domain_descriptor<int> d{0,
-                                              rank,
-                                              mesh.nodes().partition(),
-                                              mesh.nodes().remote_index(),
-                                              nb_levels,
-                                              nb_nodes};
+    gridtools::ghex::atlas_domain_descriptor<int> d{0,
+                                                    rank,
+                                                    mesh.nodes().partition(),
+                                                    mesh.nodes().remote_index(),
+                                                    nb_levels,
+                                                    nb_nodes};
 
     if (rank == 0) {
         EXPECT_TRUE(d.first() == 0);
@@ -136,15 +136,15 @@ TEST(atlas_integration, halo_generator) {
     atlas::idx_t nb_nodes_1;
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
-    gridtools::atlas_domain_descriptor<int> d{0,
-                                              rank,
-                                              mesh.nodes().partition(),
-                                              mesh.nodes().remote_index(),
-                                              nb_levels,
-                                              nb_nodes_1};
+    gridtools::ghex::atlas_domain_descriptor<int> d{0,
+                                                    rank,
+                                                    mesh.nodes().partition(),
+                                                    mesh.nodes().remote_index(),
+                                                    nb_levels,
+                                                    nb_nodes_1};
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     // 1) test: halo generator exceptions
     EXPECT_NO_THROW(auto halos_ = hg(d););
@@ -177,32 +177,33 @@ TEST(atlas_integration, make_pattern) {
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
 
     // Instantiate vector of local domains
-    std::vector<gridtools::atlas_domain_descriptor<int>> local_domains{};
+    std::vector<gridtools::ghex::atlas_domain_descriptor<int>> local_domains{};
 
     // Instantiate domain descriptor with halo size = 1 and add it to local domains
     std::stringstream ss_1;
     atlas::idx_t nb_nodes_1;
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
-    gridtools::atlas_domain_descriptor<int> d{0,
-                                              rank,
-                                              mesh.nodes().partition(),
-                                              mesh.nodes().remote_index(),
-                                              nb_levels,
-                                              nb_nodes_1};
+    gridtools::ghex::atlas_domain_descriptor<int> d{0,
+                                                    rank,
+                                                    mesh.nodes().partition(),
+                                                    mesh.nodes().remote_index(),
+                                                    nb_levels,
+                                                    nb_nodes_1};
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
-    EXPECT_NO_THROW(auto patterns_ = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains););
+    using grid_type = gridtools::ghex::unstructured::grid;
+    EXPECT_NO_THROW(auto patterns_ = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains););
 
 }
 
 
 TEST(atlas_integration, halo_exchange) {
 
-    using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
     // Using atlas communicator
     // int rank = static_cast<int>(atlas::mpi::comm().rank());
@@ -261,20 +262,21 @@ TEST(atlas_integration, halo_exchange) {
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     // Make patterns
-    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
+    using grid_type = gridtools::ghex::unstructured::grid;
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains);
 
     // Istantiate communication object
-    using communication_object_t = gridtools::communication_object<decltype(patterns)::value_type, gridtools::cpu>;
+    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
         cos.push_back(communication_object_t{p});
     }
 
     // Istantiate data descriptor
-    gridtools::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // ==================== atlas halo exchange ====================
 

@@ -35,7 +35,7 @@
 
 TEST(atlas_integration, halo_exchange) {
 
-    using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
     gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
@@ -97,16 +97,17 @@ TEST(atlas_integration, halo_exchange) {
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     // Make patterns
-    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
+    using grid_type = gridtools::ghex::unstructured::grid;
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains);
 
     // Instantiate communication objects
-    auto cos = gridtools::make_communication_object(patterns);
+    auto cos = gridtools::ghex::make_communication_object<decltype(patterns)>();
 
     // Instantiate data descriptor
-    gridtools::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // ==================== atlas halo exchange ====================
 
@@ -138,7 +139,7 @@ TEST(atlas_integration, halo_exchange) {
 
 TEST(atlas_integration, halo_exchange_multiple_patterns) {
 
-    using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
     gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
@@ -211,18 +212,19 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     }
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     // Make patterns
-    auto patterns_1 = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains_1);
-    auto patterns_2 = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains_2);
+    using grid_type = gridtools::ghex::unstructured::grid;
+    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains_1);
+    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains_2);
 
     // Instantiate communication objects
-    auto cos = gridtools::make_communication_object(patterns_1, patterns_2);
+    auto cos = gridtools::ghex::make_communication_object<decltype(patterns_1)>();
 
     // Instantiate data descriptors
-    gridtools::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains_1.front(), fields_1["GHEX_field_1"]};
-    gridtools::atlas_data_descriptor<double, domain_descriptor_t> data_2{local_domains_2.front(), fields_2["GHEX_field_2"]};
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains_1.front(), fields_1["GHEX_field_1"]};
+    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> data_2{local_domains_2.front(), fields_2["GHEX_field_2"]};
 
     // ==================== atlas halo exchange ====================
 
