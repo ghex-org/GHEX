@@ -13,3 +13,4 @@ foreach(t_ ${_tests})
 
 endforeach(t_ ${_tests})
 
+add_subdirectory( primitives )
