@@ -94,6 +94,18 @@ namespace gridtools
                 callback_communicator(callback_communicator&&) = default;
                 ~callback_communicator() = default;
 
+		/** The ucx::ghex_ucx_request_cb is templated over message type,
+		 *  and hence it's size cannot be established in the base communicator.
+		 *  The size is needed though to initialize UCX. We use a constant
+		 *  GHEX_REQUEST_SIZE defined in request.hpp. It should be modified
+		 *  if the request structure changes, or if other compilers produce
+		 *  a request of different size.
+		 *  TODO: how to do this nicely?
+		 */
+		int get_request_size(){
+		    return sizeof(ucx::ghex_ucx_request_cb<Allocator>);
+		}
+
             public: // send
 
                 /** @brief Send a message to a destination with the given tag and register a callback which will be 

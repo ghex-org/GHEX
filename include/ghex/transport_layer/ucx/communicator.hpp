@@ -51,8 +51,8 @@ namespace gridtools
 #define GHEX_TAG_MASK                       0xffffffff00000000ul
 #define GHEX_SOURCE_MASK                    0x00000000fffffffful
 
-#define GHEX_MAKE_SEND_TAG(_tag, _dst)				\
-	    ((((uint64_t) (_tag) ) << GHEX_RANK_BITS) |		\
+#define GHEX_MAKE_SEND_TAG(_tag, _dst)			\
+	    ((((uint64_t) (_tag) ) << GHEX_RANK_BITS) |	\
 	     (((uint64_t) (_dst) )))
 
 
@@ -81,16 +81,6 @@ namespace gridtools
 		void ghex_request_init_cb(void *request){
 		    bzero(request, GHEX_REQUEST_SIZE);
 		}
-	    }
-
-	    /** Pointer to the thread-local communicator. 
-	     *  Required by the future-based progress functions, and by the
-	     *  UCX callbacks.*/
-	    class communicator<ucx_tag>;
-	    namespace ucx 
-	    {
-		static communicator<ucx_tag> *pcomm = NULL;
-		DECLARE_THREAD_PRIVATE(pcomm)
 	    }
 
 
@@ -140,21 +130,7 @@ namespace gridtools
 		std::map<rank_type, ucp_ep_h> connections;
 
 	    public:
-
-	
-		/** The ucx::ghex_ucx_request_cb is templated over message type, 
-		 *  and hence it's size cannot be established in the base communicator.
-		 *  The size is needed though to initialize UCX. We use a constant
-		 *  GHEX_REQUEST_SIZE defined in request.hpp. It should be modified
-		 *  if the request structure changes, or if other compilers produce
-		 *  a request of different size.		    
-		 *  TODO: how to do this nicely?
-		 */
-		template<typename MsgType>
-		static int get_request_size(){
-		    return sizeof(ucx::ghex_ucx_request_cb<MsgType>);
-		}
-				
+		
                 rank_type rank() const noexcept { return m_rank; }
                 size_type size() const noexcept { return m_size; }
 
@@ -176,9 +152,8 @@ namespace gridtools
 		    /* need to set this for single threaded runs */
 		    m_thrid = GET_THREAD_NUM();
 		    m_nthr = GET_NUM_THREADS();
-		    ucx::pcomm = this;
 
-		    /* only one thread must initialize UCX. 
+		    /* only one thread must initialize UCX.
 		       TODO: This should probably be a static method, called once, explicitly, by the user */
 		    THREAD_MASTER (){
 
@@ -187,7 +162,7 @@ namespace gridtools
 			m_rank = pmi_impl.rank();
 			m_size = pmi_impl.size();
 #endif
-			
+
 #ifdef THREAD_MODE_SERIALIZED
 #ifndef USE_OPENMP_LOCKS
 			LOCK_INIT(ucp_lock);
@@ -352,7 +327,7 @@ namespace gridtools
 		    /* look for a connection to a given peer
 		       create it if it does not yet exist */
 		    auto conn = connections.find(rank);
-		    if(conn == connections.end()){			
+		    if(conn == connections.end()){
 
 			ucp_address_t *worker_address;
 #ifdef USE_PMI
@@ -391,7 +366,6 @@ namespace gridtools
 		{
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;
-		    uintptr_t istatus;
 		    request_type req;
 
 		    ep = rank_to_ep(dst);
@@ -399,17 +373,17 @@ namespace gridtools
 		    /* send */
 		    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
 					     GHEX_MAKE_SEND_TAG(tag, m_rank), ucx::empty_send_cb);
-			
-		    // TODO !! C++ doesn't like it..
-		    istatus = (uintptr_t)status;
-		    if(UCS_OK == (ucs_status_t)(istatus)){
+
+		    if(UCS_OK == (uintptr_t)status){
 
 			/* send completed immediately */
 			req.m_req = nullptr;
 		    } else if(!UCS_PTR_IS_ERR(status)) {
-			    
+
 			/* return the request */
 			req.m_req = (request_type::req_type)(status);
+			req.m_req->m_ucp_worker = ucp_worker;
+			req.m_req->m_ucp_worker_send = ucp_worker_send;
 		    } else {
 			ERR("ucp_tag_recv_nb failed");
 		    }
@@ -448,13 +422,15 @@ namespace gridtools
 			    ucs_status_t rstatus;
 			    rstatus = ucp_request_check_status (status);
 			    if(rstatus != UCS_INPROGRESS){
-				
+
 				/* recv completed immediately */
 				req.m_req = nullptr;
 			    } else {
 
 				/* return the request */
 				req.m_req = (request_type::req_type)(status);
+				req.m_req->m_ucp_worker = ucp_worker;
+				req.m_req->m_ucp_worker_send = ucp_worker_send;
 			    }
 			} else {
 			    ERR("ucp_tag_send_nb failed");
@@ -483,15 +459,6 @@ namespace gridtools
 		    }
 		    CRITICAL_BEGIN(ucp_lock) {
 			p+= ucp_worker_progress(ucp_worker);
-
-			/* the below improves one-directional tests, but substantially
-			   slows down the bi-directional ones!
-			*/
-			// if(m_nthr>1){
-			//     /* TODO: this may not be necessary when critical is no longer used */
-			//     p+= ucp_worker_progress(ucp_worker);
-			//     p+= ucp_worker_progress(ucp_worker);
-			// }
 		    } CRITICAL_END(ucp_lock);
 
 		    return p;
@@ -570,10 +537,6 @@ namespace gridtools
 		    }
 		    THREAD_BARRIER();
 		}
-
-		friend void ucx::worker_progress();
-		friend void ucx::worker_progress_send();
-		friend void ucx::worker_request_cancel(ghex_ucx_request* req);
 	    };
 
 	    /** static communicator properties, shared between threads */
@@ -581,38 +544,6 @@ namespace gridtools
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_size;
 	    ucp_context_h communicator<ucx_tag>::ucp_context = 0;
 	    ucp_worker_h  communicator<ucx_tag>::ucp_worker = 0;
-
-	    namespace ucx {
-
-		/** Used by the request test() function to progress the worker.
-		    Requests have no direct access to the communicator. 
-
-		    NOTE: has to be ucp_lock'ed by the caller!
-		*/
-		void worker_progress(){
-		    ucp_worker_progress(pcomm->ucp_worker);
-		}
-
-		/** Used by the request test() function to progress the worker.
-		    Requests have no direct access to the communicator. 
-		*/
-		void worker_progress_send(){
-		    ucp_worker_progress(pcomm->ucp_worker_send);
-		    if(pcomm->m_nthr>1){
-			ucp_worker_progress(pcomm->ucp_worker_send);
-			ucp_worker_progress(pcomm->ucp_worker_send);
-		    }
-		}
-
-		/** Used by the request cancel() function.
-		    Requests have no direct access to the communicator. 
-
-		    NOTE: has to be ucp_lock'ed by the caller!
-		*/
-		void worker_request_cancel(ghex_ucx_request* req){
-		    ucp_request_cancel(pcomm->ucp_worker, req);
-		}
-	    }
 
 	} // namespace tl
     } // namespace ghex
