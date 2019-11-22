@@ -40,7 +40,7 @@
 
 int main(int argc, char** argv) {
 
-    using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
     MPI_Init(&argc, &argv);
 
@@ -101,13 +101,13 @@ int main(int argc, char** argv) {
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     // Make patterns
-    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::unstructured::grid>(mpi_comm, hg, local_domains);
 
     // Istantiate communication objects
-    auto cos = gridtools::make_communication_object(patterns);
+    auto cos = gridtools::ghex::make_communication_object<decltype(patterns)>();
 
     // Fields creation and initialization
     auto GHEX_field_1 = fs_nodes.createField<int>(atlas::option::name("GHEX_field_1")); // WARN: why no conversion to array is needed?
@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
     GHEX_field_1.cloneToDevice();
 
     // Instantiate data descriptor
-    gridtools::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1{local_domains.front(), 0, GHEX_field_1};
+    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1{local_domains.front(), 0, GHEX_field_1};
 
     // Halo exchange on the GPU with GHEX
     auto h = cos.exchange(patterns(data_1));

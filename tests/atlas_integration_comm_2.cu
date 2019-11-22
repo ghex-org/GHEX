@@ -38,7 +38,7 @@
 
 TEST(atlas_integration, halo_exchange) {
 
-    using domain_descriptor_t = gridtools::atlas_domain_descriptor<int>;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
     gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
@@ -93,15 +93,15 @@ TEST(atlas_integration, halo_exchange) {
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
     if (!rank) std::cout << "Generated halo generator\n";
 
     // Make patterns
-    auto patterns = gridtools::make_pattern<gridtools::unstructured_grid>(world, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::unstructured::grid>(mpi_comm, hg, local_domains);
     if (!rank) std::cout << "Generated patterns\n";
 
     // Istantiate communication objects
-    auto cos = gridtools::make_communication_object(patterns);
+    auto cos = gridtools::ghex::make_communication_object<decltype(patterns)>();
     if (!rank) std::cout << "Generated communicatin objects\n";
 
     // Fields creation and initialization
@@ -125,7 +125,7 @@ TEST(atlas_integration, halo_exchange) {
     atlas_field_1.cloneToDevice();
     if (!rank) std::cout << "Fields cloned to device\n";
 
-    gridtools::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1{local_domains.front(), 0, GHEX_field_1};
+    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1{local_domains.front(), 0, GHEX_field_1};
     if (!rank) std::cout << "Created data descriptor\n";
 
     // ==================== GHEX halo exchange ====================

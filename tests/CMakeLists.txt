@@ -134,13 +134,13 @@ if (USE_GPU)
         )
     endforeach()
 
-    set(_tests_atlas_gpu atlas_integration_comm_2_gpu atlas_integration_comm_2_gpu_GHEX_only)
+    set(_tests_atlas_gpu atlas_integration_comm_2 atlas_integration_comm_2_GHEX_only)
 
     foreach (_t ${_tests_atlas_gpu})
-        add_executable(${_t} ${_t}.cu ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
-        target_compile_definitions(${_t} PUBLIC GT_USE_GPU)
-        target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-        target_link_libraries(${_t} MPI::MPI_CXX GridTools::gridtools atlas)
+        add_executable(${_t}_gpu ${_t}.cu ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES})
+        target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
+        target_include_directories(${_t}_gpu PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+        target_link_libraries(${_t}_gpu MPI::MPI_CXX GridTools::gridtools atlas)
     endforeach()
 endif()
 
