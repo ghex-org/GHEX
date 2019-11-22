@@ -41,8 +41,9 @@ namespace gridtools{
 		    uint32_t m_tag; 
 		    std::function<void(message_type, int, int)> m_cb;
 		    message_type m_msg;
-
-		    ghex_ucx_request_cb() : m_peer_rank{0}, m_tag{0}, m_msg(0) {}
+		    unsigned char m_initialized; // to handle early completion
+		    
+		    ghex_ucx_request_cb() : m_peer_rank{0}, m_tag{0}, m_msg(0), m_initialized(0) {}
 		    ~ghex_ucx_request_cb(){}
 
 		    ghex_ucx_request_cb(const ghex_ucx_request_cb&) = delete;
@@ -50,14 +51,15 @@ namespace gridtools{
 			m_peer_rank{other.m_peer_rank}, 
 			m_tag{other.m_tag},
 			m_cb{std::move(other.m_cb)},
-			m_msg{std::move(other.m_msg)}
+			m_msg{std::move(other.m_msg)},
+			m_initialized(std::move(other.m_initialized))
 		    {}
 
 		    ghex_ucx_request_cb& operator=(const ghex_ucx_request_cb &other) = delete;
 		};
 
 		/** size of the above struct for actual MsgType */
-		#define GHEX_REQUEST_SIZE 48
+		#define GHEX_REQUEST_SIZE 64
 
 		/** this is defined in ucx communicator.hpp.
 		    Requests have no access to the worker, and we

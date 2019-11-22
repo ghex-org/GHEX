@@ -78,12 +78,6 @@ namespace gridtools
 
             private: // members
 
-		/* Request structure to transfer needed request info to the
-		 * recv callback when early recv is called from inside ucp_tag_recv_nb
-		 */
-		int m_early_completion = 0;
-		ucx::ghex_ucx_request_cb<Allocator> m_early_req;
-
 		/* A list of completed request. Instead of calling the user callbacks immediately
 		 * from inside the UCX completion callbacks, we add the completed requests to this list.
 		 * The user callbacks are then called explicitly from the progress() function.
@@ -115,7 +109,6 @@ namespace gridtools
 		{
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;
-		    uintptr_t istatus;
 		    ucx::ghex_ucx_request_cb<Allocator> *ghex_request;
 
 		    ep = rank_to_ep(dst);
@@ -124,37 +117,26 @@ namespace gridtools
 		    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
 					     GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<Allocator>);
 
-		    // TODO !! C++ doesn't like it..
-		    istatus = (uintptr_t)status;
-		    if(UCS_OK == (ucs_status_t)(istatus)){
+		    if(UCS_OK == (uintptr_t)status){
 
 			/* early completed */
-#ifdef USE_HEAVY_CALLBACKS
 			cb(msg, dst, tag);
-#else
-			early = true;
-#endif
 		    } else if(!UCS_PTR_IS_ERR(status)) {
 
 			/* prepare the request */
-			m_early_req.m_peer_rank = dst;
-			m_early_req.m_tag = tag;
-			m_early_req.m_cb = std::forward<CallBack>(cb);
-			m_early_req.m_msg = msg;
+			ucx::ghex_ucx_request_cb<Allocator> req;
+			req.m_peer_rank = dst;
+			req.m_tag = tag;
+			req.m_cb = std::forward<CallBack>(cb);
+			req.m_msg = msg;
+			req.m_initialized = true;
 
-			/* fill in request data */
+			/* construct the UCX request */
 			ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
-			new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
+			new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(req));
 		    } else {
 			ERR("ucp_tag_send_nb failed");
 		    }
-
-#ifndef USE_HEAVY_CALLBACKS
-		    /* call the callback outside of the critical region */
-		    if(early){
-		    	cb(msg, dst, tag);
-		    }
-#endif
 		}
 
 
@@ -177,18 +159,9 @@ namespace gridtools
 
 		    CRITICAL_BEGIN(ucp_lock) {
 
-			/* set request init data - it might be that the recv completes inside ucp_tag_recv_nb */
-			/* and the callback is called earlier than we initialize the data inside it */
-			m_early_req.m_peer_rank = src;
-			m_early_req.m_tag = tag;
-			m_early_req.m_cb = std::function<void(message_type, int, int)>(cb);
-			m_early_req.m_msg = msg;
-
-			m_early_completion = 1;
 			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
 			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 						 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<Allocator>);
-			m_early_completion = 0;
 
 			if(!UCS_PTR_IS_ERR(status)) {
 
@@ -197,12 +170,23 @@ namespace gridtools
 			    if(rstatus != UCS_INPROGRESS){
 
 				/* early completed */
+				cb(msg, src, tag);
+
+				/* we need to free the request here, not in the callback */
 				ucp_request_free(status);
 			    } else {
 
-				/* fill in request data */
+				/* prepare the request */
+				ucx::ghex_ucx_request_cb<Allocator> req;
+				req.m_peer_rank = src;
+				req.m_tag = tag;
+				req.m_cb = std::function<void(message_type, int, int)>(cb);
+				req.m_msg = msg;
+				req.m_initialized = true;
+
+				/* construct the UCX request */
 				ghex_request = (ucx::ghex_ucx_request_cb<Allocator> *)status;
-				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(m_early_req));
+				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(req));
 			    }
 			} else {
 			    ERR("ucp_tag_send_nb failed");
@@ -244,46 +228,40 @@ namespace gridtools
 		uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
 		uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
 
-		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
-		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
-
 		/* pointer to request data */
 		ucx::ghex_ucx_request_cb<Allocator> *preq;
+		preq = reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 
-		if(pc->m_early_completion){
-#ifdef USE_HEAVY_CALLBACKS
-		    preq = &pc->m_early_req;
-		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
-#else
-		    pc->m_completed.push_back(std::move(pc->m_early_req));
-#endif
-		    /* do not free the request - it has to be freed after tag_send_nb */
-		} else {
-
-		    preq = reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
-#ifdef USE_HEAVY_CALLBACKS
-		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
-#else
-		    pc->m_completed.push_back(std::move(*preq));
-#endif
-		    ucp_request_free(request);
+		/* we're in early completion mode */
+		if(!preq->m_initialized){
+		    return;
 		}
+		
+#ifdef USE_HEAVY_CALLBACKS
+		preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
+#else
+		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
+		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
+		pc->m_completed.push_back(std::move(*preq));
+#endif
+		preq->m_initialized = 0;
+		ucp_request_free(request);
 	    }
 
 	    template <typename Allocator>
 	    void ghex_tag_send_callback(void *request, ucs_status_t)
 	    {
-		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
-		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
-
 		ucx::ghex_ucx_request_cb<Allocator> *preq =
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 		
 #ifdef USE_HEAVY_CALLBACKS
 		preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);
 #else
+		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
+		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
 		pc->m_completed.push_back(std::move(*preq));
 #endif		
+		preq->m_initialized = 0;
 		ucp_request_free(request);
 	    }
         } // namespace tl
@@ -291,4 +269,3 @@ namespace gridtools
 }// namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_UCX_CALLBACK_COMMUNICATOR_HPP */
-
