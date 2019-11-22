@@ -146,6 +146,7 @@ int main(int argc, char *argv[])
 	    comm.progress();
 	}
 
+	comm.flush();
 	comm.barrier();
 	
 	if(rank == 1) timer.vtoc(bytes);

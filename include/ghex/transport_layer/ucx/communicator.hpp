@@ -162,6 +162,7 @@ namespace gridtools
 		{}
 
 		void finalize (){
+		    flush();
 		    ucp_worker_destroy(ucp_worker_send);
 		    THREAD_MASTER (){
 			ucp_worker_destroy(ucp_worker);
@@ -501,6 +502,7 @@ namespace gridtools
 		    if(m_size > 2) ERR("barrier not implemented for more than 2 ranks");
 
 		    THREAD_BARRIER();
+		    flush();
 
 		    /* this should only be executed by a single thread */
 		    THREAD_MASTER () {
@@ -521,6 +523,51 @@ namespace gridtools
 			}
 		    }
 
+		    THREAD_BARRIER();
+		}
+
+		/* this must only be executed by a single thread */
+		void flush()
+		{
+		    /** Flush all the send workers.
+		     *  This should only be executed by all threads
+		     */
+		    {
+			void *request = ucp_worker_flush_nb(ucp_worker_send, 0, ucx::empty_send_cb);
+			if (request == NULL) {
+			    /* done */
+			} else if (UCS_PTR_IS_ERR(request)) {
+			    /* terminate */
+			    ERR("flush failed");
+			} else {
+			    ucs_status_t status;
+			    do {
+				ucp_worker_progress(ucp_worker_send);
+				status = ucp_request_check_status(request);
+			    } while (status == UCS_INPROGRESS);
+			    ucp_request_release(request);
+			}
+		    }
+
+		    /** Flush the recv worker.
+		     *  This should only be executed by a single thread
+		     */
+		    THREAD_MASTER () {
+			void *request = ucp_worker_flush_nb(ucp_worker, 0, ucx::empty_send_cb);
+			if (request == NULL) {
+			    /* done */
+			} else if (UCS_PTR_IS_ERR(request)) {
+			    /* terminate */
+			    ERR("flush failed");
+			} else {
+			    ucs_status_t status;
+			    do {
+				ucp_worker_progress(ucp_worker);
+				status = ucp_request_check_status(request);
+			    } while (status == UCS_INPROGRESS);
+			    ucp_request_release(request);
+			}
+		    }
 		    THREAD_BARRIER();
 		}
 
