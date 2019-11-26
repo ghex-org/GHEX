@@ -14,8 +14,6 @@
 #include <fstream>
 #include <string>
 
-#include <cuda_runtime.h>
-
 #include <gtest/gtest.h>
 #include "../utils/gtest_main_gpu_atlas.cpp"
 
@@ -35,6 +33,10 @@
 #include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
 #include "../include/ghex/communication_object_2.hpp"
 
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#include "gridtools/common/cuda_util.hpp"
+#endif
 
 TEST(atlas_integration, halo_exchange) {
 

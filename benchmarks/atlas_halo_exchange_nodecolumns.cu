@@ -34,7 +34,7 @@
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
-#include "../include/ghex/cuda_utils/error.hpp"
+#include "gridtools/common/cuda_util.hpp"
 #endif
 
 
