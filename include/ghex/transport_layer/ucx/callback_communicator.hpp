@@ -32,7 +32,6 @@
 #endif
 
 #include "request.hpp"
-#include "future.hpp"
 
 namespace gridtools
 {
@@ -75,6 +74,7 @@ namespace gridtools
                 using communicator_type = communicator<ucx_tag>;
                 using allocator_type    = Allocator;
                 using message_type      = shared_message_buffer<allocator_type>;
+		using request           = ucx::request_cb<Allocator>;
 
             private: // members
 
@@ -117,11 +117,11 @@ namespace gridtools
 		 * @param tag Tag associated with the message
 		 * @param cb  Callback function object */
 		template <typename CallBack>
-		void send(const message_type &msg, rank_type dst, tag_type tag, CallBack &&cb)
+		request send(const message_type &msg, rank_type dst, tag_type tag, CallBack &&cb)
 		{
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;
-		    ucx::ghex_ucx_request_cb<Allocator> *ghex_request;
+		    ucx::ghex_ucx_request_cb<Allocator> *ghex_request = nullptr;
 
 		    ep = rank_to_ep(dst);
 		    
@@ -137,11 +137,14 @@ namespace gridtools
 
 			/* prepare the request */
 			ucx::ghex_ucx_request_cb<Allocator> req;
+			req.m_ucp_worker = ucp_worker_send;
 			req.m_peer_rank = dst;
 			req.m_tag = tag;
 			req.m_cb = std::forward<CallBack>(cb);
 			req.m_msg = msg;
 			req.m_initialized = true;
+			req.m_type = ucx::REQ_SEND;
+			req.m_completed = std::make_shared<bool>(false);
 
 			/* construct the UCX request */
 			ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
@@ -149,6 +152,8 @@ namespace gridtools
 		    } else {
 			ERR("ucp_tag_send_nb failed");
 		    }
+
+		    return request(ghex_request);
 		}
 
 
@@ -163,47 +168,52 @@ namespace gridtools
 		 * @param tag Tag associated with the message
 		 * @param cb  Callback function object */
 		template <typename CallBack>
-		void recv(message_type &msg, rank_type src, tag_type tag, CallBack &&cb)
+		request recv(message_type &msg, rank_type src, tag_type tag, CallBack &&cb)
 		{
 		    ucp_tag_t ucp_tag, ucp_tag_mask;
 		    ucs_status_ptr_t status;
-		    ucx::ghex_ucx_request_cb<Allocator> *ghex_request;
+		    ucx::ghex_ucx_request_cb<Allocator> *ghex_request = nullptr;
 
 		    CRITICAL_BEGIN(ucp_lock) {
 
-			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<Allocator>);
+		    	GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
+		    	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
+		    				 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<Allocator>);
 
-			if(!UCS_PTR_IS_ERR(status)) {
+		    	if(!UCS_PTR_IS_ERR(status)) {
 
-			    ucs_status_t rstatus;
-			    rstatus = ucp_request_check_status (status);
-			    if(rstatus != UCS_INPROGRESS){
+		    	    ucs_status_t rstatus;
+		    	    rstatus = ucp_request_check_status (status);
+		    	    if(rstatus != UCS_INPROGRESS){
 
-				/* early completed */
-				cb(msg, src, tag);
+		    		/* early completed */
+		    		cb(msg, src, tag);
 
-				/* we need to free the request here, not in the callback */
-				ucp_request_free(status);
-			    } else {
+		    		/* we need to free the request here, not in the callback */
+		    		ucp_request_free(status);
+		    	    } else {
 
-				/* prepare the request */
-				ucx::ghex_ucx_request_cb<Allocator> req;
-				req.m_peer_rank = src;
-				req.m_tag = tag;
-				req.m_cb = std::function<void(message_type, int, int)>(cb);
-				req.m_msg = msg;
-				req.m_initialized = true;
+		    		/* prepare the request */
+		    		ucx::ghex_ucx_request_cb<Allocator> req;
+		    		req.m_ucp_worker = ucp_worker;
+		    		req.m_peer_rank = src;
+		    		req.m_tag = tag;
+		    		req.m_cb = std::function<void(message_type, int, int)>(cb);
+		    		req.m_msg = msg;
+		    		req.m_initialized = true;
+				req.m_type = ucx::REQ_RECV;
+				req.m_completed = std::make_shared<bool>(false);
 
-				/* construct the UCX request */
-				ghex_request = (ucx::ghex_ucx_request_cb<Allocator> *)status;
-				new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(req));
-			    }
-			} else {
-			    ERR("ucp_tag_send_nb failed");
-			}
+		    		/* construct the UCX request */
+		    		ghex_request = (ucx::ghex_ucx_request_cb<Allocator> *)status;
+		    		new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(req));
+		    	    }
+		    	} else {
+		    	    ERR("ucp_tag_send_nb failed");
+		    	}
 		    } CRITICAL_END(ucp_lock);
+
+		    return request(ghex_request);
 		}
 
                 /** @brief Progress the communication. This function progresses the UCX backend. 
@@ -235,47 +245,69 @@ namespace gridtools
 	    /** request completion callbacks registered in UCX 
 	     */    
 	    template <typename Allocator>
-	    void ghex_tag_recv_callback(void *request, ucs_status_t, ucp_tag_recv_info_t *info)
+	    void ghex_tag_recv_callback(void *request, ucs_status_t status, ucp_tag_recv_info_t *info)
 	    {
 		uint32_t peer_rank = GHEX_GET_SOURCE(info->sender_tag); // should be the same as r->peer_rank
 		uint32_t tag = GHEX_GET_TAG(info->sender_tag);          // should be the same as r->tagx
 
 		/* pointer to request data */
-		ucx::ghex_ucx_request_cb<Allocator> *preq;
-		preq = reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
+		ucx::ghex_ucx_request_cb<Allocator> *preq = 
+		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 
-		/* we're in early completion mode */
-		if(!preq->m_initialized){
-		    return;
-		}
+		if(UCS_OK == status){
+
+
+		    /* we're in early completion mode */
+		    if(!preq->m_initialized){
+			return;
+		    }
 		
 #ifdef USE_HEAVY_CALLBACKS
-		preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
+		    preq->m_cb(std::move(preq->m_msg), peer_rank, tag);
 #else
-		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
-		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
-		pc->m_completed.push_back(std::move(*preq));
+		    callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
+			pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
+		    pc->m_completed.push_back(std::move(*preq));
 #endif
+		} else {
+		    
+		    /* canceled - release the message  */
+		    preq->m_msg.release();
+		}
+
 		preq->m_initialized = 0;
+		*(preq->m_completed) = true;
+		preq->m_completed = nullptr;
 		ucp_request_free(request);
 	    }
 
 	    template <typename Allocator>
-	    void ghex_tag_send_callback(void *request, ucs_status_t)
+	    void ghex_tag_send_callback(void *request, ucs_status_t status)
 	    {
 		ucx::ghex_ucx_request_cb<Allocator> *preq =
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
+
+		if(UCS_OK == status){
 		
 #ifdef USE_HEAVY_CALLBACKS
-		preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);
+		    preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);
 #else
-		callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
-		    pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
-		pc->m_completed.push_back(std::move(*preq));
+		    callback_communicator<communicator<ucx_tag>, Allocator> *pc = 
+			pc = reinterpret_cast<callback_communicator<communicator<ucx_tag>, Allocator> *>(ucx::pcomm);
+		    pc->m_completed.push_back(std::move(*preq));
 #endif		
+		} else {
+
+		    /* canceled - release the message  */
+		    preq->m_msg.release();
+		}
+
 		preq->m_initialized = 0;
+		*(preq->m_completed) = true;
+		preq->m_completed = nullptr;
 		ucp_request_free(request);
 	    }
+
         } // namespace tl
     } // namespace ghex
 }// namespace gridtools

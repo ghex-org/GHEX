@@ -104,8 +104,57 @@ namespace gridtools{
 
                     bool cancel()
                     {
-			/* TODO */
-                        return false;
+			return m_handle.cancel();
+                    }
+                };
+
+		template<typename Allocator>
+                struct future_cb
+                {
+                    using handle_type = request_cb<Allocator>;
+
+                    handle_type m_handle;
+
+                    future_cb() {}
+                    future_cb(handle_type&& h):
+			m_handle(std::move(h))
+                    {
+			fprintf(stderr, "%s %d m_req %p\n", __FUNCTION__, __LINE__, m_handle.m_req);
+		    }
+
+                    future_cb(const future_cb&) = delete;
+                    future_cb(future_cb&& other) = default;
+                    future_cb& operator=(const future_cb&) = delete;
+                    future_cb& operator=(future_cb&& other)
+		    {
+		    	fprintf(stderr, "%s %d m_req %p\n", __FUNCTION__, __LINE__, other.m_handle.m_req);
+		    	m_handle = std::move(other.m_handle);
+		    	fprintf(stderr, "%s %d m_req %p\n", __FUNCTION__, __LINE__, m_handle.m_req);
+		    }
+
+                    void wait() noexcept
+                    {
+                        m_handle.wait();
+                    }
+
+                    bool test() noexcept
+                    {
+                        return m_handle.test();
+                    }
+
+                    bool ready() noexcept
+                    {
+                        return m_handle.test();
+                    }
+
+                    void get()
+                    {
+                        wait(); 
+                    }
+
+                    bool cancel()
+                    {
+			return m_handle.cancel();
                     }
                 };
 

@@ -29,7 +29,6 @@ using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
 
 #include "ucp_lock.hpp"
 #include "request.hpp"
-#include "future.hpp"
 
 namespace gridtools
 {
@@ -97,10 +96,8 @@ namespace gridtools
 		using tag_type  = ucp_tag_t;
 		using rank_type = int;
 		using size_type = int;
-		using request_type = ucx::request;
-		template<typename T>
-		using future = ucx::future<T>;
-                using traits         = int;
+		using request   = ucx::request;
+                using traits    = int;
 
 		/* these are static, i.e., shared by threads */
 		static rank_type m_rank;
@@ -110,7 +107,7 @@ namespace gridtools
 		thread_rank_type m_thrid;
 		thread_rank_type m_nthr;
 
-	    private:
+	    protected:
 
 		/* these are static, i.e., shared by threads */
 		static ucp_context_h ucp_context;
@@ -135,15 +132,16 @@ namespace gridtools
                 size_type size() const noexcept { return m_size; }
 
 		~communicator()
-		{}
-
-		void finalize (){
-		    flush();
+		{
 		    ucp_worker_destroy(ucp_worker_send);
-		    THREAD_MASTER (){
+		}
+
+		static void finalize (){
+		    if(ucp_worker) {
 			ucp_worker_destroy(ucp_worker);
+			ucp_cleanup(ucp_context);
 			ucp_worker = nullptr;
-			// ucp_cleanup(ucp_context);
+			ucp_context = nullptr;
 		    }
 		}
 
@@ -362,11 +360,11 @@ namespace gridtools
 		 * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
 		 */
 		template <typename MsgType>
-		[[nodiscard]] future<void> send(const MsgType &msg, rank_type dst, tag_type tag)
+		[[nodiscard]] request send(const MsgType &msg, rank_type dst, tag_type tag)
 		{
 		    ucp_ep_h ep;
 		    ucs_status_ptr_t status;
-		    request_type req;
+		    request req;
 
 		    ep = rank_to_ep(dst);
 
@@ -381,9 +379,10 @@ namespace gridtools
 		    } else if(!UCS_PTR_IS_ERR(status)) {
 
 			/* return the request */
-			req.m_req = (request_type::req_type)(status);
+			req.m_req = (request::req_type)(status);
 			req.m_req->m_ucp_worker = ucp_worker;
 			req.m_req->m_ucp_worker_send = ucp_worker_send;
+			req.m_req->m_type = ucx::REQ_SEND;
 		    } else {
 			ERR("ucp_tag_recv_nb failed");
 		    }
@@ -405,10 +404,10 @@ namespace gridtools
 		 * @return A future that will be ready when the message can be read
 		 */
 		template <typename MsgType>
-		[[nodiscard]] future<void> recv(MsgType &msg, rank_type src, tag_type tag) {
+		[[nodiscard]] request recv(MsgType &msg, rank_type src, tag_type tag) {
 		    ucp_tag_t ucp_tag, ucp_tag_mask;
 		    ucs_status_ptr_t status;
-		    request_type req;
+		    request req;
 
 		    CRITICAL_BEGIN(ucp_lock) {
 
@@ -425,12 +424,16 @@ namespace gridtools
 
 				/* recv completed immediately */
 				req.m_req = nullptr;
+
+		    		/* we need to free the request here, not in the callback */
+		    		ucp_request_free(status);
 			    } else {
 
 				/* return the request */
-				req.m_req = (request_type::req_type)(status);
+				req.m_req = (request::req_type)(status);
 				req.m_req->m_ucp_worker = ucp_worker;
 				req.m_req->m_ucp_worker_send = ucp_worker_send;
+				req.m_req->m_type = ucx::REQ_RECV;
 			    }
 			} else {
 			    ERR("ucp_tag_send_nb failed");
@@ -469,13 +472,12 @@ namespace gridtools
 		    if(m_size > 2) ERR("barrier not implemented for more than 2 ranks");
 
 		    THREAD_BARRIER();
-		    flush();
 
 		    /* this should only be executed by a single thread */
 		    THREAD_MASTER () {
 
 			/* do a simple send and recv */
-			future<void> sf, rf;
+			request sf, rf;
 			rank_type peer_rank = (m_rank+1)%2;
 			tag_type tag;
 			std::array<int,1> smsg = {1}, rmsg = {0};
@@ -490,51 +492,6 @@ namespace gridtools
 			}
 		    }
 
-		    THREAD_BARRIER();
-		}
-
-		/* this must only be executed by a single thread */
-		void flush()
-		{
-		    /** Flush all the send workers.
-		     *  This should only be executed by all threads
-		     */
-		    {
-			void *request = ucp_worker_flush_nb(ucp_worker_send, 0, ucx::empty_send_cb);
-			if (request == NULL) {
-			    /* done */
-			} else if (UCS_PTR_IS_ERR(request)) {
-			    /* terminate */
-			    ERR("flush failed");
-			} else {
-			    ucs_status_t status;
-			    do {
-				ucp_worker_progress(ucp_worker_send);
-				status = ucp_request_check_status(request);
-			    } while (status == UCS_INPROGRESS);
-			    ucp_request_release(request);
-			}
-		    }
-
-		    /** Flush the recv worker.
-		     *  This should only be executed by a single thread
-		     */
-		    THREAD_MASTER () {
-			void *request = ucp_worker_flush_nb(ucp_worker, 0, ucx::empty_send_cb);
-			if (request == NULL) {
-			    /* done */
-			} else if (UCS_PTR_IS_ERR(request)) {
-			    /* terminate */
-			    ERR("flush failed");
-			} else {
-			    ucs_status_t status;
-			    do {
-				ucp_worker_progress(ucp_worker);
-				status = ucp_request_check_status(request);
-			    } while (status == UCS_INPROGRESS);
-			    ucp_request_release(request);
-			}
-		    }
 		    THREAD_BARRIER();
 		}
 	    };

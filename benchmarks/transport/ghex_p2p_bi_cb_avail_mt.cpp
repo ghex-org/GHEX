@@ -23,6 +23,7 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
 #endif
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
+using FutureType = gridtools::ghex::tl::callback_communicator<CommType>::request;
 #endif /* USE_MPI */
 
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
@@ -114,6 +115,8 @@ int main(int argc, char *argv[])
 
 	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
+	std::vector<FutureType> sreqs;
+	std::vector<FutureType> rreqs;
 	
 	for(int j=0; j<inflight; j++){
 	    smsgs.emplace_back(buff_size);
@@ -121,6 +124,9 @@ int main(int argc, char *argv[])
     	    make_zero(smsgs[j]);
     	    make_zero(rmsgs[j]);
 	}
+
+	sreqs.resize(inflight);
+	rreqs.resize(inflight);	
 	
 	comm.barrier();
 
@@ -158,30 +164,64 @@ int main(int argc, char *argv[])
 		    submit_recv_cnt += nthr;
 		    rdbg += nthr;
 		    dbg += nthr;
-		    comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
 		} else comm.progress();
 
 		if(sent < niter && smsgs[j].use_count() == 1){
 		    submit_cnt += nthr;
 		    sdbg += nthr;
 		    dbg += nthr;
-		    comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
+		    sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
 		} else comm.progress();
 	    }
 	}
 
 	comm.barrier();
-	comm.finalize();
 
+	THREAD_MASTER() {
+	    if(rank == 1) {
+		ttimer.vtoc();
+		ttimer.vtoc("final ", (double)niter*size*buff_size);
+	    }
+	}
+
+	THREAD_BARRIER()
+#pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
 
+	/* tail loops - submit RECV requests until
+	   all SEND requests have been finalized.
+	   This is because UCX cannot cancel SEND requests.
+	   https://github.com/openucx/ucx/issues/1162
+	*/
+	int incomplete_sends = 0;
+	do {
+	    comm.progress();
+
+	    incomplete_sends = 0;
+	    for(int j=0; j<inflight; j++){
+		if(!sreqs[j].test()) incomplete_sends++;
+	    }
+
+	    for(int j=0; j<inflight; j++){
+		if(rmsgs[j].use_count() == 1){
+		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		}
+	    }
+	} while(incomplete_sends);
+
+	/* this will make sure everyone has progressed all sends... */
+	comm.barrier();
+
+	/* ... so we can cancel all RECV requests */
+	for(int j=0; j<inflight; j++){
+	    rreqs[j].cancel();
+	}
+
     } THREAD_PARALLEL_END();    
 
-    if(rank == 1) {
-	ttimer.vtoc();
-	ttimer.vtoc("final ", (double)niter*size*buff_size);
-    }
+    CommType::finalize();
 
 #ifdef USE_MPI
     // MPI_Barrier(MPI_COMM_WORLD);

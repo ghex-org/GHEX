@@ -23,6 +23,7 @@ using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
 #endif
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
+using FutureType = gridtools::ghex::tl::callback_communicator<CommType>::request;
 #endif /* USE_MPI */
 
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
@@ -113,6 +114,8 @@ int main(int argc, char *argv[])
 
 	std::vector<MsgType> smsgs;
 	std::vector<MsgType> rmsgs;
+	std::vector<FutureType> sreqs;
+	std::vector<FutureType> rreqs;
 	
 	for(int j=0; j<inflight; j++){
 	    smsgs.emplace_back(buff_size);
@@ -120,6 +123,8 @@ int main(int argc, char *argv[])
     	    make_zero(smsgs[j]);
     	    make_zero(rmsgs[j]);
 	}
+	sreqs.resize(inflight);
+	rreqs.resize(inflight);
 	
 	comm.barrier();
 
@@ -149,8 +154,8 @@ int main(int argc, char *argv[])
 	    for(int j=0; j<inflight; j++){
 		dbg+=nthr;
 		i+=nthr;
-		comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
-		comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
+		rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
+		sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
 	    }
 	
 	    /* complete all inflight requests before moving on */
@@ -165,17 +170,24 @@ int main(int argc, char *argv[])
 	}
 
 	comm.barrier();
-	comm.finalize();
 
+	THREAD_MASTER() {
+	    if(rank == 1) {
+		ttimer.vtoc();
+		ttimer.vtoc("final ", (double)niter*size*buff_size);
+	    }
+	}
+
+	THREAD_BARRIER();
+#pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
 
+	/* tail loops - not needed in wait benchmarks */
+
     } THREAD_PARALLEL_END();
-    
-    if(rank == 1) {
-	ttimer.vtoc();
-	ttimer.vtoc("final ", (double)niter*size*buff_size);
-    }
+
+    CommType::finalize();
 
 #ifdef USE_MPI
     // MPI_Barrier(MPI_COMM_WORLD);

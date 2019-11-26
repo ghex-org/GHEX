@@ -27,7 +27,7 @@ using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_ta
 
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
-using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
+using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::request;
 
 #endif /* USE_MPI */
 
@@ -131,14 +131,14 @@ int main(int argc, char *argv[])
 		    last_sent = sent;
 		}
 
-		if(rreqs[j].ready()) {
+		if(rreqs[j].test()) {
 		    received++;
 		    rdbg+=nthr;
 		    dbg+=nthr;
 		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
 		}
 
-		if(sent < niter && sreqs[j].ready()) {
+		if(sent < niter && sreqs[j].test()) {
 		    sent++;
 		    sdbg+=nthr;
 		    dbg+=nthr;
@@ -148,14 +148,46 @@ int main(int argc, char *argv[])
 	}
 
 	comm.barrier();
-	comm.finalize();
+
+	THREAD_MASTER() {
+	    if(rank == 1) {
+		ttimer.vtoc();
+		ttimer.vtoc("final ", (double)niter*size*buff_size);
+	    }
+	}
+
+	/* tail loops - submit RECV requests until
+	   all SEND requests have been finalized.
+	   This is because UCX cannot cancel SEND requests.
+	   https://github.com/openucx/ucx/issues/1162
+	*/
+	int incomplete_sends = 0;
+	do {
+	    comm.progress();
+
+	    incomplete_sends = 0;
+	    for(int j=0; j<inflight; j++){
+		if(!sreqs[j].test()) incomplete_sends++;
+	    }
+
+	    for(int j=0; j<inflight; j++){
+		if(rreqs[j].test()) {
+		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
+		}
+	    }
+	} while(incomplete_sends);
+
+	/* this will make sure everyone has progressed all sends... */
+	comm.barrier();
+
+	/* ... so we can cancel all RECV requests */
+	for(int j=0; j<inflight; j++){
+	    rreqs[j].cancel();
+	}
 
     } THREAD_PARALLEL_END();
 
-    if(rank == 1) {
-	ttimer.vtoc();
-	ttimer.vtoc("final ", (double)niter*size*buff_size);
-    }
+    CommType::finalize();
 
 #ifdef USE_MPI
     // MPI_Barrier(MPI_COMM_WORLD);

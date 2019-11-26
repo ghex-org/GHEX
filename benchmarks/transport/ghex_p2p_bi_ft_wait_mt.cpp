@@ -26,7 +26,7 @@ using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_ta
 
 #include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
-using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::future<void>;
+using FutureType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>::request;
 
 #endif /* USE_MPI */
 
@@ -134,14 +134,19 @@ int main(int argc, char *argv[])
 	}
 
 	comm.barrier();
-	comm.finalize();
+
+	THREAD_MASTER() {
+	    if(rank == 1) {
+		ttimer.vtoc();
+		ttimer.vtoc("final ", (double)niter*size*buff_size);
+	    }
+	}
+
+	/* tail loops - not needed in wait benchmarks */
 	
     } THREAD_PARALLEL_END();
 
-    if(rank == 1) {
-	ttimer.vtoc();
-	ttimer.vtoc("final ", (double)niter*size*buff_size);
-    }
+    CommType::finalize();
 
 #ifdef USE_MPI
     // MPI_Barrier(MPI_COMM_WORLD);
