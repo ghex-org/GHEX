@@ -85,7 +85,7 @@ namespace gridtools{
 		};
 
 		/** size of the ghex_ucx_request_cb struct - currently 88 bytes */
-#define GHEX_REQUEST_SIZE 88
+#define GHEX_REQUEST_SIZE 80
 
                 /** @brief thin wrapper around UCX Request */
                 struct request
