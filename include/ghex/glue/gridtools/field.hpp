@@ -83,7 +83,7 @@ namespace gridtools {
         {
             using domain_id_type    = typename Grid::domain_id_type;
             using data_store_t      = ::gridtools::data_store<Storage,StorageInfo>;
-            using arch_t          = typename _impl::get_arch<Storage>::type;
+            using arch_t            = typename _impl::get_arch<Storage>::type;
             using value_t           = typename data_store_t::data_t;
             using layout_t          = typename StorageInfo::layout_t;
             using integer_seq       = typename ::gridtools::_impl::get_unmasked_layout_map<layout_t>::integer_seq;
