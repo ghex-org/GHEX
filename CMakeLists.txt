@@ -40,7 +40,7 @@ else()
 endif()
 
 set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
-set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use PMIx process management")
+set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
 
 if (GHEX_USE_PMIX)
    find_package(PMIx)
