@@ -24,7 +24,6 @@ namespace gridtools {
 
     namespace ghex {
         namespace _impl {
-    //    namespace _impl {
 
             template<typename Halo, typename S, typename I, I... Is>
             array<S, sizeof...(Is)>
@@ -53,7 +52,6 @@ namespace gridtools {
                 using integer_seq   = ::gridtools::meta::list_to_iseq<unmasked_args>;
                 using type          = typename get_layout_map<integer_seq>::type;
             };
-      //  } // namespace _impl
 
             template<typename T, typename Arch, typename DomainDescriptor, typename Seq>
             struct get_simple_field_wrapper_type;
