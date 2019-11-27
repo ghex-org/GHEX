@@ -178,6 +178,7 @@ int main(int argc, char *argv[])
 		ttimer.vtoc("final ", (double)niter*size*buff_size);
 	    }
 	}
+	THREAD_BARRIER()
 
 #pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
