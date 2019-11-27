@@ -103,10 +103,6 @@ namespace gridtools
 		static rank_type m_rank;
 		static rank_type m_size;
 
-		/* these are per-thread */
-		thread_rank_type m_thrid;
-		thread_rank_type m_nthr;
-
 	    protected:
 
 		/* these are static, i.e., shared by threads */
@@ -147,9 +143,6 @@ namespace gridtools
 
 		communicator(const traits& t = traits{})
 		{
-		    /* need to set this for single threaded runs */
-		    m_thrid = GET_THREAD_NUM();
-		    m_nthr = GET_NUM_THREADS();
 
 		    /* only one thread must initialize UCX.
 		       TODO: This should probably be a static method, called once, explicitly, by the user */
