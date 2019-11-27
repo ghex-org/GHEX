@@ -142,7 +142,6 @@ namespace gridtools
 			ghex_request->m_tag = tag;
 			ghex_request->m_cb = std::forward<CallBack>(cb);
 			ghex_request->m_msg = msg;
-			ghex_request->m_initialized = true;
 			ghex_request->m_type = ucx::REQ_SEND;
 			ghex_request->m_completed = std::make_shared<bool>(false);
 		    } else {
@@ -196,7 +195,6 @@ namespace gridtools
 		    		ghex_request->m_tag = tag;
 		    		ghex_request->m_cb = std::forward<CallBack>(cb);
 		    		ghex_request->m_msg = msg;
-		    		ghex_request->m_initialized = true;
 				ghex_request->m_type = ucx::REQ_RECV;
 				ghex_request->m_completed = std::make_shared<bool>(false);
 		    	    }
@@ -250,7 +248,7 @@ namespace gridtools
 
 
 		    /* we're in early completion mode */
-		    if(!preq->m_initialized){
+		    if(preq->m_type == ucx::REQ_NONE){
 			return;
 		    }
 		
@@ -267,7 +265,7 @@ namespace gridtools
 		    preq->m_msg.release();
 		}
 
-		preq->m_initialized = 0;
+		preq->m_type = ucx::REQ_NONE;
 		*(preq->m_completed) = true;
 		preq->m_completed = nullptr;
 		ucp_request_free(request);
@@ -294,7 +292,7 @@ namespace gridtools
 		    preq->m_msg.release();
 		}
 
-		preq->m_initialized = 0;
+		preq->m_type = ucx::REQ_NONE;
 		*(preq->m_completed) = true;
 		preq->m_completed = nullptr;
 		ucp_request_free(request);

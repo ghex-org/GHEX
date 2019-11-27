@@ -29,7 +29,7 @@ namespace gridtools{
             namespace ucx {
 
 		typedef enum {
-		    REQ_NONE,
+		    REQ_NONE = 0,
 		    REQ_SEND,
 		    REQ_RECV
 		} t_request_type;
@@ -56,7 +56,6 @@ namespace gridtools{
 		    uint32_t m_tag;
 		    std::function<void(message_type, int, int)> m_cb;
 		    message_type m_msg;
-		    bool m_initialized;
 		    std::shared_ptr<bool> m_completed;
 		    t_request_type m_type;
 
@@ -65,7 +64,6 @@ namespace gridtools{
 			m_peer_rank{0}, 
 			m_tag{0}, 
 			m_msg(0), 
-			m_initialized(0), 
 			m_completed(nullptr),
 			m_type(REQ_NONE)
 		    {}
@@ -79,7 +77,6 @@ namespace gridtools{
 			m_tag{other.m_tag},
 			m_cb{std::move(other.m_cb)},
 			m_msg{std::move(other.m_msg)},
-			m_initialized(std::move(other.m_initialized)),
 			m_completed{std::move(other.m_completed)},
 			m_type{other.m_type}
 		    {}
