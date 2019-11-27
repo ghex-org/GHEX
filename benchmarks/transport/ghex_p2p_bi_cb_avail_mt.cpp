@@ -79,7 +79,9 @@ int main(int argc, char *argv[])
 
     gridtools::ghex::timer timer, ttimer;
 
-#ifdef USE_MPI
+    /* has to be done before MPI_Init */
+    CommType::initialize();
+
     int mode;
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
@@ -89,7 +91,6 @@ int main(int argc, char *argv[])
     }
 #else
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
-#endif
 #endif
 
     if(argc != 4){
@@ -128,13 +129,13 @@ int main(int argc, char *argv[])
 	sreqs.resize(inflight);
 	rreqs.resize(inflight);	
 	
-	comm.barrier();
-
 	THREAD_MASTER() {
+	    MPI_Barrier(MPI_COMM_WORLD);
 	    timer.tic();
 	    ttimer.tic();
 	    if(rank == 1) std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
 	}
+	THREAD_BARRIER();
 	
 	/* send/recv niter messages - as soon as a slot becomes free */
 	int dbg = 0, sdbg = 0, rdbg = 0;
@@ -176,16 +177,15 @@ int main(int argc, char *argv[])
 	    }
 	}
 
-	comm.barrier();
-
+	THREAD_BARRIER()
 	THREAD_MASTER() {
+	    MPI_Barrier(MPI_COMM_WORLD);
 	    if(rank == 1) {
 		ttimer.vtoc();
 		ttimer.vtoc("final ", (double)niter*size*buff_size);
 	    }
 	}
 
-	THREAD_BARRIER()
 #pragma omp critical
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
@@ -212,7 +212,10 @@ int main(int argc, char *argv[])
 	} while(incomplete_sends);
 
 	/* this will make sure everyone has progressed all sends... */
-	comm.barrier();
+	THREAD_BARRIER()
+	THREAD_MASTER() {
+	    MPI_Barrier(MPI_COMM_WORLD);
+	}
 
 	/* ... so we can cancel all RECV requests */
 	for(int j=0; j<inflight; j++){
@@ -223,8 +226,6 @@ int main(int argc, char *argv[])
 
     CommType::finalize();
 
-#ifdef USE_MPI
-    // MPI_Barrier(MPI_COMM_WORLD);
-    // MPI_Finalize();
-#endif
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
 }

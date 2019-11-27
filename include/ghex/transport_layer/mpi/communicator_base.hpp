@@ -64,17 +64,8 @@ namespace gridtools{
                     /** @return size of communicator group*/
                     inline size_type size() const noexcept { return m_size; }
 
-                    void barrier() const { 
-#pragma omp master
-			GHEX_CHECK_MPI_RESULT(MPI_Barrier(*m_comm));
-#pragma omp barrier
-		    }
-		    void fence() const {
-#pragma omp master
-			GHEX_CHECK_MPI_RESULT(MPI_Barrier(*m_comm));
-#pragma omp barrier
-		    }
-		    void finalize() const {}
+		    static void initialize() const {}
+		    static void finalize() const {}
 
                     operator       MPI_Comm&()       noexcept { return *m_comm; }
                     operator const MPI_Comm&() const noexcept { return *m_comm; }

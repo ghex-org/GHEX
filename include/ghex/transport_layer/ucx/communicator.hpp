@@ -132,7 +132,8 @@ namespace gridtools
 		    ucp_worker_destroy(ucp_worker_send);
 		}
 
-		static void finalize (){
+		static void finalize ()
+		{
 		    if(ucp_worker) {
 			ucp_worker_destroy(ucp_worker);
 			ucp_cleanup(ucp_context);
@@ -141,152 +142,147 @@ namespace gridtools
 		    }
 		}
 
-		communicator(const traits& t = traits{})
+		static void initialize()
 		{
-
-		    /* only one thread must initialize UCX.
-		       TODO: This should probably be a static method, called once, explicitly, by the user */
-		    THREAD_MASTER (){
-
 #ifdef USE_PMI
-			// communicator rank and world size
-			m_rank = pmi_impl.rank();
-			m_size = pmi_impl.size();
+		    // communicator rank and world size
+		    PmiType pmi_impl;
+		    m_rank = pmi_impl.rank();
+		    m_size = pmi_impl.size();
 #endif
 
 #ifdef THREAD_MODE_SERIALIZED
 #ifndef USE_OPENMP_LOCKS
-			LOCK_INIT(ucp_lock);
+		    LOCK_INIT(ucp_lock);
 #endif
 #endif
 
-			// UCX initialization
-			ucs_status_t status;
-			ucp_params_t ucp_params;
-			ucp_config_t *config = NULL;
-			ucp_worker_params_t worker_params;
+		    // UCX initialization
+		    ucs_status_t status;
+		    ucp_params_t ucp_params;
+		    ucp_config_t *config = NULL;
+		    ucp_worker_params_t worker_params;
 
-			status = ucp_config_read(NULL, NULL, &config);
-			if(UCS_OK != status) ERR("ucp_config_read failed");
+		    status = ucp_config_read(NULL, NULL, &config);
+		    if(UCS_OK != status) ERR("ucp_config_read failed");
 
-			/* Initialize UCP */
-			{
-			    memset(&ucp_params, 0, sizeof(ucp_params));
+		    /* Initialize UCP */
+		    {
+			memset(&ucp_params, 0, sizeof(ucp_params));
 
-			    /* pass features, request size, and request init function */
-			    ucp_params.field_mask =
-				UCP_PARAM_FIELD_FEATURES          |
-				UCP_PARAM_FIELD_REQUEST_SIZE      |
-				UCP_PARAM_FIELD_TAG_SENDER_MASK   |
-				UCP_PARAM_FIELD_MT_WORKERS_SHARED |
-				UCP_PARAM_FIELD_ESTIMATED_NUM_EPS |
-				UCP_PARAM_FIELD_REQUEST_INIT      ;
+			/* pass features, request size, and request init function */
+			ucp_params.field_mask =
+			    UCP_PARAM_FIELD_FEATURES          |
+			    UCP_PARAM_FIELD_REQUEST_SIZE      |
+			    UCP_PARAM_FIELD_TAG_SENDER_MASK   |
+			    UCP_PARAM_FIELD_MT_WORKERS_SHARED |
+			    UCP_PARAM_FIELD_ESTIMATED_NUM_EPS |
+			    UCP_PARAM_FIELD_REQUEST_INIT      ;
 
-			    /* request transport support for tag matching */
-			    ucp_params.features =
-				UCP_FEATURE_TAG ;
+			/* request transport support for tag matching */
+			ucp_params.features =
+			    UCP_FEATURE_TAG ;
 
-			    // TODO: templated request type - how do we know the size??
-			    ucp_params.request_size = GHEX_REQUEST_SIZE;
+			// TODO: templated request type - how do we know the size??
+			ucp_params.request_size = GHEX_REQUEST_SIZE;
 
-			    /* this should be true if we have per-thread workers
-			       otherwise, if one worker is shared by all thread, it should be false
-			       This requires benchmarking. */
-			    ucp_params.mt_workers_shared = true;
+			/* this should be true if we have per-thread workers
+			   otherwise, if one worker is shared by all thread, it should be false
+			   This requires benchmarking. */
+			ucp_params.mt_workers_shared = true;
 
-			    /* estimated number of end-points -
-			       affects transport selection criteria and theresulting performance */
-			    ucp_params.estimated_num_eps = m_size;
+			/* estimated number of end-points -
+			   affects transport selection criteria and theresulting performance */
+			ucp_params.estimated_num_eps = m_size;
 
-			    /* Mask which specifies particular bits of the tag which can uniquely identify
-			       the sender (UCP endpoint) in tagged operations. */
-			    ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
+			/* Mask which specifies particular bits of the tag which can uniquely identify
+			   the sender (UCP endpoint) in tagged operations. */
+			ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
 
-			    /* Needed to zero the memory region. Otherwise segfaults occured
-			       when a std::function destructor was called on an invalid object */
-			    ucp_params.request_init = ucx::ghex_request_init_cb;
+			/* Needed to zero the memory region. Otherwise segfaults occured
+			   when a std::function destructor was called on an invalid object */
+			ucp_params.request_init = ucx::ghex_request_init_cb;
 
 #if (GHEX_DEBUG_LEVEL == 2)
-			    if(0 == m_rank){
-			    	LOG("ucp version %s", ucp_get_version_string());
-			    	LOG("ucp features %lx", ucp_params.features);
-			    	ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
-			    }
-#endif
-
-			    status = ucp_init(&ucp_params, config, &ucp_context);
-			    ucp_config_release(config);
-
-			    if(UCS_OK != status) ERR("ucp_config_init");
-			    if(0 == m_rank) LOG("UCX initialized");
-			}
-
-			/* ask for UCP request size - non-templated version for the futures */
-			{
-			    ucp_context_attr_t attr = {};
-			    attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
-			    ucp_context_query (ucp_context, &attr);
-
-			    /* UCP request size */
-			    ucx::ucp_request_size = attr.request_size;
-			}
-
-			/* create a worker */
-			{
-			    memset(&worker_params, 0, sizeof(worker_params));
-
-			    /* this should not be used if we have a single worker per thread */
-			    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-#ifdef THREAD_MODE_MULTIPLE
-			    worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
-#elif defined THREAD_MODE_SERIALIZED
-			    worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
-#else
-			    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
-#endif
-
-			    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
-			    if(UCS_OK != status) ERR("ucp_worker_create failed");
-			    if(0 == m_rank) LOG("UCP worker created");
-			}
-
-#ifdef USE_PMI
-			/* obtain the worker endpoint address and post it to PMI */
-			{
-			    ucp_address_t *worker_address;
-			    size_t address_length;
-
-			    status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
-			    if(UCS_OK != status) ERR("ucp_worker_get_address failed");
-			    if(0 == m_rank) LOG("UCP worker addres length %zu", address_length);
-
-			    /* update pmi with local address information */
-			    std::vector<char> data((const char*)worker_address, (const char*)worker_address + address_length);
-			    pmi_impl.set("ghex-rank-address", data);
-			    ucp_worker_release_address(ucp_worker, worker_address);
-
-			    /* invoke global pmi data exchange */
-			    // pmi_exchange();
+			if(0 == m_rank){
+			    LOG("ucp version %s", ucp_get_version_string());
+			    LOG("ucp features %lx", ucp_params.features);
+			    ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
 			}
 #endif
+
+			status = ucp_init(&ucp_params, config, &ucp_context);
+			ucp_config_release(config);
+
+			if(UCS_OK != status) ERR("ucp_config_init");
+			if(0 == m_rank) LOG("UCX initialized");
 		    }
 
-		    THREAD_BARRIER();
-
-		    /* create a per-thread send worker */
+		    /* ask for UCP request size - non-templated version for the futures */
 		    {
-			ucs_status_t status;
-			ucp_worker_params_t worker_params;
+			ucp_context_attr_t attr = {};
+			attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
+			ucp_context_query (ucp_context, &attr);
+
+			/* UCP request size */
+			ucx::ucp_request_size = attr.request_size;
+		    }
+
+		    /* create a worker */
+		    {
 			memset(&worker_params, 0, sizeof(worker_params));
 
 			/* this should not be used if we have a single worker per thread */
 			worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+#ifdef THREAD_MODE_MULTIPLE
+			worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
+#elif defined THREAD_MODE_SERIALIZED
+			worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
+#else
 			worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+#endif
 
-			status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker_send);
+			status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
 			if(UCS_OK != status) ERR("ucp_worker_create failed");
 			if(0 == m_rank) LOG("UCP worker created");
 		    }
+
+#ifdef USE_PMI
+		    /* obtain the worker endpoint address and post it to PMI */
+		    {
+			ucp_address_t *worker_address;
+			size_t address_length;
+
+			status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
+			if(UCS_OK != status) ERR("ucp_worker_get_address failed");
+			if(0 == m_rank) LOG("UCP worker addres length %zu", address_length);
+
+			/* update pmi with local address information */
+			std::vector<char> data((const char*)worker_address, (const char*)worker_address + address_length);
+			pmi_impl.set("ghex-rank-address", data);
+			ucp_worker_release_address(ucp_worker, worker_address);
+
+			/* invoke global pmi data exchange */
+			// pmi_exchange();
+		    }
+#endif
+		}
+
+		communicator(const traits& t = traits{})
+		{
+
+		    /* create a per-thread send worker */
+		    ucs_status_t status;
+		    ucp_worker_params_t worker_params;
+		    memset(&worker_params, 0, sizeof(worker_params));
+
+		    /* this should not be used if we have a single worker per thread */
+		    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+		    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
+
+		    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker_send);
+		    if(UCS_OK != status) ERR("ucp_worker_create failed");
+		    if(0 == m_rank) LOG("UCP worker created");
 		}
 
 		ucp_ep_h connect(ucp_address_t *worker_address)
@@ -457,34 +453,6 @@ namespace gridtools
 		    } CRITICAL_END(ucp_lock);
 
 		    return p;
-		}
-
-		void barrier()
-		{
-		    if(m_size > 2) ERR("barrier not implemented for more than 2 ranks");
-
-		    THREAD_BARRIER();
-
-		    /* this should only be executed by a single thread */
-		    THREAD_MASTER () {
-
-			/* do a simple send and recv */
-			request sf, rf;
-			rank_type peer_rank = (m_rank+1)%2;
-			tag_type tag;
-			std::array<int,1> smsg = {1}, rmsg = {0};
-
-			// TODO: use something that cannot be used by the user. otherwise trouble...
-			tag = 0x800000;
-
-			sf = send(smsg, peer_rank, tag);
-			rf = recv(rmsg, peer_rank, tag);
-			while(true){
-			    if(sf.test() && rf.test()) break;
-			}
-		    }
-
-		    THREAD_BARRIER();
 		}
 	    };
 
