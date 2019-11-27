@@ -189,28 +189,23 @@ namespace structured {
 
     struct padding_256 {};
 
-    // forward declaration
-    template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-    class simple_field_wrapper;
-
     /** @brief wraps a contiguous N-dimensional array and implements the field descriptor concept
      * @tparam T field value type
      * @tparam Arch device type the data lives on
-     * @tparam DomainIdType domain id type
-     * @tparam Dimension N
+     * @tparam DomainDescriptor domain type
      * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)*/
-    template<typename T, typename Arch, typename DomainIdType, int Dimension, int... Order>
-    class simple_field_wrapper<T,Arch,domain_descriptor<DomainIdType,Dimension>, Order...>
+    template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+    class simple_field_wrapper
     {
     public: // member types
         using value_type             = T;
-        using arch_type            = Arch;
+        using arch_type              = Arch;
         using device_id_type         = typename arch_traits<arch_type>::device_id_type;
-        using domain_descriptor_type = domain_descriptor<DomainIdType,Dimension>;
+        using domain_descriptor_type = DomainDescriptor;
         using dimension              = typename domain_descriptor_type::dimension;
         using layout_map             = ::gridtools::layout_map<Order...>;
-        using domain_id_type         = DomainIdType;
-        using coordinate_type        = ::gridtools::array<typename domain_descriptor_type::halo_generator_type::coordinate_type::element_type, dimension::value>;
+        using domain_id_type         = typename DomainDescriptor::domain_id_type;
+        using coordinate_type        = ::gridtools::array<typename domain_descriptor_type::coordinate_type::value_type, dimension::value>;
         using strides_type           = ::gridtools::array<std::size_t, dimension::value>;
 
     private: // members
@@ -298,6 +293,9 @@ namespace structured {
 
         GT_FUNCTION
         value_type* data() const { return m_data; }
+
+        GT_FUNCTION
+        void set_data(value_type* ptr) { m_data = ptr; }
 
         /** @brief access operator
          * @param x coordinate vector with respect to offset specified in constructor
