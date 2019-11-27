@@ -6,15 +6,15 @@ set(_benchmarks_mt ghex_p2p_bi_cb_avail ghex_p2p_bi_cb_wait ghex_p2p_bi_ft_avail
 
 foreach (_t ${_benchmarks})
     add_executable(${_t} ${_t}_mt.cpp )
-    target_compile_definitions(${_t} PRIVATE -DUSE_HEAVY_CALLBACKS -DUSE_PMIX -DUSE_RAW_SHARED_MESSAGE -DUSE_POOL_ALLOCATOR)
+    target_compile_definitions(${_t} PRIVATE USE_HEAVY_CALLBACKS ${PMIX_FLAG} USE_RAW_SHARED_MESSAGE USE_POOL_ALLOCATOR)
     target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${Boost_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS} ${PMIX_INCLUDE_DIRS} ${UCP_INCLUDE_DIRS})
     target_link_libraries(${_t} ${PMIX_LIBRARIES} ${UCP_LIBRARIES})
 endforeach()
 
 foreach (_t ${_benchmarks_mt})
     add_executable(${_t}_mt ${_t}_mt.cpp )
-    target_compile_definitions(${_t}_mt PRIVATE -DUSE_OPENMP -DUSE_HEAVY_CALLBACKS -DUSE_PMIX -DUSE_RAW_SHARED_MESSAGE -DUSE_POOL_ALLOCATOR)
+    target_compile_definitions(${_t}_mt PRIVATE USE_OPENMP USE_HEAVY_CALLBACKS ${PMIX_FLAG} USE_RAW_SHARED_MESSAGE USE_POOL_ALLOCATOR)
     target_include_directories(${_t}_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${Boost_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS} ${PMIX_INCLUDE_DIRS} ${UCP_INCLUDE_DIRS})
     target_link_libraries(${_t}_mt ${OpenMP_CXX_FLAGS} ${PMIX_LIBRARIES} ${UCP_LIBRARIES})
-    set_target_properties(${_t}_mt PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+    target_compile_options(${_t}_mt PUBLIC ${OpenMP_CXX_FLAGS})
 endforeach()
