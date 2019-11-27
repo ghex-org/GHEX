@@ -113,6 +113,11 @@ namespace gridtools {
             return sfw_t(dom_id, ptr, origin, extents, strides, device_id);
         }
 
+        template <typename Transport, typename Storage, typename StorageInfo>
+        auto wrap_gt_field(const gt_grid<Transport>& grid, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename arch_traits<arch_from_storage<Storage>>::device_id_type device_id = 0)
+        {
+            return wrap_gt_field(grid.m_domains[0].domain_id(), ds, device_id);
+        }
 
     } // namespace ghex
 

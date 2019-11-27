@@ -59,8 +59,7 @@ TEST(data_store, make)
     //target_storage_info_t target_info(Nx, Ny, Nz);
     //target_data_store_t   target_data_store(target_info, -1., "field");
 
-    auto host_ghex_field   = gridtools::ghex::wrap_gt_field(grid.m_domains[0].domain_id(), host_data_store);
-    //auto target_ghex_field = gridtools::wrap_field(domain_id, target_data_store);
+    auto host_ghex_field   = gridtools::ghex::wrap_gt_field(grid, host_data_store);
 
     auto host_view = gridtools::make_host_view(host_data_store);
 
