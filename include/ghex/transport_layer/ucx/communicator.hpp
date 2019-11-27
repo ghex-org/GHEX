@@ -456,11 +456,10 @@ namespace gridtools
 		    int p = 0;
 
 		    p+= ucp_worker_progress(ucp_worker_send);
-		    if(m_nthr>1){
-		    	p+= ucp_worker_progress(ucp_worker_send);
-		    	p+= ucp_worker_progress(ucp_worker_send);
-		    }
+		    p+= ucp_worker_progress(ucp_worker_send);
+		    p+= ucp_worker_progress(ucp_worker_send);
 		    CRITICAL_BEGIN(ucp_lock) {
+			p+= ucp_worker_progress(ucp_worker);
 			p+= ucp_worker_progress(ucp_worker);
 		    } CRITICAL_END(ucp_lock);
 

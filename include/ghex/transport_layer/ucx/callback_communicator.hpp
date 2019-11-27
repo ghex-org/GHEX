@@ -135,20 +135,16 @@ namespace gridtools
 			cb(msg, dst, tag);
 		    } else if(!UCS_PTR_IS_ERR(status)) {
 
-			/* prepare the request */
-			ucx::ghex_ucx_request_cb<Allocator> req;
-			req.m_ucp_worker = ucp_worker_send;
-			req.m_peer_rank = dst;
-			req.m_tag = tag;
-			req.m_cb = std::forward<CallBack>(cb);
-			req.m_msg = msg;
-			req.m_initialized = true;
-			req.m_type = ucx::REQ_SEND;
-			req.m_completed = std::make_shared<bool>(false);
-
 			/* construct the UCX request */
 			ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
-			new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(req));
+			ghex_request->m_ucp_worker = ucp_worker_send;
+			ghex_request->m_peer_rank = dst;
+			ghex_request->m_tag = tag;
+			ghex_request->m_cb = std::forward<CallBack>(cb);
+			ghex_request->m_msg = msg;
+			ghex_request->m_initialized = true;
+			ghex_request->m_type = ucx::REQ_SEND;
+			ghex_request->m_completed = std::make_shared<bool>(false);
 		    } else {
 			ERR("ucp_tag_send_nb failed");
 		    }
@@ -193,20 +189,16 @@ namespace gridtools
 		    		ucp_request_free(status);
 		    	    } else {
 
-		    		/* prepare the request */
-		    		ucx::ghex_ucx_request_cb<Allocator> req;
-		    		req.m_ucp_worker = ucp_worker;
-		    		req.m_peer_rank = src;
-		    		req.m_tag = tag;
-		    		req.m_cb = std::function<void(message_type, int, int)>(cb);
-		    		req.m_msg = msg;
-		    		req.m_initialized = true;
-				req.m_type = ucx::REQ_RECV;
-				req.m_completed = std::make_shared<bool>(false);
-
 		    		/* construct the UCX request */
 		    		ghex_request = (ucx::ghex_ucx_request_cb<Allocator> *)status;
-		    		new(ghex_request) ucx::ghex_ucx_request_cb<Allocator>(std::move(req));
+		    		ghex_request->m_ucp_worker = ucp_worker;
+		    		ghex_request->m_peer_rank = src;
+		    		ghex_request->m_tag = tag;
+		    		ghex_request->m_cb = std::forward<CallBack>(cb);
+		    		ghex_request->m_msg = msg;
+		    		ghex_request->m_initialized = true;
+				ghex_request->m_type = ucx::REQ_RECV;
+				ghex_request->m_completed = std::make_shared<bool>(false);
 		    	    }
 		    	} else {
 		    	    ERR("ucp_tag_send_nb failed");

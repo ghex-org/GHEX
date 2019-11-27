@@ -87,8 +87,8 @@ namespace gridtools{
 		    ghex_ucx_request_cb& operator=(const ghex_ucx_request_cb &other) = delete;
 		};
 
-		/** size of the above struct for actual MsgType */
-#define GHEX_REQUEST_SIZE 128
+		/** size of the ghex_ucx_request_cb struct - currently 88 bytes */
+#define GHEX_REQUEST_SIZE 88
 
                 /** @brief thin wrapper around UCX Request */
                 struct request
@@ -155,9 +155,12 @@ namespace gridtools{
 			if(nullptr == m_req) return true;
 
 			ucp_worker_progress(m_req->m_ucp_worker_send);
+			ucp_worker_progress(m_req->m_ucp_worker_send);
+			ucp_worker_progress(m_req->m_ucp_worker_send);
 			CRITICAL_BEGIN(ucp_lock) {
 
 			    /* always progress UCX */
+			    ucp_worker_progress(m_req->m_ucp_worker);
 			    ucp_worker_progress(m_req->m_ucp_worker);
 
 			    /* ucp_request_check_status has to be locked also:
