@@ -35,8 +35,6 @@ namespace gridtools{
                     comm_type m_comm;
                     rank_type m_rank;
                     size_type m_size;
-		    rank_type m_thrid;
-                    size_type m_nthr;
 
                     communicator_base()
                     : m_comm{ new MPI_Comm{MPI_COMM_WORLD} }
@@ -77,21 +75,6 @@ namespace gridtools{
 #pragma omp barrier
 		    }
 		    void finalize() const {}
-
-
-		    void flush() { }
-		    
-		    /*
-		      Has to be called at in the begining of the parallel region.
-		    */
-		    void init_mt(){
-			m_thrid = omp_get_num_threads();
-			m_nthr = omp_get_thread_num();
-		    }
-		
-		    void whoami(){
-			printf("I am Groot! %d/%d:%d/%d\n", m_rank, m_size, m_thrid, m_nthr);
-		    }
 
                     operator       MPI_Comm&()       noexcept { return *m_comm; }
                     operator const MPI_Comm&() const noexcept { return *m_comm; }
