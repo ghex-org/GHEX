@@ -2,7 +2,16 @@ cmake_minimum_required(VERSION 3.12.4)
 
 cmake_policy(SET CMP0048 NEW)
 
-project(GHEX VERSION 0.1 LANGUAGES CXX)
+set(USE_GPU "OFF" CACHE BOOL "use cuda")
+set(USE_MPI_WITH_UCX_IN_TESTS "OFF" CACHE BOOL "use ucx for unit test")
+set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
+
+if(USE_GPU)
+    project(GHEX VERSION 0.1 LANGUAGES CXX CUDA)
+else()
+    project(GHEX VERSION 0.1 LANGUAGES CXX)
+endif()
+
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -14,10 +23,15 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+set(GHEX_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
+message(">>>>>>>>>>>>>>>>${CMAKE_MODULE_PATH}")
+
 find_package(MPI REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
-#find_package(Boost REQUIRED)
-find_package(Boost COMPONENTS mpi REQUIRED)
+find_package(Boost)
+find_package(PMIx)
+find_package(UCP)
 
 message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
@@ -57,15 +71,14 @@ set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/
 
 add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main.cpp )
 target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-target_link_libraries(gtest_main_mt Boost::mpi MPI::MPI_CXX GridTools::gridtools )
+target_link_libraries(gtest_main_mt MPI::MPI_CXX GridTools::gridtools )
 
 add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
-target_link_libraries(gtest_main_bench Boost::mpi MPI::MPI_CXX GridTools::gridtools )
+target_link_libraries(gtest_main_bench MPI::MPI_CXX GridTools::gridtools )
 target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 
-
 add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
-target_link_libraries(gtest_main_bench_mt Boost::mpi MPI::MPI_CXX GridTools::gridtools )
+target_link_libraries(gtest_main_bench_mt MPI::MPI_CXX GridTools::gridtools )
 target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
 target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
 

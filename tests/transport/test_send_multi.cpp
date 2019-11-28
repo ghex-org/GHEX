@@ -1,12 +1,18 @@
-#include <transport_layer/mpi/communicator.hpp>
+#include <ghex/transport_layer/callback_communicator.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 #include <iostream>
 #include <iomanip>
 
 #include <gtest/gtest.h>
 
+template<typename Comm, typename Alloc>
+using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
+//using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
+
 const int SIZE = 4000000;
 int mpi_rank;
 
+//#define GHEX_TEST_COUNT_ITERATIONS
 
 TEST(transport, send_multi) {
 
@@ -21,12 +27,17 @@ TEST(transport, send_multi) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    gridtools::ghex::mpi::communicator comm;
+    using comm_type = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
+    comm_type comm;
+
+    using allocator_type = std::allocator<unsigned char>;
+    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+
+    callback_comm_t<comm_type,allocator_type> cb_comm(comm);
 
     if (mpi_rank == 0) {
 
-
-        gridtools::ghex::mpi::shared_message<> smsg{SIZE, SIZE};
+        smsg_type smsg{SIZE};
 
         int * data = smsg.data<int>();
 
@@ -36,12 +47,12 @@ TEST(transport, send_multi) {
 
         std::array<int, 3> dsts = {1,2,3};
 
-        comm.send_multi(smsg, dsts, 42);
+        cb_comm.send_multi(smsg, dsts, 42);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
     int c = 0;
 #endif
-    while (comm.progress()) {
+    while (cb_comm.progress()) {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         c++;
 #endif
@@ -55,9 +66,8 @@ TEST(transport, send_multi) {
     std::cout  << "***********\n";
 #endif
 
-
     } else {
-        gridtools::ghex::mpi::message<> rmsg{SIZE, SIZE};
+        gridtools::ghex::tl::message_buffer<> rmsg{SIZE};
         auto fut = comm.recv(rmsg, 0, 42);
         fut.wait();
 
@@ -72,6 +82,6 @@ TEST(transport, send_multi) {
     }
 
 
-    EXPECT_FALSE(comm.progress());
-
+    EXPECT_FALSE(cb_comm.progress());
 }
+
