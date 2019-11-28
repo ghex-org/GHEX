@@ -114,7 +114,11 @@ namespace gridtools
 
 #ifdef USE_PMI
 		/** PMI interface to obtain peer addresses */
+		/* per-communicator instance used to store/query connections */
 		PmiType pmi_impl;
+
+		/* global instance used to init/finalize the library */
+		static PmiType pmi_impl_static;
 #endif
 		/** known connection pairs <rank, endpoint address>,
 		    created as rquired by the communication pattern
@@ -146,9 +150,8 @@ namespace gridtools
 		{
 #ifdef USE_PMI
 		    // communicator rank and world size
-		    PmiType pmi_impl;
-		    m_rank = pmi_impl.rank();
-		    m_size = pmi_impl.size();
+		    m_rank = pmi_impl_static.rank();
+		    m_size = pmi_impl_static.size();
 #endif
 
 #ifdef THREAD_MODE_SERIALIZED
@@ -259,7 +262,7 @@ namespace gridtools
 
 			/* update pmi with local address information */
 			std::vector<char> data((const char*)worker_address, (const char*)worker_address + address_length);
-			pmi_impl.set("ghex-rank-address", data);
+			pmi_impl_static.set("ghex-rank-address", data);
 			ucp_worker_release_address(ucp_worker, worker_address);
 
 			/* invoke global pmi data exchange */
@@ -457,6 +460,10 @@ namespace gridtools
 	    };
 
 	    /** static communicator properties, shared between threads */
+
+#ifdef USE_PMI
+	    PmiType communicator<ucx_tag>::pmi_impl_static;
+#endif
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_rank;
 	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_size;
 	    ucp_context_h communicator<ucx_tag>::ucp_context = 0;

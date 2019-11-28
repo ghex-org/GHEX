@@ -75,6 +75,16 @@ namespace gridtools
 		    PMIX_VALUE_RELEASE(pvalue);
 		}
 
+		~pmi()
+		{
+		    int rc;
+		    if (PMIX_SUCCESS != (rc = PMIx_Finalize(NULL, 0))) {
+			ERR("Client ns %s rank %d:PMIx_Finalize failed: %d\n", myproc.nspace, myproc.rank, rc);
+		    } else {
+			if(myproc.rank == 0) LOG("PMIx finalized");
+		    }
+		}
+		
 		rank_type rank() 
 		{
 		    return myproc.rank;
@@ -137,16 +147,6 @@ namespace gridtools
 		    LOG("PMIx_get %s returned %zi bytes", key.c_str(), data.size());
 		    
 		    return  data;
-		}
-
-		void finalize()
-		{
-		    int rc;
-		    if (PMIX_SUCCESS != (rc = PMIx_Finalize(NULL, 0))) {
-			ERR("Client ns %s rank %d:PMIx_Finalize failed: %d\n", myproc.nspace, myproc.rank, rc);
-		    } else {
-			if(myproc.rank == 0) LOG("PMIx finalized");
-		    }
 		}
 	    };
 	} // namespace tl
