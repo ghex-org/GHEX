@@ -13,6 +13,7 @@
 
 #include "../../structured/simple_field_wrapper.hpp"
 #include "../../arch_traits.hpp"
+#include "./processor_grid.hpp"
 #include <gridtools/storage/data_store.hpp>
 #include <gridtools/meta/list_to_iseq.hpp>
 #ifdef __CUDACC__
