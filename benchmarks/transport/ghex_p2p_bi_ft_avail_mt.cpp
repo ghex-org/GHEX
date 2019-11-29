@@ -37,6 +37,8 @@ using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
+std::atomic<int> tail_send(0);
+std::atomic<int> tail_recv(0);
 int last_received = 0;
 int last_sent = 0;
 
@@ -162,44 +164,62 @@ int main(int argc, char *argv[])
 	   This is because UCX cannot cancel SEND requests.
 	   https://github.com/openucx/ucx/issues/1162
 	*/
-	int incomplete_sends = 0;
-	do {
-	    comm.progress();
+	{
+	    int incomplete_sends = 0;
+	    int send_complete = 0;
 
-	    incomplete_sends = 0;
-	    for(int j=0; j<inflight; j++){
-		if(!sreqs[j].test()) incomplete_sends++;
-	    }
+	    /* complete all posted sends */
+	    do {
+		comm.progress();
 
-	    for(int j=0; j<inflight; j++){
-		if(rreqs[j].test()) {
-		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
+		/* check if we have completed all our posted sends */
+		if(!send_complete){
+		    incomplete_sends = 0;
+		    for(int j=0; j<inflight; j++){
+			if(!sreqs[j].test()) incomplete_sends++;
+		    }
+
+		    if(incomplete_sends == 0) {
+			/* increase thread counter of threads that are done with the sends */
+			tail_send++;
+			send_complete = 1;
+		    }
 		}
-	    }
-	} while(incomplete_sends);
 
-	/* make sure everyone has progressed all sends... */
-	THREAD_BARRIER();
-
-	/* then synchronize with the other rank */
-	THREAD_MASTER() {
+		/* continue to re-schedule all recvs to allow the peer to complete  */
+		for(int j=0; j<inflight; j++){
+		    if(rreqs[j].test()) {
+			rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
+		    }
+		}
+	    } while(tail_send!=nthr);
 	    
-	    /* do a simple send and recv */
+	    /* We have all completed the sends, but the peer might not have yet.
+	       Notify the peer and keep submitting recvs until we get his notification.
+	     */
 	    FutureType sf, rf;
 	    MsgType smsg(1), rmsg(1);
-
-	    sf = comm.send(smsg, peer_rank, 0x800000);
-	    rf = comm.recv(rmsg, peer_rank, 0x800000);
-	    while(true){
+	    THREAD_MASTER() {	    
+		sf = comm.send(smsg, peer_rank, 0x800000);
+		rf = comm.recv(rmsg, peer_rank, 0x800000);
+	    }
+	    while(!tail_recv.load()){
 		comm.progress();
-		if(sf.test() && rf.test()) break;
+
+		/* schedule all recvs to allow the peer to complete  */
+		for(int j=0; j<inflight; j++){
+		    if(rreqs[j].test()) {
+			rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight + j);
+		    }
+		}
+		
+		THREAD_MASTER(){
+		    if(rf.test()) tail_recv = 1;
+		}
 	    }
 	}
 
-	/* once that's done, we can cancel the remaining recv requests */
-	THREAD_BARRIER();
-
-	/* ... so we can cancel all RECV requests */
+	/* peer has sent everything, so we can cancel all posted recv requests */
 	for(int j=0; j<inflight; j++){
 	    rreqs[j].cancel();
 	}
