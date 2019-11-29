@@ -180,7 +180,9 @@ int main(int argc, char *argv[])
 	}
 	THREAD_BARRIER()
 
+#ifdef USE_OPENMP
 #pragma omp critical
+#endif
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
 

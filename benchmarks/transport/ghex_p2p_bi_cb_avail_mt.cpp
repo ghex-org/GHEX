@@ -34,7 +34,6 @@ std::atomic<int> sent(0);
 std::atomic<int> received(0);
 int last_received = 0;
 int last_sent = 0;
-
 int inflight;
 
 /* Track finished comm requests. 
@@ -71,6 +70,11 @@ void recv_callback(MsgType, int, int tag)
     comm_cnt++;
     received++;
 }
+
+void empty_callback(MsgType, int, int)
+{
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -187,7 +191,9 @@ int main(int argc, char *argv[])
 	}
 	THREAD_BARRIER()
 
+#ifdef USE_OPENMP
 #pragma omp critical
+#endif
 	std::cout << "rank " << rank << " thread " << thrid << " sends submitted " << submit_cnt/nthr
 		  << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
 
@@ -212,11 +218,26 @@ int main(int argc, char *argv[])
 	    }
 	} while(incomplete_sends);
 
-	/* this will make sure everyone has progressed all sends... */
-	THREAD_BARRIER()
+	/* make sure everyone has progressed all sends... */
+	THREAD_BARRIER();
+
+	/* then synchronize with the other rank */
 	THREAD_MASTER() {
-	    MPI_Barrier(MPI_COMM_WORLD);
+	    
+	    /* do a simple send and recv */
+	    FutureType sf, rf;
+	    MsgType smsg(1), rmsg(1);
+
+	    sf = comm.send(smsg, peer_rank, 0x800000, empty_callback);
+	    rf = comm.recv(rmsg, peer_rank, 0x800000, empty_callback);
+	    while(true){
+		comm.progress();
+		if(sf.test() && rf.test()) break;
+	    }
 	}
+
+	/* once that's done, we can cancel the remaining recv requests */
+	THREAD_BARRIER();
 
 	/* ... so we can cancel all RECV requests */
 	for(int j=0; j<inflight; j++){

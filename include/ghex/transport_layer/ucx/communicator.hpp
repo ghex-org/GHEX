@@ -30,6 +30,9 @@ using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
 #include "ucp_lock.hpp"
 #include "request.hpp"
 
+#define ghex_likely(x)   __builtin_expect(x, 1)
+#define ghex_unlikely(x) __builtin_expect(x, 0)
+
 namespace gridtools
 {
     namespace ghex
@@ -317,7 +320,7 @@ namespace gridtools
 		    /* look for a connection to a given peer
 		       create it if it does not yet exist */
 		    auto conn = connections.find(rank);
-		    if(conn == connections.end()){
+		    if(ghex_unlikely( conn == connections.end() )){
 
 			ucp_address_t *worker_address;
 #ifdef USE_PMI
@@ -364,11 +367,11 @@ namespace gridtools
 		    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
 					     GHEX_MAKE_SEND_TAG(tag, m_rank), ucx::empty_send_cb);
 
-		    if(UCS_OK == (uintptr_t)status){
+		    if(ghex_unlikely( UCS_OK == (uintptr_t)status )){
 
 			/* send completed immediately */
 			req.m_req = nullptr;
-		    } else if(!UCS_PTR_IS_ERR(status)) {
+		    } else if(ghex_likely( !UCS_PTR_IS_ERR(status) )) {
 
 			/* return the request */
 			req.m_req = (request::req_type)(status);
@@ -408,11 +411,11 @@ namespace gridtools
 			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 						 ucp_tag, ucp_tag_mask, ucx::empty_recv_cb);
 
-			if(!UCS_PTR_IS_ERR(status)) {
+			if(ghex_likely( !UCS_PTR_IS_ERR(status) )) {
 
 			    ucs_status_t rstatus;
 			    rstatus = ucp_request_check_status (status);
-			    if(rstatus != UCS_INPROGRESS){
+			    if(ghex_unlikely( rstatus != UCS_INPROGRESS )){
 
 				/* recv completed immediately */
 				req.m_req = nullptr;

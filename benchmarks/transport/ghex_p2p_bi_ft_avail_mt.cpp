@@ -178,11 +178,26 @@ int main(int argc, char *argv[])
 	    }
 	} while(incomplete_sends);
 
-	/* this will make sure everyone has progressed all sends... */
+	/* make sure everyone has progressed all sends... */
 	THREAD_BARRIER();
+
+	/* then synchronize with the other rank */
 	THREAD_MASTER() {
-	    MPI_Barrier(MPI_COMM_WORLD);
+	    
+	    /* do a simple send and recv */
+	    FutureType sf, rf;
+	    MsgType smsg(1), rmsg(1);
+
+	    sf = comm.send(smsg, peer_rank, 0x800000);
+	    rf = comm.recv(rmsg, peer_rank, 0x800000);
+	    while(true){
+		comm.progress();
+		if(sf.test() && rf.test()) break;
+	    }
 	}
+
+	/* once that's done, we can cancel the remaining recv requests */
+	THREAD_BARRIER();
 
 	/* ... so we can cancel all RECV requests */
 	for(int j=0; j<inflight; j++){

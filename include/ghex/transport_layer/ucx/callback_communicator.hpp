@@ -129,11 +129,11 @@ namespace gridtools
 		    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
 					     GHEX_MAKE_SEND_TAG(tag, m_rank), ghex_tag_send_callback<Allocator>);
 
-		    if(UCS_OK == (uintptr_t)status){
+		    if(ghex_unlikely( UCS_OK == (uintptr_t)status )){
 
 			/* early completed */
 			cb(msg, dst, tag);
-		    } else if(!UCS_PTR_IS_ERR(status)) {
+		    } else if(ghex_likely( !UCS_PTR_IS_ERR(status) )) {
 
 			/* construct the UCX request */
 			ghex_request = (ucx::ghex_ucx_request_cb<Allocator>*)status;			    
@@ -175,11 +175,11 @@ namespace gridtools
 		    	status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
 		    				 ucp_tag, ucp_tag_mask, ghex_tag_recv_callback<Allocator>);
 
-		    	if(!UCS_PTR_IS_ERR(status)) {
+		    	if(ghex_likely( !UCS_PTR_IS_ERR(status) )) {
 
 		    	    ucs_status_t rstatus;
 		    	    rstatus = ucp_request_check_status (status);
-		    	    if(rstatus != UCS_INPROGRESS){
+		    	    if(ghex_unlikely( rstatus != UCS_INPROGRESS )){
 
 		    		/* early completed */
 		    		cb(msg, src, tag);
@@ -244,11 +244,10 @@ namespace gridtools
 		ucx::ghex_ucx_request_cb<Allocator> *preq = 
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 
-		if(UCS_OK == status){
-
+		if(ghex_likely( UCS_OK == status )){
 
 		    /* we're in early completion mode */
-		    if(preq->m_type == ucx::REQ_NONE){
+		    if(ghex_unlikely( preq->m_type == ucx::REQ_NONE )){
 			return;
 		    }
 		
@@ -260,14 +259,19 @@ namespace gridtools
 		    pc->m_completed.push_back(std::move(*preq));
 #endif
 		} else {
+		
+		    if(ghex_likely( UCS_ERR_CANCELED == status )){
 		    
-		    /* canceled - release the message  */
-		    preq->m_msg.release();
+			/* canceled - release the message  */
+			preq->m_msg.release();
+		    } else {
+			ERR("Message truncated: peer %d, tag %d, status %d\n", peer_rank, tag, status);
+		    }
 		}
 
-		preq->m_type = ucx::REQ_NONE;
 		*(preq->m_completed) = true;
 		preq->m_completed = nullptr;
+		preq->m_type = ucx::REQ_NONE;
 		ucp_request_free(request);
 	    }
 
@@ -277,7 +281,7 @@ namespace gridtools
 		ucx::ghex_ucx_request_cb<Allocator> *preq =
 		    reinterpret_cast<ucx::ghex_ucx_request_cb<Allocator>*>(request);
 
-		if(UCS_OK == status){
+		if(ghex_likely( UCS_OK == status )){
 		
 #ifdef USE_HEAVY_CALLBACKS
 		    preq->m_cb(std::move(preq->m_msg), preq->m_peer_rank, preq->m_tag);
