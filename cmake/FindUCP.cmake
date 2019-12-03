@@ -19,3 +19,11 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(UCP DEFAULT_MSG UCP_LIBRARY UCP_INCLUDE_DIR)
 
 mark_as_advanced(UCX_ROOT UCP_LIBRARY UCP_INCLUDE_DIR)
+
+if(NOT TARGET UCP::libucp AND UCP_FOUND)
+  add_library(UCP::libucp SHARED IMPORTED)
+  set_target_properties(UCP::libucp PROPERTIES
+    IMPORTED_LOCATION ${UCP_LIBRARY}
+    INTERFACE_INCLUDE_DIRECTORIES ${UCP_INCLUDE_DIR}
+  )
+endif()

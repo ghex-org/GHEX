@@ -30,3 +30,10 @@ find_package_handle_standard_args(PMIx DEFAULT_MSG PMIX_LIBRARY PMIX_INCLUDE_DIR
 
 mark_as_advanced(PMIX_ROOT PMIX_LIBRARY PMIX_INCLUDE_DIR)
 
+if(NOT TARGET PMIx::libpmix AND PMIx_FOUND)
+  add_library(PMIx::libpmix SHARED IMPORTED)
+  set_target_properties(PMIx::libpmix PROPERTIES
+    IMPORTED_LOCATION ${PMIX_LIBRARY}
+    INTERFACE_INCLUDE_DIRECTORIES ${PMIX_INCLUDE_DIR}
+  )
+endif()
