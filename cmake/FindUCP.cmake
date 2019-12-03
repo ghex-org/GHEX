@@ -5,11 +5,16 @@ find_path(UCP_INCLUDE_DIR ucp/api/ucp.h
     HINTS
     ${UCX_ROOT}  ENV UCX_ROOT
     ${UCX_DIR}   ENV UCX_DIR
+    ${UCP_ROOT}  ENV UCX_ROOT
+    ${UCP_DIR}   ENV UCX_DIR
     PATH_SUFFIXES include)
 
-find_library(UCP_LIBRARY NAMES ucp
+find_library(UCP_LIBRARY HINT ${UCP_DIR} NAMES ucp
     HINTS
-    ${UCX_ROOT} ENV UCX_ROOT
+    ${UCX_ROOT}  ENV UCX_ROOT
+    ${UCX_DIR}   ENV UCX_DIR
+    ${UCP_ROOT}  ENV UCX_ROOT
+    ${UCP_DIR}   ENV UCX_DIR
     PATH_SUFFIXES lib lib64)
 
 set(UCP_LIBRARIES    ${UCP_LIBRARY} CACHE INTERNAL "")

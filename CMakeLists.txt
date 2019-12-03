@@ -30,10 +30,32 @@ message(">>>>>>>>>>>>>>>>${CMAKE_MODULE_PATH}")
 find_package(MPI REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
 find_package(Boost)
-find_package(PMIx)
-find_package(UCP)
 
-message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
+set(GHEX_SKIP_MPICXX OFF CACHE BOOL "True if your compiler wrapper includes MPI already (as CRAY PE for instance)")
+
+if (GHEX_SKIP_MPICXX)
+   set(MPI_CXX_SKIP_MPICXX ON)
+else()
+   set(MPI_CXX_SKIP_MPICXX OFF)
+endif()
+
+set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
+set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
+
+if (GHEX_USE_PMIX)
+   find_package(PMIx)
+   if (PMIx_FOUND)
+      set(PMI_FLAG "USE_PMIX")
+   else()
+      message(FATAL_ERROR "PMIx not found but it is requested by user")
+   endif()
+endif()
+
+if (GHEX_USE_UCP)
+   find_package(UCP)
+endif()
+
+#message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 
 add_library(GHEX_libs INTERFACE)
