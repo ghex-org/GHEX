@@ -24,9 +24,6 @@ namespace gridtools {
             template<typename TransportTag>
             class transport_context;
             
-            template<typename TransportTag>
-            class context;
-
             class parallel_context;
 
             class mpi_world
@@ -43,10 +40,18 @@ namespace gridtools {
                     MPI_Init(&argc, &argv);
 #elif defined(GHEX_MPI_USE_GHEX_LOCKS)
                     int provided;
-                    MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &provided);
+                    int res = MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &provided);
+                    if (res == MPI_ERR_OTHER)
+                        throw std::runtime_error("MPI init failed");
+                    if (provided < MPI_THREAD_SERIALIZED)
+                        throw std::runtime_error("MPI does not support required threading level");
 #else
                     int provided;
-                    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+                    int res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+                    if (res == MPI_ERR_OTHER)
+                        throw std::runtime_error("MPI init failed");
+                    if (provided < MPI_THREAD_MULTIPLE)
+                        throw std::runtime_error("MPI does not support required threading level");
 #endif
                     m_comm = MPI_COMM_WORLD;
                     MPI_Comm_rank(m_comm, &m_rank);
@@ -77,6 +82,7 @@ namespace gridtools {
                 operator MPI_Comm() const noexcept { return m_comm; }
             };
 
+
             class parallel_context
             {
             public: // members
@@ -85,10 +91,9 @@ namespace gridtools {
 
             private:
                 mpi_world           m_world;
-            public:
                 thread_context_type m_thread_context;
 
-            public:
+            private:
                 template<typename... Args>
                 parallel_context(int num_threads, int& argc, char**& argv, Args&&...) noexcept
                 : m_world(argc,argv)
@@ -104,8 +109,9 @@ namespace gridtools {
                 parallel_context(const parallel_context&) = delete;
                 parallel_context(parallel_context&&) = delete;
 
-                //template<typename Transport>
-                //friend class context<Transport>;
+                // forward declaration
+                template<typename TransportTag>
+                friend class context;
 
             public:
                 // thread-safe
@@ -131,37 +137,31 @@ namespace gridtools {
                 using thread_token           = parallel_context::thread_token;
 
             private:
-                std::unique_ptr<parallel_context> m_pc;
-                transport_context_type            m_tc;
+                std::unique_ptr<parallel_context> m_parallel_context;
+                transport_context_type            m_transport_context;
 
             public:
                 template<typename...Args>
                 context(int num_threads, Args&&... args)
-                : m_pc{std::make_unique<parallel_context>(num_threads, std::forward<Args>(args)...)}
-                , m_tc{*m_pc, std::forward<Args>(args)...}
+                : m_parallel_context{new parallel_context{num_threads, std::forward<Args>(args)...}}
+                , m_transport_context{*m_parallel_context, std::forward<Args>(args)...}
                 {}
-
-                /*template<typename...Args>
-                context(int& argc, char**& argv, MPI_Comm comm, int num_threads=1, M, Args&&... args)
-                : m_pc{std::make_unique<parallel_context>(comm, num_threads)}
-                , m_tc{*m_pc, argc, argv, std::forward<Args>(args)...}
-                {}*/
 
             public:
                 // thread-safe
                 communicator_type get_communicator(const thread_token& t)
                 {
-                    return m_pc->m_thread_context.critical(
-                        [this,&t]() mutable { return m_tc.get_communicator(t.id()); }
+                    return m_parallel_context->m_thread_context.critical(
+                        [this,&t]() mutable { return m_transport_context.get_communicator(t.id()); }
                     );
                 }
 
                 // thread-safe
                 thread_token get_token() noexcept
                 {
-                    return m_pc->m_thread_context.get_token();
+                    return m_parallel_context->m_thread_context.get_token();
                 }
-            };    
+            };
 
         } // namespace tl
     } // namespace ghex

@@ -115,10 +115,6 @@ namespace gridtools {
                 }
 
                 template <typename F>
-                /*inline 
-                typename std::enable_if<
-                    std::is_same<boost::callable_traits::return_type_t<F>,void>::value, 
-                    void>::type*/
                 inline void_return_type<F> critical(F && f) const noexcept
                 {
                     lock_type l(m_mutex);
@@ -126,11 +122,7 @@ namespace gridtools {
                 }
 
                 template <typename F>
-                inline 
-                typename std::enable_if<
-                    !std::is_same<boost::callable_traits::return_type_t<F>,void>::value, 
-                    boost::callable_traits::return_type_t<F>>::type
-                critical(F && f) const noexcept
+                inline return_type<F> critical(F && f) const noexcept
                 {
                     lock_type l(m_mutex);
                     return f();

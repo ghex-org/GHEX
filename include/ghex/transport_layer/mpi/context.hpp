@@ -37,6 +37,8 @@ namespace gridtools {
 
             };
 
+            using mpi_context = context<mpi_tag>;
+
         }
     }
 }
