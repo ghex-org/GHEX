@@ -13,7 +13,6 @@
 
 #include <mpi.h>
 #include <memory>
-#include "../threads/context.hpp"
 //#include "../common/moved_bit.hpp"
 #include "./config.hpp"
 
@@ -21,11 +20,9 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
-            template<typename TransportTag>
+            template<typename TransportTag, typename ThreadPrimitives>
             class transport_context;
             
-            class parallel_context;
-
             class mpi_world
             {
             private:
@@ -68,6 +65,8 @@ namespace gridtools {
                 mpi_world(const mpi_world&) = delete;
                 mpi_world(mpi_world&&) = delete;
 
+                // forward declaration
+                template<class ThreadPrimitives>
                 friend class parallel_context;
 
             public:
@@ -82,68 +81,69 @@ namespace gridtools {
                 operator MPI_Comm() const noexcept { return m_comm; }
             };
 
-
+            template<class ThreadPrimitives>// = ::gridtools::ghex::threads::atomic::primitives>
             class parallel_context
             {
             public: // members
-                using thread_context_type = ::gridtools::ghex::threads::context;
-                using thread_token        = typename thread_context_type::token;
+                using thread_primitives_type = ThreadPrimitives;
+                using thread_token           = typename thread_primitives_type::token;
 
             private:
-                mpi_world           m_world;
-                thread_context_type m_thread_context;
+                mpi_world              m_world;
+                thread_primitives_type m_thread_primitives;
 
             private:
                 template<typename... Args>
                 parallel_context(int num_threads, int& argc, char**& argv, Args&&...) noexcept
                 : m_world(argc,argv)
-                , m_thread_context(num_threads)
+                , m_thread_primitives(num_threads)
                 {}
 
                 template<typename... Args>
                 parallel_context(int num_threads, MPI_Comm comm, Args&&...) noexcept
                 : m_world(comm)
-                , m_thread_context(num_threads)
+                , m_thread_primitives(num_threads)
                 {}
 
                 parallel_context(const parallel_context&) = delete;
                 parallel_context(parallel_context&&) = delete;
 
                 // forward declaration
-                template<typename TransportTag>
+                template<class TransportTag, class TP>
                 friend class context;
 
             public:
                 // thread-safe
                 const mpi_world& world() const { return m_world; }
                 // thread-safe
-                const thread_context_type& thread_context() const { return m_thread_context; }
+                const thread_primitives_type& thread_primitives() const { return m_thread_primitives; }
                 // thread-safe
                 void barrier(thread_token& t) const
                 {
-                    m_thread_context.barrier(t);
-                    m_thread_context.single(t, [this]() { MPI_Barrier(m_world.m_comm); } );
-                    m_thread_context.barrier(t);
+                    m_thread_primitives.barrier(t);
+                    m_thread_primitives.single(t, [this]() { MPI_Barrier(m_world.m_comm); } );
+                    m_thread_primitives.barrier(t);
                 }
             };
 
-            template<class TransportTag>
+            template<class TransportTag, class ThreadPrimitives>
             class context
             {
             public: // member types
                 using tag                    = TransportTag;
-                using transport_context_type = transport_context<tag>;
+                using transport_context_type = transport_context<tag,ThreadPrimitives>;
                 using communicator_type      = typename transport_context_type::communicator_type;
-                using thread_token           = parallel_context::thread_token;
+                using parallel_context_type  = parallel_context<ThreadPrimitives>;
+                using thread_token           = typename parallel_context_type::thread_token;
 
             private:
-                std::unique_ptr<parallel_context> m_parallel_context;
-                transport_context_type            m_transport_context;
+                std::unique_ptr<parallel_context_type> m_parallel_context;
+                transport_context_type                 m_transport_context;
 
             public:
                 template<typename...Args>
                 context(int num_threads, Args&&... args)
-                : m_parallel_context{new parallel_context{num_threads, std::forward<Args>(args)...}}
+                : m_parallel_context{new parallel_context_type{num_threads, std::forward<Args>(args)...}}
                 , m_transport_context{*m_parallel_context, std::forward<Args>(args)...}
                 {}
 
@@ -151,7 +151,7 @@ namespace gridtools {
                 // thread-safe
                 communicator_type get_communicator(const thread_token& t)
                 {
-                    return m_parallel_context->m_thread_context.critical(
+                    return m_parallel_context->m_thread_primitives.critical(
                         [this,&t]() mutable { return m_transport_context.get_communicator(t.id()); }
                     );
                 }
@@ -159,7 +159,7 @@ namespace gridtools {
                 // thread-safe
                 thread_token get_token() noexcept
                 {
-                    return m_parallel_context->m_thread_context.get_token();
+                    return m_parallel_context->m_thread_primitives.get_token();
                 }
             };
 

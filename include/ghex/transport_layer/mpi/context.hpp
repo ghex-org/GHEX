@@ -18,26 +18,26 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
-            template<>
-            struct transport_context<mpi_tag>
+            template<typename ThreadPrimitives>
+            struct transport_context<mpi_tag, ThreadPrimitives>
             {
                 using communicator_type = communicator<mpi_tag>;
 
-                parallel_context& m_pc;
+                parallel_context<ThreadPrimitives>& m_parallel_context;
 
                 template<typename... Args>
-                transport_context(parallel_context& pc, Args&&...)
-                : m_pc(pc)
+                transport_context(parallel_context<ThreadPrimitives>& pc, Args&&...)
+                : m_parallel_context(pc)
                 {}
 
                 communicator_type get_communicator(int) const
                 {
-                    return {(MPI_Comm)(m_pc.world())};
+                    return {(MPI_Comm)(m_parallel_context.world())};
                 }
 
             };
 
-            using mpi_context = context<mpi_tag>;
+            //using mpi_context = context<mpi_tag>;
 
         }
     }

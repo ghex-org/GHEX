@@ -1,6 +1,7 @@
 #include <ghex/transport_layer/callback_communicator.hpp>
 #include <ghex/transport_layer/mpi/communicator.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
+#include <ghex/threads/atomic/primitives.hpp>
 #include <vector>
 #include <iomanip>
 
@@ -19,9 +20,10 @@ int rank;
 void test1() {
     //gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
 
-    gridtools::ghex::tl::context<gridtools::ghex::tl::mpi_tag> context(1,MPI_COMM_WORLD);
+    gridtools::ghex::tl::context<gridtools::ghex::tl::mpi_tag,gridtools::ghex::threads::atomic::primitives> context(1,MPI_COMM_WORLD);
 
     auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
