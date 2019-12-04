@@ -15,18 +15,21 @@
 #include "../communicator.hpp"
 #include "./communicator_base.hpp"
 #include "./future.hpp"
-#include "./communicator_traits.hpp"
+#include "../context.hpp"
 
 namespace gridtools {
     
     namespace ghex {
 
         namespace tl {
+            
+            template<typename ThreadPrimitives>
+            struct transport_context<mpi_tag, ThreadPrimitives>;
 
             /** Mpi communicator which exposes basic non-blocking transport functionality and 
               * returns futures to await said transports to complete. */
-            template<>
-            class communicator<mpi_tag>
+            template<typename ThreadPrimitives>
+            class communicator<mpi_tag,ThreadPrimitives>
             : public mpi::communicator_base
             {
             public:
@@ -40,13 +43,16 @@ namespace gridtools {
                 using status         = mpi::status;
                 template<typename T>
                 using future         = mpi::future<T>;
-                using traits         = mpi::communicator_traits;
 
             public:
 
-                communicator(const traits& t = traits{}) : base_type{t.communicator()} {}
-                communicator(const base_type& c) : base_type{c} {}
-                communicator(const MPI_Comm& c) : base_type{c} {}
+                using transport_context_type = transport_context<mpi_tag, ThreadPrimitives>;
+                transport_context_type* m_transport_context;
+
+                communicator(const MPI_Comm& c, transport_context_type* tc) 
+                : base_type{c} 
+                , m_transport_context{tc}
+                {}
                 
                 communicator(const communicator&) = default;
                 communicator(communicator&&) noexcept = default;

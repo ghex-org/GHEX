@@ -170,10 +170,10 @@ namespace gridtools {
 
                 // per-rank communicator (recv)
                 // thread-safe
-                communicator_type get_communicator()
+                communicator_type get_serial_communicator()
                 {
                     return m_parallel_context.m_thread_primitives.critical(
-                        [this]() mutable { return m_transport_context.get_communicator(); }
+                        [this]() mutable { return m_transport_context.get_serial_communicator(); }
                     );
                 }
 
@@ -190,6 +190,11 @@ namespace gridtools {
                 thread_token get_token() noexcept
                 {
                     return m_parallel_context.m_thread_primitives.get_token();
+                }
+                
+                void barrier(thread_token& t) const
+                {
+                    m_parallel_context.barrier(t);
                 }
 
             };

@@ -1,5 +1,6 @@
 #include <ghex/transport_layer/callback_communicator.hpp>
-#include <ghex/transport_layer/mpi/communicator.hpp>
+#include <ghex/transport_layer/mpi/context.hpp>
+#include <ghex/threads/atomic/primitives.hpp>
 #include <iostream>
 #include <iomanip>
 #include <functional>
@@ -11,10 +12,15 @@ template<typename Comm, typename Alloc>
 using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
 //using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
 
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
+using context_type = gridtools::ghex::tl::context<transport, threading>;
+
 int rank;
 const unsigned int SIZE = 1<<12;
 
-bool test_simple(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> &comm, int rank) {
+template<typename Comm>
+bool test_simple(Comm& comm, int rank) {
 
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
@@ -55,7 +61,8 @@ bool test_simple(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>
 
 }
 
-bool test_single(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> &comm, int rank) {
+template<typename Comm>
+bool test_single(Comm& comm, int rank) {
 
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
@@ -138,7 +145,8 @@ public:
     }
 };
 
-bool test_send_10(gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> &comm, int rank) {
+template<typename Comm>
+bool test_send_10(Comm& comm, int rank) {
 
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
@@ -187,31 +195,21 @@ TEST(transport, check_mpi_ranks_eq_4) {
 }
 
 TEST(transport, cancel_requests_reposting) {
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm;
-
-    EXPECT_TRUE(test_send_10(comm, rank));
-
+    context_type context(1,MPI_COMM_WORLD);
+    auto comm = context.get_communicator(context.get_token());
+    EXPECT_TRUE(test_send_10(comm, context.world().rank()));
 }
 
 TEST(transport, cancel_requests_simple) {
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm;
-
-    EXPECT_TRUE(test_simple(comm, rank));
+    context_type context(1,MPI_COMM_WORLD);
+    auto comm = context.get_communicator(context.get_token());
+    EXPECT_TRUE(test_simple(comm, context.world().rank()));
 
 }
 
 TEST(transport, cancel_single_request) {
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm;
-
-    EXPECT_TRUE(test_single(comm, rank));
+    context_type context(1,MPI_COMM_WORLD);
+    auto comm = context.get_communicator(context.get_token());
+    EXPECT_TRUE(test_single(comm, context.world().rank()));
 }
 

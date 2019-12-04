@@ -27,19 +27,19 @@ namespace gridtools {
         } // namespace detail
 
         // forward declaration
-        template<typename Transport, typename GridType, typename DomainIdType>
+        template<typename Communicator, typename GridType, typename DomainIdType>
         class pattern;
 
         /** @brief an iterable holding communication patterns (one pattern per domain)
          * @tparam Transport transport protocol
          * @tparam GridType indicates structured/unstructured grids
          * @tparam DomainIdType type to uniquely identify partail (local) domains*/
-        template<typename Transport, typename GridType, typename DomainIdType>
+        template<typename Communicator, typename GridType, typename DomainIdType>
         class pattern_container
         {
         public: // member tyes
             /** @brief pattern type this object is holding */
-            using value_type = pattern<Transport,GridType,DomainIdType>;
+            using value_type = pattern<Communicator,GridType,DomainIdType>;
 
         private: // private member types
             using data_type  = std::vector<value_type>;

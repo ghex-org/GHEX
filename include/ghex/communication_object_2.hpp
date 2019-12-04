@@ -28,7 +28,7 @@ namespace gridtools {
     namespace ghex {
 
         // forward declaration
-        template<typename Transport, typename GridType, typename DomainIdType>
+        template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_object;
 
         /** @brief handle type for waiting on asynchronous communication processes.
@@ -36,17 +36,17 @@ namespace gridtools {
           * @tparam Transport message transport type
           * @tparam GridType grid tag type
           * @tparam DomainIdType domain id type*/
-        template<typename Transport, typename GridType, typename DomainIdType>
+        template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_handle
         {
         private: // friend class
 
-            friend class communication_object<Transport,GridType,DomainIdType>;
+            friend class communication_object<Communicator,GridType,DomainIdType>;
 
         private: // member types
 
-            using co_t              = communication_object<Transport,GridType,DomainIdType>;
-            using communicator_type = tl::communicator<Transport>;
+            using co_t              = communication_object<Communicator,GridType,DomainIdType>;
+            using communicator_type = Communicator;
 
         private: // members
 
@@ -89,30 +89,30 @@ namespace gridtools {
          * @tparam Transport message transport type
          * @tparam GridType grid tag type
          * @tparam DomainIdType domain id type*/
-        template<typename Transport, typename GridType, typename DomainIdType>
+        template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_object
         {
         private: // friend class
 
-            friend class communication_handle<Transport,GridType,DomainIdType>;
+            friend class communication_handle<Communicator,GridType,DomainIdType>;
 
         public: // member types
 
             /** @brief handle type returned by exhange operation */
-            using handle_type             = communication_handle<Transport,GridType,DomainIdType>;
-            using transport_type          = Transport;
+            using handle_type             = communication_handle<Communicator,GridType,DomainIdType>;
+            //using transport_type          = Transport;
             using grid_type               = GridType;
             using domain_id_type          = DomainIdType;
-            using pattern_type            = pattern<Transport,GridType,DomainIdType>;
-            using pattern_container_type  = pattern_container<Transport,GridType,DomainIdType>;
-            using this_type               = communication_object<Transport,GridType,DomainIdType>;
+            using pattern_type            = pattern<Communicator,GridType,DomainIdType>;
+            using pattern_container_type  = pattern_container<Communicator,GridType,DomainIdType>;
+            using this_type               = communication_object<Communicator,GridType,DomainIdType>;
 
             template<typename D, typename F>
             using buffer_info_type        = buffer_info<pattern_type,D,F>;
 
         private: // member types
 
-            using communicator_type       = typename handle_type::communicator_type;
+            using communicator_type       = Communicator; //typename handle_type::communicator_type;
             using address_type            = typename communicator_type::address_type;
             using index_container_type    = typename pattern_type::index_container_type;
             using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;
@@ -225,7 +225,7 @@ namespace gridtools {
             [[nodiscard]] handle_type exchange(buffer_info_type<Archs,Fields>... buffer_infos)
             {
                 // check that arguments are compatible
-                using test_t = pattern_container<transport_type,grid_type,domain_id_type>;
+                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
                 static_assert(detail::test_eq_t<test_t, typename buffer_info_type<Archs,Fields>::pattern_container_type...>::value,
                         "patterns are not compatible with this communication object");
                 if (m_valid) 
@@ -320,7 +320,7 @@ namespace gridtools {
             [[nodiscard]] handle_type exchange_impl(buffer_info_type<Arch,Field>* first, std::size_t length)
             {
                 // check that arguments are compatible
-                using test_t = pattern_container<transport_type,grid_type,domain_id_type>;
+                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
                 static_assert(std::is_same<test_t, typename buffer_info_type<Arch,Field>::pattern_container_type>::value,
                         "patterns are not compatible with this communication object");
                 if (m_valid)
@@ -535,10 +535,11 @@ namespace gridtools {
         template<typename PatternContainer>
         auto make_communication_object(typename PatternContainer::value_type::communicator_type comm)
         {
-            using transport_type   = typename PatternContainer::value_type::communicator_type::transport_type;
-            using grid_type        = typename PatternContainer::value_type::grid_type;
-            using domain_id_type   = typename PatternContainer::value_type::domain_id_type;
-            return communication_object<transport_type,grid_type,domain_id_type>(comm);
+            //using transport_type   = typename PatternContainer::value_type::communicator_type::transport_type;
+            using communicator_type = typename PatternContainer::value_type::communicator_type;
+            using grid_type         = typename PatternContainer::value_type::grid_type;
+            using domain_id_type    = typename PatternContainer::value_type::domain_id_type;
+            return communication_object<communicator_type,grid_type,domain_id_type>(comm);
         }
 
     } // namespace ghex
