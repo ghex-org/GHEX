@@ -30,6 +30,11 @@ namespace gridtools {
                 : m_parallel_context(pc)
                 {}
 
+                communicator_type get_communicator() const
+                {
+                    return {(MPI_Comm)(m_parallel_context.world())};
+                }
+
                 communicator_type get_communicator(int) const
                 {
                     return {(MPI_Comm)(m_parallel_context.world())};

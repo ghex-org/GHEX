@@ -13,8 +13,8 @@
 
 #include <mpi.h>
 #include <memory>
-//#include "../common/moved_bit.hpp"
 #include "./config.hpp"
+#include "./mpi/setup.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -81,7 +81,7 @@ namespace gridtools {
                 operator MPI_Comm() const noexcept { return m_comm; }
             };
 
-            template<class ThreadPrimitives>// = ::gridtools::ghex::threads::atomic::primitives>
+            template<class ThreadPrimitives>
             class parallel_context
             {
             public: // members
@@ -134,24 +134,54 @@ namespace gridtools {
                 using transport_context_type = transport_context<tag,ThreadPrimitives>;
                 using communicator_type      = typename transport_context_type::communicator_type;
                 using parallel_context_type  = parallel_context<ThreadPrimitives>;
+                using thread_primitives_type = typename parallel_context_type::thread_primitives_type;
                 using thread_token           = typename parallel_context_type::thread_token;
 
             private:
-                std::unique_ptr<parallel_context_type> m_parallel_context;
-                transport_context_type                 m_transport_context;
+                parallel_context_type  m_parallel_context;
+                transport_context_type m_transport_context;
 
             public:
                 template<typename...Args>
                 context(int num_threads, Args&&... args)
-                : m_parallel_context{new parallel_context_type{num_threads, std::forward<Args>(args)...}}
-                , m_transport_context{*m_parallel_context, std::forward<Args>(args)...}
+                : m_parallel_context{num_threads, std::forward<Args>(args)...}
+                , m_transport_context{m_parallel_context, std::forward<Args>(args)...}
                 {}
 
+                context(const context&) = delete;
+                context(context&&) = delete;
+
             public:
+
+                const mpi_world& world() const noexcept 
+                {
+                    return m_parallel_context.world(); 
+                }
+                
+                const thread_primitives_type& thread_primitives() const noexcept 
+                {
+                    return m_parallel_context.thread_primitives(); 
+                }
+
+                mpi::setup_communicator get_setup_communicator()
+                {
+                    return mpi::setup_communicator(m_parallel_context.world());
+                }
+
+                // per-rank communicator (recv)
+                // thread-safe
+                communicator_type get_communicator()
+                {
+                    return m_parallel_context.m_thread_primitives.critical(
+                        [this]() mutable { return m_transport_context.get_communicator(); }
+                    );
+                }
+
+                // per-thread communicator (send)
                 // thread-safe
                 communicator_type get_communicator(const thread_token& t)
                 {
-                    return m_parallel_context->m_thread_primitives.critical(
+                    return m_parallel_context.m_thread_primitives.critical(
                         [this,&t]() mutable { return m_transport_context.get_communicator(t.id()); }
                     );
                 }
@@ -159,8 +189,9 @@ namespace gridtools {
                 // thread-safe
                 thread_token get_token() noexcept
                 {
-                    return m_parallel_context->m_thread_primitives.get_token();
+                    return m_parallel_context.m_thread_primitives.get_token();
                 }
+
             };
 
         } // namespace tl

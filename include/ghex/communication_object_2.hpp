@@ -191,12 +191,16 @@ namespace gridtools {
         private: // members
 
             bool m_valid;
+            communicator_type m_comm;
             memory_type m_mem;
             std::vector<typename communicator_type::template future<void>> m_send_futures;
 
         public: // ctors
 
-            communication_object() : m_valid(false) {}
+            communication_object(communicator_type comm)
+            : m_valid(false) 
+            , m_comm(comm)
+            {}
             communication_object(const communication_object&) = delete;
             communication_object(communication_object&&) = default;
 
@@ -257,9 +261,9 @@ namespace gridtools {
                     allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                     ++i;
                 });
-                handle_type h(std::get<0>(buffer_info_tuple)->get_pattern().communicator(), [this](){this->wait();});
-                post_recvs(h.m_comm);
-                pack(h.m_comm);
+                handle_type h(m_comm, [this](){this->wait();});
+                post_recvs();
+                pack();
                 return h; 
             }
 
@@ -275,8 +279,8 @@ namespace gridtools {
             [[nodiscard]] handle_type exchange(buffer_info_type<Arch,Field>* first, std::size_t length)
             {
                 auto h = exchange_impl(first, length);
-                post_recvs(h.m_comm);
-                pack(h.m_comm);
+                post_recvs();
+                pack();
                 return h;
             }
 
@@ -293,10 +297,10 @@ namespace gridtools {
                 using field_type = std::remove_reference_t<decltype(first->get_field())>;
                 using value_type = typename field_type::value_type;
                 auto h = exchange_impl(first, length);
-                post_recvs(h.m_comm);
+                post_recvs();
                 h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
                 memory_t& mem = std::get<memory_t>(m_mem);
-                packer<gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, h.m_comm);
+                packer<gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, m_comm);
                 return h;
             }
 #endif
@@ -344,12 +348,12 @@ namespace gridtools {
                     const auto my_dom_id  =(first+k)->get_field().domain_id();
                     allocate<Arch,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offset);
                 }
-                return handle_type(first->get_pattern().communicator(), [this](){this->wait();});
+                return handle_type(m_comm, [this](){this->wait();});
             }
 
-            void post_recvs(communicator_type& comm)
+            void post_recvs()
             {
-                detail::for_each(m_mem, [this,&comm](auto& m)
+                detail::for_each(m_mem, [this](auto& m)
                 {
                     for (auto& p0 : m.recv_memory)
                     {
@@ -361,19 +365,19 @@ namespace gridtools {
                                 m.m_recv_futures.emplace_back(
                                     typename std::remove_reference_t<decltype(m)>::future_type{
                                         &p1.second,
-                                        comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
+                                        m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
                             }
                         }
                     }
                 });
             }
 
-            void pack(communicator_type& comm)
+            void pack()
             {
-                detail::for_each(m_mem, [this,&comm](auto& m)
+                detail::for_each(m_mem, [this](auto& m)
                 {
                     using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-                    packer<arch_type>::pack(m,m_send_futures,comm);
+                    packer<arch_type>::pack(m,m_send_futures,m_comm);
                 });
             }
 
@@ -529,12 +533,12 @@ namespace gridtools {
           * @tparam PatternContainer pattern type
           * @return communication object */
         template<typename PatternContainer>
-        auto make_communication_object()
+        auto make_communication_object(typename PatternContainer::value_type::communicator_type comm)
         {
-            using transport_type    = typename PatternContainer::value_type::communicator_type::transport_type;
+            using transport_type   = typename PatternContainer::value_type::communicator_type::transport_type;
             using grid_type        = typename PatternContainer::value_type::grid_type;
             using domain_id_type   = typename PatternContainer::value_type::domain_id_type;
-            return communication_object<transport_type,grid_type,domain_id_type>();
+            return communication_object<transport_type,grid_type,domain_id_type>(comm);
         }
 
     } // namespace ghex
