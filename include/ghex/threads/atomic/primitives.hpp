@@ -79,6 +79,12 @@ namespace gridtools {
                     primitives(primitives&&) = delete;
 
                 public: // public member functions
+                    
+                    int size() const noexcept
+                    {
+                        return m_num_threads;
+                    }
+
                     inline token get_token() noexcept
                     {
                         return {(int)m_ids++,0};

@@ -22,6 +22,8 @@ namespace gridtools {
             struct transport_context<mpi_tag, ThreadPrimitives>
             {
                 using communicator_type = mpi::communicator<ThreadPrimitives>;
+                using parallel_context_type = parallel_context<ThreadPrimitives>;
+                using thread_token = typename parallel_context_type::thread_token;
 
                 parallel_context<ThreadPrimitives>& m_parallel_context;
 
@@ -35,9 +37,9 @@ namespace gridtools {
                     return {(MPI_Comm)(m_parallel_context.world()),this};
                 }
 
-                communicator_type get_communicator(int thread_id)
+                communicator_type get_communicator(thread_token& t)
                 {
-                    return {(MPI_Comm)(m_parallel_context.world()),this, thread_id};
+                    return {(MPI_Comm)(m_parallel_context.world()),this, t.id()};
                 }
 
             };
