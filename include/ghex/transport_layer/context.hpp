@@ -192,6 +192,7 @@ namespace gridtools {
                     return m_parallel_context.m_thread_primitives.get_token();
                 }
                 
+                // thread-safe
                 void barrier(thread_token& t) const
                 {
                     m_parallel_context.barrier(t);
