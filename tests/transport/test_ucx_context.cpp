@@ -21,9 +21,9 @@
 namespace ghex = gridtools::ghex;
 
 using db_type      = ghex::tl::ucx::address_db_mpi;
-using transport    = gridtools::ghex::tl::ucx_tag;
-using threading    = gridtools::ghex::threads::atomic::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using transport    = ghex::tl::ucx_tag;
+using threading    = ghex::threads::atomic::primitives;
+using context_type = ghex::tl::context<transport, threading>;
 
 
 TEST(transport_layer, ucx_context)
@@ -40,9 +40,21 @@ TEST(transport_layer, ucx_context)
 
         std::vector<int> payload{1,2,3,4};
 
-        comm.send(payload, 0, token.id()).wait();
-
-        //const auto& ep = comm.m_send_worker->connect(0);
+        if (comm.rank() == 0)
+        {
+            for (int i=1; i<comm.size(); ++i)
+            {
+                comm.recv(payload, i, token.id()).wait();
+                EXPECT_EQ(payload[0], token.id());
+                EXPECT_EQ(payload[1], i);
+            }
+        }
+        else
+        {
+            payload[0] = token.id();
+            payload[1] = comm.rank();
+            comm.send(payload, 0, token.id()).wait();
+        }
 
         context.barrier(token);
     };

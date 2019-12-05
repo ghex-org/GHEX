@@ -53,7 +53,7 @@ namespace gridtools {
                     sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
                     alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
                 
-                void request_init(void *req) { bzero(req, request_data_size::value); }
+                void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
 
                 template<typename ThreadPrimitives>
                 struct request_ft
@@ -85,10 +85,10 @@ namespace gridtools {
                     void destroy()
                     {
                         void* ucx_ptr = m_req->m_ucx_ptr;
-                        request_init(ucx_ptr);
                         m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
                             [ucx_ptr]()
                             {
+                                //request_init(ucx_ptr);
                                 ucp_request_free(ucx_ptr);
                             }
                         );
@@ -116,7 +116,7 @@ namespace gridtools {
                                 // the other threads's send worker... 
 			                    if (UCS_INPROGRESS != ucp_request_check_status(m_req->m_ucx_ptr)) 
                                 {
-                                    request_init(m_req->m_ucx_ptr);
+                                    //request_init(m_req->m_ucx_ptr);
 				                    ucp_request_free(m_req->m_ucx_ptr);
                                     m_req = nullptr;
                                     return true;
@@ -201,17 +201,57 @@ namespace gridtools {
                         if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
                         {
                             // send operation is completed immediately and the call-back function is not invoked
-                            return {nullptr};
+                            return request{nullptr};
                         } 
                         else if(!UCS_PTR_IS_ERR(ret))
                         {
-                            return {request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::send)};
+                            return request{request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::send)};
                         }
                         else
                         {
                             // an error occurred
                             throw std::runtime_error("ghex: ucx error - send operation failed");
                         }
+                    }
+		
+                    template <typename MsgType>
+                    [[nodiscard]] request recv(MsgType &msg, rank_type src, tag_type tag)
+                    {
+                        const auto rtag = ((std::uint_fast64_t)tag << 32) | 
+                                           (std::uint_fast64_t)(src);
+                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,rtag,&msg,src,tag]()
+                            {
+                                auto ret = ucp_tag_recv_nb(
+                                    m_recv_worker->get(),                            // worker
+                                    msg.data(),                                      // buffer
+                                    msg.size()*sizeof(typename MsgType::value_type), // buffer size
+                                    ucp_dt_make_contig(1),                           // data type
+                                    rtag,                                            // tag
+                                    ~std::uint_fast64_t(0ul),                        // tag mask
+                                    &communicator::empty_recv_callback);             // callback function pointer: empty here
+                                if(!UCS_PTR_IS_ERR(ret))
+                                {
+			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
+                                    {
+				                        // recv completed immediately
+		    		                    // we need to free the request here, not in the callback
+                                        //request_init(ret);
+				                        ucp_request_free(ret);
+                                        return request{nullptr};
+                                    }
+                                    else
+                                    {
+                                        return request{request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::recv)};
+                                    }
+                                }
+                                else
+                                {
+                                    // an error occurred
+                                    throw std::runtime_error("ghex: ucx error - recv operation failed");
+                                }
+                            }
+                        );
                     }
                 };
             } // namespace ucx
