@@ -64,8 +64,13 @@ namespace gridtools{
                     /** @return size of communicator group*/
                     inline size_type size() const noexcept { return m_size; }
 
-		    static void initialize() const {}
-		    static void finalize() const {}
+                    static void initialize() {}
+		            static void finalize() {}
+
+                    void barrier()
+                    {
+                        MPI_Barrier(*m_comm);
+                    }
 
                     operator       MPI_Comm&()       noexcept { return *m_comm; }
                     operator const MPI_Comm&() const noexcept { return *m_comm; }

@@ -92,6 +92,9 @@ namespace gridtools
 	     * Each message will be sent and received with a tag, bot of type int
 	     */
 
+	    template<typename Tag>
+	    class communicator;
+
 	    template<>
 	    class communicator<ucx_tag>
 	    {
