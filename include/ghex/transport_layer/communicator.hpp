@@ -19,8 +19,8 @@ namespace gridtools {
 
             /** @brief communicator class which exposes basic communication primitives 
               * @tparam TransportTag transport protocol tag */
-            template<typename TransportTag>
-            class communicator; 
+            //template<typename TransportTag,typename ThreadPrimitives>
+            //class communicator; 
             
                 // concept
                 // -------

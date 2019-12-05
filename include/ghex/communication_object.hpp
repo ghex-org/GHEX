@@ -203,7 +203,7 @@ namespace gridtools {
 
             /** @brief communication object constructor
              * @param p pattern*/
-            communication_object(const Pattern& p) :
+            communication_object(const Pattern& p, communicator_t comm) :
                 m_pattern{p},
                 m_send_halos{m_pattern.send_halos()},
                 m_receive_halos{m_pattern.recv_halos()},
@@ -211,7 +211,7 @@ namespace gridtools {
                 m_n_receive_halos(m_receive_halos.size()),
                 m_send_buffers(m_n_send_halos),
                 m_receive_buffers(m_n_receive_halos),
-                m_communicator{m_pattern.communicator()} {
+                m_communicator{comm} {
 
                 for (const auto& halo : m_send_halos) {
                     const auto& domain_id = halo.first;

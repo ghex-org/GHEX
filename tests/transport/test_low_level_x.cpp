@@ -1,5 +1,6 @@
 #include <ghex/transport_layer/callback_communicator.hpp>
-#include <ghex/transport_layer/mpi/communicator.hpp>
+#include <ghex/transport_layer/mpi/context.hpp>
+#include <ghex/threads/atomic/primitives.hpp>
 #include <vector>
 #include <iomanip>
 #include <utility>
@@ -10,6 +11,10 @@ template<typename Comm, typename Alloc>
 using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
 //using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
 
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
+using context_type = gridtools::ghex::tl::context<transport, threading>;
+
 /**
  * Simple Send recv on two ranks.
  * P0 sends a message to P1 and receive from P1,
@@ -19,8 +24,11 @@ using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
 int rank;
 
 auto test1() {
-    using comm_type = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
-    comm_type sr;
+    context_type context(1,MPI_COMM_WORLD);
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
+    using comm_type      = std::remove_reference_t<decltype(sr)>;
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
     std::vector<unsigned char> rmsg(40, 40);
@@ -54,12 +62,15 @@ auto test1() {
 }
 
 auto test2() {
-    using sr_comm_type   = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
+    context_type context(1,MPI_COMM_WORLD);
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
+    using sr_comm_type   = std::remove_reference_t<decltype(sr)>;
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using cb_comm_type   = callback_comm_t<sr_comm_type,allocator_type>;
 
-    sr_comm_type sr;
     cb_comm_type cb_comm(sr);
 
     std::vector<unsigned char> smsg = {0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,7,0,0,0,8,0,0,0,9,0,0,0};
@@ -99,7 +110,11 @@ auto test2() {
 }
 
 auto test1_mesg() {
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
+    context_type context(1,MPI_COMM_WORLD);
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
+    using sr_comm_type   = std::remove_reference_t<decltype(sr)>;
 
     gridtools::ghex::tl::message_buffer<> smsg{40};
 
@@ -111,7 +126,7 @@ auto test1_mesg() {
 
     gridtools::ghex::tl::message_buffer<> rmsg{40};
 
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void> rfut;
+    sr_comm_type::future<void> rfut;
 
     if ( rank == 0 ) {
         sr.send(smsg, 1, 1).get();
@@ -141,12 +156,15 @@ auto test1_mesg() {
 }
 
 auto test2_mesg() {
-    using sr_comm_type   = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
+    context_type context(1,MPI_COMM_WORLD);
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
+    using sr_comm_type   = std::remove_reference_t<decltype(sr)>;
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using cb_comm_type   = callback_comm_t<sr_comm_type,allocator_type>;
 
-    sr_comm_type sr;
     cb_comm_type cb_comm(sr);
 
     gridtools::ghex::tl::message_buffer<> smsg{40};
@@ -194,7 +212,11 @@ auto test2_mesg() {
 }
 
 auto test1_shared_mesg() {
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
+    context_type context(1,MPI_COMM_WORLD);
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
+    using sr_comm_type   = std::remove_reference_t<decltype(sr)>;
 
     gridtools::ghex::tl::shared_message_buffer<> smsg{40};
     int* data = smsg.data<int>();
@@ -205,7 +227,7 @@ auto test1_shared_mesg() {
 
     gridtools::ghex::tl::shared_message_buffer<> rmsg{40};
 
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>::future<void> rfut;
+    sr_comm_type::future<void> rfut;
 
     if ( rank == 0 ) {
         auto sf = sr.send(smsg, 1, 1);
