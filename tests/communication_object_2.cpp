@@ -11,7 +11,12 @@
 
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object_2.hpp>
+#ifndef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/mpi/context.hpp>
+#else
+#include <ghex/transport_layer/ucx3/address_db_mpi.hpp>
+#include <ghex/transport_layer/ucx/context.hpp>
+#endif
 #include <ghex/threads/atomic/primitives.hpp>
 #include <array>
 #include <iomanip>
@@ -35,8 +40,14 @@ __global__ void print_kernel() {
 }
 #endif
 
+#ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
 using threading = gridtools::ghex::threads::atomic::primitives;
+#else
+using db_type   = gridtools::ghex::tl::ucx::address_db_mpi;
+using transport = gridtools::ghex::tl::ucx_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
+#endif
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 template<typename T, std::size_t N>
@@ -143,9 +154,17 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
 TEST(communication_object_2, exchange)
 {
 #if defined(GHEX_TEST_SERIAL) || defined(GHEX_TEST_SERIAL_VECTOR) || defined(GHEX_TEST_SERIAL_SPLIT) || defined(GHEX_TEST_SERIAL_SPLIT_VECTOR)
+    #ifndef GHEX_TEST_USE_UCX
     context_type context(1, MPI_COMM_WORLD);
+    #else
+    context_type context(1, MPI_COMM_WORLD, db_type{MPI_COMM_WORLD} );
+    #endif
 #else
+    #ifndef GHEX_TEST_USE_UCX
     context_type context(2, MPI_COMM_WORLD);
+    #else
+    context_type context(2, MPI_COMM_WORLD, db_type{MPI_COMM_WORLD} );
+    #endif
 #endif
 
 #ifdef __CUDACC__
