@@ -232,6 +232,114 @@ namespace gridtools {
                             throw std::runtime_error("ghex: ucx error - send operation failed");
                         }
                     }
+                    
+                    template<typename Message, typename CallBack>
+                    lvalue_func<Message> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        using V = typename Message::value_type;
+                        return recv(message_type{ref_message<V>{msg.data(),msg.size()}}, src, tag, std::forward<CallBack>(callback));
+                    }
+
+                    template<typename Message, typename CallBack>
+                    rvalue_func<Message> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback, std::true_type)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return recv(message_type{std::move(msg)}, src, tag, std::forward<CallBack>(callback));
+                    }
+	    
+                    static void recv_callback(void *ucx_req, ucs_status_t status, ucp_tag_recv_info_t *info)
+                    {
+                        //const rank_type src = (rank_type)(info->sender_tag & 0x00000000fffffffful);
+                        //const tag_type  tag = (tag_type)((info->sender_tag & 0xffffffff00000000ul) >> 32);
+                        
+                        auto& req = request_cb_data_type::get(ucx_req);
+                        
+                        if (reinterpret_cast<std::uintptr_t>(ucx_req) == UCS_OK)
+                        {
+                            if (static_cast<int>(req.m_kind) == 0)
+                            {
+                                // we're in early completion mode
+                                return;
+                            }
+
+                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                            // set completion bit
+                            req.m_completed->m_ready = true;
+                            // destroy the request - releases the message
+                            req.~request_cb_data_type();
+                            // free ucx request
+                            request_init(ucx_req);
+                            ucp_request_free(ucx_req);
+                        }
+                        else if (reinterpret_cast<std::uintptr_t>(ucx_req) == UCS_ERR_CANCELED)
+                        {
+			                // canceled - do nothing
+                            // set completion bit
+                            req.m_completed->m_ready = true;
+                            // destroy the request - releases the message
+                            req.~request_cb_data_type(); 
+                            // free ucx request
+                            request_init(ucx_req);
+                            ucp_request_free(ucx_req);
+                        }
+                        else
+                        {
+                            // an error occurred
+                            throw std::runtime_error("ghex: ucx error - recv message truncated");
+                        }
+                    }
+                    
+                    template<typename CallBack>
+                    request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        const auto rtag = ((std::uint_fast64_t)tag << 32) | 
+                                           (std::uint_fast64_t)(src);
+                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,rtag,&msg,src,tag,&callback]()
+                            {
+                                auto ret = ucp_tag_recv_nb(
+                                    m_recv_worker->get(),                            // worker
+                                    msg.data(),                                      // buffer
+                                    msg.size(),                                      // buffer size
+                                    ucp_dt_make_contig(1),                           // data type
+                                    rtag,                                            // tag
+                                    ~std::uint_fast64_t(0ul),                        // tag mask
+                                    &communicator::recv_callback);                   // callback function pointer
+
+                                if(!UCS_PTR_IS_ERR(ret))
+                                {
+			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
+                                    {
+                                        // early completed
+                                        callback(std::move(msg), src, tag);
+		    		                    // we need to free the request here, not in the callback
+                                        auto ucx_ptr = ret;
+                                        request_init(ucx_ptr);
+				                        ucp_request_free(ucx_ptr);
+                                        return {nullptr, std::make_shared<request_cb_state_type>(true)};
+                                    }
+                                    else
+                                    {
+                                        auto req_ptr = request_cb_data_type::construct(ret,
+                                            m_recv_worker,
+                                            request_kind::recv,
+                                            std::move(msg),
+                                            src,
+                                            tag,
+                                            std::forward<CallBack>(callback),
+                                            std::make_shared<request_cb_state_type>(false));
+                                        return {req_ptr, req_ptr->m_completed};
+                                    }
+                                }
+                                else
+                                {
+                                    // an error occurred
+                                    throw std::runtime_error("ghex: ucx error - recv operation failed");
+                                }
+                            }
+                        );
+                    }
                 };
             } // namespace ucx
 

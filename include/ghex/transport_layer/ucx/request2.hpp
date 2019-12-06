@@ -22,7 +22,7 @@ namespace gridtools{
         namespace tl {
             namespace ucx {
 
-                enum class request_kind { send, recv };
+                enum class request_kind : int { none=0, send, recv };
 
                 template<typename ThreadPrimitives>
                 struct request_data_ft
