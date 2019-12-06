@@ -197,7 +197,9 @@ namespace gridtools{
                         m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
                             [this]()
                             {
-                                ucp_request_cancel(m_req->m_recv_woker->get(), m_req->m_ucx_ptr);
+                                auto ucx_ptr = m_req->m_ucx_ptr;
+                                auto worker = m_req->m_recv_worker->get();
+                                ucp_request_cancel(worker, ucx_ptr);
                             }
                         );
 			            // wait for the request to either complete, or be canceled
@@ -215,6 +217,72 @@ namespace gridtools{
 
                     data_type*                  m_req = nullptr;
                     std::shared_ptr<state_type> m_completed;
+                    
+                    request_cb() = default;
+                    request_cb(data_type* ptr, std::shared_ptr<state_type> sp) noexcept : m_req{ptr}, m_completed{sp} {}
+                    request_cb(const request_cb&) = delete;
+                    request_cb& operator=(const request_cb&) = delete;
+
+                    request_cb(request_cb&& other) noexcept
+                    : m_req{ std::exchange(other.m_req, nullptr) } 
+                    , m_completed{std::move(other.m_completed)}
+                    {}
+
+                    request_cb& operator=(request_cb&& other) noexcept
+                    {
+                        m_req = std::exchange(other.m_req, nullptr);
+                        m_completed = std::move(other.m_completed);
+                    }
+                    
+                    bool test()
+                    {
+			            if(!m_req) return true;
+                        
+                        if (m_completed->is_ready())
+                        {
+			                m_req = nullptr;
+                            m_completed.realease();
+                            return true;
+                        }
+			            return false;
+                    }
+                    
+                    bool cancel()
+                    {
+                        if (!m_req) return true;
+
+                        // TODO at this time, send requests cannot be canceled
+                        // in UCX (1.7.0rc1)
+                        // https://github.com/openucx/ucx/issues/1162
+                        // 
+                        // TODO the below is only correct for recv requests,
+                        // or for send requests under the assumption that 
+                        // the requests cannot be moved between threads.
+                        // 
+                        // For the send worker we do not use locks, hence
+                        // if request is canceled on another thread, it might
+                        // clash with another send being submitted by the owner
+                        // of ucp_worker
+
+                        if (m_req->m_kind == request_kind::send) return false;
+
+                        m_req->m_worker->m_parallel_context->thread_primitives().critical(
+                            [this]()
+                            {
+                                if (!m_req->m_completed->is_ready())
+                                {
+                                    auto ucx_ptr = m_req->m_ucx_ptr;
+                                    auto worker = m_req->m_worker->get();
+                                    // set to zero here????
+                                    request_init(ucx_ptr);
+				                    ucp_request_cancel(worker, ucx_ptr);
+                                }
+                                m_req = nullptr;
+                                m_completed.release();
+                                return true;
+                            }
+                        );
+                    }
                 };
 
             } // namespace ucx
