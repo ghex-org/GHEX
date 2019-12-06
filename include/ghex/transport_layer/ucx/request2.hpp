@@ -233,6 +233,7 @@ namespace gridtools{
                     {
                         m_req = std::exchange(other.m_req, nullptr);
                         m_completed = std::move(other.m_completed);
+                        return *this;
                     }
                     
                     bool test()
@@ -242,7 +243,7 @@ namespace gridtools{
                         if (m_completed->is_ready())
                         {
 			                m_req = nullptr;
-                            m_completed.realease();
+                            m_completed.reset();
                             return true;
                         }
 			            return false;
@@ -267,7 +268,7 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        m_req->m_worker->m_parallel_context->thread_primitives().critical(
+                        return m_req->m_worker->m_parallel_context->thread_primitives().critical(
                             [this]()
                             {
                                 if (!m_req->m_completed->is_ready())
@@ -282,7 +283,7 @@ namespace gridtools{
 				                    ucp_request_cancel(worker, ucx_ptr);
                                 }
                                 m_req = nullptr;
-                                m_completed.release();
+                                m_completed.reset();
                                 return true;
                             }
                         );

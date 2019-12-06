@@ -39,6 +39,8 @@ namespace gridtools {
                     // volatile is needed to prevent the compiler
                     // from optimizing away the check of this member
                     volatile bool m_ready = false;
+                    request_state() = default;
+                    request_state(bool r) noexcept : m_ready{r} {}
                     bool is_ready() const noexcept { return m_ready; }
                 };
 

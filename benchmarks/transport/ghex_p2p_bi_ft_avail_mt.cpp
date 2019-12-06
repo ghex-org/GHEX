@@ -48,10 +48,6 @@ std::atomic<int> tail_recv(0);
 int last_received = 0;
 int last_sent = 0;
 
-//int thrid, nthr;
-//DECLARE_THREAD_PRIVATE(thrid)
-//DECLARE_THREAD_PRIVATE(nthr)
-
 int main(int argc, char *argv[])
 {
     int niter, buff_size;
@@ -132,6 +128,8 @@ int main(int argc, char *argv[])
                     if(rank == 1) 
                         std::cout << "number of threads: " << num_threads << ", multi-threaded: " << THREAD_IS_MT << "\n";
                 });
+            
+            context.thread_primitives().barrier(token);
 
             int dbg = 0, sdbg = 0, rdbg = 0;
             while(sent < niter || received < niter)
@@ -186,6 +184,9 @@ int main(int argc, char *argv[])
                         std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
                     }       
                 });
+            
+            context.thread_primitives().barrier(token);
+
             // tail loops - submit RECV requests until
             // all SEND requests have been finalized.
             // This is because UCX cannot cancel SEND requests.
@@ -238,11 +239,11 @@ int main(int argc, char *argv[])
                             rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
                         }
                     }
-                context.thread_primitives().master(token, 
-                    [&rf,&tail_recv]()
-                    {
-                        if(rf.test()) tail_recv = 1;
-                    });
+                    context.thread_primitives().master(token, 
+                        [&rf,&tail_recv]()
+                        {
+                            if(rf.test()) tail_recv = 1;
+                        });
                 }
             }
             // peer has sent everything, so we can cancel all posted recv requests

@@ -166,7 +166,7 @@ namespace gridtools {
                     lvalue_func<Message> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
                         GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        using V = typename Message::value_type;
+                        using V = typename std::remove_reference_t<Message>::value_type;
                         return send(message_type{ref_message<V>{msg.data(),msg.size()}}, dst, tag, std::forward<CallBack>(callback));
                     }
 
@@ -180,7 +180,7 @@ namespace gridtools {
                     static void send_callback(void *ucx_req, ucs_status_t status)
                     {
                         auto& req = request_cb_data_type::get(ucx_req);
-                        if (reinterpret_cast<std::uintptr_t>(status) == UCS_OK)
+                        if (status == UCS_OK)
                             // call the callback
                             req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
                         // else: cancelled - do nothing
@@ -237,7 +237,7 @@ namespace gridtools {
                     lvalue_func<Message> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {
                         GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        using V = typename Message::value_type;
+                        using V = typename std::remove_reference_t<Message>::value_type;
                         return recv(message_type{ref_message<V>{msg.data(),msg.size()}}, src, tag, std::forward<CallBack>(callback));
                     }
 
@@ -248,14 +248,14 @@ namespace gridtools {
                         return recv(message_type{std::move(msg)}, src, tag, std::forward<CallBack>(callback));
                     }
 	    
-                    static void recv_callback(void *ucx_req, ucs_status_t status, ucp_tag_recv_info_t *info)
+                    static void recv_callback(void *ucx_req, ucs_status_t status, ucp_tag_recv_info_t* /*info*/)
                     {
                         //const rank_type src = (rank_type)(info->sender_tag & 0x00000000fffffffful);
                         //const tag_type  tag = (tag_type)((info->sender_tag & 0xffffffff00000000ul) >> 32);
                         
                         auto& req = request_cb_data_type::get(ucx_req);
                         
-                        if (reinterpret_cast<std::uintptr_t>(ucx_req) == UCS_OK)
+                        if (status == UCS_OK)
                         {
                             if (static_cast<int>(req.m_kind) == 0)
                             {
@@ -272,7 +272,7 @@ namespace gridtools {
                             request_init(ucx_req);
                             ucp_request_free(ucx_req);
                         }
-                        else if (reinterpret_cast<std::uintptr_t>(ucx_req) == UCS_ERR_CANCELED)
+                        else if (status == UCS_ERR_CANCELED)
                         {
 			                // canceled - do nothing
                             // set completion bit
@@ -317,7 +317,7 @@ namespace gridtools {
                                         auto ucx_ptr = ret;
                                         request_init(ucx_ptr);
 				                        ucp_request_free(ucx_ptr);
-                                        return {nullptr, std::make_shared<request_cb_state_type>(true)};
+                                        return request_cb_type{nullptr, std::make_shared<request_cb_state_type>(true)};
                                     }
                                     else
                                     {
@@ -329,7 +329,7 @@ namespace gridtools {
                                             tag,
                                             std::forward<CallBack>(callback),
                                             std::make_shared<request_cb_state_type>(false));
-                                        return {req_ptr, req_ptr->m_completed};
+                                        return request_cb_type{req_ptr, req_ptr->m_completed};
                                     }
                                 }
                                 else
