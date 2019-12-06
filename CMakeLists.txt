@@ -37,7 +37,7 @@ target_include_directories(ghexlib INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   )
-target_link_libraries(ghexlib INTERFACE GridTools::gridtools)
+target_link_libraries(ghexlib INTERFACE GridTools::gridtools MPI::MPI_CXX)
 target_compile_features(ghexlib INTERFACE cxx_std_14)
 
 include(FetchContent)
