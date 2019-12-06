@@ -23,6 +23,7 @@ set(GHEX_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
+find_package(Boost 1.66 REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
 # NOT USED:
 # find_package(PMIx)
