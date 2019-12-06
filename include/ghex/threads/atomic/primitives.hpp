@@ -36,7 +36,7 @@ namespace gridtools {
                 public: // member types
                     using id_type = int;
 
-                    class token
+                    class token_impl
                     {
                     private: // members
                         id_type m_id;
@@ -45,16 +45,32 @@ namespace gridtools {
                         
                         friend primitives;
 
-                        token(id_type id, int epoch) noexcept
+                        token_impl(id_type id, int epoch) noexcept
                         : m_id(id), m_epoch(epoch), m_selected(id==0?true:false)
                         {}
 
                     public: // ctors
-                        token(const token&) = delete;
-                        token(token&&) = default;
+                        token_impl(const token_impl&) = delete;
+                        token_impl(token_impl&&) = default;
 
                     public: // member functions
                         id_type id() const noexcept { return m_id; }
+                    };
+
+                    class token
+                    {
+                    private:
+                        token_impl* impl = nullptr;
+                        friend primitives;
+                    public:
+                        token() = default;
+                        token(token_impl* impl_) noexcept : impl{impl_} {}
+                        token(const token&) = default;
+                        token(token&&) = default;
+                        token& operator=(const token&) = default;
+                        token& operator=(token&&) = default;
+                    public:
+                        id_type id() const noexcept { return impl->id();}
                     };
 
                     using mutex_type = atomic_mutex;
@@ -62,6 +78,7 @@ namespace gridtools {
 
                 private: // members
                     const int                m_num_threads;
+                    std::vector<std::unique_ptr<token_impl>> m_tokens;
                     std::atomic<int>         m_ids;
                     mutable volatile int     m_epoch;
                     mutable std::atomic<int> b_count;
@@ -70,6 +87,7 @@ namespace gridtools {
                 public: // ctors
                     primitives(int num_threads) noexcept
                     : m_num_threads(num_threads)
+                    , m_tokens(num_threads)
                     , m_ids(0)
                     , m_epoch(0)
                     , b_count(0)
@@ -87,7 +105,9 @@ namespace gridtools {
 
                     inline token get_token() noexcept
                     {
-                        return {(int)m_ids++,0};
+                        const int id = m_ids++;
+                        m_tokens[id].reset( new token_impl{id,0} );
+                        return {m_tokens[id].get()};
                     }
 
                     inline void barrier(token& t) const noexcept
@@ -95,20 +115,20 @@ namespace gridtools {
                         int expected = b_count; 
                         while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
                             expected = b_count;
-                        t.m_epoch ^= 1;
-                        t.m_selected = (expected?false:true);
+                        t.impl->m_epoch ^= 1;
+                        t.impl->m_selected = (expected?false:true);
                         if (expected == m_num_threads-1)
                         {
                             b_count.store(0);
                             m_epoch ^= 1;
                         }
-                        while(t.m_epoch != m_epoch) {}
+                        while(t.impl->m_epoch != m_epoch) {}
                     }
 
                     template <typename F>
                     inline void single(token& t, F && f) const noexcept
                     {
-                        if (t.m_selected) {
+                        if (t.impl->m_selected) {
                             f();
                         }
                     }
@@ -116,7 +136,7 @@ namespace gridtools {
                     template <typename F>
                     inline void master(token& t, F && f) const noexcept
                     {
-                        if (t.m_id == 0) {
+                        if (t.impl->m_id == 0) {
                             f();
                         }
                     }
@@ -153,7 +173,7 @@ namespace gridtools {
                         {}
 
                     public: // ctors
-                        token(const token&) = delete;
+                        token(const token&) = default;
                         token(token&&) = default;
 
                     public: // member functions

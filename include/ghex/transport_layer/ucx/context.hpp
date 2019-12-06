@@ -33,12 +33,18 @@ namespace gridtools {
                     using parallel_context_type  = parallel_context<ThreadPrimitives>;
                     using thread_token           = typename parallel_context_type::thread_token;
                     using rank_type              = endpoint_t::rank_type;
-                    using tag_type               = int;
+                    using tag_type               = typename worker_type::tag_type;
                     using request                = request_ft<ThreadPrimitives>;
                     template<typename T>
                     using future                 = future_t<T,ThreadPrimitives>;
                     // needed for now for high-level API
                     using address_type           = rank_type;
+                    
+                    using request_cb_type        = request_cb<ThreadPrimitives>;
+                    using request_cb_data_type   = typename request_cb_type::data_type;
+                    using request_cb_state_type  = typename request_cb_type::state_type;
+                    using message_type           = typename request_cb_type::message_type;
+
 
                     worker_type*  m_recv_worker;
                     worker_type*  m_send_worker;
@@ -102,8 +108,9 @@ namespace gridtools {
                                     {
 				                        // recv completed immediately
 		    		                    // we need to free the request here, not in the callback
-                                        //request_init(ret);
-				                        ucp_request_free(ret);
+                                        auto ucx_ptr = ret;
+                                        request_init(ucx_ptr);
+				                        ucp_request_free(ucx_ptr);
                                         return request{nullptr};
                                     }
                                     else
@@ -118,6 +125,112 @@ namespace gridtools {
                                 }
                             }
                         );
+                    }
+
+                    /** Function to invoke to poll the transport layer and check for the completions
+                     * of the operations without a future associated to them (that is, they are associated
+                     * to a call-back). When an operation completes, the corresponfing call-back is invoked
+                     * with the rank and tag associated with that request.
+                     *
+                     * @return unsigned Non-zero if any communication was progressed, zero otherwise.
+                     */
+                    unsigned progress()
+                    {
+                        int p = 0;
+                        p+= ucp_worker_progress(m_send_worker->get());
+                        p+= ucp_worker_progress(m_send_worker->get());
+                        p+= ucp_worker_progress(m_send_worker->get());
+                        m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,&p]()
+                            {
+                                p+= ucp_worker_progress(m_recv_worker->get());
+                                p+= ucp_worker_progress(m_recv_worker->get());
+                            }
+                        );
+                        return p;
+                    }
+
+                    template<typename V>
+                    using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
+                    
+                    template<typename U>    
+                    using is_rvalue = std::is_rvalue_reference<U>;
+
+                    template<typename Msg>
+                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, request_cb_type>::type;
+
+                    template<typename Msg>
+                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, request_cb_type>::type;
+                    
+                    template<typename Message, typename CallBack>
+                    lvalue_func<Message> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        using V = typename Message::value_type;
+                        return send(message_type{ref_message<V>{msg.data(),msg.size()}}, dst, tag, std::forward<CallBack>(callback));
+                    }
+
+                    template<typename Message, typename CallBack>
+                    rvalue_func<Message> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback, std::true_type)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return send(message_type{std::move(msg)}, dst, tag, std::forward<CallBack>(callback));
+                    }
+	    
+                    static void send_callback(void *ucx_req, ucs_status_t status)
+                    {
+                        auto& req = request_cb_data_type::get(ucx_req);
+                        if (reinterpret_cast<std::uintptr_t>(status) == UCS_OK)
+                            // call the callback
+                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                        // else: cancelled - do nothing
+                        // set completion bit
+                        req.m_completed->m_ready = true;
+                        // destroy the request - releases the message
+                        req.~request_cb_data_type();
+                        // free ucx request
+                        request_init(ucx_req);
+				        ucp_request_free(ucx_req);
+                    }
+
+                    template<typename CallBack>
+                    request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        const auto& ep = m_send_worker->connect(dst);
+                        const auto stag = ((std::uint_fast64_t)tag << 32) | 
+                                           (std::uint_fast64_t)(rank());
+                        auto ret = ucp_tag_send_nb(
+                            ep.get(),                                        // destination
+                            msg.data(),                                      // buffer
+                            msg.size(),                                      // buffer size
+                            ucp_dt_make_contig(1),                           // data type
+                            stag,                                            // tag
+                            &communicator::send_callback);                   // callback function pointer
+                        
+                        if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
+                        {
+                            // send operation is completed immediately and the call-back function is not invoked
+                            // call the callback
+                            callback(std::move(msg), dst, tag);
+                            return {nullptr, std::make_shared<request_cb_state_type>(true)};
+                        } 
+                        else if(!UCS_PTR_IS_ERR(ret))
+                        {
+                            auto req_ptr = request_cb_data_type::construct(ret,
+                                m_send_worker,
+                                request_kind::send,
+                                std::move(msg),
+                                dst,
+                                tag,
+                                std::forward<CallBack>(callback),
+                                std::make_shared<request_cb_state_type>(false));
+                            return {req_ptr, req_ptr->m_completed};
+                        }
+                        else
+                        {
+                            // an error occurred
+                            throw std::runtime_error("ghex: ucx error - send operation failed");
+                        }
                     }
                 };
             } // namespace ucx
@@ -182,12 +295,13 @@ namespace gridtools {
                 
             private: // members
 
-                parallel_context_type&    m_parallel_context;
-                type_erased_address_db_t  m_db;
-                ucp_context_h_holder      m_context;
-                std::size_t               m_req_size;
-                worker_type               m_worker;  // shared, serialized - per rank
-                worker_vector             m_workers; // per thread
+                parallel_context_type&     m_parallel_context;
+                type_erased_address_db_t   m_db;
+                ucp_context_h_holder       m_context;
+                std::size_t                m_req_size;
+                worker_type                m_worker;  // shared, serialized - per rank
+                worker_vector              m_workers; // per thread
+                std::vector<thread_token>  m_tokens;
 
                 friend class ucx::worker_t<ThreadPrimitives>;
 
@@ -201,6 +315,7 @@ namespace gridtools {
                 : m_parallel_context(pc)
                 , m_db{std::forward<DB>(db)}
                 , m_workers(m_parallel_context.thread_primitives().size())
+                , m_tokens(m_parallel_context.thread_primitives().size())
                 {
                     // read run-time context
                     ucp_config_t* config_ptr;
@@ -268,10 +383,13 @@ namespace gridtools {
                     return {&m_worker,&m_worker};
                 }
 
-                communicator_type get_communicator(thread_token& t)
+                communicator_type get_communicator(const thread_token& t)
                 {
                     if (!m_workers[t.id()])
-                        m_workers[t.id()] = std::make_unique<worker_type>(this, &m_parallel_context, &t,UCS_THREAD_MODE_SINGLE);
+                    {
+                        m_tokens[t.id()] = t;
+                        m_workers[t.id()] = std::make_unique<worker_type>(this, &m_parallel_context, &m_tokens[t.id()], UCS_THREAD_MODE_SINGLE);
+                    }
                     return {&m_worker, m_workers[t.id()].get()};
                 }
                     

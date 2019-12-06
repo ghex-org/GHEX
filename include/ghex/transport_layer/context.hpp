@@ -141,14 +141,14 @@ namespace gridtools {
             private:
                 parallel_context_type  m_parallel_context;
                 transport_context_type m_transport_context;
-                std::vector<std::unique_ptr<thread_token>> m_tokens;
+                //std::vector<std::unique_ptr<thread_token>> m_tokens;
 
             public:
                 template<typename...Args>
                 context(int num_threads, MPI_Comm comm, Args&&... args)
                 : m_parallel_context{num_threads, comm, std::forward<Args>(args)...}
                 , m_transport_context{m_parallel_context, comm, std::forward<Args>(args)...}
-                , m_tokens(m_parallel_context.thread_primitives().size())
+                //, m_tokens(m_parallel_context.thread_primitives().size())
                 {}
 
                 context(const context&) = delete;
@@ -183,7 +183,7 @@ namespace gridtools {
 
                 // per-thread communicator (send)
                 // thread-safe
-                communicator_type get_communicator(thread_token& t)
+                communicator_type get_communicator(const thread_token& t)
                 {
                     /*return m_parallel_context.m_thread_primitives.critical(
                         [this,&t]() mutable { return m_transport_context.get_communicator(t.id()); }
@@ -191,12 +191,12 @@ namespace gridtools {
                     return m_transport_context.get_communicator(t);
                 }
                 
-                communicator_type get_communicator(thread_token&& t)
+                /*communicator_type get_communicator(thread_token&& t)
                 {
                     const auto id = t.id();
                     m_tokens[id] = std::make_unique<thread_token>(std::move(t));
                     return get_communicator(*m_tokens[id]);
-                }
+                }*/
 
                 // thread-safe
                 thread_token get_token() noexcept

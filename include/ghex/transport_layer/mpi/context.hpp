@@ -37,7 +37,7 @@ namespace gridtools {
                     return {(MPI_Comm)(m_parallel_context.world()),this};
                 }
 
-                communicator_type get_communicator(thread_token& t)
+                communicator_type get_communicator(const thread_token& t)
                 {
                     return {(MPI_Comm)(m_parallel_context.world()),this, t.id()};
                 }

@@ -11,8 +11,10 @@
 #ifndef INCLUDED_GHEX_TL_UCX_REQUEST_HPP
 #define INCLUDED_GHEX_TL_UCX_REQUEST_HPP
 
+#include <functional>
 #include "../context.hpp"
 #include "../ucx3/worker.hpp"
+#include "../callback_utils.hpp"
 #include "../../threads/atomic/primitives.hpp"
 
 namespace gridtools{
@@ -43,10 +45,53 @@ namespace gridtools{
                         return a_ptr;
                     }
                 };
-                
-                using request_data_size = std::integral_constant<std::size_t,
+                using request_data_size_ft = std::integral_constant<std::size_t,
                     sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
                     alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
+
+                template<typename ThreadPrimitives>
+                struct request_data_cb
+                {
+                    using worker_type       = worker_t<ThreadPrimitives>;
+                    using message_type      = ::gridtools::ghex::tl::cb::any_message; 
+                    using rank_type         = endpoint_t::rank_type;
+                    using tag_type          = typename worker_type::tag_type;
+                    using state_type        = ::gridtools::ghex::tl::cb::request_state;
+                    
+                    void*        m_ucx_ptr;
+                    //worker_type* m_recv_worker;
+                    //worker_type* m_send_worker;
+                    worker_type* m_worker;
+                    request_kind m_kind;
+                    message_type m_msg;
+                    rank_type    m_rank;
+                    tag_type     m_tag;
+                    std::function<void(message_type, rank_type, tag_type)> m_cb;
+                    std::shared_ptr<state_type> m_completed;
+
+                    static constexpr std::uintptr_t mask = ~(alignof(request_data_cb)-1u);
+                    template<typename... Args>
+                    static request_data_cb* construct(void* ptr, Args&& ...args)
+                    {
+                        // align pointer    
+                        auto a_ptr = reinterpret_cast<request_data_cb*>
+                            ((reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_cb)-1) & mask);
+                        new(a_ptr) request_data_cb{ptr,std::forward<Args>(args)...};
+                        return a_ptr;
+                    }
+
+                    static request_data_cb& get(void* ptr)
+                    {
+                        return *reinterpret_cast<request_data_cb*>
+                            ((reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_cb)-1) & mask);
+                    }
+                };
+                
+                using request_data_size_cb = std::integral_constant<std::size_t,
+                    sizeof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>) +
+                    alignof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>)>;
+                
+                using request_data_size = request_data_size_cb;
                 
                 void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
 
@@ -83,7 +128,7 @@ namespace gridtools{
                         m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
                             [ucx_ptr]()
                             {
-                                //request_init(ucx_ptr);
+                                request_init(ucx_ptr);
                                 ucp_request_free(ucx_ptr);
                             }
                         );
@@ -97,7 +142,8 @@ namespace gridtools{
                         ucp_worker_progress(m_req->m_send_worker->get());
                         ucp_worker_progress(m_req->m_send_worker->get());
                         
-                        return m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
+                        auto& tp = m_req->m_send_worker->m_parallel_context->thread_primitives();
+                        return tp.critical(
                             [this]()
                             {
                                 ucp_worker_progress(m_req->m_recv_worker->get());
@@ -111,8 +157,9 @@ namespace gridtools{
                                 // the other threads's send worker... 
 			                    if (UCS_INPROGRESS != ucp_request_check_status(m_req->m_ucx_ptr)) 
                                 {
-                                    //request_init(m_req->m_ucx_ptr);
-				                    ucp_request_free(m_req->m_ucx_ptr);
+                                    auto ucx_ptr = m_req->m_ucx_ptr;
+                                    request_init(ucx_ptr);
+				                    ucp_request_free(ucx_ptr);
                                     m_req = nullptr;
                                     return true;
                                 }
@@ -157,6 +204,17 @@ namespace gridtools{
                         wait();
                         return true;
                     }
+                };
+                
+                template<typename ThreadPrimitives>
+                struct request_cb
+                {
+                    using data_type    = request_data_cb<ThreadPrimitives>;
+                    using state_type   = typename data_type::state_type;
+                    using message_type = typename data_type::message_type;
+
+                    data_type*                  m_req = nullptr;
+                    std::shared_ptr<state_type> m_completed;
                 };
 
             } // namespace ucx
