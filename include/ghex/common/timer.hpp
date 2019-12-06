@@ -47,9 +47,11 @@ namespace gridtools {
             }
 
             /** @brief stop timings */
-            inline void toc() noexcept
+            inline double toc() noexcept
             {
-                this->operator()( std::chrono::duration_cast<std::chrono::microseconds>(clock_type::now() - m_time_point).count() );
+                const auto t = std::chrono::duration_cast<std::chrono::microseconds>(clock_type::now() - m_time_point).count();
+                this->operator()( t );
+                return t;
             }
 
             /** @brief stop timings, verbose: print measured time */

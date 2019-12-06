@@ -115,6 +115,7 @@ namespace gridtools{
                     {
                         if (m_req) destroy();
                         m_req = std::exchange(other.m_req, nullptr);
+                        return *this;
                     }
 
                     ~request_ft()
@@ -274,7 +275,10 @@ namespace gridtools{
                                     auto ucx_ptr = m_req->m_ucx_ptr;
                                     auto worker = m_req->m_worker->get();
                                     // set to zero here????
-                                    request_init(ucx_ptr);
+                                    // if we assume that the callback is always called, we
+                                    // can handle this in the callback body- otherwise needs
+                                    // to be done here:
+                                    //request_init(ucx_ptr);
 				                    ucp_request_cancel(worker, ucx_ptr);
                                 }
                                 m_req = nullptr;

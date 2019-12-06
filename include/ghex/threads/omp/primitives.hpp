@@ -8,18 +8,19 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_THREADS_ATOMIC_PRIMITIVES_HPP
-#define INCLUDED_GHEX_THREADS_ATOMIC_PRIMITIVES_HPP
+#ifndef INCLUDED_GHEX_THREADS_OMP_PRIMITIVES_HPP
+#define INCLUDED_GHEX_THREADS_OMP_PRIMITIVES_HPP
 
-#include <atomic>
+#include <omp.h>
 #include <memory>
 #include <boost/callable_traits.hpp>
+#include "../mutex/pthread_spin/mutex.hpp"
 #include "../mutex/atomic/mutex.hpp"
 
 namespace gridtools {
     namespace ghex {
         namespace threads {
-            namespace atomic {
+            namespace omp {
            
                 template<typename F>
                 using void_return_type = typename std::enable_if<
@@ -40,14 +41,11 @@ namespace gridtools {
                     {
                     private: // members
                         id_type m_id;
-                        int     m_epoch = 0;
-                        bool    m_selected = false;
                         
                         friend primitives;
 
-                        token_impl(id_type id, int epoch) noexcept
-                        : m_id(id), m_epoch(epoch), m_selected(id==0?true:false)
-                        {}
+                        token_impl(id_type id) noexcept
+                        : m_id(id) {}
 
                     public: // ctors
                         token_impl(const token_impl&) = delete;
@@ -73,24 +71,20 @@ namespace gridtools {
                         id_type id() const noexcept { return impl->id();}
                     };
 
-                    using mutex_type = ::gridtools::ghex::threads::mutex::atomic::mutex;
-                    using lock_type  = ::gridtools::ghex::threads::mutex::atomic::lock_guard;
+                    using mutex_type = ::gridtools::ghex::threads::mutex::pthread_spin::mutex;
+                    using lock_type  = ::gridtools::ghex::threads::mutex::pthread_spin::lock_guard;
+                    //using mutex_type = ::gridtools::ghex::threads::mutex::atomic::mutex;
+                    //using lock_type  = ::gridtools::ghex::threads::mutex::atomic::lock_guard;
 
                 private: // members
                     const int                m_num_threads;
                     std::vector<std::unique_ptr<token_impl>> m_tokens;
-                    std::atomic<int>         m_ids;
-                    mutable volatile int     m_epoch;
-                    mutable std::atomic<int> b_count;
                     mutable mutex_type       m_mutex;
 
                 public: // ctors
                     primitives(int num_threads) noexcept
                     : m_num_threads(num_threads)
                     , m_tokens(num_threads)
-                    , m_ids(0)
-                    , m_epoch(0)
-                    , b_count(0)
                     {} 
 
                     primitives(const primitives&) = delete;
@@ -105,45 +99,34 @@ namespace gridtools {
 
                     inline token get_token() noexcept
                     {
-                        const int id = m_ids++;
-                        m_tokens[id].reset( new token_impl{id,0} );
+                        const int id = omp_get_thread_num();
+                        m_tokens[id].reset( new token_impl{id} );
                         return {m_tokens[id].get()};
                     }
 
-                    inline void barrier(token& t) const noexcept
+                    inline void barrier(token&) const noexcept
                     {
-                        int expected = b_count; 
-                        while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
-                            expected = b_count;
-                        t.impl->m_epoch ^= 1;
-                        t.impl->m_selected = (expected?false:true);
-                        if (expected == m_num_threads-1)
-                        {
-                            b_count.store(0);
-                            m_epoch ^= 1;
-                        }
-                        while(t.impl->m_epoch != m_epoch) {}
+                        #pragma omp barrier
                     }
 
                     template <typename F>
-                    inline void single(token& t, F && f) const noexcept
+                    inline void single(token&, F && f) const noexcept
                     {
-                        if (t.impl->m_selected) {
-                            f();
-                        }
+                        #pragma omp single
+                        f();
                     }
 
                     template <typename F>
-                    inline void master(token& t, F && f) const noexcept
+                    inline void master(token&, F && f) const noexcept
                     {
-                        if (t.impl->m_id == 0) {
-                            f();
-                        }
+                        #pragma omp master
+                        f();
                     }
 
                     template <typename F>
                     inline void_return_type<F> critical(F && f) const noexcept
                     {
+                        //#pragma omp critical
                         lock_type l(m_mutex);
                         f();
                     }
@@ -156,10 +139,10 @@ namespace gridtools {
                     }
                 };
 
-            } // namespace atomic
+            } // namespace omp
         } // namespace threads
     } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_THREADS_ATOMIC_PRIMITIVES_HPP */
+#endif /* INCLUDED_GHEX_THREADS_OMP_PRIMITIVES_HPP */
 
