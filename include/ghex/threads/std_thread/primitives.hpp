@@ -100,6 +100,9 @@ namespace gridtools {
                         int new_id = m_id_counter.fetch_add(1);
                         assert(new_id < m_num_threads);
                         m_tokens[new_id].reset( new token_impl{new_id} );
+                        if (new_id == 0) {
+                            m_tokens[new_id]->set_selected(true);
+                        }
                         return {m_tokens[new_id].get()};
                     }
 
@@ -139,7 +142,7 @@ namespace gridtools {
 
                     template <typename F>
                     void master(token& bt, F && f) { // Also this one should not be needed
-                        if (bt.is_selected()) {
+                        if (bt.id() == 0) {
                             f();
                         }
                     }
