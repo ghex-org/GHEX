@@ -81,6 +81,7 @@ namespace gridtools {
                     template<class Message>
                     any_message(Message&& m) : m_ptr{std::make_unique<holder<Message>>(std::move(m))} {}
                     any_message(any_message&&) = default;
+                    any_message& operator=(any_message&&) = default;
 
                     unsigned char* data() noexcept { return m_ptr->data(); }
                     const unsigned char* data() const noexcept { return m_ptr->data(); }

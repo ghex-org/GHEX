@@ -47,12 +47,31 @@ namespace gridtools {
                     using request_cb_state_type  = typename request_cb_type::state_type;
                     using message_type           = typename request_cb_type::message_type;
 
-
                     worker_type*  m_recv_worker;
                     worker_type*  m_send_worker;
+                    ucp_worker_h  m_ucp_rw;
+                    ucp_worker_h  m_ucp_sw;
+                    rank_type     m_rank;
+                    rank_type     m_size;
 
-                    rank_type rank() const noexcept { return m_send_worker->rank(); }
-                    rank_type size() const noexcept { return m_send_worker->size(); }
+                    communicator(worker_type* rw, worker_type* sw) noexcept
+                    : m_recv_worker{rw}
+                    , m_send_worker{sw}
+                    , m_ucp_rw{rw->get()}
+                    , m_ucp_sw{sw->get()}
+                    , m_rank{m_send_worker->rank()}
+                    , m_size{m_send_worker->size()}
+                    {}
+
+                    communicator(const communicator&) = default;
+                    communicator(communicator&&) = default;
+                    communicator& operator=(const communicator&) = default;
+                    communicator& operator=(communicator&&) = default;
+
+                    //rank_type rank() const noexcept { return m_send_worker->rank(); }
+                    //rank_type size() const noexcept { return m_send_worker->size(); }
+                    rank_type rank() const noexcept { return m_rank; }
+                    rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
 
                     static void empty_send_callback(void *, ucs_status_t) {}
@@ -147,19 +166,19 @@ namespace gridtools {
                     unsigned progress()
                     {
                         int p = 0;
-                        p+= ucp_worker_progress(m_send_worker->get());
-                        p+= ucp_worker_progress(m_send_worker->get());
-                        p+= ucp_worker_progress(m_send_worker->get());
+                        p+= ucp_worker_progress(m_ucp_sw);
+                        p+= ucp_worker_progress(m_ucp_sw);
+                        p+= ucp_worker_progress(m_ucp_sw);
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
                         //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        //m_send_worker->m_parallel_context->thread_primitives().critical(
-                        //    [this,&p]()
+                        m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,&p]()
                             {
-                                p+= ucp_worker_progress(m_recv_worker->get());
-                                p+= ucp_worker_progress(m_recv_worker->get());
+                                p+= ucp_worker_progress(m_ucp_rw);
+                                p+= ucp_worker_progress(m_ucp_rw);
                             }
-                       // );
+                        );
                         return p;
                     }
 
@@ -190,7 +209,7 @@ namespace gridtools {
                         return send(message_type{std::move(msg)}, dst, tag, std::forward<CallBack>(callback));
                     }
 	    
-                    inline static void send_callback(void *ucx_req, ucs_status_t status)
+                    inline static void send_callback(void * __restrict ucx_req, ucs_status_t __restrict status)
                     {
                         auto& req = request_cb_data_type::get(ucx_req);
                         if (status == UCS_OK)
@@ -234,7 +253,7 @@ namespace gridtools {
                         else if(!UCS_PTR_IS_ERR(ret))
 #endif
                         {
-                            auto req_ptr = request_cb_data_type::construct(ret,
+                            /*auto req_ptr = request_cb_data_type::construct(ret,
                                 m_send_worker,
                                 request_kind::send,
                                 std::move(msg),
@@ -242,7 +261,17 @@ namespace gridtools {
                                 tag,
                                 std::forward<CallBack>(callback),
                                 std::make_shared<request_cb_state_type>(false));
-                            return {req_ptr, req_ptr->m_completed};
+                            return {req_ptr, req_ptr->m_completed};*/
+                            auto& my_req = request_cb_data_type::get(ret);
+                            my_req.m_ucx_ptr = ret;
+                            my_req.m_worker = m_send_worker;
+                            my_req.m_kind = request_kind::send;
+                            my_req.m_msg = std::move(msg);
+                            my_req.m_rank = dst;
+                            my_req.m_tag = tag;
+                            my_req.m_cb = std::forward<CallBack>(callback);
+                            my_req.m_completed = std::make_shared<request_cb_state_type>(false);
+                            return {&my_req, my_req.m_completed};
                         }
 #ifndef GHEX_NO_EXCEPTIONS
                         else
@@ -268,7 +297,7 @@ namespace gridtools {
                         return recv(message_type{std::move(msg)}, src, tag, std::forward<CallBack>(callback));
                     }
 	    
-                    inline static void recv_callback(void *ucx_req, ucs_status_t status, ucp_tag_recv_info_t* /*info*/)
+                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t* /*info*/)
                     {
                         //const rank_type src = (rank_type)(info->sender_tag & 0x00000000fffffffful);
                         //const tag_type  tag = (tag_type)((info->sender_tag & 0xffffffff00000000ul) >> 32);
@@ -328,11 +357,12 @@ namespace gridtools {
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
                         //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        //return m_send_worker->m_parallel_context->thread_primitives().critical(
-                        //    [this,rtag,&msg,src,tag,&callback]()
+                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,rtag,&msg,src,tag,&callback]()
                             {
                                 auto ret = ucp_tag_recv_nb(
-                                    m_recv_worker->get(),                            // worker
+                                    //m_recv_worker->get(),                            // worker
+                                    m_ucp_rw,                                        // worker
                                     msg.data(),                                      // buffer
                                     msg.size(),                                      // buffer size
                                     ucp_dt_make_contig(1),                           // data type
@@ -358,7 +388,7 @@ namespace gridtools {
                                     }
                                     else
                                     {
-                                        auto req_ptr = request_cb_data_type::construct(ret,
+                                        /*auto req_ptr = request_cb_data_type::construct(ret,
                                             m_recv_worker,
                                             request_kind::recv,
                                             std::move(msg),
@@ -366,7 +396,17 @@ namespace gridtools {
                                             tag,
                                             std::forward<CallBack>(callback),
                                             std::make_shared<request_cb_state_type>(false));
-                                        return request_cb_type{req_ptr, req_ptr->m_completed};
+                                        return request_cb_type{req_ptr, req_ptr->m_completed};*/
+                                        auto& my_req = request_cb_data_type::get(ret);
+                                        my_req.m_ucx_ptr = ret;
+                                        my_req.m_worker = m_recv_worker;
+                                        my_req.m_kind = request_kind::recv;
+                                        my_req.m_msg = std::move(msg);
+                                        my_req.m_rank = src;
+                                        my_req.m_tag = tag;
+                                        my_req.m_cb = std::forward<CallBack>(callback);
+                                        my_req.m_completed = std::make_shared<request_cb_state_type>(false);
+                                        return request_cb_type{&my_req, my_req.m_completed};
                                     }
                                 }
 #ifndef GHEX_NO_EXCEPTIONS
@@ -377,7 +417,7 @@ namespace gridtools {
                                 }
 #endif
                             }
-                       // );
+                        );
                     }
                 };
             } // namespace ucx

@@ -170,40 +170,40 @@ int main(int argc, char *argv[])
 		sdbg = 0;
 	    }
 
-        timer_body.tic();
+        //timer_body.tic();
 	    for(int j=0; j<inflight; j++){
 		if(rmsgs[j].use_count() == 1){
 		    submit_recv_cnt += nthr;
 		    rdbg += nthr;
 		    dbg += nthr;
-                        timer_recv.tic();
+          //              timer_recv.tic();
 		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
-                        timer_recv.toc();
+          //              timer_recv.toc();
 		} else
                     {
-                        timer_prog.tic();
+            //            timer_prog.tic();
                         comm.progress();
-                        timer_prog.toc();
+              //          timer_prog.toc();
                     }
 
 		if(sent < niter && smsgs[j].use_count() == 1){
 		    submit_cnt += nthr;
 		    sdbg += nthr;
 		    dbg += nthr;
-                        timer_send.tic();
+                //        timer_send.tic();
 		    sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
-                        timer_send.toc();
+                  //      timer_send.toc();
 		} else
                     {
-                        timer_prog.tic();
+                    //    timer_prog.tic();
                         comm.progress();
-                        timer_prog.toc();
+                      //  timer_prog.toc();
                     }
 	    }
-        timer_body.toc();
-                timer_cond.tic();
+      //  timer_body.toc();
+        //        timer_cond.tic();
                 loop_condition = sent < niter || received < niter;
-                timer_cond.toc();
+          //      timer_cond.toc();
 	}
     timer_while.toc();
                 //std::cout << "test " << timer_test.sum() << std::endl;

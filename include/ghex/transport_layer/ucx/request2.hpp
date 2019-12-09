@@ -71,7 +71,7 @@ namespace gridtools{
 
                     static constexpr std::uintptr_t mask = ~(alignof(request_data_cb)-1u);
                     template<typename... Args>
-                    static request_data_cb* construct(void* ptr, Args&& ...args)
+                    static request_data_cb* construct(void* __restrict ptr, Args&& ...args)
                     {
                         // align pointer    
                         auto a_ptr = reinterpret_cast<request_data_cb*>
@@ -80,10 +80,11 @@ namespace gridtools{
                         return a_ptr;
                     }
 
-                    static request_data_cb& get(void* ptr)
+                    static request_data_cb& get(void* __restrict ptr)
                     {
+                        unsigned char* __restrict cptr = (unsigned char*)ptr;
                         return *reinterpret_cast<request_data_cb*>
-                            ((reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_cb)-1) & mask);
+                            ((reinterpret_cast<std::uintptr_t>(cptr) + alignof(request_data_cb)-1) & mask);
                     }
                 };
                 

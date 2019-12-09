@@ -75,6 +75,8 @@ namespace gridtools {
                     using lock_type  = ::gridtools::ghex::threads::mutex::pthread_spin::lock_guard;
                     //using mutex_type = ::gridtools::ghex::threads::mutex::atomic::mutex;
                     //using lock_type  = ::gridtools::ghex::threads::mutex::atomic::lock_guard;
+                    //using mutex_type = std::mutex;
+                    //using lock_type  = std::lock_guard<mutex_type>;
 
                 private: // members
                     const int                m_num_threads;

@@ -106,7 +106,7 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     //int index() const noexcept { return m_index; }
-                    ucp_worker_h get() const noexcept { return m_worker.get(); }
+                    inline ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
 

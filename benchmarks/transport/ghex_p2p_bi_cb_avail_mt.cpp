@@ -24,6 +24,8 @@ namespace ghex = gridtools::ghex;
     #ifdef USE_OPENMP
         #include <ghex/threads/omp/primitives.hpp>
         using threading    = ghex::threads::omp::primitives;
+        //#include <ghex/threads/atomic/primitives.hpp>
+        //using threading    = ghex::threads::atomic::primitives;
     #else
         #include <ghex/threads/none/primitives.hpp>
         using threading    = ghex::threads::none::primitives;
@@ -126,7 +128,7 @@ int main(int argc, char *argv[])
         #endif
 
 
-//      THREAD_PARALLEL_BEG() {
+      THREAD_PARALLEL_BEG() {
 
             gridtools::ghex::timer timer_test;
             gridtools::ghex::timer timer_send;
@@ -149,13 +151,14 @@ int main(int argc, char *argv[])
             thrid = token.id();
             nthr = num_threads;
             
-    //        context.thread_primitives().master(token, 
-    //            [rank,&comm]()
-    //            {
+            //context.thread_primitives().master(token, 
+            //   [rank,&comm]()
+                if (token.id()==0)
+                {
 //	THREAD_MASTER() {
                     if(rank==0)
                     std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
-//                }//);
+                };
             
             std::vector<MsgType> smsgs(inflight);
             std::vector<MsgType> rmsgs(inflight);
@@ -169,18 +172,19 @@ int main(int argc, char *argv[])
                 make_zero(rmsgs[j]);
             }
             
-  //          context.barrier(token);
-            context.world().barrier();
+            context.barrier(token);
+  //          context.world().barrier();
             
             //context.thread_primitives().master(token, 
             //    [&timer,&ttimer,rank,num_threads]() 
 //                #pragma omp master
+                if (token.id()==0)
                 { 
                     timer.tic();
                     ttimer.tic();
                     if(rank == 1) 
                         std::cout << "number of threads: " << num_threads << ", multi-threaded: " << THREAD_IS_MT << "\n";
-                }//);
+                };
 //	THREAD_BARRIER();
 
             //context.thread_primitives().barrier(token);
@@ -196,8 +200,7 @@ int main(int argc, char *argv[])
             timer_while2.tic();
             while(true)
             {
-                timer_body.tic();
-                //timer_while2.tic();
+                //timer_body.tic();
                 if(thrid == 0 && dbg >= (niter/10)) {
                     dbg = 0;
                     std::cout << rank << " total bwdt MB/s:      " 
@@ -220,64 +223,64 @@ int main(int argc, char *argv[])
                 for(int j=0; j<inflight; j++){
                     //if(rmsgs[j].use_count() == 1){
                     bool r_test;
-                    timer_test.tic();
+                 //   timer_test.tic();
                     r_test = rreqs[j].test();
-                    timer_test.toc();
+               //     timer_test.toc();
                     //if (rreqs[j].test()) {
                     if (r_test) {
-                   //     submit_recv_cnt += nthr;
+                        submit_recv_cnt += nthr;
                         rdbg += nthr;
                         dbg += nthr;
                         //auto msg = rmsgs[j];
-                        timer_recv.tic();
+                       // timer_recv.tic();
                         rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
-                        timer_recv.toc();
+                     //   timer_recv.toc();
                     } else 
                     {
-                        timer_prog.tic();
+                   //     timer_prog.tic();
                         comm.progress();
-                        timer_prog.toc();
+                   //     timer_prog.toc();
                     }
 
                     //if(sent < niter && smsgs[j].use_count() == 1){
                     bool s_test;
-                    timer_test.tic();
+                 //   timer_test.tic();
                     s_test = sreqs[j].test();
-                    timer_test.toc();
+                 //   timer_test.toc();
                     //if(sent < niter && sreqs[j].test()){
                     if(sent < niter && s_test){
-                    //    submit_cnt += nthr;
+                        submit_cnt += nthr;
                         sdbg += nthr;
                         dbg += nthr;
                         //auto msg = smsgs[j];
-                        timer_send.tic();
+                      //  timer_send.tic();
                         sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
-                        timer_send.toc();
+                     //   timer_send.toc();
                     } else
                     {
-                        timer_prog.tic();
+                   //     timer_prog.tic();
                         comm.progress();
-                        timer_prog.toc();
+                  //      timer_prog.toc();
                     }
                 }
-                timer_body.toc();
-                timer_cond.tic();
+                //timer_body.toc();
+                //timer_cond.tic();
                 loop_condition = sent < niter || received < niter;
                 if (!loop_condition) break;
-                timer_cond.toc();
-                timer_while2.toc_tic();
+                //timer_cond.toc();
+                //timer_while2.toc_tic();
             }
             //timer_while2.toc();
             timer_while.toc();
             }
-                std::cout << "test  " << timer_test.sum() << std::endl;
+                /*std::cout << "test  " << timer_test.sum() << std::endl;
                 std::cout << "send  " << timer_send.sum() << std::endl;
                 std::cout << "recv  " << timer_recv.sum() << std::endl;
                 std::cout << "prog  " << timer_prog.sum() << std::endl;
                 std::cout << "loop  " << timer_while.sum() << std::endl;
                 std::cout << "loop2 " << timer_while2.sum() << std::endl;
                 std::cout << "body  " << timer_body.sum() << std::endl;
-                std::cout << "cond  " << timer_cond.sum() << std::endl;
+                std::cout << "cond  " << timer_cond.sum() << std::endl;*/
             
 //	THREAD_BARRIER()
 //	THREAD_MASTER() {
@@ -376,7 +379,7 @@ int main(int argc, char *argv[])
                 rreqs[j].cancel();
             }
 
-  //      } THREAD_PARALLEL_END();    
+        } THREAD_PARALLEL_END();    
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
