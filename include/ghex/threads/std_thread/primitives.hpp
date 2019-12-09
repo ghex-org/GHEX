@@ -1,0 +1,141 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2019, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ */
+#ifndef INCLUDED_GHEX_THREADS_OMP_PRIMITIVES_HPP
+#define INCLUDED_GHEX_THREADS_OMP_PRIMITIVES_HPP
+
+#include <thread>
+#include <condition_variable>
+
+namespace gridtools {
+    namespace ghex {
+        namespace threads {
+            namespace std_thread {
+                struct primitives {
+                    using id_type = int;
+
+                    const int m_num_threads;
+                    std::mutex m_guard;
+                    std::mutex m_cv_guard;
+                    int m_barrier_cnt[2];
+                    int m_up_counter[2];
+                    std::vector<std::condition_variable> m_cv_down, m_cv_up;
+                    primitives(int n)
+                        : m_num_threads{n}
+                        , m_barrier_cnt{m_num_threads, m_num_threads}
+                        , m_up_counter{0,0}
+                        , m_cv_down(2)
+                        , m_cv_up(2)
+                    {}
+
+                    primitives(const primitives&) = delete;
+                    primitives(primitives&&) = delete;
+
+                    class token_impl
+                    {
+                    private: // members
+                        int m_epoch = 0;
+                        id_type m_id;
+                        bool m_selected = false;
+
+                        friend primitives;
+
+                        token_impl(id_type id) noexcept
+                        : m_id(id) {}
+
+                    public: // ctors
+                        token_impl(const token_impl&) = delete;
+                        token_impl(token_impl&&) = default;
+
+                    public: // member functions
+                        id_type id() const noexcept { return m_id; }
+                        int epoch() const noexcept { return m_epoch; }
+                        void flip_epoch() noexcept { m_epoch ^= 1; }
+                        void set_selected(bool v) noexcept { m_selected = v; }
+                        bool is_selected() const noexcept { return m_selected; }
+                    };
+
+                    class token
+                    {
+                    private:
+                        token_impl* impl = nullptr;
+                        friend primitives;
+                    public:
+                        token() = default;
+                        token(token_impl* impl_) noexcept : impl{impl_} {}
+                        token(const token&) = default;
+                        token(token&&) = default;
+                        token& operator=(const token&) = default;
+                        token& operator=(token&&) = default;
+                    public:
+                        id_type id() const noexcept { return impl->id();}
+                    protected:
+                        int epoch() const noexcept { return impl->epoch();}
+                        void flip_epoch() noexcept { impl->flip_epoch(); }
+                        void set_selected(bool v) noexcept { impl->set_selected(v); }
+                        bool is_selected() const noexcept { return impl->is_selected(); }
+                    };
+
+
+                    token get_token() const { return {}; }
+
+                    void barrier(token& bt) {
+                        std::unique_lock<std::mutex> lock(m_cv_guard);
+
+                        m_barrier_cnt[bt.epoch()]--;
+
+                        if (m_barrier_cnt[bt.epoch()] == 0) {
+
+                            m_cv_down[bt.epoch()].notify_all();
+                            m_cv_up[bt.epoch()].wait(lock, [this, &bt] { return m_barrier_cnt[bt.epoch()] == m_num_threads;} );
+                            bt.set_selected(false);
+                        } else {
+                            m_cv_down[bt.epoch()].wait(lock, [this, &bt] { return m_barrier_cnt[bt.epoch()] == 0; });
+
+                            m_up_counter[bt.epoch()]++;
+
+                            if (m_up_counter[bt.epoch()] == m_num_threads-1) {
+                                m_up_counter[bt.epoch()] = 0;
+                                m_barrier_cnt[bt.epoch()] = m_num_threads; // done by multiple threads, but this resets the counter
+                                m_cv_up[bt.epoch()].notify_all();
+                                bt.set_selected(true);
+                            } else {
+                                m_cv_up[bt.epoch()].wait(lock, [this, &bt] { return m_barrier_cnt[bt.epoch()] == m_num_threads;} );
+                                bt.set_selected(false);
+                            }
+                        }
+                        bt.flip_epoch();
+                    }
+
+                    template <typename F>
+                    void critical(F && f) {
+                        std::lock_guard<std::mutex> lock(m_guard);
+                        f();
+                    }
+
+                    template <typename F>
+                    void master(token& bt, F && f) { // Also this one should not be needed
+                        if (bt.is_selected()) {
+                            f();
+                        }
+                    }
+
+                    template <typename F>
+                    void single(token& bt, F && f) { // Also this one should not be needed
+                        if (bt.is_selected()) {
+                            f();
+                        }
+                    }
+                }; // struct threads
+            } // namespace std_threads
+        } // namespace threads
+    } // namespace ghex
+} // namespace gridtools
+#endif

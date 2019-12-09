@@ -18,6 +18,7 @@
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
 #include <ghex/threads/atomic/primitives.hpp>
+#include <ghex/threads/std_thread/primitives.hpp>
 #include <array>
 #include <iomanip>
 
@@ -42,11 +43,11 @@ __global__ void print_kernel() {
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::atomic::primitives;
+using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 using db_type   = gridtools::ghex::tl::ucx::address_db_mpi;
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::atomic::primitives;
+using threading = gridtools::ghex::threads::std::thread::primitives;
 #endif
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
@@ -175,7 +176,7 @@ TEST(communication_object_2, exchange)
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
+        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU "
         << (context.world().rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
         GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
         print_kernel<<<1, 1>>>();
@@ -189,7 +190,7 @@ TEST(communication_object_2, exchange)
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << context.world().rank() << " and I own emulated GPU " 
+        std::cout << "I am rank " << context.world().rank() << " and I own emulated GPU "
         << (context.world().rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
     }
 #endif
@@ -389,7 +390,7 @@ TEST(communication_object_2, exchange)
         std::memcpy(field_3b_gpu.data(), field_3b.data(), max_memory*sizeof(TT3));
 #endif
 #endif
-        
+
         // exchange
 #ifdef GHEX_TEST_SERIAL
     // blocking variant
@@ -1007,5 +1008,3 @@ TEST(communication_object_2, exchange)
     EXPECT_TRUE(passed);
 #endif
 }
-
-
