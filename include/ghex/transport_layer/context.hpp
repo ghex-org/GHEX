@@ -81,7 +81,7 @@ namespace gridtools {
                 inline int size() const noexcept { return m_size; }
                 operator MPI_Comm() const noexcept { return m_comm; }
 
-                void barrier()
+                void barrier() const
                 {
                     MPI_Barrier(m_comm);
                 }

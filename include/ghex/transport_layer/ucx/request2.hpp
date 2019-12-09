@@ -56,7 +56,7 @@ namespace gridtools{
                     using message_type      = ::gridtools::ghex::tl::cb::any_message; 
                     using rank_type         = endpoint_t::rank_type;
                     using tag_type          = typename worker_type::tag_type;
-                    using state_type        = ::gridtools::ghex::tl::cb::request_state;
+                    using state_type        = bool;//::gridtools::ghex::tl::cb::request_state;
                     
                     void*        m_ucx_ptr;
                     //worker_type* m_recv_worker;
@@ -240,10 +240,11 @@ namespace gridtools{
                     {
 			            if(!m_req) return true;
                         
-                        if (m_completed->is_ready())
+                        //if (m_completed->is_ready())
+                        if (*m_completed)
                         {
 			                m_req = nullptr;
-                            m_completed.reset();
+                            //m_completed.reset();
                             return true;
                         }
 			            return false;
@@ -271,7 +272,8 @@ namespace gridtools{
                         return m_req->m_worker->m_parallel_context->thread_primitives().critical(
                             [this]()
                             {
-                                if (!m_req->m_completed->is_ready())
+                                //if (!m_req->m_completed->is_ready())
+                                if (!(*m_req->m_completed))
                                 {
                                     auto ucx_ptr = m_req->m_ucx_ptr;
                                     auto worker = m_req->m_worker->get();
@@ -283,7 +285,7 @@ namespace gridtools{
 				                    ucp_request_cancel(worker, ucx_ptr);
                                 }
                                 m_req = nullptr;
-                                m_completed.reset();
+                                //m_completed.reset();
                                 return true;
                             }
                         );

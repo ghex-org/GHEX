@@ -13,6 +13,7 @@
 
 #include <map>
 #include <deque>
+#include <unordered_map>
 #include "./error.hpp"
 #include "./endpoint.hpp"
 #include "../context.hpp"
@@ -79,7 +80,8 @@ namespace gridtools {
                         const ucp_worker_h& get() const noexcept { return m_worker; }
                     };
 
-                    using cache_type             = std::map<rank_type, endpoint_t>;
+                    //using cache_type             = std::map<rank_type, endpoint_t>;
+                    using cache_type             = std::unordered_map<rank_type, endpoint_t>;
                     using parallel_context_type  = parallel_context<ThreadPrimitives>;
                     using thread_token           = typename parallel_context_type::thread_token;
                     using transport_context_type = transport_context<ucx_tag, ThreadPrimitives>;
@@ -106,7 +108,7 @@ namespace gridtools {
                     //int index() const noexcept { return m_index; }
                     ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
-                    const endpoint_t& connect(rank_type rank);
+                    inline const endpoint_t& connect(rank_type rank);
 
 
                     //inline void lock() noexcept { m_mutex->lock(); }

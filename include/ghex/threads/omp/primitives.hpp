@@ -79,6 +79,7 @@ namespace gridtools {
                 private: // members
                     const int                m_num_threads;
                     std::vector<std::unique_ptr<token_impl>> m_tokens;
+                public:
                     mutable mutex_type       m_mutex;
 
                 public: // ctors

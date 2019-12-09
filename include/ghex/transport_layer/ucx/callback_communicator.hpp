@@ -272,6 +272,8 @@ namespace gridtools
 		*(preq->m_completed) = true;
 		preq->m_completed = nullptr;
 		preq->m_type = ucx::REQ_NONE;
+        using f_type = std::function<void(shared_message_buffer<Allocator>,int,int)>;
+        preq->m_cb.~f_type();
 		ucp_request_free(request);
 	    }
 
@@ -299,6 +301,8 @@ namespace gridtools
 		preq->m_type = ucx::REQ_NONE;
 		*(preq->m_completed) = true;
 		preq->m_completed = nullptr;
+        using f_type = std::function<void(shared_message_buffer<Allocator>,int,int)>;
+        preq->m_cb.~f_type();
 		ucp_request_free(request);
 	    }
 

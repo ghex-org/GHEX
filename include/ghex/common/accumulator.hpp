@@ -35,7 +35,7 @@ namespace gridtools {
             size_type  m_num_samples = 0u;
             value_type m_min = std::numeric_limits<value_type>::max();
             value_type m_max = std::numeric_limits<value_type>::min();
-            value_type m_mean = 0;
+            volatile value_type m_mean = 0;
             value_type m_variance = 0;
 
         public: // ctors

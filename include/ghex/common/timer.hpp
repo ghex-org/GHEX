@@ -30,7 +30,7 @@ namespace gridtools {
             time_point m_time_point = clock_type::now();
 
         public: // ctors
-            timer() noexcept = default;
+            timer() = default;
             timer(const base& b) : base(b) {}
             timer(base&& b) : base(std::move(b)) {}
             timer(const timer&) noexcept = default;
@@ -44,6 +44,11 @@ namespace gridtools {
             inline void tic() noexcept
             {
                 m_time_point = clock_type::now();
+            }
+            /** @brief stop timings */
+            inline double stoc() noexcept
+            {
+                return std::chrono::duration_cast<std::chrono::microseconds>(clock_type::now() - m_time_point).count();
             }
 
             /** @brief stop timings */
@@ -71,8 +76,10 @@ namespace gridtools {
             /** @brief stop and start another timing period */
             inline void toc_tic() noexcept
             {
-                toc();
-                tic();
+                auto t2 = clock_type::now();
+                this->operator()(
+                    std::chrono::duration_cast<std::chrono::microseconds>(t2 - m_time_point).count());
+                m_time_point = t2;
             }
         };
 
