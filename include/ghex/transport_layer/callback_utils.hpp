@@ -51,6 +51,18 @@ namespace gridtools {
                     bool is_ready() const noexcept { return m_request_state->is_ready(); }
                 };
 
+                // simple wrapper around an l-value reference message (stores pointer and size)
+                template<typename T>
+                struct ref_message
+                {
+                    using value_type = T;//unsigned char;
+                    T* m_data;
+                    std::size_t m_size;
+                    T* data() noexcept { return m_data; }
+                    const T* data() const noexcept { return m_data; }
+                    std::size_t size() const noexcept { return m_size; }
+                };
+
                 // type-erased message
                 struct any_message
                 {
@@ -76,29 +88,29 @@ namespace gridtools {
                         std::size_t size() const noexcept override { return sizeof(value_type)*m_message.size(); }
                     };
 
+                    unsigned char* __restrict m_data;
+                    std::size_t m_size;
                     std::unique_ptr<iface> m_ptr;
 
                     template<class Message>
-                    any_message(Message&& m) : m_ptr{std::make_unique<holder<Message>>(std::move(m))} {}
+                    any_message(Message&& m)
+                    : m_data{reinterpret_cast<unsigned char*>(m.data())}
+                    , m_size{m.size()*sizeof(typename Message::value_type)}
+                    , m_ptr{std::make_unique<holder<Message>>(std::move(m))}
+                    {}
+                    template<typename T>
+                    any_message(ref_message<T>&& m)
+                    : m_data{reinterpret_cast<unsigned char*>(m.data())}
+                    , m_size{m.size()*sizeof(T)}
+                    {}
                     any_message(any_message&&) = default;
                     any_message& operator=(any_message&&) = default;
 
-                    unsigned char* data() noexcept { return m_ptr->data(); }
-                    const unsigned char* data() const noexcept { return m_ptr->data(); }
-                    std::size_t size() const noexcept { return m_ptr->size(); }
+                    unsigned char* data() noexcept { return m_data; /*m_ptr->data();*/ }
+                    const unsigned char* data() const noexcept { return m_data; /*m_ptr->data();*/ }
+                    std::size_t size() const noexcept { return m_size; /*m_ptr->size();*/ }
                 };
 
-                // simple wrapper around an l-value reference message (stores pointer and size)
-                template<typename T>
-                struct ref_message
-                {
-                    using value_type = T;//unsigned char;
-                    T* m_data;
-                    std::size_t m_size;
-                    T* data() noexcept { return m_data; }
-                    const T* data() const noexcept { return m_data; }
-                    std::size_t size() const noexcept { return m_size; }
-                };
 
                 // simple shared message which is internally used for send_multi
                 template<typename Message>

@@ -59,8 +59,6 @@ namespace gridtools{
                     using state_type        = bool;//::gridtools::ghex::tl::cb::request_state;
                     
                     void*        m_ucx_ptr;
-                    //worker_type* m_recv_worker;
-                    //worker_type* m_send_worker;
                     worker_type* m_worker;
                     request_kind m_kind;
                     message_type m_msg;
@@ -68,6 +66,7 @@ namespace gridtools{
                     tag_type     m_tag;
                     std::function<void(message_type, rank_type, tag_type)> m_cb;
                     std::shared_ptr<state_type> m_completed;
+                    //std::exception_ptr m_exception = nullptr;
 
                     static constexpr std::uintptr_t mask = ~(alignof(request_data_cb)-1u);
                     template<typename... Args>

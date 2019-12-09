@@ -224,6 +224,7 @@ int main(int argc, char *argv[])
                     //if(rmsgs[j].use_count() == 1){
                     bool r_test;
                  //   timer_test.tic();
+                    //r_test = rmsgs[j].use_count()==1;
                     r_test = rreqs[j].test();
                //     timer_test.toc();
                     //if (rreqs[j].test()) {
@@ -231,8 +232,9 @@ int main(int argc, char *argv[])
                         submit_recv_cnt += nthr;
                         rdbg += nthr;
                         dbg += nthr;
-                        //auto msg = rmsgs[j];
                        // timer_recv.tic();
+                        //auto msg = rmsgs[j];
+                        //rreqs[j] = comm.recv(std::move(msg), peer_rank, thrid*inflight+j, recv_callback);
                         rreqs[j] = comm.recv(rmsgs[j], peer_rank, thrid*inflight+j, recv_callback);
                      //   timer_recv.toc();
                     } else 
@@ -245,6 +247,7 @@ int main(int argc, char *argv[])
                     //if(sent < niter && smsgs[j].use_count() == 1){
                     bool s_test;
                  //   timer_test.tic();
+                    //s_test = smsgs[j].use_count()==1;
                     s_test = sreqs[j].test();
                  //   timer_test.toc();
                     //if(sent < niter && sreqs[j].test()){
@@ -252,8 +255,9 @@ int main(int argc, char *argv[])
                         submit_cnt += nthr;
                         sdbg += nthr;
                         dbg += nthr;
-                        //auto msg = smsgs[j];
                       //  timer_send.tic();
+                        //auto msg = smsgs[j];
+                        //sreqs[j] = comm.send(std::move(msg), peer_rank, thrid*inflight+j, send_callback);
                         sreqs[j] = comm.send(smsgs[j], peer_rank, thrid*inflight+j, send_callback);
                      //   timer_send.toc();
                     } else

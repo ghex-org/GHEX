@@ -11,16 +11,8 @@
 #ifndef INCLUDED_TL_MPI_CONTEXT_HPP
 #define INCLUDED_TL_MPI_CONTEXT_HPP
 
-//#include "../context.hpp"
-////#include "./communicator.hpp"
-//#include "../ucx3/worker.hpp"
-////#include "../common/moved_bit.hpp"
-//#include "../../threads/atomic/primitives.hpp"
-//#include "./request2.hpp"
 #include "./future2.hpp"
 #include <iostream>
-
-#define GHEX_NO_EXCEPTIONS
 
 namespace gridtools {
     namespace ghex {
@@ -96,19 +88,15 @@ namespace gridtools {
                             // send operation is completed immediately and the call-back function is not invoked
                             return request{nullptr};
                         } 
-#ifndef GHEX_NO_EXCEPTIONS
                         else if(!UCS_PTR_IS_ERR(ret))
-#endif
                         {
                             return request{request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::send)};
                         }
-#ifndef GHEX_NO_EXCEPTIONS
                         else
                         {
                             // an error occurred
                             throw std::runtime_error("ghex: ucx error - send operation failed");
                         }
-#endif
                     }
 		
                     template <typename MsgType>
@@ -127,9 +115,7 @@ namespace gridtools {
                                     rtag,                                            // tag
                                     ~std::uint_fast64_t(0ul),                        // tag mask
                                     &communicator::empty_recv_callback);             // callback function pointer: empty here
-#ifndef GHEX_NO_EXCEPTIONS
                                 if(!UCS_PTR_IS_ERR(ret))
-#endif
                                 {
 			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
                                     {
@@ -145,13 +131,11 @@ namespace gridtools {
                                         return request{request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::recv)};
                                     }
                                 }
-#ifndef GHEX_NO_EXCEPTIONS
                                 else
                                 {
                                     // an error occurred
                                     throw std::runtime_error("ghex: ucx error - recv operation failed");
                                 }
-#endif
                             }
                         );
                     }
@@ -172,13 +156,13 @@ namespace gridtools {
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
                         //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        m_send_worker->m_parallel_context->thread_primitives().critical(
-                            [this,&p]()
-                            {
+                        //m_send_worker->m_parallel_context->thread_primitives().critical(
+                        //    [this,&p]()
+                        //    {
                                 p+= ucp_worker_progress(m_ucp_rw);
                                 p+= ucp_worker_progress(m_ucp_rw);
-                            }
-                        );
+                        //    }
+                        //);
                         return p;
                     }
 
@@ -203,7 +187,7 @@ namespace gridtools {
                     }
 
                     template<typename Message, typename CallBack>
-                    rvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback, std::true_type)
+                    rvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
                         GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                         return send(message_type{std::move(msg)}, dst, tag, std::forward<CallBack>(callback));
@@ -249,9 +233,7 @@ namespace gridtools {
                             //return {nullptr, std::make_shared<request_cb_state_type>(true)};
                             return {};
                         } 
-#ifndef GHEX_NO_EXCEPTIONS
                         else if(!UCS_PTR_IS_ERR(ret))
-#endif
                         {
                             auto req_ptr = request_cb_data_type::construct(ret,
                                 m_send_worker,
@@ -273,13 +255,11 @@ namespace gridtools {
                             my_req.m_completed = std::make_shared<request_cb_state_type>(false);
                             return {&my_req, my_req.m_completed};*/
                         }
-#ifndef GHEX_NO_EXCEPTIONS
                         else
                         {
                             // an error occurred
                             throw std::runtime_error("ghex: ucx error - send operation failed");
                         }
-#endif
                     }
                     
                     template<typename Message, typename CallBack>
@@ -323,11 +303,7 @@ namespace gridtools {
                             //request_init(ucx_req);
                             ucp_request_free(ucx_req);
                         }
-#ifndef GHEX_NO_EXCEPTIONS
                         else if (status == UCS_ERR_CANCELED)
-#else
-                        else
-#endif
                         {
 			                // canceled - do nothing
                             // set completion bit
@@ -340,13 +316,12 @@ namespace gridtools {
                             //request_init(ucx_req);
                             ucp_request_free(ucx_req);
                         }
-#ifndef GHEX_NO_EXCEPTIONS
                         else
                         {
                             // an error occurred
                             throw std::runtime_error("ghex: ucx error - recv message truncated");
+                            //req.m_exception = std::make_exception_ptr(std::runtime_error("ghex: ucx error - recv message truncated"));
                         }
-#endif
                     }
                     
                     template<typename CallBack>
@@ -357,8 +332,8 @@ namespace gridtools {
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
                         //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        return m_send_worker->m_parallel_context->thread_primitives().critical(
-                            [this,rtag,&msg,src,tag,&callback]()
+                        //return m_send_worker->m_parallel_context->thread_primitives().critical(
+                        //    [this,rtag,&msg,src,tag,&callback]()
                             {
                                 auto ret = ucp_tag_recv_nb(
                                     //m_recv_worker->get(),                            // worker
@@ -370,9 +345,7 @@ namespace gridtools {
                                     ~std::uint_fast64_t(0ul),                        // tag mask
                                     &communicator::recv_callback);                   // callback function pointer
 
-#ifndef GHEX_NO_EXCEPTIONS
                                 if(!UCS_PTR_IS_ERR(ret))
-#endif
                                 {
 			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
                                     {
@@ -409,15 +382,13 @@ namespace gridtools {
                                         return request_cb_type{&my_req, my_req.m_completed};*/
                                     }
                                 }
-#ifndef GHEX_NO_EXCEPTIONS
                                 else
                                 {
                                     // an error occurred
                                     throw std::runtime_error("ghex: ucx error - recv operation failed");
                                 }
-#endif
                             }
-                        );
+                       // );
                     }
                 };
             } // namespace ucx
@@ -621,20 +592,13 @@ namespace gridtools {
                     auto it = m_endpoint_cache.find(rank);
                     if (it != m_endpoint_cache.end())
                         return it->second;
-#ifndef GHEX_NO_EXCEPTIONS
                     if (auto addr_ptr = m_context->m_db.find(rank))
-#else
-
-                    auto addr_ptr = m_context->m_db.find(rank);
-#endif
                     {
                         auto p = m_endpoint_cache.insert(std::make_pair(rank, endpoint_t{rank, m_worker.get(), *addr_ptr}));
                         return p.first->second;
                     }
-#ifndef GHEX_NO_EXCEPTIONS
                     else
                         throw std::runtime_error("could not connect to endpoint");
-#endif
                 }
             }
 
