@@ -91,6 +91,7 @@ namespace gridtools {
                     unsigned char* __restrict m_data;
                     std::size_t m_size;
                     std::unique_ptr<iface> m_ptr;
+                    std::shared_ptr<std::size_t> m_ptr2;
 
                     template<class Message>
                     any_message(Message&& m)
@@ -98,11 +99,22 @@ namespace gridtools {
                     , m_size{m.size()*sizeof(typename Message::value_type)}
                     , m_ptr{std::make_unique<holder<Message>>(std::move(m))}
                     {}
+
                     template<typename T>
                     any_message(ref_message<T>&& m)
                     : m_data{reinterpret_cast<unsigned char*>(m.data())}
                     , m_size{m.size()*sizeof(T)}
                     {}
+
+                    template<typename Message>
+                    any_message(std::shared_ptr<Message>& sm)
+                    : m_data{reinterpret_cast<unsigned char*>(sm->data())}
+                    , m_size{sm->size()*sizeof(typename Message::value_type)}
+                    , m_ptr2(sm,&m_size)
+                    {}
+                    
+
+
                     any_message(any_message&&) = default;
                     any_message& operator=(any_message&&) = default;
 

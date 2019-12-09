@@ -38,7 +38,7 @@ namespace gridtools {
     
                 static constexpr bool can_be_shared = true;
 
-            private: // members
+            //private: // members
 
                 std::shared_ptr<message_type> m_message;
 

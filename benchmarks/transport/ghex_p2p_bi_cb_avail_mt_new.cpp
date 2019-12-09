@@ -39,10 +39,10 @@ namespace ghex = gridtools::ghex;
 #include <ghex/transport_layer/message_buffer.hpp>
 #include <ghex/transport_layer/shared_message_buffer.hpp>
 using context_type = ghex::tl::context<transport, threading>;
-using MsgType = gridtools::ghex::tl::message_buffer<>;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::request_cb_type;
 
+using MsgType = gridtools::ghex::tl::message_buffer<>;
 //using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 

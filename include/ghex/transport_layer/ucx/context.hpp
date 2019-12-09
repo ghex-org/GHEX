@@ -11,6 +11,7 @@
 #ifndef INCLUDED_TL_MPI_CONTEXT_HPP
 #define INCLUDED_TL_MPI_CONTEXT_HPP
 
+#include "../shared_message_buffer.hpp"
 #include "./future2.hpp"
 #include <iostream>
 
@@ -156,13 +157,13 @@ namespace gridtools {
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
                         //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        //m_send_worker->m_parallel_context->thread_primitives().critical(
-                        //    [this,&p]()
-                        //    {
+                        m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,&p]()
+                            {
                                 p+= ucp_worker_progress(m_ucp_rw);
                                 p+= ucp_worker_progress(m_ucp_rw);
-                        //    }
-                        //);
+                            }
+                        );
                         return p;
                     }
 
@@ -177,6 +178,20 @@ namespace gridtools {
 
                     template<typename Msg>
                     using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, request_cb_type>::type;
+                    
+                    template<typename Message, typename CallBack>
+                    request_cb_type send(std::shared_ptr<Message>& shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return send(message_type{shared_msg_ptr}, dst, tag, std::forward<CallBack>(callback));
+                    }
+
+                    template<typename Alloc, typename CallBack>
+                    request_cb_type send(shared_message_buffer<Alloc>& shared_msg, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return send(message_type{shared_msg.m_message}, dst, tag, std::forward<CallBack>(callback));
+                    }
                     
                     template<typename Message, typename CallBack>
                     lvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
@@ -244,16 +259,6 @@ namespace gridtools {
                                 std::forward<CallBack>(callback),
                                 std::make_shared<request_cb_state_type>(false));
                             return {req_ptr, req_ptr->m_completed};
-                            /*auto& my_req = request_cb_data_type::get(ret);
-                            my_req.m_ucx_ptr = ret;
-                            my_req.m_worker = m_send_worker;
-                            my_req.m_kind = request_kind::send;
-                            my_req.m_msg = std::move(msg);
-                            my_req.m_rank = dst;
-                            my_req.m_tag = tag;
-                            my_req.m_cb = std::forward<CallBack>(callback);
-                            my_req.m_completed = std::make_shared<request_cb_state_type>(false);
-                            return {&my_req, my_req.m_completed};*/
                         }
                         else
                         {
@@ -262,6 +267,20 @@ namespace gridtools {
                         }
                     }
                     
+                    template<typename Message, typename CallBack>
+                    request_cb_type recv(std::shared_ptr<Message>& shared_msg_ptr, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return recv(message_type{shared_msg_ptr}, src, tag, std::forward<CallBack>(callback));
+                    }
+                    
+                    template<typename Alloc, typename CallBack>
+                    request_cb_type recv(shared_message_buffer<Alloc>& shared_msg, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return recv(message_type{shared_msg.m_message}, src, tag, std::forward<CallBack>(callback));
+                    }
+
                     template<typename Message, typename CallBack>
                     lvalue_func<Message&&> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {
@@ -332,8 +351,8 @@ namespace gridtools {
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
                         //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        //return m_send_worker->m_parallel_context->thread_primitives().critical(
-                        //    [this,rtag,&msg,src,tag,&callback]()
+                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,rtag,&msg,src,tag,&callback]()
                             {
                                 auto ret = ucp_tag_recv_nb(
                                     //m_recv_worker->get(),                            // worker
@@ -370,16 +389,6 @@ namespace gridtools {
                                             std::forward<CallBack>(callback),
                                             std::make_shared<request_cb_state_type>(false));
                                         return request_cb_type{req_ptr, req_ptr->m_completed};
-                                        /*auto& my_req = request_cb_data_type::get(ret);
-                                        my_req.m_ucx_ptr = ret;
-                                        my_req.m_worker = m_recv_worker;
-                                        my_req.m_kind = request_kind::recv;
-                                        my_req.m_msg = std::move(msg);
-                                        my_req.m_rank = src;
-                                        my_req.m_tag = tag;
-                                        my_req.m_cb = std::forward<CallBack>(callback);
-                                        my_req.m_completed = std::make_shared<request_cb_state_type>(false);
-                                        return request_cb_type{&my_req, my_req.m_completed};*/
                                     }
                                 }
                                 else
@@ -388,7 +397,7 @@ namespace gridtools {
                                     throw std::runtime_error("ghex: ucx error - recv operation failed");
                                 }
                             }
-                       // );
+                        );
                     }
                 };
             } // namespace ucx
