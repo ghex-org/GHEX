@@ -13,6 +13,7 @@
 
 #include <thread>
 #include <condition_variable>
+#include <atomic>
 
 namespace gridtools {
     namespace ghex {
@@ -20,23 +21,7 @@ namespace gridtools {
             namespace std_thread {
                 struct primitives {
                     using id_type = int;
-
-                    const int m_num_threads;
-                    std::mutex m_guard;
-                    std::mutex m_cv_guard;
-                    int m_barrier_cnt[2];
-                    int m_up_counter[2];
-                    std::vector<std::condition_variable> m_cv_down, m_cv_up;
-                    primitives(int n)
-                        : m_num_threads{n}
-                        , m_barrier_cnt{m_num_threads, m_num_threads}
-                        , m_up_counter{0,0}
-                        , m_cv_down(2)
-                        , m_cv_up(2)
-                    {}
-
-                    primitives(const primitives&) = delete;
-                    primitives(primitives&&) = delete;
+                private:
 
                     class token_impl
                     {
@@ -62,6 +47,7 @@ namespace gridtools {
                         bool is_selected() const noexcept { return m_selected; }
                     };
 
+                public:
                     class token
                     {
                     private:
@@ -82,9 +68,40 @@ namespace gridtools {
                         void set_selected(bool v) noexcept { impl->set_selected(v); }
                         bool is_selected() const noexcept { return impl->is_selected(); }
                     };
+                private:
+                    std::atomic<int> m_id_counter;
+                    const int m_num_threads;
+                    std::mutex m_guard;
+                    std::mutex m_cv_guard;
+                    int m_barrier_cnt[2];
+                    int m_up_counter[2];
+                    std::vector<std::condition_variable> m_cv_down, m_cv_up;
+                    std::vector<std::unique_ptr<token_impl>> m_tokens;
+
+                public:
+                    primitives(int n)
+                        : m_id_counter{0}
+                        , m_num_threads{n}
+                        , m_barrier_cnt{m_num_threads, m_num_threads}
+                        , m_up_counter{0,0}
+                        , m_cv_down(2)
+                        , m_cv_up(2)
+                    {}
+
+                    primitives(const primitives&) = delete;
+                    primitives(primitives&&) = delete;
 
 
-                    token get_token() const { return {}; }
+                    int size() const noexcept {
+                        return m_num_threads;
+                    }
+
+                    token get_token() noexcept {
+                        int new_id = m_id_counter.fetch_add(1);
+                        assert(new_id < m_num_threads);
+                        m_tokens[new_id].reset( new token_impl{new_id} );
+                        return {m_tokens[new_id].get()};
+                    }
 
                     void barrier(token& bt) {
                         std::unique_lock<std::mutex> lock(m_cv_guard);
