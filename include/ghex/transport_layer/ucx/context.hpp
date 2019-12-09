@@ -253,7 +253,7 @@ namespace gridtools {
                         else if(!UCS_PTR_IS_ERR(ret))
 #endif
                         {
-                            /*auto req_ptr = request_cb_data_type::construct(ret,
+                            auto req_ptr = request_cb_data_type::construct(ret,
                                 m_send_worker,
                                 request_kind::send,
                                 std::move(msg),
@@ -261,8 +261,8 @@ namespace gridtools {
                                 tag,
                                 std::forward<CallBack>(callback),
                                 std::make_shared<request_cb_state_type>(false));
-                            return {req_ptr, req_ptr->m_completed};*/
-                            auto& my_req = request_cb_data_type::get(ret);
+                            return {req_ptr, req_ptr->m_completed};
+                            /*auto& my_req = request_cb_data_type::get(ret);
                             my_req.m_ucx_ptr = ret;
                             my_req.m_worker = m_send_worker;
                             my_req.m_kind = request_kind::send;
@@ -271,7 +271,7 @@ namespace gridtools {
                             my_req.m_tag = tag;
                             my_req.m_cb = std::forward<CallBack>(callback);
                             my_req.m_completed = std::make_shared<request_cb_state_type>(false);
-                            return {&my_req, my_req.m_completed};
+                            return {&my_req, my_req.m_completed};*/
                         }
 #ifndef GHEX_NO_EXCEPTIONS
                         else
@@ -388,7 +388,7 @@ namespace gridtools {
                                     }
                                     else
                                     {
-                                        /*auto req_ptr = request_cb_data_type::construct(ret,
+                                        auto req_ptr = request_cb_data_type::construct(ret,
                                             m_recv_worker,
                                             request_kind::recv,
                                             std::move(msg),
@@ -396,8 +396,8 @@ namespace gridtools {
                                             tag,
                                             std::forward<CallBack>(callback),
                                             std::make_shared<request_cb_state_type>(false));
-                                        return request_cb_type{req_ptr, req_ptr->m_completed};*/
-                                        auto& my_req = request_cb_data_type::get(ret);
+                                        return request_cb_type{req_ptr, req_ptr->m_completed};
+                                        /*auto& my_req = request_cb_data_type::get(ret);
                                         my_req.m_ucx_ptr = ret;
                                         my_req.m_worker = m_recv_worker;
                                         my_req.m_kind = request_kind::recv;
@@ -406,7 +406,7 @@ namespace gridtools {
                                         my_req.m_tag = tag;
                                         my_req.m_cb = std::forward<CallBack>(callback);
                                         my_req.m_completed = std::make_shared<request_cb_state_type>(false);
-                                        return request_cb_type{&my_req, my_req.m_completed};
+                                        return request_cb_type{&my_req, my_req.m_completed};*/
                                     }
                                 }
 #ifndef GHEX_NO_EXCEPTIONS
