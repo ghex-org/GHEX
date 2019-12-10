@@ -97,7 +97,8 @@ namespace gridtools {
                         , m_up_counter{0,0}
                         , m_cv_down(2)
                         , m_cv_up(2)
-                    {}
+                        , m_tokens(n)
+                    { }
 
                     primitives(const primitives&) = delete;
                     primitives(primitives&&) = delete;

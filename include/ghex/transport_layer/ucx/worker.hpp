@@ -17,8 +17,6 @@
 #include "./error.hpp"
 #include "./endpoint.hpp"
 #include "../context.hpp"
-//#include <atomic>
-//#include <sched.h>
 
 namespace gridtools {
     namespace ghex {
@@ -47,18 +45,15 @@ namespace gridtools {
                         
                         ucp_worker_handle(ucp_worker_handle&& other) noexcept
                         : m_worker(other.m_worker)
-                        , m_moved(other.m_moved)
-                        {
-                            other.m_moved = true;
-                        }
+                        , m_moved(std::exchange(other.m_moved, true))
+                        {}
 
                         ucp_worker_handle& operator=(ucp_worker_handle&& other) noexcept
                         {
                             destroy();
                             m_worker.~ucp_worker_h();
                             ::new((void*)(&m_worker)) ucp_worker_h{other.m_worker};
-                            m_moved = other.m_moved;
-                            other.m_moved = true;
+                            m_moved = std::exchange(other.m_moved, true);
                             return *this;
                         }
 
@@ -80,7 +75,6 @@ namespace gridtools {
                         const ucp_worker_h& get() const noexcept { return m_worker; }
                     };
 
-                    //using cache_type             = std::map<rank_type, endpoint_t>;
                     using cache_type             = std::unordered_map<rank_type, endpoint_t>;
                     using parallel_context_type  = parallel_context<ThreadPrimitives>;
                     using thread_token           = typename parallel_context_type::thread_token;
@@ -89,7 +83,6 @@ namespace gridtools {
                     transport_context_type* m_context;
                     parallel_context_type*  m_parallel_context;
                     thread_token*           m_token_ptr;
-                    //int                     m_index;
                     rank_type               m_rank;
                     rank_type               m_size;
                     ucp_worker_handle       m_worker;
@@ -105,7 +98,6 @@ namespace gridtools {
 
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
-                    //int index() const noexcept { return m_index; }
                     inline ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
