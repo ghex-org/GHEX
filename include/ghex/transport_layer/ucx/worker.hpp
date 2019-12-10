@@ -54,7 +54,6 @@ namespace gridtools {
 
                         ucp_worker_handle& operator=(ucp_worker_handle&& other) noexcept
                         {
-                            destroy();
                             m_worker.~ucp_worker_h();
                             ::new((void*)(&m_worker)) ucp_worker_h{other.m_worker};
                             m_moved = other.m_moved;
@@ -62,16 +61,13 @@ namespace gridtools {
                             return *this;
                         }
 
-                        ~ucp_worker_handle() { destroy(); }
+                        ~ucp_worker_handle() {}
 
                         static void empty_send_cb(void*, ucs_status_t) {}
 
                         void destroy() noexcept
                         {
-                            if (!m_moved)
-                            {
-                                ucp_worker_destroy(m_worker);
-                            }
+			    ucp_worker_destroy(m_worker);
                         }
 
                         operator bool() const noexcept { return m_moved; }
