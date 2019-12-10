@@ -269,7 +269,7 @@ namespace gridtools{
                         return m_req->m_worker->m_parallel_context->thread_primitives().critical(
 			    [this]()
 			    {
-				if if (!(*m_req->m_completed))
+				if if (!(*m_completed))
 				{
 				    auto ucx_ptr = m_req->m_ucx_ptr;
 				    auto worker = m_req->m_worker->get();
