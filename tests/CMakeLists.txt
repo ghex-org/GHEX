@@ -31,20 +31,22 @@ foreach (_t ${_tests})
 endforeach()
 
 
-##set(_variants_ucx serial serial_split threads async_async async_deferred async_async_wait)
-#set(_variants_ucx serial serial_split threads async_async)
-#
-#foreach(_var ${_variants_ucx})
-#    string(TOUPPER ${_var} define)
-#    add_executable(communication_object_2_${_var}_ucx communication_object_2.cpp )
-#    target_compile_definitions(communication_object_2_${_var}_ucx PUBLIC GHEX_TEST_${define} GHEX_TEST_USE_UCX)
-#    target_include_directories(communication_object_2_${_var}_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} ${UCP_INCLUDE_DIR})
-#    target_link_libraries(communication_object_2_${_var}_ucx MPI::MPI_CXX GridTools::gridtools gtest_main_mt ${UCP_LIBRARY})
-#    add_test(
-#        NAME communication_object_2_${_var}_ucx
-#        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPIEXEC_PREFLAGS} ${_ucx_params} communication_object_2_${_var}_ucx ${MPIEXEC_POSTFLAGS}
-#    )
-#endforeach()
+if (GHEX_USE_UCP)
+    #set(_variants_ucx serial serial_split threads async_async async_deferred async_async_wait)
+    set(_variants_ucx serial serial_split threads async_async)
+
+    foreach(_var ${_variants_ucx})
+        string(TOUPPER ${_var} define)
+        add_executable(communication_object_2_${_var}_ucx communication_object_2.cpp )
+        target_compile_definitions(communication_object_2_${_var}_ucx PUBLIC GHEX_TEST_${define} GHEX_TEST_USE_UCX)
+        target_include_directories(communication_object_2_${_var}_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} ${UCP_INCLUDE_DIR})
+        target_link_libraries(communication_object_2_${_var}_ucx MPI::MPI_CXX GridTools::gridtools gtest_main_mt ${UCP_LIBRARY})
+        add_test(
+            NAME communication_object_2_${_var}_ucx
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPIEXEC_PREFLAGS} ${_ucx_params} communication_object_2_${_var}_ucx ${MPIEXEC_POSTFLAGS}
+        )
+    endforeach()
+endif()
 
 
 set(_variants serial serial_split threads async_async async_deferred async_async_wait)

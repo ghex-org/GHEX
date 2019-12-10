@@ -122,9 +122,9 @@ namespace gridtools {
                 // thread-safe
                 const mpi_world& world() const { return m_world; }
                 // thread-safe
-                const thread_primitives_type& thread_primitives() const { return m_thread_primitives; }
+                /*const*/ thread_primitives_type& thread_primitives()/* const*/ { return m_thread_primitives; }
                 // thread-safe
-                void barrier(thread_token& t) const
+                void barrier(thread_token& t)/* const*/
                 {
                     m_thread_primitives.barrier(t);
                     m_thread_primitives.single(t, [this]() { MPI_Barrier(m_world.m_comm); } );
@@ -164,7 +164,7 @@ namespace gridtools {
                     return m_parallel_context.world(); 
                 }
                 
-                const thread_primitives_type& thread_primitives() const noexcept 
+                /*const */thread_primitives_type& thread_primitives() /*const*/ noexcept 
                 {
                     return m_parallel_context.thread_primitives(); 
                 }
@@ -195,7 +195,7 @@ namespace gridtools {
                 }
                 
                 // thread-safe
-                void barrier(thread_token& t) const
+                void barrier(thread_token& t) /*const*/
                 {
                     m_parallel_context.barrier(t);
                 }

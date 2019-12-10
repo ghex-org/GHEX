@@ -109,14 +109,6 @@ namespace gridtools {
                     inline ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
-
-
-                    //inline void lock() noexcept { m_mutex->lock(); }
-                    //inline void unlock() noexcept { m_mutex->unlock(); }
-                    //inline bool try_lock() noexcept { return m_mutex->try_lock(); }
-                    //inline void lock() noexcept {  }
-                    //inline void unlock() noexcept {  }
-                    //inline bool try_lock() noexcept { return true; }
                 };
             
             } // namespace ucx

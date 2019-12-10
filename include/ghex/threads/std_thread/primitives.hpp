@@ -19,6 +19,17 @@ namespace gridtools {
     namespace ghex {
         namespace threads {
             namespace std_thread {
+                
+                template<typename F>
+                using void_return_type = typename std::enable_if<
+                    std::is_same<boost::callable_traits::return_type_t<F>,void>::value, 
+                    void>::type;
+
+                template<typename F>
+                using return_type = typename std::enable_if<
+                    !std::is_same<boost::callable_traits::return_type_t<F>,void>::value, 
+                    boost::callable_traits::return_type_t<F>>::type;
+
                 struct primitives {
                     using id_type = int;
                 private:
@@ -106,7 +117,7 @@ namespace gridtools {
                         return {m_tokens[new_id].get()};
                     }
 
-                    void barrier(token& bt) {
+                    void barrier(token& bt) /*const*/ {
                         std::unique_lock<std::mutex> lock(m_cv_guard);
 
                         m_barrier_cnt[bt.epoch()]--;
@@ -135,20 +146,27 @@ namespace gridtools {
                     }
 
                     template <typename F>
-                    void critical(F && f) {
+                    inline void_return_type<F> critical(F && f) //const
+                    {
                         std::lock_guard<std::mutex> lock(m_guard);
                         f();
                     }
+                    template <typename F>
+                    inline return_type<F> critical(F && f) //const
+                    {
+                        std::lock_guard<std::mutex> lock(m_guard);
+                        return f();
+                    }
 
                     template <typename F>
-                    void master(token& bt, F && f) { // Also this one should not be needed
+                    void master(token& bt, F && f) const { // Also this one should not be needed
                         if (bt.id() == 0) {
                             f();
                         }
                     }
 
                     template <typename F>
-                    void single(token& bt, F && f) { // Also this one should not be needed
+                    void single(token& bt, F && f) const { // Also this one should not be needed
                         if (bt.is_selected()) {
                             f();
                         }

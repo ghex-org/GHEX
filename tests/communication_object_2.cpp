@@ -14,7 +14,6 @@
 #ifndef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/mpi/context.hpp>
 #else
-#include <ghex/transport_layer/ucx3/address_db_mpi.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
 #include <ghex/threads/atomic/primitives.hpp>
@@ -43,11 +42,12 @@ __global__ void print_kernel() {
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
+//using threading = gridtools::ghex::threads::std_thread::primitives;
+using threading = gridtools::ghex::threads::atomic::primitives;
 #else
-using db_type   = gridtools::ghex::tl::ucx::address_db_mpi;
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std::thread::primitives;
+//using threading = gridtools::ghex::threads::std_thread::primitives;
+using threading = gridtools::ghex::threads::atomic::primitives;
 #endif
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
