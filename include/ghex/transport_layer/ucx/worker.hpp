@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_TL_UCX_WORKER_HPP
 #define INCLUDED_GHEX_TL_UCX_WORKER_HPP
@@ -44,7 +44,7 @@ namespace gridtools {
                         ucp_worker_handle() noexcept : m_moved{true} {}
                         ucp_worker_handle(const ucp_worker_handle&) = delete;
                         ucp_worker_handle& operator=(const ucp_worker_handle&) = delete;
-                        
+
                         ucp_worker_handle(ucp_worker_handle&& other) noexcept
                         : m_worker(other.m_worker)
                         , m_moved(other.m_moved)
@@ -76,7 +76,7 @@ namespace gridtools {
 
                         operator bool() const noexcept { return m_moved; }
                         operator ucp_worker_h() const noexcept { return m_worker; }
-                              ucp_worker_h& get()       noexcept { return m_worker; }
+                        ucp_worker_h& get()       noexcept { return m_worker; }
                         const ucp_worker_h& get() const noexcept { return m_worker; }
                     };
 
@@ -110,7 +110,7 @@ namespace gridtools {
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
                 };
-            
+
             } // namespace ucx
         } // namespace tl
     } // namespace ghex
