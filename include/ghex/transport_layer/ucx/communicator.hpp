@@ -1,482 +1,410 @@
-/*
+/* 
  * GridTools
- *
- * Copyright (c) 2019, ETH Zurich
+ * 
+ * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- *
+ * 
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
+ * 
  */
+#ifndef INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP
+#define INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP
 
-#ifndef INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP
-#define INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP
-
+#include "../shared_message_buffer.hpp"
+#include "./future.hpp"
 #include <iostream>
-#include <map>
-#include <functional>
-#include <deque>
 
-#include <ucp/api/ucp.h>
+namespace gridtools {
+    namespace ghex {
+        namespace tl {
+		    
+            namespace ucx {    
 
-#include "../communicator.hpp"
-#include "../../common/debug.hpp"
+                template<typename ThreadPrimitives>
+                struct communicator
+                {
+                    using worker_type            = worker_t<ThreadPrimitives>;
+                    using parallel_context_type  = parallel_context<ThreadPrimitives>;
+                    using thread_token           = typename parallel_context_type::thread_token;
+                    using rank_type              = endpoint_t::rank_type;
+                    using tag_type               = typename worker_type::tag_type;
+                    using request                = request_ft<ThreadPrimitives>;
+                    template<typename T>
+                    using future                 = future_t<T,ThreadPrimitives>;
+                    // needed for now for high-level API
+                    using address_type           = rank_type;
+                    
+                    using request_cb_type        = request_cb<ThreadPrimitives>;
+                    using request_cb_data_type   = typename request_cb_type::data_type;
+                    using request_cb_state_type  = typename request_cb_type::state_type;
+                    using message_type           = typename request_cb_type::message_type;
 
-#ifdef USE_PMIX
-#define USE_PMI
-#include "../util/pmi/pmix/pmi.hpp"
-using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
-#endif
+                    worker_type*  m_recv_worker;
+                    worker_type*  m_send_worker;
+                    ucp_worker_h  m_ucp_rw;
+                    ucp_worker_h  m_ucp_sw;
+                    rank_type     m_rank;
+                    rank_type     m_size;
 
-#include "ucp_lock.hpp"
-#include "request.hpp"
+                    communicator(worker_type* rw, worker_type* sw) noexcept
+                    : m_recv_worker{rw}
+                    , m_send_worker{sw}
+                    , m_ucp_rw{rw->get()}
+                    , m_ucp_sw{sw->get()}
+                    , m_rank{m_send_worker->rank()}
+                    , m_size{m_send_worker->size()}
+                    {}
 
-#define ghex_likely(x)   __builtin_expect(x, 1)
-#define ghex_unlikely(x) __builtin_expect(x, 0)
+                    communicator(const communicator&) = default;
+                    communicator(communicator&&) = default;
+                    communicator& operator=(const communicator&) = default;
+                    communicator& operator=(communicator&&) = default;
 
-namespace gridtools
-{
-    namespace ghex
-    {
-	namespace tl
-	{
+                    //rank_type rank() const noexcept { return m_send_worker->rank(); }
+                    //rank_type size() const noexcept { return m_send_worker->size(); }
+                    rank_type rank() const noexcept { return m_rank; }
+                    rank_type size() const noexcept { return m_size; }
+                    address_type address() const { return rank(); }
 
-	    /*
-	     * GHEX tag structure:
-	     *
-	     * 01234567 01234567 01234567 01234567 01234567 01234567 01234567 01234567
-	     *                                    |
-	     *      message tag (32)              |   source rank (32)
-	     *                                    |
-	     */
-#define GHEX_TAG_BITS                       32
-#define GHEX_RANK_BITS                      32
-#define GHEX_TAG_MASK                       0xffffffff00000000ul
-#define GHEX_SOURCE_MASK                    0x00000000fffffffful
+                    static void empty_send_callback(void *, ucs_status_t) {}
+                    static void empty_recv_callback(void *, ucs_status_t, ucp_tag_recv_info_t*) {}
 
-#define GHEX_MAKE_SEND_TAG(_tag, _dst)			\
-	    ((((uint64_t) (_tag) ) << GHEX_RANK_BITS) |	\
-	     (((uint64_t) (_dst) )))
-
-
-#define GHEX_MAKE_RECV_TAG(_ucp_tag, _ucp_tag_mask, _tag, _src)		\
-	    {								\
-		_ucp_tag_mask = GHEX_SOURCE_MASK | GHEX_TAG_MASK;	\
-		_ucp_tag = ((((uint64_t) (_tag) ) << GHEX_RANK_BITS) |	\
-			    (((uint64_t) (_src) )));			\
-	    }								\
-
-#define GHEX_GET_SOURCE(_ucp_tag)		\
-	    ((_ucp_tag) & GHEX_SOURCE_MASK)
-
-
-#define GHEX_GET_TAG(_ucp_tag)			\
-	    ((_ucp_tag) >> GHEX_RANK_BITS)
-
-
-	    /* local definitions - request and future related things */
-	    namespace ucx
-	    {
-		static std::size_t   ucp_request_size; // size in bytes required for a request by the UCX library
-
-		void empty_send_cb(void *, ucs_status_t ) {}
-		void empty_recv_cb(void *, ucs_status_t , ucp_tag_recv_info_t *) {}
-		void ghex_request_init_cb(void *request){
-		    bzero(request, GHEX_REQUEST_SIZE);
-		}
-	    }
-
-
-	    /** Class that provides the functions to send and receive messages. A message
-	     * is an object with .data() that returns a pointer to `unsigned char`
-	     * and .size(), with the same behavior of std::vector<unsigned char>.
-	     * Each message will be sent and received with a tag, bot of type int
-	     */
-
-	    template<typename Tag>
-	    class communicator;
-
-	    template<>
-	    class communicator<ucx_tag>
-	    {
-	    public:
-		using tag_type  = ucp_tag_t;
-		using rank_type = int;
-		using size_type = int;
-		using request   = ucx::request;
-                using traits    = int;
-
-		/* these are static, i.e., shared by threads */
-		static rank_type m_rank;
-		static rank_type m_size;
-
-	    protected:
-
-		/* these are static, i.e., shared by threads */
-		static ucp_context_h ucp_context;
-		static ucp_worker_h  ucp_worker;
-
-		/* these are per-thread */
-		ucp_worker_h  ucp_worker_send;
-
-#ifdef USE_PMI
-		/** PMI interface to obtain peer addresses */
-		/* per-communicator instance used to store/query connections */
-		PmiType pmi_impl;
-
-		/* global instance used to init/finalize the library */
-		static PmiType pmi_impl_static;
-#endif
-		/** known connection pairs <rank, endpoint address>,
-		    created as rquired by the communication pattern
-		    Has to be per-thread
-		*/
-		std::map<rank_type, ucp_ep_h> connections;
-
-	    public:
+                    template <typename MsgType>
+                    [[nodiscard]] future<void> send(const MsgType &msg, rank_type dst, tag_type tag)
+                    {
+                        const auto& ep = m_send_worker->connect(dst);
+                        const auto stag = ((std::uint_fast64_t)tag << 32) | 
+                                           (std::uint_fast64_t)(rank());
+                        auto ret = ucp_tag_send_nb(
+                            ep.get(),                                        // destination
+                            msg.data(),                                      // buffer
+                            msg.size()*sizeof(typename MsgType::value_type), // buffer size
+                            ucp_dt_make_contig(1),                           // data type
+                            stag,                                            // tag
+                            &communicator::empty_send_callback);             // callback function pointer: empty here
+                        
+                        if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
+                        {
+                            // send operation is completed immediately and the call-back function is not invoked
+                            return request{nullptr};
+                        } 
+                        else if(!UCS_PTR_IS_ERR(ret))
+                        {
+                            return request{request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::send)};
+                        }
+                        else
+                        {
+                            // an error occurred
+                            throw std::runtime_error("ghex: ucx error - send operation failed");
+                        }
+                    }
 		
-                rank_type rank() const noexcept { return m_rank; }
-                size_type size() const noexcept { return m_size; }
-
-		~communicator()
-		{
-		    ucp_worker_destroy(ucp_worker_send);
-		}
-
-		static void finalize ()
-		{
-		    if(ucp_worker) {
-			ucp_worker_destroy(ucp_worker);
-			ucp_cleanup(ucp_context);
-			ucp_worker = nullptr;
-			ucp_context = nullptr;
-		    }
-		}
-
-		static void initialize()
-		{
-#ifdef USE_PMI
-		    // communicator rank and world size
-		    m_rank = pmi_impl_static.rank();
-		    m_size = pmi_impl_static.size();
-#endif
-
-#ifdef THREAD_MODE_SERIALIZED
-#ifndef USE_OPENMP_LOCKS
-		    LOCK_INIT(ucp_lock);
-#endif
-#endif
-
-		    // UCX initialization
-		    ucs_status_t status;
-		    ucp_params_t ucp_params;
-		    ucp_config_t *config = NULL;
-		    ucp_worker_params_t worker_params;
-
-		    status = ucp_config_read(NULL, NULL, &config);
-		    if(UCS_OK != status) ERR("ucp_config_read failed");
-
-		    /* Initialize UCP */
-		    {
-			memset(&ucp_params, 0, sizeof(ucp_params));
-
-			/* pass features, request size, and request init function */
-			ucp_params.field_mask =
-			    UCP_PARAM_FIELD_FEATURES          |
-			    UCP_PARAM_FIELD_REQUEST_SIZE      |
-			    UCP_PARAM_FIELD_TAG_SENDER_MASK   |
-			    UCP_PARAM_FIELD_MT_WORKERS_SHARED |
-			    UCP_PARAM_FIELD_ESTIMATED_NUM_EPS |
-			    UCP_PARAM_FIELD_REQUEST_INIT      ;
-
-			/* request transport support for tag matching */
-			ucp_params.features =
-			    UCP_FEATURE_TAG ;
-
-			// TODO: templated request type - how do we know the size??
-			ucp_params.request_size = GHEX_REQUEST_SIZE;
-
-			/* this should be true if we have per-thread workers
-			   otherwise, if one worker is shared by all thread, it should be false
-			   This requires benchmarking. */
-			ucp_params.mt_workers_shared = true;
-
-			/* estimated number of end-points -
-			   affects transport selection criteria and theresulting performance */
-			ucp_params.estimated_num_eps = m_size;
-
-			/* Mask which specifies particular bits of the tag which can uniquely identify
-			   the sender (UCP endpoint) in tagged operations. */
-			ucp_params.tag_sender_mask = GHEX_SOURCE_MASK;
-
-			/* Needed to zero the memory region. Otherwise segfaults occured
-			   when a std::function destructor was called on an invalid object */
-			ucp_params.request_init = ucx::ghex_request_init_cb;
-
-#if (GHEX_DEBUG_LEVEL == 2)
-			if(0 == m_rank){
-			    LOG("ucp version %s", ucp_get_version_string());
-			    LOG("ucp features %lx", ucp_params.features);
-			    ucp_config_print(config, stdout, NULL, UCS_CONFIG_PRINT_CONFIG);
-			}
-#endif
-
-			status = ucp_init(&ucp_params, config, &ucp_context);
-			ucp_config_release(config);
-
-			if(UCS_OK != status) ERR("ucp_config_init");
-			if(0 == m_rank) LOG("UCX initialized");
-		    }
-
-		    /* ask for UCP request size - non-templated version for the futures */
-		    {
-			ucp_context_attr_t attr = {};
-			attr.field_mask = UCP_ATTR_FIELD_REQUEST_SIZE;
-			ucp_context_query (ucp_context, &attr);
-
-			/* UCP request size */
-			ucx::ucp_request_size = attr.request_size;
-		    }
-
-		    /* create a worker */
-		    {
-			memset(&worker_params, 0, sizeof(worker_params));
-
-			/* this should not be used if we have a single worker per thread */
-			worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-#ifdef THREAD_MODE_MULTIPLE
-			worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
-#elif defined THREAD_MODE_SERIALIZED
-			worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
-#else
-			worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
-#endif
-
-			status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker);
-			if(UCS_OK != status) ERR("ucp_worker_create failed");
-			if(0 == m_rank) LOG("UCP worker created");
-		    }
-
-#ifdef USE_PMI
-		    /* obtain the worker endpoint address and post it to PMI */
-		    {
-			ucp_address_t *worker_address;
-			size_t address_length;
-
-			status = ucp_worker_get_address(ucp_worker, &worker_address, &address_length);
-			if(UCS_OK != status) ERR("ucp_worker_get_address failed");
-			if(0 == m_rank) LOG("UCP worker addres length %zu", address_length);
-
-			/* update pmi with local address information */
-			std::vector<char> data((const char*)worker_address, (const char*)worker_address + address_length);
-			pmi_impl_static.set("ghex-rank-address", data);
-			ucp_worker_release_address(ucp_worker, worker_address);
-
-			/* invoke global pmi data exchange */
-			// pmi_exchange();
-		    }
-#endif
-		}
-
-		communicator(const traits& t = traits{})
-		{
-
-		    /* create a per-thread send worker */
-		    ucs_status_t status;
-		    ucp_worker_params_t worker_params;
-		    memset(&worker_params, 0, sizeof(worker_params));
-
-		    /* this should not be used if we have a single worker per thread */
-		    worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-		    worker_params.thread_mode = UCS_THREAD_MODE_SINGLE;
-
-		    status = ucp_worker_create (ucp_context, &worker_params, &ucp_worker_send);
-		    if(UCS_OK != status) ERR("ucp_worker_create failed");
-		    if(0 == m_rank) LOG("UCP worker created");
-		}
-
-		ucp_ep_h connect(ucp_address_t *worker_address)
-		{
-		    ucs_status_t status;
-		    ucp_ep_params_t ep_params;
-		    ucp_ep_h ucp_ep;
-
-		    /* create endpoint */
-		    memset(&ep_params, 0, sizeof(ep_params));
-		    ep_params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
-		    ep_params.address    = worker_address;
-		    status = ucp_ep_create (ucp_worker_send, &ep_params, &ucp_ep);
-		    if(UCS_OK != status) ERR("ucp_ep_create failed");
-
-#if (GHEX_DEBUG_LEVEL == 2)
-		    ucp_ep_print_info(ucp_ep, stdout);
-		    ucp_worker_print_info(ucp_worker_send, stdout);
-#endif
-
-		    LOG("UCP connection established");
-		    return ucp_ep;
-		}
-
-		ucp_ep_h rank_to_ep(const rank_type &rank)
-		{
-		    ucp_ep_h ep;
-
-		    /* look for a connection to a given peer
-		       create it if it does not yet exist */
-		    auto conn = connections.find(rank);
-		    if(ghex_unlikely( conn == connections.end() )){
-
-			ucp_address_t *worker_address;
-#ifdef USE_PMI
-			/* get peer address - we have ownership of the address */
-			std::vector<char> data = pmi_impl.get_bytes(rank, "ghex-rank-address");
-			worker_address = (ucp_address_t*)data.data();
-#else
-			ERR("PMI is not enabled. Don't know how to obtain peer address.");
-#endif
-
-			ep = connect(worker_address);
-			connections.emplace(rank, ep);
-		    } else {
-
-			/* found an existing connection - return the corresponding endpoint handle */
-			ep = conn->second;
-		    }
-
-		    return ep;
-		}
-
-		/** Send a message to a destination with the given tag.
-		 * It returns a future that can be used to check when the message is available
-		 * again for the user.
-		 *
-		 * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-		 *
-		 * @param msg Const reference to a message to send
-		 * @param dst Destination of the message
-		 * @param tag Tag associated with the message
-		 *
-		 * @return A future that will be ready when the message can be reused (e.g., filled with new data to send)
-		 */
-		template <typename MsgType>
-		[[nodiscard]] request send(const MsgType &msg, rank_type dst, tag_type tag)
-		{
-		    ucp_ep_h ep;
-		    ucs_status_ptr_t status;
-		    request req;
-
-		    ep = rank_to_ep(dst);
-
-		    /* send */
-		    status = ucp_tag_send_nb(ep, msg.data(), msg.size(), ucp_dt_make_contig(1),
-					     GHEX_MAKE_SEND_TAG(tag, m_rank), ucx::empty_send_cb);
-
-		    if(ghex_unlikely( UCS_OK == (uintptr_t)status )){
-
-			/* send completed immediately */
-			req.m_req = nullptr;
-		    } else if(ghex_likely( !UCS_PTR_IS_ERR(status) )) {
-
-			/* return the request */
-			req.m_req = (request::req_type)(status);
-			req.m_req->m_ucp_worker = ucp_worker;
-			req.m_req->m_ucp_worker_send = ucp_worker_send;
-			req.m_req->m_type = ucx::REQ_SEND;
-		    } else {
-			ERR("ucp_tag_recv_nb failed");
-		    }
-
-		    return req;
-		}
-
-
-		/** Receive a message from a destination with the given tag.
-		 * It returns a future that can be used to check when the message is available
-		 * to be read.
-		 *
-		 * @tparam MsgType message type (this could be a std::vector<unsigned char> or a message found in message.hpp)
-		 *
-		 * @param msg Const reference to a message that will contain the data
-		 * @param src Source of the message
-		 * @param tag Tag associated with the message
-		 *
-		 * @return A future that will be ready when the message can be read
-		 */
-		template <typename MsgType>
-		[[nodiscard]] request recv(MsgType &msg, rank_type src, tag_type tag) {
-		    ucp_tag_t ucp_tag, ucp_tag_mask;
-		    ucs_status_ptr_t status;
-		    request req;
-
-		    CRITICAL_BEGIN(ucp_lock) {
-
-			/* recv */
-			GHEX_MAKE_RECV_TAG(ucp_tag, ucp_tag_mask, tag, src);
-			status = ucp_tag_recv_nb(ucp_worker, msg.data(), msg.size(), ucp_dt_make_contig(1),
-						 ucp_tag, ucp_tag_mask, ucx::empty_recv_cb);
-
-			if(ghex_likely( !UCS_PTR_IS_ERR(status) )) {
-
-			    ucs_status_t rstatus;
-			    rstatus = ucp_request_check_status (status);
-			    if(ghex_unlikely( rstatus != UCS_INPROGRESS )){
-
-				/* recv completed immediately */
-				req.m_req = nullptr;
-
-		    		/* we need to free the request here, not in the callback */
-		    		ucp_request_free(status);
-			    } else {
-
-				/* return the request */
-				req.m_req = (request::req_type)(status);
-				req.m_req->m_ucp_worker = ucp_worker;
-				req.m_req->m_ucp_worker_send = ucp_worker_send;
-				req.m_req->m_type = ucx::REQ_RECV;
-			    }
-			} else {
-			    ERR("ucp_tag_send_nb failed");
-			}
-		    } CRITICAL_END(ucp_lock);
-
-		    return req;
-		}
-
-
-		/** Function to invoke to poll the transport layer and check for the completions
-		 * of the operations without a future associated to them (that is, they are associated
-		 * to a call-back). When an operation completes, the corresponfing call-back is invoked
-		 * with the rank and tag associated with that request.
-		 *
-		 * @return unsigned Non-zero if any communication was progressed, zero otherwise.
-		 */
-		unsigned progress()
-		{
-		    int p = 0;
-
-		    p+= ucp_worker_progress(ucp_worker_send);
-		    p+= ucp_worker_progress(ucp_worker_send);
-		    p+= ucp_worker_progress(ucp_worker_send);
-		    CRITICAL_BEGIN(ucp_lock) {
-			p+= ucp_worker_progress(ucp_worker);
-			p+= ucp_worker_progress(ucp_worker);
-		    } CRITICAL_END(ucp_lock);
-
-		    return p;
-		}
-	    };
-
-	    /** static communicator properties, shared between threads */
-
-#ifdef USE_PMI
-	    PmiType communicator<ucx_tag>::pmi_impl_static;
-#endif
-	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_rank;
-	    communicator<ucx_tag>::rank_type communicator<ucx_tag>::m_size;
-	    ucp_context_h communicator<ucx_tag>::ucp_context = 0;
-	    ucp_worker_h  communicator<ucx_tag>::ucp_worker = 0;
-
-	} // namespace tl
+                    template <typename MsgType>
+                    [[nodiscard]] future<void> recv(MsgType &msg, rank_type src, tag_type tag)
+                    {
+                        const auto rtag = ((std::uint_fast64_t)tag << 32) | 
+                                           (std::uint_fast64_t)(src);
+                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,rtag,&msg,src,tag]()
+                            {
+                                auto ret = ucp_tag_recv_nb(
+                                    m_recv_worker->get(),                            // worker
+                                    msg.data(),                                      // buffer
+                                    msg.size()*sizeof(typename MsgType::value_type), // buffer size
+                                    ucp_dt_make_contig(1),                           // data type
+                                    rtag,                                            // tag
+                                    ~std::uint_fast64_t(0ul),                        // tag mask
+                                    &communicator::empty_recv_callback);             // callback function pointer: empty here
+                                if(!UCS_PTR_IS_ERR(ret))
+                                {
+			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
+                                    {
+				                        // recv completed immediately
+		    		                    // we need to free the request here, not in the callback
+                                        auto ucx_ptr = ret;
+                                        request_init(ucx_ptr);
+				                        ucp_request_free(ucx_ptr);
+                                        return request{nullptr};
+                                    }
+                                    else
+                                    {
+                                        return request{request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::recv)};
+                                    }
+                                }
+                                else
+                                {
+                                    // an error occurred
+                                    throw std::runtime_error("ghex: ucx error - recv operation failed");
+                                }
+                            }
+                        );
+                    }
+
+                    /** Function to invoke to poll the transport layer and check for the completions
+                     * of the operations without a future associated to them (that is, they are associated
+                     * to a call-back). When an operation completes, the corresponfing call-back is invoked
+                     * with the rank and tag associated with that request.
+                     *
+                     * @return unsigned Non-zero if any communication was progressed, zero otherwise.
+                     */
+                    unsigned progress()
+                    {
+                        int p = 0;
+                        p+= ucp_worker_progress(m_ucp_sw);
+                        p+= ucp_worker_progress(m_ucp_sw);
+                        p+= ucp_worker_progress(m_ucp_sw);
+                        //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
+                        //using lk_t=typename tp_t::lock_type;
+                        //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
+                        m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,&p]()
+                            {
+                                p+= ucp_worker_progress(m_ucp_rw);
+                                p+= ucp_worker_progress(m_ucp_rw);
+                            }
+                        );
+                        return p;
+                    }
+
+                    template<typename V>
+                    using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
+                    
+                    template<typename U>    
+                    using is_rvalue = std::is_rvalue_reference<U>;
+
+                    template<typename Msg>
+                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, request_cb_type>::type;
+
+                    template<typename Msg>
+                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, request_cb_type>::type;
+                    
+                    template<typename Message, typename CallBack>
+                    request_cb_type send(std::shared_ptr<Message>& shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return send(message_type{shared_msg_ptr}, dst, tag, std::forward<CallBack>(callback));
+                    }
+
+                    template<typename Alloc, typename CallBack>
+                    request_cb_type send(shared_message_buffer<Alloc>& shared_msg, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return send(message_type{shared_msg.m_message}, dst, tag, std::forward<CallBack>(callback));
+                    }
+                    
+                    template<typename Message, typename CallBack>
+                    lvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        using V = typename std::remove_reference_t<Message>::value_type;
+                        return send(message_type{ref_message<V>{msg.data(),msg.size()}}, dst, tag, std::forward<CallBack>(callback));
+                    }
+
+                    template<typename Message, typename CallBack>
+                    rvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return send(message_type{std::move(msg)}, dst, tag, std::forward<CallBack>(callback));
+                    }
+	    
+                    inline static void send_callback(void * __restrict ucx_req, ucs_status_t __restrict status)
+                    {
+                        auto& req = request_cb_data_type::get(ucx_req);
+                        if (status == UCS_OK)
+                            // call the callback
+                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                        // else: cancelled - do nothing
+                        // set completion bit
+                        //req.m_completed->m_ready = true;
+                        *req.m_completed = true;
+                        req.m_kind = request_kind::none;
+                        // destroy the request - releases the message
+                        req.~request_cb_data_type();
+                        // free ucx request
+                        //request_init(ucx_req);
+				        ucp_request_free(ucx_req);
+                    }
+
+                    template<typename CallBack>
+                    request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+                    {
+                        const auto& ep = m_send_worker->connect(dst);
+                        const auto stag = ((std::uint_fast64_t)tag << 32) | 
+                                           (std::uint_fast64_t)(rank());
+                        auto ret = ucp_tag_send_nb(
+                            ep.get(),                                        // destination
+                            msg.data(),                                      // buffer
+                            msg.size(),                                      // buffer size
+                            ucp_dt_make_contig(1),                           // data type
+                            stag,                                            // tag
+                            &communicator::send_callback);                   // callback function pointer
+                        
+                        if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
+                        {
+                            // send operation is completed immediately and the call-back function is not invoked
+                            // call the callback
+                            callback(std::move(msg), dst, tag);
+                            //return {nullptr, std::make_shared<request_cb_state_type>(true)};
+                            return {};
+                        } 
+                        else if(!UCS_PTR_IS_ERR(ret))
+                        {
+                            auto req_ptr = request_cb_data_type::construct(ret,
+                                m_send_worker,
+                                request_kind::send,
+                                std::move(msg),
+                                dst,
+                                tag,
+                                std::forward<CallBack>(callback),
+                                std::make_shared<request_cb_state_type>(false));
+                            return {req_ptr, req_ptr->m_completed};
+                        }
+                        else
+                        {
+                            // an error occurred
+                            throw std::runtime_error("ghex: ucx error - send operation failed");
+                        }
+                    }
+                    
+                    template<typename Message, typename CallBack>
+                    request_cb_type recv(std::shared_ptr<Message>& shared_msg_ptr, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return recv(message_type{shared_msg_ptr}, src, tag, std::forward<CallBack>(callback));
+                    }
+                    
+                    template<typename Alloc, typename CallBack>
+                    request_cb_type recv(shared_message_buffer<Alloc>& shared_msg, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return recv(message_type{shared_msg.m_message}, src, tag, std::forward<CallBack>(callback));
+                    }
+
+                    template<typename Message, typename CallBack>
+                    lvalue_func<Message&&> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        using V = typename std::remove_reference_t<Message>::value_type;
+                        return recv(message_type{ref_message<V>{msg.data(),msg.size()}}, src, tag, std::forward<CallBack>(callback));
+                    }
+
+                    template<typename Message, typename CallBack>
+                    rvalue_func<Message&&> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback, std::true_type)
+                    {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        return recv(message_type{std::move(msg)}, src, tag, std::forward<CallBack>(callback));
+                    }
+	    
+                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t* /*info*/)
+                    {
+                        //const rank_type src = (rank_type)(info->sender_tag & 0x00000000fffffffful);
+                        //const tag_type  tag = (tag_type)((info->sender_tag & 0xffffffff00000000ul) >> 32);
+                        
+                        auto& req = request_cb_data_type::get(ucx_req);
+
+                        if (status == UCS_OK)
+                        {
+                            if (static_cast<int>(req.m_kind) == 0)
+                            {
+                                // we're in early completion mode
+                                return;
+                            }
+
+                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                            // set completion bit
+                            //req.m_completed->m_ready = true;
+                            *req.m_completed = true;
+                            // destroy the request - releases the message
+                            req.m_kind = request_kind::none;
+                            req.~request_cb_data_type();
+                            // free ucx request
+                            //request_init(ucx_req);
+                            ucp_request_free(ucx_req);
+                        }
+                        else if (status == UCS_ERR_CANCELED)
+                        {
+			                // canceled - do nothing
+                            // set completion bit
+                            //req.m_completed->m_ready = true;
+                            *req.m_completed = true;
+                            req.m_kind = request_kind::none;
+                            // destroy the request - releases the message
+                            req.~request_cb_data_type(); 
+                            // free ucx request
+                            //request_init(ucx_req);
+                            ucp_request_free(ucx_req);
+                        }
+                        else
+                        {
+                            // an error occurred
+                            throw std::runtime_error("ghex: ucx error - recv message truncated");
+                            //req.m_exception = std::make_exception_ptr(std::runtime_error("ghex: ucx error - recv message truncated"));
+                        }
+                    }
+                    
+                    template<typename CallBack>
+                    request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
+                    {
+                        const auto rtag = ((std::uint_fast64_t)tag << 32) | 
+                                           (std::uint_fast64_t)(src);
+                        //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
+                        //using lk_t=typename tp_t::lock_type;
+                        //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
+                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this,rtag,&msg,src,tag,&callback]()
+                            {
+                                auto ret = ucp_tag_recv_nb(
+                                    //m_recv_worker->get(),                            // worker
+                                    m_ucp_rw,                                        // worker
+                                    msg.data(),                                      // buffer
+                                    msg.size(),                                      // buffer size
+                                    ucp_dt_make_contig(1),                           // data type
+                                    rtag,                                            // tag
+                                    ~std::uint_fast64_t(0ul),                        // tag mask
+                                    &communicator::recv_callback);                   // callback function pointer
+
+                                if(!UCS_PTR_IS_ERR(ret))
+                                {
+			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
+                                    {
+                                        // early completed
+                                        callback(std::move(msg), src, tag);
+		    		                    // we need to free the request here, not in the callback
+                                        auto ucx_ptr = ret;
+                                        //request_init(ucx_ptr);
+                                        request_cb_data_type::get(ucx_ptr).m_kind = request_kind::none;
+				                        ucp_request_free(ucx_ptr);
+                                        //return request_cb_type{nullptr, std::make_shared<request_cb_state_type>(true)};
+                                        return request_cb_type{};
+                                    }
+                                    else
+                                    {
+                                        auto req_ptr = request_cb_data_type::construct(ret,
+                                            m_recv_worker,
+                                            request_kind::recv,
+                                            std::move(msg),
+                                            src,
+                                            tag,
+                                            std::forward<CallBack>(callback),
+                                            std::make_shared<request_cb_state_type>(false));
+                                        return request_cb_type{req_ptr, req_ptr->m_completed};
+                                    }
+                                }
+                                else
+                                {
+                                    // an error occurred
+                                    throw std::runtime_error("ghex: ucx error - recv operation failed");
+                                }
+                            }
+                        );
+                    }
+                };
+
+            } // namespace ucx
+        } // namespace tl
     } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP */
+#endif /* INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP */
+

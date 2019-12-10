@@ -1,295 +1,301 @@
-/*
+/* 
  * GridTools
- *
+ * 
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- *
+ * 
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
+ * 
  */
 #ifndef INCLUDED_GHEX_TL_UCX_REQUEST_HPP
 #define INCLUDED_GHEX_TL_UCX_REQUEST_HPP
 
 #include <functional>
-#include <memory>
-#include <ucp/api/ucp.h>
-
-#ifdef USE_RAW_SHARED_MESSAGE
-#include "../raw_shared_message_buffer.hpp"
-#else
-#include "../shared_message_buffer.hpp"
-#endif
-
-#include "ucp_lock.hpp"
+#include "../context.hpp"
+#include "../ucx/worker.hpp"
+#include "../callback_utils.hpp"
+#include "../../threads/atomic/primitives.hpp"
 
 namespace gridtools{
     namespace ghex {
         namespace tl {
             namespace ucx {
 
-		typedef enum {
-		    REQ_NONE = 0,
-		    REQ_SEND,
-		    REQ_RECV
-		} t_request_type;
+                enum class request_kind : int { none=0, send, recv };
 
-		/** request structure for futures-based comm */
-		struct ghex_ucx_request_ft {
-
-		    /* Worker, to which this request was submitted.
-		       Needed when we want to cancel it.
-		    */
-		    ucp_worker_h m_ucp_worker;
-		    ucp_worker_h m_ucp_worker_send;
-		    t_request_type m_type;
-		};
-
-		/** request structure for callback-based comm */
-		template<typename Allocator>
-		struct ghex_ucx_request_cb {
-
-		    using message_type = shared_message_buffer<Allocator>;
-
-		    ucp_worker_h m_ucp_worker;
-		    uint32_t m_peer_rank;
-		    uint32_t m_tag;
-		    std::function<void(message_type, int, int)> m_cb;
-		    message_type m_msg;
-		    std::shared_ptr<bool> m_completed;
-		    t_request_type m_type;
-
-		    ghex_ucx_request_cb() : 
-			m_ucp_worker{nullptr}, 
-			m_peer_rank{0}, 
-			m_tag{0}, 
-			m_msg(0), 
-			m_completed(nullptr),
-			m_type(REQ_NONE)
-		    {}
-
-		    ~ghex_ucx_request_cb(){}
-
-		    ghex_ucx_request_cb(const ghex_ucx_request_cb&) = delete;
-		    ghex_ucx_request_cb(ghex_ucx_request_cb &&other) :
-			m_ucp_worker{other.m_ucp_worker},
-			m_peer_rank{other.m_peer_rank},
-			m_tag{other.m_tag},
-			m_cb{std::move(other.m_cb)},
-			m_msg{std::move(other.m_msg)},
-			m_completed{std::move(other.m_completed)},
-			m_type{other.m_type}
-		    {}
-
-		    ghex_ucx_request_cb& operator=(const ghex_ucx_request_cb &other) = delete;
-		};
-
-		/** size of the ghex_ucx_request_cb struct - currently 88 bytes */
-#define GHEX_REQUEST_SIZE 80
-
-                /** @brief thin wrapper around UCX Request */
-                struct request
+                template<typename ThreadPrimitives>
+                struct request_data_ft
                 {
+                    using worker_type            = worker_t<ThreadPrimitives>;
 
-		    using req_type = ghex_ucx_request_ft*;
-                    req_type m_req = NULL;
+                    void*        m_ucx_ptr;
+                    worker_type* m_recv_worker;
+                    worker_type* m_send_worker;
+                    request_kind m_kind;
 
-		    request(req_type m_req_ = nullptr):
-			m_req{m_req_} {}
-		    request(const request &&other) = delete;
-		    request(request &&other) :
-			m_req{other.m_req}
-		    {
-			other.m_req = nullptr;
-		    }
+                    static constexpr std::uintptr_t mask = ~(alignof(request_data_ft)-1u);
+                    template<typename... Args>
+                    static request_data_ft* construct(void* ptr, Args&& ...args)
+                    {
+                        // align pointer    
+                        auto a_ptr = reinterpret_cast<request_data_ft*>
+                            ((reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_ft)-1) & mask);
+                        new(a_ptr) request_data_ft{ptr,std::forward<Args>(args)...};
+                        return a_ptr;
+                    }
+                };
+                using request_data_size_ft = std::integral_constant<std::size_t,
+                    sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
+                    alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
 
-		    ~request()
-		    {
-			/* user's responsibility to make sure 
-			   that this is not called before the comm is completed
-			 */
-			if(!m_req) return;
+                template<typename ThreadPrimitives>
+                struct request_data_cb
+                {
+                    using worker_type       = worker_t<ThreadPrimitives>;
+                    using message_type      = ::gridtools::ghex::tl::cb::any_message; 
+                    using rank_type         = endpoint_t::rank_type;
+                    using tag_type          = typename worker_type::tag_type;
+                    using state_type        = bool;//::gridtools::ghex::tl::cb::request_state;
+                    
+                    void*        m_ucx_ptr;
+                    worker_type* m_worker;
+                    request_kind m_kind;
+                    message_type m_msg;
+                    rank_type    m_rank;
+                    tag_type     m_tag;
+                    std::function<void(message_type, rank_type, tag_type)> m_cb;
+                    std::shared_ptr<state_type> m_completed;
+                    //std::exception_ptr m_exception = nullptr;
 
-			/* TODO: not a good idea to lock the worker
-			   in a destructor? */
-			CRITICAL_BEGIN(ucp_lock) {
-			    
-			    /* this shouldn't happen in good code.. */
-			    fprintf(stderr, "WARNING: free incomplete request %p\n", (void*)m_req);
-			    ucp_request_free(m_req);
-			} CRITICAL_END(ucp_lock);
-		    }
+                    static constexpr std::uintptr_t mask = ~(alignof(request_data_cb)-1u);
+                    template<typename... Args>
+                    static request_data_cb* construct(void* __restrict ptr, Args&& ...args)
+                    {
+                        // align pointer    
+                        auto a_ptr = reinterpret_cast<request_data_cb*>
+                            ((reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_cb)-1) & mask);
+                        new(a_ptr) request_data_cb{ptr,std::forward<Args>(args)...};
+                        return a_ptr;
+                    }
 
-		    request& operator=(const request &other) = delete;
-		    request& operator=(request &&other)
-		    {
+                    static request_data_cb& get(void* __restrict ptr)
+                    {
+                        unsigned char* __restrict cptr = (unsigned char*)ptr;
+                        return *reinterpret_cast<request_data_cb*>
+                            ((reinterpret_cast<std::uintptr_t>(cptr) + alignof(request_data_cb)-1) & mask);
+                    }
+                };
+                
+                using request_data_size_cb = std::integral_constant<std::size_t,
+                    sizeof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>) +
+                    alignof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>)>;
+                
+                using request_data_size = request_data_size_cb;
+                
+                void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
 
-			if(m_req){
-			    CRITICAL_BEGIN(ucp_lock) {
+                template<typename ThreadPrimitives>
+                struct request_ft
+                {
+                    using data_type = request_data_ft<ThreadPrimitives>;
 
-				/* this shouldn't happen in good code.. */
-				fprintf(stderr, "WARNING: free incomplete request %p\n", (void*)m_req);
-				ucp_request_free(m_req);
-			    } CRITICAL_END(ucp_lock);
-			}
-			
-			m_req = other.m_req;
-			other.m_req = nullptr;
-			return *this;
-		    }
+                    data_type* m_req = nullptr;
 
+                    request_ft() = default;
+                    request_ft(data_type* ptr) noexcept : m_req{ptr} {}
+                    request_ft(const request_ft&) = delete;
+                    request_ft& operator=(const request_ft&) = delete;
+
+                    request_ft(request_ft&& other) noexcept
+                    : m_req{ std::exchange(other.m_req, nullptr) } 
+                    {}
+
+                    request_ft& operator=(request_ft&& other) noexcept
+                    {
+                        if (m_req) destroy();
+                        m_req = std::exchange(other.m_req, nullptr);
+                        return *this;
+                    }
+
+                    ~request_ft()
+                    {
+                        if (m_req) destroy();
+                    }
+
+                    void destroy()
+                    {
+                        void* ucx_ptr = m_req->m_ucx_ptr;
+                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [ucx_ptr]()
+                            {
+                                request_init(ucx_ptr);
+                                ucp_request_free(ucx_ptr);
+                            }
+                        );
+                    }
+
+                    bool test()
+                    {
+                        if (!m_req) return true;
+
+                        ucp_worker_progress(m_req->m_send_worker->get());
+                        ucp_worker_progress(m_req->m_send_worker->get());
+                        ucp_worker_progress(m_req->m_send_worker->get());
+                        
+                        auto& tp = m_req->m_send_worker->m_parallel_context->thread_primitives();
+                        return tp.critical(
+                            [this]()
+                            {
+                                ucp_worker_progress(m_req->m_recv_worker->get());
+                                ucp_worker_progress(m_req->m_recv_worker->get());
+
+			                    // check request status
+                                // TODO check whether ucp_request_check_status has to be locked also:
+                                // it does access the worker!
+                                // TODO are we allowed to call this?
+                                // m_req might be a send request submitted on another thread, and hence might access
+                                // the other threads's send worker... 
+			                    if (UCS_INPROGRESS != ucp_request_check_status(m_req->m_ucx_ptr)) 
+                                {
+                                    auto ucx_ptr = m_req->m_ucx_ptr;
+                                    request_init(ucx_ptr);
+				                    ucp_request_free(ucx_ptr);
+                                    m_req = nullptr;
+                                    return true;
+                                }
+                                else
+                                    return false;
+                            }
+                        );
+                    }
+                    
                     void wait()
                     {
-			if(NULL == m_req) return;
-			while (!test());
+                        if (!m_req) return;
+                        while (!test());
                     }
-
-                    bool test()
+                    
+                    bool cancel()
                     {
-			ucs_status_t status;
-			bool retval = false;
+                        if (!m_req) return true;
 
-			if(nullptr == m_req) return true;
+                        // TODO at this time, send requests cannot be canceled
+                        // in UCX (1.7.0rc1)
+                        // https://github.com/openucx/ucx/issues/1162
+                        // 
+                        // TODO the below is only correct for recv requests,
+                        // or for send requests under the assumption that 
+                        // the requests cannot be moved between threads.
+                        // 
+                        // For the send worker we do not use locks, hence
+                        // if request is canceled on another thread, it might
+                        // clash with another send being submitted by the owner
+                        // of ucp_worker
 
-			ucp_worker_progress(m_req->m_ucp_worker_send);
-			ucp_worker_progress(m_req->m_ucp_worker_send);
-			ucp_worker_progress(m_req->m_ucp_worker_send);
-			CRITICAL_BEGIN(ucp_lock) {
+                        if (m_req->m_kind == request_kind::send) return false;
 
-			    /* always progress UCX */
-			    ucp_worker_progress(m_req->m_ucp_worker);
-			    ucp_worker_progress(m_req->m_ucp_worker);
-
-			    /* ucp_request_check_status has to be locked also:
-			       it does access the worker!
-			    */
-
-			    /* TODO : are we allowed to call this?
-			       m_req might be a send request submitted on 
-			       another thread, and hence might access
-			       the other threads's send worker... 
-			    */
-			    
-			    /* check request status */
-			    status = ucp_request_check_status(m_req);
-			    if(UCS_INPROGRESS != status) {
-				ucp_request_free(m_req);
-				m_req = NULL;
-				retval = true;
-			    }
-			} CRITICAL_END(ucp_lock);
-
-			return retval;
+                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
+                            [this]()
+                            {
+                                auto ucx_ptr = m_req->m_ucx_ptr;
+                                auto worker = m_req->m_recv_worker->get();
+                                ucp_request_cancel(worker, ucx_ptr);
+                            }
+                        );
+			            // wait for the request to either complete, or be canceled
+                        wait();
+                        return true;
                     }
-
-		    bool cancel(){
-
-			if(nullptr == m_req) return true;
-
-			/* TODO: at this time, send requests cannot be canceled
-			   in UCX (1.7.0rc1)
-			   https://github.com/openucx/ucx/issues/1162
-			*/
-			
-			/* TODO: the below is only correct for recv requests,
-			   or for send requests under the assumption that 
-			   the requests cannot be moved between threads.
-			   
-			   For the send worker we do not use locks, hence
-			   if request is canceled on another thread, it might
-			   clash with another send being submitted by the owner
-			   of ucp_worker
-			*/
-			if(REQ_SEND == m_req->m_type){
-			    return false;
-			} else {
-			    CRITICAL_BEGIN(ucp_lock){
-				ucp_request_cancel(m_req->m_ucp_worker, m_req);
-			    } CRITICAL_END(ucp_lock);
-
-			    /* wait for the request to either complete, or be canceled */
-			    wait();
-			}
-			
-			return true;
-		    }
                 };
-
-
-                /** @brief thin wrapper around UCX Request */
-		template<typename Allocator>
+                
+                template<typename ThreadPrimitives>
                 struct request_cb
                 {
+                    using data_type    = request_data_cb<ThreadPrimitives>;
+                    using state_type   = typename data_type::state_type;
+                    using message_type = typename data_type::message_type;
 
-		    using req_type = ghex_ucx_request_cb<Allocator>*;
+                    data_type*                  m_req = nullptr;
+                    std::shared_ptr<state_type> m_completed;
+                    
+                    request_cb() = default;
+                    request_cb(data_type* ptr, std::shared_ptr<state_type> sp) noexcept : m_req{ptr}, m_completed{sp} {}
+                    request_cb(const request_cb&) = delete;
+                    request_cb& operator=(const request_cb&) = delete;
 
-                    req_type m_req = nullptr;
-		    std::shared_ptr<bool> m_completed;
+                    request_cb(request_cb&& other) noexcept
+                    : m_req{ std::exchange(other.m_req, nullptr) } 
+                    , m_completed{std::move(other.m_completed)}
+                    {}
 
-		    request_cb(req_type req = nullptr): 
-			m_req(req)
-		    {
-			if(m_req) m_completed = m_req->m_completed;
-		    }
-		    request_cb(const request_cb &other) = delete;
-		    request_cb(request_cb &&other) :
-			m_req{std::move(other.m_req)},
-			m_completed{std::move(other.m_completed)}
-		    {
-			other.m_req = nullptr;
-		    }
-
-		    request_cb& operator=(const request_cb &other) = delete;
-		    request_cb& operator=(request_cb &&other)
-		    {
-			m_req = std::move(other.m_req);
-			m_completed = std::move(other.m_completed);
-			other.m_req = nullptr;
-			return *this;
-		    }
-
+                    request_cb& operator=(request_cb&& other) noexcept
+                    {
+                        m_req = std::exchange(other.m_req, nullptr);
+                        m_completed = std::move(other.m_completed);
+                        return *this;
+                    }
+                    
                     bool test()
                     {
-			if(nullptr == m_req) return true;
-			if(*m_completed) {
-			    m_req = nullptr;
-			    m_completed = nullptr;
-			    return true;
-			}
-			return false;
+			            if(!m_req) return true;
+                        
+                        //if (m_completed->is_ready())
+                        if (*m_completed)
+                        {
+			                m_req = nullptr;
+                            //m_completed.reset();
+                            return true;
+                        }
+			            return false;
                     }
+                    
+                    bool cancel()
+                    {
+                        if (!m_req) return true;
 
-		    bool cancel(){
+                        // TODO at this time, send requests cannot be canceled
+                        // in UCX (1.7.0rc1)
+                        // https://github.com/openucx/ucx/issues/1162
+                        // 
+                        // TODO the below is only correct for recv requests,
+                        // or for send requests under the assumption that 
+                        // the requests cannot be moved between threads.
+                        // 
+                        // For the send worker we do not use locks, hence
+                        // if request is canceled on another thread, it might
+                        // clash with another send being submitted by the owner
+                        // of ucp_worker
 
-			if(nullptr == m_req) return true;
+                        if (m_req->m_kind == request_kind::send) return false;
 
-			/* TODO: at this time, send requests cannot be canceled
-			   in UCX (1.7.0rc1)
-			   https://github.com/openucx/ucx/issues/1162
-			*/
-			if(REQ_SEND == m_req->m_type) return false;
-
-			/* TODO: the below is only correct for recv requests,
-			   or for send requests under the assumption that 
-			   the requests cannot be moved between threads.
-			   
-			   For the send worker we do not use locks, hence
-			   if request is canceled on another thread, it might
-			   clash with another send being submitted by the owner
-			   of ucp_worker
-			*/
-			CRITICAL_BEGIN(ucp_lock){
-			    if(!(*m_completed)) 
-				ucp_request_cancel(m_req->m_ucp_worker, m_req);
-			    m_req = nullptr;
-			    m_completed = nullptr;
-			} CRITICAL_END(ucp_lock);
-			return true;
-		    }
+                        return m_req->m_worker->m_parallel_context->thread_primitives().critical(
+                            [this]()
+                            {
+                                //if (!m_req->m_completed->is_ready())
+                                if (!(*m_req->m_completed))
+                                {
+                                    auto ucx_ptr = m_req->m_ucx_ptr;
+                                    auto worker = m_req->m_worker->get();
+                                    // set to zero here????
+                                    // if we assume that the callback is always called, we
+                                    // can handle this in the callback body- otherwise needs
+                                    // to be done here:
+                                    //request_init(ucx_ptr);
+				                    ucp_request_cancel(worker, ucx_ptr);
+                                }
+                                m_req = nullptr;
+                                //m_completed.reset();
+                                return true;
+                            }
+                        );
+                    }
                 };
+
             } // namespace ucx
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_UCX_REQUEST_HPP */
+

@@ -201,6 +201,12 @@ namespace gridtools {
                 }
 
             };
+            
+            //template<class TransportTag, class ThreadPrimitives>
+            //struct context_factory;
+            //{
+            //    context<Transport_Tag,ThreadPrimitives>& create(num_threads, MPI_Comm);
+            //};
 
         } // namespace tl
     } // namespace ghex
