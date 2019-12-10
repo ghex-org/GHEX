@@ -62,7 +62,8 @@ auto test1() {
 }
 
 auto test2() {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
@@ -110,7 +111,8 @@ auto test2() {
 }
 
 auto test1_mesg() {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
@@ -156,7 +158,8 @@ auto test1_mesg() {
 }
 
 auto test2_mesg() {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
@@ -212,7 +215,8 @@ auto test2_mesg() {
 }
 
 auto test1_shared_mesg() {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);

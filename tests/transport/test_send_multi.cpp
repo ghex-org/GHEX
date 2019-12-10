@@ -27,7 +27,8 @@ TEST(transport, send_multi) {
         EXPECT_EQ(size, 4);
     }
 
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto token = context.get_token();
     mpi_rank = context.world().rank();
     context.barrier(token);

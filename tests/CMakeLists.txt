@@ -17,7 +17,8 @@ foreach (_t ${_serial_tests})
     )
 endforeach()
 
-set(_tests mpi_allgather communication_object)
+#set(_tests mpi_allgather communication_object)
+set(_tests mpi_allgather)
 
 foreach (_t ${_tests})
     add_executable(${_t} ${_t}.cpp)

@@ -43,7 +43,8 @@ TEST(data_store, make)
     MPI_Cart_create(MPI_COMM_WORLD, 3, &dimensions[0], period, false, &CartComm);
     const std::array<int, 3>  extents{Nx0,Ny0,Nz0};
 
-    context_type context(1, CartComm);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, CartComm);
+    auto& context = *context_ptr;
 
     auto grid     = gridtools::ghex::make_gt_processor_grid(context, extents, periodicity); 
     auto pattern1 = gridtools::ghex::make_gt_pattern(grid, std::array<int,6>{1,1,1,1,0,0});

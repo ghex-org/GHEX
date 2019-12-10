@@ -32,7 +32,8 @@ TEST(attach, attach_progress)
 {
     bool ok = true;
     
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
@@ -72,7 +73,8 @@ TEST(attach, attach_progress)
 TEST(detach, detach_wait)
 {
     bool ok = true;
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
@@ -118,7 +120,8 @@ TEST(detach, detach_wait)
 TEST(detach, detach_cancel_unexpected) 
 {
     bool ok = true;
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 

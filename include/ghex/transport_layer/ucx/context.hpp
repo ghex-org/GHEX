@@ -12,7 +12,7 @@
 #define INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 
 #include "./communicator.hpp"
-//#include "./address_db_mpi.hpp"
+#include "./address_db_mpi.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -228,13 +228,14 @@ namespace gridtools {
 
             } // namespace ucx
             
-            //template<ucx_tag, class ThreadPrimitives>
-            //struct context_factory
-            //{
-            //    std::unique_ptr
-            //{
-            //    context<Transport_Tag,ThreadPrimitives>& create(num_threads, MPI_Comm);
-            //};
+            template<class ThreadPrimitives>
+            struct context_factory<ucx_tag, ThreadPrimitives>
+            {
+                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm)
+                {
+                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, mpi_comm, ucx::address_db_mpi{mpi_comm});
+                }
+            };
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools

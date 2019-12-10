@@ -153,19 +153,13 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
 
 TEST(communication_object_2, exchange)
 {
+
 #if defined(GHEX_TEST_SERIAL) || defined(GHEX_TEST_SERIAL_VECTOR) || defined(GHEX_TEST_SERIAL_SPLIT) || defined(GHEX_TEST_SERIAL_SPLIT_VECTOR)
-    #ifndef GHEX_TEST_USE_UCX
-    context_type context(1, MPI_COMM_WORLD);
-    #else
-    context_type context(1, MPI_COMM_WORLD, db_type{MPI_COMM_WORLD} );
-    #endif
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
 #else
-    #ifndef GHEX_TEST_USE_UCX
-    context_type context(2, MPI_COMM_WORLD);
-    #else
-    context_type context(2, MPI_COMM_WORLD, db_type{MPI_COMM_WORLD} );
-    #endif
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(2, MPI_COMM_WORLD);
 #endif
+    auto& context = *context_ptr;
 
 #ifdef __CUDACC__
     int num_devices_per_node;

@@ -87,11 +87,8 @@ int main(int argc, char *argv[])
 #endif
     
     {
-        #ifdef USE_MPI
-        context_type contex{num_threads, MPI_COMM_WORLD};
-        #else
-        context_type context{num_threads, MPI_COMM_WORLD, db_type{MPI_COMM_WORLD} };
-        #endif
+        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+        auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
         #pragma omp parallel

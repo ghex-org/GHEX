@@ -195,20 +195,23 @@ TEST(transport, check_mpi_ranks_eq_4) {
 }
 
 TEST(transport, cancel_requests_reposting) {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_send_10(comm, context.world().rank()));
 }
 
 TEST(transport, cancel_requests_simple) {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_simple(comm, context.world().rank()));
 
 }
 
 TEST(transport, cancel_single_request) {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_single(comm, context.world().rank()));
 }

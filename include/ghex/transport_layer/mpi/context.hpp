@@ -44,7 +44,14 @@ namespace gridtools {
 
             };
 
-            //using mpi_context = context<mpi_tag>;
+            template<class ThreadPrimitives>
+            struct context_factory<mpi_tag, ThreadPrimitives>
+            {
+                static std::unique_ptr<context<mpi_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm)
+                {
+                    return std::make_unique<context<mpi_tag,ThreadPrimitives>>(num_threads, mpi_comm);
+                }
+            };
 
         }
     }
