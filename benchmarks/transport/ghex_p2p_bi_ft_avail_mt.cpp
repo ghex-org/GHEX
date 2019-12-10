@@ -2,7 +2,6 @@
 #include <vector>
 #include <atomic>
 
-#include <ghex/transport_layer/ucx/threads.hpp>
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
@@ -28,17 +27,20 @@ using threading    = ghex::threads::omp::primitives;
 #include <ghex/threads/none/primitives.hpp>
 using threading    = ghex::threads::none::primitives;
 #endif
-#include <ghex/transport_layer/ucx3/address_db_mpi.hpp>
+#include <ghex/transport_layer/ucx/address_db_mpi.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
 using db_type      = ghex::tl::ucx::address_db_mpi;
 using transport    = ghex::tl::ucx_tag;
 #endif /* USE_MPI */
 
 #include <ghex/transport_layer/message_buffer.hpp>
+
 using context_type = ghex::tl::context<transport, threading>;
-using MsgType = gridtools::ghex::tl::message_buffer<>;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::future<void>;
+
+
+using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 
 std::atomic<int> sent(0);
@@ -55,7 +57,8 @@ int main(int argc, char *argv[])
     int mode;
     gridtools::ghex::timer timer, ttimer;
 
-    if(argc != 4){
+    if(argc != 4)
+    {
         std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
         std::terminate();
     }
@@ -80,31 +83,25 @@ int main(int argc, char *argv[])
 #endif
 
     {
-#ifdef USE_MPI
-        context_type contex{num_threads, MPI_COMM_WORLD};
-#else
-        context_type context{num_threads, MPI_COMM_WORLD, db_type{MPI_COMM_WORLD} };
+        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+        auto& context = *context_ptr;
+
+#ifdef USE_OPENMP
+#pragma omp parallel
 #endif
-
-
-        THREAD_PARALLEL_BEG() {
-
-            auto token = context.get_token();
-
-            auto comm = context.get_communicator(token);
-
-            const auto rank = comm.rank();
-            const auto size = comm.size();
-            const auto thread_id = token.id();
+        {
+            auto token             = context.get_token();
+            auto comm              = context.get_communicator(token);
+            const auto rank        = comm.rank();
+            const auto size        = comm.size();
+            const auto thread_id   = token.id();
             const auto num_threads = context.thread_primitives().size();
-            const auto peer_rank = (rank+1)%2;
+            const auto peer_rank   = (rank+1)%2;
 
-            context.thread_primitives().master(token,
-                [rank,&comm]()
-                {
-                    if(rank==0)
-                        std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
-                });
+            if (thread_id==0 && rank==0)
+            {
+                std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+            };
 
             std::vector<MsgType> smsgs(inflight);
             std::vector<MsgType> rmsgs(inflight);
@@ -120,21 +117,17 @@ int main(int argc, char *argv[])
 
             context.barrier(token);
 
-            context.thread_primitives().master(token,
-                [&timer,&ttimer,rank,num_threads]()
-                {
-                    timer.tic();
-                    ttimer.tic();
-                    if(rank == 1)
-                        std::cout << "number of threads: " << num_threads << ", multi-threaded: " << THREAD_IS_MT << "\n";
-                });
-
-            context.thread_primitives().barrier(token);
+	    if(thread_id == 0)
+	    {
+		timer.tic();
+		ttimer.tic();
+		if(rank == 1)
+                    std::cout << "number of threads: " << num_threads << ", multi-threaded: true\n";
+	    }
 
             int dbg = 0, sdbg = 0, rdbg = 0;
             while(sent < niter || received < niter)
             {
-                /* submit comm */
                 for(int j=0; j<inflight; j++)
                 {
                     if(rank==0 && thread_id==0 && sdbg>=(niter/10)) {
@@ -174,24 +167,16 @@ int main(int argc, char *argv[])
             }
 
             context.barrier(token);
-            context.thread_primitives().master(token,
-                [&niter,size,buff_size,&ttimer,rank,num_threads]()
-                {
-                    if (rank==1)
-                    {
-                        const auto t = ttimer.toc();
-                        std::cout << "time:       " << t/1000000 << "s\n";
-                        std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
-                    }
-                });
-
-            context.thread_primitives().barrier(token);
+	    if(thread_id == 0 && rank == 0){
+		const auto t = ttimer.toc();
+		std::cout << "time:       " << t/1000000 << "s\n";
+		std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
+	    }
 
             // tail loops - submit RECV requests until
             // all SEND requests have been finalized.
             // This is because UCX cannot cancel SEND requests.
             // https://github.com/openucx/ucx/issues/1162
-            //
             {
                 int incomplete_sends = 0;
                 int send_complete = 0;
@@ -240,7 +225,7 @@ int main(int argc, char *argv[])
                         }
                     }
                     context.thread_primitives().master(token,
-                        [&rf,&tail_recv]()
+                        [&rf]()
                         {
                             if(rf.test()) tail_recv = 1;
                         });
@@ -251,7 +236,7 @@ int main(int argc, char *argv[])
                 rreqs[j].cancel();
             }
 
-        } THREAD_PARALLEL_END();
+        }
     }
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

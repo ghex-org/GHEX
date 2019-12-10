@@ -2,7 +2,6 @@
 #include <vector>
 #include <atomic>
 
-//#include <ghex/transport_layer/ucx/threads.hpp>
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
@@ -24,8 +23,6 @@ using transport    = ghex::tl::mpi_tag;
 #ifdef USE_OPENMP
 #include <ghex/threads/omp/primitives.hpp>
 using threading    = ghex::threads::omp::primitives;
-//#include <ghex/threads/atomic/primitives.hpp>
-//using threading    = ghex::threads::atomic::primitives;
 #else
 #include <ghex/threads/none/primitives.hpp>
 using threading    = ghex::threads::none::primitives;
@@ -52,12 +49,13 @@ std::atomic<int> tail_send(0);
 std::atomic<int> tail_recv(0);
 int last_received = 0;
 int last_sent = 0;
-int inflight;
 
 int main(int argc, char *argv[])
 {
     int niter, buff_size;
+    int inflight;
     int mode;
+    gridtools::ghex::timer timer, ttimer;
 
     if(argc != 4)
     {
@@ -68,10 +66,7 @@ int main(int argc, char *argv[])
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
 
-    gridtools::ghex::timer timer, ttimer;
-
     int num_threads = 1;
-
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
@@ -147,7 +142,7 @@ int main(int argc, char *argv[])
                 ttimer.tic();
                 if(rank == 1)
                     std::cout << "number of threads: " << num_threads << ", multi-threaded: true\n";
-            };
+            }
 
             // send/recv niter messages - as soon as a slot becomes free
             while(sent < niter || received < niter)
@@ -262,6 +257,7 @@ int main(int argc, char *argv[])
 
                 while(!tail_recv.load()){
                     comm.progress();
+
                     // schedule all recvs to allow the peer to complete
                     for(int j=0; j<inflight; j++){
                         if(rreqs[j].test()) {
