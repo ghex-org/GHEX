@@ -42,8 +42,8 @@ using context_type = ghex::tl::context<transport, threading>;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::request_cb_type;
 
-using MsgType = gridtools::ghex::tl::message_buffer<>;
-//using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
+//using MsgType = gridtools::ghex::tl::message_buffer<>;
+using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
 std::atomic<int> sent(0);
