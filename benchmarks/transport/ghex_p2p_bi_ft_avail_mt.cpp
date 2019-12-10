@@ -9,31 +9,31 @@
 namespace ghex = gridtools::ghex;
 
 #ifdef USE_MPI
-    /* MPI backend */
-    #ifdef USE_OPENMP
-        #include <ghex/threads/atomic/primitives.hpp>
-        using threading    = ghex::threads::atomic::primitives;
-    #else
-        #include <ghex/threads/none/primitives.hpp>
-        using threading    = ghex::threads::none::primitives;
-    #endif
-    #include <ghex/transport_layer/mpi/context.hpp>
-    using transport    = ghex::tl::mpi_tag;
+/* MPI backend */
+#ifdef USE_OPENMP
+#include <ghex/threads/atomic/primitives.hpp>
+using threading    = ghex::threads::atomic::primitives;
 #else
-    /* UCX backend */
-    #ifdef USE_OPENMP
-        #include <ghex/threads/omp/primitives.hpp>
-        using threading    = ghex::threads::omp::primitives;
-    #else
-        #include <ghex/threads/none/primitives.hpp>
-        using threading    = ghex::threads::none::primitives;
-    #endif
-    #include <ghex/transport_layer/ucx3/address_db_mpi.hpp>
-    #include <ghex/transport_layer/ucx/context.hpp>
-    using db_type      = ghex::tl::ucx::address_db_mpi;
-    using transport    = ghex::tl::ucx_tag;
+#include <ghex/threads/none/primitives.hpp>
+using threading    = ghex::threads::none::primitives;
+#endif
+#include <ghex/transport_layer/mpi/context.hpp>
+using transport    = ghex::tl::mpi_tag;
+#else
+/* UCX backend */
+#ifdef USE_OPENMP
+#include <ghex/threads/omp/primitives.hpp>
+using threading    = ghex::threads::omp::primitives;
+#else
+#include <ghex/threads/none/primitives.hpp>
+using threading    = ghex::threads::none::primitives;
+#endif
+#include <ghex/transport_layer/ucx3/address_db_mpi.hpp>
+#include <ghex/transport_layer/ucx/context.hpp>
+using db_type      = ghex::tl::ucx::address_db_mpi;
+using transport    = ghex::tl::ucx_tag;
 #endif /* USE_MPI */
-    
+
 #include <ghex/transport_layer/message_buffer.hpp>
 using context_type = ghex::tl::context<transport, threading>;
 using MsgType = gridtools::ghex::tl::message_buffer<>;
@@ -54,25 +54,25 @@ int main(int argc, char *argv[])
     int inflight;
     int mode;
     gridtools::ghex::timer timer, ttimer;
-    
+
     if(argc != 4){
-	std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
-	std::terminate();
+        std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+        std::terminate();
     }
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight = atoi(argv[3]);   
+    inflight = atoi(argv[3]);
 
     int num_threads = 1;
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
-	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
-	std::terminate();
+        std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
+        std::terminate();
     }
-    #pragma omp parallel
+#pragma omp parallel
     {
-        #pragma omp master
+#pragma omp master
         num_threads = omp_get_num_threads();
     }
 #else
@@ -80,13 +80,13 @@ int main(int argc, char *argv[])
 #endif
 
     {
-        #ifdef USE_MPI
+#ifdef USE_MPI
         context_type contex{num_threads, MPI_COMM_WORLD};
-        #else
+#else
         context_type context{num_threads, MPI_COMM_WORLD, db_type{MPI_COMM_WORLD} };
-        #endif
+#endif
 
-        
+
         THREAD_PARALLEL_BEG() {
 
             auto token = context.get_token();
@@ -99,11 +99,11 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank = (rank+1)%2;
 
-            context.thread_primitives().master(token, 
+            context.thread_primitives().master(token,
                 [rank,&comm]()
                 {
                     if(rank==0)
-                    std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+                        std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
                 });
 
             std::vector<MsgType> smsgs(inflight);
@@ -120,15 +120,15 @@ int main(int argc, char *argv[])
 
             context.barrier(token);
 
-            context.thread_primitives().master(token, 
-                [&timer,&ttimer,rank,num_threads]() 
-                { 
+            context.thread_primitives().master(token,
+                [&timer,&ttimer,rank,num_threads]()
+                {
                     timer.tic();
                     ttimer.tic();
-                    if(rank == 1) 
+                    if(rank == 1)
                         std::cout << "number of threads: " << num_threads << ", multi-threaded: " << THREAD_IS_MT << "\n";
                 });
-            
+
             context.thread_primitives().barrier(token);
 
             int dbg = 0, sdbg = 0, rdbg = 0;
@@ -141,29 +141,29 @@ int main(int argc, char *argv[])
                         std::cout << sent << " sent\n";
                         sdbg = 0;
                     }
-                    
+
                     if(rank==0 && thread_id==0 && rdbg>=(niter/10)) {
                         std::cout << received << " received\n";
                         rdbg = 0;
                     }
-                    
+
                     if(thread_id == 0 && dbg >= (niter/10)) {
                         dbg = 0;
-                        std::cout << rank << " total bwdt MB/s:      " 
+                        std::cout << rank << " total bwdt MB/s:      "
                                   << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.toc()
                                   << "\n";
                         timer.tic();
                         last_received = received;
                         last_sent = sent;
                     }
-                    
+
                     if(rreqs[j].test()) {
                         received++;
                         rdbg+=num_threads;
                         dbg+=num_threads;
                         rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
                     }
-                    
+
                     if(sent < niter && sreqs[j].test()) {
                         sent++;
                         sdbg+=num_threads;
@@ -172,26 +172,26 @@ int main(int argc, char *argv[])
                     }
                 }
             }
-            
+
             context.barrier(token);
-            context.thread_primitives().master(token, 
-                [&niter,size,buff_size,&ttimer,rank,num_threads]() 
-                { 
+            context.thread_primitives().master(token,
+                [&niter,size,buff_size,&ttimer,rank,num_threads]()
+                {
                     if (rank==1)
                     {
                         const auto t = ttimer.toc();
                         std::cout << "time:       " << t/1000000 << "s\n";
                         std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
-                    }       
+                    }
                 });
-            
+
             context.thread_primitives().barrier(token);
 
             // tail loops - submit RECV requests until
             // all SEND requests have been finalized.
             // This is because UCX cannot cancel SEND requests.
             // https://github.com/openucx/ucx/issues/1162
-            // 
+            //
             {
                 int incomplete_sends = 0;
                 int send_complete = 0;
@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
                 // Notify the peer and keep submitting recvs until we get his notification.
                 future_type sf, rf;
                 MsgType smsg(1), rmsg(1);
-                context.thread_primitives().master(token, 
+                context.thread_primitives().master(token,
                     [&comm,&sf,&rf,&smsg,&rmsg,peer_rank]()
                     {
                         sf = comm.send(smsg, peer_rank, 0x800000);
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
                             rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
                         }
                     }
-                    context.thread_primitives().master(token, 
+                    context.thread_primitives().master(token,
                         [&rf,&tail_recv]()
                         {
                             if(rf.test()) tail_recv = 1;
