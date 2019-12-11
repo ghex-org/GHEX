@@ -50,7 +50,6 @@ int main(int argc, char *argv[])
     int mode;
     gridtools::ghex::timer timer, ttimer;
 
-
     if(argc != 4)
     {
         std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
@@ -92,9 +91,9 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
-	    bool using_mt = false;
+            bool using_mt = false;
 #ifdef USE_OPENMP
-	    using_mt = true;
+            using_mt = true;
 #endif
 
             if (thread_id==0 && rank==0)
@@ -116,59 +115,59 @@ int main(int argc, char *argv[])
 
             context.barrier(token);
 
-	    if(thread_id == 0)
-	    {
-		timer.tic();
-		ttimer.tic();
-		if(rank == 1)
+            if(thread_id == 0)
+            {
+                timer.tic();
+                ttimer.tic();
+                if(rank == 1)
                     std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
-	    }
+            }
 
-	    int dbg = 0;
-	    int sent = 0, received = 0;
-	    int last_received = 0;
-	    int last_sent = 0;
-	    while(sent < niter || received < niter){
-	    	    
-		if(thread_id == 0 && dbg >= (niter/10)) {
-		    dbg = 0;
-		    std::cout << rank << " total bwdt MB/s:      "
-			      << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.toc()
-			      << "\n";
-		    timer.tic();
-		    last_received = received;
-		    last_sent = sent;
-		}
-	    
-		/* submit comm */
-		for(int j=0; j<inflight; j++){
-		
-		    dbg += num_threads; 
-		    sent += num_threads;
-		    received += num_threads;
+            int dbg = 0;
+            int sent = 0, received = 0;
+            int last_received = 0;
+            int last_sent = 0;
+            while(sent < niter || received < niter){
 
-		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
-		    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);
-		}
+                if(thread_id == 0 && dbg >= (niter/10)) {
+                    dbg = 0;
+                    std::cout << rank << " total bwdt MB/s:      "
+                              << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.toc()
+                              << "\n";
+                    timer.tic();
+                    last_received = received;
+                    last_sent = sent;
+                }
 
-		/* wait for all */
-		for(int j=0; j<inflight; j++){
-		    sreqs[j].wait();
-		    rreqs[j].wait();		
-		}
-	    }
+                /* submit comm */
+                for(int j=0; j<inflight; j++){
+
+                    dbg += num_threads;
+                    sent += num_threads;
+                    received += num_threads;
+
+                    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
+                    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);
+                }
+
+                /* wait for all */
+                for(int j=0; j<inflight; j++){
+                    sreqs[j].wait();
+                    rreqs[j].wait();
+                }
+            }
 
             context.barrier(token);
-	    if(thread_id == 0 && rank == 0){
-		const auto t = ttimer.toc();
-		std::cout << "time:       " << t/1000000 << "s\n";
-		std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
-	    }
-	}
+            if(thread_id == 0 && rank == 0){
+                const auto t = ttimer.toc();
+                std::cout << "time:       " << t/1000000 << "s\n";
+                std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
+            }
+        }
 
-	// tail loops - not needed in wait benchmarks	
+        // tail loops - not needed in wait benchmarks
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize(); 
+    MPI_Finalize();
 }

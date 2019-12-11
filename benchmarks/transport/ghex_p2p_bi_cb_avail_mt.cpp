@@ -103,14 +103,14 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
-	    bool using_mt = false;
+            bool using_mt = false;
 #ifdef USE_OPENMP
-	    using_mt = true;
+            using_mt = true;
 #endif
 
             int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
-	    int last_received = 0;
-	    int last_sent = 0;
+            int last_received = 0;
+            int last_sent = 0;
             int dbg = 0, sdbg = 0, rdbg = 0;
 
             auto send_callback = [&](communicator_type::message_type, int, int tag)
@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
                 for(int j=0; j<inflight; j++)
                 {
                     if(rmsgs[j].use_count() == 1)
-			//if (rreqs[j].test())
+                        //if (rreqs[j].test())
                     {
                         submit_recv_cnt += num_threads;
                         rdbg += num_threads;
@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
                         comm.progress();
 
                     if(sent < niter && smsgs[j].use_count() == 1)
-			//if(sent < niter && sreqs[j].test())
+                        //if(sent < niter && sreqs[j].test())
                     {
                         submit_cnt += num_threads;
                         sdbg += num_threads;
@@ -217,15 +217,15 @@ int main(int argc, char *argv[])
                 std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
             }
 
-	    // stop here to help produce a nice std output
+            // stop here to help produce a nice std output
             context.barrier(token);
             context.thread_primitives().critical(
-		[&]()
-		{
-		    std::cout
-		    << "rank " << rank << " thread " << thread_id << " sends submitted " << submit_cnt/num_threads
-		    << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
-		});
+                [&]()
+                {
+                    std::cout
+                    << "rank " << rank << " thread " << thread_id << " sends submitted " << submit_cnt/num_threads
+                    << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
+                });
 
             // tail loops - submit RECV requests until
             // all SEND requests have been finalized.

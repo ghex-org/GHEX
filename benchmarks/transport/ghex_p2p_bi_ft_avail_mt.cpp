@@ -103,9 +103,9 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
-	    bool using_mt = false;
+            bool using_mt = false;
 #ifdef USE_OPENMP
-	    using_mt = true;
+            using_mt = true;
 #endif
 
             if (thread_id==0 && rank==0)
@@ -127,17 +127,17 @@ int main(int argc, char *argv[])
 
             context.barrier(token);
 
-	    if(thread_id == 0)
-	    {
-		timer.tic();
-		ttimer.tic();
-		if(rank == 1)
+            if(thread_id == 0)
+            {
+                timer.tic();
+                ttimer.tic();
+                if(rank == 1)
                     std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
-	    }
+            }
 
             int dbg = 0, sdbg = 0, rdbg = 0;
-	    int last_received = 0;
-	    int last_sent = 0;
+            int last_received = 0;
+            int last_sent = 0;
             while(sent < niter || received < niter)
             {
                 for(int j=0; j<inflight; j++)
@@ -179,11 +179,11 @@ int main(int argc, char *argv[])
             }
 
             context.barrier(token);
-	    if(thread_id == 0 && rank == 0){
-		const auto t = ttimer.toc();
-		std::cout << "time:       " << t/1000000 << "s\n";
-		std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
-	    }
+            if(thread_id == 0 && rank == 0){
+                const auto t = ttimer.toc();
+                std::cout << "time:       " << t/1000000 << "s\n";
+                std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
+            }
 
             // tail loops - submit RECV requests until
             // all SEND requests have been finalized.
