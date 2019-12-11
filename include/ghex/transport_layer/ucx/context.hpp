@@ -192,8 +192,6 @@ namespace gridtools {
 
             };
 
-            //using mpi_context = context<mpi_tag>;
-
             namespace ucx {
                 
                 template<typename ThreadPrimitives>
@@ -219,6 +217,7 @@ namespace gridtools {
                         reinterpret_cast<unsigned char*>(worker_address),
                         reinterpret_cast<unsigned char*>(worker_address) + address_length};
                     ucp_worker_release_address(m_worker.get(), worker_address);
+                    m_worker.m_moved = false;
                 }
                 
                 template<typename ThreadPrimitives>
