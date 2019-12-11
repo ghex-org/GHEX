@@ -205,6 +205,8 @@ int main(int argc, char *argv[])
                 std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
             }
 
+	    // stop here to help produce a nice std output
+            context.barrier(token);
             context.thread_primitives().critical(
 		[&]()
 		{
