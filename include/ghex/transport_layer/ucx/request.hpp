@@ -93,7 +93,7 @@ namespace gridtools{
                 
                 using request_data_size = request_data_size_cb;
                 
-                void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
+                inline void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
 
                 template<typename ThreadPrimitives>
                 struct request_ft
