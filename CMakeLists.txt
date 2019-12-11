@@ -1,97 +1,58 @@
 cmake_minimum_required(VERSION 3.12.4)
 
+project(GHEX VERSION 0.1 LANGUAGES CXX)
+if(USE_GPU)
+  enable_language(CUDA)
+endif()
+
 cmake_policy(SET CMP0048 NEW)
 
 set(USE_GPU "OFF" CACHE BOOL "use cuda")
 set(USE_MPI_WITH_UCX_IN_TESTS "OFF" CACHE BOOL "use ucx for unit test")
 set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 
-if(USE_GPU)
-    project(GHEX VERSION 0.1 LANGUAGES CXX CUDA)
-else()
-    project(GHEX VERSION 0.1 LANGUAGES CXX)
-endif()
-
-
 set(CMAKE_CXX_STANDARD 14)
-
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
+  set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-set(GHEX_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+set(GHEX_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
-message(">>>>>>>>>>>>>>>>${CMAKE_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
+find_package(Boost REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
-find_package(Boost)
+list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
+
+set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
+if (GHEX_USE_PMIX)
+  find_package(PMIx REQUIRED)
+endif()
+
+set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
+if (GHEX_USE_UCP)
+  find_package(UCP REQUIRED)
+endif()
 
 set(GHEX_SKIP_MPICXX OFF CACHE BOOL "True if your compiler wrapper includes MPI already (as CRAY PE for instance)")
-
 if (GHEX_SKIP_MPICXX)
    set(MPI_CXX_SKIP_MPICXX ON)
 else()
    set(MPI_CXX_SKIP_MPICXX OFF)
 endif()
 
-set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
-set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
-
-if (GHEX_USE_PMIX)
-   find_package(PMIx)
-   if (PMIx_FOUND)
-      set(PMI_FLAG "USE_PMIX")
-      message("PMIx found")
-   else()
-      message(FATAL_ERROR "PMIx not found but it is requested by user")
-   endif()
-endif()
-
-if (GHEX_USE_UCP)
-   find_package(UCP)
-endif()
-
-#message(">>>>>>>>>>>>>>>>${GridTools_MODULE_PATH}")
-list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
-
-add_library(GHEX_libs INTERFACE)
-target_include_directories(GHEX_libs INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-    )
-target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
-target_compile_features(GHEX_libs INTERFACE cxx_std_14)
+add_library(ghexlib INTERFACE)
+add_library(GHEX::ghexlib ALIAS ghexlib)
+target_include_directories(ghexlib INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  )
+target_link_libraries(ghexlib INTERFACE GridTools::gridtools MPI::MPI_CXX)
+target_compile_features(ghexlib INTERFACE cxx_std_14)
 
 enable_testing()
-
-#set(GHEX_GTEST_DIR ${GridTools_DIR}/_deps/googletest-src CACHE FILEPATH "Place where to find googletest installation")
-#
-#find_path(GTEST_INC_DIR
-#    "gtest/gtest.h"
-#    HINTS
-#    ${GHEX_GTEST_DIR}/include
-#    ${GHEX_GTEST_DIR}/googletest/include)
-#if(NOT GTEST_INC_DIR)
-#    message(FATAL_ERROR "Couldn't find gtest/gtest.h under folder GHEX_GTEST_DIR = " ${GHEX_GTEST_DIR})
-#endif()
-#
-#find_path(GTEST_SOURCE_DIR
-#    gtest-all.cc
-#    HINTS
-#    ${GHEX_GTEST_DIR}/src
-#    ${GHEX_GTEST_DIR}/googletest/src
-#)
-#if(NOT GTEST_SOURCE_DIR)
-#    message(FATAL_ERROR "Couldn't find gtest-all.cc under folder GHEX_TEST_DIR = " ${GHEX_GTEST_DIR})
-#endif()
-#
-#set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
-#set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -112,21 +73,53 @@ set(GTEST_LIB_SOURCES ${googletest_SOURCE_DIR}/googletest/src/gtest-all.cc)
 set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include ${googletest_SOURCE_DIR}/googletest/src ${googletest_SOURCE_DIR}/googletest/)
 
 add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main.cpp )
-target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
-target_link_libraries(gtest_main_mt MPI::MPI_CXX GridTools::gridtools )
+target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+target_link_libraries(gtest_main_mt ghexlib)
 
-add_library(gtest_main_bench ./utils/gtest_main_bench.cpp )
-target_link_libraries(gtest_main_bench MPI::MPI_CXX GridTools::gridtools  )
+if (GHEX_USE_UCP)
+  add_library(gtest_main_ucx ${GTEST_LIB_SOURCES} ./utils/gtest_main_ucx.cpp )
+  target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+  target_link_libraries(gtest_main_ucx ghexlib UCP::libucp)
+  if (GHEX_USE_PMIX)
+    target_link_libraries(gtest_main_ucx ghexlib PMIx::libpmix)
+  endif()
+endif()
+
+add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
 target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
+target_link_libraries(gtest_main_bench ghexlib)
 
-add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp )
-target_link_libraries(gtest_main_bench_mt MPI::MPI_CXX GridTools::gridtools  )
+add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
 target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} )
 target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
+target_link_libraries(gtest_main_bench_mt ghexlib)
 
-add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp )
-target_link_libraries(gtest_main_ucx MPI::MPI_CXX ${UCP_LIBRARY} GridTools::gridtools )
-target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${UCP_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS} )
 
 add_subdirectory(tests)
 add_subdirectory(benchmarks)
+
+include(GNUInstallDirs)
+install(TARGETS ghexlib EXPORT GHEX-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(EXPORT GHEX-targets
+  FILE GHEX-targets.cmake
+  NAMESPACE GHEX::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  )
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  cmake/GHEXConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfig.cmake
+  INSTALL_DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/cmake)
+write_basic_package_version_file(GHEXConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+  )
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfigVersion.cmake
+  DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/cmake)
