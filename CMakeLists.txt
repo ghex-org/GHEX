@@ -65,49 +65,68 @@ target_include_directories(GHEX_libs INTERFACE
     $<INSTALL_INTERFACE:include>
     )
 target_link_libraries(GHEX_libs INTERFACE GridTools::gridtools)
+target_compile_features(GHEX_libs INTERFACE cxx_std_14)
 
 enable_testing()
 
-set(GHEX_GTEST_DIR ${GridTools_DIR}/_deps/googletest-src CACHE FILEPATH "Place where to find googletest installation")
+#set(GHEX_GTEST_DIR ${GridTools_DIR}/_deps/googletest-src CACHE FILEPATH "Place where to find googletest installation")
+#
+#find_path(GTEST_INC_DIR
+#    "gtest/gtest.h"
+#    HINTS
+#    ${GHEX_GTEST_DIR}/include
+#    ${GHEX_GTEST_DIR}/googletest/include)
+#if(NOT GTEST_INC_DIR)
+#    message(FATAL_ERROR "Couldn't find gtest/gtest.h under folder GHEX_GTEST_DIR = " ${GHEX_GTEST_DIR})
+#endif()
+#
+#find_path(GTEST_SOURCE_DIR
+#    gtest-all.cc
+#    HINTS
+#    ${GHEX_GTEST_DIR}/src
+#    ${GHEX_GTEST_DIR}/googletest/src
+#)
+#if(NOT GTEST_SOURCE_DIR)
+#    message(FATAL_ERROR "Couldn't find gtest-all.cc under folder GHEX_TEST_DIR = " ${GHEX_GTEST_DIR})
+#endif()
+#
+#set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
+#set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
 
-find_path(GTEST_INC_DIR
-    "gtest/gtest.h"
-    HINTS
-    ${GHEX_GTEST_DIR}/include
-    ${GHEX_GTEST_DIR}/googletest/include)
-if(NOT GTEST_INC_DIR)
-    message(FATAL_ERROR "Couldn't find gtest/gtest.h under folder GHEX_GTEST_DIR = " ${GHEX_GTEST_DIR})
-endif()
-
-find_path(GTEST_SOURCE_DIR
-    gtest-all.cc
-    HINTS
-    ${GHEX_GTEST_DIR}/src
-    ${GHEX_GTEST_DIR}/googletest/src
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.10.0
 )
-if(NOT GTEST_SOURCE_DIR)
-    message(FATAL_ERROR "Couldn't find gtest-all.cc under folder GHEX_TEST_DIR = " ${GHEX_GTEST_DIR})
+FetchContent_GetProperties(googletest)
+if(NOT googletest_POPULATED)
+  FetchContent_Populate(googletest)
+  add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+  # https://github.com/google/googletest/issues/2429
+  add_library(GTest::gtest ALIAS gtest)
 endif()
 
-set(GTEST_LIB_SOURCES ${GTEST_SOURCE_DIR}/gtest-all.cc)
-set(GTEST_INCLUDE_DIRS ${GTEST_INC_DIR} ${GTEST_SOURCE_DIR} ${GTEST_SOURCE_DIR}/..)
+set(GTEST_LIB_SOURCES ${googletest_SOURCE_DIR}/googletest/src/gtest-all.cc)
+set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include ${googletest_SOURCE_DIR}/googletest/src ${googletest_SOURCE_DIR}/googletest/)
 
-add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main.cpp )
-target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main.cpp )
+target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
 target_link_libraries(gtest_main_mt MPI::MPI_CXX GridTools::gridtools )
 
-add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
-target_link_libraries(gtest_main_bench MPI::MPI_CXX GridTools::gridtools )
-target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+add_library(gtest_main_bench ./utils/gtest_main_bench.cpp )
+target_link_libraries(gtest_main_bench MPI::MPI_CXX GridTools::gridtools  )
+target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
 
-add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_bench.cpp )
-target_link_libraries(gtest_main_bench_mt MPI::MPI_CXX GridTools::gridtools )
-target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp )
+target_link_libraries(gtest_main_bench_mt MPI::MPI_CXX GridTools::gridtools  )
+target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} )
 target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
 
-add_library(gtest_main_ucx ${GTEST_LIB_SOURCES} ${GTEST_MAIN_SOURCES} ./utils/gtest_main_ucx.cpp )
+add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp )
 target_link_libraries(gtest_main_ucx MPI::MPI_CXX ${UCP_LIBRARY} GridTools::gridtools )
-target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} ${UCP_INCLUDE_DIR})
+target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${UCP_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS} )
 
 add_subdirectory(tests)
 add_subdirectory(benchmarks)
