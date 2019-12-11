@@ -43,6 +43,9 @@ else()
    set(MPI_CXX_SKIP_MPICXX OFF)
 endif()
 
+set(GHEX_BUILD_TESTS OFF CACHE BOOL "True if tests shall be built")
+set(GHEX_BUILD_BENCHMARKS OFF CACHE BOOL "True if benchmarks shall be built")
+
 add_library(ghexlib INTERFACE)
 add_library(GHEX::ghexlib ALIAS ghexlib)
 target_include_directories(ghexlib INTERFACE
@@ -54,49 +57,54 @@ target_compile_features(ghexlib INTERFACE cxx_std_14)
 
 enable_testing()
 
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        release-1.10.0
-)
-FetchContent_GetProperties(googletest)
-if(NOT googletest_POPULATED)
-  FetchContent_Populate(googletest)
-  add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
-
-  # https://github.com/google/googletest/issues/2429
-  add_library(GTest::gtest ALIAS gtest)
-endif()
-
-set(GTEST_LIB_SOURCES ${googletest_SOURCE_DIR}/googletest/src/gtest-all.cc)
-set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include ${googletest_SOURCE_DIR}/googletest/src ${googletest_SOURCE_DIR}/googletest/)
-
-add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main.cpp )
-target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-target_link_libraries(gtest_main_mt ghexlib)
-
-if (GHEX_USE_UCP)
-  add_library(gtest_main_ucx ${GTEST_LIB_SOURCES} ./utils/gtest_main_ucx.cpp )
-  target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-  target_link_libraries(gtest_main_ucx ghexlib UCP::libucp)
-  if (GHEX_USE_PMIX)
-    target_link_libraries(gtest_main_ucx ghexlib PMIx::libpmix)
+if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
+  include(FetchContent)
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        release-1.10.0
+  )
+  FetchContent_GetProperties(googletest)
+  if(NOT googletest_POPULATED)
+    FetchContent_Populate(googletest)
+    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
+    # https://github.com/google/googletest/issues/2429
+    add_library(GTest::gtest ALIAS gtest)
+  endif()
+  
+  set(GTEST_LIB_SOURCES ${googletest_SOURCE_DIR}/googletest/src/gtest-all.cc)
+  set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include ${googletest_SOURCE_DIR}/googletest/src ${googletest_SOURCE_DIR}/googletest/)
+  
+  if (GHEX_BUILD_TESTS)
+    add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main.cpp )
+    target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+    target_link_libraries(gtest_main_mt ghexlib)
+    
+    if (GHEX_USE_UCP)
+      add_library(gtest_main_ucx ${GTEST_LIB_SOURCES} ./utils/gtest_main_ucx.cpp )
+      target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
+      target_link_libraries(gtest_main_ucx ghexlib UCP::libucp)
+      if (GHEX_USE_PMIX)
+        target_link_libraries(gtest_main_ucx ghexlib PMIx::libpmix)
+      endif()
+    endif()
+    
+    add_subdirectory(tests)
+  endif()
+  
+  if (GHEX_BUILD_BENCHMARKS)
+    add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
+    target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
+    target_link_libraries(gtest_main_bench ghexlib)
+    
+    add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
+    target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} )
+    target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
+    target_link_libraries(gtest_main_bench_mt ghexlib)
+    
+    add_subdirectory(benchmarks)
   endif()
 endif()
-
-add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
-target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
-target_link_libraries(gtest_main_bench ghexlib)
-
-add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
-target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} )
-target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
-target_link_libraries(gtest_main_bench_mt ghexlib)
-
-
-add_subdirectory(tests)
-add_subdirectory(benchmarks)
 
 include(GNUInstallDirs)
 install(TARGETS ghexlib EXPORT GHEX-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
