@@ -43,16 +43,18 @@ using future_type = typename communicator_type::request_cb_type;
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
-/* comm requests currently in-flight */
+#ifdef USE_OPENMP
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
-int last_received = 0;
-
-int inflight;
+#else
+int sent;
+int received;
+#endif
 
 int main(int argc, char *argv[])
 {
     int niter, buff_size;
+    int inflight;
     int mode;
     gridtools::ghex::timer timer, ttimer;
 
@@ -96,6 +98,11 @@ int main(int argc, char *argv[])
             const auto thread_id   = token.id();
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
+
+	    bool using_mt = false;
+#ifdef USE_OPENMP
+	    using_mt = true;
+#endif
 
 	    int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0;
 
@@ -143,7 +150,7 @@ int main(int argc, char *argv[])
                 timer.tic();
                 ttimer.tic();
                 if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: true\n";
+                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
             }
 	
 	    // send / recv niter messages, work in inflight requests at a time
@@ -170,7 +177,7 @@ int main(int argc, char *argv[])
 		    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight+j, recv_callback);
 		    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
 		}
-	
+
 		// complete all inflight requests before moving on
 		while(sent < num_threads*inflight || received < num_threads*inflight){
 		    comm.progress();

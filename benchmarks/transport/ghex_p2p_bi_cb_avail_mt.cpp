@@ -43,12 +43,17 @@ using future_type = typename communicator_type::request_cb_type;
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
+#ifdef USE_OPENMP
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
 std::atomic<int> tail_send(0);
 std::atomic<int> tail_recv(0);
-int last_received = 0;
-int last_sent = 0;
+#else
+int sent(0);
+int received(0);
+int tail_send(0);
+int tail_recv(0);
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -98,7 +103,14 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
+	    bool using_mt = false;
+#ifdef USE_OPENMP
+	    using_mt = true;
+#endif
+
             int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
+	    int last_received = 0;
+	    int last_sent = 0;
             int dbg = 0, sdbg = 0, rdbg = 0;
 
             auto send_callback = [&](communicator_type::message_type, int, int tag)
@@ -141,7 +153,7 @@ int main(int argc, char *argv[])
                 timer.tic();
                 ttimer.tic();
                 if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: true\n";
+                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
             }
 
             // send/recv niter messages - as soon as a slot becomes free
@@ -172,8 +184,8 @@ int main(int argc, char *argv[])
 
                 for(int j=0; j<inflight; j++)
                 {
-                    //if(rmsgs[j].use_count() == 1)
-                    if (rreqs[j].test())
+                    if(rmsgs[j].use_count() == 1)
+			//if (rreqs[j].test())
                     {
                         submit_recv_cnt += num_threads;
                         rdbg += num_threads;
@@ -183,8 +195,8 @@ int main(int argc, char *argv[])
                     else
                         comm.progress();
 
-                    //if(sent < niter && smsgs[j].use_count() == 1)
-                    if(sent < niter && sreqs[j].test())
+                    if(sent < niter && smsgs[j].use_count() == 1)
+			//if(sent < niter && sreqs[j].test())
                     {
                         submit_cnt += num_threads;
                         sdbg += num_threads;
@@ -257,7 +269,7 @@ int main(int argc, char *argv[])
                         rf = comm.recv(rmsg, peer_rank, 0x800000, [](communicator_type::message_type, int, int){});
                     });
 
-                while(!tail_recv.load()){
+                while(tail_recv == 0){
                     comm.progress();
 
                     // schedule all recvs to allow the peer to complete

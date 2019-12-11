@@ -92,6 +92,11 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
+	    bool using_mt = false;
+#ifdef USE_OPENMP
+	    using_mt = true;
+#endif
+
             if (thread_id==0 && rank==0)
             {
                 std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
@@ -116,7 +121,7 @@ int main(int argc, char *argv[])
 		timer.tic();
 		ttimer.tic();
 		if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: true\n";
+                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
 	    }
 
 	    int dbg = 0;

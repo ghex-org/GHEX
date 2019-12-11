@@ -43,12 +43,17 @@ using future_type = typename communicator_type::future<void>;
 using MsgType = gridtools::ghex::tl::message_buffer<>;
 
 
+#ifdef USE_OPENMP
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
 std::atomic<int> tail_send(0);
 std::atomic<int> tail_recv(0);
-int last_received = 0;
-int last_sent = 0;
+#else
+int sent(0);
+int received(0);
+int tail_send(0);
+int tail_recv(0);
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -98,6 +103,11 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
+	    bool using_mt = false;
+#ifdef USE_OPENMP
+	    using_mt = true;
+#endif
+
             if (thread_id==0 && rank==0)
             {
                 std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
@@ -122,10 +132,12 @@ int main(int argc, char *argv[])
 		timer.tic();
 		ttimer.tic();
 		if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: true\n";
+                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
 	    }
 
             int dbg = 0, sdbg = 0, rdbg = 0;
+	    int last_received = 0;
+	    int last_sent = 0;
             while(sent < niter || received < niter)
             {
                 for(int j=0; j<inflight; j++)
@@ -215,7 +227,7 @@ int main(int argc, char *argv[])
                         rf = comm.recv(rmsg, peer_rank, 0x800000);
                     });
 
-                while(!tail_recv.load()){
+                while(tail_recv == 0){
                     comm.progress();
 
                     // schedule all recvs to allow the peer to complete
@@ -235,7 +247,6 @@ int main(int argc, char *argv[])
             for(int j=0; j<inflight; j++){
                 rreqs[j].cancel();
             }
-
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
