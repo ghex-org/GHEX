@@ -161,16 +161,6 @@ namespace gridtools {
                     m_db.init(m_worker.address());
                 }
 
-                ~transport_context()
-		{
-		    // the workers have to be destroyed _before_ the ucp context
-		    // so we need to make sure that those destructors are called first
-		    m_worker.m_worker.destroy();
-		    for(typename worker_vector::size_type i=0; i<m_workers.size(); i++){
-			m_workers[i]->m_worker.destroy();
-		    }
-		}
-
                 communicator_type get_serial_communicator()
                 {
                     return {&m_worker,&m_worker};
@@ -250,3 +240,4 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_UCX_CONTEXT_HPP */
+

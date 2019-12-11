@@ -50,19 +50,23 @@ namespace gridtools {
 
                         ucp_worker_handle& operator=(ucp_worker_handle&& other) noexcept
                         {
+                            destroy();
                             m_worker.~ucp_worker_h();
                             ::new((void*)(&m_worker)) ucp_worker_h{other.m_worker};
                             m_moved = std::exchange(other.m_moved, true);
                             return *this;
                         }
 
-                        ~ucp_worker_handle() {}
+                        ~ucp_worker_handle() { destroy(); }
 
                         static void empty_send_cb(void*, ucs_status_t) {}
 
                         void destroy() noexcept
                         {
-			    ucp_worker_destroy(m_worker);
+                            if (!m_moved)
+                            {
+                                ucp_worker_destroy(m_worker);
+                            }
                         }
 
                         operator bool() const noexcept { return m_moved; }
