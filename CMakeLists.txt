@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.12.4)
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
     enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_EXTENSIONS OFF)    
 endif()
 
 cmake_policy(SET CMP0048 NEW)
@@ -12,6 +14,7 @@ set(USE_MPI_WITH_UCX_IN_TESTS "OFF" CACHE BOOL "use ucx for unit test")
 set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
 
 set(default_build_type "Debug")
@@ -30,14 +33,14 @@ find_package(Boost REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 
-set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
-if (GHEX_USE_PMIX)
-    find_package(PMIx REQUIRED)
-endif()
-
 set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
 if (GHEX_USE_UCP)
     find_package(UCP REQUIRED)
+endif()
+
+set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
+if (GHEX_USE_PMIX)
+    find_package(PMIx REQUIRED)
 endif()
 
 set(GHEX_SKIP_MPICXX OFF CACHE BOOL "True if your compiler wrapper includes MPI already (as CRAY PE for instance)")
