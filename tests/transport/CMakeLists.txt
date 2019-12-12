@@ -3,12 +3,12 @@
 set(_tests test_low_level test_low_level_x)
 
 foreach(t_ ${_tests})
-  add_executable( ${t_} ./${t_}.cpp )
-  target_link_libraries(${t_} gtest_main_mt)
-  add_test(
-    NAME ${t_}.cpp
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${t_} ${MPIEXEC_POSTFLAGS}
-  )
+    add_executable( ${t_} ./${t_}.cpp )
+    target_link_libraries(${t_} gtest_main_mt)
+    add_test(
+        NAME ${t_}.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${t_} ${MPIEXEC_POSTFLAGS}
+    )
 endforeach(t_ ${_tests})
 
 if (GHEX_USE_UCP)
