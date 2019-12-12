@@ -12,7 +12,7 @@
 #define INCLUDED_GHEX_TL_UCX_ENDPOINT_DB_PMI_HPP
 
 #ifdef USE_PMIX
-#warning using PMIx
+
 #define GHEX_USE_PMI
 #include "../util/pmi/pmix/pmi.hpp"
 using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
