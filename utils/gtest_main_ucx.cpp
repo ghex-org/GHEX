@@ -7,8 +7,8 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef INCLUDED_GTEST_MAIN_UCX_CPP
-#define INCLUDED_GTEST_MAIN_UCX_CPP
+#ifndef INCLUDED_GHEX_GTEST_MAIN_UCX_CPP
+#define INCLUDED_GHEX_GTEST_MAIN_UCX_CPP
 
 #include <fstream>
 #include <mpi.h>
@@ -62,5 +62,5 @@ GTEST_API_ int main(int argc, char **argv) {
 
 }
 
-#endif /* INCLUDED_GTEST_MAIN_UCX_CPP */
+#endif /* INCLUDED_GHEX_GTEST_MAIN_UCX_CPP */
 
