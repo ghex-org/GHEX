@@ -84,12 +84,10 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
 
     if (GHEX_BUILD_TESTS)
         add_library(gtest_main_mt ./utils/gtest_main.cpp)
-        target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include)
         target_link_libraries(gtest_main_mt GTest::gtest ghexlib)
     
         if (GHEX_USE_UCP)
             add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp)
-            target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include)
             target_link_libraries(gtest_main_ucx GTest::gtest ghexlib)
         endif()
 
@@ -98,11 +96,9 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
   
     if (GHEX_BUILD_BENCHMARKS)
         add_library(gtest_main_bench ./utils/gtest_main_bench.cpp)
-        target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include)
         target_link_libraries(gtest_main_bench GTest::gtest ghexlib)
  
         add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp)
-        target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include)
         target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
         target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
 
