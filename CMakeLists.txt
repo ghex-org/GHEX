@@ -14,8 +14,12 @@ set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
+set(default_build_type "Debug")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
 set(GHEX_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
@@ -78,30 +82,29 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
         add_library(GTest::gtest ALIAS gtest)
     endif()
 
-    set(GTEST_LIB_SOURCES ${googletest_SOURCE_DIR}/googletest/src/gtest-all.cc)
-    set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include ${googletest_SOURCE_DIR}/googletest/src ${googletest_SOURCE_DIR}/googletest/)
-
     if (GHEX_BUILD_TESTS)
-        add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main.cpp )
-        target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-        target_link_libraries(gtest_main_mt ghexlib)
+        add_library(gtest_main_mt ./utils/gtest_main.cpp)
+        target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include)
+        target_link_libraries(gtest_main_mt GTest::gtest ghexlib)
     
-        add_library(gtest_main_ucx ${GTEST_LIB_SOURCES} ./utils/gtest_main_ucx.cpp )
-        target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-        target_link_libraries(gtest_main_ucx ghexlib)
+        if (GHEX_USE_UCP)
+            add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp)
+            target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include)
+            target_link_libraries(gtest_main_ucx GTest::gtest ghexlib)
+        endif()
 
         add_subdirectory(tests)
     endif()
   
     if (GHEX_BUILD_BENCHMARKS)
-        add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
-        target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
-        target_link_libraries(gtest_main_bench ghexlib)
+        add_library(gtest_main_bench ./utils/gtest_main_bench.cpp)
+        target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include)
+        target_link_libraries(gtest_main_bench GTest::gtest ghexlib)
  
-        add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
-        target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} )
+        add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp)
+        target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include)
         target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
-        target_link_libraries(gtest_main_bench_mt ghexlib)
+        target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
 
         add_subdirectory(benchmarks)
     endif()
@@ -124,5 +127,7 @@ install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfigVersion.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)

@@ -39,6 +39,9 @@ GTEST_API_ int main(int argc, char **argv) {
     delete listeners.Release(listeners.default_result_printer());
     // now add our custom printer
     listeners.Append(new mpi_listener("results_tests"));
+    
+    //auto tmp = new mpi_listener("results_tests");
+    //std::cout << tmp << std::endl;
 
     // record the local return value for tests run on this mpi rank
     //      0 : success
