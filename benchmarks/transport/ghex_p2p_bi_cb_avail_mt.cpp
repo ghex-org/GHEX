@@ -27,9 +27,7 @@ using threading    = ghex::threads::omp::primitives;
 #include <ghex/threads/none/primitives.hpp>
 using threading    = ghex::threads::none::primitives;
 #endif
-#include <ghex/transport_layer/ucx/address_db_mpi.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
-using db_type      = ghex::tl::ucx::address_db_mpi;
 using transport    = ghex::tl::ucx_tag;
 #endif /* USE_MPI */
 
@@ -72,24 +70,38 @@ int main(int argc, char *argv[])
     inflight = atoi(argv[3]);
 
     int num_threads = 1;
+
+#ifdef USE_OPENMP
+#pragma omp parallel
+    {
+#pragma omp master
+        num_threads = omp_get_num_threads();
+    }
+#endif
+
+#ifdef USE_PMIX
+    // has to be called before MPI_Init due to a bug in OpenMPI/PMIx
+    // https://github.com/openpmix/openpmix/issues/1427
+    // https://github.com/open-mpi/ompi/issues/6982
+    auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_NULL);
+    auto& context = *context_ptr;
+#endif
+
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
         std::terminate();
     }
-#pragma omp parallel
-    {
-#pragma omp master
-        num_threads = omp_get_num_threads();
-    }
 #else
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
 #endif
 
     {
+#ifndef USE_PMIX
         auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
         auto& context = *context_ptr;
+#endif
 
 #ifdef USE_OPENMP
 #pragma omp parallel

@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_TL_CONTEXT_HPP
 #define INCLUDED_GHEX_TL_CONTEXT_HPP
@@ -23,7 +23,7 @@ namespace gridtools {
 
             template<typename TransportTag, typename ThreadPrimitives>
             class transport_context;
-            
+
             class mpi_world
             {
             private:
@@ -58,10 +58,14 @@ namespace gridtools {
                 }
 
                 mpi_world(MPI_Comm comm)
-                : m_comm(comm)
-                , m_rank{ [comm]() { int r; MPI_Comm_rank(comm, &r); return r; }() }
-                , m_size{ [comm]() { int r; MPI_Comm_size(comm, &r); return r; }() }
-                {}
+                    : m_comm(comm)
+                {
+                    if(MPI_COMM_NULL != comm)
+                    {
+                        GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(comm,&m_rank));
+                        GHEX_CHECK_MPI_RESULT(MPI_Comm_size(comm,&m_size));
+                    }
+                }
 
                 mpi_world(const mpi_world&) = delete;
                 mpi_world(mpi_world&&) = delete;
@@ -101,14 +105,14 @@ namespace gridtools {
             private:
                 template<typename... Args>
                 parallel_context(int num_threads, int& argc, char**& argv, Args&&...) noexcept
-                : m_world(argc,argv)
+                    : m_world(argc,argv)
                 , m_thread_primitives(num_threads)
                 {}
 
                 template<typename... Args>
                 parallel_context(int num_threads, MPI_Comm comm, Args&&...) noexcept
-                : m_world(comm)
-                , m_thread_primitives(num_threads)
+                    : m_world(comm)
+                    , m_thread_primitives(num_threads)
                 {}
 
                 parallel_context(const parallel_context&) = delete;
@@ -150,7 +154,7 @@ namespace gridtools {
             public:
                 template<typename...Args>
                 context(int num_threads, MPI_Comm comm, Args&&... args)
-                : m_parallel_context{num_threads, comm, std::forward<Args>(args)...}
+                    : m_parallel_context{num_threads, comm, std::forward<Args>(args)...}
                 , m_transport_context{m_parallel_context, comm, std::forward<Args>(args)...}
                 {}
 
@@ -159,14 +163,14 @@ namespace gridtools {
 
             public:
 
-                const mpi_world& world() const noexcept 
+                const mpi_world& world() const noexcept
                 {
-                    return m_parallel_context.world(); 
+                    return m_parallel_context.world();
                 }
-                
-                /*const */thread_primitives_type& thread_primitives() /*const*/ noexcept 
+
+                /*const */thread_primitives_type& thread_primitives() /*const*/ noexcept
                 {
-                    return m_parallel_context.thread_primitives(); 
+                    return m_parallel_context.thread_primitives();
                 }
 
                 mpi::setup_communicator get_setup_communicator()
@@ -193,7 +197,7 @@ namespace gridtools {
                 {
                     return m_parallel_context.m_thread_primitives.get_token();
                 }
-                
+
                 // thread-safe
                 void barrier(thread_token& t) /*const*/
                 {
@@ -201,7 +205,7 @@ namespace gridtools {
                 }
 
             };
-            
+
             template<class TransportTag, class ThreadPrimitives>
             struct context_factory;
             //{
@@ -213,4 +217,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_CONTEXT_HPP */
-

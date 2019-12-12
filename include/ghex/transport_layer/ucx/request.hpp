@@ -148,7 +148,10 @@ namespace gridtools{
 			    [this]()
 			    {
 				ucp_worker_progress(m_req->m_recv_worker->get());
-				ucp_worker_progress(m_req->m_recv_worker->get());
+
+                                // TODO sometimes causes a slowdown, e.g., in the ft_avail
+                                // test with 16 threads
+                                ucp_worker_progress(m_req->m_recv_worker->get());
 
 				// check request status
 				// TODO check whether ucp_request_check_status has to be locked also:
