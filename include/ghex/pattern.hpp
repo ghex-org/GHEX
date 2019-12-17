@@ -12,7 +12,6 @@
 #define INCLUDED_GHEX_PATTERN_HPP
 
 //#include "./transport_layer/mpi/setup.hpp"
-//#include "./transport_layer/mpi/communicator.hpp"
 #include "./buffer_info.hpp"
 #include "./transport_layer/context.hpp"
 
@@ -108,4 +107,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_PATTERN_HPP */
-
