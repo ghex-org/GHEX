@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+# adapted from
 # https://github.com/BlueBrain/git-cmake-format
 
 from __future__ import print_function
@@ -53,15 +54,24 @@ def isFormattable(File):
     return False
 
 def formatFile(FileName, GitRoot):
-    subprocess.Popen([ClangFormat, Style, '-i', os.path.join(GitRoot,FileName)])
+    # change the FileName in place
+    proc = subprocess.Popen([ClangFormat, Style, '-i', os.path.join(GitRoot,FileName)])
+    # wait for the operations to complete
+    proc.communicate()
     return
 
 def patchFile(FileName,PatchFile):
+    # print changed file
     GitShowRet = subprocess.Popen([Git, "show", ":" + FileName], stdout=subprocess.PIPE)
+    # pipe it to clang-format
     ClangFormatRet = subprocess.Popen([ClangFormat, Style], stdin=GitShowRet.stdout, stdout=subprocess.PIPE)
+    # pipe output to diff and compare with original file
     DiffRet = subprocess.Popen([Diff, "-u", FileName, "-"], stdin=ClangFormatRet.stdout, stdout=subprocess.PIPE)
+    # replace diff annotations to make it a git patch by piping the output to sed; redirect the results to the PatchFile
     SedRet = subprocess.Popen([Sed, "-e", "1s|--- |--- a/|", "-e", "2s|+++ -|+++ b/" + FileName + "|"], stdin=DiffRet.stdout, stdout=PatchFile)
+    # wait for the operations to complete
     SedRet.communicate()
+    return
 
 def printUsageAndExit():
     print("Usage: " + sys.argv[0] + " [--pre-commit|--cmake] " +
@@ -91,10 +101,12 @@ if __name__ == "__main__":
         else:
             printUsageAndExit()
 
+    # get a list of changed files which were changed
     EditedFiles = getEditedFiles(InPlace)
 
     ReturnCode = 0
 
+    # clang-format in-place (not used in the git-hook)
     if InPlace:
         GitRoot = getGitRoot()
         for FileName in EditedFiles:
@@ -102,16 +114,19 @@ if __name__ == "__main__":
                 formatFile(FileName,GitRoot)
         sys.exit(ReturnCode)
 
+    # create a temporary file for the git patch
     Prefix = "pre-commit-clang-format"
     Suffix = time.strftime("%Y%m%d-%H%M%S")
     PatchName = "/tmp/" + Prefix + "-" + Suffix + ".patch"
     f = open(PatchName, "w+")
 
+    # add patch instructions for each file to the git patch
     for FileName in EditedFiles:
         if not isFormattable(FileName):
             continue
         patchFile(FileName,f)
 
+    # check whether the git patch is empty
     f.seek(0)
     if not f.read(1):
         f.close()
@@ -131,3 +146,4 @@ if __name__ == "__main__":
         print("(may need to be called from the root directory of your repository)")
 
     sys.exit(ReturnCode)
+
