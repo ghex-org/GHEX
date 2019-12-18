@@ -65,7 +65,7 @@ namespace gridtools{
                     inline size_type size() const noexcept { return m_size; }
 
                     static void initialize() {}
-		            static void finalize() {}
+		      static void finalize() {}
 
                     void barrier()
                     {
@@ -84,4 +84,3 @@ namespace gridtools{
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP */
-
