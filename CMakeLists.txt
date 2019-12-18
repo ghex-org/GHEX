@@ -50,6 +50,35 @@ else()
     set(MPI_CXX_SKIP_MPICXX OFF)
 endif()
 
+find_package(ClangTools)
+if(CLANG_FORMAT_FOUND)
+    find_package(Git)
+    find_package(PythonInterp)
+    message(${GIT_FOUND})
+    message(${PYTHONINTERP_FOUND})
+    if(GIT_FOUND AND PYTHONINTERP_FOUND)
+        set(GCF_CLANGFORMAT_STYLE "file" CACHE STRING "Parameter pass to clang-format -style=<here>")
+        set(GCF_IGNORE_LIST "" CACHE STRING "Semi colon separated list of directories to ignore")
+        #set(GCF_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/git-cmake-format.py)
+        set(GCF_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/git_hooks/git-cmake-format.py)
+        execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --show-toplevel
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE GCF_GIT_ROOT
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+        message(${GCF_GIT_ROOT})
+        if(NOT GCF_GIT_ROOT)
+            message(WARNING "Not in a git repository")
+        else()
+            configure_file(${CMAKE_CURRENT_SOURCE_DIR}/tools/git_hooks/git-pre-commit-hook /tmp/pre-commit @ONLY)
+            file(COPY /tmp/pre-commit DESTINATION ${GCF_GIT_ROOT}/.git/hooks
+                 FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+            unset(GCF_GIT_ROOT)
+        endif()
+    endif()
+endif()
+
+
+
 set(GHEX_BUILD_TESTS OFF CACHE BOOL "True if tests shall be built")
 set(GHEX_BUILD_BENCHMARKS OFF CACHE BOOL "True if benchmarks shall be built")
 
