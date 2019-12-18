@@ -16,19 +16,19 @@
 #  CLANG_FORMAT_FOUND   Whether clang format was found
 #
 
-#find_program(CLANG_TIDY_BIN
-#    NAMES clang-tidy-6.0.0 clang-tidy-6 clang-tidy
-#    DOC "Path to clang tidy executable"
-#    PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH}
-#)
-#if(NOT CLANG_TIDY_BIN)
-#    set(CLANG_TIDY_FOUND 0)
-#    message(STATUS "clang-tidy not found")
-#else()
-#    set(CLANG_TIDY_FOUND 1)
-#    message(STATUS "clang-tidy found at ${CLANG_TIDY_BIN}")
-#    mark_as_advanced(CLANG_TIDY_BIN)
-#endif()
+find_program(CLANG_TIDY_BIN
+    NAMES clang-tidy-6.0.0 clang-tidy-6 clang-tidy
+    DOC "Path to clang tidy executable"
+    PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH}
+)
+if(NOT CLANG_TIDY_BIN)
+    set(CLANG_TIDY_FOUND 0)
+    message(STATUS "clang-tidy not found")
+else()
+    set(CLANG_TIDY_FOUND 1)
+    message(STATUS "clang-tidy found at ${CLANG_TIDY_BIN}")
+    mark_as_advanced(CLANG_TIDY_BIN)
+endif()
 
 find_program(CLANG_FORMAT_BIN
     NAMES clang-format
