@@ -156,10 +156,14 @@ if __name__ == "__main__":
         print()
         print(f.read())
         f.close()
-        print()
+        print("Files in this commit do not compy with the clang-format rules.")
         print("You can apply these changes with:")
-        print("git apply --index ", PatchName)
+        print("  git apply --index ", PatchName)
         print("(may need to be called from the root directory of your repository)")
+        print("or you can run")
+        print("  git clang-format")
+        print("if you want to apply clang-format to unstaged files as well, run")
+        print("  git clang-format -f")
 
     sys.exit(ReturnCode)
 
