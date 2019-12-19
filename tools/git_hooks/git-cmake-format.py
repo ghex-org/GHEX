@@ -75,7 +75,7 @@ def patchFile(FileName,PatchFile):
 
 def printUsageAndExit():
     print("Usage: " + sys.argv[0] + " [--pre-commit|--cmake] " +
-          "[<path/to/git>] [<path/to/clang-format]")
+          "[<path/to/git>] [<path/to/clang-format>]  [<path/to/diff>]  [<path/to/sed>]")
     sys.exit(1)
 
 if __name__ == "__main__":
@@ -94,6 +94,10 @@ if __name__ == "__main__":
             Git = arg
         elif "clang-format" in arg:
             ClangFormat = arg
+        elif "diff" in arg:
+            Diff = arg
+        elif "sed" in arg:
+            Sed = arg
         elif "-style=" in arg:
             Style = arg
         elif "-ignore=" in arg:

@@ -5,5 +5,7 @@
 	"--pre-commit" \
 	"@GIT_EXECUTABLE@" \
 	"@CLANG_FORMAT_BIN@" \
+	"@DIFF_BIN@" \
+	"@SED_BIN@" \
 	"-style=@GCF_CLANGFORMAT_STYLE@" \
 	"-ignore=@GCF_IGNORE_LIST@"

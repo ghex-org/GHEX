@@ -56,7 +56,10 @@ if(CLANG_FORMAT_FOUND)
     # check if tools for patching are available
     find_package(Git)
     find_package(PythonInterp)
-    if(GIT_FOUND AND PYTHONINTERP_FOUND)
+    find_package(Diff)
+    find_package(Sed)
+    if(GIT_FOUND AND PYTHONINTERP_FOUND AND DIFF_FOUND AND SED_FOUND)
+        message(STATUS "configuring git pre-commit hook")
         # set variables for the git-hook scrit GCF_SCRIPT
         set(GCF_CLANGFORMAT_STYLE "file" CACHE STRING "Parameter pass to clang-format -style=<here>")
         set(GCF_IGNORE_LIST "" CACHE STRING "Semi colon separated list of directories to ignore")
