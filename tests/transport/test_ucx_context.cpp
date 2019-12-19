@@ -25,33 +25,26 @@ using transport    = ghex::tl::ucx_tag;
 using threading    = ghex::threads::atomic::primitives;
 using context_type = ghex::tl::context<transport, threading>;
 
-
-TEST(transport_layer, ucx_context)
-{
+TEST(transport_layer, ucx_context) {
     int num_threads = 4;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
+    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
+    auto& context     = *context_ptr;
 
-    auto func = [&context]()
-    {
+    auto func = [&context]() {
         auto token = context.get_token();
 
         auto comm = context.get_communicator(token);
 
-        std::vector<int> payload{1,2,3,4};
+        std::vector<int> payload{1, 2, 3, 4};
 
-        if (comm.rank() == 0)
-        {
-            for (int i=1; i<comm.size(); ++i)
-            {
+        if (comm.rank() == 0) {
+            for (int i = 1; i < comm.size(); ++i) {
                 comm.recv(payload, i, token.id()).wait();
                 EXPECT_EQ(payload[0], token.id());
                 EXPECT_EQ(payload[1], i);
             }
-        }
-        else
-        {
+        } else {
             payload[0] = token.id();
             payload[1] = comm.rank();
             comm.send(payload, 0, token.id()).wait();
@@ -62,9 +55,7 @@ TEST(transport_layer, ucx_context)
 
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
-    for (int i=0; i<num_threads; ++i)
-        threads.push_back(std::thread(func));
+    for (int i = 0; i < num_threads; ++i) threads.push_back(std::thread(func));
 
-    for (auto& t : threads)
-        t.join();
+    for (auto& t : threads) t.join();
 }

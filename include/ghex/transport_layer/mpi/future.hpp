@@ -13,55 +13,42 @@
 
 #include "./request.hpp"
 
-namespace gridtools{
+namespace gridtools {
     namespace ghex {
         namespace tl {
             namespace mpi {
 
                 /** @brief future template for non-blocking communication */
                 template<typename T>
-                struct future_t
-                {
+                struct future_t {
                     using value_type  = T;
                     using handle_type = request_t;
 
-                    value_type m_data;
+                    value_type  m_data;
                     handle_type m_handle;
 
-                    future_t(value_type&& data, handle_type&& h) 
-                    :   m_data(std::move(data))
-                    ,   m_handle(std::move(h))
-                    {}
+                    future_t(value_type&& data, handle_type&& h)
+                    : m_data(std::move(data))
+                    , m_handle(std::move(h)) {}
                     future_t(const future_t&) = delete;
-                    future_t(future_t&&) = default;
+                    future_t(future_t&&)      = default;
                     future_t& operator=(const future_t&) = delete;
                     future_t& operator=(future_t&&) = default;
 
-                    void wait() noexcept
-                    {
-                        m_handle.wait();
-                    }
+                    void wait() noexcept { m_handle.wait(); }
 
-                    bool test() noexcept
-                    {
-                        return m_handle.test();
-                    }
+                    bool test() noexcept { return m_handle.test(); }
 
-                    bool ready() noexcept
-                    {
-                        return m_handle.test();
-                    }
+                    bool ready() noexcept { return m_handle.test(); }
 
-                    [[nodiscard]] value_type get()
-                    {
-                        wait(); 
-                        return std::move(m_data); 
+                    [[nodiscard]] value_type get() {
+                        wait();
+                        return std::move(m_data);
                     }
 
                     /** Cancel the future.
                       * @return True if the request was successfully canceled */
-                    bool cancel()
-                    {
+                    bool cancel() {
                         GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
                         MPI_Status st;
                         GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
@@ -72,43 +59,28 @@ namespace gridtools{
                 };
 
                 template<>
-                struct future_t<void>
-                {
+                struct future_t<void> {
                     using handle_type = request_t;
 
                     handle_type m_handle;
 
-                    future_t() noexcept = default; 
-                    future_t(handle_type&& h) 
-                    :   m_handle(std::move(h))
-                    {}
+                    future_t() noexcept = default;
+                    future_t(handle_type&& h)
+                    : m_handle(std::move(h)) {}
                     future_t(const future_t&) = delete;
-                    future_t(future_t&&) = default;
+                    future_t(future_t&&)      = default;
                     future_t& operator=(const future_t&) = delete;
                     future_t& operator=(future_t&&) = default;
 
-                    void wait() noexcept
-                    {
-                        m_handle.wait();
-                    }
+                    void wait() noexcept { m_handle.wait(); }
 
-                    bool test() noexcept
-                    {
-                        return m_handle.test();
-                    }
+                    bool test() noexcept { return m_handle.test(); }
 
-                    bool ready() noexcept
-                    {
-                        return m_handle.test();
-                    }
+                    bool ready() noexcept { return m_handle.test(); }
 
-                    void get()
-                    {
-                        wait(); 
-                    }
+                    void get() { wait(); }
 
-                    bool cancel()
-                    {
+                    bool cancel() {
                         GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
                         MPI_Status st;
                         GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
@@ -119,9 +91,8 @@ namespace gridtools{
                 };
 
             } // namespace mpi
-        } // namespace tl
-    } // namespace ghex
+        }     // namespace tl
+    }         // namespace ghex
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_MPI_FUTURE_HPP */
-

@@ -25,22 +25,20 @@ namespace gridtools {
     namespace ghex {
 
         template<typename Context>
-        struct gt_grid
-        {
-            using domain_descriptor_type = structured::domain_descriptor<int,3>;
+        struct gt_grid {
+            using domain_descriptor_type = structured::domain_descriptor<int, 3>;
             using domain_id_type         = typename domain_descriptor_type::domain_id_type;
             Context& m_context;
             //MPI_Comm m_setup_comm;
             //tl::communicator<Transport> m_comm;
             std::vector<domain_descriptor_type> m_domains;
-            std::array<int, 3> m_global_extents;
-            std::array<bool, 3> m_periodic;
+            std::array<int, 3>                  m_global_extents;
+            std::array<bool, 3>                 m_periodic;
         };
-        
-        template<typename Layout = ::gridtools::layout_map<0,1,2>, typename Context, typename Array0, typename Array1>
-        gt_grid<Context>
-        make_gt_processor_grid(Context& context, const Array0& local_extents, const Array1& periodicity)
-        {
+
+        template<typename Layout = ::gridtools::layout_map<0, 1, 2>, typename Context, typename Array0, typename Array1>
+        gt_grid<Context> make_gt_processor_grid(Context& context, const Array0& local_extents,
+                                                const Array1& periodicity) {
             int dims[3];
             int periods[3];
             int coords[3];
@@ -53,20 +51,16 @@ namespace gridtools {
 
             // scan algorithm: x-direction
             std::vector<int> extents_x(dims[0]);
-            for (int i=0; i<dims[0]; ++i)
-            {
-                int coords_i[3] = {i,0,0};
+            for (int i = 0; i < dims[0]; ++i) {
+                int coords_i[3] = {i, 0, 0};
                 int rank_i;
                 MPI_Cart_rank(context.world(), coords_i, &rank_i);
-                if (coords[0]==i && coords[1]==0 && coords[2]==0)
-                {
+                if (coords[0] == i && coords[1] == 0 && coords[2] == 0) {
                     // broadcast
-                    int lext = local_extents[0];
+                    int lext     = local_extents[0];
                     extents_x[i] = lext;
                     MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.world());
-                }
-                else
-                {
+                } else {
                     // recv
                     MPI_Bcast(&extents_x[i], sizeof(int), MPI_BYTE, rank_i, context.world());
                 }
@@ -74,20 +68,16 @@ namespace gridtools {
             std::partial_sum(extents_x.begin(), extents_x.end(), extents_x.begin());
             // scan algorithm: y-direction
             std::vector<int> extents_y(dims[1]);
-            for (int i=0; i<dims[1]; ++i)
-            {
-                int coords_i[3] = {0,i,0};
+            for (int i = 0; i < dims[1]; ++i) {
+                int coords_i[3] = {0, i, 0};
                 int rank_i;
                 MPI_Cart_rank(context.world(), coords_i, &rank_i);
-                if (coords[1]==i && coords[0]==0 && coords[2]==0)
-                {
+                if (coords[1] == i && coords[0] == 0 && coords[2] == 0) {
                     // broadcast
-                    int lext = local_extents[1];
+                    int lext     = local_extents[1];
                     extents_y[i] = lext;
                     MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.world());
-                }
-                else
-                {
+                } else {
                     // recv
                     MPI_Bcast(&extents_y[i], sizeof(int), MPI_BYTE, rank_i, context.world());
                 }
@@ -95,39 +85,29 @@ namespace gridtools {
             std::partial_sum(extents_y.begin(), extents_y.end(), extents_y.begin());
             // scan algorithm: z-direction
             std::vector<int> extents_z(dims[2]);
-            for (int i=0; i<dims[2]; ++i)
-            {
-                int coords_i[3] = {0,0,i};
+            for (int i = 0; i < dims[2]; ++i) {
+                int coords_i[3] = {0, 0, i};
                 int rank_i;
                 MPI_Cart_rank(context.world(), coords_i, &rank_i);
-                if (coords[2]==i && coords[0]==0 && coords[1]==0)
-                {
+                if (coords[2] == i && coords[0] == 0 && coords[1] == 0) {
                     // broadcast
-                    int lext = local_extents[2];
+                    int lext     = local_extents[2];
                     extents_z[i] = lext;
                     MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.world());
-                }
-                else
-                {
+                } else {
                     // recv
                     MPI_Bcast(&extents_z[i], sizeof(int), MPI_BYTE, rank_i, context.world());
                 }
             }
             std::partial_sum(extents_z.begin(), extents_z.end(), extents_z.begin());
 
-
-            const std::array<int, 3> global_extents = {
-                extents_x.back(),
-                extents_y.back(),
-                extents_z.back()};
-            const std::array<int, 3> global_first = {
-                coords[0]==0 ? 0 : extents_x[coords[0]-1],
-                coords[1]==0 ? 0 : extents_y[coords[1]-1],
-                coords[2]==0 ? 0 : extents_z[coords[2]-1]};
-            const std::array<int, 3> global_last = {
-                global_first[0] + local_extents[0] -1,
-                global_first[1] + local_extents[1] -1,
-                global_first[2] + local_extents[2] -1};
+            const std::array<int, 3> global_extents = {extents_x.back(), extents_y.back(), extents_z.back()};
+            const std::array<int, 3> global_first   = {coords[0] == 0 ? 0 : extents_x[coords[0] - 1],
+                                                     coords[1] == 0 ? 0 : extents_y[coords[1] - 1],
+                                                     coords[2] == 0 ? 0 : extents_z[coords[2] - 1]};
+            const std::array<int, 3> global_last    = {global_first[0] + local_extents[0] - 1,
+                                                    global_first[1] + local_extents[1] - 1,
+                                                    global_first[2] + local_extents[2] - 1};
 
             /*const std::array<int, 3> global_extents = {
                 local_extents[0]*dims[Layout::template at<0>()],
@@ -142,16 +122,14 @@ namespace gridtools {
                 local_extents[1]*(coords[Layout::template at<1>()]+1)-1,
                 local_extents[2]*(coords[Layout::template at<2>()]+1)-1};*/
 
-            structured::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
+            structured::domain_descriptor<int, 3> local_domain{rank, global_first, global_last};
 
-            //return {cart_comm, tl::communicator<tl::mpi_tag>{cart_comm}, {local_domain}, global_extents, periodic}; 
-            return {context, {local_domain}, global_extents, periodic}; 
-
+            //return {cart_comm, tl::communicator<tl::mpi_tag>{cart_comm}, {local_domain}, global_extents, periodic};
+            return {context, {local_domain}, global_extents, periodic};
         }
 
-    } // namepsace ghex
+    } // namespace ghex
 
 } // namespace gridtools
 
 #endif /* INCLUDED_GLUE_GRIDTOOLS_PROCESSOR_GRID_HPP */
-

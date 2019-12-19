@@ -10,4 +10,3 @@
  */
 
 #include "./data_store_test.cpp"
-

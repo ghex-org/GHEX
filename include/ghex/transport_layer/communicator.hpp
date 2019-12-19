@@ -14,26 +14,25 @@
 namespace gridtools {
 
     namespace ghex {
-    
+
         namespace tl {
 
             /** @brief communicator class which exposes basic communication primitives 
               * @tparam TransportTag transport protocol tag */
             //template<typename TransportTag,typename ThreadPrimitives>
-            //class communicator; 
-            
-                // concept
-                // -------
-                // using transport_type = P;
-                // using handle_type   = ...;
-                // using address_type  = ...;
-                // template<typename T>
-                // using future = ...;
+            //class communicator;
+
+            // concept
+            // -------
+            // using transport_type = P;
+            // using handle_type   = ...;
+            // using address_type  = ...;
+            // template<typename T>
+            // using future = ...;
 
             /** @brief mpi transport tag */
             struct mpi_tag {};
             struct ucx_tag {};
-
 
         } // namespace tl
 
@@ -42,4 +41,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_COMMUNICATOR_HPP */
-

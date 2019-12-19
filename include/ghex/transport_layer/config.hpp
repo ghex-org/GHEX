@@ -11,7 +11,4 @@
 #ifndef INCLUDED_TL_CONFIG_HPP
 #define INCLUDED_TL_CONFIG_HPP
 
-
-
 #endif /* INCLUDED_TL_CONFIG_HPP */
-

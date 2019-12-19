@@ -17,126 +17,115 @@
 #include "../callback_utils.hpp"
 #include "../../threads/atomic/primitives.hpp"
 
-namespace gridtools{
+namespace gridtools {
     namespace ghex {
         namespace tl {
             namespace ucx {
 
-                enum class request_kind : int { none=0, send, recv };
+                enum class request_kind : int { none = 0, send, recv };
 
                 template<typename ThreadPrimitives>
-                struct request_data_ft
-                {
-                    using worker_type            = worker_t<ThreadPrimitives>;
+                struct request_data_ft {
+                    using worker_type = worker_t<ThreadPrimitives>;
 
                     void*        m_ucx_ptr;
                     worker_type* m_recv_worker;
                     worker_type* m_send_worker;
                     request_kind m_kind;
 
-                    static constexpr std::uintptr_t mask = ~(alignof(request_data_ft)-1u);
+                    static constexpr std::uintptr_t mask = ~(alignof(request_data_ft) - 1u);
                     template<typename... Args>
-                    static request_data_ft* construct(void* ptr, Args&& ...args)
-                    {
+                    static request_data_ft* construct(void* ptr, Args&&... args) {
                         // align pointer
-                        auto a_ptr = reinterpret_cast<request_data_ft*>
-                        ((reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_ft)-1) & mask);
-                        new(a_ptr) request_data_ft{ptr,std::forward<Args>(args)...};
+                        auto a_ptr = reinterpret_cast<request_data_ft*>(
+                            (reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_ft) - 1) &
+                            mask);
+                        new (a_ptr) request_data_ft{ptr, std::forward<Args>(args)...};
                         return a_ptr;
                     }
                 };
-                using request_data_size_ft = std::integral_constant<std::size_t,
-		    sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
-		    alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
+                using request_data_size_ft = std::integral_constant<
+                    std::size_t, sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
+                                     alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
 
                 template<typename ThreadPrimitives>
-                struct request_data_cb
-                {
-                    using worker_type       = worker_t<ThreadPrimitives>;
-                    using message_type      = ::gridtools::ghex::tl::cb::any_message;
-                    using rank_type         = endpoint_t::rank_type;
-                    using tag_type          = typename worker_type::tag_type;
-                    using state_type        = bool;//::gridtools::ghex::tl::cb::request_state;
+                struct request_data_cb {
+                    using worker_type  = worker_t<ThreadPrimitives>;
+                    using message_type = ::gridtools::ghex::tl::cb::any_message;
+                    using rank_type    = endpoint_t::rank_type;
+                    using tag_type     = typename worker_type::tag_type;
+                    using state_type   = bool; //::gridtools::ghex::tl::cb::request_state;
 
-                    void*        m_ucx_ptr;
-                    worker_type* m_worker;
-                    request_kind m_kind;
-                    message_type m_msg;
-                    rank_type    m_rank;
-                    tag_type     m_tag;
+                    void*                                                  m_ucx_ptr;
+                    worker_type*                                           m_worker;
+                    request_kind                                           m_kind;
+                    message_type                                           m_msg;
+                    rank_type                                              m_rank;
+                    tag_type                                               m_tag;
                     std::function<void(message_type, rank_type, tag_type)> m_cb;
-                    std::shared_ptr<state_type> m_completed;
+                    std::shared_ptr<state_type>                            m_completed;
                     //std::exception_ptr m_exception = nullptr;
 
-                    static constexpr std::uintptr_t mask = ~(alignof(request_data_cb)-1u);
+                    static constexpr std::uintptr_t mask = ~(alignof(request_data_cb) - 1u);
                     template<typename... Args>
-                    static request_data_cb* construct(void* __restrict ptr, Args&& ...args)
-                    {
+                    static request_data_cb* construct(void* __restrict ptr, Args&&... args) {
                         // align pointer
-                        auto a_ptr = reinterpret_cast<request_data_cb*>
-                        ((reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_cb)-1) & mask);
-                        new(a_ptr) request_data_cb{ptr,std::forward<Args>(args)...};
+                        auto a_ptr = reinterpret_cast<request_data_cb*>(
+                            (reinterpret_cast<std::uintptr_t>((unsigned char*)ptr) + alignof(request_data_cb) - 1) &
+                            mask);
+                        new (a_ptr) request_data_cb{ptr, std::forward<Args>(args)...};
                         return a_ptr;
                     }
 
-                    static request_data_cb& get(void* __restrict ptr)
-                    {
+                    static request_data_cb& get(void* __restrict ptr) {
                         unsigned char* __restrict cptr = (unsigned char*)ptr;
-                        return *reinterpret_cast<request_data_cb*>
-                        ((reinterpret_cast<std::uintptr_t>(cptr) + alignof(request_data_cb)-1) & mask);
+                        return *reinterpret_cast<request_data_cb*>(
+                            (reinterpret_cast<std::uintptr_t>(cptr) + alignof(request_data_cb) - 1) & mask);
                     }
                 };
 
-                using request_data_size_cb = std::integral_constant<std::size_t,
-		    sizeof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>) +
-		    alignof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>)>;
+                using request_data_size_cb = std::integral_constant<
+                    std::size_t, sizeof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>) +
+                                     alignof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>)>;
 
                 using request_data_size = request_data_size_cb;
-                
-                inline void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
+
+                inline void request_init(void* req) { std::memset(req, 0, request_data_size::value); }
 
                 template<typename ThreadPrimitives>
-                struct request_ft
-                {
+                struct request_ft {
                     using data_type = request_data_ft<ThreadPrimitives>;
 
                     data_type* m_req = nullptr;
 
                     request_ft() = default;
-                    request_ft(data_type* ptr) noexcept : m_req{ptr} {}
+                    request_ft(data_type* ptr) noexcept
+                    : m_req{ptr} {}
                     request_ft(const request_ft&) = delete;
                     request_ft& operator=(const request_ft&) = delete;
 
                     request_ft(request_ft&& other) noexcept
-                    : m_req{ std::exchange(other.m_req, nullptr) }
-                    {}
+                    : m_req{std::exchange(other.m_req, nullptr)} {}
 
-                    request_ft& operator=(request_ft&& other) noexcept
-                    {
+                    request_ft& operator=(request_ft&& other) noexcept {
                         if (m_req) destroy();
                         m_req = std::exchange(other.m_req, nullptr);
                         return *this;
                     }
 
-                    ~request_ft()
-                    {
+                    ~request_ft() {
                         if (m_req) destroy();
                     }
 
-                    void destroy()
-                    {
+                    void destroy() {
                         void* ucx_ptr = m_req->m_ucx_ptr;
-                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
-			    [ucx_ptr]()
-			    {
-				request_init(ucx_ptr);
-				ucp_request_free(ucx_ptr);
-			    }
-			);
+                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical([ucx_ptr]() {
+                            request_init(ucx_ptr);
+                            ucp_request_free(ucx_ptr);
+                        });
                     }
 
-                    bool test()
-                    {
+                    bool test() {
                         if (!m_req) return true;
 
                         ucp_worker_progress(m_req->m_send_worker->get());
@@ -144,40 +133,34 @@ namespace gridtools{
                         ucp_worker_progress(m_req->m_send_worker->get());
 
                         auto& tp = m_req->m_send_worker->m_parallel_context->thread_primitives();
-                        return tp.critical(
-			    [this]()
-			    {
-				ucp_worker_progress(m_req->m_recv_worker->get());
-				ucp_worker_progress(m_req->m_recv_worker->get());
+                        return tp.critical([this]() {
+                            ucp_worker_progress(m_req->m_recv_worker->get());
+                            ucp_worker_progress(m_req->m_recv_worker->get());
 
-				// check request status
-				// TODO check whether ucp_request_check_status has to be locked also:
-				// it does access the worker!
-				// TODO are we allowed to call this?
-				// m_req might be a send request submitted on another thread, and hence might access
-				// the other threads's send worker...
-				if (UCS_INPROGRESS != ucp_request_check_status(m_req->m_ucx_ptr))
-				{
-				    auto ucx_ptr = m_req->m_ucx_ptr;
-				    request_init(ucx_ptr);
-				    ucp_request_free(ucx_ptr);
-				    m_req = nullptr;
-				    return true;
-				}
-				else
-				    return false;
-			    }
-			);
+                            // check request status
+                            // TODO check whether ucp_request_check_status has to be locked also:
+                            // it does access the worker!
+                            // TODO are we allowed to call this?
+                            // m_req might be a send request submitted on another thread, and hence might access
+                            // the other threads's send worker...
+                            if (UCS_INPROGRESS != ucp_request_check_status(m_req->m_ucx_ptr)) {
+                                auto ucx_ptr = m_req->m_ucx_ptr;
+                                request_init(ucx_ptr);
+                                ucp_request_free(ucx_ptr);
+                                m_req = nullptr;
+                                return true;
+                            } else
+                                return false;
+                        });
                     }
 
-                    void wait()
-                    {
+                    void wait() {
                         if (!m_req) return;
-                        while (!test());
+                        while (!test())
+                            ;
                     }
 
-                    bool cancel()
-                    {
+                    bool cancel() {
                         if (!m_req) return true;
 
                         // TODO at this time, send requests cannot be canceled
@@ -195,14 +178,11 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
-			    [this]()
-			    {
-				auto ucx_ptr = m_req->m_ucx_ptr;
-				auto worker = m_req->m_recv_worker->get();
-				ucp_request_cancel(worker, ucx_ptr);
-			    }
-			);
+                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical([this]() {
+                            auto ucx_ptr = m_req->m_ucx_ptr;
+                            auto worker  = m_req->m_recv_worker->get();
+                            ucp_request_cancel(worker, ucx_ptr);
+                        });
                         // wait for the request to either complete, or be canceled
                         wait();
                         return true;
@@ -210,8 +190,7 @@ namespace gridtools{
                 };
 
                 template<typename ThreadPrimitives>
-                struct request_cb
-                {
+                struct request_cb {
                     using data_type    = request_data_cb<ThreadPrimitives>;
                     using state_type   = typename data_type::state_type;
                     using message_type = typename data_type::message_type;
@@ -220,35 +199,32 @@ namespace gridtools{
                     std::shared_ptr<state_type> m_completed;
 
                     request_cb() = default;
-                    request_cb(data_type* ptr, std::shared_ptr<state_type> sp) noexcept : m_req{ptr}, m_completed{sp} {}
+                    request_cb(data_type* ptr, std::shared_ptr<state_type> sp) noexcept
+                    : m_req{ptr}
+                    , m_completed{sp} {}
                     request_cb(const request_cb&) = delete;
                     request_cb& operator=(const request_cb&) = delete;
 
                     request_cb(request_cb&& other) noexcept
-                    : m_req{ std::exchange(other.m_req, nullptr) }
-                    , m_completed{std::move(other.m_completed)}
-                    {}
+                    : m_req{std::exchange(other.m_req, nullptr)}
+                    , m_completed{std::move(other.m_completed)} {}
 
-                    request_cb& operator=(request_cb&& other) noexcept
-                    {
-                        m_req = std::exchange(other.m_req, nullptr);
+                    request_cb& operator=(request_cb&& other) noexcept {
+                        m_req       = std::exchange(other.m_req, nullptr);
                         m_completed = std::move(other.m_completed);
                         return *this;
                     }
 
-                    bool test()
-                    {
-                        if(!m_req) return true;
-                        if (*m_completed)
-                        {
+                    bool test() {
+                        if (!m_req) return true;
+                        if (*m_completed) {
                             m_req = nullptr;
                             return true;
                         }
                         return false;
                     }
 
-                    bool cancel()
-                    {
+                    bool cancel() {
                         if (!m_req) return true;
 
                         // TODO at this time, send requests cannot be canceled
@@ -266,31 +242,27 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        return m_req->m_worker->m_parallel_context->thread_primitives().critical(
-			    [this]()
-			    {
-				if (!(*m_completed))
-				{
-				    auto ucx_ptr = m_req->m_ucx_ptr;
-				    auto worker = m_req->m_worker->get();
+                        return m_req->m_worker->m_parallel_context->thread_primitives().critical([this]() {
+                            if (!(*m_completed)) {
+                                auto ucx_ptr = m_req->m_ucx_ptr;
+                                auto worker  = m_req->m_worker->get();
 
-				    // set to zero here????
-				    // if we assume that the callback is always called, we
-				    // can handle this in the callback body- otherwise needs
-				    // to be done here:
-				    //request_init(ucx_ptr);
-				    ucp_request_cancel(worker, ucx_ptr);
-				}
-				m_req = nullptr;
-				return true;
-			    }
-			);
+                                // set to zero here????
+                                // if we assume that the callback is always called, we
+                                // can handle this in the callback body- otherwise needs
+                                // to be done here:
+                                //request_init(ucx_ptr);
+                                ucp_request_cancel(worker, ucx_ptr);
+                            }
+                            m_req = nullptr;
+                            return true;
+                        });
                     }
                 };
 
             } // namespace ucx
-        } // namespace tl
-    } // namespace ghex
+        }     // namespace tl
+    }         // namespace ghex
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_UCX_REQUEST_HPP */

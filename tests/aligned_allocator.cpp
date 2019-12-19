@@ -15,59 +15,53 @@
 #include <iostream>
 
 template<std::size_t Alignment, typename T>
-void test_std_alloc(int n)
-{
+void test_std_alloc(int n) {
     using namespace gridtools::ghex;
-    using alloc_t = std::allocator<T>;
-    using alloc_other_t = std::allocator<float>;
-    using aligned_alloc_t = allocator::aligned_allocator_adaptor<alloc_t, Alignment>;
+    using alloc_t               = std::allocator<T>;
+    using alloc_other_t         = std::allocator<float>;
+    using aligned_alloc_t       = allocator::aligned_allocator_adaptor<alloc_t, Alignment>;
     using aligned_alloc_other_t = allocator::aligned_allocator_adaptor<alloc_other_t, Alignment>;
 
-    alloc_t alloc;
+    alloc_t               alloc;
     aligned_alloc_other_t aligned_alloc_other(alloc);
-    aligned_alloc_t aligned_alloc(std::move(aligned_alloc_other));
-    
+    aligned_alloc_t       aligned_alloc(std::move(aligned_alloc_other));
+
     auto ptr = aligned_alloc.allocate(n);
-    
+
     aligned_alloc.construct(ptr, Alignment);
-    
+
     EXPECT_TRUE(ptr[0] == Alignment);
-    EXPECT_TRUE((reinterpret_cast<std::uintptr_t>(to_address(ptr)) & std::uintptr_t(Alignment-1u)) == 0u);
-    
-    for (int i=0; i<n; ++i)
-        aligned_alloc.destroy(ptr+i);
+    EXPECT_TRUE((reinterpret_cast<std::uintptr_t>(to_address(ptr)) & std::uintptr_t(Alignment - 1u)) == 0u);
 
-    aligned_alloc.deallocate(ptr,n);
+    for (int i = 0; i < n; ++i) aligned_alloc.destroy(ptr + i);
 
+    aligned_alloc.deallocate(ptr, n);
 
     std::vector<T, aligned_alloc_t> vec(n, Alignment, aligned_alloc);
 
     EXPECT_TRUE(vec[0] == Alignment);
-    std::cout << ((reinterpret_cast<std::uintptr_t>(&vec[0]) & std::uintptr_t(Alignment-1u))) << std::endl;
-    EXPECT_TRUE((reinterpret_cast<std::uintptr_t>(&vec[0]) & std::uintptr_t(Alignment-1u)) == 0u);
+    std::cout << ((reinterpret_cast<std::uintptr_t>(&vec[0]) & std::uintptr_t(Alignment - 1u))) << std::endl;
+    EXPECT_TRUE((reinterpret_cast<std::uintptr_t>(&vec[0]) & std::uintptr_t(Alignment - 1u)) == 0u);
 }
 
-TEST(aligned_allocator, integer)
-{
-    test_std_alloc< 16,int>(1);
-    test_std_alloc< 32,int>(1);
-    test_std_alloc< 64,int>(1);
-    test_std_alloc<128,int>(1);
-    test_std_alloc< 16,int>(19);
-    test_std_alloc< 32,int>(19);
-    test_std_alloc< 64,int>(19);
-    test_std_alloc<128,int>(19);
+TEST(aligned_allocator, integer) {
+    test_std_alloc<16, int>(1);
+    test_std_alloc<32, int>(1);
+    test_std_alloc<64, int>(1);
+    test_std_alloc<128, int>(1);
+    test_std_alloc<16, int>(19);
+    test_std_alloc<32, int>(19);
+    test_std_alloc<64, int>(19);
+    test_std_alloc<128, int>(19);
 }
 
-TEST(aligned_allocator, double_prec)
-{
-    test_std_alloc< 16,double>(1);
-    test_std_alloc< 32,double>(1);
-    test_std_alloc< 64,double>(1);
-    test_std_alloc<128,double>(1);
-    test_std_alloc< 16,double>(19);
-    test_std_alloc< 32,double>(19);
-    test_std_alloc< 64,double>(19);
-    test_std_alloc<128,double>(19);
+TEST(aligned_allocator, double_prec) {
+    test_std_alloc<16, double>(1);
+    test_std_alloc<32, double>(1);
+    test_std_alloc<64, double>(1);
+    test_std_alloc<128, double>(1);
+    test_std_alloc<16, double>(19);
+    test_std_alloc<32, double>(19);
+    test_std_alloc<64, double>(19);
+    test_std_alloc<128, double>(19);
 }
-

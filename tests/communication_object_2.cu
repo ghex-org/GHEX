@@ -10,4 +10,3 @@
  */
 
 #include "./communication_object_2.cpp"
-

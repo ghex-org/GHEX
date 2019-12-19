@@ -14,6 +14,7 @@ Diff='diff'
 Sed='sed'
 ClangFormat='clang-format'
 Style='-style=file'
+FormatAll=False
 IgnoreList=[]
 ExtensionList=['.h', '.cpp', '.hpp', '.c', '.cc', '.hh', '.cxx', '.hxx', '.cu', '.m']
 
@@ -31,6 +32,12 @@ def getGitRoot():
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return RevParse.stdout.read().strip()
 
+def getAllFiles():
+    GitLs = subprocess.Popen([Git, "ls-files"], stdout=subprocess.PIPE)
+    GitLsRet = GitLs.stdout.read().strip()
+    GitLsRet = GitLsRet.decode()
+    return GitLsRet.split('\n')
+
 def getEditedFiles(InPlace):
     Head = getGitHead()
     GitArgs = [Git, 'diff-index']
@@ -40,7 +47,6 @@ def getEditedFiles(InPlace):
     DiffIndex = subprocess.Popen(GitArgs, stdout=subprocess.PIPE)
     DiffIndexRet = DiffIndex.stdout.read().strip()
     DiffIndexRet = DiffIndexRet.decode()
-
     return DiffIndexRet.split('\n')
 
 def isFormattable(File):
@@ -74,7 +80,7 @@ def patchFile(FileName,PatchFile):
     return
 
 def printUsageAndExit():
-    print("Usage: " + sys.argv[0] + " [--pre-commit|--cmake] " +
+    print("Usage: " + sys.argv[0] + " [--pre-commit|--cmake] [--all]" +
           "[<path/to/git>] [<path/to/clang-format>]  [<path/to/diff>]  [<path/to/sed>]")
     sys.exit(1)
 
@@ -102,11 +108,17 @@ if __name__ == "__main__":
             Style = arg
         elif "-ignore=" in arg:
             IgnoreList = arg.strip("-ignore=").split(";")
+        elif "--all" in arg:
+            FormatAll=True
         else:
             printUsageAndExit()
 
     # get a list of changed files which were changed
-    EditedFiles = getEditedFiles(InPlace)
+
+    if (FormatAll):
+        EditedFiles = getAllFiles()
+    else:
+        EditedFiles = getEditedFiles(InPlace)
 
     ReturnCode = 0
 

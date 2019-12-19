@@ -17,38 +17,34 @@ namespace gridtools {
     namespace ghex {
         namespace structured {
 
-    namespace detail {
+            namespace detail {
 
-        template<typename CoordinateArrayType>
-        struct grid 
-        {
-            using coordinate_base_type    = CoordinateArrayType;
-            using coordinate_type         = coordinate<coordinate_base_type>;
-            using coordinate_element_type = typename coordinate_type::element_type;
-            using dimension               = typename coordinate_type::dimension;    
-        };
+                template<typename CoordinateArrayType>
+                struct grid {
+                    using coordinate_base_type    = CoordinateArrayType;
+                    using coordinate_type         = coordinate<coordinate_base_type>;
+                    using coordinate_element_type = typename coordinate_type::element_type;
+                    using dimension               = typename coordinate_type::dimension;
+                };
 
-        template<typename A>
-        struct grid<coordinate<A>>
-        {
-            using coordinate_base_type    = A;
-            using coordinate_type         = coordinate<A>;
-            using coordinate_element_type = typename coordinate_type::element_type;
-            using dimension               = typename coordinate_type::dimension;
-        };
+                template<typename A>
+                struct grid<coordinate<A>> {
+                    using coordinate_base_type    = A;
+                    using coordinate_type         = coordinate<A>;
+                    using coordinate_element_type = typename coordinate_type::element_type;
+                    using dimension               = typename coordinate_type::dimension;
+                };
 
-    } // namespace detail
+            } // namespace detail
 
-    /** @brief type to indicate structured grids */
-    struct grid 
-    {
-        template<typename Domain>
-        using type = detail::grid<typename Domain::coordinate_type>;
-    };
+            /** @brief type to indicate structured grids */
+            struct grid {
+                template<typename Domain>
+                using type = detail::grid<typename Domain::coordinate_type>;
+            };
         } //namespace structured
-    } // namespace ghex
+    }     // namespace ghex
 
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_STRUCTURED_GRID_HPP */
-

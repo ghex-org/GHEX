@@ -12,7 +12,7 @@
 #define INCLUDED_GHEX_COMMON_TEST_EQ_HPP
 
 namespace gridtools {
-    
+
     namespace ghex {
 
         namespace detail {
@@ -22,15 +22,12 @@ namespace gridtools {
             struct test_eq_t {};
 
             template<typename Test, typename T0, typename T1, typename... Ts>
-            struct test_eq_t<Test,T0,T1,Ts...> : public 
-                std::integral_constant<
-                    bool, 
-                    std::is_same<Test,T0>::value && test_eq_t<Test,T1,Ts...>::value
-                > {};
+            struct test_eq_t<Test, T0, T1, Ts...>
+            : public std::integral_constant<bool, std::is_same<Test, T0>::value && test_eq_t<Test, T1, Ts...>::value> {
+            };
 
             template<typename Test, typename T0>
-            struct test_eq_t<Test,T0> : public 
-                std::integral_constant<bool, std::is_same<Test,T0>::value> {};
+            struct test_eq_t<Test, T0> : public std::integral_constant<bool, std::is_same<Test, T0>::value> {};
 
         } // namespace detail
 
@@ -39,4 +36,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_COMMON_TEST_EQ_HPP */
-
