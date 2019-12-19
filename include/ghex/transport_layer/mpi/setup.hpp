@@ -26,10 +26,11 @@ namespace gridtools{
             {
             public:
                 using base_type    = communicator_base;
-                using handle_type  = request;
+                using handle_type  = request_t;
                 using address_type = base_type::rank_type;
+                using status       = status_t;
                 template<typename T>
-                using future = future<T>;
+                using future = future_t<T>;
 
             public:
                 setup_communicator(const MPI_Comm& comm) : base_type{comm} {}

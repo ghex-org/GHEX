@@ -20,22 +20,22 @@ namespace gridtools{
 
                 /** @brief future template for non-blocking communication */
                 template<typename T>
-                struct future
+                struct future_t
                 {
                     using value_type  = T;
-                    using handle_type = request;
+                    using handle_type = request_t;
 
                     value_type m_data;
                     handle_type m_handle;
 
-                    future(value_type&& data, handle_type&& h) 
+                    future_t(value_type&& data, handle_type&& h) 
                     :   m_data(std::move(data))
                     ,   m_handle(std::move(h))
                     {}
-                    future(const future&) = delete;
-                    future(future&&) = default;
-                    future& operator=(const future&) = delete;
-                    future& operator=(future&&) = default;
+                    future_t(const future_t&) = delete;
+                    future_t(future_t&&) = default;
+                    future_t& operator=(const future_t&) = delete;
+                    future_t& operator=(future_t&&) = default;
 
                     void wait() noexcept
                     {
@@ -72,20 +72,20 @@ namespace gridtools{
                 };
 
                 template<>
-                struct future<void>
+                struct future_t<void>
                 {
-                    using handle_type = request;
+                    using handle_type = request_t;
 
                     handle_type m_handle;
 
-                    future() noexcept = default; 
-                    future(handle_type&& h) 
+                    future_t() noexcept = default; 
+                    future_t(handle_type&& h) 
                     :   m_handle(std::move(h))
                     {}
-                    future(const future&) = delete;
-                    future(future&&) = default;
-                    future& operator=(const future&) = delete;
-                    future& operator=(future&&) = default;
+                    future_t(const future_t&) = delete;
+                    future_t(future_t&&) = default;
+                    future_t& operator=(const future_t&) = delete;
+                    future_t& operator=(future_t&&) = default;
 
                     void wait() noexcept
                     {

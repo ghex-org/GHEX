@@ -28,19 +28,19 @@ namespace gridtools {
      * @tparam Transport transport protocol
      * @tparam CoordinateArrayType coordinate-like array type
      * @tparam DomainIdType domain id type*/
-    template<typename Transport, typename CoordinateArrayType, typename DomainIdType>
-    class pattern<Transport,structured::detail::grid<CoordinateArrayType>,DomainIdType>
+    template<typename Communicator, typename CoordinateArrayType, typename DomainIdType>
+    class pattern<Communicator,structured::detail::grid<CoordinateArrayType>,DomainIdType>
     {
     public: // member types
         using grid_type               = structured::detail::grid<CoordinateArrayType>;
-        using this_type               = pattern<Transport, grid_type, DomainIdType>;
+        using this_type               = pattern<Communicator, grid_type, DomainIdType>;
         using coordinate_type         = typename grid_type::coordinate_type;
         using coordinate_element_type = typename grid_type::coordinate_element_type;
         using dimension               = typename grid_type::dimension;
-        using communicator_type       = tl::communicator<Transport>;
+        using communicator_type       = Communicator;
         using address_type            = typename communicator_type::address_type;
         using domain_id_type          = DomainIdType;
-        using pattern_container_type  = pattern_container<Transport,grid_type,DomainIdType>;
+        using pattern_container_type  = pattern_container<Communicator,grid_type,DomainIdType>;
 
         // this struct holds the first and the last coordinate (inclusive)
         // of a hypercube in N-dimensional space.
@@ -157,10 +157,9 @@ namespace gridtools {
             return s;
         }
 
-        friend class pattern_container<Transport,grid_type,DomainIdType>;
+        friend class pattern_container<Communicator,grid_type,DomainIdType>;
 
     private: // members
-        communicator_type       m_comm;
         iteration_space_pair    m_domain;
         coordinate_type         m_global_first;
         coordinate_type         m_global_last;
@@ -170,8 +169,8 @@ namespace gridtools {
         pattern_container_type* m_container;
 
     public: // ctors
-        pattern(communicator_type& comm, const iteration_space_pair& domain, const extended_domain_id_type& id)
-        : m_comm(comm), m_domain(domain), m_id(id) {}
+        pattern(const iteration_space_pair& domain, const extended_domain_id_type& id)
+        : m_domain(domain), m_id(id) {}
         pattern(const pattern&) = default;
         pattern(pattern&&) = default;
 
@@ -182,8 +181,6 @@ namespace gridtools {
         const map_type& recv_halos() const noexcept { return m_recv_map; }
         domain_id_type domain_id() const noexcept { return m_id.id; }
         extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
-        communicator_type& communicator() noexcept { return m_comm; }
-        const communicator_type& communicator() const noexcept { return m_comm; }
         const pattern_container_type& container() const noexcept { return *m_container; }
         coordinate_type& global_first() noexcept { return m_global_first; }
         coordinate_type& global_last()  noexcept { return m_global_last; }
@@ -209,20 +206,24 @@ namespace gridtools {
         template<typename CoordinateArrayType>
         struct make_pattern_impl<::gridtools::ghex::structured::detail::grid<CoordinateArrayType>>
         {
-            template<typename Transport, typename HaloGenerator, typename DomainRange>
-            static auto apply(tl::mpi::setup_communicator& comm, tl::communicator<Transport>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range)
+            template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
+            static auto apply(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range)
             {
                 // typedefs
+                using context_type              = tl::context<Transport,ThreadPrimitives>;
                 using domain_type               = typename std::remove_reference_t<DomainRange>::value_type;
                 using domain_id_type            = typename domain_type::domain_id_type;
                 using grid_type                 = ::gridtools::ghex::structured::detail::grid<CoordinateArrayType>;
-                using pattern_type              = pattern<Transport, grid_type, domain_id_type>;
+                using communicator_type         = typename context_type::communicator_type;
+                using pattern_type              = pattern<communicator_type, grid_type, domain_id_type>;
                 using iteration_space           = typename pattern_type::iteration_space;
                 using iteration_space_pair      = typename pattern_type::iteration_space_pair;
                 using coordinate_type           = typename pattern_type::coordinate_type;
                 using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
 
                 // get this address from new communicator
+                auto comm = context.get_setup_communicator();
+                auto new_comm = context.get_serial_communicator();
                 auto my_address = new_comm.address();
                 
                 // set up domain ids, extents and recv halos
@@ -244,7 +245,7 @@ namespace gridtools {
                             iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
                                             coordinate_type{d.last()} -coordinate_type{d.first()}},
                             iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}}} );
-                    my_patterns.emplace_back( new_comm, my_domain_extents.back(), my_domain_ids.back() );
+                    my_patterns.emplace_back( /*new_comm,*/ my_domain_extents.back(), my_domain_ids.back() );
                     // make space for more halos
                     my_generated_recv_halos.resize(my_generated_recv_halos.size()+1);
                     // generate recv halos: invoke halo generator
@@ -570,7 +571,7 @@ namespace gridtools {
                     }
                 }
 
-                return pattern_container<Transport,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
+                return pattern_container<communicator_type,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
             }
         };
 

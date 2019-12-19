@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP
 
 #include <memory>
+#include <omp.h>
 #include "./request.hpp"
 #include "./status.hpp"
 
@@ -63,7 +64,13 @@ namespace gridtools{
                     /** @return size of communicator group*/
                     inline size_type size() const noexcept { return m_size; }
 
-                    void barrier() const { MPI_Barrier(*m_comm); }
+                    static void initialize() {}
+		      static void finalize() {}
+
+                    void barrier()
+                    {
+                        MPI_Barrier(*m_comm);
+                    }
 
                     operator       MPI_Comm&()       noexcept { return *m_comm; }
                     operator const MPI_Comm&() const noexcept { return *m_comm; }
@@ -77,4 +84,3 @@ namespace gridtools{
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP */
-

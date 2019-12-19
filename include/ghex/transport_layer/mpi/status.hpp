@@ -20,7 +20,7 @@ namespace gridtools{
             namespace mpi {
 
                 /** @brief thin wrapper around MPI_Request */
-                struct status
+                struct status_t
                 {
                     GHEX_C_STRUCT(stat_type, MPI_Status)
                     stat_type m_status;
