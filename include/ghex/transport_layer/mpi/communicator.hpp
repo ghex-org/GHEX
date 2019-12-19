@@ -33,29 +33,29 @@ namespace gridtools {
                 template<typename ThreadPrimitives>
                 class communicator //<mpi_tag,ThreadPrimitives>
                 : public communicator_base {
-                public:
+                  public:
                     using transport_type = mpi_tag;
-                    using base_type      = mpi::communicator_base;
-                    using address_type   = typename base_type::rank_type;
-                    using rank_type      = typename base_type::rank_type;
-                    using size_type      = typename base_type::size_type;
-                    using tag_type       = typename base_type::tag_type;
-                    using request        = request_t;
-                    using status         = status_t;
+                    using base_type = mpi::communicator_base;
+                    using address_type = typename base_type::rank_type;
+                    using rank_type = typename base_type::rank_type;
+                    using size_type = typename base_type::size_type;
+                    using tag_type = typename base_type::tag_type;
+                    using request = request_t;
+                    using status = status_t;
                     template<typename T>
                     using future = future_t<T>;
 
-                public:
+                  public:
                     using transport_context_type = transport_context<mpi_tag, ThreadPrimitives>;
                     transport_context_type* m_transport_context;
-                    int                     m_thread_id;
+                    int m_thread_id;
 
                     communicator(const MPI_Comm& c, transport_context_type* tc, int thread_id = -1)
                     : base_type{c}
                     , m_transport_context{tc}
                     , m_thread_id{thread_id} {}
 
-                    communicator(const communicator&)     = default;
+                    communicator(const communicator&) = default;
                     communicator(communicator&&) noexcept = default;
 
                     communicator& operator=(const communicator&) = default;
@@ -64,7 +64,7 @@ namespace gridtools {
                     /** @return address of this process */
                     address_type address() const { return rank(); }
 
-                public: // send
+                  public: // send
                     /** @brief non-blocking send
                       * @tparam Message a container type
                       * @param msg source container
@@ -80,7 +80,7 @@ namespace gridtools {
                         return req;
                     }
 
-                public: // recv
+                  public: // recv
                     /** @brief non-blocking receive
                       * @tparam Message a container type
                       * @param msg destination container
@@ -150,13 +150,13 @@ namespace gridtools {
                         return recv_any<Message>(MPI_ANY_SOURCE, MPI_ANY_TAG, std::forward<Args>(args)...);
                     }
 
-                private: // implementation
+                  private: // implementation
                     template<typename Message, typename... Args>
                     [[nodiscard]] boost::optional<future<std::tuple<Message, rank_type, tag_type>>>
                     recv_any(rank_type source, tag_type tag, Args&&... args) const {
                         MPI_Message mpi_msg;
-                        status      st;
-                        int         flag = 0;
+                        status st;
+                        int flag = 0;
                         GHEX_CHECK_MPI_RESULT(MPI_Improbe(source, tag, *this, &flag, &mpi_msg, &st.get()));
                         if (flag) {
                             int count;

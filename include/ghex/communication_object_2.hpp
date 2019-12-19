@@ -38,24 +38,24 @@ namespace gridtools {
           * @tparam DomainIdType domain id type*/
         template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_handle {
-        private: // friend class
+          private: // friend class
             friend class communication_object<Communicator, GridType, DomainIdType>;
 
-        private: // member types
-            using co_t              = communication_object<Communicator, GridType, DomainIdType>;
+          private: // member types
+            using co_t = communication_object<Communicator, GridType, DomainIdType>;
             using communicator_type = Communicator;
 
-        private: // members
-            communicator_type     m_comm;
+          private: // members
+            communicator_type m_comm;
             std::function<void()> m_wait_fct;
 
-        public: // public constructor
+          public: // public constructor
             /** @brief construct a ready handle
               * @param comm communicator */
             communication_handle(const communicator_type& comm)
             : m_comm{comm} {}
 
-        private: // private constructor
+          private: // private constructor
             /** @brief construct a handle with a wait function
               * @tparam Func function type with signature void()
               * @param comm communicator
@@ -65,13 +65,13 @@ namespace gridtools {
             : m_comm{comm}
             , m_wait_fct(std::forward<Func>(wait_fct)) {}
 
-        public: // copy and move ctors
-            communication_handle(communication_handle&&)      = default;
+          public: // copy and move ctors
+            communication_handle(communication_handle&&) = default;
             communication_handle(const communication_handle&) = delete;
             communication_handle& operator=(communication_handle&&) = default;
             communication_handle& operator=(const communication_handle&) = delete;
 
-        public: // member functions
+          public: // member functions
             /** @brief  wait for communication to be finished*/
             void wait() {
                 if (m_wait_fct) m_wait_fct();
@@ -85,33 +85,33 @@ namespace gridtools {
          * @tparam DomainIdType domain id type*/
         template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_object {
-        private: // friend class
+          private: // friend class
             friend class communication_handle<Communicator, GridType, DomainIdType>;
 
-        public: // member types
+          public: // member types
             /** @brief handle type returned by exhange operation */
-            using handle_type            = communication_handle<Communicator, GridType, DomainIdType>;
-            using grid_type              = GridType;
-            using domain_id_type         = DomainIdType;
-            using pattern_type           = pattern<Communicator, GridType, DomainIdType>;
+            using handle_type = communication_handle<Communicator, GridType, DomainIdType>;
+            using grid_type = GridType;
+            using domain_id_type = DomainIdType;
+            using pattern_type = pattern<Communicator, GridType, DomainIdType>;
             using pattern_container_type = pattern_container<Communicator, GridType, DomainIdType>;
-            using this_type              = communication_object<Communicator, GridType, DomainIdType>;
+            using this_type = communication_object<Communicator, GridType, DomainIdType>;
 
             template<typename D, typename F>
             using buffer_info_type = buffer_info<pattern_type, D, F>;
 
-        private: // member types
-            using communicator_type    = Communicator;
-            using address_type         = typename communicator_type::address_type;
+          private: // member types
+            using communicator_type = Communicator;
+            using address_type = typename communicator_type::address_type;
             using index_container_type = typename pattern_type::index_container_type;
-            using pack_function_type   = std::function<void(void*, const index_container_type&, void*)>;
+            using pack_function_type = std::function<void(void*, const index_container_type&, void*)>;
             using unpack_function_type = std::function<void(const void*, const index_container_type&, void*)>;
 
             /** @brief pair of domain ids with ordering */
             struct domain_id_pair {
                 domain_id_type first_id;
                 domain_id_type second_id;
-                bool           operator<(const domain_id_pair& other) const noexcept {
+                bool operator<(const domain_id_pair& other) const noexcept {
                     return (first_id < other.first_id
                                 ? true
                                 : (first_id > other.first_id ? false : (second_id < other.second_id)));
@@ -126,10 +126,10 @@ namespace gridtools {
             template<typename Function>
             struct field_info {
                 using index_container_type = typename pattern_type::map_type::mapped_type;
-                Function                    call_back;
+                Function call_back;
                 const index_container_type* index_container;
-                std::size_t                 offset;
-                void*                       field_ptr;
+                std::size_t offset;
+                void* field_ptr;
             };
 
             /** @brief Holds serial buffer memory and meta information associated with it
@@ -138,21 +138,22 @@ namespace gridtools {
             template<class Vector, class Function>
             struct buffer {
                 using field_info_type = field_info<Function>;
-                address_type                 address;
-                int                          tag;
-                Vector                       buffer;
-                std::size_t                  size;
-                std::vector<field_info_type> field_infos;
-                cuda::stream                 m_cuda_stream;
+                using field_info_vec_type = std::vector<field_info_type>;
+                address_type address;
+                int tag;
+                Vector buffer;
+                std::size_t size;
+                field_info_vec_type field_infos;
+                cuda::stream m_cuda_stream;
             };
 
             /** @brief Holds maps of buffers for send and recieve operations indexed by a domain_id_pair and a device id
               * @tparam Arch the device on which the buffer memory is allocated */
             template<typename Arch>
             struct buffer_memory {
-                using arch_type      = Arch;
+                using arch_type = Arch;
                 using device_id_type = typename arch_traits<Arch>::device_id_type;
-                using vector_type    = typename arch_traits<Arch>::message_type;
+                using vector_type = typename arch_traits<Arch>::message_type;
 
                 using send_buffer_type = buffer<vector_type, pack_function_type>;
                 using recv_buffer_type = buffer<vector_type, unpack_function_type>;
@@ -160,11 +161,11 @@ namespace gridtools {
                 using recv_memory_type = std::map<device_id_type, std::map<domain_id_pair, recv_buffer_type>>;
 
                 std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
-                send_memory_type                                                                 send_memory;
-                recv_memory_type                                                                 recv_memory;
+                send_memory_type send_memory;
+                recv_memory_type recv_memory;
 
                 // additional members needed for receive operations used for scheduling calls to unpack
-                using hook_type   = recv_buffer_type*;
+                using hook_type = recv_buffer_type*;
                 using future_type = typename communicator_type::template future<hook_type>;
                 std::vector<future_type> m_recv_futures;
             };
@@ -172,20 +173,20 @@ namespace gridtools {
             /** tuple type of buffer_memory (one element for each device in arch_list) */
             using memory_type = detail::transform<arch_list>::with<buffer_memory>;
 
-        private: // members
-            bool                                                           m_valid;
-            communicator_type                                              m_comm;
-            memory_type                                                    m_mem;
+          private: // members
+            bool m_valid;
+            communicator_type m_comm;
+            memory_type m_mem;
             std::vector<typename communicator_type::template future<void>> m_send_futures;
 
-        public: // ctors
+          public: // ctors
             communication_object(communicator_type comm)
             : m_valid(false)
             , m_comm(comm) {}
             communication_object(const communication_object&) = delete;
-            communication_object(communication_object&&)      = default;
+            communication_object(communication_object&&) = default;
 
-        public: // exchange arbitrary field-device-pattern combinations
+          public: // exchange arbitrary field-device-pattern combinations
             /** @brief blocking variant of halo exchange
               * @tparam Archs list of device types
               * @tparam Fields list of field types
@@ -215,7 +216,7 @@ namespace gridtools {
                 const test_t* ptrs[sizeof...(Fields)] = {&(buffer_infos.get_pattern_container())...};
                 // build a tag map
                 std::map<const test_t*, int> pat_ptr_map;
-                int                          max_tag = 0;
+                int max_tag = 0;
                 for (unsigned int k = 0; k < sizeof...(Fields); ++k) {
                     auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptrs[k], max_tag));
                     if (p_it_bool.second == true) max_tag += ptrs[k]->max_tag() + 1;
@@ -224,15 +225,15 @@ namespace gridtools {
                 int tag_offsets[sizeof...(Fields)] = {pat_ptr_map[&(buffer_infos.get_pattern_container())]...};
                 // store arguments and corresponding memory in tuples
                 using buffer_infos_ptr_t = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
-                using memory_t           = std::tuple<buffer_memory<Archs>*...>;
+                using memory_t = std::tuple<buffer_memory<Archs>*...>;
                 buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
-                memory_t           memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
+                memory_t memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
                 // loop over buffer_infos/memory and compute required space
                 int i = 0;
                 detail::for_each(memory_tuple, buffer_info_tuple, [this, &i, &tag_offsets](auto mem, auto bi) {
-                    using arch_type                = typename std::remove_reference_t<decltype(*mem)>::arch_type;
-                    using value_type               = typename std::remove_reference_t<decltype(*bi)>::value_type;
-                    auto                 field_ptr = &(bi->get_field());
+                    using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
+                    using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
+                    auto field_ptr = &(bi->get_field());
                     const domain_id_type my_dom_id = bi->get_field().domain_id();
                     allocate<arch_type, value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(),
                                                     tag_offsets[i]);
@@ -244,7 +245,7 @@ namespace gridtools {
                 return h;
             }
 
-        public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
+          public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
             /** @brief non-blocking exchange of data, vector interface
               * @tparam Arch device type
               * @tparam Field field type
@@ -259,20 +260,20 @@ namespace gridtools {
                 return h;
             }
 
-        public: // exchange a number of buffer_infos with Field = simple_field_wrapper (optimization for gpu below)
+          public: // exchange a number of buffer_infos with Field = simple_field_wrapper (optimization for gpu below)
 #ifdef __CUDACC__
             template<typename Arch, typename T, int... Order>
             [[nodiscard]] std::enable_if_t<std::is_same<Arch, gpu>::value, handle_type> exchange_u(
                 buffer_info_type<Arch, structured::simple_field_wrapper<
                                            T, Arch, structured::domain_descriptor<domain_id_type, sizeof...(Order)>,
                                            Order...>>* first,
-                std::size_t                            length) {
-                using memory_t   = buffer_memory<gpu>;
+                std::size_t length) {
+                using memory_t = buffer_memory<gpu>;
                 using field_type = std::remove_reference_t<decltype(first->get_field())>;
                 using value_type = typename field_type::value_type;
-                auto h           = exchange_impl(first, length);
+                auto h = exchange_impl(first, length);
                 post_recvs();
-                h.m_wait_fct  = [this]() { this->wait_u<value_type, field_type>(); };
+                h.m_wait_fct = [this]() { this->wait_u<value_type, field_type>(); };
                 memory_t& mem = std::get<memory_t>(m_mem);
                 packer<gpu>::template pack_u<value_type, field_type>(mem, m_send_futures, m_comm);
                 return h;
@@ -284,11 +285,11 @@ namespace gridtools {
                 buffer_info_type<Arch, structured::simple_field_wrapper<
                                            T, Arch, structured::domain_descriptor<domain_id_type, sizeof...(Order)>,
                                            Order...>>* first,
-                std::size_t                            length) {
+                std::size_t length) {
                 return exchange(first, length);
             }
 
-        private: // implementation
+          private: // implementation
             template<typename Arch, typename Field>
             [[nodiscard]] handle_type exchange_impl(buffer_info_type<Arch, Field>* first, std::size_t length) {
                 // check that arguments are compatible
@@ -301,20 +302,20 @@ namespace gridtools {
 
                 // build a tag map
                 std::map<const test_t*, int> pat_ptr_map;
-                int                          max_tag = 0;
+                int max_tag = 0;
                 for (unsigned int k = 0; k < length; ++k) {
-                    const test_t* ptr       = &((first + k)->get_pattern_container());
-                    auto          p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
+                    const test_t* ptr = &((first + k)->get_pattern_container());
+                    auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
                     if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
                 }
                 // loop over buffer_infos/memory and compute required space
-                using memory_t   = buffer_memory<Arch>*;
+                using memory_t = buffer_memory<Arch>*;
                 using value_type = typename buffer_info_type<Arch, Field>::value_type;
                 memory_t mem{&(std::get<buffer_memory<Arch>>(m_mem))};
                 for (std::size_t k = 0; k < length; ++k) {
-                    auto       field_ptr  = &((first + k)->get_field());
-                    auto       tag_offset = pat_ptr_map[&((first + k)->get_pattern_container())];
-                    const auto my_dom_id  = (first + k)->get_field().domain_id();
+                    auto field_ptr = &((first + k)->get_field());
+                    auto tag_offset = pat_ptr_map[&((first + k)->get_pattern_container())];
+                    const auto my_dom_id = (first + k)->get_field().domain_id();
                     allocate<Arch, value_type>(mem, (first + k)->get_pattern(), field_ptr, my_dom_id,
                                                (first + k)->device_id(), tag_offset);
                 }
@@ -344,7 +345,7 @@ namespace gridtools {
                 });
             }
 
-        private: // wait functions
+          private: // wait functions
             void wait() {
                 if (!m_valid) return;
                 detail::for_each(m_mem, [this](auto& m) {
@@ -360,14 +361,14 @@ namespace gridtools {
             void wait_u() {
                 if (!m_valid) return;
                 using memory_t = buffer_memory<gpu>;
-                memory_t& mem  = std::get<memory_t>(m_mem);
+                memory_t& mem = std::get<memory_t>(m_mem);
                 packer<gpu>::template unpack_u<T, Field>(mem);
                 for (auto& f : m_send_futures) f.wait();
                 clear();
             }
 #endif
 
-        private: // reset
+          private: // reset
             // clear the internal flags so that a new exchange can be started
             // important: does not deallocate
             void clear() {
@@ -390,7 +391,7 @@ namespace gridtools {
                 });
             }
 
-        private: // allocation member functions
+          private: // allocation member functions
             template<typename Arch, typename T, typename Memory, typename Field, typename O>
             void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id,
                           typename arch_traits<Arch>::device_id_type device_id, O tag_offset) {
@@ -422,18 +423,18 @@ namespace gridtools {
                 for (const auto& p_id_c : halos) {
                     const auto num_elements = pattern_type::num_elements(p_id_c.second);
                     if (num_elements < 1) continue;
-                    const auto     remote_address = p_id_c.first.address;
-                    const auto     remote_dom_id  = p_id_c.first.id;
+                    const auto remote_address = p_id_c.first.address;
+                    const auto remote_dom_id = p_id_c.first.id;
                     domain_id_type left, right;
                     if (receive) {
-                        left  = my_dom_id;
+                        left = my_dom_id;
                         right = remote_dom_id;
                     } else {
-                        left  = remote_dom_id;
+                        left = remote_dom_id;
                         right = my_dom_id;
                     }
                     const auto d_p = domain_id_pair{left, right};
-                    auto       it  = memory.find(d_p);
+                    auto it = memory.find(d_p);
                     if (it == memory.end()) {
                         it = memory
                                  .insert(
@@ -444,7 +445,7 @@ namespace gridtools {
                                  .first;
                     } else if (it->second.size == 0) {
                         it->second.address = remote_address;
-                        it->second.tag     = p_id_c.first.tag + tag_offset;
+                        it->second.tag = p_id_c.first.tag + tag_offset;
                         it->second.field_infos.resize(0);
                     }
                     const auto prev_size = it->second.size;
@@ -463,8 +464,8 @@ namespace gridtools {
         template<typename PatternContainer>
         auto make_communication_object(typename PatternContainer::value_type::communicator_type comm) {
             using communicator_type = typename PatternContainer::value_type::communicator_type;
-            using grid_type         = typename PatternContainer::value_type::grid_type;
-            using domain_id_type    = typename PatternContainer::value_type::domain_id_type;
+            using grid_type = typename PatternContainer::value_type::grid_type;
+            using domain_id_type = typename PatternContainer::value_type::domain_id_type;
             return communication_object<communicator_type, grid_type, domain_id_type>(comm);
         }
 

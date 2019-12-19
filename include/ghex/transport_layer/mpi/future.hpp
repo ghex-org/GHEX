@@ -21,17 +21,17 @@ namespace gridtools {
                 /** @brief future template for non-blocking communication */
                 template<typename T>
                 struct future_t {
-                    using value_type  = T;
+                    using value_type = T;
                     using handle_type = request_t;
 
-                    value_type  m_data;
+                    value_type m_data;
                     handle_type m_handle;
 
                     future_t(value_type&& data, handle_type&& h)
                     : m_data(std::move(data))
                     , m_handle(std::move(h)) {}
                     future_t(const future_t&) = delete;
-                    future_t(future_t&&)      = default;
+                    future_t(future_t&&) = default;
                     future_t& operator=(const future_t&) = delete;
                     future_t& operator=(future_t&&) = default;
 
@@ -68,7 +68,7 @@ namespace gridtools {
                     future_t(handle_type&& h)
                     : m_handle(std::move(h)) {}
                     future_t(const future_t&) = delete;
-                    future_t(future_t&&)      = default;
+                    future_t(future_t&&) = default;
                     future_t& operator=(const future_t&) = delete;
                     future_t& operator=(future_t&&) = default;
 

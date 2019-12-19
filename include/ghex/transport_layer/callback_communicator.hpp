@@ -23,9 +23,9 @@
 #include "../common/debug.hpp"
 
 #ifdef USE_RAW_SHARED_MESSAGE
-    #include "./raw_shared_message_buffer.hpp"
+#include "./raw_shared_message_buffer.hpp"
 #else
-    #include "./shared_message_buffer.hpp"
+#include "./shared_message_buffer.hpp"
 #endif
 
 /** @brief checks the arguments of callback function object */
@@ -66,23 +66,23 @@ namespace gridtools {
               * @tparam Allocator    allocator type used for allocating shared message buffers */
             template<class Communicator, class Allocator = std::allocator<unsigned char>>
             class callback_communicator {
-            public: // member types
+              public: // member types
                 using communicator_type = Communicator;
-                using future_type       = typename communicator_type::template future<void>;
-                using tag_type          = typename communicator_type::tag_type;
-                using rank_type         = typename communicator_type::rank_type;
-                using allocator_type    = Allocator;
-                using message_type      = shared_message_buffer<allocator_type>;
+                using future_type = typename communicator_type::template future<void>;
+                using tag_type = typename communicator_type::tag_type;
+                using rank_type = typename communicator_type::rank_type;
+                using allocator_type = Allocator;
+                using message_type = shared_message_buffer<allocator_type>;
 
-            private: // member types
+              private: // member types
                 // necessary meta information for each send/receive operation
                 struct element_type {
                     using message_arg_type = message_type;
                     std::function<void(message_arg_type, rank_type, tag_type)> m_cb;
-                    rank_type                                                  m_rank;
-                    tag_type                                                   m_tag;
-                    future_type                                                m_future;
-                    message_type                                               m_msg;
+                    rank_type m_rank;
+                    tag_type m_tag;
+                    future_type m_future;
+                    message_type m_msg;
                 };
                 using send_element_type = element_type;
                 using recv_element_type = element_type;
@@ -91,13 +91,13 @@ namespace gridtools {
                 using send_container_type = std::vector<send_element_type>;
                 using recv_container_type = std::vector<recv_element_type>;
 
-            private: // members
-                communicator_type   m_comm;
-                allocator_type      m_alloc;
+              private: // members
+                communicator_type m_comm;
+                allocator_type m_alloc;
                 send_container_type m_sends;
                 recv_container_type m_recvs;
 
-            public: // ctors
+              public: // ctors
                 /** @brief construct from a basic transport communicator
                   * @param comm  the underlying transport communicator
                   * @param alloc the allocator instance to be used for constructing messages */
@@ -123,7 +123,7 @@ namespace gridtools {
                 }
 
                 callback_communicator(const callback_communicator&) = delete;
-                callback_communicator(callback_communicator&&)      = default;
+                callback_communicator(callback_communicator&&) = default;
 
                 /** terminates the program if the queues are not empty */
                 ~callback_communicator() {
@@ -132,12 +132,12 @@ namespace gridtools {
                     }
                 }
 
-            public: // synchronization
+              public: // synchronization
                 void barrier() { m_comm.barrier(); }
                 void flush() {}
                 void finalize() {}
 
-            public: // queries
+              public: // queries
                 auto rank() const noexcept { return m_comm.rank(); }
                 auto size() const noexcept { return m_comm.size(); }
 
@@ -146,11 +146,11 @@ namespace gridtools {
                 /** returns the number of unprocessed recv handles in the queue. */
                 std::size_t pending_recvs() const { return m_recvs.size(); }
 
-            public: // get a message
+              public: // get a message
                 /** get a message with size n from the communicator */
                 message_type make_message(std::size_t n = 0u) const { return {m_alloc, n}; }
 
-            public: // send
+              public: // send
                 /** @brief Send a message to a destination with the given tag and register a callback which will be 
                   * invoked when the send operation is completed.
                   * @tparam CallBack User defined callback class which defines 
@@ -184,7 +184,7 @@ namespace gridtools {
                 void send_multi(const message_type& msg, Neighs const& neighs, int tag, CallBack&& cb) {
                     GHEX_CHECK_CALLBACK
                     using cb_type = typename std::remove_cv<typename std::remove_reference<CallBack>::type>::type;
-                    auto cb_ptr   = std::make_shared<cb_type>(std::forward<CallBack>(cb));
+                    auto cb_ptr = std::make_shared<cb_type>(std::forward<CallBack>(cb));
                     for (auto id : neighs)
                         send(msg, id, tag, [cb_ptr](message_type m, rank_type r, tag_type t) {
                             // if (cb_ptr->use_count == 1)
@@ -198,7 +198,7 @@ namespace gridtools {
                     send_multi(msg, neighs, tag, [](message_type, rank_type, tag_type) {});
                 }
 
-            public: // recieve
+              public: // recieve
                 /** @brief Receive a message from a source rank with the given tag and register a callback which will
                   * be invoked when the receive operation is completed.
                   * @tparam CallBack User defined callback class which defines 
@@ -226,7 +226,7 @@ namespace gridtools {
                     recv(msg, src, tag, [](message_type, rank_type, tag_type) {});
                 }
 
-            public: // progress
+              public: // progress
                 /** @brief Progress the communication. This function checks whether any receive and send operation is 
                   * completed and calls the associated callback (if it exists).
                   * @return returns false if all registered operations have been completed.*/
@@ -258,7 +258,7 @@ namespace gridtools {
                     return completed;
                 }
 
-            public: // attach/detach
+              public: // attach/detach
                 /** @brief Deregister a send operation from this object which matches the given destination and tag.
                   * If such operation is found the callback will be discared and the message will be returned to the
                   * caller together with a future on which completion can be awaited.
@@ -325,7 +325,7 @@ namespace gridtools {
                                                         std::move(fut), std::move(msg)});
                 }
 
-            public: // cancel
+              public: // cancel
                 /** @brief Deregister all operations from this object and attempt to cancel the communication.
                   * @return true if cancelling was successful. */
                 bool cancel() {
@@ -342,7 +342,7 @@ namespace gridtools {
                   * @return true if cancelling was successful. */
                 bool cancel_recvs() { return cancel(m_recvs); }
 
-            private: // implementation
+              private: // implementation
                 template<typename Deque>
                 int run(Deque& d) {
                     /*const unsigned int size = d.size();
@@ -398,13 +398,13 @@ namespace gridtools {
 
                 template<typename Deque>
                 bool cancel(Deque& d) {
-                    bool               result = true;
-                    const unsigned int size   = d.size();
+                    bool result = true;
+                    const unsigned int size = d.size();
                     for (unsigned int i = 0; i < size; ++i) {
                         //auto element = std::move(d.front());
                         //d.pop_front();
                         auto& element = d[i];
-                        auto& fut     = element.m_future;
+                        auto& fut = element.m_future;
                         if (!fut.ready()) result = result && fut.cancel();
                         //else
                         //    fut.wait();

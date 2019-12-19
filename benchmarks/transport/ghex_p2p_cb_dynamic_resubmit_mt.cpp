@@ -4,7 +4,7 @@
 #include <ghex/common/timer.hpp>
 
 #ifdef USE_POOL_ALLOCATOR
-    #include "pool_allocator.hpp"
+#include "pool_allocator.hpp"
 using AllocType = ghex::allocator::pool_allocator<unsigned char, std::allocator<unsigned char>>;
 #else
 using AllocType = std::allocator<unsigned char>;
@@ -12,19 +12,19 @@ using AllocType = std::allocator<unsigned char>;
 
 #ifdef USE_MPI
 
-    /* MPI backend */
-    #include <ghex/transport_layer/callback_communicator.hpp>
-    #include <ghex/transport_layer/mpi/communicator.hpp>
+/* MPI backend */
+#include <ghex/transport_layer/callback_communicator.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 #else
 
-    /* UCX backend */
-    #ifdef USE_UCX_NBR
-        #include <ghex/transport_layer/callback_communicator.hpp>
-    #else
-        #include <ghex/transport_layer/ucx/callback_communicator.hpp>
-    #endif
-    #include <ghex/transport_layer/ucx/communicator.hpp>
+/* UCX backend */
+#ifdef USE_UCX_NBR
+#include <ghex/transport_layer/callback_communicator.hpp>
+#else
+#include <ghex/transport_layer/ucx/callback_communicator.hpp>
+#endif
+#include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
 #endif /* USE_MPI */
 
@@ -35,31 +35,31 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<AllocType>;
    there is no way of knowing which thread will service which requests,
    and how many.
 */
-int         comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
-int         thrid, nthr;
+int comm_cnt = 0, nlcomm_cnt = 0, submit_cnt = 0;
+int thrid, nthr;
 #pragma omp threadprivate(comm_cnt, nlcomm_cnt, submit_cnt, thrid, nthr)
 
 /* available comm slots - per-thread */
-int** available    = NULL;
-int   ongoing_comm = 0;
-int   inflight;
+int** available = NULL;
+int ongoing_comm = 0;
+int inflight;
 
 void send_callback(MsgType mesg, int rank, int tag) {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     int pthr = tag / inflight;
-    int pos  = tag - pthr * inflight;
+    int pos = tag - pthr * inflight;
     if (pthr != thrid) nlcomm_cnt++;
     comm_cnt++;
     available[pthr][pos] = 1;
 }
 
 gridtools::ghex::tl::callback_communicator<CommType, AllocType>* pcomm = NULL;
-#pragma omp                                                      threadprivate(pcomm)
+#pragma omp threadprivate(pcomm)
 
 void recv_callback(MsgType mesg, int rank, int tag) {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << " ongoing " << ongoing_comm << "\n";
     int pthr = tag / inflight;
-    int pos  = tag - pthr * inflight;
+    int pos = tag - pthr * inflight;
     if (pthr != thrid) nlcomm_cnt++;
     comm_cnt++;
     submit_cnt += nthr;
@@ -72,27 +72,27 @@ void recv_callback(MsgType mesg, int rank, int tag) {
 }
 
 int main(int argc, char* argv[]) {
-    int                    rank, size, threads, peer_rank;
-    int                    niter, buff_size;
+    int rank, size, threads, peer_rank;
+    int niter, buff_size;
     gridtools::ghex::timer timer;
-    long                   bytes = 0;
+    long bytes = 0;
 
 #ifdef USE_MPI
     int mode;
-    #ifdef USE_OPENMP
+#ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if (mode != MPI_THREAD_MULTIPLE) {
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
         std::terminate();
     }
-    #else
+#else
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
-    #endif
+#endif
 #endif
 
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
 #pragma omp parallel
     {
@@ -102,8 +102,8 @@ int main(int argc, char* argv[]) {
 
 #pragma omp master
         {
-            rank      = comm->rank();
-            size      = comm->size();
+            rank = comm->rank();
+            size = comm->size();
             peer_rank = (rank + 1) % 2;
             if (rank == 0)
                 std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(*comm).name() << "\n\n";
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
         pcomm = comm;
 
         thrid = omp_get_thread_num();
-        nthr  = omp_get_num_threads();
+        nthr = omp_get_num_threads();
 
 #pragma omp master
         available = new int*[nthr];

@@ -35,21 +35,21 @@
 #include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"
 
-using transport    = gridtools::ghex::tl::mpi_tag;
-using threading    = gridtools::ghex::threads::atomic::primitives;
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 /* CPU data descriptor */
 template<typename T, typename DomainDescriptor, typename LayoutMap>
 class my_data_desc {
     using coordinate_t = typename DomainDescriptor::coordinate_type;
-    using Byte         = unsigned char;
+    using Byte = unsigned char;
 
     const DomainDescriptor& m_domain;
-    coordinate_t            m_halos_offset;
-    array<T, LayoutMap>     m_values;
+    coordinate_t m_halos_offset;
+    array<T, LayoutMap> m_values;
 
-public:
+  public:
     my_data_desc(const DomainDescriptor& domain, const coordinate_t& halos_offset, const array<T, LayoutMap>& values)
     : m_domain{domain}
     , m_halos_offset{halos_offset}
@@ -103,31 +103,31 @@ public:
 namespace halo_exchange_3D_generic_full {
 
     using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
-    using domain_id_t         = domain_descriptor_t::domain_id_type;
-    using coordinate_t        = domain_descriptor_t::coordinate_type;
+    using domain_id_t = domain_descriptor_t::domain_id_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t =
         domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
 
-    int      pid;
-    int      nprocs;
+    int pid;
+    int nprocs;
     MPI_Comm CartComm;
-    int      dims[3]   = {0, 0, 0};
-    int      coords[3] = {0, 0, 0};
+    int dims[3] = {0, 0, 0};
+    int coords[3] = {0, 0, 0};
 
     struct timeval start_tv;
     struct timeval stop1_tv;
     struct timeval stop2_tv;
     struct timeval stop3_tv;
-    double         lapse_time1;
-    double         lapse_time2;
-    double         lapse_time3;
-    double         lapse_time4;
+    double lapse_time1;
+    double lapse_time2;
+    double lapse_time3;
+    double lapse_time4;
 
 #define B_ADD 1
 #define C_ADD 2
 
-    typedef int           T1;
-    typedef double        T2;
+    typedef int T1;
+    typedef double T2;
     typedef long long int T3;
 
     template<typename ST, int I1, int I2, int I3, bool per0, bool per1, bool per2, typename Comm>
@@ -246,7 +246,7 @@ namespace halo_exchange_3D_generic_full {
 #ifndef NDEBUG
         std::stringstream ss;
         ss << pid;
-        std::string   filename = "tout" + ss.str() + ".txt";
+        std::string filename = "tout" + ss.str() + ".txt";
         std::ofstream tfile(filename.c_str());
         tfile << "\nFILE for " << pid << "\n";
 #endif
@@ -311,7 +311,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m1 + H2p1; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m1 + H3p1; ++kk) {
                     triple_t<USE_DOUBLE, T1> ta;
-                    int                      tax, tay, taz;
+                    int tax, tay, taz;
 
                     tax = modulus(ii - H1m1 + (DIM1)*coords[0], DIM1 * dims[0]);
 
@@ -350,7 +350,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m2 + H2p2; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m2 + H3p2; ++kk) {
                     triple_t<USE_DOUBLE, T2> tb;
-                    int                      tbx, tby, tbz;
+                    int tbx, tby, tbz;
 
                     tbx = modulus(ii - H1m2 + (DIM1)*coords[0], DIM1 * dims[0]) + B_ADD;
 
@@ -389,7 +389,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m3 + H2p3; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m3 + H3p3; ++kk) {
                     triple_t<USE_DOUBLE, T3> tc;
-                    int                      tcx, tcy, tcz;
+                    int tcx, tcy, tcz;
 
                     tcx = modulus(ii - H1m3 + (DIM1)*coords[0], DIM1 * dims[0]) + C_ADD;
 
@@ -461,7 +461,7 @@ namespace halo_exchange_3D_generic_full {
         MPI_Cart_get(CartComm, 3, dims, period, coords);
 
         context_type context(1, CartComm);
-        auto         comm = context.get_communicator(context.get_token());
+        auto comm = context.get_communicator(context.get_token());
 
         /* Each process will hold a tile of size
            (DIM1+2*H)x(DIM2+2*H)x(DIM3+2*H). The DIM1xDIM2xDIM3 area inside

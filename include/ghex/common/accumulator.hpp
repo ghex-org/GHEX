@@ -24,21 +24,21 @@ namespace gridtools {
 
         /** @brief accumulates samples and computes basic statistics on-line in a numerically stable fashion. */
         class accumulator {
-        public: // member types
-            using size_type  = std::size_t;
+          public: // member types
+            using size_type = std::size_t;
             using value_type = double;
 
-        private: // members
-            size_type  m_num_samples = 0u;
-            value_type m_min         = std::numeric_limits<value_type>::max();
-            value_type m_max         = std::numeric_limits<value_type>::min();
-            value_type m_mean        = 0;
-            value_type m_variance    = 0;
+          private: // members
+            size_type m_num_samples = 0u;
+            value_type m_min = std::numeric_limits<value_type>::max();
+            value_type m_max = std::numeric_limits<value_type>::min();
+            value_type m_mean = 0;
+            value_type m_variance = 0;
 
-        public: // ctors
-            accumulator() noexcept                   = default;
+          public: // ctors
+            accumulator() noexcept = default;
             accumulator(const accumulator&) noexcept = default;
-            accumulator(accumulator&&) noexcept      = default;
+            accumulator(accumulator&&) noexcept = default;
             accumulator(size_type num_samples_, value_type min_, value_type max_, value_type mean_,
                         value_type variance_) noexcept
             : m_num_samples(num_samples_)
@@ -49,8 +49,8 @@ namespace gridtools {
             accumulator& operator=(const accumulator&) noexcept = default;
             accumulator& operator=(accumulator&&) noexcept = default;
 
-        public: // return statistics
-            inline size_type  num_samples() const noexcept { return m_num_samples; }
+          public: // return statistics
+            inline size_type num_samples() const noexcept { return m_num_samples; }
             inline value_type min() const noexcept { return m_min; }
             inline value_type max() const noexcept { return m_max; }
             inline value_type mean() const noexcept { return m_mean; }
@@ -60,7 +60,7 @@ namespace gridtools {
             inline value_type stddev() const noexcept { return (m_num_samples > 1 ? std::sqrt(variance()) : 0); }
             inline value_type sum() const noexcept { return m_num_samples * m_mean; }
 
-        public: // add samples
+          public: // add samples
             /** @brief accumulate samples
               * @tparam InputIterator Iterator type over a sample range
               * @param first iterator pointing to the first sample
@@ -76,8 +76,8 @@ namespace gridtools {
               * @param sample a sample
               * @return reference to this object */
             inline accumulator& operator()(value_type sample) noexcept {
-                m_min                  = std::min(m_min, sample);
-                m_max                  = std::max(m_max, sample);
+                m_min = std::min(m_min, sample);
+                m_max = std::max(m_max, sample);
                 const value_type delta = sample - m_mean;
                 m_mean += delta / (++m_num_samples);
                 m_variance += delta * (sample - m_mean);
@@ -91,15 +91,15 @@ namespace gridtools {
                 if (other.m_num_samples == 0) return *this;
                 if (m_num_samples == 0) {
                     m_num_samples = other.m_num_samples;
-                    m_min         = other.m_min;
-                    m_max         = other.m_max;
-                    m_mean        = other.m_mean;
-                    m_variance    = other.m_variance;
+                    m_min = other.m_min;
+                    m_max = other.m_max;
+                    m_mean = other.m_mean;
+                    m_variance = other.m_variance;
                     return *this;
                 }
-                m_min                      = std::min(m_min, other.min());
-                m_max                      = std::max(m_max, other.max());
-                const auto delta           = other.m_mean - m_mean;
+                m_min = std::min(m_min, other.min());
+                m_max = std::max(m_max, other.max());
+                const auto delta = other.m_mean - m_mean;
                 const auto num_samples_new = m_num_samples + other.m_num_samples;
                 m_mean += (delta * other.m_num_samples) / num_samples_new;
                 m_variance +=
@@ -108,21 +108,21 @@ namespace gridtools {
                 return *this;
             }
 
-        public:
+          public:
             /** @brief reset accumulator */
             inline void clear() noexcept {
                 m_num_samples = 0;
-                m_min         = std::numeric_limits<value_type>::max();
-                m_max         = std::numeric_limits<value_type>::min();
-                m_mean        = 0;
-                m_variance    = 0;
+                m_min = std::numeric_limits<value_type>::max();
+                m_max = std::numeric_limits<value_type>::min();
+                m_mean = 0;
+                m_variance = 0;
             }
 
-        public:
+          public:
             /**  @brief print info to output stream */
             template<class CharT, class Traits = std::char_traits<CharT>>
             friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
-                                                                 const accumulator&                 acc) {
+                                                                 const accumulator& acc) {
                 os << "[" << acc.min() << "," << acc.mean() << "," << acc.max() << "] (" << acc.stddev() << ","
                    << acc.num_samples() << ")";
                 return os;

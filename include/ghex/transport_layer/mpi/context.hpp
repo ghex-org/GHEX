@@ -20,9 +20,9 @@ namespace gridtools {
 
             template<typename ThreadPrimitives>
             struct transport_context<mpi_tag, ThreadPrimitives> {
-                using communicator_type     = mpi::communicator<ThreadPrimitives>;
+                using communicator_type = mpi::communicator<ThreadPrimitives>;
                 using parallel_context_type = parallel_context<ThreadPrimitives>;
-                using thread_token          = typename parallel_context_type::thread_token;
+                using thread_token = typename parallel_context_type::thread_token;
 
                 parallel_context<ThreadPrimitives>& m_parallel_context;
 

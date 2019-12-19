@@ -6,18 +6,18 @@
 #include <ghex/common/timer.hpp>
 
 int main(int argc, char* argv[]) {
-    int      rank, size, threads, peer_rank;
-    int      niter, buff_size;
-    int      inflight;
+    int rank, size, threads, peer_rank;
+    int niter, buff_size;
+    int inflight;
     MPI_Comm mpi_comm;
-    int      ncomm = 0;
+    int ncomm = 0;
 
     gridtools::ghex::timer timer;
-    long                   bytes = 0;
+    long bytes = 0;
 
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &threads);
     MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm);
@@ -29,12 +29,12 @@ int main(int argc, char* argv[]) {
 
 #pragma omp parallel shared(niter, buff_size, peer_rank) reduction(+ : ncomm)
     {
-        int             thrid, nthr;
+        int thrid, nthr;
         unsigned char** buffers = new unsigned char*[inflight];
-        MPI_Request*    req     = new MPI_Request[inflight];
+        MPI_Request* req = new MPI_Request[inflight];
 
         thrid = omp_get_thread_num();
-        nthr  = omp_get_num_threads();
+        nthr = omp_get_num_threads();
 
         for (int j = 0; j < inflight; j++) {
             req[j] = MPI_REQUEST_NULL;

@@ -30,16 +30,16 @@ namespace gridtools {
      * @tparam DomainIdType domain id type*/
         template<typename Communicator, typename CoordinateArrayType, typename DomainIdType>
         class pattern<Communicator, structured::detail::grid<CoordinateArrayType>, DomainIdType> {
-        public: // member types
-            using grid_type               = structured::detail::grid<CoordinateArrayType>;
-            using this_type               = pattern<Communicator, grid_type, DomainIdType>;
-            using coordinate_type         = typename grid_type::coordinate_type;
+          public: // member types
+            using grid_type = structured::detail::grid<CoordinateArrayType>;
+            using this_type = pattern<Communicator, grid_type, DomainIdType>;
+            using coordinate_type = typename grid_type::coordinate_type;
             using coordinate_element_type = typename grid_type::coordinate_element_type;
-            using dimension               = typename grid_type::dimension;
-            using communicator_type       = Communicator;
-            using address_type            = typename communicator_type::address_type;
-            using domain_id_type          = DomainIdType;
-            using pattern_container_type  = pattern_container<Communicator, grid_type, DomainIdType>;
+            using dimension = typename grid_type::dimension;
+            using communicator_type = Communicator;
+            using address_type = typename communicator_type::address_type;
+            using domain_id_type = DomainIdType;
+            using pattern_container_type = pattern_container<Communicator, grid_type, DomainIdType>;
 
             // this struct holds the first and the last coordinate (inclusive)
             // of a hypercube in N-dimensional space.
@@ -47,9 +47,9 @@ namespace gridtools {
             struct iteration_space {
                 using dimension = typename this_type::dimension;
 
-            public: // member functions
-                coordinate_type&       first() noexcept { return _min; }
-                coordinate_type&       last() noexcept { return _max; }
+              public: // member functions
+                coordinate_type& first() noexcept { return _min; }
+                coordinate_type& last() noexcept { return _max; }
                 const coordinate_type& first() const noexcept { return _min; }
                 const coordinate_type& last() const noexcept { return _max; }
 
@@ -60,11 +60,11 @@ namespace gridtools {
                     return s;
                 }
 
-            public: // members
+              public: // members
                 coordinate_type _min;
                 coordinate_type _max;
 
-            public: // ctors
+              public: // ctors
                 iteration_space() noexcept = default;
                 template<typename A, typename B>
                 iteration_space(A&& a, B&& b)
@@ -75,15 +75,15 @@ namespace gridtools {
                             "iteration_space: first coordinate needs to be smaller or equal to the last coordinate");
                 }
                 iteration_space(const iteration_space&) = default;
-                iteration_space(iteration_space&&)      = default;
+                iteration_space(iteration_space&&) = default;
 
                 iteration_space& operator=(const iteration_space& other) noexcept = default;
                 iteration_space& operator=(iteration_space&& other) noexcept = default;
 
-            public: // print
+              public: // print
                 template<class CharT, class Traits>
                 friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
-                                                                     const iteration_space&             is) {
+                                                                     const iteration_space& is) {
                     os << "[" << is._min << ", " << is._max << "]";
                     return os;
                 }
@@ -92,25 +92,25 @@ namespace gridtools {
             // this struct combines local and global representation of a hypercube
             // and is a compostion of 2 iteration_space objects
             struct iteration_space_pair {
-            public: // member types
+              public: // member types
                 using pattern_type = pattern;
-                using dimension    = typename this_type::dimension;
+                using dimension = typename this_type::dimension;
 
-            public: // member functions
-                iteration_space&       local() noexcept { return m_local; }
+              public: // member functions
+                iteration_space& local() noexcept { return m_local; }
                 const iteration_space& local() const noexcept { return m_local; }
-                iteration_space&       global() noexcept { return m_global; }
+                iteration_space& global() noexcept { return m_global; }
                 const iteration_space& global() const noexcept { return m_global; }
-                int                    size() const noexcept { return m_local.size(); }
+                int size() const noexcept { return m_local.size(); }
 
-            public: // members
+              public: // members
                 iteration_space m_local;
                 iteration_space m_global;
 
-            public: // print
+              public: // print
                 template<class CharT, class Traits>
                 friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
-                                                                     const iteration_space_pair&        is) {
+                                                                     const iteration_space_pair& is) {
                     os << is.m_global << " (local: " << is.m_local << ")";
                     return os;
                 }
@@ -119,22 +119,22 @@ namespace gridtools {
             // an extended domain id, including rank and tag information
             // used as key in halo lookup map
             struct extended_domain_id_type {
-            public: // members
+              public: // members
                 domain_id_type id;
-                int            mpi_rank;
-                address_type   address;
-                int            tag;
+                int mpi_rank;
+                address_type address;
+                int tag;
 
-            public: // member functions
+              public: // member functions
                 // unique ordering given by id and tag
                 bool operator<(const extended_domain_id_type& other) const noexcept {
                     return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
                 }
 
-            public: // print
+              public: // print
                 template<class CharT, class Traits>
                 friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
-                                                                     const extended_domain_id_type&     dom_id) {
+                                                                     const extended_domain_id_type& dom_id) {
                     os << "{id=" << dom_id.id << ", tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
                     return os;
                 }
@@ -145,7 +145,7 @@ namespace gridtools {
             // halo map type
             using map_type = std::map<extended_domain_id_type, index_container_type>;
 
-        public: // static member function
+          public: // static member function
             /** @brief compute number of elements in an object of type index_container_type */
             static int num_elements(const index_container_type& c) noexcept {
                 int s = 0;
@@ -155,35 +155,35 @@ namespace gridtools {
 
             friend class pattern_container<Communicator, grid_type, DomainIdType>;
 
-        private: // members
-            iteration_space_pair    m_domain;
-            coordinate_type         m_global_first;
-            coordinate_type         m_global_last;
+          private: // members
+            iteration_space_pair m_domain;
+            coordinate_type m_global_first;
+            coordinate_type m_global_last;
             extended_domain_id_type m_id;
-            map_type                m_send_map;
-            map_type                m_recv_map;
+            map_type m_send_map;
+            map_type m_recv_map;
             pattern_container_type* m_container;
 
-        public: // ctors
+          public: // ctors
             pattern(const iteration_space_pair& domain, const extended_domain_id_type& id)
             : m_domain(domain)
             , m_id(id) {}
             pattern(const pattern&) = default;
-            pattern(pattern&&)      = default;
+            pattern(pattern&&) = default;
 
-        public: // member functions
-            map_type&                     send_halos() noexcept { return m_send_map; }
-            const map_type&               send_halos() const noexcept { return m_send_map; }
-            map_type&                     recv_halos() noexcept { return m_recv_map; }
-            const map_type&               recv_halos() const noexcept { return m_recv_map; }
-            domain_id_type                domain_id() const noexcept { return m_id.id; }
-            extended_domain_id_type       extended_domain_id() const noexcept { return m_id; }
+          public: // member functions
+            map_type& send_halos() noexcept { return m_send_map; }
+            const map_type& send_halos() const noexcept { return m_send_map; }
+            map_type& recv_halos() noexcept { return m_recv_map; }
+            const map_type& recv_halos() const noexcept { return m_recv_map; }
+            domain_id_type domain_id() const noexcept { return m_id.id; }
+            extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
             const pattern_container_type& container() const noexcept { return *m_container; }
-            coordinate_type&              global_first() noexcept { return m_global_first; }
-            coordinate_type&              global_last() noexcept { return m_global_last; }
-            const coordinate_type&        global_first() const noexcept { return m_global_first; }
-            const coordinate_type&        global_last() const noexcept { return m_global_last; }
-            const iteration_space&        global_domain() const noexcept { return m_domain.global(); }
+            coordinate_type& global_first() noexcept { return m_global_first; }
+            coordinate_type& global_last() noexcept { return m_global_last; }
+            const coordinate_type& global_first() const noexcept { return m_global_first; }
+            const coordinate_type& global_last() const noexcept { return m_global_last; }
+            const iteration_space& global_domain() const noexcept { return m_domain.global(); }
 
             /** @brief tie pattern to field
          * @tparam Field field type
@@ -205,26 +205,26 @@ namespace gridtools {
                 static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen,
                                   DomainRange&& d_range) {
                     // typedefs
-                    using context_type            = tl::context<Transport, ThreadPrimitives>;
-                    using domain_type             = typename std::remove_reference_t<DomainRange>::value_type;
-                    using domain_id_type          = typename domain_type::domain_id_type;
-                    using grid_type               = ::gridtools::ghex::structured::detail::grid<CoordinateArrayType>;
-                    using communicator_type       = typename context_type::communicator_type;
-                    using pattern_type            = pattern<communicator_type, grid_type, domain_id_type>;
-                    using iteration_space         = typename pattern_type::iteration_space;
-                    using iteration_space_pair    = typename pattern_type::iteration_space_pair;
-                    using coordinate_type         = typename pattern_type::coordinate_type;
+                    using context_type = tl::context<Transport, ThreadPrimitives>;
+                    using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
+                    using domain_id_type = typename domain_type::domain_id_type;
+                    using grid_type = ::gridtools::ghex::structured::detail::grid<CoordinateArrayType>;
+                    using communicator_type = typename context_type::communicator_type;
+                    using pattern_type = pattern<communicator_type, grid_type, domain_id_type>;
+                    using iteration_space = typename pattern_type::iteration_space;
+                    using iteration_space_pair = typename pattern_type::iteration_space_pair;
+                    using coordinate_type = typename pattern_type::coordinate_type;
                     using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
 
                     // get this address from new communicator
-                    auto comm       = context.get_setup_communicator();
-                    auto new_comm   = context.get_serial_communicator();
+                    auto comm = context.get_setup_communicator();
+                    auto new_comm = context.get_serial_communicator();
                     auto my_address = new_comm.address();
 
                     // set up domain ids, extents and recv halos
-                    std::vector<iteration_space_pair>              my_domain_extents;
-                    std::vector<extended_domain_id_type>           my_domain_ids;
-                    std::vector<pattern_type>                      my_patterns;
+                    std::vector<iteration_space_pair> my_domain_extents;
+                    std::vector<extended_domain_id_type> my_domain_ids;
+                    std::vector<pattern_type> my_patterns;
                     std::vector<std::vector<iteration_space_pair>> my_generated_recv_halos;
                     // loop over domains and fill vectors with
                     // - extended domain ids
@@ -257,11 +257,11 @@ namespace gridtools {
                     }
 
                     // find all domains and their extents by all_gather operations
-                    int       my_num_domains = my_domain_ids.size();
-                    auto      num_domain_ids = comm.all_gather(my_num_domains).get();
-                    auto      domain_ids     = comm.all_gather(my_domain_ids, num_domain_ids).get();
-                    auto      domain_extents = comm.all_gather(my_domain_extents, num_domain_ids).get();
-                    const int world_size     = num_domain_ids.size();
+                    int my_num_domains = my_domain_ids.size();
+                    auto num_domain_ids = comm.all_gather(my_num_domains).get();
+                    auto domain_ids = comm.all_gather(my_domain_ids, num_domain_ids).get();
+                    auto domain_extents = comm.all_gather(my_domain_extents, num_domain_ids).get();
+                    const int world_size = num_domain_ids.size();
 
                     // find global extents
                     auto global_min = my_domain_extents[0].global().first();
@@ -273,7 +273,7 @@ namespace gridtools {
                         }
                     for (auto& pat : my_patterns) {
                         pat.global_first() = global_min;
-                        pat.global_last()  = global_max;
+                        pat.global_last() = global_max;
                     }
 
                     // check my receive halos against all existing domains (i.e. intersection check)
@@ -287,19 +287,19 @@ namespace gridtools {
                             // loop over all ranks
                             for (unsigned int j = 0; j < domain_extents.size(); ++j) {
                                 // get vectors of extents and ids per rank
-                                const auto& extents_vec   = domain_extents[j];
+                                const auto& extents_vec = domain_extents[j];
                                 const auto& domain_id_vec = domain_ids[j];
                                 // loop over extents and ids
                                 for (unsigned int k = 0; k < extents_vec.size(); ++k) {
                                     // intersect in global coordinates
-                                    const auto& extent    = extents_vec[k];
+                                    const auto& extent = extents_vec[k];
                                     const auto& domain_id = domain_id_vec[k];
-                                    const auto  left      = max(halo.global().first(), extent.global().first());
-                                    const auto  right     = min(halo.global().last(), extent.global().last());
+                                    const auto left = max(halo.global().first(), extent.global().first());
+                                    const auto right = min(halo.global().last(), extent.global().last());
                                     if (left <= right) {
                                         // instersection is not empty
                                         // get local coordinates for intersection
-                                        const auto leftl  = halo.local().first() + (left - halo.global().first());
+                                        const auto leftl = halo.local().first() + (left - halo.global().first());
                                         const auto rightl = halo.local().first() + (right - halo.global().first());
                                         // prepare pair of intersection (local and global)
                                         iteration_space h{left, right};
@@ -323,7 +323,7 @@ namespace gridtools {
                         for (auto& id_is_pair : p.recv_halos()) {
                             // get rank from extended domain id
                             const int rank = id_is_pair.first.mpi_rank;
-                            auto      it   = tag_map.find(rank);
+                            auto it = tag_map.find(rank);
                             if (it == tag_map.end()) {
                                 // if neighbor rank is not yet in tag_map: insert it with maximum tag = 0
                                 tag_map[rank] = 0;
@@ -375,10 +375,10 @@ namespace gridtools {
                                     if (dd.id == id_is_pair.first.id) break;
                                     ++ll;
                                 }
-                                const auto is_g           = extents_vec[ll].global();
-                                const auto is_l           = extents_vec[ll].local();
+                                const auto is_g = extents_vec[ll].global();
+                                const auto is_l = extents_vec[ll].local();
                                 is_vec[l].local().first() = is_l.first() + (is_vec[l].global().first() - is_g.first());
-                                is_vec[l].local().last()  = is_l.first() + (is_vec[l].global().last() - is_g.first());
+                                is_vec[l].local().last() = is_l.first() + (is_vec[l].global().last() - is_g.first());
                             }
                         }
                     }
@@ -390,8 +390,8 @@ namespace gridtools {
                     if (it != send_halos_map.end()) {
                         // loop over temporary send halos for my rank
                         for (const auto& p1 : it->second) {
-                            const auto   dom_id = p1.first;
-                            unsigned int j      = 0;
+                            const auto dom_id = p1.first;
+                            unsigned int j = 0;
                             // find the right local domain
                             for (const auto& p : my_patterns) {
                                 if (p.domain_id() == dom_id) break;

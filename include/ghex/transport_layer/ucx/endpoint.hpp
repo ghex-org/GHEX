@@ -23,8 +23,8 @@ namespace gridtools {
                     using rank_type = int;
 
                     rank_type m_rank;
-                    ucp_ep_h  m_ep;
-                    bool      m_moved = false;
+                    ucp_ep_h m_ep;
+                    bool m_moved = false;
 
                     endpoint_t() noexcept
                     : m_moved(true) {}
@@ -32,7 +32,7 @@ namespace gridtools {
                     : m_rank(rank) {
                         ucp_ep_params_t ep_params;
                         ep_params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
-                        ep_params.address    = remote_worker_address.get();
+                        ep_params.address = remote_worker_address.get();
                         GHEX_CHECK_UCX_RESULT(ucp_ep_create(local_worker, &ep_params, &(m_ep)));
                     }
 
@@ -50,8 +50,8 @@ namespace gridtools {
                         destroy();
                         m_ep.~ucp_ep_h();
                         ::new ((void*)(&m_ep)) ucp_ep_h{other.m_ep};
-                        m_rank        = other.m_rank;
-                        m_moved       = other.m_moved;
+                        m_rank = other.m_rank;
+                        m_moved = other.m_moved;
                         other.m_moved = true;
                         return *this;
                     }
@@ -65,8 +65,8 @@ namespace gridtools {
                     operator bool() const noexcept { return m_moved; }
                     operator ucp_ep_h() const noexcept { return m_ep; }
 
-                    rank_type       rank() const noexcept { return m_rank; }
-                    ucp_ep_h&       get() noexcept { return m_ep; }
+                    rank_type rank() const noexcept { return m_rank; }
+                    ucp_ep_h& get() noexcept { return m_ep; }
                     const ucp_ep_h& get() const noexcept { return m_ep; }
                 };
 

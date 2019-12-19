@@ -17,8 +17,8 @@
 #include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
 
 #ifdef __CUDACC__
-    #include <cuda_runtime.h>
-    #include <gridtools/common/cuda_util.hpp>
+#include <cuda_runtime.h>
+#include <gridtools/common/cuda_util.hpp>
 #endif
 
 GTEST_API_ int main(int argc, char** argv) {

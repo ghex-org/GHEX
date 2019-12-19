@@ -22,13 +22,13 @@ namespace gridtools {
                 namespace pthread_spin {
 
                     class mutex {
-                    private: // members
+                      private: // members
                         pthread_spinlock_t m_lock;
 
-                    public:
+                      public:
                         mutex() noexcept { pthread_spin_init(&m_lock, PTHREAD_PROCESS_PRIVATE); }
                         mutex(const mutex&) = delete;
-                        mutex(mutex&&)      = delete;
+                        mutex(mutex&&) = delete;
                         ~mutex() { pthread_spin_destroy(&m_lock); }
 
                         inline bool try_lock() noexcept { return (pthread_spin_trylock(&m_lock) == 0); }

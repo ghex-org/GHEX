@@ -30,7 +30,7 @@ namespace gridtools {
                 GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t, cudaEventCreateWithFlags, cudaEventDestroy)
 
                 event_type m_event;
-                T          m_data;
+                T m_data;
 
                 future(T&& data, stream& stream)
                 : m_event{cudaEventDisableTiming} //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
@@ -40,7 +40,7 @@ namespace gridtools {
 
                 future(const future&) = delete;
                 future& operator=(const future&) = delete;
-                future(future&& other)           = default;
+                future(future&& other) = default;
                 future& operator=(future&&) = default;
 
                 bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); }
@@ -69,7 +69,7 @@ namespace gridtools {
 
                 future(const future&) = delete;
                 future& operator=(const future&) = delete;
-                future(future&& other)           = default;
+                future(future&& other) = default;
                 future& operator=(future&&) = default;
 
                 bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); }

@@ -56,7 +56,7 @@ namespace gridtools {
             /** @brief domain id with size information, used for buffer ordering */
             struct ordered_domain_id_t {
                 extended_domain_id_t m_domain_id;
-                std::size_t          m_size;
+                std::size_t m_size;
 
                 bool operator<(const ordered_domain_id_t& other) const noexcept {
                     return (m_size < other.m_size ? true : (m_domain_id < other.m_domain_id));
@@ -68,16 +68,16 @@ namespace gridtools {
             /** @brief receive request type with ordered domain id */
             using ordered_r_request_t = std::tuple<std::size_t, ordered_domain_id_t, future_t>;
 
-            const Pattern&          m_pattern;
-            const map_t&            m_send_halos;
-            const map_t&            m_receive_halos;
-            std::size_t             m_n_send_halos;
-            std::size_t             m_n_receive_halos;
+            const Pattern& m_pattern;
+            const map_t& m_send_halos;
+            const map_t& m_receive_halos;
+            std::size_t m_n_send_halos;
+            std::size_t m_n_receive_halos;
             std::vector<s_buffer_t> m_send_buffers;
             std::vector<r_buffer_t> m_receive_buffers;
-            const communicator_t&   m_communicator;
-            ordered_map_t           m_ordered_send_halos;
-            ordered_map_t           m_ordered_receive_halos;
+            const communicator_t& m_communicator;
+            ordered_map_t m_ordered_send_halos;
+            ordered_map_t m_ordered_receive_halos;
 
             /** @brief sets the number of elements of a single buffer (single neighbor) given the halo sizes
              * @param iteration_spaces list of iteration spaces (halos), can be more than one per neighbor
@@ -96,7 +96,7 @@ namespace gridtools {
              * @return std::size_t buffer size*/
             template<typename... DataDescriptor>
             std::size_t buffer_size(const std::vector<iteration_space_t>& iteration_spaces,
-                                    const std::tuple<DataDescriptor...>&  data_descriptors) {
+                                    const std::tuple<DataDescriptor...>& data_descriptors) {
                 std::size_t size{0};
 
                 for (const auto& is : iteration_spaces) {
@@ -131,15 +131,15 @@ namespace gridtools {
                     });
             }
 
-        public:
+          public:
             /** @brief handle to wait for and unpack the receive messages
              * @tparam DataDescriptor list of data descriptors types*/
             template<typename... DataDescriptor>
             class handle {
-                const map_t&                     m_receive_halos;
-                const std::vector<r_buffer_t>&   m_receive_buffers;
+                const map_t& m_receive_halos;
+                const std::vector<r_buffer_t>& m_receive_buffers;
                 std::vector<ordered_r_request_t> m_receive_requests;
-                std::tuple<DataDescriptor...>    m_data_descriptors;
+                std::tuple<DataDescriptor...> m_data_descriptors;
 
                 /** @brief unpacks the buffer for one neighbor into all the data descriptors
                  * @param halo_index neighbor index, included in the receive request
@@ -160,7 +160,7 @@ namespace gridtools {
                         });
                 }
 
-            public:
+              public:
                 /** @brief handle constructor
                  * @param receive_halos const reference to communication object's receive halos
                  * @param receive_buffers const reference to communication object's receive buffers
@@ -168,7 +168,7 @@ namespace gridtools {
                  * @param data_descriptors data descriptors, moved from communication object' exchange()*/
                 handle(const map_t& receive_halos, const std::vector<r_buffer_t>& receive_buffers,
                        std::vector<ordered_r_request_t>&& receive_requests,
-                       std::tuple<DataDescriptor...>&&    data_descriptors)
+                       std::tuple<DataDescriptor...>&& data_descriptors)
                 : m_receive_halos{receive_halos}
                 , m_receive_buffers{receive_buffers}
                 , m_receive_requests{std::move(receive_requests)}
@@ -195,15 +195,15 @@ namespace gridtools {
             , m_receive_buffers(m_n_receive_halos)
             , m_communicator{comm} {
                 for (const auto& halo : m_send_halos) {
-                    const auto&         domain_id        = halo.first;
-                    const auto&         iteration_spaces = halo.second; // maybe not using a reference?
+                    const auto& domain_id = halo.first;
+                    const auto& iteration_spaces = halo.second; // maybe not using a reference?
                     ordered_domain_id_t ordered_domain_id{domain_id, iteration_spaces_size(iteration_spaces)};
                     m_ordered_send_halos.insert(std::make_pair(ordered_domain_id, iteration_spaces));
                 }
 
                 for (const auto& halo : m_receive_halos) {
-                    const auto&         domain_id        = halo.first;
-                    const auto&         iteration_spaces = halo.second; // maybe not using a reference?
+                    const auto& domain_id = halo.first;
+                    const auto& iteration_spaces = halo.second; // maybe not using a reference?
                     ordered_domain_id_t ordered_domain_id{domain_id, iteration_spaces_size(iteration_spaces)};
                     m_ordered_receive_halos.insert(std::make_pair(ordered_domain_id, iteration_spaces));
                 }
@@ -232,10 +232,10 @@ namespace gridtools {
                 halo_index = 0;
                 for (const auto& halo : m_ordered_receive_halos) {
                     const auto& ordered_domain_id = halo.first;
-                    const auto& domain_id         = ordered_domain_id.m_domain_id;
-                    auto        source            = domain_id.address;
-                    auto        tag               = domain_id.tag;
-                    const auto& iteration_spaces  = halo.second;
+                    const auto& domain_id = ordered_domain_id.m_domain_id;
+                    auto source = domain_id.address;
+                    auto tag = domain_id.tag;
+                    const auto& iteration_spaces = halo.second;
 
                     m_receive_buffers[halo_index].resize(buffer_size(iteration_spaces, data_descriptors));
 
@@ -251,9 +251,9 @@ namespace gridtools {
                 halo_index = 0;
                 for (const auto& halo : m_ordered_send_halos) {
                     const auto& ordered_domain_id = halo.first;
-                    const auto& domain_id         = ordered_domain_id.m_domain_id;
-                    auto        dest              = domain_id.address;
-                    auto        tag               = domain_id.tag;
+                    const auto& domain_id = ordered_domain_id.m_domain_id;
+                    auto dest = domain_id.address;
+                    auto tag = domain_id.tag;
 
                     pack(halo_index, domain_id, data_descriptors);
 

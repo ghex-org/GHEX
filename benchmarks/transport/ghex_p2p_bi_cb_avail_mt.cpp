@@ -8,36 +8,36 @@
 namespace ghex = gridtools::ghex;
 
 #ifdef USE_MPI
-    /* MPI backend */
-    #ifdef USE_OPENMP
-        #include <ghex/threads/atomic/primitives.hpp>
+/* MPI backend */
+#ifdef USE_OPENMP
+#include <ghex/threads/atomic/primitives.hpp>
 using threading = ghex::threads::atomic::primitives;
-    #else
-        #include <ghex/threads/none/primitives.hpp>
+#else
+#include <ghex/threads/none/primitives.hpp>
 using threading = ghex::threads::none::primitives;
-    #endif
-    #include <ghex/transport_layer/mpi/context.hpp>
+#endif
+#include <ghex/transport_layer/mpi/context.hpp>
 using transport = ghex::tl::mpi_tag;
 #else
-    /* UCX backend */
-    #ifdef USE_OPENMP
-        #include <ghex/threads/omp/primitives.hpp>
+/* UCX backend */
+#ifdef USE_OPENMP
+#include <ghex/threads/omp/primitives.hpp>
 using threading = ghex::threads::omp::primitives;
-    #else
-        #include <ghex/threads/none/primitives.hpp>
+#else
+#include <ghex/threads/none/primitives.hpp>
 using threading = ghex::threads::none::primitives;
-    #endif
-    #include <ghex/transport_layer/ucx/address_db_mpi.hpp>
-    #include <ghex/transport_layer/ucx/context.hpp>
-using db_type   = ghex::tl::ucx::address_db_mpi;
+#endif
+#include <ghex/transport_layer/ucx/address_db_mpi.hpp>
+#include <ghex/transport_layer/ucx/context.hpp>
+using db_type = ghex::tl::ucx::address_db_mpi;
 using transport = ghex::tl::ucx_tag;
 #endif /* USE_MPI */
 
 #include <ghex/transport_layer/message_buffer.hpp>
 #include <ghex/transport_layer/shared_message_buffer.hpp>
-using context_type      = ghex::tl::context<transport, threading>;
+using context_type = ghex::tl::context<transport, threading>;
 using communicator_type = typename context_type::communicator_type;
-using future_type       = typename communicator_type::request_cb_type;
+using future_type = typename communicator_type::request_cb_type;
 
 //using MsgType = gridtools::ghex::tl::message_buffer<>;
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
@@ -55,9 +55,9 @@ int tail_recv(0);
 #endif
 
 int main(int argc, char* argv[]) {
-    int                    niter, buff_size;
-    int                    inflight;
-    int                    mode;
+    int niter, buff_size;
+    int inflight;
+    int mode;
     gridtools::ghex::timer timer, ttimer;
 
     if (argc != 4) {
@@ -65,9 +65,9 @@ int main(int argc, char* argv[]) {
                   << "\n";
         std::terminate();
     }
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
     int num_threads = 1;
 #ifdef USE_OPENMP
@@ -76,9 +76,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
         std::terminate();
     }
-    #pragma omp parallel
+#pragma omp parallel
     {
-    #pragma omp master
+#pragma omp master
         num_threads = omp_get_num_threads();
     }
 #else
@@ -86,20 +86,20 @@ int main(int argc, char* argv[]) {
 #endif
 
     {
-        auto  context_ptr = ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
-        auto& context     = *context_ptr;
+        auto context_ptr = ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
+        auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
-    #pragma omp parallel
+#pragma omp parallel
 #endif
         {
-            auto       token       = context.get_token();
-            auto       comm        = context.get_communicator(token);
-            const auto rank        = comm.rank();
-            const auto size        = comm.size();
-            const auto thread_id   = token.id();
+            auto token = context.get_token();
+            auto comm = context.get_communicator(token);
+            const auto rank = comm.rank();
+            const auto size = comm.size();
+            const auto thread_id = token.id();
             const auto num_threads = context.thread_primitives().size();
-            const auto peer_rank   = (rank + 1) % 2;
+            const auto peer_rank = (rank + 1) % 2;
 
             bool using_mt = false;
 #ifdef USE_OPENMP
@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
 
             int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0;
             int last_received = 0;
-            int last_sent     = 0;
+            int last_sent = 0;
             int dbg = 0, sdbg = 0, rdbg = 0;
 
             auto send_callback = [&](communicator_type::message_type, int, int tag) {
@@ -129,8 +129,8 @@ int main(int argc, char* argv[]) {
                 std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
             };
 
-            std::vector<MsgType>     smsgs(inflight);
-            std::vector<MsgType>     rmsgs(inflight);
+            std::vector<MsgType> smsgs(inflight);
+            std::vector<MsgType> rmsgs(inflight);
             std::vector<future_type> sreqs(inflight);
             std::vector<future_type> rreqs(inflight);
             for (int j = 0; j < inflight; j++) {
@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
                               << "\n";
                     timer.tic();
                     last_received = received;
-                    last_sent     = sent;
+                    last_sent = sent;
                 }
 
                 if (rank == 0 && thread_id == 0 && rdbg >= (niter / 10)) {
@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
             // https://github.com/openucx/ucx/issues/1162
             {
                 int incomplete_sends = 0;
-                int send_complete    = 0;
+                int send_complete = 0;
 
                 // complete all posted sends
                 do {
@@ -245,7 +245,7 @@ int main(int argc, char* argv[]) {
                 // We have all completed the sends, but the peer might not have yet.
                 // Notify the peer and keep submitting recvs until we get his notification.
                 future_type sf, rf;
-                MsgType     smsg(1), rmsg(1);
+                MsgType smsg(1), rmsg(1);
                 context.thread_primitives().master(token, [&]() mutable {
                     sf = comm.send(smsg, peer_rank, 0x800000, [](communicator_type::message_type, int, int) {});
                     rf = comm.recv(rmsg, peer_rank, 0x800000, [](communicator_type::message_type, int, int) {});

@@ -16,12 +16,12 @@
 #include <ucp/api/ucp.h>
 
 #ifdef NDEBUG
-    #define GHEX_CHECK_UCX_RESULT(x) x;
+#define GHEX_CHECK_UCX_RESULT(x) x;
 #else
-    #define GHEX_CHECK_UCX_RESULT(x)                                                                                   \
-        if (x != UCS_OK)                                                                                               \
-            throw std::runtime_error("GHEX Error: UCX Call failed " + std::string(#x) + " in " +                       \
-                                     std::string(__FILE__) + ":" + std::to_string(__LINE__));
+#define GHEX_CHECK_UCX_RESULT(x)                                                                                       \
+    if (x != UCS_OK)                                                                                                   \
+        throw std::runtime_error("GHEX Error: UCX Call failed " + std::string(#x) + " in " + std::string(__FILE__) +   \
+                                 ":" + std::to_string(__LINE__));
 #endif
 
 #endif /* INCLUDED_GHEX_TL_UCX_ERROR_HPP */

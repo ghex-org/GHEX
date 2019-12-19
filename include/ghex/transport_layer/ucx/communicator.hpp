@@ -23,28 +23,28 @@ namespace gridtools {
 
                 template<typename ThreadPrimitives>
                 struct communicator {
-                    using worker_type           = worker_t<ThreadPrimitives>;
+                    using worker_type = worker_t<ThreadPrimitives>;
                     using parallel_context_type = parallel_context<ThreadPrimitives>;
-                    using thread_token          = typename parallel_context_type::thread_token;
-                    using rank_type             = endpoint_t::rank_type;
-                    using tag_type              = typename worker_type::tag_type;
-                    using request               = request_ft<ThreadPrimitives>;
+                    using thread_token = typename parallel_context_type::thread_token;
+                    using rank_type = endpoint_t::rank_type;
+                    using tag_type = typename worker_type::tag_type;
+                    using request = request_ft<ThreadPrimitives>;
                     template<typename T>
                     using future = future_t<T, ThreadPrimitives>;
                     // needed for now for high-level API
                     using address_type = rank_type;
 
-                    using request_cb_type       = request_cb<ThreadPrimitives>;
-                    using request_cb_data_type  = typename request_cb_type::data_type;
+                    using request_cb_type = request_cb<ThreadPrimitives>;
+                    using request_cb_data_type = typename request_cb_type::data_type;
                     using request_cb_state_type = typename request_cb_type::state_type;
-                    using message_type          = typename request_cb_type::message_type;
+                    using message_type = typename request_cb_type::message_type;
 
                     worker_type* m_recv_worker;
                     worker_type* m_send_worker;
                     ucp_worker_h m_ucp_rw;
                     ucp_worker_h m_ucp_sw;
-                    rank_type    m_rank;
-                    rank_type    m_size;
+                    rank_type m_rank;
+                    rank_type m_size;
 
                     communicator(worker_type* rw, worker_type* sw) noexcept
                     : m_recv_worker{rw}
@@ -55,14 +55,14 @@ namespace gridtools {
                     , m_size{m_send_worker->size()} {}
 
                     communicator(const communicator&) = default;
-                    communicator(communicator&&)      = default;
+                    communicator(communicator&&) = default;
                     communicator& operator=(const communicator&) = default;
                     communicator& operator=(communicator&&) = default;
 
                     //rank_type rank() const noexcept { return m_send_worker->rank(); }
                     //rank_type size() const noexcept { return m_send_worker->size(); }
-                    rank_type    rank() const noexcept { return m_rank; }
-                    rank_type    size() const noexcept { return m_size; }
+                    rank_type rank() const noexcept { return m_rank; }
+                    rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
 
                     static void empty_send_callback(void*, ucs_status_t) {}
@@ -70,15 +70,15 @@ namespace gridtools {
 
                     template<typename MsgType>
                     [[nodiscard]] future<void> send(const MsgType& msg, rank_type dst, tag_type tag) {
-                        const auto& ep   = m_send_worker->connect(dst);
-                        const auto  stag = ((std::uint_fast64_t)tag << 32) | (std::uint_fast64_t)(rank());
-                        auto        ret  = ucp_tag_send_nb(
+                        const auto& ep = m_send_worker->connect(dst);
+                        const auto stag = ((std::uint_fast64_t)tag << 32) | (std::uint_fast64_t)(rank());
+                        auto ret = ucp_tag_send_nb(
                             ep.get(),                                          // destination
                             msg.data(),                                        // buffer
                             msg.size() * sizeof(typename MsgType::value_type), // buffer size
                             ucp_dt_make_contig(1),                             // data type
                             stag,                                              // tag
-                            &communicator::empty_send_callback); // callback function pointer: empty here
+                            &communicator::empty_send_callback);               // callback function pointer: empty here
 
                         if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK) {
                             // send operation is completed immediately and the call-back function is not invoked
@@ -195,7 +195,7 @@ namespace gridtools {
                         // set completion bit
                         //req.m_completed->m_ready = true;
                         *req.m_completed = true;
-                        req.m_kind       = request_kind::none;
+                        req.m_kind = request_kind::none;
                         // destroy the request - releases the message
                         req.~request_cb_data_type();
                         // free ucx request
@@ -205,9 +205,9 @@ namespace gridtools {
 
                     template<typename CallBack>
                     request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback) {
-                        const auto& ep   = m_send_worker->connect(dst);
-                        const auto  stag = ((std::uint_fast64_t)tag << 32) | (std::uint_fast64_t)(rank());
-                        auto        ret  = ucp_tag_send_nb(ep.get(),                      // destination
+                        const auto& ep = m_send_worker->connect(dst);
+                        const auto stag = ((std::uint_fast64_t)tag << 32) | (std::uint_fast64_t)(rank());
+                        auto ret = ucp_tag_send_nb(ep.get(),                      // destination
                                                    msg.data(),                    // buffer
                                                    msg.size(),                    // buffer size
                                                    ucp_dt_make_contig(1),         // data type
@@ -288,7 +288,7 @@ namespace gridtools {
                             // set completion bit
                             //req.m_completed->m_ready = true;
                             *req.m_completed = true;
-                            req.m_kind       = request_kind::none;
+                            req.m_kind = request_kind::none;
                             // destroy the request - releases the message
                             req.~request_cb_data_type();
                             // free ucx request

@@ -11,18 +11,18 @@ template<typename Comm, typename Alloc>
 using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm, Alloc>;
 //using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
 
-using transport    = gridtools::ghex::tl::mpi_tag;
-using threading    = gridtools::ghex::threads::atomic::primitives;
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
-int                rank;
+int rank;
 const unsigned int SIZE = 1 << 12;
 
 template<typename Comm>
 bool test_simple(Comm& comm, int rank) {
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(comm)>;
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(comm)>;
 
     callback_comm_t<comm_type, allocator_type> cb_comm(comm);
 
@@ -41,7 +41,7 @@ bool test_simple(Comm& comm, int rank) {
         return ok;
     } else {
         gridtools::ghex::tl::message_buffer<> rmsg{SIZE};
-        auto                                  fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
+        auto fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
 
         bool ok = fut.cancel();
 
@@ -60,8 +60,8 @@ bool test_simple(Comm& comm, int rank) {
 template<typename Comm>
 bool test_single(Comm& comm, int rank) {
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(comm)>;
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(comm)>;
 
     callback_comm_t<comm_type, allocator_type> cb_comm(comm);
 
@@ -87,7 +87,7 @@ bool test_single(Comm& comm, int rank) {
         return ok;
 
     } else {
-        bool      ok = true;
+        bool ok = true;
         smsg_type rmsg{SIZE};
 
         cb_comm.recv(rmsg, 0, 43, [](const smsg_type&, int, int) {});
@@ -120,10 +120,10 @@ bool test_single(Comm& comm, int rank) {
 
 template<typename CBComm>
 class call_back {
-    int&    m_value;
+    int& m_value;
     CBComm& m_cb_comm;
 
-public:
+  public:
     call_back(int& a, CBComm& p)
     : m_value(a)
     , m_cb_comm{p} {}
@@ -138,9 +138,9 @@ public:
 template<typename Comm>
 bool test_send_10(Comm& comm, int rank) {
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(comm)>;
-    using cb_comm_type   = callback_comm_t<comm_type, allocator_type>;
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(comm)>;
+    using cb_comm_type = callback_comm_t<comm_type, allocator_type>;
 
     cb_comm_type cb_comm(comm);
 
@@ -149,7 +149,7 @@ bool test_send_10(Comm& comm, int rank) {
     if (rank == 0) {
         smsg_type smsg{sizeof(int)};
         for (int i = 0; i < 10; ++i) {
-            int v               = i;
+            int v = i;
             smsg.data<int>()[0] = v;
 
             std::array<int, 3> dsts = {1, 2, 3};
@@ -181,22 +181,22 @@ TEST(transport, check_mpi_ranks_eq_4) {
 }
 
 TEST(transport, cancel_requests_reposting) {
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
-    auto  comm        = context.get_communicator(context.get_token());
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_send_10(comm, context.world().rank()));
 }
 
 TEST(transport, cancel_requests_simple) {
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
-    auto  comm        = context.get_communicator(context.get_token());
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_simple(comm, context.world().rank()));
 }
 
 TEST(transport, cancel_single_request) {
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
-    auto  comm        = context.get_communicator(context.get_token());
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_single(comm, context.world().rank()));
 }

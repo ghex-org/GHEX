@@ -16,12 +16,12 @@
 #include <iomanip>
 #include <gtest/gtest.h>
 
-using transport    = gridtools::ghex::tl::mpi_tag;
-using threading    = gridtools::ghex::threads::atomic::primitives;
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
-using allocator_type     = std::allocator<unsigned char>;
-using comm_type          = context_type::communicator_type;
+using allocator_type = std::allocator<unsigned char>;
+using comm_type = context_type::communicator_type;
 using callback_comm_type = gridtools::ghex::tl::callback_communicator<comm_type, allocator_type>;
 //using callback_comm_type = gridtools::ghex::tl::callback_communicator_ts<comm_type,allocator_type>;
 using message_type = typename callback_comm_type::message_type;
@@ -31,12 +31,12 @@ const unsigned int SIZE = 1 << 12;
 TEST(attach, attach_progress) {
     bool ok = true;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
-    auto  comm        = context.get_communicator(context.get_token());
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
-    int          cb_count = 0;
+    int cb_count = 0;
     message_type send_msg{SIZE};
     message_type recv_msg{SIZE};
 
@@ -45,10 +45,10 @@ TEST(attach, attach_progress) {
         recv_msg.data<int>()[i] = i * 10 + comm.rank();
     }
 
-    const auto dst         = (comm.rank() + comm.size() + 1) % comm.size();
-    const auto src         = (comm.rank() + comm.size() - 1) % comm.size();
-    auto       send_future = comm.send(send_msg, dst, 0);
-    auto       recv_future = comm.recv(recv_msg, src, 0);
+    const auto dst = (comm.rank() + comm.size() + 1) % comm.size();
+    const auto src = (comm.rank() + comm.size() - 1) % comm.size();
+    auto send_future = comm.send(send_msg, dst, 0);
+    auto recv_future = comm.recv(recv_msg, src, 0);
 
     cb_comm.attach_send(std::move(send_future), send_msg, dst, 0,
                         [&cb_count](const message_type&, int, int) { ++cb_count; });
@@ -70,13 +70,13 @@ TEST(attach, attach_progress) {
 }
 
 TEST(detach, detach_wait) {
-    bool  ok          = true;
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
-    auto  comm        = context.get_communicator(context.get_token());
+    bool ok = true;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
-    int          cb_count = 0;
+    int cb_count = 0;
     message_type send_msg{SIZE};
     message_type recv_msg{SIZE};
 
@@ -114,10 +114,10 @@ TEST(detach, detach_wait) {
 }
 
 TEST(detach, detach_cancel_unexpected) {
-    bool  ok          = true;
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
-    auto  comm        = context.get_communicator(context.get_token());
+    bool ok = true;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
     message_type send_msg{SIZE};

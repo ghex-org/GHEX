@@ -10,7 +10,7 @@
  */
 
 #ifndef STANDALONE
-    #include "gtest/gtest.h"
+#include "gtest/gtest.h"
 #endif
 #include <sstream>
 #include <string>
@@ -30,12 +30,12 @@
 
 #include <gridtools/common/array.hpp>
 #ifdef __CUDACC__
-    #include <gridtools/common/cuda_util.hpp>
-    #include <gridtools/common/host_device.hpp>
+#include <gridtools/common/cuda_util.hpp>
+#include <gridtools/common/host_device.hpp>
 #endif
 
-using transport    = gridtools::ghex::tl::mpi_tag;
-using threading    = gridtools::ghex::threads::atomic::primitives;
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 namespace halo_exchange_3D_generic_full {
@@ -43,8 +43,8 @@ namespace halo_exchange_3D_generic_full {
     using timer_type = gridtools::ghex::timer;
 
     MPI_Comm CartComm;
-    int      dims[3]   = {0, 0, 0};
-    int      coords[3] = {0, 0, 0};
+    int dims[3] = {0, 0, 0};
+    int coords[3] = {0, 0, 0};
 
 #define B_ADD 1
 #define C_ADD 2
@@ -54,8 +54,8 @@ namespace halo_exchange_3D_generic_full {
     typedef int T2;
     typedef int T3;
 #else
-    typedef int           T1;
-    typedef double        T2;
+    typedef int T1;
+    typedef double T2;
     typedef long long int T3;
 #endif
 
@@ -72,7 +72,7 @@ namespace halo_exchange_3D_generic_full {
 
     template<typename T, typename Arch, typename DomainDescriptor, int... Order>
     void
-    printbuff(std::ostream&                                                                                 file,
+    printbuff(std::ostream& file,
               const gridtools::ghex::structured::simple_field_wrapper<T, Arch, DomainDescriptor, Order...>& field) {
         if (field.extents()[0] <= 10 && field.extents()[1] <= 10 && field.extents()[2] <= 6) {
             file << "------------\n";
@@ -255,7 +255,7 @@ namespace halo_exchange_3D_generic_full {
             timer_type t_0_global;
             timer_type t_1_global;
             timer_type t_global;
-            const int  k_start = 5;
+            const int k_start = 5;
             for (int k = 0; k < 25; ++k) {
                 timer_type t_0;
                 timer_type t_1;
@@ -278,7 +278,7 @@ namespace halo_exchange_3D_generic_full {
 
                 auto t_0_all = gridtools::ghex::reduce(t_0, context.world());
                 auto t_1_all = gridtools::ghex::reduce(t_1, context.world());
-                auto t_all   = gridtools::ghex::reduce(t, context.world());
+                auto t_all = gridtools::ghex::reduce(t, context.world());
                 if (k >= k_start) {
                     t_0_local(t_0);
                     t_1_local(t_1);
@@ -379,7 +379,7 @@ namespace halo_exchange_3D_generic_full {
             timer_type t_0_global;
             timer_type t_1_global;
             timer_type t_global;
-            const int  k_start = 5;
+            const int k_start = 5;
             for (int k = 0; k < 25; ++k) {
                 timer_type t_0;
                 timer_type t_1;
@@ -402,7 +402,7 @@ namespace halo_exchange_3D_generic_full {
 
                 auto t_0_all = gridtools::ghex::reduce(t_0, context.world());
                 auto t_1_all = gridtools::ghex::reduce(t_1, context.world());
-                auto t_all   = gridtools::ghex::reduce(t, context.world());
+                auto t_all = gridtools::ghex::reduce(t, context.world());
                 if (k >= k_start) {
                     t_0_local(t_0);
                     t_1_local(t_1);
@@ -475,7 +475,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m1 + H2p1; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m1 + H3p1; ++kk) {
                     triple_t<USE_DOUBLE, T1> ta;
-                    int                      tax, tay, taz;
+                    int tax, tay, taz;
 
                     tax = modulus(ii - H1m1 + (DIM1)*coords[0], DIM1 * dims[0]);
 
@@ -514,7 +514,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m2 + H2p2; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m2 + H3p2; ++kk) {
                     triple_t<USE_DOUBLE, T2> tb;
-                    int                      tbx, tby, tbz;
+                    int tbx, tby, tbz;
 
                     tbx = modulus(ii - H1m2 + (DIM1)*coords[0], DIM1 * dims[0]) + B_ADD;
 
@@ -553,7 +553,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m3 + H2p3; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m3 + H3p3; ++kk) {
                     triple_t<USE_DOUBLE, T3> tc;
-                    int                      tcx, tcy, tcz;
+                    int tcx, tcy, tcz;
 
                     tcx = modulus(ii - H1m3 + (DIM1)*coords[0], DIM1 * dims[0]) + C_ADD;
 
@@ -619,7 +619,7 @@ namespace halo_exchange_3D_generic_full {
         MPI_Cart_get(CartComm, 3, dims, period, coords);
 
         context_type context(1, CartComm);
-        auto         comm = context.get_communicator(context.get_token());
+        auto comm = context.get_communicator(context.get_token());
 
         /* Each process will hold a tile of size
            (DIM1+2*H)x(DIM2+2*H)x(DIM3+2*H). The DIM1xDIM2xDIM3 area inside
@@ -1024,19 +1024,19 @@ namespace halo_exchange_3D_generic_full {
 
 #ifdef STANDALONE
 int main(int argc, char** argv) {
-    #ifdef GT_USE_GPU
+#ifdef GT_USE_GPU
     device_binding();
-    #endif
+#endif
 
-    #ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
+#ifdef GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI
     int required = MPI_THREAD_MULTIPLE;
     int provided;
     int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
     if (init_result == MPI_ERR_OTHER) throw std::runtime_error("MPI init failed");
     if (provided < required) throw std::runtime_error("MPI does not support required threading level");
-    #else
+#else
     MPI_Init(&argc, &argv);
-    #endif
+#endif
 
     if (argc != 22) {
         std::cout << "Usage: test_halo_exchange_3D dimx dimy dimz h1m1 hip1 h2m1 h2m1 h3m1 h3p1 h1m2 hip2 h2m2 h2m2 "
@@ -1084,7 +1084,7 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     const int Ny = 260;
     const int Nz = 80;
 
-    #ifdef __CUDACC__
+#ifdef __CUDACC__
     gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
@@ -1096,28 +1096,28 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU "
                   << (mpi_comm.rank() / local_comm.size()) * num_devices_per_node + local_comm.rank() << std::endl;
         GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
-        #ifndef GHEX_1_PATTERN_BENCHMARK
+#ifndef GHEX_1_PATTERN_BENCHMARK
         passed =
             halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
-        #else
+#else
         //passed = halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
         passed =
             halo_exchange_3D_generic_full::test(true, Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
-        #endif
+#endif
     } else {
-    #endif
+#endif
 
-    #ifndef GHEX_1_PATTERN_BENCHMARK
+#ifndef GHEX_1_PATTERN_BENCHMARK
         passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3,
                                                      0, 1);
-    #else
+#else
     //passed = halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
     passed =
         halo_exchange_3D_generic_full::test(false, Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
-    #endif
-    #ifdef __CUDACC__
+#endif
+#ifdef __CUDACC__
     }
-    #endif
+#endif
 
     EXPECT_TRUE(passed);
 }

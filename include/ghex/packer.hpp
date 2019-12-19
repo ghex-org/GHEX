@@ -52,8 +52,8 @@ namespace gridtools {
 
         template<typename T, typename Array, typename Field>
         struct kernel_args {
-            int   size;
-            T*    buffer;
+            int size;
+            T* buffer;
             Array first;
             Array strides;
             Field field;
@@ -61,12 +61,12 @@ namespace gridtools {
 
         template<typename T, typename Array, typename Field, unsigned int N>
         __global__ void pack_kernel_u(cuda::kernel_argument<kernel_args<T, Array, Field>, N> args) {
-            using layout_t          = typename Field::layout_map;
-            const int thread_index  = blockIdx.x * blockDim.x + threadIdx.x;
+            using layout_t = typename Field::layout_map;
+            const int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
             const int data_lu_index = blockIdx.y;
 
-            const auto& arg  = args[data_lu_index];
-            const int   size = arg.size;
+            const auto& arg = args[data_lu_index];
+            const int size = arg.size;
             if (thread_index < size) {
                 Array local_coordinate;
                 structured::detail::compute_coordinate<Array::size()>::template apply<layout_t>(
@@ -74,19 +74,19 @@ namespace gridtools {
                 // add offset
                 const auto memory_coordinate = local_coordinate + arg.first + arg.field.offsets();
                 // multiply with memory strides
-                const auto idx           = dot(memory_coordinate, arg.field.byte_strides());
+                const auto idx = dot(memory_coordinate, arg.field.byte_strides());
                 arg.buffer[thread_index] = *reinterpret_cast<const T*>((const char*)arg.field.data() + idx);
             }
         }
 
         template<typename T, typename Array, typename Field, unsigned int N>
         __global__ void unpack_kernel_u(cuda::kernel_argument<kernel_args<T, Array, Field>, N> args) {
-            using layout_t          = typename Field::layout_map;
-            const int thread_index  = blockIdx.x * blockDim.x + threadIdx.x;
+            using layout_t = typename Field::layout_map;
+            const int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
             const int data_lu_index = blockIdx.y;
 
-            const auto& arg  = args[data_lu_index];
-            const int   size = arg.size;
+            const auto& arg = args[data_lu_index];
+            const int size = arg.size;
             if (thread_index < size) {
                 Array local_coordinate;
                 structured::detail::compute_coordinate<Array::size()>::template apply<layout_t>(
@@ -94,7 +94,7 @@ namespace gridtools {
                 // add offset
                 const auto memory_coordinate = local_coordinate + arg.first + arg.field.offsets();
                 // multiply with memory strides
-                const auto idx                                       = dot(memory_coordinate, arg.field.byte_strides());
+                const auto idx = dot(memory_coordinate, arg.field.byte_strides());
                 *reinterpret_cast<T*>((char*)arg.field.data() + idx) = arg.buffer[thread_index];
             }
         }
@@ -104,8 +104,8 @@ namespace gridtools {
         struct packer<gpu> {
             template<typename Map, typename Futures, typename Communicator>
             static void pack(Map& map, Futures& send_futures, Communicator& comm) {
-                using send_buffer_type  = typename Map::send_buffer_type;
-                using future_type       = cuda::future<send_buffer_type*>;
+                using send_buffer_type = typename Map::send_buffer_type;
+                using future_type = cuda::future<send_buffer_type*>;
                 std::size_t num_streams = 0;
                 for (auto& p0 : map.send_memory) {
                     for (auto& p1 : p0.second) {
@@ -150,11 +150,11 @@ namespace gridtools {
 
             template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
             static void pack_u(Map& map, Futures& send_futures, Communicator& comm) {
-                using send_buffer_type     = typename Map::send_buffer_type;
-                using field_info_type      = typename send_buffer_type::field_info_type;
+                using send_buffer_type = typename Map::send_buffer_type;
+                using field_info_type = typename send_buffer_type::field_info_type;
                 using index_container_type = typename field_info_type::index_container_type;
-                using dimension            = typename index_container_type::value_type::dimension;
-                using array_t              = array<int, dimension::value>;
+                using dimension = typename index_container_type::value_type::dimension;
+                using array_t = array<int, dimension::value>;
 
                 using arg_t = kernel_args<T, array_t, FieldType>;
                 std::vector<arg_t> args;
@@ -175,19 +175,19 @@ namespace gridtools {
                 stream_futures.reserve(num_streams);
 
                 const int block_size = 128;
-                num_streams          = 0;
+                num_streams = 0;
                 for (auto& p0 : map.send_memory) {
                     for (auto& p1 : p0.second) {
                         if (p1.second.size > 0u) {
                             args.resize(0);
                             int num_blocks_y = 0;
-                            int max_size     = 0;
+                            int max_size = 0;
                             for (const auto& fb : p1.second.field_infos) {
                                 T* buffer_address = reinterpret_cast<T*>(p1.second.buffer.data() + fb.offset);
                                 for (const auto& it_space_pair : *fb.index_container) {
                                     ++num_blocks_y;
                                     const int size = it_space_pair.size();
-                                    max_size       = std::max(size, max_size);
+                                    max_size = std::max(size, max_size);
                                     array_t first, last;
                                     std::copy(&it_space_pair.local().first()[0],
                                               &it_space_pair.local().first()[dimension::value], first.data());
@@ -247,13 +247,13 @@ namespace gridtools {
 
             template<typename T, typename FieldType, typename BufferMem>
             static void unpack_u(BufferMem& m) {
-                using recv_buffer_type     = typename BufferMem::recv_buffer_type;
-                using field_info_type      = typename recv_buffer_type::field_info_type;
+                using recv_buffer_type = typename BufferMem::recv_buffer_type;
+                using field_info_type = typename recv_buffer_type::field_info_type;
                 using index_container_type = typename field_info_type::index_container_type;
-                using dimension            = typename index_container_type::value_type::dimension;
-                using array_t              = ::gridtools::array<int, dimension::value>;
-                using arg_t                = kernel_args<T, array_t, FieldType>;
-                const int block_size       = 128;
+                using dimension = typename index_container_type::value_type::dimension;
+                using array_t = ::gridtools::array<int, dimension::value>;
+                using arg_t = kernel_args<T, array_t, FieldType>;
+                const int block_size = 128;
 
                 std::vector<arg_t> args;
                 args.reserve(64);
@@ -264,13 +264,13 @@ namespace gridtools {
                     auto stream_ptr = &hook->m_cuda_stream.get();
                     args.resize(0);
                     int num_blocks_y = 0;
-                    int max_size     = 0;
+                    int max_size = 0;
                     for (const auto& fb : hook->field_infos) {
                         T* buffer_address = reinterpret_cast<T*>(hook->buffer.data() + fb.offset);
                         for (const auto& it_space_pair : *fb.index_container) {
                             ++num_blocks_y;
                             const int size = it_space_pair.size();
-                            max_size       = std::max(size, max_size);
+                            max_size = std::max(size, max_size);
                             array_t first, last;
                             std::copy(&it_space_pair.local().first()[0],
                                       &it_space_pair.local().first()[dimension::value], first.data());

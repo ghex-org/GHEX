@@ -22,20 +22,20 @@ namespace gridtools {
 
             template<typename Allocator>
             struct pool_impl {
-                using byte               = unsigned char;
-                using alloc_t            = typename std::allocator_traits<Allocator>::template rebind_alloc<byte>;
-                using traits             = std::allocator_traits<alloc_t>;
-                using pointer            = typename traits::pointer;
+                using byte = unsigned char;
+                using alloc_t = typename std::allocator_traits<Allocator>::template rebind_alloc<byte>;
+                using traits = std::allocator_traits<alloc_t>;
+                using pointer = typename traits::pointer;
                 using const_void_pointer = typename traits::const_void_pointer;
-                using size_type          = typename traits::size_type;
-                using pointer_traits     = std::pointer_traits<pointer>;
-                using key_type           = std::size_t;
-                using mapped_type        = std::vector<byte*>;
-                using map_type           = std::unordered_map<key_type, mapped_type>;
+                using size_type = typename traits::size_type;
+                using pointer_traits = std::pointer_traits<pointer>;
+                using key_type = std::size_t;
+                using mapped_type = std::vector<byte*>;
+                using map_type = std::unordered_map<key_type, mapped_type>;
 
                 static_assert(std::is_same<alloc_t, Allocator>::value, "must be a byte allocator");
 
-                alloc_t  m_alloc;
+                alloc_t m_alloc;
                 map_type m_map;
 
                 pool_impl(Allocator alloc)
@@ -71,21 +71,21 @@ namespace gridtools {
 
             template<typename Allocator>
             struct pool_allocator_adaptor : public Allocator {
-            public: // member types
-                using base               = Allocator;
-                using base_traits        = std::allocator_traits<Allocator>;
-                using pointer            = typename base_traits::pointer;
-                using const_pointer      = typename base_traits::const_pointer;
-                using void_pointer       = typename base_traits::void_pointer;
+              public: // member types
+                using base = Allocator;
+                using base_traits = std::allocator_traits<Allocator>;
+                using pointer = typename base_traits::pointer;
+                using const_pointer = typename base_traits::const_pointer;
+                using void_pointer = typename base_traits::void_pointer;
                 using const_void_pointer = typename base_traits::const_void_pointer;
-                using value_type         = typename base::value_type;
-                using size_type          = typename base_traits::size_type;
-                using difference_type    = typename base_traits::difference_type;
-                using pointer_traits     = std::pointer_traits<pointer>;
+                using value_type = typename base::value_type;
+                using size_type = typename base_traits::size_type;
+                using difference_type = typename base_traits::difference_type;
+                using pointer_traits = std::pointer_traits<pointer>;
 
-                using byte                = unsigned char;
-                using byte_base           = typename base_traits::template rebind_alloc<byte>;
-                using byte_base_traits    = std::allocator_traits<byte_base>;
+                using byte = unsigned char;
+                using byte_base = typename base_traits::template rebind_alloc<byte>;
+                using byte_base_traits = std::allocator_traits<byte_base>;
                 using byte_pointer_traits = std::pointer_traits<typename byte_base_traits::pointer>;
 
                 template<typename U>
@@ -93,11 +93,11 @@ namespace gridtools {
                     using other = pool_allocator_adaptor<typename base_traits::template rebind_alloc<U>>;
                 };
 
-            public: // members
+              public: // members
                 pool_impl<byte_base>* m_pool;
 
-            public: // ctors
-                template<typename Alloc                                                                  = Allocator,
+              public: // ctors
+                template<typename Alloc = Allocator,
                          typename std::enable_if<std::is_default_constructible<Alloc>::value, int>::type = 0>
                 pool_allocator_adaptor(pool_impl<byte_base>* p)
                 : base()
@@ -109,7 +109,7 @@ namespace gridtools {
                 , m_pool{p} {}
 
                 pool_allocator_adaptor(const pool_allocator_adaptor&) = default;
-                pool_allocator_adaptor(pool_allocator_adaptor&&)      = default;
+                pool_allocator_adaptor(pool_allocator_adaptor&&) = default;
                 pool_allocator_adaptor& operator=(const pool_allocator_adaptor&) = default;
                 pool_allocator_adaptor& operator=(pool_allocator_adaptor&&) = default;
 
@@ -127,7 +127,7 @@ namespace gridtools {
                     std::swap(static_cast<base&>(*this), static_cast<base&>(other));
                 }
 
-            public: // allocate, deallocate
+              public: // allocate, deallocate
                 pointer allocate(size_type n, const_void_pointer cvptr = nullptr) {
                     return pointer_traits::pointer_to(*reinterpret_cast<value_type*>(
                         ::gridtools::ghex::to_address(m_pool->allocate(n * sizeof(value_type), cvptr))));
@@ -139,14 +139,14 @@ namespace gridtools {
                     m_pool->deallocate(bptr, n * sizeof(value_type));
                 }
 
-            public: // container hooks
+              public: // container hooks
                 using propagate_on_container_copy_assignment = std::true_type;
                 using propagate_on_container_move_assignment = std::true_type;
-                using propagate_on_container_swap            = std::true_type;
+                using propagate_on_container_swap = std::true_type;
 
                 pool_allocator_adaptor select_on_container_copy_construction() const { return *this; }
 
-            public: // comparison
+              public: // comparison
                 using is_always_equal = std::false_type;
 
                 friend bool operator==(const pool_allocator_adaptor& a, const pool_allocator_adaptor& b) {
@@ -157,14 +157,14 @@ namespace gridtools {
                     return a.m_pool != b.m_pool;
                 }
 
-            public: // other member functions
+              public: // other member functions
                 inline size_type max_size() const noexcept { return base_traits::max_size(*this); }
             };
 
             template<typename BasicAllocator>
             struct pool {
                 using allocator_type = pool_allocator_adaptor<BasicAllocator>;
-                using byte_base      = typename allocator_type::byte_base;
+                using byte_base = typename allocator_type::byte_base;
 
                 std::unique_ptr<pool_impl<byte_base>> m_pool_impl;
 
@@ -172,7 +172,7 @@ namespace gridtools {
                 : m_pool_impl(new pool_impl<byte_base>{alloc}) {}
 
                 pool(const pool&) = delete;
-                pool(pool&&)      = default;
+                pool(pool&&) = default;
 
                 allocator_type get_allocator() const { return {m_pool_impl.get()}; }
             };

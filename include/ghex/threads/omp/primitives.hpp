@@ -33,11 +33,11 @@ namespace gridtools {
                                             boost::callable_traits::return_type_t<F>>::type;
 
                 struct primitives {
-                public: // member types
+                  public: // member types
                     using id_type = int;
 
                     class token_impl {
-                    private: // members
+                      private: // members
                         id_type m_id;
 
                         friend primitives;
@@ -45,55 +45,55 @@ namespace gridtools {
                         token_impl(id_type id) noexcept
                         : m_id(id) {}
 
-                    public: // ctors
+                      public: // ctors
                         token_impl(const token_impl&) = delete;
-                        token_impl(token_impl&&)      = default;
+                        token_impl(token_impl&&) = default;
 
-                    public: // member functions
+                      public: // member functions
                         id_type id() const noexcept { return m_id; }
                     };
 
                     class token {
-                    private:
+                      private:
                         token_impl* impl = nullptr;
                         friend primitives;
 
-                    public:
+                      public:
                         token() = default;
                         token(token_impl* impl_) noexcept
                         : impl{impl_} {}
                         token(const token&) = default;
-                        token(token&&)      = default;
+                        token(token&&) = default;
                         token& operator=(const token&) = default;
                         token& operator=(token&&) = default;
 
-                    public:
+                      public:
                         id_type id() const noexcept { return impl->id(); }
                     };
 
                     using mutex_type = ::gridtools::ghex::threads::mutex::pthread_spin::mutex;
-                    using lock_type  = ::gridtools::ghex::threads::mutex::pthread_spin::lock_guard;
+                    using lock_type = ::gridtools::ghex::threads::mutex::pthread_spin::lock_guard;
                     //using mutex_type = ::gridtools::ghex::threads::mutex::atomic::mutex;
                     //using lock_type  = ::gridtools::ghex::threads::mutex::atomic::lock_guard;
                     //using mutex_type = std::mutex;
                     //using lock_type  = std::lock_guard<mutex_type>;
 
-                private: // members
-                    const int                                m_num_threads;
+                  private: // members
+                    const int m_num_threads;
                     std::vector<std::unique_ptr<token_impl>> m_tokens;
 
-                public:
+                  public:
                     mutable mutex_type m_mutex;
 
-                public: // ctors
+                  public: // ctors
                     primitives(int num_threads) noexcept
                     : m_num_threads(num_threads)
                     , m_tokens(num_threads) {}
 
                     primitives(const primitives&) = delete;
-                    primitives(primitives&&)      = delete;
+                    primitives(primitives&&) = delete;
 
-                public: // public member functions
+                  public: // public member functions
                     int size() const noexcept { return m_num_threads; }
 
                     inline token get_token() noexcept {

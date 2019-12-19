@@ -22,20 +22,20 @@ namespace gridtools {
 
                 /** @brief special mpi communicator used for setup phase */
                 class setup_communicator : public communicator_base {
-                public:
-                    using base_type    = communicator_base;
-                    using handle_type  = request_t;
+                  public:
+                    using base_type = communicator_base;
+                    using handle_type = request_t;
                     using address_type = base_type::rank_type;
-                    using status       = status_t;
+                    using status = status_t;
                     template<typename T>
                     using future = future_t<T>;
 
-                public:
+                  public:
                     setup_communicator(const MPI_Comm& comm)
                     : base_type{comm} {}
                     setup_communicator(const setup_communicator&) = default;
                     setup_communicator& operator=(const setup_communicator&) = default;
-                    setup_communicator(setup_communicator&&) noexcept        = default;
+                    setup_communicator(setup_communicator&&) noexcept = default;
                     setup_communicator& operator=(setup_communicator&&) noexcept = default;
 
                     address_type address() const { return rank(); }
@@ -79,7 +79,7 @@ namespace gridtools {
                     }
 
                     template<typename T>
-                    future<std::vector<std::vector<T>>> all_gather(const std::vector<T>&   payload,
+                    future<std::vector<std::vector<T>>> all_gather(const std::vector<T>& payload,
                                                                    const std::vector<int>& sizes) {
                         std::vector<std::vector<T>> res(size());
                         for (int neigh = 0; neigh < size(); ++neigh) { res[neigh].resize(sizes[neigh]); }
@@ -122,7 +122,7 @@ namespace gridtools {
                     template<typename T>
                     future<std::vector<T>> all_gather(const T& payload) {
                         std::vector<T> res(size());
-                        handle_type    h;
+                        handle_type h;
                         GHEX_CHECK_MPI_RESULT(MPI_Iallgather(&payload, sizeof(T), MPI_BYTE, &res[0], sizeof(T),
                                                              MPI_BYTE, *this, &h.get()));
                         return {std::move(res), std::move(h)};

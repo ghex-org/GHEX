@@ -16,8 +16,8 @@
 #include <gridtools/storage/storage_facility.hpp>
 #include <gtest/gtest.h>
 
-using transport    = gridtools::ghex::tl::mpi_tag;
-using threading    = gridtools::ghex::threads::atomic::primitives;
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 TEST(data_store, make) {
@@ -35,24 +35,24 @@ TEST(data_store, make) {
 
     int np;
     MPI_Comm_size(MPI_COMM_WORLD, &np);
-    MPI_Comm           CartComm;
+    MPI_Comm CartComm;
     std::array<int, 3> dimensions{0, 0, 1};
-    int                period[3] = {1, 1, 1};
+    int period[3] = {1, 1, 1};
     MPI_Dims_create(np, 3, &dimensions[0]);
     MPI_Cart_create(MPI_COMM_WORLD, 3, &dimensions[0], period, false, &CartComm);
     const std::array<int, 3> extents{Nx0, Ny0, Nz0};
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, CartComm);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, CartComm);
+    auto& context = *context_ptr;
 
-    auto grid     = gridtools::ghex::make_gt_processor_grid(context, extents, periodicity);
+    auto grid = gridtools::ghex::make_gt_processor_grid(context, extents, periodicity);
     auto pattern1 = gridtools::ghex::make_gt_pattern(grid, std::array<int, 6>{1, 1, 1, 1, 0, 0});
     auto co =
         gridtools::ghex::make_communication_object<decltype(pattern1)>(context.get_communicator(context.get_token()));
 
-    using host_backend_t      = gridtools::backend::mc;
+    using host_backend_t = gridtools::backend::mc;
     using host_storage_info_t = gridtools::storage_traits<host_backend_t>::storage_info_t<0, 3, halo_t>;
-    using host_data_store_t   = gridtools::storage_traits<host_backend_t>::data_store_t<double, host_storage_info_t>;
+    using host_data_store_t = gridtools::storage_traits<host_backend_t>::data_store_t<double, host_storage_info_t>;
 #ifdef __CUDACC__
     //using target_backend_t      = gridtools::backend::cuda;
 #else
@@ -62,7 +62,7 @@ TEST(data_store, make) {
     //using target_data_store_t   = gridtools::storage_traits<host_backend_t>::data_store_t<double, target_storage_info_t>;
 
     host_storage_info_t host_info(Nx, Ny, Nz);
-    host_data_store_t   host_data_store(host_info, -1., "field");
+    host_data_store_t host_data_store(host_info, -1., "field");
     //target_storage_info_t target_info(Nx, Ny, Nz);
     //target_data_store_t   target_data_store(target_info, -1., "field");
 
@@ -76,13 +76,13 @@ TEST(data_store, make) {
             for (int x = 0; x < Nx; ++x) { host_view(x, y, z) = i++; }
 
     bool passed = true;
-    i           = 0;
+    i = 0;
     for (int z = 0; z < Nz; ++z)
         for (int y = 0; y < Ny; ++y)
             for (int x = 0; x < Nx; ++x) {
                 const bool passed_this = (host_ghex_field(x - (int)halo_t::at<0>(), y - (int)halo_t::at<1>(),
                                                           z - (int)halo_t::at<2>()) == i++);
-                passed                 = passed && passed_this;
+                passed = passed && passed_this;
             }
 
     //auto target_view = gridtools::make_target_view(host_data_store);

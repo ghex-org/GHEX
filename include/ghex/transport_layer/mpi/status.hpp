@@ -36,9 +36,9 @@ namespace gridtools {
                         return flag != 0;
                     }
 
-                                      operator MPI_Status&() noexcept { return m_status; }
-                                      operator const MPI_Status&() const noexcept { return m_status; }
-                    MPI_Status&       get() noexcept { return m_status; }
+                    operator MPI_Status&() noexcept { return m_status; }
+                    operator const MPI_Status&() const noexcept { return m_status; }
+                    MPI_Status& get() noexcept { return m_status; }
                     const MPI_Status& get() const noexcept { return m_status; }
                 };
 

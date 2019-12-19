@@ -24,25 +24,25 @@ namespace gridtools {
         namespace tl {
             typedef struct {
                 pthread_mutex_t mutex;
-                pthread_cond_t  cond;
-                pmix_status_t   status;
-                volatile bool   active;
+                pthread_cond_t cond;
+                pmix_status_t status;
+                volatile bool active;
             } cblock_t;
 
             template<>
             class pmi<pmix_tag> {
-            private:
+              private:
                 pmix_proc_t allproc;
                 pmix_proc_t myproc;
-                int32_t     nprocs;
+                int32_t nprocs;
 
-            public:
+              public:
                 using rank_type = int;
                 using size_type = int;
 
-            public:
+              public:
                 pmi() {
-                    int           rc;
+                    int rc;
                     pmix_value_t* pvalue;
 
                     if (PMIX_SUCCESS != (rc = PMIx_Init(&myproc, NULL, 0))) {
@@ -82,20 +82,20 @@ namespace gridtools {
                 size_type size() { return nprocs; }
 
                 void set(const std::string key, std::vector<char> data) {
-                    int          rc;
+                    int rc;
                     pmix_value_t value;
 
                     PMIX_VALUE_CONSTRUCT(&value);
-                    value.type          = PMIX_BYTE_OBJECT;
+                    value.type = PMIX_BYTE_OBJECT;
                     value.data.bo.bytes = data.data();
-                    value.data.bo.size  = data.size();
+                    value.data.bo.size = data.size();
                     if (PMIX_SUCCESS != (rc = PMIx_Put(PMIX_GLOBAL, key.c_str(), &value))) {
                         ERR("Client ns %s rank %d: PMIx_Put failed: %d\n", myproc.nspace, myproc.rank, rc);
                     }
 
                     /* protect the data */
                     value.data.bo.bytes = NULL;
-                    value.data.bo.size  = 0;
+                    value.data.bo.size = 0;
                     PMIX_VALUE_DESTRUCT(&value);
                     LOG("PMIx_Put on %s", key.c_str());
 
@@ -106,8 +106,8 @@ namespace gridtools {
                 }
 
                 std::vector<char> get_bytes(uint32_t peer_rank, const std::string key) {
-                    int           rc;
-                    pmix_proc_t   proc;
+                    int rc;
+                    pmix_proc_t proc;
                     pmix_value_t* pvalue;
 
                     PMIX_PROC_CONSTRUCT(&proc);

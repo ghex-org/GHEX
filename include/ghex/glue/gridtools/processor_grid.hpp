@@ -27,13 +27,13 @@ namespace gridtools {
         template<typename Context>
         struct gt_grid {
             using domain_descriptor_type = structured::domain_descriptor<int, 3>;
-            using domain_id_type         = typename domain_descriptor_type::domain_id_type;
+            using domain_id_type = typename domain_descriptor_type::domain_id_type;
             Context& m_context;
             //MPI_Comm m_setup_comm;
             //tl::communicator<Transport> m_comm;
             std::vector<domain_descriptor_type> m_domains;
-            std::array<int, 3>                  m_global_extents;
-            std::array<bool, 3>                 m_periodic;
+            std::array<int, 3> m_global_extents;
+            std::array<bool, 3> m_periodic;
         };
 
         template<typename Layout = ::gridtools::layout_map<0, 1, 2>, typename Context, typename Array0, typename Array1>
@@ -57,7 +57,7 @@ namespace gridtools {
                 MPI_Cart_rank(context.world(), coords_i, &rank_i);
                 if (coords[0] == i && coords[1] == 0 && coords[2] == 0) {
                     // broadcast
-                    int lext     = local_extents[0];
+                    int lext = local_extents[0];
                     extents_x[i] = lext;
                     MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.world());
                 } else {
@@ -74,7 +74,7 @@ namespace gridtools {
                 MPI_Cart_rank(context.world(), coords_i, &rank_i);
                 if (coords[1] == i && coords[0] == 0 && coords[2] == 0) {
                     // broadcast
-                    int lext     = local_extents[1];
+                    int lext = local_extents[1];
                     extents_y[i] = lext;
                     MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.world());
                 } else {
@@ -91,7 +91,7 @@ namespace gridtools {
                 MPI_Cart_rank(context.world(), coords_i, &rank_i);
                 if (coords[2] == i && coords[0] == 0 && coords[1] == 0) {
                     // broadcast
-                    int lext     = local_extents[2];
+                    int lext = local_extents[2];
                     extents_z[i] = lext;
                     MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.world());
                 } else {
@@ -102,10 +102,10 @@ namespace gridtools {
             std::partial_sum(extents_z.begin(), extents_z.end(), extents_z.begin());
 
             const std::array<int, 3> global_extents = {extents_x.back(), extents_y.back(), extents_z.back()};
-            const std::array<int, 3> global_first   = {coords[0] == 0 ? 0 : extents_x[coords[0] - 1],
+            const std::array<int, 3> global_first = {coords[0] == 0 ? 0 : extents_x[coords[0] - 1],
                                                      coords[1] == 0 ? 0 : extents_y[coords[1] - 1],
                                                      coords[2] == 0 ? 0 : extents_z[coords[2] - 1]};
-            const std::array<int, 3> global_last    = {global_first[0] + local_extents[0] - 1,
+            const std::array<int, 3> global_last = {global_first[0] + local_extents[0] - 1,
                                                     global_first[1] + local_extents[1] - 1,
                                                     global_first[2] + local_extents[2] - 1};
 

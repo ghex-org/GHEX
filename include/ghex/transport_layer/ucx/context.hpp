@@ -20,19 +20,19 @@ namespace gridtools {
 
             template<typename ThreadPrimitives>
             struct transport_context<ucx_tag, ThreadPrimitives> {
-            public: // member types
-                using rank_type         = ucx::endpoint_t::rank_type;
-                using worker_type       = ucx::worker_t<ThreadPrimitives>;
+              public: // member types
+                using rank_type = ucx::endpoint_t::rank_type;
+                using worker_type = ucx::worker_t<ThreadPrimitives>;
                 using communicator_type = ucx::communicator<ThreadPrimitives>;
 
-            private: // member types
+              private: // member types
                 struct type_erased_address_db_t {
                     struct iface {
-                        virtual rank_type       rank()                      = 0;
-                        virtual rank_type       size()                      = 0;
-                        virtual int             est_size()                  = 0;
-                        virtual void            init(const ucx::address_t&) = 0;
-                        virtual ucx::address_t* find(rank_type)             = 0;
+                        virtual rank_type rank() = 0;
+                        virtual rank_type size() = 0;
+                        virtual int est_size() = 0;
+                        virtual void init(const ucx::address_t&) = 0;
+                        virtual ucx::address_t* find(rank_type) = 0;
                         virtual ~iface() {}
                     };
 
@@ -43,10 +43,10 @@ namespace gridtools {
                         : m_impl{impl} {}
                         impl_t(Impl&& impl)
                         : m_impl{std::move(impl)} {}
-                        rank_type       rank() override { return m_impl.rank(); }
-                        rank_type       size() override { return m_impl.size(); }
-                        int             est_size() override { return m_impl.est_size(); }
-                        void            init(const ucx::address_t& addr) override { m_impl.init(addr); }
+                        rank_type rank() override { return m_impl.rank(); }
+                        rank_type size() override { return m_impl.size(); }
+                        int est_size() override { return m_impl.est_size(); }
+                        void init(const ucx::address_t& addr) override { m_impl.init(addr); }
                         ucx::address_t* find(rank_type rank) override { return m_impl.find(rank); }
                     };
 
@@ -57,10 +57,10 @@ namespace gridtools {
                     : m_impl{std::make_unique<impl_t<std::remove_cv_t<std::remove_reference_t<Impl>>>>(
                           std::forward<Impl>(impl))} {}
 
-                    inline rank_type       rank() const { return m_impl->rank(); }
-                    inline rank_type       size() const { return m_impl->size(); }
-                    inline int             est_size() const { return m_impl->est_size(); }
-                    inline void            init(const ucx::address_t& addr) { m_impl->init(addr); }
+                    inline rank_type rank() const { return m_impl->rank(); }
+                    inline rank_type size() const { return m_impl->size(); }
+                    inline int est_size() const { return m_impl->est_size(); }
+                    inline void init(const ucx::address_t& addr) { m_impl->init(addr); }
                     inline ucx::address_t* find(rank_type rank) { return m_impl->find(rank); }
                 };
 
@@ -70,22 +70,22 @@ namespace gridtools {
                 };
 
                 using parallel_context_type = parallel_context<ThreadPrimitives>;
-                using thread_token          = typename parallel_context_type::thread_token;
-                using worker_vector         = std::vector<std::unique_ptr<worker_type>>;
+                using thread_token = typename parallel_context_type::thread_token;
+                using worker_vector = std::vector<std::unique_ptr<worker_type>>;
 
-            private: // members
-                parallel_context_type&    m_parallel_context;
-                type_erased_address_db_t  m_db;
-                ucp_context_h_holder      m_context;
-                std::size_t               m_req_size;
-                worker_type               m_worker;  // shared, serialized - per rank
-                worker_vector             m_workers; // per thread
+              private: // members
+                parallel_context_type& m_parallel_context;
+                type_erased_address_db_t m_db;
+                ucp_context_h_holder m_context;
+                std::size_t m_req_size;
+                worker_type m_worker;    // shared, serialized - per rank
+                worker_vector m_workers; // per thread
                 std::vector<thread_token> m_tokens;
 
                 friend class ucx::worker_t<ThreadPrimitives>;
 
-            public: // static member functions
-            public: // ctors
+              public: // static member functions
+              public: // ctors
                 template<typename DB, typename... Args>
                 transport_context(parallel_context<ThreadPrimitives>& pc, MPI_Comm, DB&& db, Args&&...)
                 : m_parallel_context(pc)
@@ -151,15 +151,15 @@ namespace gridtools {
 
                 communicator_type get_communicator(const thread_token& t) {
                     if (!m_workers[t.id()]) {
-                        m_tokens[t.id()]  = t;
+                        m_tokens[t.id()] = t;
                         m_workers[t.id()] = std::make_unique<worker_type>(this, &m_parallel_context, &m_tokens[t.id()],
                                                                           UCS_THREAD_MODE_SINGLE);
                     }
                     return {&m_worker, m_workers[t.id()].get()};
                 }
 
-                rank_type     rank() const { return m_db.rank(); }
-                rank_type     size() const { return m_db.size(); }
+                rank_type rank() const { return m_db.rank(); }
+                rank_type size() const { return m_db.size(); }
                 ucp_context_h get() const noexcept { return m_context.m_context; }
             };
 
@@ -174,11 +174,11 @@ namespace gridtools {
                 , m_rank(c->rank())
                 , m_size(c->size()) {
                     ucp_worker_params_t params;
-                    params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+                    params.field_mask = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
                     params.thread_mode = mode;
                     GHEX_CHECK_UCX_RESULT(ucp_worker_create(c->get(), &params, &m_worker.get()));
                     ucp_address_t* worker_address;
-                    std::size_t    address_length;
+                    std::size_t address_length;
                     GHEX_CHECK_UCX_RESULT(ucp_worker_get_address(m_worker.get(), &worker_address, &address_length));
                     m_address = address_t{reinterpret_cast<unsigned char*>(worker_address),
                                           reinterpret_cast<unsigned char*>(worker_address) + address_length};

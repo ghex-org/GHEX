@@ -5,27 +5,27 @@
 
 #ifdef USE_MPI
 
-    /* MPI backend */
-    #include <ghex/transport_layer/callback_communicator.hpp>
-    #include <ghex/transport_layer/mpi/communicator.hpp>
+/* MPI backend */
+#include <ghex/transport_layer/callback_communicator.hpp>
+#include <ghex/transport_layer/mpi/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
 #else
 
-    /* UCX backend */
-    #ifdef USE_UCX_NBR
-        #include <ghex/transport_layer/callback_communicator.hpp>
-    #else
-        #include <ghex/transport_layer/ucx/callback_communicator.hpp>
-    #endif
-    #include <ghex/transport_layer/ucx/communicator.hpp>
+/* UCX backend */
+#ifdef USE_UCX_NBR
+#include <ghex/transport_layer/callback_communicator.hpp>
+#else
+#include <ghex/transport_layer/ucx/callback_communicator.hpp>
+#endif
+#include <ghex/transport_layer/ucx/communicator.hpp>
 using CommType = gridtools::ghex::tl::communicator<gridtools::ghex::tl::ucx_tag>;
 #endif /* USE_MPI */
 
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 /* available comm slots */
-int* available    = NULL;
-int  ongoing_comm = 0;
+int* available = NULL;
+int ongoing_comm = 0;
 
 void send_callback(MsgType mesg, int rank, int tag) {
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
@@ -34,7 +34,7 @@ void send_callback(MsgType mesg, int rank, int tag) {
 }
 
 gridtools::ghex::tl::callback_communicator<CommType>* pcomm = NULL;
-void                                                  recv_callback(MsgType mesg, int rank, int tag) {
+void recv_callback(MsgType mesg, int rank, int tag) {
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     pcomm->recv(mesg, rank, tag, recv_callback);
     ongoing_comm--;
@@ -47,15 +47,15 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_MPI
     int mode;
-    #ifdef USE_OPENMP
+#ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if (mode != MPI_THREAD_MULTIPLE) {
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
         std::terminate();
     }
-    #else
+#else
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
-    #endif
+#endif
 #endif
 
     gridtools::ghex::tl::callback_communicator<CommType> comm;
@@ -63,12 +63,12 @@ int main(int argc, char* argv[]) {
     /* needed in the recv_callback to resubmit the recv request */
     pcomm = &comm;
 
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
-    rank      = comm.rank();
-    size      = comm.size();
+    rank = comm.rank();
+    size = comm.size();
     peer_rank = (rank + 1) % 2;
 
     if (rank == 0)
@@ -76,8 +76,8 @@ int main(int argc, char* argv[]) {
 
     {
         gridtools::ghex::timer timer;
-        long                   bytes = 0;
-        std::vector<MsgType>   msgs;
+        long bytes = 0;
+        std::vector<MsgType> msgs;
         available = new int[inflight];
 
         for (int j = 0; j < inflight; j++) {

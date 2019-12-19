@@ -26,14 +26,14 @@ namespace gridtools {
             namespace ucx {
 
                 struct address_db_mpi {
-                    using key_t   = endpoint_t::rank_type;
+                    using key_t = endpoint_t::rank_type;
                     using value_t = address_t;
 
-                    MPI_Comm    m_mpi_comm;
+                    MPI_Comm m_mpi_comm;
                     const key_t m_rank;
                     const key_t m_size;
 
-                    value_t                  m_value;
+                    value_t m_value;
                     std::map<key_t, value_t> m_address_map;
 
                     address_db_mpi(MPI_Comm comm)
@@ -50,11 +50,11 @@ namespace gridtools {
                     }(comm)} {}
 
                     address_db_mpi(const address_db_mpi&) = delete;
-                    address_db_mpi(address_db_mpi&&)      = default;
+                    address_db_mpi(address_db_mpi&&) = default;
 
                     key_t rank() const noexcept { return m_rank; }
                     key_t size() const noexcept { return m_size; }
-                    int   est_size() const noexcept { return m_size; }
+                    int est_size() const noexcept { return m_size; }
 
                     value_t* find(key_t k) {
                         auto it = m_address_map.find(k);
@@ -65,7 +65,7 @@ namespace gridtools {
                     }
 
                     void init(const value_t& addr) {
-                        m_value               = addr;
+                        m_value = addr;
                         m_address_map[m_rank] = addr;
                         for (key_t r = 0; r < m_size; ++r) {
                             if (r == m_rank) {

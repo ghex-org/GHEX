@@ -39,25 +39,25 @@ namespace gridtools {
               * @tparam Allocator The allocator used to allocate the memory for the message */
             template<typename Allocator = std::allocator<unsigned char>>
             class message_buffer {
-            public: // member types
-                using byte              = unsigned char;
-                using value_type        = byte;
-                using buffer_type       = ::gridtools::ghex::allocator::allocation<Allocator, byte>;
-                using allocator_type    = typename buffer_type::alloc_type;
-                using pointer           = typename buffer_type::pointer;
-                using const_pointer     = typename buffer_type::const_pointer;
-                using raw_pointer       = byte*;
+              public: // member types
+                using byte = unsigned char;
+                using value_type = byte;
+                using buffer_type = ::gridtools::ghex::allocator::allocation<Allocator, byte>;
+                using allocator_type = typename buffer_type::alloc_type;
+                using pointer = typename buffer_type::pointer;
+                using const_pointer = typename buffer_type::const_pointer;
+                using raw_pointer = byte*;
                 using raw_const_pointer = const byte*;
 
                 static constexpr bool can_be_shared = false;
 
-            private: // members
+              private: // members
                 buffer_type m_buffer;
                 std::size_t m_size = 0u;
 
-            public: // ctors
+              public: // ctors
                 /** @brief construct an empty message */
-                template<typename Alloc                     = Allocator,
+                template<typename Alloc = Allocator,
                          typename std::enable_if<std::is_default_constructible<Alloc>::value &&
                                                      !std::is_convertible<Alloc, std::size_t>::value,
                                                  int>::type = 0>
@@ -71,7 +71,7 @@ namespace gridtools {
                 : m_buffer(alloc) {}
 
                 /** @brief construct a message with given size */
-                template<typename Alloc                                                                  = Allocator,
+                template<typename Alloc = Allocator,
                          typename std::enable_if<std::is_default_constructible<Alloc>::value, int>::type = 0>
                 message_buffer(size_t size_, Alloc alloc = Alloc{})
                 : m_buffer(alloc, size_)
@@ -90,8 +90,8 @@ namespace gridtools {
                 }
 
                 message_buffer& operator=(message_buffer& other) {
-                    m_buffer     = std::move(other.m_buffer);
-                    m_size       = other.m_size;
+                    m_buffer = std::move(other.m_buffer);
+                    m_size = other.m_size;
                     other.m_size = 0u;
                     return *this;
                 }
@@ -99,8 +99,8 @@ namespace gridtools {
                 message_buffer(const message_buffer&) = delete;
                 message_buffer& operator=(const message_buffer&) = delete;
 
-            public: // member functions
-                bool        is_shared() const { return can_be_shared; }
+              public: // member functions
+                bool is_shared() const { return can_be_shared; }
                 std::size_t use_count() const { return 1; }
 
                 std::size_t size() const noexcept { return m_size; }
@@ -108,7 +108,7 @@ namespace gridtools {
 
                 /** @brief returns a raw pointer to the beginning of the allocated memory, akin to std::vector */
                 raw_const_pointer data() const noexcept { return ::gridtools::ghex::to_address(m_buffer.m_pointer); }
-                raw_pointer       data() noexcept { return ::gridtools::ghex::to_address(m_buffer.m_pointer); }
+                raw_pointer data() noexcept { return ::gridtools::ghex::to_address(m_buffer.m_pointer); }
 
                 /** @brief returns a raw pointer to the beginning of the allocated memory, interpreted as T*. */
                 template<typename T>
@@ -127,14 +127,14 @@ namespace gridtools {
                 /** @brief basic range support */
                 raw_const_pointer begin() const noexcept { return data(); }
                 raw_const_pointer end() const noexcept { return data() + m_size; }
-                raw_pointer       begin() noexcept { return data(); }
-                raw_pointer       end() noexcept { return data() + m_size; }
+                raw_pointer begin() noexcept { return data(); }
+                raw_pointer end() noexcept { return data() + m_size; }
 
                 /** @brief reserves n bytes of memory and will allocate if n is greater than the current capacaty. */
                 void reserve(std::size_t n) {
                     if (n <= m_buffer.m_capacity) return;
                     buffer_type new_allocation(m_buffer.m_alloc, n);
-                    void*       ptr = &m_buffer;
+                    void* ptr = &m_buffer;
                     m_buffer.~buffer_type();
                     new (ptr) buffer_type(std::move(new_allocation));
                 }
@@ -152,7 +152,7 @@ namespace gridtools {
                 void swap(message_buffer& other) {
                     m_buffer.swap(other.m_buffer);
                     const auto s = m_size;
-                    m_size       = other.m_size;
+                    m_size = other.m_size;
                     other.m_size = s;
                 }
             };

@@ -20,26 +20,26 @@ namespace gridtools {
 
         /** @brief timer with built-in statistics */
         class timer : public accumulator {
-        private: // member types
-            using base       = accumulator;
+          private: // member types
+            using base = accumulator;
             using clock_type = std::chrono::high_resolution_clock;
             using time_point = typename clock_type::time_point;
 
-        private: // members
+          private: // members
             time_point m_time_point = clock_type::now();
 
-        public: // ctors
+          public: // ctors
             timer() = default;
             timer(const base& b)
             : base(b) {}
             timer(base&& b)
             : base(std::move(b)) {}
             timer(const timer&) noexcept = default;
-            timer(timer&&) noexcept      = default;
+            timer(timer&&) noexcept = default;
             timer& operator=(const timer&) noexcept = default;
             timer& operator=(timer&&) noexcept = default;
 
-        public: // time functions
+          public: // time functions
             /** @brief start timings */
             inline void tic() noexcept { m_time_point = clock_type::now(); }
             /** @brief stop timings */
@@ -71,7 +71,7 @@ namespace gridtools {
 
             /** @brief stop and start another timing period */
             inline void toc_tic() noexcept {
-                auto  t2 = clock_type::now();
+                auto t2 = clock_type::now();
                 this->operator()(std::chrono::duration_cast<std::chrono::microseconds>(t2 - m_time_point).count());
                 m_time_point = t2;
             }

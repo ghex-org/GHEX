@@ -32,14 +32,14 @@ namespace gridtools {
                                             boost::callable_traits::return_type_t<F>>::type;
 
                 struct primitives {
-                public: // member types
+                  public: // member types
                     using id_type = int;
 
                     class token_impl {
-                    private: // members
+                      private: // members
                         id_type m_id;
-                        int     m_epoch    = 0;
-                        bool    m_selected = false;
+                        int m_epoch = 0;
+                        bool m_selected = false;
 
                         friend primitives;
 
@@ -48,44 +48,44 @@ namespace gridtools {
                         , m_epoch(epoch)
                         , m_selected(id == 0 ? true : false) {}
 
-                    public: // ctors
+                      public: // ctors
                         token_impl(const token_impl&) = delete;
-                        token_impl(token_impl&&)      = default;
+                        token_impl(token_impl&&) = default;
 
-                    public: // member functions
+                      public: // member functions
                         id_type id() const noexcept { return m_id; }
                     };
 
                     class token {
-                    private:
+                      private:
                         token_impl* impl = nullptr;
                         friend primitives;
 
-                    public:
+                      public:
                         token() = default;
                         token(token_impl* impl_) noexcept
                         : impl{impl_} {}
                         token(const token&) = default;
-                        token(token&&)      = default;
+                        token(token&&) = default;
                         token& operator=(const token&) = default;
                         token& operator=(token&&) = default;
 
-                    public:
+                      public:
                         id_type id() const noexcept { return impl->id(); }
                     };
 
                     using mutex_type = ::gridtools::ghex::threads::mutex::atomic::mutex;
-                    using lock_type  = ::gridtools::ghex::threads::mutex::atomic::lock_guard;
+                    using lock_type = ::gridtools::ghex::threads::mutex::atomic::lock_guard;
 
-                private: // members
-                    const int                                m_num_threads;
+                  private: // members
+                    const int m_num_threads;
                     std::vector<std::unique_ptr<token_impl>> m_tokens;
-                    std::atomic<int>                         m_ids;
-                    mutable volatile int                     m_epoch;
-                    mutable std::atomic<int>                 b_count;
-                    mutable mutex_type                       m_mutex;
+                    std::atomic<int> m_ids;
+                    mutable volatile int m_epoch;
+                    mutable std::atomic<int> b_count;
+                    mutable mutex_type m_mutex;
 
-                public: // ctors
+                  public: // ctors
                     primitives(int num_threads) noexcept
                     : m_num_threads(num_threads)
                     , m_tokens(num_threads)
@@ -94,9 +94,9 @@ namespace gridtools {
                     , b_count(0) {}
 
                     primitives(const primitives&) = delete;
-                    primitives(primitives&&)      = delete;
+                    primitives(primitives&&) = delete;
 
-                public: // public member functions
+                  public: // public member functions
                     int size() const noexcept { return m_num_threads; }
 
                     inline token get_token() noexcept {

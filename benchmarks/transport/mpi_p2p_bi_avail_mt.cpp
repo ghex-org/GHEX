@@ -9,8 +9,8 @@
 
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
-int              last_received = 0;
-int              last_sent     = 0;
+int last_received = 0;
+int last_sent = 0;
 
 int main(int argc, char* argv[]) {
     int rank, size, peer_rank;
@@ -24,9 +24,9 @@ int main(int argc, char* argv[]) {
                   << "\n";
         std::terminate();
     }
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
     int mode;
 #ifdef USE_OPENMP
@@ -40,12 +40,12 @@ int main(int argc, char* argv[]) {
 #endif
 
     THREAD_PARALLEL_BEG() {
-        int             thrid, nthr;
-        MPI_Comm        mpi_comm;
+        int thrid, nthr;
+        MPI_Comm mpi_comm;
         unsigned char** sbuffers = new unsigned char*[inflight];
         unsigned char** rbuffers = new unsigned char*[inflight];
-        MPI_Request*    sreq     = new MPI_Request[inflight];
-        MPI_Request*    rreq     = new MPI_Request[inflight];
+        MPI_Request* sreq = new MPI_Request[inflight];
+        MPI_Request* rreq = new MPI_Request[inflight];
 
         THREAD_MASTER() {
             MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
         }
 
         thrid = GET_THREAD_NUM();
-        nthr  = GET_NUM_THREADS();
+        nthr = GET_NUM_THREADS();
 
         /* duplicate the communicator - all threads in order */
         for (int tid = 0; tid < nthr; tid++) {
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
             MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid * inflight + j, mpi_comm, &sreq[j]);
         }
 
-        int  dbg = 0, sdbg = 0, rdbg = 0, flag, j;
+        int dbg = 0, sdbg = 0, rdbg = 0, flag, j;
         char header[256];
         snprintf(header, 256, "%d total bwdt ", rank);
         while (sent < niter || received < niter) {
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
                 timer.vtoc(header, (double)(received - last_received + sent - last_sent) * size * buff_size / 2);
                 timer.tic();
                 last_received = received;
-                last_sent     = sent;
+                last_sent = sent;
             }
 
             MPI_Testany(inflight, rreq, &j, &flag, MPI_STATUS_IGNORE);

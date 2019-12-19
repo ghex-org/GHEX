@@ -37,7 +37,7 @@ namespace gridtools {
                     // volatile is needed to prevent the compiler
                     // from optimizing away the check of this member
                     volatile bool m_ready = false;
-                    request_state()       = default;
+                    request_state() = default;
                     request_state(bool r) noexcept
                     : m_ready{r} {}
                     bool is_ready() const noexcept { return m_ready; }
@@ -46,17 +46,17 @@ namespace gridtools {
                 // simple request class which is returned from send and recv calls
                 struct request {
                     std::shared_ptr<request_state> m_request_state;
-                    bool                           is_ready() const noexcept { return m_request_state->is_ready(); }
+                    bool is_ready() const noexcept { return m_request_state->is_ready(); }
                 };
 
                 // simple wrapper around an l-value reference message (stores pointer and size)
                 template<typename T>
                 struct ref_message {
                     using value_type = T; //unsigned char;
-                    T*          m_data;
+                    T* m_data;
                     std::size_t m_size;
-                    T*          data() noexcept { return m_data; }
-                    const T*    data() const noexcept { return m_data; }
+                    T* data() noexcept { return m_data; }
+                    const T* data() const noexcept { return m_data; }
                     std::size_t size() const noexcept { return m_size; }
                 };
 
@@ -65,9 +65,9 @@ namespace gridtools {
                     using value_type = unsigned char;
 
                     struct iface {
-                        virtual unsigned char*       data() noexcept       = 0;
+                        virtual unsigned char* data() noexcept = 0;
                         virtual const unsigned char* data() const noexcept = 0;
-                        virtual std::size_t          size() const noexcept = 0;
+                        virtual std::size_t size() const noexcept = 0;
                         virtual ~iface() {}
                     };
 
@@ -88,8 +88,8 @@ namespace gridtools {
                     };
 
                     unsigned char* __restrict m_data;
-                    std::size_t                  m_size;
-                    std::unique_ptr<iface>       m_ptr;
+                    std::size_t m_size;
+                    std::unique_ptr<iface> m_ptr;
                     std::shared_ptr<std::size_t> m_ptr2;
 
                     template<class Message>
@@ -112,9 +112,9 @@ namespace gridtools {
                     any_message(any_message&&) = default;
                     any_message& operator=(any_message&&) = default;
 
-                    unsigned char*       data() noexcept { return m_data; /*m_ptr->data();*/ }
+                    unsigned char* data() noexcept { return m_data; /*m_ptr->data();*/ }
                     const unsigned char* data() const noexcept { return m_data; /*m_ptr->data();*/ }
-                    std::size_t          size() const noexcept { return m_size; /*m_ptr->size();*/ }
+                    std::size_t size() const noexcept { return m_size; /*m_ptr->size();*/ }
                 };
 
                 // simple shared message which is internally used for send_multi
@@ -126,11 +126,11 @@ namespace gridtools {
                     shared_message(Message&& m)
                     : m_message{std::make_shared<Message>(std::move(m))} {}
                     shared_message(const shared_message&) = default;
-                    shared_message(shared_message&&)      = default;
+                    shared_message(shared_message&&) = default;
 
-                    value_type*       data() noexcept { return m_message->data(); }
+                    value_type* data() noexcept { return m_message->data(); }
                     const value_type* data() const noexcept { return m_message->data(); }
-                    std::size_t       size() const noexcept { return m_message->size(); }
+                    std::size_t size() const noexcept { return m_message->size(); }
                 };
 
                 // type-erased future

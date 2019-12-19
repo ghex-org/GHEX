@@ -33,13 +33,13 @@ namespace gridtools {
                 : m_stream{cudaStreamNonBlocking} {}
                 stream(const stream&) = delete;
                 stream& operator=(const stream&) = delete;
-                stream(stream&& other)           = default;
+                stream(stream&& other) = default;
                 stream& operator=(stream&&) = default;
 
-                                    operator bool() const noexcept { return (bool)m_stream; }
-                                    operator cudaStream_t&() noexcept { return m_stream; }
-                                    operator const cudaStream_t&() const noexcept { return m_stream; }
-                cudaStream_t&       get() noexcept { return m_stream; }
+                operator bool() const noexcept { return (bool)m_stream; }
+                operator cudaStream_t&() noexcept { return m_stream; }
+                operator const cudaStream_t&() const noexcept { return m_stream; }
+                cudaStream_t& get() noexcept { return m_stream; }
                 const cudaStream_t& get() const noexcept { return m_stream; }
 
                 void sync() { GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(m_stream)); }

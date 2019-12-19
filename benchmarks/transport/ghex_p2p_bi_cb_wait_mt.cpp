@@ -8,36 +8,36 @@
 namespace ghex = gridtools::ghex;
 
 #ifdef USE_MPI
-    /* MPI backend */
-    #ifdef USE_OPENMP
-        #include <ghex/threads/atomic/primitives.hpp>
+/* MPI backend */
+#ifdef USE_OPENMP
+#include <ghex/threads/atomic/primitives.hpp>
 using threading = ghex::threads::atomic::primitives;
-    #else
-        #include <ghex/threads/none/primitives.hpp>
+#else
+#include <ghex/threads/none/primitives.hpp>
 using threading = ghex::threads::none::primitives;
-    #endif
-    #include <ghex/transport_layer/mpi/context.hpp>
+#endif
+#include <ghex/transport_layer/mpi/context.hpp>
 using transport = ghex::tl::mpi_tag;
 #else
-    /* UCX backend */
-    #ifdef USE_OPENMP
-        #include <ghex/threads/omp/primitives.hpp>
+/* UCX backend */
+#ifdef USE_OPENMP
+#include <ghex/threads/omp/primitives.hpp>
 using threading = ghex::threads::omp::primitives;
-    #else
-        #include <ghex/threads/none/primitives.hpp>
+#else
+#include <ghex/threads/none/primitives.hpp>
 using threading = ghex::threads::none::primitives;
-    #endif
-    #include <ghex/transport_layer/ucx/address_db_mpi.hpp>
-    #include <ghex/transport_layer/ucx/context.hpp>
-using db_type   = ghex::tl::ucx::address_db_mpi;
+#endif
+#include <ghex/transport_layer/ucx/address_db_mpi.hpp>
+#include <ghex/transport_layer/ucx/context.hpp>
+using db_type = ghex::tl::ucx::address_db_mpi;
 using transport = ghex::tl::ucx_tag;
 #endif /* USE_MPI */
 
 #include <ghex/transport_layer/message_buffer.hpp>
 #include <ghex/transport_layer/shared_message_buffer.hpp>
-using context_type      = ghex::tl::context<transport, threading>;
+using context_type = ghex::tl::context<transport, threading>;
 using communicator_type = typename context_type::communicator_type;
-using future_type       = typename communicator_type::request_cb_type;
+using future_type = typename communicator_type::request_cb_type;
 
 //using MsgType = gridtools::ghex::tl::message_buffer<>;
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
@@ -51,9 +51,9 @@ int received;
 #endif
 
 int main(int argc, char* argv[]) {
-    int                    niter, buff_size;
-    int                    inflight;
-    int                    mode;
+    int niter, buff_size;
+    int inflight;
+    int mode;
     gridtools::ghex::timer timer, ttimer;
 
     if (argc != 4) {
@@ -61,9 +61,9 @@ int main(int argc, char* argv[]) {
                   << "\n";
         std::terminate();
     }
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
     int num_threads = 1;
 #ifdef USE_OPENMP
@@ -72,9 +72,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
         std::terminate();
     }
-    #pragma omp parallel
+#pragma omp parallel
     {
-    #pragma omp master
+#pragma omp master
         num_threads = omp_get_num_threads();
     }
 #else
@@ -82,20 +82,20 @@ int main(int argc, char* argv[]) {
 #endif
 
     {
-        auto  context_ptr = ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
-        auto& context     = *context_ptr;
+        auto context_ptr = ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
+        auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
-    #pragma omp parallel
+#pragma omp parallel
 #endif
         {
-            auto       token       = context.get_token();
-            auto       comm        = context.get_communicator(token);
-            const auto rank        = comm.rank();
-            const auto size        = comm.size();
-            const auto thread_id   = token.id();
+            auto token = context.get_token();
+            auto comm = context.get_communicator(token);
+            const auto rank = comm.rank();
+            const auto size = comm.size();
+            const auto thread_id = token.id();
             const auto num_threads = context.thread_primitives().size();
-            const auto peer_rank   = (rank + 1) % 2;
+            const auto peer_rank = (rank + 1) % 2;
 
             bool using_mt = false;
 #ifdef USE_OPENMP
@@ -126,8 +126,8 @@ int main(int argc, char* argv[]) {
                               << "\n\n";
             }
 
-            std::vector<MsgType>     smsgs;
-            std::vector<MsgType>     rmsgs;
+            std::vector<MsgType> smsgs;
+            std::vector<MsgType> rmsgs;
             std::vector<future_type> sreqs;
             std::vector<future_type> rreqs;
 
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
             int last_i = 0;
             while (i < niter) {
 #ifdef USE_OPENMP
-    #pragma omp barrier
+#pragma omp barrier
 #endif
                 if (thread_id == 0 && dbg >= (niter / 10)) {
                     dbg = 0;
@@ -177,9 +177,9 @@ int main(int argc, char* argv[]) {
                 while (sent < num_threads * inflight || received < num_threads * inflight) { comm.progress(); }
 
 #ifdef USE_OPENMP
-    #pragma omp barrier
+#pragma omp barrier
 #endif
-                sent     = 0;
+                sent = 0;
                 received = 0;
             }
 

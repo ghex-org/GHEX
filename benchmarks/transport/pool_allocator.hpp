@@ -15,7 +15,7 @@ namespace ghex {
 
         template<typename T>
         struct buffer_ptr {
-            T*          m_buffer;
+            T* m_buffer;
             std::size_t m_size;
 
             buffer_ptr() = delete;
@@ -61,7 +61,7 @@ namespace ghex {
                     return m_ba.allocate(size);
                 } else {
                     buffer_ptr<T>& container = buffers<T>[thrid].back();
-                    T*             data      = container.m_buffer;
+                    T* data = container.m_buffer;
                     buffers<T>[thrid].pop_back();
                     return data;
                 }

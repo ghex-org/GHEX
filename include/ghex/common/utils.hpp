@@ -101,12 +101,12 @@ namespace gridtools {
              * @tparam Layout template meta function which determines order of nesting */
             template<int D, int I, int... Args>
             struct for_loop<D, I, gridtools::layout_map<Args...>> {
-            private: // member types
+              private: // member types
                 using layout_t = gridtools::layout_map<Args...>;
-                using idx      = std::integral_constant<int, layout_t::template find<D - I>()>;
+                using idx = std::integral_constant<int, layout_t::template find<D - I>()>;
                 friend class for_loop<D, I + 1, layout_t>;
 
-            public: // static member functions
+              public: // static member functions
                 /**
                  * @brief generate loop nest
                  * @tparam Func functor with signature void(x_0,x_1,...) where x_i are coordinates
@@ -125,7 +125,7 @@ namespace gridtools {
                     }
                 }
 
-            private: // implementation details
+              private: // implementation details
                 template<typename Func, typename Array, typename Array2>
                 GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept {
                     for (auto i = first[idx::value]; i <= last[idx::value]; ++i) {
@@ -140,11 +140,11 @@ namespace gridtools {
             // end of recursion
             template<int D, int... Args>
             struct for_loop<D, 0, gridtools::layout_map<Args...>> {
-            private: // member types
+              private: // member types
                 using layout_t = gridtools::layout_map<Args...>;
                 friend class for_loop<D, 1, layout_t>;
 
-            private: // implementation details
+              private: // implementation details
                 template<typename Func, typename Array, typename Array2>
                 GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept {
                     apply(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
@@ -173,12 +173,12 @@ namespace gridtools {
              * @tparam Args compile time list of integral constants indicating order of loop nest*/
             template<int D, int I, int... Args>
             struct for_loop_pointer_arithmetic<D, I, gridtools::layout_map<Args...>> {
-            private: // member types
+              private: // member types
                 using layout_t = gridtools::layout_map<Args...>;
-                using idx      = std::integral_constant<int, layout_t::template find<D - I>()>;
+                using idx = std::integral_constant<int, layout_t::template find<D - I>()>;
                 friend class for_loop_pointer_arithmetic<D, I + 1, layout_t>;
 
-            public: // static member functions
+              public: // static member functions
                 /**
                  * @brief generate loop nest
                  * @tparam Func functor type with signature void(std::size_t, std::size_t)
@@ -203,7 +203,7 @@ namespace gridtools {
                     }
                 }
 
-            private: // implementation details
+              private: // implementation details
                 template<typename Func, typename Array, typename Strides, typename Array2>
                 GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides,
                                                   Array2&& coordinate_offset, std::size_t offset,

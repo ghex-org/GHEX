@@ -21,14 +21,14 @@ namespace gridtools {
                 namespace atomic {
 
                     class mutex {
-                    private: // members
+                      private: // members
                         std::atomic<bool> m_flag;
 
-                    public:
+                      public:
                         mutex() noexcept
                         : m_flag(0) {}
                         mutex(const mutex&) = delete;
-                        mutex(mutex&&)      = delete;
+                        mutex(mutex&&) = delete;
 
                         inline bool try_lock() noexcept {
                             bool expected = false;

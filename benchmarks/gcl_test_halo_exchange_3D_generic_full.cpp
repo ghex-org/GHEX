@@ -11,7 +11,7 @@
 //#define GHEX_1_PATTERN_BENCHMARK
 
 #ifndef STANDALONE
-    #include "gtest/gtest.h"
+#include "gtest/gtest.h"
 #endif
 #include <fstream>
 #include <gridtools/common/boollist.hpp>
@@ -31,15 +31,15 @@
 //#include "triplet.hpp"
 
 #ifdef __CUDACC__
-    #include <gridtools/common/cuda_util.hpp>
+#include <gridtools/common/cuda_util.hpp>
 #endif
 
 namespace halo_exchange_3D_generic_full {
-    int      pid;
-    int      nprocs;
+    int pid;
+    int nprocs;
     MPI_Comm CartComm;
-    int      dims[3]   = {0, 0, 0};
-    int      coords[3] = {0, 0, 0};
+    int dims[3] = {0, 0, 0};
+    int coords[3] = {0, 0, 0};
 
     using timer_type = gridtools::ghex::timer;
 
@@ -51,9 +51,9 @@ namespace halo_exchange_3D_generic_full {
     typedef int T2;
     typedef int T3;
 #else
-    typedef int                T1;
-    typedef double             T2;
-    typedef long long int      T3;
+    typedef int T1;
+    typedef double T2;
+    typedef long long int T3;
 #endif
 
 #ifdef __CUDACC__
@@ -241,7 +241,7 @@ namespace halo_exchange_3D_generic_full {
         timer_type t_0_global;
         timer_type t_1_global;
         timer_type t_global;
-        const int  k_start = 5;
+        const int k_start = 5;
         for (int k = 0; k < 25; ++k) {
             timer_type t_0;
             timer_type t_1;
@@ -271,7 +271,7 @@ namespace halo_exchange_3D_generic_full {
 
             auto t_0_all = gridtools::ghex::reduce(t_0, world);
             auto t_1_all = gridtools::ghex::reduce(t_1, world);
-            auto t_all   = gridtools::ghex::reduce(t, world);
+            auto t_all = gridtools::ghex::reduce(t, world);
             if (k >= k_start) {
                 t_0_local(t_0);
                 t_1_local(t_1);
@@ -361,7 +361,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m1 + H2p1; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m1 + H3p1; ++kk) {
                     triple_t<USE_DOUBLE, T1> ta;
-                    int                      tax, tay, taz;
+                    int tax, tay, taz;
 
                     tax = modulus(ii - H1m1 + (DIM1)*coords[0], DIM1 * dims[0]);
 
@@ -400,7 +400,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m2 + H2p2; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m2 + H3p2; ++kk) {
                     triple_t<USE_DOUBLE, T2> tb;
-                    int                      tbx, tby, tbz;
+                    int tbx, tby, tbz;
 
                     tbx = modulus(ii - H1m2 + (DIM1)*coords[0], DIM1 * dims[0]) + B_ADD;
 
@@ -439,7 +439,7 @@ namespace halo_exchange_3D_generic_full {
             for (int jj = 0; jj < DIM2 + H2m3 + H2p3; ++jj)
                 for (int kk = 0; kk < DIM3 + H3m3 + H3p3; ++kk) {
                     triple_t<USE_DOUBLE, T3> tc;
-                    int                      tcx, tcy, tcz;
+                    int tcx, tcy, tcz;
 
                     tcx = modulus(ii - H1m3 + (DIM1)*coords[0], DIM1 * dims[0]) + C_ADD;
 
@@ -972,9 +972,9 @@ namespace halo_exchange_3D_generic_full {
 
 #ifdef STANDALONE
 int main(int argc, char** argv) {
-    #ifdef GT_USE_GPU
+#ifdef GT_USE_GPU
     device_binding();
-    #endif
+#endif
 
     MPI_Init(&argc, &argv);
     gridtools::GCL_Init(argc, argv);
@@ -1021,12 +1021,12 @@ TEST(Communication, gcl_test_halo_exchange_3D_generic_full) {
     const int Nx = 260;
     const int Ny = 260;
     const int Nz = 80;
-    #ifndef GHEX_1_PATTERN_BENCHMARK
+#ifndef GHEX_1_PATTERN_BENCHMARK
     bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 0, 1);
-    #else
+#else
     //bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1);
     bool passed = halo_exchange_3D_generic_full::test(Nx, Ny, Nz, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0, 3, 3, 3, 3, 0, 0);
-    #endif
+#endif
     EXPECT_TRUE(passed);
 }
 #endif

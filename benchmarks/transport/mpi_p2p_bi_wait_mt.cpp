@@ -19,9 +19,9 @@ int main(int argc, char* argv[]) {
                   << "\n";
         std::terminate();
     }
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
     int mode;
 #ifdef USE_OPENMP
@@ -35,12 +35,12 @@ int main(int argc, char* argv[]) {
 #endif
 
     THREAD_PARALLEL_BEG() {
-        int             thrid, nthr;
-        MPI_Comm        mpi_comm;
+        int thrid, nthr;
+        MPI_Comm mpi_comm;
         unsigned char** sbuffers = new unsigned char*[inflight];
         unsigned char** rbuffers = new unsigned char*[inflight];
-        MPI_Request*    sreq     = new MPI_Request[inflight];
-        MPI_Request*    rreq     = new MPI_Request[inflight];
+        MPI_Request* sreq = new MPI_Request[inflight];
+        MPI_Request* rreq = new MPI_Request[inflight];
 
         THREAD_MASTER() {
             MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
         }
 
         thrid = GET_THREAD_NUM();
-        nthr  = GET_NUM_THREADS();
+        nthr = GET_NUM_THREADS();
 
         /* duplicate the communicator - all threads in order */
         for (int tid = 0; tid < nthr; tid++) {
@@ -76,8 +76,8 @@ int main(int argc, char* argv[]) {
             if (rank == 1) std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
         }
 
-        int  i = 0, dbg = 0;
-        int  last_i = 0;
+        int i = 0, dbg = 0;
+        int last_i = 0;
         char header[256];
         snprintf(header, 256, "%d total bwdt ", rank);
         while (i < niter) {

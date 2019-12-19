@@ -28,7 +28,7 @@ namespace gridtools {
                 struct communicator_base {
                     using rank_type = int;
                     using size_type = int;
-                    using tag_type  = int;
+                    using tag_type = int;
                     using comm_type = std::shared_ptr<MPI_Comm>;
 
                     comm_type m_comm;
@@ -76,7 +76,7 @@ namespace gridtools {
 
                     communicator_base(const communicator_base&) = default;
                     communicator_base& operator=(const communicator_base&) = default;
-                    communicator_base(communicator_base&&) noexcept        = default;
+                    communicator_base(communicator_base&&) noexcept = default;
                     communicator_base& operator=(communicator_base&&) noexcept = default;
 
                     /** @return rank of this process */
@@ -89,9 +89,9 @@ namespace gridtools {
 
                     void barrier() { MPI_Barrier(*m_comm); }
 
-                                    operator MPI_Comm&() noexcept { return *m_comm; }
-                                    operator const MPI_Comm&() const noexcept { return *m_comm; }
-                    MPI_Comm&       get() noexcept { return *m_comm; }
+                    operator MPI_Comm&() noexcept { return *m_comm; }
+                    operator const MPI_Comm&() const noexcept { return *m_comm; }
+                    MPI_Comm& get() noexcept { return *m_comm; }
                     const MPI_Comm& get() const noexcept { return *m_comm; }
                 };
 

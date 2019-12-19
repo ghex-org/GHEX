@@ -28,7 +28,7 @@ namespace gridtools {
                 struct request_data_ft {
                     using worker_type = worker_t<ThreadPrimitives>;
 
-                    void*        m_ucx_ptr;
+                    void* m_ucx_ptr;
                     worker_type* m_recv_worker;
                     worker_type* m_send_worker;
                     request_kind m_kind;
@@ -50,20 +50,20 @@ namespace gridtools {
 
                 template<typename ThreadPrimitives>
                 struct request_data_cb {
-                    using worker_type  = worker_t<ThreadPrimitives>;
+                    using worker_type = worker_t<ThreadPrimitives>;
                     using message_type = ::gridtools::ghex::tl::cb::any_message;
-                    using rank_type    = endpoint_t::rank_type;
-                    using tag_type     = typename worker_type::tag_type;
-                    using state_type   = bool; //::gridtools::ghex::tl::cb::request_state;
+                    using rank_type = endpoint_t::rank_type;
+                    using tag_type = typename worker_type::tag_type;
+                    using state_type = bool; //::gridtools::ghex::tl::cb::request_state;
 
-                    void*                                                  m_ucx_ptr;
-                    worker_type*                                           m_worker;
-                    request_kind                                           m_kind;
-                    message_type                                           m_msg;
-                    rank_type                                              m_rank;
-                    tag_type                                               m_tag;
+                    void* m_ucx_ptr;
+                    worker_type* m_worker;
+                    request_kind m_kind;
+                    message_type m_msg;
+                    rank_type m_rank;
+                    tag_type m_tag;
                     std::function<void(message_type, rank_type, tag_type)> m_cb;
-                    std::shared_ptr<state_type>                            m_completed;
+                    std::shared_ptr<state_type> m_completed;
                     //std::exception_ptr m_exception = nullptr;
 
                     static constexpr std::uintptr_t mask = ~(alignof(request_data_cb) - 1u);
@@ -180,7 +180,7 @@ namespace gridtools {
 
                         m_req->m_send_worker->m_parallel_context->thread_primitives().critical([this]() {
                             auto ucx_ptr = m_req->m_ucx_ptr;
-                            auto worker  = m_req->m_recv_worker->get();
+                            auto worker = m_req->m_recv_worker->get();
                             ucp_request_cancel(worker, ucx_ptr);
                         });
                         // wait for the request to either complete, or be canceled
@@ -191,11 +191,11 @@ namespace gridtools {
 
                 template<typename ThreadPrimitives>
                 struct request_cb {
-                    using data_type    = request_data_cb<ThreadPrimitives>;
-                    using state_type   = typename data_type::state_type;
+                    using data_type = request_data_cb<ThreadPrimitives>;
+                    using state_type = typename data_type::state_type;
                     using message_type = typename data_type::message_type;
 
-                    data_type*                  m_req = nullptr;
+                    data_type* m_req = nullptr;
                     std::shared_ptr<state_type> m_completed;
 
                     request_cb() = default;
@@ -210,7 +210,7 @@ namespace gridtools {
                     , m_completed{std::move(other.m_completed)} {}
 
                     request_cb& operator=(request_cb&& other) noexcept {
-                        m_req       = std::exchange(other.m_req, nullptr);
+                        m_req = std::exchange(other.m_req, nullptr);
                         m_completed = std::move(other.m_completed);
                         return *this;
                     }
@@ -245,7 +245,7 @@ namespace gridtools {
                         return m_req->m_worker->m_parallel_context->thread_primitives().critical([this]() {
                             if (!(*m_completed)) {
                                 auto ucx_ptr = m_req->m_ucx_ptr;
-                                auto worker  = m_req->m_worker->get();
+                                auto worker = m_req->m_worker->get();
 
                                 // set to zero here????
                                 // if we assume that the callback is always called, we

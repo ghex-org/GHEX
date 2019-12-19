@@ -17,14 +17,14 @@
 template<std::size_t Alignment, typename T>
 void test_std_alloc(int n) {
     using namespace gridtools::ghex;
-    using alloc_t               = std::allocator<T>;
-    using alloc_other_t         = std::allocator<float>;
-    using aligned_alloc_t       = allocator::aligned_allocator_adaptor<alloc_t, Alignment>;
+    using alloc_t = std::allocator<T>;
+    using alloc_other_t = std::allocator<float>;
+    using aligned_alloc_t = allocator::aligned_allocator_adaptor<alloc_t, Alignment>;
     using aligned_alloc_other_t = allocator::aligned_allocator_adaptor<alloc_other_t, Alignment>;
 
-    alloc_t               alloc;
+    alloc_t alloc;
     aligned_alloc_other_t aligned_alloc_other(alloc);
-    aligned_alloc_t       aligned_alloc(std::move(aligned_alloc_other));
+    aligned_alloc_t aligned_alloc(std::move(aligned_alloc_other));
 
     auto ptr = aligned_alloc.allocate(n);
 

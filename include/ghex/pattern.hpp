@@ -34,33 +34,33 @@ namespace gridtools {
          * @tparam DomainIdType type to uniquely identify partail (local) domains*/
         template<typename Communicator, typename GridType, typename DomainIdType>
         class pattern_container {
-        public: // member tyes
+          public: // member tyes
             /** @brief pattern type this object is holding */
             using value_type = pattern<Communicator, GridType, DomainIdType>;
 
-        private: // private member types
+          private: // private member types
             using data_type = std::vector<value_type>;
 
-        private: // friend declarations
+          private: // friend declarations
             friend class detail::make_pattern_impl<GridType>;
 
-        public: // copy constructor
+          public: // copy constructor
             pattern_container(const pattern_container&) noexcept = delete;
-            pattern_container(pattern_container&&) noexcept      = default;
+            pattern_container(pattern_container&&) noexcept = default;
 
-        private: // private constructor called through make_pattern
+          private: // private constructor called through make_pattern
             pattern_container(data_type&& d, int mt) noexcept
             : m_patterns(d)
             , m_max_tag(mt) {
                 for (auto& p : m_patterns) p.m_container = this;
             }
 
-        public: // member functions
-            int         size() const noexcept { return m_patterns.size(); }
+          public: // member functions
+            int size() const noexcept { return m_patterns.size(); }
             const auto& operator[](int i) const noexcept { return m_patterns[i]; }
-            auto        begin() const noexcept { return m_patterns.cbegin(); }
-            auto        end() const noexcept { return m_patterns.cend(); }
-            int         max_tag() const noexcept { return m_max_tag; }
+            auto begin() const noexcept { return m_patterns.cbegin(); }
+            auto end() const noexcept { return m_patterns.cend(); }
+            int max_tag() const noexcept { return m_max_tag; }
 
             /** @brief bind a field to a pattern
              * @tparam Field field type
@@ -74,9 +74,9 @@ namespace gridtools {
                 throw std::runtime_error("field incompatible with available domains!");
             }
 
-        private: // members
+          private: // members
             data_type m_patterns;
-            int       m_max_tag;
+            int m_max_tag;
         };
 
         /**

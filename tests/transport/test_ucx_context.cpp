@@ -20,16 +20,16 @@
 
 namespace ghex = gridtools::ghex;
 
-using db_type      = ghex::tl::ucx::address_db_mpi;
-using transport    = ghex::tl::ucx_tag;
-using threading    = ghex::threads::atomic::primitives;
+using db_type = ghex::tl::ucx::address_db_mpi;
+using transport = ghex::tl::ucx_tag;
+using threading = ghex::threads::atomic::primitives;
 using context_type = ghex::tl::context<transport, threading>;
 
 TEST(transport_layer, ucx_context) {
     int num_threads = 4;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     auto func = [&context]() {
         auto token = context.get_token();

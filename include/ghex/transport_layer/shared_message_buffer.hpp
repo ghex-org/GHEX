@@ -23,23 +23,23 @@ namespace gridtools {
               * to message_buffer. */
             template<typename Allocator = std::allocator<unsigned char>>
             class shared_message_buffer {
-            public: // member types
-                using message_type      = message_buffer<Allocator>;
-                using byte              = typename message_type::byte;
-                using value_type        = typename message_type::value_type;
-                using buffer_type       = typename message_type::buffer_type;
-                using allocator_type    = typename message_type::allocator_type;
-                using pointer           = typename message_type::pointer;
-                using const_pointer     = typename message_type::const_pointer;
-                using raw_pointer       = typename message_type::raw_pointer;
+              public: // member types
+                using message_type = message_buffer<Allocator>;
+                using byte = typename message_type::byte;
+                using value_type = typename message_type::value_type;
+                using buffer_type = typename message_type::buffer_type;
+                using allocator_type = typename message_type::allocator_type;
+                using pointer = typename message_type::pointer;
+                using const_pointer = typename message_type::const_pointer;
+                using raw_pointer = typename message_type::raw_pointer;
                 using raw_const_pointer = typename message_type::raw_const_pointer;
 
                 static constexpr bool can_be_shared = true;
 
                 std::shared_ptr<message_type> m_message;
 
-            public: // ctors
-                template<typename Alloc                     = Allocator,
+              public: // ctors
+                template<typename Alloc = Allocator,
                          typename std::enable_if<std::is_default_constructible<Alloc>::value &&
                                                      !std::is_convertible<Alloc, std::size_t>::value,
                                                  int>::type = 0>
@@ -52,7 +52,7 @@ namespace gridtools {
                 shared_message_buffer(Alloc alloc)
                 : m_message{std::make_shared<message_type>(alloc)} {}
 
-                template<typename Alloc                                                                  = Allocator,
+                template<typename Alloc = Allocator,
                          typename std::enable_if<std::is_default_constructible<Alloc>::value, int>::type = 0>
                 shared_message_buffer(size_t size_, Alloc alloc = Alloc{})
                 : m_message{std::make_shared<message_type>(size_, alloc)} {}
@@ -66,11 +66,11 @@ namespace gridtools {
                 : m_message{std::make_shared<message_type>(std::move(m))} {}
 
                 shared_message_buffer(const shared_message_buffer&) = default;
-                shared_message_buffer(shared_message_buffer&&)      = default;
+                shared_message_buffer(shared_message_buffer&&) = default;
                 shared_message_buffer& operator=(const shared_message_buffer&) = default;
                 shared_message_buffer& operator=(shared_message_buffer&&) = default;
 
-            public: // member functions
+              public: // member functions
                 bool is_shared() const { return use_count() > 1; }
                 auto use_count() const { return m_message.use_count(); }
 
@@ -78,7 +78,7 @@ namespace gridtools {
                 std::size_t capacity() const noexcept { return m_message->capacity(); }
 
                 raw_const_pointer data() const noexcept { return m_message->data(); }
-                raw_pointer       data() noexcept { return m_message->data(); }
+                raw_pointer data() noexcept { return m_message->data(); }
 
                 template<typename T>
                 T* data() {
@@ -91,8 +91,8 @@ namespace gridtools {
 
                 raw_const_pointer begin() const noexcept { return m_message->begin(); }
                 raw_const_pointer end() const noexcept { return m_message->end(); }
-                raw_pointer       begin() noexcept { return m_message->begin(); }
-                raw_pointer       end() noexcept { return m_message->end(); }
+                raw_pointer begin() noexcept { return m_message->begin(); }
+                raw_pointer end() noexcept { return m_message->end(); }
 
                 void reserve(std::size_t n) { m_message->reserve(n); }
                 void resize(std::size_t n) { m_message->resize(n); }

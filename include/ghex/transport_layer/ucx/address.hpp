@@ -36,13 +36,13 @@ namespace gridtools {
 
                     address_t(const address_t& other) = default;
                     address_t& operator=(const address_t& other) = default;
-                    address_t(address_t&&) noexcept              = default;
+                    address_t(address_t&&) noexcept = default;
                     address_t& operator=(address_t&&) noexcept = default;
 
                     std::size_t size() const noexcept { return m_buffer.size(); }
 
                     const unsigned char* data() const noexcept { return m_buffer.data(); }
-                    unsigned char*       data() noexcept { return m_buffer.data(); }
+                    unsigned char* data() noexcept { return m_buffer.data(); }
 
                     const ucp_address_t* get() const noexcept {
                         return reinterpret_cast<const ucp_address_t*>(m_buffer.data());
@@ -56,12 +56,12 @@ namespace gridtools {
                     auto end() noexcept { return m_buffer.end(); }
                     auto cend() const noexcept { return m_buffer.cend(); }
 
-                    unsigned char  operator[](std::size_t i) const noexcept { return m_buffer[i]; }
+                    unsigned char operator[](std::size_t i) const noexcept { return m_buffer[i]; }
                     unsigned char& operator[](std::size_t i) noexcept { return m_buffer[i]; }
 
                     template<class CharT, class Traits = std::char_traits<CharT>>
                     friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
-                                                                         const address_t&                   addr) {
+                                                                         const address_t& addr) {
                         os << "address{";
                         os << std::hex;
                         for (auto c : addr) os << (unsigned int)c;

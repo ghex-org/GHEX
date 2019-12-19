@@ -25,19 +25,19 @@ namespace gridtools {
              * @tparam A base allocator*/
             template<typename T, typename A = std::allocator<T>>
             class default_init_allocator : public A {
-            private: // member types
+              private: // member types
                 using a_t = std::allocator_traits<A>;
 
-            public: // member types
+              public: // member types
                 template<typename U>
                 struct rebind {
                     using other = default_init_allocator<U, typename a_t::template rebind_alloc<U>>;
                 };
 
-            public: // constructor
+              public: // constructor
                 using A::A;
 
-            public: // member functions
+              public: // member functions
                 template<typename U>
                 void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value) {
                     ::new (static_cast<void*>(ptr)) U;

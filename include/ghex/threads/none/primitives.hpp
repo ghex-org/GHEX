@@ -29,11 +29,11 @@ namespace gridtools {
                                             boost::callable_traits::return_type_t<F>>::type;
 
                 struct primitives {
-                public: // member types
+                  public: // member types
                     using id_type = int;
 
                     class token {
-                    private: // members
+                      private: // members
                         id_type m_id = 0;
 
                         friend primitives;
@@ -41,25 +41,25 @@ namespace gridtools {
                         token(id_type id) noexcept
                         : m_id(id) {}
 
-                    public: // ctors
-                        token()             = default;
+                      public: // ctors
+                        token() = default;
                         token(const token&) = default;
-                        token(token&&)      = default;
+                        token(token&&) = default;
 
                         token& operator=(const token&) = default;
                         token& operator=(token&&) = default;
 
-                    public: // member functions
+                      public: // member functions
                         id_type id() const noexcept { return m_id; }
                     };
 
-                private: // members
-                public:  // ctors
+                  private: // members
+                  public:  // ctors
                     primitives(int = 1) noexcept {}
                     primitives(const primitives&) = delete;
-                    primitives(primitives&&)      = delete;
+                    primitives(primitives&&) = delete;
 
-                public: // public member functions
+                  public: // public member functions
                     inline token get_token() noexcept { return {0}; }
 
                     int size() const noexcept { return 1; }

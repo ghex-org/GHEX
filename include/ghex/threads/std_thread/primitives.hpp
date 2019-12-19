@@ -33,66 +33,66 @@ namespace gridtools {
                 struct primitives {
                     using id_type = int;
 
-                private:
+                  private:
                     class token_impl {
-                    private: // members
-                        int     m_epoch = 0;
+                      private: // members
+                        int m_epoch = 0;
                         id_type m_id;
-                        bool    m_selected = false;
+                        bool m_selected = false;
 
                         friend primitives;
 
                         token_impl(id_type id) noexcept
                         : m_id(id) {}
 
-                    public: // ctors
+                      public: // ctors
                         token_impl(const token_impl&) = delete;
-                        token_impl(token_impl&&)      = default;
+                        token_impl(token_impl&&) = default;
 
-                    public: // member functions
+                      public: // member functions
                         id_type id() const noexcept { return m_id; }
-                        int     epoch() const noexcept { return m_epoch; }
-                        void    flip_epoch() noexcept { m_epoch ^= 1; }
-                        void    set_selected(bool v) noexcept { m_selected = v; }
-                        bool    is_selected() const noexcept { return m_selected; }
+                        int epoch() const noexcept { return m_epoch; }
+                        void flip_epoch() noexcept { m_epoch ^= 1; }
+                        void set_selected(bool v) noexcept { m_selected = v; }
+                        bool is_selected() const noexcept { return m_selected; }
                     };
 
-                public:
+                  public:
                     class token {
-                    private:
+                      private:
                         token_impl* impl = nullptr;
                         friend primitives;
 
-                    public:
+                      public:
                         token() = default;
                         token(token_impl* impl_) noexcept
                         : impl{impl_} {}
                         token(const token&) = default;
-                        token(token&&)      = default;
+                        token(token&&) = default;
                         token& operator=(const token&) = default;
                         token& operator=(token&&) = default;
 
-                    public:
+                      public:
                         id_type id() const noexcept { return impl->id(); }
 
-                    protected:
-                        int  epoch() const noexcept { return impl->epoch(); }
+                      protected:
+                        int epoch() const noexcept { return impl->epoch(); }
                         void flip_epoch() noexcept { impl->flip_epoch(); }
                         void set_selected(bool v) noexcept { impl->set_selected(v); }
                         bool is_selected() const noexcept { return impl->is_selected(); }
                     };
 
-                private:
-                    std::atomic<int>                         m_id_counter;
-                    const int                                m_num_threads;
-                    std::mutex                               m_guard;
-                    std::mutex                               m_cv_guard;
-                    int                                      m_barrier_cnt[2];
-                    int                                      m_up_counter[2];
-                    std::vector<std::condition_variable>     m_cv_down, m_cv_up;
+                  private:
+                    std::atomic<int> m_id_counter;
+                    const int m_num_threads;
+                    std::mutex m_guard;
+                    std::mutex m_cv_guard;
+                    int m_barrier_cnt[2];
+                    int m_up_counter[2];
+                    std::vector<std::condition_variable> m_cv_down, m_cv_up;
                     std::vector<std::unique_ptr<token_impl>> m_tokens;
 
-                public:
+                  public:
                     primitives(int n)
                     : m_id_counter{0}
                     , m_num_threads{n}
@@ -103,7 +103,7 @@ namespace gridtools {
                     , m_tokens(n) {}
 
                     primitives(const primitives&) = delete;
-                    primitives(primitives&&)      = delete;
+                    primitives(primitives&&) = delete;
 
                     int size() const noexcept { return m_num_threads; }
 

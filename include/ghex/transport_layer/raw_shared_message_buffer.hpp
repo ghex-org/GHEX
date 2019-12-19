@@ -28,7 +28,7 @@ namespace gridtools {
                 using message_type = message_buffer<Allocator>;
 
                 message_type m_message;
-                int          refcount;
+                int refcount;
 
                 refcounted_message(size_t capacity, Allocator allc)
                 : m_message{std::move(message_type(capacity, allc))}
@@ -52,30 +52,30 @@ namespace gridtools {
 	      */
             template<typename Allocator = std::allocator<unsigned char>>
             class shared_message_buffer {
-            public: // member types
-                using message_type      = message_buffer<Allocator>;
-                using byte              = typename message_type::byte;
-                using value_type        = typename message_type::value_type;
-                using allocator_type    = typename message_type::allocator_type;
-                using pointer           = typename message_type::pointer;
-                using const_pointer     = typename message_type::const_pointer;
-                using raw_pointer       = typename message_type::raw_pointer;
+              public: // member types
+                using message_type = message_buffer<Allocator>;
+                using byte = typename message_type::byte;
+                using value_type = typename message_type::value_type;
+                using allocator_type = typename message_type::allocator_type;
+                using pointer = typename message_type::pointer;
+                using const_pointer = typename message_type::const_pointer;
+                using raw_pointer = typename message_type::raw_pointer;
                 using raw_const_pointer = typename message_type::raw_const_pointer;
 
                 static constexpr bool can_be_shared = true;
 
-            public: // members
+              public: // members
                 refcounted_message<Allocator>* m_sptr;
 
-            public: // ctors
-                template<typename Alloc                     = Allocator,
+              public: // ctors
+                template<typename Alloc = Allocator,
                          typename std::enable_if<std::is_default_constructible<Alloc>::value &&
                                                      !std::is_convertible<Alloc, std::size_t>::value,
                                                  int>::type = 0>
                 shared_message_buffer(Alloc alloc = Alloc{})
                 : m_sptr{nullptr} {}
 
-                template<typename Alloc                                                                  = Allocator,
+                template<typename Alloc = Allocator,
                          typename std::enable_if<std::is_default_constructible<Alloc>::value, int>::type = 0>
                 shared_message_buffer(size_t size_, Alloc alloc = Alloc{}) {
                     m_sptr = new refcounted_message<Allocator>(size_, alloc);
@@ -95,7 +95,7 @@ namespace gridtools {
                 }
 
                 shared_message_buffer(shared_message_buffer&& other) {
-                    m_sptr       = other.m_sptr;
+                    m_sptr = other.m_sptr;
                     other.m_sptr = nullptr;
                 }
 
@@ -106,7 +106,7 @@ namespace gridtools {
                 }
 
                 shared_message_buffer& operator=(shared_message_buffer&& other) {
-                    m_sptr       = other.m_sptr;
+                    m_sptr = other.m_sptr;
                     other.m_sptr = nullptr;
                     return *this;
                 }
@@ -122,7 +122,7 @@ namespace gridtools {
                     }
                 }
 
-            public: // member functions
+              public: // member functions
                 bool is_shared() const { return use_count() > 1; }
                 auto use_count() const {
                     if (nullptr == m_sptr) return 0;

@@ -54,7 +54,7 @@ namespace gridtools {
                     const auto memory_coordinate = local_coordinate + local_first + offsets;
                     // multiply with memory strides
                     const auto idx = dot(memory_coordinate, byte_strides);
-                    buffer[index]  = *reinterpret_cast<const T*>((const char*)data + idx);
+                    buffer[index] = *reinterpret_cast<const T*>((const char*)data + idx);
                 }
             }
 
@@ -69,7 +69,7 @@ namespace gridtools {
                     // add offset
                     const auto memory_coordinate = local_coordinate + local_first + offsets;
                     // multiply with memory strides
-                    const auto idx                           = dot(memory_coordinate, byte_strides);
+                    const auto idx = dot(memory_coordinate, byte_strides);
                     *reinterpret_cast<T*>((char*)data + idx) = buffer[index];
                 }
             }
@@ -160,27 +160,27 @@ namespace gridtools {
      * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)*/
             template<typename T, typename Arch, typename DomainDescriptor, int... Order>
             class simple_field_wrapper {
-            public: // member types
-                using value_type             = T;
-                using arch_type              = Arch;
-                using device_id_type         = typename arch_traits<arch_type>::device_id_type;
+              public: // member types
+                using value_type = T;
+                using arch_type = Arch;
+                using device_id_type = typename arch_traits<arch_type>::device_id_type;
                 using domain_descriptor_type = DomainDescriptor;
-                using dimension              = typename domain_descriptor_type::dimension;
-                using layout_map             = ::gridtools::layout_map<Order...>;
-                using domain_id_type         = typename DomainDescriptor::domain_id_type;
+                using dimension = typename domain_descriptor_type::dimension;
+                using layout_map = ::gridtools::layout_map<Order...>;
+                using domain_id_type = typename DomainDescriptor::domain_id_type;
                 using coordinate_type =
                     ::gridtools::array<typename domain_descriptor_type::coordinate_type::value_type, dimension::value>;
                 using strides_type = ::gridtools::array<std::size_t, dimension::value>;
 
-            private: // members
-                domain_id_type  m_dom_id;
-                value_type*     m_data;
+              private: // members
+                domain_id_type m_dom_id;
+                value_type* m_data;
                 coordinate_type m_offsets;
                 coordinate_type m_extents;
-                device_id_type  m_device_id;
-                strides_type    m_byte_strides;
+                device_id_type m_device_id;
+                strides_type m_byte_strides;
 
-            public: // ctors
+              public: // ctors
                 simple_field_wrapper() noexcept = default;
 
                 /** @brief construcor 
@@ -248,7 +248,7 @@ namespace gridtools {
                 //GT_FUNCTION_HOST
                 simple_field_wrapper& operator=(const simple_field_wrapper&) noexcept = default;
 
-            public: // member functions
+              public: // member functions
                 GT_FUNCTION
                 typename arch_traits<arch_type>::device_id_type device_id() const { return m_device_id; }
                 GT_FUNCTION

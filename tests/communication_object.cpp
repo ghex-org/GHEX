@@ -24,8 +24,8 @@
 #include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"
 
-using transport    = gridtools::ghex::tl::mpi_tag;
-using threading    = gridtools::ghex::threads::atomic::primitives;
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 /* CPU data descriptor */
@@ -33,13 +33,13 @@ template<typename T, typename DomainDescriptor>
 class my_data_desc {
     using coordinate_t = typename DomainDescriptor::coordinate_type;
     using layout_map_t = gridtools::layout_map<2, 1, 0>;
-    using Byte         = unsigned char;
+    using Byte = unsigned char;
 
     const DomainDescriptor& m_domain;
-    coordinate_t            m_halos_offset;
-    array<T, layout_map_t>  m_values;
+    coordinate_t m_halos_offset;
+    array<T, layout_map_t> m_values;
 
-public:
+  public:
     my_data_desc(const DomainDescriptor& domain, const coordinate_t& halos_offset, const array<T, layout_map_t>& values)
     : m_domain{domain}
     , m_halos_offset{halos_offset}
@@ -82,7 +82,7 @@ public:
         gridtools::ghex::detail::for_loop<3, 3, layout_map_t>::apply(
             [this, &buffer](auto... indices) {
                 coordinate_t coords{indices...};
-                const T*     tmp_ptr{&get(coords)};
+                const T* tmp_ptr{&get(coords)};
                 std::memcpy(buffer, tmp_ptr, sizeof(T));
                 buffer += sizeof(T);
             },
@@ -92,29 +92,29 @@ public:
 
 TEST(communication_object, constructor) {
     using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
-    using coordinate_t        = domain_descriptor_t::coordinate_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t =
         domain_descriptor_t::halo_generator_type; //gridtools::structured::halo_generator<domain_id_t, 3>;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
-    const int                 d1   = 2;
-    const int                 d2   = 2;
-    const int                 d3   = 1;
-    const int                 DIM1 = 10;
-    const int                 DIM2 = 15;
-    const int                 DIM3 = 20;
-    const int                 H1m  = 1;
-    const int                 H1p  = 1;
-    const int                 H2m  = 1;
-    const int                 H2p  = 1;
-    const int                 H3m  = 1;
-    const int                 H3p  = 1;
-    const std::array<int, 3>  g_first{0, 0, 0};
-    const std::array<int, 3>  g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
-    const std::array<int, 6>  halos{H1m, H1p, H2m, H2p, H3m, H3p};
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 10;
+    const int DIM2 = 15;
+    const int DIM3 = 20;
+    const int H1m = 1;
+    const int H1p = 1;
+    const int H2m = 1;
+    const int H2p = 1;
+    const int H3m = 1;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
+    const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
 
     std::vector<domain_descriptor_t> local_domains;
@@ -133,37 +133,37 @@ TEST(communication_object, constructor) {
     using communication_object_t =
         gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
-    auto                                comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) { EXPECT_NO_THROW(cos.push_back(communication_object_t{p, comm});); }
 }
 
 TEST(communication_object, exchange) {
     using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
-    using coordinate_t        = domain_descriptor_t::coordinate_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t =
         domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
-    const int                 d1   = 2;
-    const int                 d2   = 2;
-    const int                 d3   = 1;
-    const int                 DIM1 = 5;
-    const int                 DIM2 = 5;
-    const int                 DIM3 = 5;
-    const int                 H1m  = 1;
-    const int                 H1p  = 1;
-    const int                 H2m  = 1;
-    const int                 H2p  = 1;
-    const int                 H3m  = 1;
-    const int                 H3p  = 1;
-    const std::array<int, 3>  g_first{0, 0, 0};
-    const std::array<int, 3>  g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
-    const std::array<int, 6>  halos{H1m, H1p, H2m, H2p, H3m, H3p};
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 5;
+    const int DIM3 = 5;
+    const int H1m = 1;
+    const int H1p = 1;
+    const int H2m = 1;
+    const int H2p = 1;
+    const int H3m = 1;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
+    const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
     int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
@@ -183,7 +183,7 @@ TEST(communication_object, exchange) {
     using communication_object_t =
         gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
-    auto                                comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) { cos.push_back(communication_object_t{p, comm}); }
 
@@ -214,7 +214,7 @@ TEST(communication_object, exchange) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 triple_t<USE_DOUBLE, double> t1;
-                int                          t1x, t1y, t1z;
+                int t1x, t1y, t1z;
 
                 t1x = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2);
                 t1y = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -234,30 +234,30 @@ TEST(communication_object, exchange) {
 
 TEST(communication_object, exchange_asymmetric_halos) {
     using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
-    using coordinate_t        = domain_descriptor_t::coordinate_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t =
         domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
-    const int                 d1   = 2;
-    const int                 d2   = 2;
-    const int                 d3   = 1;
-    const int                 DIM1 = 5;
-    const int                 DIM2 = 10;
-    const int                 DIM3 = 15;
-    const int                 H1m  = 0;
-    const int                 H1p  = 1;
-    const int                 H2m  = 2;
-    const int                 H2p  = 3;
-    const int                 H3m  = 2;
-    const int                 H3p  = 1;
-    const std::array<int, 3>  g_first{0, 0, 0};
-    const std::array<int, 3>  g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
-    const std::array<int, 6>  halos{H1m, H1p, H2m, H2p, H3m, H3p};
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 10;
+    const int DIM3 = 15;
+    const int H1m = 0;
+    const int H1p = 1;
+    const int H2m = 2;
+    const int H2p = 3;
+    const int H3m = 2;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
+    const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
     int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
@@ -277,7 +277,7 @@ TEST(communication_object, exchange_asymmetric_halos) {
     using communication_object_t =
         gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
-    auto                                comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) { cos.push_back(communication_object_t{p, comm}); }
 
@@ -308,7 +308,7 @@ TEST(communication_object, exchange_asymmetric_halos) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 triple_t<USE_DOUBLE, double> t1;
-                int                          t1x, t1y, t1z;
+                int t1x, t1y, t1z;
 
                 t1x = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2);
                 t1y = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -328,32 +328,32 @@ TEST(communication_object, exchange_asymmetric_halos) {
 
 TEST(communication_object, exchange_multiple_fields) {
     using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
-    using coordinate_t        = domain_descriptor_t::coordinate_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t =
         domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
-    const int                 d1   = 2;
-    const int                 d2   = 2;
-    const int                 d3   = 1;
-    const int                 DIM1 = 5;
-    const int                 DIM2 = 5;
-    const int                 DIM3 = 5;
-    const int                 H1m  = 1;
-    const int                 H1p  = 1;
-    const int                 H2m  = 1;
-    const int                 H2p  = 1;
-    const int                 H3m  = 1;
-    const int                 H3p  = 1;
-    const std::array<int, 3>  g_first{0, 0, 0};
-    const std::array<int, 3>  g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
-    const std::array<int, 6>  halos{H1m, H1p, H2m, H2p, H3m, H3p};
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 5;
+    const int DIM3 = 5;
+    const int H1m = 1;
+    const int H1p = 1;
+    const int H2m = 1;
+    const int H2p = 1;
+    const int H3m = 1;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1 * DIM1 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
+    const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
-    const int                 add = 1;
+    const int add = 1;
     int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
     std::vector<domain_descriptor_t> local_domains;
@@ -372,7 +372,7 @@ TEST(communication_object, exchange_multiple_fields) {
     using communication_object_t =
         gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
-    auto                                comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) { cos.push_back(communication_object_t{p, comm}); }
 
@@ -416,7 +416,7 @@ TEST(communication_object, exchange_multiple_fields) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 triple_t<USE_DOUBLE, int> t1;
-                int                       tx1, ty1, tz1;
+                int tx1, ty1, tz1;
 
                 tx1 = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2);
                 ty1 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -431,7 +431,7 @@ TEST(communication_object, exchange_multiple_fields) {
                 }
 
                 triple_t<USE_DOUBLE, double> t2;
-                int                          tx2, ty2, tz2;
+                int tx2, ty2, tz2;
 
                 tx2 = modulus(ii - H1m + DIM1 * coords[0], DIM1 * 2) + add;
                 ty2 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2) + add;
@@ -451,30 +451,30 @@ TEST(communication_object, exchange_multiple_fields) {
 
 TEST(communication_object, multithreading) {
     using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
-    using coordinate_t        = domain_descriptor_t::coordinate_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t =
         domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(2, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(2, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
-    const int                 d1   = 2;
-    const int                 d2   = 2;
-    const int                 d3   = 1;
-    const int                 DIM1 = 5;
-    const int                 DIM2 = 5;
-    const int                 DIM3 = 5;
-    const int                 H1m  = 1;
-    const int                 H1p  = 1;
-    const int                 H2m  = 1;
-    const int                 H2p  = 1;
-    const int                 H3m  = 1;
-    const int                 H3p  = 1;
-    const std::array<int, 3>  g_first{0, 0, 0};
-    const std::array<int, 3>  g_last{d1 * DIM1 * 2 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
-    const std::array<int, 6>  halos{H1m, H1p, H2m, H2p, H3m, H3p};
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 5;
+    const int DIM3 = 5;
+    const int H1m = 1;
+    const int H1p = 1;
+    const int H2m = 1;
+    const int H2p = 1;
+    const int H3m = 1;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1 * DIM1 * 2 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
+    const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
     int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
@@ -558,7 +558,7 @@ TEST(communication_object, multithreading) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 triple_t<USE_DOUBLE, double> t1;
-                int                          tx1, ty1, tz1;
+                int tx1, ty1, tz1;
 
                 tx1 = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
                 ty1 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -573,7 +573,7 @@ TEST(communication_object, multithreading) {
                 }
 
                 triple_t<USE_DOUBLE, double> t2;
-                int                          tx2, ty2, tz2;
+                int tx2, ty2, tz2;
 
                 tx2 = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
                 ty2 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -593,30 +593,30 @@ TEST(communication_object, multithreading) {
 
 TEST(communication_object, multithreading_multiple_fileds) {
     using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int, 3>;
-    using coordinate_t        = domain_descriptor_t::coordinate_type;
+    using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t =
         domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    auto  context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(2, MPI_COMM_WORLD);
-    auto& context     = *context_ptr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(2, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
-    const int                 d1   = 2;
-    const int                 d2   = 2;
-    const int                 d3   = 1;
-    const int                 DIM1 = 5;
-    const int                 DIM2 = 5;
-    const int                 DIM3 = 5;
-    const int                 H1m  = 1;
-    const int                 H1p  = 1;
-    const int                 H2m  = 1;
-    const int                 H2p  = 1;
-    const int                 H3m  = 1;
-    const int                 H3p  = 1;
-    const std::array<int, 3>  g_first{0, 0, 0};
-    const std::array<int, 3>  g_last{d1 * DIM1 * 2 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
-    const std::array<int, 6>  halos{H1m, H1p, H2m, H2p, H3m, H3p};
+    const int d1 = 2;
+    const int d2 = 2;
+    const int d3 = 1;
+    const int DIM1 = 5;
+    const int DIM2 = 5;
+    const int DIM3 = 5;
+    const int H1m = 1;
+    const int H1p = 1;
+    const int H2m = 1;
+    const int H2p = 1;
+    const int H3m = 1;
+    const int H3p = 1;
+    const std::array<int, 3> g_first{0, 0, 0};
+    const std::array<int, 3> g_last{d1 * DIM1 * 2 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
+    const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
     int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
@@ -720,7 +720,7 @@ TEST(communication_object, multithreading_multiple_fileds) {
         for (int jj = 0; jj < DIM2 + H2m + H2p; ++jj)
             for (int kk = 0; kk < DIM3 + H3m + H3p; ++kk) {
                 triple_t<USE_DOUBLE, int> t11;
-                int                       tx11, ty11, tz11;
+                int tx11, ty11, tz11;
 
                 tx11 = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
                 ty11 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -735,7 +735,7 @@ TEST(communication_object, multithreading_multiple_fileds) {
                 }
 
                 triple_t<USE_DOUBLE, double> t12;
-                int                          tx12, ty12, tz12;
+                int tx12, ty12, tz12;
 
                 tx12 = modulus(ii - H1m + DIM1 * 2 * coords[0], DIM1 * 2 * 2);
                 ty12 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -750,7 +750,7 @@ TEST(communication_object, multithreading_multiple_fileds) {
                 }
 
                 triple_t<USE_DOUBLE, int> t21;
-                int                       tx21, ty21, tz21;
+                int tx21, ty21, tz21;
 
                 tx21 = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
                 ty21 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);
@@ -765,7 +765,7 @@ TEST(communication_object, multithreading_multiple_fileds) {
                 }
 
                 triple_t<USE_DOUBLE, double> t22;
-                int                          tx22, ty22, tz22;
+                int tx22, ty22, tz22;
 
                 tx22 = modulus(ii - H1m + DIM1 * 2 * coords[0] + DIM1, DIM1 * 2 * 2);
                 ty22 = modulus(jj - H2m + DIM2 * coords[1], DIM2 * 2);

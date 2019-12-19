@@ -21,34 +21,34 @@ namespace gridtools {
 
         template<typename Array>
         struct coordinate {
-        public: // member types
-            using array_type     = Array;
-            using iterator       = typename array_type::iterator;
+          public: // member types
+            using array_type = Array;
+            using iterator = typename array_type::iterator;
             using const_iterator = typename array_type::const_iterator;
-            using dimension      = std::tuple_size<array_type>;
-            using element_type   = typename array_type::value_type;
-            using value_type     = element_type;
+            using dimension = std::tuple_size<array_type>;
+            using element_type = typename array_type::value_type;
+            using value_type = element_type;
 
-        public: // static members
+          public: // static members
             static constexpr int size() noexcept { return dimension::value; }
 
-        private: // members
+          private: // members
             array_type m_coord;
 
-        public: // print
+          public: // print
             template<class CharT, class Traits>
             friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
-                                                                 const coordinate&                  c) {
+                                                                 const coordinate& c) {
                 os << "{";
                 for (int i = 0; i < size() - 1; ++i) os << c.m_coord[i] << ", ";
                 os << c.m_coord[size() - 1] << "}";
                 return os;
             }
 
-        public: // ctors
-            coordinate() noexcept                  = default;
+          public: // ctors
+            coordinate() noexcept = default;
             coordinate(const coordinate&) noexcept = default;
-            coordinate(coordinate&&) noexcept      = default;
+            coordinate(coordinate&&) noexcept = default;
             coordinate(const array_type& a) noexcept
             : m_coord(a) {}
             coordinate(array_type&& a) noexcept
@@ -61,11 +61,11 @@ namespace gridtools {
                 for (auto& x : m_coord) x = scalar;
             }
 
-        public: // assignment
+          public: // assignment
             coordinate& operator=(const coordinate&) noexcept = default;
             coordinate& operator=(coordinate&&) noexcept = default;
 
-        public: // comparison
+          public: // comparison
             bool operator==(const coordinate& other) const noexcept {
                 for (int i = 0; i < size(); ++i)
                     if (m_coord[i] != other.m_coord[i]) return false;
@@ -93,23 +93,23 @@ namespace gridtools {
                 return true;
             }
 
-        public: // implicit conversion
+          public: // implicit conversion
             operator array_type() const noexcept { return m_coord; }
 
-        public: // access
+          public: // access
             const auto& operator[](int i) const noexcept { return m_coord[i]; }
-            auto&       operator[](int i) noexcept { return m_coord[i]; }
+            auto& operator[](int i) noexcept { return m_coord[i]; }
 
-        public: // iterators
-            iterator       begin() noexcept { return m_coord.begin(); }
+          public: // iterators
+            iterator begin() noexcept { return m_coord.begin(); }
             const_iterator begin() const noexcept { return m_coord.cbegin(); }
             const_iterator cbegin() const noexcept { return m_coord.cbegin(); }
 
-            iterator       end() noexcept { return m_coord.end(); }
+            iterator end() noexcept { return m_coord.end(); }
             const_iterator end() const noexcept { return m_coord.cend(); }
             const_iterator cend() const noexcept { return m_coord.cend(); }
 
-        public: // arithmentic operators
+          public: // arithmentic operators
             coordinate& operator+=(const coordinate& c) noexcept {
                 for (int i = 0; i < size(); ++i) m_coord[i] += c.m_coord[i];
                 return *this;

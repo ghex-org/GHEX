@@ -17,7 +17,7 @@
 #define GHEX_C_MANAGED_STRUCT(name, c_type, init, destroy)                                                             \
     struct name {                                                                                                      \
         c_type m_struct;                                                                                               \
-        bool   m_moved = false;                                                                                        \
+        bool m_moved = false;                                                                                          \
                                                                                                                        \
         template<typename... Args>                                                                                     \
         name(Args&&... args) noexcept {                                                                                \
@@ -38,7 +38,7 @@
             if (!m_moved) destroy(m_struct);                                                                           \
             m_struct.~c_type();                                                                                        \
             ::new ((void*)(&m_struct)) c_type{std::move(other.m_struct)};                                              \
-            m_moved       = other.m_moved;                                                                             \
+            m_moved = other.m_moved;                                                                                   \
             other.m_moved = true;                                                                                      \
             return *this;                                                                                              \
         }                                                                                                              \
@@ -52,7 +52,7 @@
         operator c_type&() noexcept { return m_struct; }                                                               \
         operator const c_type&() const noexcept { return m_struct; }                                                   \
                                                                                                                        \
-        c_type&       get() noexcept { return m_struct; }                                                              \
+        c_type& get() noexcept { return m_struct; }                                                                    \
         const c_type& get() const noexcept { return m_struct; }                                                        \
     };
 
@@ -60,7 +60,7 @@
 #define GHEX_C_STRUCT(name, c_type)                                                                                    \
     struct name {                                                                                                      \
         c_type m_struct;                                                                                               \
-        bool   m_moved = false;                                                                                        \
+        bool m_moved = false;                                                                                          \
                                                                                                                        \
         name() noexcept = default;                                                                                     \
                                                                                                                        \
@@ -80,7 +80,7 @@
         name& operator=(name&& other) noexcept {                                                                       \
             m_struct.~c_type();                                                                                        \
             ::new ((void*)(&m_struct)) c_type{std::move(other.m_struct)};                                              \
-            m_moved       = other.m_moved;                                                                             \
+            m_moved = other.m_moved;                                                                                   \
             other.m_moved = true;                                                                                      \
             return *this;                                                                                              \
         }                                                                                                              \
@@ -90,7 +90,7 @@
         operator c_type&() noexcept { return m_struct; }                                                               \
         operator const c_type&() const noexcept { return m_struct; }                                                   \
                                                                                                                        \
-        c_type&       get() noexcept { return m_struct; }                                                              \
+        c_type& get() noexcept { return m_struct; }                                                                    \
         const c_type& get() const noexcept { return m_struct; }                                                        \
     };
 

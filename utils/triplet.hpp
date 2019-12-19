@@ -14,7 +14,7 @@
 
 template<typename T, typename lmap>
 struct array {
-    T*  ptr;
+    T* ptr;
     int n, m, l;
 
     array(T* _p, int _n, int _m, int _l)
@@ -72,7 +72,7 @@ template<typename VT>
 struct triple_t</*use_double=*/false, VT> {
     typedef triple_t<false, VT> data_type;
 
-    VT          _x, _y, _z;
+    VT _x, _y, _z;
     GT_FUNCTION triple_t(VT a, VT b, VT c)
     : _x(a)
     , _y(b)

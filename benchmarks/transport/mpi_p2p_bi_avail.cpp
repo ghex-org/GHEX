@@ -4,17 +4,17 @@
 #include <ghex/common/timer.hpp>
 
 int main(int argc, char* argv[]) {
-    int      rank, size, mode, peer_rank;
-    int      niter, buff_size;
-    int      inflight;
+    int rank, size, mode, peer_rank;
+    int niter, buff_size;
+    int inflight;
     MPI_Comm mpi_comm;
 
     gridtools::ghex::timer timer;
-    long                   bytes = 0;
+    long bytes = 0;
 
-    niter     = atoi(argv[1]);
+    niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight  = atoi(argv[3]);
+    inflight = atoi(argv[3]);
 
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
@@ -32,8 +32,8 @@ int main(int argc, char* argv[]) {
     {
         unsigned char** sbuffers = new unsigned char*[inflight];
         unsigned char** rbuffers = new unsigned char*[inflight];
-        MPI_Request*    sreq     = new MPI_Request[inflight];
-        MPI_Request*    rreq     = new MPI_Request[inflight];
+        MPI_Request* sreq = new MPI_Request[inflight];
+        MPI_Request* rreq = new MPI_Request[inflight];
 
         for (int j = 0; j < inflight; j++) {
             MPI_Alloc_mem(buff_size, MPI_INFO_NULL, &sbuffers[j]);
@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
             bytes = (double)niter * size * buff_size;
         }
 
-        int sent     = 0;
+        int sent = 0;
         int received = 0;
         int flag, j;
 

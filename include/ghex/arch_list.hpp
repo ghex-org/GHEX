@@ -22,11 +22,11 @@ namespace gridtools {
 #ifdef __CUDACC__
         using arch_list = std::tuple<cpu, gpu>;
 #else
-    #ifdef GHEX_EMULATE_GPU
+#ifdef GHEX_EMULATE_GPU
         using arch_list = std::tuple<cpu, gpu>;
-    #else
+#else
         using arch_list = std::tuple<cpu>;
-    #endif
+#endif
 #endif
 
     } // namespace ghex

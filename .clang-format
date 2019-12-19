@@ -1,11 +1,15 @@
 ---
 Language:        Cpp
 # BasedOnStyle:  LLVM
-AccessModifierOffset: -4
+#AccessModifierOffset: -4
+AccessModifierOffset: -2
 AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
-AlignConsecutiveMacros: true
+#AlignConsecutiveAssignments: true
+#AlignConsecutiveDeclarations: true
+#AlignConsecutiveMacros: true
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignConsecutiveMacros: false
 AlignEscapedNewlines: Right
 AlignOperands: true
 AlignTrailingComments: true
@@ -50,7 +54,8 @@ FixNamespaceComments: true
 # IncludeBlocks: Regroup
 IndentCaseLabels: true
 #IndentGotoLabels: false
-IndentPPDirectives: BeforeHash
+#IndentPPDirectives: BeforeHash
+IndentPPDirectives: None
 IndentWidth: 4
 IndentWrappedFunctionNames: false
 KeepEmptyLinesAtTheStartOfBlocks: false

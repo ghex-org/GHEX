@@ -23,9 +23,9 @@ namespace gridtools {
 
                 template<typename T>
                 struct allocator {
-                    using size_type       = std::size_t;
-                    using value_type      = T;
-                    using traits          = std::allocator_traits<allocator<T>>;
+                    using size_type = std::size_t;
+                    using value_type = T;
+                    using traits = std::allocator_traits<allocator<T>>;
                     using is_always_equal = std::true_type;
 
                     allocator() noexcept {}
