@@ -164,6 +164,7 @@ if __name__ == "__main__":
         print("  git clang-format")
         print("if you want to apply clang-format to unstaged files as well, run")
         print("  git clang-format -f")
+        print("note that git clang-format will only affect the changed lines")
 
     sys.exit(ReturnCode)
 
