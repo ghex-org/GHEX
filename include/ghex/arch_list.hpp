@@ -20,17 +20,16 @@ namespace gridtools {
         struct gpu {};
 
 #ifdef __CUDACC__
-            using arch_list = std::tuple<cpu,gpu>;
+        using arch_list = std::tuple<cpu, gpu>;
 #else
-#ifdef GHEX_EMULATE_GPU
-            using arch_list = std::tuple<cpu,gpu>;
-#else
-            using arch_list = std::tuple<cpu>;
-#endif
+    #ifdef GHEX_EMULATE_GPU
+        using arch_list = std::tuple<cpu, gpu>;
+    #else
+        using arch_list = std::tuple<cpu>;
+    #endif
 #endif
 
     } // namespace ghex
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_ARCH_LIST_HPP */
-
