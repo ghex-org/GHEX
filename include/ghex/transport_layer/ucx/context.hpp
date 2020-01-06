@@ -233,13 +233,18 @@ namespace gridtools {
             template<class ThreadPrimitives>
             struct context_factory<ucx_tag, ThreadPrimitives>
             {
-                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm = MPI_COMM_NULL)
+                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm)
                 {
 #ifdef GHEX_USE_PMI
                     return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, mpi_comm, ucx::address_db_pmi{mpi_comm});
 #else
                     return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, mpi_comm, ucx::address_db_mpi{mpi_comm});
 #endif
+                }
+                template<typename DB>
+                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm, DB&& db)
+                {
+                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, mpi_comm, std::forward<DB>(db));
                 }
             };
         } // namespace tl

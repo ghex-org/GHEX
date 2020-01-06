@@ -79,12 +79,11 @@ int main(int argc, char *argv[])
     }
 #endif
 
-#ifdef USE_PMIX
+#if defined USE_UCX && defined USE_PMIX
     // has to be called before MPI_Init due to a bug in OpenMPI/PMIx
     // https://github.com/openpmix/openpmix/issues/1427
     // https://github.com/open-mpi/ompi/issues/6982
-    auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_NULL);
-    auto& context = *context_ptr;
+    ghex::tl::ucx::address_db_pmi addr_db{MPI_COMM_NULL};
 #endif
 
 #ifdef USE_OPENMP
@@ -98,10 +97,12 @@ int main(int argc, char *argv[])
 #endif
 
     {
-#ifndef USE_PMIX
+#if defined USE_UCX && defined USE_PMIX
+        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD, std::move(addr_db));
+#else
         auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
-        auto& context = *context_ptr;
 #endif
+        auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
 #pragma omp parallel
