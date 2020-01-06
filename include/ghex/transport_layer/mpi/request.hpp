@@ -20,7 +20,7 @@ namespace gridtools{
             namespace mpi {
 
                 /** @brief thin wrapper around MPI_Request */
-                struct request
+                struct request_t
                 {
                     GHEX_C_STRUCT(req_type, MPI_Request)
                     req_type m_req = MPI_REQUEST_NULL;

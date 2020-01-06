@@ -7,8 +7,8 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef INCLUDED_GTEST_MAIN_BOOST_CPP
-#define INCLUDED_GTEST_MAIN_BOOST_CPP
+#ifndef INCLUDED_GHEX_GTEST_MAIN_CPP
+#define INCLUDED_GHEX_GTEST_MAIN_CPP
 
 #include <fstream>
 #include <mpi.h>
@@ -39,6 +39,9 @@ GTEST_API_ int main(int argc, char **argv) {
     delete listeners.Release(listeners.default_result_printer());
     // now add our custom printer
     listeners.Append(new mpi_listener("results_tests"));
+    
+    //auto tmp = new mpi_listener("results_tests");
+    //std::cout << tmp << std::endl;
 
     // record the local return value for tests run on this mpi rank
     //      0 : success
@@ -58,5 +61,5 @@ GTEST_API_ int main(int argc, char **argv) {
 
 }
 
-#endif /* INCLUDED_GTEST_MAIN_BOOST_CPP */
+#endif /* INCLUDED_GHEX_GTEST_MAIN_CPP */
 

@@ -18,16 +18,6 @@ set(PMIX_INCLUDE_DIRS ${PMIX_INCLUDE_DIR} CACHE INTERNAL "")
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(PMIx DEFAULT_MSG PMIX_LIBRARY PMIX_INCLUDE_DIR)
 
-#foreach(v LIBFABRIC_ROOT)
-#  get_property(_type CACHE ${v} PROPERTY TYPE)
-#  if(_type)
-#    set_property(CACHE ${v} PROPERTY ADVANCED 1)
-#    if("x${_type}" STREQUAL "xUNINITIALIZED")
-#      set_property(CACHE ${v} PROPERTY TYPE PATH)
-#    endif()
-#  endif()
-#endforeach()
-
 mark_as_advanced(PMIX_ROOT PMIX_LIBRARY PMIX_INCLUDE_DIR)
 
 if(NOT TARGET PMIx::libpmix AND PMIx_FOUND)

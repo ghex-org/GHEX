@@ -19,8 +19,8 @@ namespace gridtools {
 
             /** @brief communicator class which exposes basic communication primitives 
               * @tparam TransportTag transport protocol tag */
-            template<typename TransportTag>
-            class communicator; 
+            //template<typename TransportTag,typename ThreadPrimitives>
+            //class communicator; 
             
                 // concept
                 // -------
@@ -32,6 +32,7 @@ namespace gridtools {
 
             /** @brief mpi transport tag */
             struct mpi_tag {};
+            struct ucx_tag {};
 
 
         } // namespace tl
