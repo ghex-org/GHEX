@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.12.4)
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
     enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_EXTENSIONS OFF)    
 endif()
 
 cmake_policy(SET CMP0048 NEW)
@@ -12,10 +14,15 @@ set(USE_MPI_WITH_UCX_IN_TESTS "OFF" CACHE BOOL "use ucx for unit test")
 set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
+set(default_build_type "Debug")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
 set(GHEX_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
@@ -26,14 +33,14 @@ find_package(Boost REQUIRED)
 find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
 list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
 
-set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
-if (GHEX_USE_PMIX)
-    find_package(PMIx REQUIRED)
-endif()
-
 set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
 if (GHEX_USE_UCP)
     find_package(UCP REQUIRED)
+endif()
+
+set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
+if (GHEX_USE_PMIX)
+    find_package(PMIx REQUIRED)
 endif()
 
 set(GHEX_SKIP_MPICXX OFF CACHE BOOL "True if your compiler wrapper includes MPI already (as CRAY PE for instance)")
@@ -78,30 +85,25 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
         add_library(GTest::gtest ALIAS gtest)
     endif()
 
-    set(GTEST_LIB_SOURCES ${googletest_SOURCE_DIR}/googletest/src/gtest-all.cc)
-    set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include ${googletest_SOURCE_DIR}/googletest/src ${googletest_SOURCE_DIR}/googletest/)
-
     if (GHEX_BUILD_TESTS)
-        add_library(gtest_main_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main.cpp )
-        target_include_directories(gtest_main_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-        target_link_libraries(gtest_main_mt ghexlib)
+        add_library(gtest_main_mt ./utils/gtest_main.cpp)
+        target_link_libraries(gtest_main_mt GTest::gtest ghexlib)
     
-        add_library(gtest_main_ucx ${GTEST_LIB_SOURCES} ./utils/gtest_main_ucx.cpp )
-        target_include_directories(gtest_main_ucx PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS})
-        target_link_libraries(gtest_main_ucx ghexlib)
+        if (GHEX_USE_UCP)
+            add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp)
+            target_link_libraries(gtest_main_ucx GTest::gtest ghexlib)
+        endif()
 
         add_subdirectory(tests)
     endif()
   
     if (GHEX_BUILD_BENCHMARKS)
-        add_library(gtest_main_bench ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
-        target_include_directories(gtest_main_bench PRIVATE ${CMAKE_SOURCE_DIR}/include  ${GTEST_INCLUDE_DIRS})
-        target_link_libraries(gtest_main_bench ghexlib)
+        add_library(gtest_main_bench ./utils/gtest_main_bench.cpp)
+        target_link_libraries(gtest_main_bench GTest::gtest ghexlib)
  
-        add_library(gtest_main_bench_mt ${GTEST_LIB_SOURCES} ./utils/gtest_main_bench.cpp )
-        target_include_directories(gtest_main_bench_mt PRIVATE ${CMAKE_SOURCE_DIR}/include ${GTEST_INCLUDE_DIRS} )
+        add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp)
         target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
-        target_link_libraries(gtest_main_bench_mt ghexlib)
+        target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
 
         add_subdirectory(benchmarks)
     endif()
@@ -124,5 +126,7 @@ install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfigVersion.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)
