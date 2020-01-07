@@ -11,7 +11,7 @@ namespace ghex = gridtools::ghex;
 /* MPI backend */
 #ifdef USE_OPENMP
 #include <ghex/threads/atomic/primitives.hpp>
-using threading    = ghex::threads::atomic::primitives;
+using threading    = ghex::threads::omp::primitives;
 #else
 #include <ghex/threads/none/primitives.hpp>
 using threading    = ghex::threads::none::primitives;
@@ -67,11 +67,12 @@ int main(int argc, char *argv[])
     }
 #endif
 
-#if defined USE_UCX && defined USE_PMIX
+#if defined USE_PMIX
     // has to be called before MPI_Init due to a bug in OpenMPI/PMIx
     // https://github.com/openpmix/openpmix/issues/1427
     // https://github.com/open-mpi/ompi/issues/6982
-    ghex::tl::ucx::address_db_pmi addr_db{MPI_COMM_NULL};
+    ghex::tl::ucx::address_db_pmi addr_db;
+    auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, std::move(addr_db));
 #endif
 
 #ifdef USE_OPENMP
@@ -85,10 +86,10 @@ int main(int argc, char *argv[])
 #endif
 
     {
-#if defined USE_UCX && defined USE_PMIX
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD, std::move(addr_db));
-#else
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+
+#if ! defined USE_PMIX
+        ghex::tl::ucx::address_db_mpi addr_db{MPI_COMM_WORLD};
+        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, std::move(addr_db));
 #endif
         auto& context = *context_ptr;
 

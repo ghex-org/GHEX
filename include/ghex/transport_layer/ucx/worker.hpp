@@ -76,12 +76,12 @@ namespace gridtools {
                     };
 
                     using cache_type             = std::unordered_map<rank_type, endpoint_t>;
-                    using parallel_context_type  = parallel_context<ThreadPrimitives>;
-                    using thread_token           = typename parallel_context_type::thread_token;
+                    using thread_primitives_type = ThreadPrimitives;
+                    using thread_token           = typename thread_primitives_type::token;
                     using transport_context_type = transport_context<ucx_tag, ThreadPrimitives>;
 
                     transport_context_type* m_context;
-                    parallel_context_type*  m_parallel_context;
+                    thread_primitives_type* m_thread_primitives;
                     thread_token*           m_token_ptr;
                     rank_type               m_rank;
                     rank_type               m_size;
@@ -90,7 +90,7 @@ namespace gridtools {
                     cache_type              m_endpoint_cache;
 
                     worker_t() = default;
-                    worker_t(transport_context_type* c, parallel_context_type* pc, thread_token* t, ucs_thread_mode_t mode);
+                    worker_t(transport_context_type* c, thread_primitives_type* tp, thread_token* t, ucs_thread_mode_t mode);
                     worker_t(const worker_t&) = delete;
                     worker_t(worker_t&& other) noexcept = default;
                     worker_t& operator=(const worker_t&) = delete;

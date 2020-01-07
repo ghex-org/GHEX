@@ -79,13 +79,13 @@ namespace gridtools {
                     ~ucp_context_h_holder() { ucp_cleanup(m_context); }
                 };
 
-                using parallel_context_type = parallel_context<ThreadPrimitives>;
-                using thread_token          = typename parallel_context_type::thread_token;
+                using thread_primitives_type = ThreadPrimitives;
+                using thread_token          = typename thread_primitives_type::token;
                 using worker_vector         = std::vector<std::unique_ptr<worker_type>>;
 
             private: // members
-
-                parallel_context_type&     m_parallel_context;
+                
+                thread_primitives_type&    m_thread_primitives;
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
                 std::size_t                m_req_size;
@@ -101,11 +101,11 @@ namespace gridtools {
 
             public: // ctors
                 template<typename DB, typename... Args>
-                transport_context(parallel_context<ThreadPrimitives>& pc, MPI_Comm, DB&& db, Args&&...)
-                    : m_parallel_context(pc)
+                transport_context(ThreadPrimitives& tp, DB&& db, Args&&...)
+                    : m_thread_primitives(tp)
                     , m_db{std::forward<DB>(db)}
-                    , m_workers(m_parallel_context.thread_primitives().size())
-                    , m_tokens(m_parallel_context.thread_primitives().size())
+                    , m_workers(m_thread_primitives.size())
+                    , m_tokens(m_thread_primitives.size())
                 {
                     // read run-time context
                     ucp_config_t* config_ptr;
@@ -163,7 +163,7 @@ namespace gridtools {
                         throw std::runtime_error("ucx cannot be used with multi-threaded context");
 
                     // make shared worker
-                    m_worker = worker_type(this, &m_parallel_context, nullptr, UCS_THREAD_MODE_SERIALIZED);
+                    m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SERIALIZED);
                     // intialize database
                     m_db.init(m_worker.address());
                 }
@@ -178,7 +178,7 @@ namespace gridtools {
                     if (!m_workers[t.id()])
                     {
                         m_tokens[t.id()] = t;
-                        m_workers[t.id()] = std::make_unique<worker_type>(this, &m_parallel_context, &m_tokens[t.id()], UCS_THREAD_MODE_SINGLE);
+                        m_workers[t.id()] = std::make_unique<worker_type>(this, &m_thread_primitives, &m_tokens[t.id()], UCS_THREAD_MODE_SINGLE);
                     }
                     return {&m_worker, m_workers[t.id()].get()};
                 }
@@ -187,14 +187,18 @@ namespace gridtools {
                 rank_type size() const { return m_db.size(); }
                 ucp_context_h get() const noexcept { return m_context.m_context; }
 
+                void barrier()
+                {
+                }
+
             };
 
             namespace ucx {
 
                 template<typename ThreadPrimitives>
-                worker_t<ThreadPrimitives>::worker_t(transport_context_type* c, parallel_context_type* pc, thread_token* t, ucs_thread_mode_t mode)
+                worker_t<ThreadPrimitives>::worker_t(transport_context_type* c, ThreadPrimitives *tp, thread_token* t, ucs_thread_mode_t mode)
                     : m_context{c}
-                    , m_parallel_context{pc}
+                    , m_thread_primitives{tp}
                     , m_token_ptr{t}
                     , m_rank(c->rank())
                     , m_size(c->size())
@@ -230,23 +234,15 @@ namespace gridtools {
 
             } // namespace ucx
 
-            template<class ThreadPrimitives>
-            struct context_factory<ucx_tag, ThreadPrimitives>
-            {
-                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm)
-                {
-#ifdef GHEX_USE_PMI
-                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, mpi_comm, ucx::address_db_pmi{mpi_comm});
-#else
-                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, mpi_comm, ucx::address_db_mpi{mpi_comm});
-#endif
-                }
-                template<typename DB>
-                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm, DB&& db)
-                {
-                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, mpi_comm, std::forward<DB>(db));
-                }
-            };
+            // template<class ThreadPrimitives>
+            // struct context_factory<ucx_tag, ThreadPrimitives>
+            // {
+            //     template<typename DB>
+            //     static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, DB&& db)
+            //     {
+            //         return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, std::forward<DB>(db));
+            //     }
+            // };
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools

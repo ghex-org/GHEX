@@ -52,17 +52,12 @@ namespace gridtools {
                     key_t m_rank;
                     key_t m_size;
 
-                    address_db_pmi(MPI_Comm comm)
+                    address_db_pmi(MPI_Comm comm = MPI_COMM_NULL)
                         : m_mpi_comm{comm}
                     {
-                        if(MPI_COMM_NULL != comm)
-                        {
-                            GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(comm,&m_rank));
-                            GHEX_CHECK_MPI_RESULT(MPI_Comm_size(comm,&m_size));
-                        } else {
-                            m_rank = pmi_impl_static.rank();
-                            m_size = pmi_impl_static.size();
-                        }
+                        /* TODO: m_mpi_comm should be use to obtain MPI rank to PMIx rank map */
+                        m_rank = pmi_impl_static.rank();
+                        m_size = pmi_impl_static.size();
                     }
 
                     address_db_pmi(const address_db_pmi&) = delete;
