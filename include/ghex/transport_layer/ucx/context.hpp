@@ -238,9 +238,9 @@ namespace gridtools {
             struct context_factory<ucx_tag, ThreadPrimitives>
             {
                 template<typename DB>
-                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, DB&& db)
+                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm comm, DB&& db)
                 {
-                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, std::forward<DB>(db));
+                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, comm, std::forward<DB>(db));
                 }
             };
             

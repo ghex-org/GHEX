@@ -75,14 +75,6 @@ int main(int argc, char *argv[])
     }
 #endif
 
-#if defined USE_PMIX
-    // has to be called before MPI_Init due to a bug in OpenMPI/PMIx
-    // https://github.com/openpmix/openpmix/issues/1427
-    // https://github.com/open-mpi/ompi/issues/6982
-    ghex::tl::ucx::address_db_pmi addr_db;
-    auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, std::move(addr_db));
-#endif
-
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
@@ -100,10 +92,12 @@ int main(int argc, char *argv[])
 
     {
 
-#if ! defined USE_PMIX
+#if defined USE_PMIX && defined USE_UCX
+        ghex::tl::ucx::address_db_pmi addr_db{MPI_COMM_WORLD};
+#else
         ghex::tl::ucx::address_db_mpi addr_db{MPI_COMM_WORLD};
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, std::move(addr_db));
 #endif
+        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD, std::move(addr_db));
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP

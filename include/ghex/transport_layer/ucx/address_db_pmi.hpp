@@ -48,16 +48,22 @@ namespace gridtools {
 
                     MPI_Comm m_mpi_comm;
 
-                    // TODO: these should be PMIx ranks. might need remaping to MPI ranks
+                    // these should be PMIx ranks. might need remaping to MPI ranks
                     key_t m_rank;
                     key_t m_size;
 
-                    address_db_pmi(MPI_Comm comm = MPI_COMM_NULL)
+                    address_db_pmi(MPI_Comm comm)
                         : m_mpi_comm{comm}
                     {
-                        /* TODO: m_mpi_comm should be use to obtain MPI rank to PMIx rank map */
                         m_rank = pmi_impl_static.rank();
                         m_size = pmi_impl_static.size();
+
+                        int mpi_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) };
+                        int mpi_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) };
+
+                        // TODO: m_mpi_comm should be use to obtain MPI rank to PMIx rank map
+                        if(m_rank != mpi_rank || m_size != mpi_size)
+                            throw std::runtime_error("PMIx and MPI ranks are different. Mapping not implemented yet.");
                     }
 
                     address_db_pmi(const address_db_pmi&) = delete;
@@ -70,7 +76,7 @@ namespace gridtools {
                     value_t find(key_t k)
                     {
                         try {
-                            return pmi_impl.get_bytes(k, "ghex-rank-address");
+                            return pmi_impl.get(k, "ghex-rank-address");
                         } catch(std::string err) {
                             throw std::runtime_error("PMIx could not find peer address: " + err);
                         }
@@ -80,6 +86,10 @@ namespace gridtools {
                     {
                         std::vector<unsigned char> data(addr.data(), addr.data()+addr.size());
                         pmi_impl_static.set("ghex-rank-address", data);
+
+                        // TODO: we have to call an explicit PMIx Fence due to
+                        // https://github.com/open-mpi/ompi/issues/6982
+                        pmi_impl_static.exchange();
                     }
                 };
 

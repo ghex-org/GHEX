@@ -126,7 +126,7 @@ namespace gridtools
                     LOG("PMIx_Commit on %s", key.c_str());
                 }
 
-                std::vector<unsigned char> get_bytes(uint32_t peer_rank, const std::string key)
+                std::vector<unsigned char> get(uint32_t peer_rank, const std::string key)
                 {
                     int rc;
                     pmix_proc_t proc;
@@ -157,6 +157,23 @@ namespace gridtools
                     LOG("PMIx_get %s returned %zi bytes", key.c_str(), data.size());
 
                     return data;
+                }
+
+                void exchange()
+                {
+                    int rc;
+                    pmix_info_t info;
+                    bool flag;
+
+                    PMIX_INFO_CONSTRUCT(&info);
+                    flag = true;
+                    PMIX_INFO_LOAD(&info, PMIX_COLLECT_DATA, &flag, PMIX_BOOL);
+                    if (PMIX_SUCCESS != (rc = PMIx_Fence(&allproc, 1, &info, 1))){
+                        std::string nspace(myproc.nspace, myproc.nspace+strlen(myproc.nspace));
+                        throw std::string("Client ns " + nspace + " rank " + std::to_string(myproc.rank) + 
+                            ": PMIx_Fence failed: " + std::to_string(rc) + "\n");
+                    }
+                    PMIX_INFO_DESTRUCT(&info);        
                 }
             };
         } // namespace tl

@@ -35,13 +35,15 @@ namespace gridtools {
                 using thread_token           = typename thread_primitives_type::token;
 
             private:
+                MPI_Comm m_mpi_comm;
                 thread_primitives_type m_thread_primitives;
                 transport_context_type m_transport_context;
 
             public:
                 template<typename...Args>
-                context(int num_threads, Args&&... args)
-                    : m_thread_primitives(num_threads)
+                context(int num_threads, MPI_Comm comm, Args&&... args)
+                    : m_mpi_comm{comm}
+                    , m_thread_primitives(num_threads)
                     , m_transport_context{m_thread_primitives, std::forward<Args>(args)...}
                 {}
 
@@ -57,8 +59,7 @@ namespace gridtools {
 
                 mpi::setup_communicator get_setup_communicator()
                 {
-                    // TODO: what about this?
-                    // return mpi::setup_communicator(m_parallel_context.world());
+                    return mpi::setup_communicator(m_mpi_comm);
                 }
 
                 // per-rank communicator (recv)
