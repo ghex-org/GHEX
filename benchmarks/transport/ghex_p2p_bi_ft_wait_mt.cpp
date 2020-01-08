@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 #else
         ghex::tl::ucx::address_db_mpi addr_db{MPI_COMM_WORLD};
 #endif
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD, std::move(addr_db));
+        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, std::move(addr_db));
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
