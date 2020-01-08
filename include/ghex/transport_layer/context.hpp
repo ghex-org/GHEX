@@ -92,14 +92,7 @@ namespace gridtools {
             };
 
             template<class TransportTag, class ThreadPrimitives>
-            struct context_factory
-            {
-                template<typename DB>
-                static std::unique_ptr<context<TransportTag, ThreadPrimitives>> create(int num_threads, DB&& db)
-                {
-                    return std::make_unique<context<TransportTag,ThreadPrimitives>>(num_threads, std::forward<DB>(db));
-                }
-            };
+            struct context_factory;
             //{
             //    context<Transport_Tag,ThreadPrimitives>* create(num_threads, MPI_Comm);
             //};
