@@ -233,16 +233,6 @@ namespace gridtools {
                 }
 
             } // namespace ucx
-
-            // template<class ThreadPrimitives>
-            // struct context_factory<ucx_tag, ThreadPrimitives>
-            // {
-            //     template<typename DB>
-            //     static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, DB&& db)
-            //     {
-            //         return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, std::forward<DB>(db));
-            //     }
-            // };
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools
