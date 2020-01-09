@@ -91,12 +91,7 @@ int main(int argc, char *argv[])
 
     {
 
-#if defined USE_PMIX && defined USE_UCX
-        ghex::tl::ucx::address_db_pmi addr_db{MPI_COMM_WORLD};
-#else
-        ghex::tl::ucx::address_db_mpi addr_db{MPI_COMM_WORLD};
-#endif
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, std::move(addr_db));
+        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
@@ -139,7 +134,7 @@ int main(int argc, char *argv[])
 
             if (thread_id==0 && rank==0)
             {
-                std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << " addr_db " << typeid(addr_db).name()  << "\n\n";
+                std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
             };
 
             std::vector<MsgType> smsgs(inflight);
