@@ -81,7 +81,7 @@ def patchFile(FileName, GitRoot, PatchFile):
     FileName2 = os.path.join(GitRoot,FileName)
     DiffRet = subprocess.Popen([Diff, "-u", FileName2, "-"], stdin=UncrustifyRet.stdout, stdout=subprocess.PIPE)
     # replace diff annotations to make it a git patch by piping the output to sed; redirect the results to the PatchFile
-    SedRet = subprocess.Popen([Sed, "-e", "1s|--- |--- a/|", "-e", "2s|+++ -|+++ b/" + FileName2 + "|"], stdin=DiffRet.stdout, stdout=PatchFile)
+    SedRet = subprocess.Popen([Sed, "-e", "1s|--- |--- a/|", "-e", "2s|+++ -|+++ b/" + FileName + "|"], stdin=DiffRet.stdout, stdout=PatchFile)
     # wait for the operations to complete
     SedRet.communicate()
     return
@@ -173,7 +173,7 @@ if __name__ == "__main__":
         f.close()
         print("Files in this commit do not compy with the format rules.")
         print("You can apply these changes with:")
-        print("  git apply --index ", PatchName)
+        print("  cd ", GitRoot, "; git apply --index ", PatchName, "; cd -")
         print("(may need to be called from the root directory of your repository)")
 
     sys.exit(ReturnCode)
