@@ -52,6 +52,7 @@ endif()
 
 set(GHEX_BUILD_TESTS OFF CACHE BOOL "True if tests shall be built")
 set(GHEX_BUILD_BENCHMARKS OFF CACHE BOOL "True if benchmarks shall be built")
+set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
 
 add_library(ghexlib INTERFACE)
 add_library(GHEX::ghexlib ALIAS ghexlib)
@@ -107,6 +108,10 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
 
         add_subdirectory(benchmarks)
     endif()
+endif()
+
+if (GHEX_BUILD_FORTRAN)
+    add_subdirectory(bindings)
 endif()
 
 include(GNUInstallDirs)

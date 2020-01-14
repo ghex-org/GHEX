@@ -133,4 +133,4 @@ if (USE_GPU)
 endif()
 
 add_subdirectory(transport)
-
+add_subdirectory(bindings)

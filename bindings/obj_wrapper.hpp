@@ -1,0 +1,80 @@
+#ifndef OBJ_WRAP_HPP
+#define OBJ_WRAP_HPP
+
+#include <cstdint>
+#include <memory>
+#include <typeinfo>
+#include <iostream>
+
+namespace gridtools {
+
+namespace ghex {
+
+namespace bindings {
+
+    class obj_wrapper {
+	
+    public:
+
+	/** interface that queries the stored object type */
+	struct obj_type_info {
+	    virtual ~obj_type_info() = default;
+	    virtual std::type_info const &type_info() const noexcept = 0;
+	};
+
+	/** actual object storage */
+	template <class T>
+	struct obj_storage : obj_type_info{
+	    T m_obj;
+	    obj_storage(T const &obj) : m_obj(obj) {}
+	    obj_storage(T &&obj) : m_obj(std::move(obj)) {}
+	    std::type_info const &type_info() const noexcept override { return typeid(T); }
+	};
+	
+	std::unique_ptr<obj_type_info> m_obj_storage;
+
+	obj_wrapper(obj_wrapper &&) = default;
+
+        template <class Arg, class Decayed = typename std::decay<Arg>::type>
+        obj_wrapper(Arg &&arg) : m_obj_storage(new obj_storage<Decayed>(std::forward<Arg>(arg))) {}	
+
+        std::type_info const &type_info() const noexcept { return m_obj_storage->type_info(); }
+
+	template <class T>
+	friend T get_object(obj_wrapper *src);
+
+	template <class T>
+	friend T get_object_safe(obj_wrapper *src);
+
+	template <class T>
+	friend T* get_object_ptr(obj_wrapper *src);
+    };
+
+    template <class T>
+    T get_object(obj_wrapper *src) {
+	if(src && src->type_info() == typeid(T)) {
+	    return static_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
+	}
+	throw -1;
+    }
+    
+    /** get the object without performing type checks:
+     *	assume that has already been done and the cast is legal */
+    template <class T>
+    T get_object_safe(obj_wrapper *src) {
+	return static_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
+    }
+    
+    template <class T>
+    T* get_object_ptr(obj_wrapper *src) {
+	if(src && src->type_info() == typeid(T)) {
+	    return &static_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
+	}
+	return nullptr;
+    }
+    
+}
+}
+}
+    
+#endif  /* OBJ_WRAP_HPP */
