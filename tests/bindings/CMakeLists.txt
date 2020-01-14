@@ -1,10 +1,12 @@
-find_package(MPI REQUIRED)
+find_package(OpenMP REQUIRED)
 enable_language(Fortran)
 
-set(_tests test_callbacks_p2p test_callbacks_multi test_future test_sendrecv)
+# set(_tests test_callbacks_p2p test_callbacks_multi test_future test_sendrecv)
+set(_tests test_context test_communicator)
 
 foreach (_t ${_tests})
   add_executable(${_t} ${_t}.f90)
+  target_compile_options(${_t} PRIVATE ${OpenMP_CXX_FLAGS})
   target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/bindings/ ${MPI_Fortran_INCLUDE_DIRS})
-  target_link_libraries(${_t} ghex ${MPI_Fortran_LIBRARIES})
+  target_link_libraries(${_t} PRIVATE fhex ${MPI_Fortran_LIBRARIES} OpenMP::OpenMP_CXX)
 endforeach ()

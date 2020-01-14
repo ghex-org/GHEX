@@ -1,5 +1,5 @@
-#ifndef OBJ_WRAP_HPP
-#define OBJ_WRAP_HPP
+#ifndef INCLUDED_GHEX_OBJ_WRAP_HPP
+#define INCLUDED_GHEX_OBJ_WRAP_HPP
 
 #include <cstdint>
 #include <memory>
@@ -36,7 +36,7 @@ namespace bindings {
 	obj_wrapper(obj_wrapper &&) = default;
 
         template <class Arg, class Decayed = typename std::decay<Arg>::type>
-        obj_wrapper(Arg &&arg) : m_obj_storage(new obj_storage<Decayed>(std::forward<Arg>(arg))) {}	
+        obj_wrapper(Arg &&arg) : m_obj_storage(new obj_storage<Decayed>(std::forward<Arg>(arg))) {}
 
         std::type_info const &type_info() const noexcept { return m_obj_storage->type_info(); }
 
@@ -62,7 +62,7 @@ namespace bindings {
      *	assume that has already been done and the cast is legal */
     template <class T>
     T get_object_safe(obj_wrapper *src) {
-	return static_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
+	return reinterpret_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
     }
     
     template <class T>
@@ -72,9 +72,14 @@ namespace bindings {
 	}
 	return nullptr;
     }
+
+    template <class T>
+    T* get_object_ptr_safe(obj_wrapper *src) {
+        return &reinterpret_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
+    }
     
 }
 }
 }
     
-#endif  /* OBJ_WRAP_HPP */
+#endif  /* INCLUDED_GHEX_OBJ_WRAP_HPP */

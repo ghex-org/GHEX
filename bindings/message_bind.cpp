@@ -6,7 +6,7 @@
 
 /** Statically construct all allocator objects */
 t_std_allocator std_allocator;
-t_persistent_std_allocator persistent_std_allocator;
+// t_persistent_std_allocator persistent_std_allocator;
 
 
 extern "C"
@@ -21,16 +21,16 @@ void *shared_message_new(std::size_t size, int allocator_type)
     switch(allocator_type){
     case ALLOCATOR_STD:
 	{    
-	    gridtools::ghex::mpi::shared_message<t_std_allocator> msg{size};
-	    wrapper = new gridtools::ghex::bindings::obj_wrapper(msg);
+	    gridtools::ghex::tl::shared_message_buffer<t_std_allocator> msg{size};
+	    wrapper = new gridtools::ghex::bindings::obj_wrapper(std::move(msg));
 	    break;
 	}
-    case ALLOCATOR_PERSISTENT_STD:
-	{
-	    gridtools::ghex::mpi::shared_message<t_persistent_std_allocator> msg{size};
-	    wrapper = new gridtools::ghex::bindings::obj_wrapper(msg);
-	    break;
-	}
+    // case ALLOCATOR_PERSISTENT_STD:
+    //     {
+    //         gridtools::ghex::tl::shared_message_buffer<t_persistent_std_allocator> msg{size};
+    //         wrapper = new gridtools::ghex::bindings::obj_wrapper(std::move(msg));
+    //         break;
+    //     }
     default:
 	{
 	    std::cerr << "BINDINGS: " << __FUNCTION__ << ": unknown allocator type: " << allocator_type << "\n";

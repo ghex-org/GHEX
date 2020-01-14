@@ -1,26 +1,45 @@
-#define GHEX_DEBUG_LEVEL 2
-
 #include "message_bind.hpp"
 #include "obj_wrapper.hpp"
 #include <iostream>
 #include <vector>
-#include <transport_layer/mpi/communicator.hpp>
-#include <allocator/persistent_allocator.hpp>
+
+namespace ghex = gridtools::ghex;
 
 typedef void (**f_callback)(int rank, int tag, void *mesg);
 
-using t_communicator = gridtools::ghex::mpi::communicator;
+#ifdef GHEX_USE_OPENMP
+
+/* OpenMP */
+#include <ghex/threads/omp/primitives.hpp>
+using threading    = ghex::threads::omp::primitives;
+#else
+
+/* no multithreading */
+#include <ghex/threads/none/primitives.hpp>
+using threading    = ghex::threads::none::primitives;
+#endif
+
+
+#ifdef GHEX_USE_UCP
+
+/* UCX backend */
+#include <ghex/transport_layer/ucx/context.hpp>
+using transport    = ghex::tl::ucx_tag;
+#else
+
+/* fallback MPI backend */
+#include <ghex/transport_layer/mpi/context.hpp>
+using transport    = ghex::tl::mpi_tag;
+#endif
+
+using context_type = ghex::tl::context<transport, threading>;
+using communicator_type = context_type::communicator_type;
+
 
 extern "C"
-void *comm_new()
+void comm_delete(ghex::bindings::obj_wrapper **wrapper_ref)
 {
-    return new gridtools::ghex::bindings::obj_wrapper(t_communicator());
-}
-
-extern "C"
-void comm_delete(gridtools::ghex::bindings::obj_wrapper **wrapper_ref)
-{
-    gridtools::ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
+    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
 
     /* clear the fortran-side variable */
     *wrapper_ref = nullptr;
@@ -28,69 +47,70 @@ void comm_delete(gridtools::ghex::bindings::obj_wrapper **wrapper_ref)
 }
 
 extern "C"
-int comm_progress(gridtools::ghex::bindings::obj_wrapper *wrapper)
+int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 {
-    return gridtools::ghex::bindings::get_object_ptr<t_communicator>(wrapper)->progress();
+    return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->progress();
 }
 
-template <typename T>
-struct callback {
-    T msg;
-    f_callback cb;
 
-    callback(T m, f_callback pcb) : msg{m}, cb{pcb} {}
+// template <typename T>
+// struct callback {
+//     T msg;
+//     f_callback cb;
+
+//     callback(T m, f_callback pcb) : msg{m}, cb{pcb} {}
     
-    void operator()(int rank, int tag) {
-     	if(cb) {
-	    gridtools::ghex::bindings::obj_wrapper wrapper(msg);
-	    (*cb)(rank, tag, &wrapper);
-	}
-    }
-};
+//     void operator()(int rank, int tag) {
+//      	if(cb) {
+// 	    ghex::bindings::obj_wrapper wrapper(msg);
+// 	    (*cb)(rank, tag, &wrapper);
+// 	}
+//     }
+// };
 
-extern "C"
-void* comm_send(gridtools::ghex::bindings::obj_wrapper *wcomm, gridtools::ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
-{
-    SHARED_MESSAGE_CALL(wmessage, {
-	    return new gridtools::ghex::bindings::obj_wrapper(gridtools::ghex::bindings::get_object_ptr<t_communicator>(wcomm)->send(msg, rank, tag));
-	} );
-}
+// extern "C"
+// void* comm_send(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
+// {
+//     SHARED_MESSAGE_CALL(wmessage, {
+// 	    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr<t_communicator>(wcomm)->send(msg, rank, tag));
+// 	} );
+// }
 
-extern "C"
-void comm_send_cb(gridtools::ghex::bindings::obj_wrapper *wcomm, gridtools::ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
-{
-    SHARED_MESSAGE_CALL(wmessage, {
-	    gridtools::ghex::bindings::get_object_ptr<t_communicator>(wcomm)->send(msg, rank, tag, callback<message_type>{msg, cb});
-	} );
-}
+// extern "C"
+// void comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
+// {
+//     SHARED_MESSAGE_CALL(wmessage, {
+// 	    ghex::bindings::get_object_ptr<t_communicator>(wcomm)->send(msg, rank, tag, callback<message_type>{msg, cb});
+// 	} );
+// }
 
-extern "C"
-void comm_send_multi(gridtools::ghex::bindings::obj_wrapper *wcomm, gridtools::ghex::bindings::obj_wrapper *wmessage, const int *ranks, int n_ranks, int tag, f_callback cb)
-{
-    SHARED_MESSAGE_CALL(wmessage, {
-	    gridtools::ghex::bindings::get_object_ptr<t_communicator>(wcomm)->send_multi(msg, std::vector<int>(ranks, ranks + n_ranks), tag, callback<message_type>{msg, cb});
-	} );
-}
+// extern "C"
+// void comm_send_multi(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, const int *ranks, int n_ranks, int tag, f_callback cb)
+// {
+//     SHARED_MESSAGE_CALL(wmessage, {
+// 	    ghex::bindings::get_object_ptr<t_communicator>(wcomm)->send_multi(msg, std::vector<int>(ranks, ranks + n_ranks), tag, callback<message_type>{msg, cb});
+// 	} );
+// }
 
-extern "C"
-void* comm_recv(gridtools::ghex::bindings::obj_wrapper *wcomm, gridtools::ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
-{
-    SHARED_MESSAGE_CALL(wmessage, {
-	    return new gridtools::ghex::bindings::obj_wrapper(gridtools::ghex::bindings::get_object_ptr<t_communicator>(wcomm)->recv(msg, rank, tag));
-	} );
-}
+// extern "C"
+// void* comm_recv(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
+// {
+//     SHARED_MESSAGE_CALL(wmessage, {
+// 	    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr<t_communicator>(wcomm)->recv(msg, rank, tag));
+// 	} );
+// }
 
-extern "C"
-void comm_recv_cb(gridtools::ghex::bindings::obj_wrapper *wcomm, gridtools::ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
-{
-    SHARED_MESSAGE_CALL(wmessage, {
-	    gridtools::ghex::bindings::get_object_ptr<t_communicator>(wcomm)->recv(msg, rank, tag, callback<message_type>{msg, cb});
-	} );
-}
+// extern "C"
+// void comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
+// {
+//     SHARED_MESSAGE_CALL(wmessage, {
+// 	    ghex::bindings::get_object_ptr<t_communicator>(wcomm)->recv(msg, rank, tag, callback<message_type>{msg, cb});
+// 	} );
+// }
 
-extern "C"
-void *comm_detach(gridtools::ghex::bindings::obj_wrapper *wcomm, int rank, int tag)
-{
-    t_communicator::future_type future = gridtools::ghex::bindings::get_object_ptr<t_communicator>(wcomm)->detach(rank, tag);
-    return new gridtools::ghex::bindings::obj_wrapper(future);
-}
+// extern "C"
+// void *comm_detach(ghex::bindings::obj_wrapper *wcomm, int rank, int tag)
+// {
+//     t_communicator::future_type future = ghex::bindings::get_object_ptr<t_communicator>(wcomm)->detach(rank, tag);
+//     return new ghex::bindings::obj_wrapper(future);
+// }
