@@ -189,7 +189,7 @@ namespace gridtools {
                     template<typename Alloc, typename CallBack>
                     request_cb_type send(shared_message_buffer<Alloc>& shared_msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type);
                         return send(message_type{shared_msg.m_message}, dst, tag, std::forward<CallBack>(callback));
                     }
                     

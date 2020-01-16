@@ -1,8 +1,8 @@
-#define GHEX_DEBUG_LEVEL 2
-
 #include "message_bind.hpp"
 #include <iostream>
 #include <vector>
+
+namespace ghex = gridtools::ghex;
 
 /** Statically construct all allocator objects */
 t_std_allocator std_allocator;
@@ -12,19 +12,19 @@ t_std_allocator std_allocator;
 extern "C"
 void *message_new(std::size_t size, int allocator_type)
 {
-    gridtools::ghex::bindings::obj_wrapper *wrapper = nullptr;
+    ghex::bindings::obj_wrapper *wmessage = nullptr;
 
     switch(allocator_type){
     case ALLOCATOR_STD:
 	{    
-	    gridtools::ghex::tl::shared_message_buffer<t_std_allocator> msg{size};
-	    wrapper = new gridtools::ghex::bindings::obj_wrapper(std::move(msg));
+	    ghex::tl::shared_message_buffer<t_std_allocator> msg{size};
+	    wmessage = new ghex::bindings::obj_wrapper(std::move(msg));
 	    break;
 	}
     // case ALLOCATOR_PERSISTENT_STD:
     //     {
-    //         gridtools::ghex::tl::shared_message_buffer<t_persistent_std_allocator> msg{size};
-    //         wrapper = new gridtools::ghex::bindings::obj_wrapper(std::move(msg));
+    //         ghex::tl::shared_message_buffer<t_persistent_std_allocator> msg{size};
+    //         wmessage = new ghex::bindings::obj_wrapper(std::move(msg));
     //         break;
     //     }
     default:
@@ -34,49 +34,37 @@ void *message_new(std::size_t size, int allocator_type)
 	}
     }
     
-    return wrapper;
+    return wmessage;
 }
 
 extern "C"
-void message_delete(gridtools::ghex::bindings::obj_wrapper **wrapper_ref)
+void message_delete(ghex::bindings::obj_wrapper **wmessage_ref)
 {
-    gridtools::ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
+    ghex::bindings::obj_wrapper *wmessage = *wmessage_ref;
     
     /* clear the fortran-side variable */
-    *wrapper_ref = nullptr;
-    delete wrapper;
+    *wmessage_ref = nullptr;
+    delete wmessage;
 }
 
 extern "C"
-int message_is_host(gridtools::ghex::bindings::obj_wrapper *wrapper)
+int message_is_host(ghex::bindings::obj_wrapper *wmessage)
 {
     /** TODO */
     return 1;
 }
 
 extern "C"
-int message_use_count(gridtools::ghex::bindings::obj_wrapper *wrapper)
+int message_use_count(ghex::bindings::obj_wrapper *wmessage)
 {
-    SHARED_MESSAGE_CALL(wrapper, {
-	    return msg.use_count()-1;
-	} );
-    return -1;
+    using message_type = ghex::tl::shared_message_buffer<t_std_allocator>;
+    return ghex::bindings::get_object_ptr_safe<message_type>(wmessage)->use_count();
 }
 
 extern "C"
-unsigned char *message_data(gridtools::ghex::bindings::obj_wrapper *wrapper, std::size_t *size)
+unsigned char *message_data(ghex::bindings::obj_wrapper *wmessage, std::size_t *size)
 {
-    SHARED_MESSAGE_CALL(wrapper, {
-	    *size = msg.capacity();
-	    return msg.data();
-	} );
-    return nullptr;
-}
-
-extern "C"
-void message_resize(gridtools::ghex::bindings::obj_wrapper *wrapper, std::size_t size)
-{
-    SHARED_MESSAGE_CALL(wrapper, {
-	    msg.resize(size);
-	} );
+    using message_type = ghex::tl::shared_message_buffer<t_std_allocator>;
+    *size = ghex::bindings::get_object_ptr_safe<message_type>(wmessage)->capacity();
+    return ghex::bindings::get_object_ptr_safe<message_type>(wmessage)->data();
 }

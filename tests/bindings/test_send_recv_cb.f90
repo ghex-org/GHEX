@@ -21,9 +21,12 @@ PROGRAM test_send_recv_ft
   type(ghex_future) :: sreq, rreq
 
   ! message
-  integer(8) :: msg_size = 16
+  integer(8) :: msg_size = 16, np
   type(ghex_message) :: smsg, rmsg
   integer(1), dimension(:), pointer :: msg_data
+  
+  procedure(f_callback), pointer :: pcb
+  pcb => recv_callback
 
   call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
   call mpi_comm_size (mpi_comm_world, mpi_size, mpi_err)
@@ -45,7 +48,7 @@ PROGRAM test_send_recv_ft
   context = context_new(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, msg_data)
+  !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, msg_data, np)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
@@ -63,14 +66,19 @@ PROGRAM test_send_recv_ft
   ! create a message per thread
   rmsg = message_new(msg_size, ALLOCATOR_STD)
   smsg = message_new(msg_size, ALLOCATOR_STD)
+
+  ! initialize send data
   msg_data => message_data(smsg)
   msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
+  
+  ! send / recv with a callback
+  call comm_send_cb(comm, smsg, mpi_peer, 1)
+  call comm_recv_cb(comm, rmsg, mpi_peer, 1, pcb)
 
-  ! send / recv with a request
-  sreq = comm_send(comm, smsg, mpi_peer, 1)
-  rreq = comm_recv(comm, rmsg, mpi_peer, 1)
+  ! print *, "msg use count", message_use_count(smsg), message_use_count(rmsg)
 
-  do while( .not.future_ready(sreq) .or. .not.future_ready(rreq) )
+  do while(message_use_count(smsg)>1 .or. message_use_count(rmsg)>1)
+     np = comm_progress(comm)
   end do
 
   ! what have we received?
@@ -78,6 +86,8 @@ PROGRAM test_send_recv_ft
   print *, mpi_rank, ": ", thrid, ": ", msg_data
 
   ! cleanup per-thread
+  call message_delete(smsg)
+  call message_delete(rmsg)
   call comm_delete(communicators(thrid))
 
   ! cleanup shared
@@ -90,5 +100,18 @@ PROGRAM test_send_recv_ft
 
   ! delete the ghex context
   call context_delete(context)  
+
+contains
+
+  subroutine recv_callback (mesg, rank, tag) bind(c)
+    use iso_c_binding
+    type(ghex_message), value :: mesg
+    integer(c_int), value :: rank, tag
+    integer :: use_count = -1
+
+    ! check the use count (should be 3 at this point)
+    use_count = message_use_count(mesg)
+    ! print *, "callback use count ", use_count
+  end subroutine recv_callback
 
 END PROGRAM test_send_recv_ft

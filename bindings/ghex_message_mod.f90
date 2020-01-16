@@ -46,13 +46,6 @@ MODULE ghex_message_mod
        type(ghex_message), value :: message
        integer(c_size_t), intent(out) :: capacity
      end function message_data_wrapped
-
-     subroutine message_resize(message, size) bind(c)
-       use iso_c_binding
-       import ghex_message
-       type(ghex_message), value :: message
-       integer(c_size_t), value :: size
-     end subroutine message_resize
   end interface
 
 CONTAINS
