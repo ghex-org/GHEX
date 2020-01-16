@@ -31,9 +31,13 @@ cd ${thisdir}/uncrustify_tmp
 git clone git@github.com:uncrustify/uncrustify.git
 cd uncrustify
 git checkout uncrustify-0.70.1
-mkdir build
+# patch uncrustify for cuda kernel syntax
+# https://github.com/uncrustify/uncrustify/issues/1965
+sed -i '57s/.*/   { ">>>",      CT_ARITH,        LANG_C | LANG_CPP | LANG_D | LANG_JAVA | LANG_PAWN | LANG_ECMA},/' src/symbols_table.h
+sed -i '57i   { "<<<",      CT_ARITH,        LANG_C | LANG_CPP },' src/symbols_table.h
+mkdir -p build
 cd build
-mkdir install
+mkdir -p install
 cmake \
     -DBUILD_TESTING=OFF \
     -DCMAKE_BUILD_TYPE=Release \
