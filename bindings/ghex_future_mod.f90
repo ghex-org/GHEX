@@ -4,7 +4,7 @@ MODULE ghex_future_mod
   implicit none
 
   type, bind(c) :: ghex_future
-     type(c_ptr) :: future = c_null_ptr
+     type(c_ptr) :: ptr = c_null_ptr
   end type ghex_future
   
   interface

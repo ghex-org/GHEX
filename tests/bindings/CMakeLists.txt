@@ -2,7 +2,7 @@ find_package(OpenMP REQUIRED)
 enable_language(Fortran)
 
 # set(_tests test_callbacks_p2p test_callbacks_multi test_future test_sendrecv)
-set(_tests test_context test_communicator)
+set(_tests test_context test_communicator test_message test_send_recv)
 
 foreach (_t ${_tests})
   add_executable(${_t} ${_t}.f90)

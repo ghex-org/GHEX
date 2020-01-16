@@ -2,6 +2,7 @@
 #include "obj_wrapper.hpp"
 #include <iostream>
 #include <vector>
+#include <ghex/transport_layer/shared_message_buffer.hpp>
 
 namespace ghex = gridtools::ghex;
 
@@ -68,13 +69,14 @@ int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 //     }
 // };
 
-// extern "C"
-// void* comm_send(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
-// {
-//     SHARED_MESSAGE_CALL(wmessage, {
-// 	    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr<t_communicator>(wcomm)->send(msg, rank, tag));
-// 	} );
-// }
+extern "C"
+void* comm_send(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
+{
+    using message_type = ghex::tl::shared_message_buffer<>;
+    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    message_type msg{ghex::bindings::get_object_safe<message_type>(wmessage)};
+    return new ghex::bindings::obj_wrapper(comm->send(msg, rank, tag));
+}
 
 // extern "C"
 // void comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
@@ -92,13 +94,14 @@ int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 // 	} );
 // }
 
-// extern "C"
-// void* comm_recv(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
-// {
-//     SHARED_MESSAGE_CALL(wmessage, {
-// 	    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr<t_communicator>(wcomm)->recv(msg, rank, tag));
-// 	} );
-// }
+extern "C"
+void* comm_recv(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
+{
+    using message_type = ghex::tl::shared_message_buffer<>;
+    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    message_type msg{ghex::bindings::get_object_safe<message_type>(wmessage)};
+    return new ghex::bindings::obj_wrapper(comm->recv(msg, rank, tag));
+}
 
 // extern "C"
 // void comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
@@ -106,11 +109,4 @@ int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 //     SHARED_MESSAGE_CALL(wmessage, {
 // 	    ghex::bindings::get_object_ptr<t_communicator>(wcomm)->recv(msg, rank, tag, callback<message_type>{msg, cb});
 // 	} );
-// }
-
-// extern "C"
-// void *comm_detach(ghex::bindings::obj_wrapper *wcomm, int rank, int tag)
-// {
-//     t_communicator::future_type future = ghex::bindings::get_object_ptr<t_communicator>(wcomm)->detach(rank, tag);
-//     return new ghex::bindings::obj_wrapper(future);
 // }

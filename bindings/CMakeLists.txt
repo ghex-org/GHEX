@@ -18,7 +18,7 @@ find_package(OpenMP REQUIRED)
 enable_language(Fortran)
 # add_library(ghex SHARED message_bind.cpp communicator_bind.cpp future_bind.cpp ghex_message_mod.f90 ghex_comm_mod.f90 ghex_future_mod.f90)
 
-add_library(fhex SHARED communicator_bind.cpp context_bind.cpp ghex_comm_mod.f90 ghex_context_mod.f90)
+add_library(fhex SHARED communicator_bind.cpp context_bind.cpp message_bind.cpp future_bind.cpp ghex_comm_mod.f90 ghex_context_mod.f90 ghex_message_mod.f90 ghex_future_mod.f90)
 
 if (GHEX_USE_PMIX)
    target_compile_definitions(fhex PRIVATE GHEX_USE_PMIX)

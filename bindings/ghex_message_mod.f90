@@ -9,65 +9,65 @@ MODULE ghex_message_mod
   integer, public, parameter :: ALLOCATOR_GPU             = 5
   integer, public, parameter :: ALLOCATOR_PERSISTENT_GPU  = 6
 
-  type, bind(c) :: ghex_shared_message
-     type(c_ptr) :: msg = c_null_ptr
-  end type ghex_shared_message
+  type, bind(c) :: ghex_message
+     type(c_ptr) :: ptr = c_null_ptr
+  end type ghex_message
   
   interface
-     type(ghex_shared_message) function shared_message_new(size, allocator) bind(c)
+     type(ghex_message) function message_new(size, allocator) bind(c)
        use iso_c_binding
-       import ghex_shared_message
+       import ghex_message
        integer(c_size_t), value :: size
        integer(c_int), value :: allocator
-     end function shared_message_new
+     end function message_new
 
-     subroutine shared_message_delete(shared_message) bind(c)
+     subroutine message_delete(message) bind(c)
        use iso_c_binding
-       import ghex_shared_message
+       import ghex_message
        ! reference, not a value - fortran variable is reset to null 
-       type(ghex_shared_message) :: shared_message
-     end subroutine shared_message_delete
+       type(ghex_message) :: message
+     end subroutine message_delete
 
-     integer(c_int) function shared_message_use_count(shared_message) bind(c)
+     integer(c_int) function message_use_count(message) bind(c)
        use iso_c_binding
-       import ghex_shared_message
-       type(ghex_shared_message), value :: shared_message
-     end function shared_message_use_count
+       import ghex_message
+       type(ghex_message), value :: message
+     end function message_use_count
 
-     logical function shared_message_is_host(shared_message) bind(c)
+     logical function message_is_host(message) bind(c)
        use iso_c_binding
-       import ghex_shared_message
-       type(ghex_shared_message), value :: shared_message
-     end function shared_message_is_host
+       import ghex_message
+       type(ghex_message), value :: message
+     end function message_is_host
 
-     type(c_ptr) function shared_message_data_wrapped(shared_message, capacity) bind(c, name='shared_message_data')
+     type(c_ptr) function message_data_wrapped(message, capacity) bind(c, name='message_data')
        use iso_c_binding
-       import ghex_shared_message
-       type(ghex_shared_message), value :: shared_message
+       import ghex_message
+       type(ghex_message), value :: message
        integer(c_size_t), intent(out) :: capacity
-     end function shared_message_data_wrapped
+     end function message_data_wrapped
 
-     subroutine shared_message_resize(shared_message, size) bind(c)
+     subroutine message_resize(message, size) bind(c)
        use iso_c_binding
-       import ghex_shared_message
-       type(ghex_shared_message), value :: shared_message
+       import ghex_message
+       type(ghex_message), value :: message
        integer(c_size_t), value :: size
-     end subroutine shared_message_resize
+     end subroutine message_resize
   end interface
 
 CONTAINS
 
-  function shared_message_data(shared_message)
+  function message_data(message)
     use iso_c_binding
-    type(ghex_shared_message), value :: shared_message
-    integer(1), dimension(:), pointer :: shared_message_data
+    type(ghex_message), value :: message
+    integer(1), dimension(:), pointer :: message_data
 
     type(c_ptr) :: c_data = c_null_ptr
     integer(c_size_t) :: capacity
 
     ! get the data pointer
-    c_data = shared_message_data_wrapped(shared_message, capacity)
-    call c_f_pointer(c_data, shared_message_data, [capacity])
-  end function shared_message_data
+    c_data = message_data_wrapped(message, capacity)
+    call c_f_pointer(c_data, message_data, [capacity])
+  end function message_data
 
 END MODULE ghex_message_mod

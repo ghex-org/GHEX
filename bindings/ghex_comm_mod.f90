@@ -1,7 +1,7 @@
 MODULE ghex_comm_mod
   use iso_c_binding
-  ! use ghex_message_mod
-  ! use ghex_future_mod
+  use ghex_message_mod
+  use ghex_future_mod
 
   implicit none
 
@@ -14,9 +14,9 @@ MODULE ghex_comm_mod
      ! callback type
      ! subroutine f_callback (rank, tag, mesg) bind(c)
      !   use iso_c_binding
-     !   import ghex_shared_message       
+     !   import ghex_message       
      !   integer(c_int), value :: rank, tag
-     !   type(ghex_shared_message), value :: mesg
+     !   type(ghex_message), value :: mesg
      ! end subroutine f_callback
 
      subroutine comm_delete(comm) bind(c)
@@ -34,41 +34,41 @@ MODULE ghex_comm_mod
 
      ! subroutine comm_send_cb_wrapped(comm, message, rank, tag, cb) bind(c, name="comm_send_cb")
      !   use iso_c_binding
-     !   import ghex_communicator, ghex_shared_message
+     !   import ghex_communicator, ghex_message
      !   type(ghex_communicator), value :: comm
-     !   type(ghex_shared_message), value :: message
+     !   type(ghex_message), value :: message
      !   integer(c_int), value :: rank
      !   integer(c_int), value :: tag
      !   type(c_funptr), value :: cb
      ! end subroutine comm_send_cb_wrapped
 
-     ! type(ghex_future) function comm_send_wrapped(comm, message, rank, tag) bind(c, name="comm_send")
-     !   use iso_c_binding
-     !   import ghex_communicator, ghex_shared_message, ghex_future
-     !   type(ghex_communicator), value :: comm
-     !   type(ghex_shared_message), value :: message
-     !   integer(c_int), value :: rank
-     !   integer(c_int), value :: tag
-     ! end function comm_send_wrapped
+     type(ghex_future) function comm_send_wrapped(comm, message, rank, tag) bind(c, name="comm_send")
+       use iso_c_binding
+       import ghex_communicator, ghex_message, ghex_future
+       type(ghex_communicator), value :: comm
+       type(ghex_message), value :: message
+       integer(c_int), value :: rank
+       integer(c_int), value :: tag
+     end function comm_send_wrapped
 
      ! subroutine comm_recv_cb_wrapped(comm, message, rank, tag, cb) bind(c, name="comm_recv_cb")
      !   use iso_c_binding
-     !   import ghex_communicator, ghex_shared_message
+     !   import ghex_communicator, ghex_message
      !   type(ghex_communicator), value :: comm
-     !   type(ghex_shared_message), value :: message
+     !   type(ghex_message), value :: message
      !   integer(c_int), value :: rank
      !   integer(c_int), value :: tag
      !   type(c_funptr), value :: cb
      ! end subroutine comm_recv_cb_wrapped
      
-     ! type(ghex_future) function comm_recv_wrapped(comm, message, rank, tag) bind(c, name="comm_recv")
-     !   use iso_c_binding
-     !   import ghex_communicator, ghex_shared_message, ghex_future
-     !   type(ghex_communicator), value :: comm
-     !   type(ghex_shared_message), value :: message
-     !   integer(c_int), value :: rank
-     !   integer(c_int), value :: tag
-     ! end function comm_recv_wrapped
+     type(ghex_future) function comm_recv_wrapped(comm, message, rank, tag) bind(c, name="comm_recv")
+       use iso_c_binding
+       import ghex_communicator, ghex_message, ghex_future
+       type(ghex_communicator), value :: comm
+       type(ghex_message), value :: message
+       integer(c_int), value :: rank
+       integer(c_int), value :: tag
+     end function comm_recv_wrapped
      
   end interface
 
@@ -83,7 +83,7 @@ CONTAINS
   ! subroutine comm_send_cb(comm, message, rank, tag, cbarg)
   !   use iso_c_binding
   !   type(ghex_communicator), intent(in) :: comm
-  !   type(ghex_shared_message), value :: message
+  !   type(ghex_message), value :: message
   !   integer, intent(in) :: rank
   !   integer, intent(in) :: tag
   !   procedure(f_callback), optional, pointer :: cbarg
@@ -98,20 +98,20 @@ CONTAINS
   !   call comm_send_cb_wrapped(comm, message, rank, tag, c_funloc(cb))
   ! end subroutine comm_send_cb
 
-  ! type(ghex_future) function comm_send(comm, message, rank, tag)
-  !   use iso_c_binding
-  !   type(ghex_communicator), intent(in) :: comm
-  !   type(ghex_shared_message), value :: message
-  !   integer, intent(in) :: rank
-  !   integer, intent(in) :: tag
+  type(ghex_future) function comm_send(comm, message, rank, tag)
+    use iso_c_binding
+    type(ghex_communicator), intent(in) :: comm
+    type(ghex_message), value :: message
+    integer, intent(in) :: rank
+    integer, intent(in) :: tag
     
-  !   comm_send = comm_send_wrapped(comm, message, rank, tag)
-  ! end function comm_send
+    comm_send = comm_send_wrapped(comm, message, rank, tag)
+  end function comm_send
   
   ! subroutine comm_send_multi(comm, message, ranks, tag, cbarg)
   !   use iso_c_binding
   !   type(ghex_communicator), intent(in) :: comm
-  !   type(ghex_shared_message), value :: message
+  !   type(ghex_message), value :: message
   !   integer, dimension(:), target, intent(in) :: ranks
   !   integer, intent(in) :: tag
   !   procedure(f_callback), optional, pointer :: cbarg
@@ -129,7 +129,7 @@ CONTAINS
   ! subroutine comm_recv_cb(comm, message, rank, tag, cb)
   !   use iso_c_binding
   !   type(ghex_communicator), intent(in) :: comm
-  !   type(ghex_shared_message), value :: message
+  !   type(ghex_message), value :: message
   !   integer, intent(in) :: rank
   !   integer, intent(in) :: tag
   !   procedure(f_callback), pointer :: cb
@@ -137,14 +137,14 @@ CONTAINS
   !   call comm_recv_cb_wrapped(comm, message, rank, tag, c_funloc(cb))
   ! end subroutine comm_recv_cb
 
-  ! type(ghex_future) function comm_recv(comm, message, rank, tag)
-  !   use iso_c_binding
-  !   type(ghex_communicator), intent(in) :: comm
-  !   type(ghex_shared_message), value :: message
-  !   integer, intent(in) :: rank
-  !   integer, intent(in) :: tag
+  type(ghex_future) function comm_recv(comm, message, rank, tag)
+    use iso_c_binding
+    type(ghex_communicator), intent(in) :: comm
+    type(ghex_message), value :: message
+    integer, intent(in) :: rank
+    integer, intent(in) :: tag
     
-  !   comm_recv = comm_recv_wrapped(comm, message, rank, tag)
-  ! end function comm_recv
+    comm_recv = comm_recv_wrapped(comm, message, rank, tag)
+  end function comm_recv
 
 END MODULE ghex_comm_mod

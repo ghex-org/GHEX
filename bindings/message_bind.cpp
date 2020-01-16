@@ -10,14 +10,10 @@ t_std_allocator std_allocator;
 
 
 extern "C"
-void *shared_message_new(std::size_t size, int allocator_type)
+void *message_new(std::size_t size, int allocator_type)
 {
     gridtools::ghex::bindings::obj_wrapper *wrapper = nullptr;
 
-#if (GHEX_DEBUG_LEVEL == 2)
-    std::cout << "BINDINGS: " << __FUNCTION__ << ": constructing a message with allocator " << allocator_type << "\n";
-#endif
-    
     switch(allocator_type){
     case ALLOCATOR_STD:
 	{    
@@ -33,7 +29,7 @@ void *shared_message_new(std::size_t size, int allocator_type)
     //     }
     default:
 	{
-	    std::cerr << "BINDINGS: " << __FUNCTION__ << ": unknown allocator type: " << allocator_type << "\n";
+	    std::cerr << "BINDINGS: " << __FUNCTION__ << ": unsupported allocator type: " << allocator_type << "\n";
 	    break;
 	}
     }
@@ -42,7 +38,7 @@ void *shared_message_new(std::size_t size, int allocator_type)
 }
 
 extern "C"
-void shared_message_delete(gridtools::ghex::bindings::obj_wrapper **wrapper_ref)
+void message_delete(gridtools::ghex::bindings::obj_wrapper **wrapper_ref)
 {
     gridtools::ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
     
@@ -52,14 +48,14 @@ void shared_message_delete(gridtools::ghex::bindings::obj_wrapper **wrapper_ref)
 }
 
 extern "C"
-int shared_message_is_host(gridtools::ghex::bindings::obj_wrapper *wrapper)
+int message_is_host(gridtools::ghex::bindings::obj_wrapper *wrapper)
 {
     /** TODO */
     return 1;
 }
 
 extern "C"
-int shared_message_use_count(gridtools::ghex::bindings::obj_wrapper *wrapper)
+int message_use_count(gridtools::ghex::bindings::obj_wrapper *wrapper)
 {
     SHARED_MESSAGE_CALL(wrapper, {
 	    return msg.use_count()-1;
@@ -68,7 +64,7 @@ int shared_message_use_count(gridtools::ghex::bindings::obj_wrapper *wrapper)
 }
 
 extern "C"
-unsigned char *shared_message_data(gridtools::ghex::bindings::obj_wrapper *wrapper, std::size_t *size)
+unsigned char *message_data(gridtools::ghex::bindings::obj_wrapper *wrapper, std::size_t *size)
 {
     SHARED_MESSAGE_CALL(wrapper, {
 	    *size = msg.capacity();
@@ -78,7 +74,7 @@ unsigned char *shared_message_data(gridtools::ghex::bindings::obj_wrapper *wrapp
 }
 
 extern "C"
-void shared_message_resize(gridtools::ghex::bindings::obj_wrapper *wrapper, std::size_t size)
+void message_resize(gridtools::ghex::bindings::obj_wrapper *wrapper, std::size_t size)
 {
     SHARED_MESSAGE_CALL(wrapper, {
 	    msg.resize(size);
