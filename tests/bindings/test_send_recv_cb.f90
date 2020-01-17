@@ -1,4 +1,20 @@
-PROGRAM test_send_recv_ft
+! problems:
+!
+! 1. if I use message_new, which creates any_message with 101 constructor,
+!    and send that, then inside ghex we have a 'weak' reference (107 constructor),
+!    which doesn not have any type info. Hence it cannot free the message.
+!    Hence, I cannot use this to 'send and forget', because the buffer will not be deallocated
+!
+! 2. I can maybe use that for recv resubmission in the callback, but if the real owner
+!    should free the memory, then he won't know when it is safe, because he is not aware
+!    of the resubmission
+!
+! 3. request id's returned from cb send/recv variants: the previous request
+!    associated with that message is marked as 'completed', but we resubmit.. that
+!    request handle is now useless. From the CB we could get a new request, but
+!    what do I do with it?
+
+PROGRAM test_send_recv_cb
 
   use omp_lib
   use ghex_context_mod
@@ -20,9 +36,10 @@ PROGRAM test_send_recv_ft
   type(ghex_communicator) :: comm
 
   ! message
-  integer(8) :: msg_size = 16000000, np
+  integer(8) :: msg_size = 16, np
   integer :: recv_completed = 0
   type(ghex_message) :: smsg, rmsg
+  type(ghex_shared_message) :: ssmsg, srmsg
   type(ghex_request) :: sreq, rreq
   integer(1), dimension(:), pointer :: msg_data
   
@@ -49,7 +66,7 @@ PROGRAM test_send_recv_ft
   context = context_new(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, msg_data, np)
+  !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, ssmsg, srmsg, msg_data, np)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
@@ -64,18 +81,22 @@ PROGRAM test_send_recv_ft
   communicators(thrid) = context_get_communicator(context)
   comm = communicators(thrid)
 
-  ! create messages
-  rmsg = message_new(msg_size, ALLOCATOR_STD)
-  smsg = message_new(msg_size, ALLOCATOR_STD)
+  ! create messages, or get a reference to a shared message
+  srmsg = shared_message_new(msg_size, ALLOCATOR_STD)
+  ssmsg = shared_message_new(msg_size, ALLOCATOR_STD)
+
+  rmsg = shared_message_ref(srmsg);
+  smsg = shared_message_ref(ssmsg);
 
   ! initialize send data
   msg_data => message_data(smsg)
   msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
-  
+
   ! send / recv with a callback
+  ! TODO: what is sent here is indistructible. ref-based any_message cannot be freed.
   sreq = comm_send_cb(comm, smsg, mpi_peer, 1)
   rreq = comm_recv_cb(comm, rmsg, mpi_peer, 1, pcb)
-  
+
   ! use count is always 2 for recv, can be 1 or 2 for send: send can complete in-place here
   print *, "msg use count", message_use_count(smsg), message_use_count(rmsg)
   print *, "request state before", request_test(sreq), request_test(rreq)
@@ -83,16 +104,17 @@ PROGRAM test_send_recv_ft
   ! can safely delete the local instance of the shared message:
   ! ownership is passed to ghex, and the message will be returned to us
   ! in the recv callback
-  call message_delete(rmsg)
+  ! call message_delete(rmsg)
 
   ! progress the communication
-  do while(message_use_count(smsg)>1 .or. recv_completed /= nthreads)
+  do while(.not.request_test(sreq) .or. recv_completed /= nthreads)
      np = comm_progress(comm)
   end do
   print *, "request state after", request_test(sreq), request_test(rreq)
 
   ! cleanup per-thread
   call message_delete(smsg)
+  call message_delete(rmsg)
   call comm_delete(communicators(thrid))
 
   ! cleanup shared
@@ -123,13 +145,18 @@ contains
 
     ! what have we received?
     msg_data => message_data(mesg)
-    ! print *, mpi_rank, ": ", thrid, ": ", msg_data
+    print *, mpi_rank, ": ", thrid, ": ", msg_data
 
     ! TODO: this should be atomic
     recv_completed = recv_completed + 1
+
+    ! TODO: cannot delete (free) a message here. This is any_message
+    ! created using the reference constructor, it doesn't know how to delete itself
+    ! So different semantics from C++, where the user gets ownership of the message in the callback.
+    ! call message_delete(mesg)
 
     ! TODO: recv data from GHEX
     ! TODO: resubmit: need recursive locks
   end subroutine recv_callback
 
-END PROGRAM test_send_recv_ft
+END PROGRAM test_send_recv_cb

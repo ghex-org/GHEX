@@ -88,7 +88,7 @@ namespace gridtools {
                         std::size_t size() const noexcept override { return sizeof(value_type)*m_message.size(); }
                     };
 
-                    unsigned char* __restrict m_data;
+                    unsigned char* __restrict m_data = nullptr;
                     std::size_t m_size;
                     std::unique_ptr<iface> m_ptr;
                     std::shared_ptr<std::size_t> m_ptr2;
@@ -98,21 +98,23 @@ namespace gridtools {
                     : m_data{reinterpret_cast<unsigned char*>(m.data())}
                     , m_size{m.size()*sizeof(typename Message::value_type)}
                     , m_ptr{std::make_unique<holder<Message>>(std::move(m))}
-                    {}
+                    {fprintf(stdout, "HERE %d\n", __LINE__);}
 
                     template<typename T>
                     any_message(ref_message<T>&& m)
                     : m_data{reinterpret_cast<unsigned char*>(m.data())}
                     , m_size{m.size()*sizeof(T)}
-                    {}
+                    {fprintf(stdout, "HERE %d\n", __LINE__);}
 
                     template<typename Message>
                     any_message(std::shared_ptr<Message>& sm)
                     : m_data{reinterpret_cast<unsigned char*>(sm->data())}
                     , m_size{sm->size()*sizeof(typename Message::value_type)}
                     , m_ptr2(sm,&m_size)
-                    {}
+                    {fprintf(stdout, "HERE %d\n", __LINE__);}
                     
+                    ~any_message()
+                    {if(m_ptr.get()) fprintf(stdout, "HERE %p %s %d\n", m_data, __FUNCTION__, __LINE__);}
 
 
                     any_message(any_message&&) = default;
@@ -121,6 +123,12 @@ namespace gridtools {
                     unsigned char* data() noexcept { return m_data; /*m_ptr->data();*/ }
                     const unsigned char* data() const noexcept { return m_data; /*m_ptr->data();*/ }
                     std::size_t size() const noexcept { return m_size; /*m_ptr->size();*/ }
+
+                    std::size_t use_count()
+                    {
+                        if(nullptr != m_ptr2.get()) return m_ptr2.use_count();
+                        return 1;
+                    }
                 };
 
 
