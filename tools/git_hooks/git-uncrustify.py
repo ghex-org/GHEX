@@ -133,7 +133,7 @@ if __name__ == "__main__":
     else:
         EditedFiles = getEditedFiles()
 
-    print(EditedFiles)
+    # print(EditedFiles)
 
     ReturnCode = 0
 
