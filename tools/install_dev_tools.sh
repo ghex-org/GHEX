@@ -57,7 +57,7 @@ echo "#!/bin/bash" > ${githook}
 echo "python \\" >> ${githook}
 echo "    \"${thisdir}/git_hooks/git-uncrustify.py\" \\" >> ${githook}
 echo "    \"--commit\" \\" >> ${githook}
-echo "    \"-c=${thisdir}/uncrustify.cfg\" \\" >> ${githook}
+echo "    \"-c=${thisdir}/.uncrustify.cfg\" \\" >> ${githook}
 echo "    \"-bin=${thisdir}/uncrustify\"" >> ${githook}
 cd ${currentdir}
 
