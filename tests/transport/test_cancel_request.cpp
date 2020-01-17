@@ -5,11 +5,10 @@
 #include <iomanip>
 #include <functional>
 
-
 #include <gtest/gtest.h>
 
 template<typename Comm, typename Alloc>
-using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
+using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm, Alloc>;
 //using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
 
 using transport = gridtools::ghex::tl::mpi_tag;
@@ -17,44 +16,46 @@ using threading = gridtools::ghex::threads::atomic::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 int rank;
-const unsigned int SIZE = 1<<12;
+const unsigned int SIZE = 1 << 12;
 
 template<typename Comm>
 bool test_simple(Comm& comm, int rank) {
 
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(comm)>;
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(comm)>;
 
-    callback_comm_t<comm_type,allocator_type> cb_comm(comm);
+    callback_comm_t<comm_type, allocator_type> cb_comm(comm);
 
     if (rank == 0) {
-        smsg_type smsg{SIZE};
+        smsg_type smsg{ SIZE };
 
         int* data = smsg.data<int>();
 
-        for (unsigned int i = 0; i < SIZE/sizeof(int); ++i) {
+        for (unsigned int i = 0; i < SIZE / sizeof(int); ++i) {
             data[i] = i;
         }
 
-        std::array<int, 3> dsts = {1,2,3};
+        std::array<int, 3> dsts = { 1, 2, 3 };
 
-        cb_comm.send_multi(smsg, dsts, 42+42); // ~wrong tag to then cancel the calls
+        cb_comm.send_multi(smsg, dsts, 42 + 42); // ~wrong tag to then cancel the calls
         bool ok = cb_comm.cancel();
         MPI_Barrier(comm);
         return ok;
-    } else {
-        gridtools::ghex::tl::message_buffer<> rmsg{SIZE};
+    }
+    else {
+        gridtools::ghex::tl::message_buffer<> rmsg{ SIZE };
         auto fut = comm.recv(rmsg, 0, 42); // ~wrong tag to then cancel the calls
 
         bool ok = fut.cancel();
 
         MPI_Barrier(comm);
         // cleanup msg
-        for (int i=0; i<100; ++i)
-            cb_comm.progress([](const smsg_type& m, int src,int tag){ 
-                std::cout << "received unexpected message from rank " << src << " and tag " << tag 
-                << " with size = " << m.size() << std::endl;});
+        for (int i = 0; i < 100; ++i)
+                cb_comm.progress([] (const smsg_type& m, int src, int tag) {
+                        std::cout << "received unexpected message from rank " << src << " and tag " << tag
+                                  << " with size = " << m.size() << std::endl;
+                    });
 
         return ok;
     }
@@ -65,26 +66,26 @@ template<typename Comm>
 bool test_single(Comm& comm, int rank) {
 
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(comm)>;
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(comm)>;
 
-    callback_comm_t<comm_type,allocator_type> cb_comm(comm);
+    callback_comm_t<comm_type, allocator_type> cb_comm(comm);
 
     if (rank == 0) {
-        smsg_type smsg{SIZE};
+        smsg_type smsg{ SIZE };
 
-        std::array<int, 3> dsts = {1,2,3};
+        std::array<int, 3> dsts = { 1, 2, 3 };
 
         for (int dst : dsts) {
-            cb_comm.send(smsg, dst, 45, [](const smsg_type&, int,int) {} );
+            cb_comm.send(smsg, dst, 45, [] (const smsg_type&, int, int) {});
         }
 
         bool ok = true;
 
         for (auto dst : dsts) {
             if (auto o = cb_comm.detach_send(dst, 45))
-                if (!o->first.ready())
-                    ok &= o->first.cancel();
+                    if (!o->first.ready())
+                            ok &= o->first.cancel();
         }
 
         while (cb_comm.progress()) {}
@@ -92,18 +93,18 @@ bool test_single(Comm& comm, int rank) {
         MPI_Barrier(comm);
         return ok;
 
-    } else {
+    }
+    else {
         bool ok = true;
-        smsg_type rmsg{SIZE};
+        smsg_type rmsg{ SIZE };
 
-        cb_comm.recv(rmsg, 0, 43, [](const smsg_type&, int, int) {  }); 
+        cb_comm.recv(rmsg, 0, 43, [] (const smsg_type&, int, int) {  });
 
         // progress should not be empty
         ok = ok && cb_comm.progress();
 
         // detach all registered recvs/callbacks and cancel recv operation
-        if (auto o = cb_comm.detach_recv(0,43))
-        {
+        if (auto o = cb_comm.detach_recv(0, 43)) {
             ok = ok && o->first.cancel();
             std::cout << "detached msg size = " << o->second.size() << std::endl;
         }
@@ -115,33 +116,32 @@ bool test_single(Comm& comm, int rank) {
         MPI_Barrier(comm);
 
         // try to cleanup lingering messages
-        for (int i=0; i<100; ++i)
-            cb_comm.progress([](const smsg_type& m,int src,int tag){ 
-                std::cout << "received unexpected message from rank " << src << " and tag " << tag 
-                << " with size = " << m.size() << std::endl;});
+        for (int i = 0; i < 100; ++i)
+                cb_comm.progress([] (const smsg_type& m, int src, int tag) {
+                        std::cout << "received unexpected message from rank " << src << " and tag " << tag
+                                  << " with size = " << m.size() << std::endl;
+                    });
 
         return ok;
     }
 
 }
 
-
 template<typename CBComm>
 class call_back {
     int & m_value;
     CBComm& m_cb_comm;
 
-public:
+  public:
     call_back(int& a, CBComm& p)
-    : m_value(a)
-    , m_cb_comm{p}
+        : m_value(a)
+        , m_cb_comm{p}
     { }
 
-    void operator()(gridtools::ghex::tl::shared_message_buffer<> m, int, int) 
-    {
+    void operator()(gridtools::ghex::tl::shared_message_buffer<> m, int, int){
         m_value = m.data<int>()[0];
         //gridtools::ghex::tl::shared_message_buffer<> m2{m};
-        m_cb_comm.recv(m, 0, 42+m_value+1, *this);
+        m_cb_comm.recv(m, 0, 42 + m_value + 1, *this);
     }
 };
 
@@ -149,32 +149,33 @@ template<typename Comm>
 bool test_send_10(Comm& comm, int rank) {
 
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(comm)>;
-    using cb_comm_type   = callback_comm_t<comm_type,allocator_type>;
-   
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(comm)>;
+    using cb_comm_type = callback_comm_t<comm_type, allocator_type>;
+
     cb_comm_type cb_comm(comm);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (rank == 0) {
-        smsg_type smsg{sizeof(int)};
+        smsg_type smsg{ sizeof(int) };
         for (int i = 0; i < 10; ++i) {
             int v = i;
             smsg.data<int>()[0] = v;
 
-            std::array<int, 3> dsts = {1,2,3};
+            std::array<int, 3> dsts = { 1, 2, 3 };
 
-            cb_comm.send_multi(smsg, dsts, 42+v);
+            cb_comm.send_multi(smsg, dsts, 42 + v);
         }
         while (cb_comm.progress()) {}
         return true;
-    } else {
+    }
+    else {
         int value = -11111111;
 
-        smsg_type rmsg{sizeof(int)};
+        smsg_type rmsg{ sizeof(int) };
 
-        cb_comm.recv(rmsg, 0, 42, call_back<cb_comm_type>{value, cb_comm});
+        cb_comm.recv(rmsg, 0, 42, call_back<cb_comm_type>{ value, cb_comm });
 
         while (value < 9) {
             cb_comm.progress();
@@ -195,14 +196,14 @@ TEST(transport, check_mpi_ranks_eq_4) {
 }
 
 TEST(transport, cancel_requests_reposting) {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_send_10(comm, context.world().rank()));
 }
 
 TEST(transport, cancel_requests_simple) {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_simple(comm, context.world().rank()));
@@ -210,7 +211,7 @@ TEST(transport, cancel_requests_simple) {
 }
 
 TEST(transport, cancel_single_request) {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto comm = context.get_communicator(context.get_token());
     EXPECT_TRUE(test_single(comm, context.world().rank()));

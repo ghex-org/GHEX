@@ -11,26 +11,26 @@ namespace ghex = gridtools::ghex;
 /* MPI backend */
 #ifdef USE_OPENMP
 #include <ghex/threads/atomic/primitives.hpp>
-using threading    = ghex::threads::atomic::primitives;
+using threading = ghex::threads::atomic::primitives;
 #else
 #include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
+using threading = ghex::threads::none::primitives;
 #endif
 #include <ghex/transport_layer/mpi/context.hpp>
-using transport    = ghex::tl::mpi_tag;
+using transport = ghex::tl::mpi_tag;
 #else
 /* UCX backend */
 #ifdef USE_OPENMP
 #include <ghex/threads/omp/primitives.hpp>
-using threading    = ghex::threads::omp::primitives;
+using threading = ghex::threads::omp::primitives;
 #else
 #include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
+using threading = ghex::threads::none::primitives;
 #endif
 #include <ghex/transport_layer/ucx/address_db_mpi.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
-using db_type      = ghex::tl::ucx::address_db_mpi;
-using transport    = ghex::tl::ucx_tag;
+using db_type = ghex::tl::ucx::address_db_mpi;
+using transport = ghex::tl::ucx_tag;
 #endif /* USE_MPI */
 
 #include <ghex/transport_layer/message_buffer.hpp>
@@ -42,7 +42,6 @@ using future_type = typename communicator_type::request_cb_type;
 //using MsgType = gridtools::ghex::tl::message_buffer<>;
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
-
 #ifdef USE_OPENMP
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
@@ -51,15 +50,13 @@ int sent;
 int received;
 #endif
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     int niter, buff_size;
     int inflight;
     int mode;
     gridtools::ghex::timer timer, ttimer;
 
-    if(argc != 4)
-    {
+    if (argc != 4) {
         std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
         std::terminate();
     }
@@ -70,7 +67,7 @@ int main(int argc, char *argv[])
     int num_threads = 1;
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
-    if(mode != MPI_THREAD_MULTIPLE){
+    if (mode != MPI_THREAD_MULTIPLE) {
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
         std::terminate();
     }
@@ -84,20 +81,20 @@ int main(int argc, char *argv[])
 #endif
 
     {
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+        auto context_ptr = ghex::tl::context_factory<transport, threading>::create(num_threads, MPI_COMM_WORLD);
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
 #pragma omp parallel
 #endif
         {
-            auto token             = context.get_token();
-            auto comm              = context.get_communicator(token);
-            const auto rank        = comm.rank();
-            const auto size        = comm.size();
-            const auto thread_id   = token.id();
+            auto token = context.get_token();
+            auto comm = context.get_communicator(token);
+            const auto rank = comm.rank();
+            const auto size = comm.size();
+            const auto thread_id = token.id();
             const auto num_threads = context.thread_primitives().size();
-            const auto peer_rank   = (rank+1)%2;
+            const auto peer_rank = (rank + 1) % 2;
 
             bool using_mt = false;
 #ifdef USE_OPENMP
@@ -106,27 +103,26 @@ int main(int argc, char *argv[])
 
             int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0;
 
-            auto send_callback = [&](communicator_type::message_type, int, int tag)
-            {
-                // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-                int pthr = tag/inflight;
-                if(pthr != thread_id) nlsend_cnt++;
-                comm_cnt++;
-                sent++;
-            };
+            auto send_callback = [&] (communicator_type::message_type, int, int tag) {
+                    // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+                    int pthr = tag / inflight;
+                    if (pthr != thread_id) nlsend_cnt++;
+                    comm_cnt++;
+                    sent++;
+                };
 
-            auto recv_callback = [&](communicator_type::message_type, int, int tag)
-            {
-                // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-                int pthr = tag/inflight;
-                if(pthr != thread_id) nlrecv_cnt++;
-                comm_cnt++;
-                received++;
-            };
+            auto recv_callback = [&] (communicator_type::message_type, int, int tag) {
+                    // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+                    int pthr = tag / inflight;
+                    if (pthr != thread_id) nlrecv_cnt++;
+                    comm_cnt++;
+                    received++;
+                };
 
-            if (thread_id==0 && rank==0)
-            {
-                if(rank==0)     std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+            if (thread_id == 0 && rank == 0) {
+                if (rank ==
+                    0) std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() <<
+                            "\n\n";
             }
 
             std::vector<MsgType> smsgs;
@@ -134,7 +130,7 @@ int main(int argc, char *argv[])
             std::vector<future_type> sreqs;
             std::vector<future_type> rreqs;
 
-            for(int j=0; j<inflight; j++){
+            for (int j = 0; j < inflight; j++) {
                 smsgs.emplace_back(buff_size);
                 rmsgs.emplace_back(buff_size);
                 make_zero(smsgs[j]);
@@ -145,41 +141,40 @@ int main(int argc, char *argv[])
 
             context.barrier(token);
 
-            if (thread_id == 0)
-            {
+            if (thread_id == 0) {
                 timer.tic();
                 ttimer.tic();
-                if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
+                if (rank == 1)
+                        std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
             }
 
             // send / recv niter messages, work in inflight requests at a time
             int i = 0, dbg = 0;
             int last_i = 0;
-            while(i<niter){
+            while (i < niter) {
 
 #ifdef USE_OPENMP
 #pragma omp barrier
 #endif
-                if(thread_id == 0 && dbg >= (niter/10)) {
+                if (thread_id == 0 && dbg >= (niter / 10)) {
                     dbg = 0;
                     std::cout << rank << " total bwdt MB/s:      "
-                              << ((double)(i-last_i)*size*buff_size)/timer.stoc()
+                              << ((double)(i - last_i) * size * buff_size) / timer.stoc()
                               << "\n";
                     timer.tic();
                     last_i = i;
                 }
 
                 // submit inflight requests
-                for(int j=0; j<inflight; j++){
-                    dbg+=num_threads;
-                    i+=num_threads;
-                    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight+j, recv_callback);
-                    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
+                for (int j = 0; j < inflight; j++) {
+                    dbg += num_threads;
+                    i += num_threads;
+                    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id * inflight + j, recv_callback);
+                    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id * inflight + j, send_callback);
                 }
 
                 // complete all inflight requests before moving on
-                while(sent < num_threads*inflight || received < num_threads*inflight){
+                while (sent < num_threads * inflight || received < num_threads * inflight) {
                     comm.progress();
                 }
 
@@ -191,21 +186,19 @@ int main(int argc, char *argv[])
             }
 
             context.barrier(token);
-            if(thread_id==0 && rank == 0)
-            {
+            if (thread_id == 0 && rank == 0) {
                 const auto t = ttimer.stoc();
-                std::cout << "time:       " << t/1000000 << "s\n";
-                std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
+                std::cout << "time:       " << t / 1000000 << "s\n";
+                std::cout << "final MB/s: " << ((double)niter * size * buff_size) / t << "\n";
             }
 
             // stop here to help produce a nice std output
             context.barrier(token);
             context.thread_primitives().critical(
-                [&]()
-                {
+                [&] () {
                     std::cout
-                    << "rank " << rank << " thread " << thread_id << " serviced " << comm_cnt
-                    << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
+                        << "rank " << rank << " thread " << thread_id << " serviced " << comm_cnt
+                        << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
                 });
 
             // tail loops - not needed in wait benchmarks
@@ -215,3 +208,4 @@ int main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 }
+

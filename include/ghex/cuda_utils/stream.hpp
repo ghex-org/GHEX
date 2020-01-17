@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_CUDA_STREAM_HPP
 #define INCLUDED_GHEX_CUDA_STREAM_HPP
@@ -17,59 +17,55 @@
 
 namespace gridtools {
 
-    namespace ghex {
+namespace ghex {
 
-        namespace cuda {
+namespace cuda {
 
 #ifdef __CUDACC__
+/** @brief thin wrapper around a cuda stream */
+struct stream {
 
-            /** @brief thin wrapper around a cuda stream */
-            struct stream
-            {
-                
-                GHEX_C_MANAGED_STRUCT(stream_type, cudaStream_t, cudaStreamCreateWithFlags, cudaStreamDestroy)
+    GHEX_C_MANAGED_STRUCT(stream_type, cudaStream_t, cudaStreamCreateWithFlags, cudaStreamDestroy)
 
-                stream_type m_stream;
+    stream_type m_stream;
 
-                stream()
-                : m_stream{cudaStreamNonBlocking}
-                {} 
-                stream(const stream&) = delete;
-                stream& operator=(const stream&) = delete;
-                stream(stream&& other) = default;
-                stream& operator=(stream&&) = default;
-        
-                operator bool() const noexcept {return (bool)m_stream;}
-                operator       cudaStream_t&()       noexcept {return m_stream;}
-                operator const cudaStream_t&() const noexcept {return m_stream;}
-                      cudaStream_t& get()       noexcept {return m_stream;}
-                const cudaStream_t& get() const noexcept {return m_stream;}
+    stream()
+        : m_stream{cudaStreamNonBlocking}
+    {}
+    stream(const stream&) = delete;
+    stream& operator=(const stream&) = delete;
+    stream(stream&& other) = default;
+    stream& operator=(stream&&) = default;
 
-                void sync()
-                {
-                    GHEX_CHECK_CUDA_RESULT( cudaStreamSynchronize(m_stream) );
-                }
-            };
+    operator bool() const noexcept { return (bool)m_stream; }
+    operator       cudaStream_t&() noexcept { return m_stream; }
+    operator const cudaStream_t&() const noexcept { return m_stream; }
+    cudaStream_t& get() noexcept { return m_stream; }
+    const cudaStream_t& get() const noexcept { return m_stream; }
+
+    void sync(){
+        GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(m_stream));
+    }
+};
 #else
-            struct stream
-            {
-                // default construct
-                stream() {}
-                stream(bool) {}
+struct stream {
+    // default construct
+    stream() {}
+    stream(bool) {}
 
-                // non-copyable
-                stream(const stream&) noexcept = delete;
-                stream& operator=(const stream&)= delete;
+    // non-copyable
+    stream(const stream&) noexcept = delete;
+    stream& operator=(const stream&) = delete;
 
-                // movable
-                stream(stream&& other) noexcept =  default;
-                stream& operator=(stream&&) noexcept = default;
-            };
+    // movable
+    stream(stream&& other) noexcept = default;
+    stream& operator=(stream&&) noexcept = default;
+};
 #endif
 
-        } // namespace cua
+} // namespace cua
 
-    } // namespace ghex
+} // namespace ghex
 
 } // namespace gridtools
 

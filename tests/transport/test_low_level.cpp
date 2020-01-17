@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 template<typename Comm, typename Alloc>
-using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
+using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm, Alloc>;
 //using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
 
 using transport = gridtools::ghex::tl::mpi_tag;
@@ -22,18 +22,20 @@ int rank;
  */
 
 void test1() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
 
-    std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
+    std::vector<unsigned char> smsg = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
     std::vector<unsigned char> rmsg(10);
 
-    if ( rank == 0 ) {
+    if (rank == 0) {
         sr.send(smsg, 1, 1).get();
-    } else if (rank == 1) {
+    }
+    else
+    if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -43,11 +45,11 @@ void test1() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-         } while (!fut.ready());
+        } while (!fut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
+        std::cout << "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
 
@@ -60,27 +62,29 @@ void test1() {
 }
 
 void test2() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
 
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(sr)>;
-    callback_comm_t<comm_type,allocator_type> cb_comm(sr);
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(sr)>;
+    callback_comm_t<comm_type, allocator_type> cb_comm(sr);
 
-    std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
+    std::vector<unsigned char> smsg = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
     smsg_type rmsg(10);
 
     bool arrived = false;
 
-    if ( rank == 0 ) {
+    if (rank == 0) {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
-    } else if (rank == 1) {
-        cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /*src*/, int /* tag */) { arrived = true; });
+    }
+    else
+    if (rank == 1) {
+        cb_comm.recv(rmsg, 0, 1, [ &arrived] (const smsg_type&, int /*src*/, int /* tag */) { arrived = true; });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -90,11 +94,11 @@ void test2() {
             c++;
 #endif
             cb_comm.progress();
-         } while (!arrived);
+        } while (!arrived);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
+        std::cout << "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
 
@@ -110,13 +114,13 @@ void test2() {
 }
 
 void test1_mesg() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
 
-    gridtools::ghex::tl::message_buffer<> smsg{40};
+    gridtools::ghex::tl::message_buffer<> smsg{ 40 };
 
     int * data = smsg.data<int>();
 
@@ -124,11 +128,13 @@ void test1_mesg() {
         data[i] = i;
     }
 
-    gridtools::ghex::tl::message_buffer<> rmsg{40};
+    gridtools::ghex::tl::message_buffer<> rmsg{ 40 };
 
-    if ( rank == 0 ) {
+    if (rank == 0) {
         sr.send(smsg, 1, 1).get();
-    } else if (rank == 1) {
+    }
+    else
+    if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -138,11 +144,11 @@ void test1_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-         } while (!fut.ready());
+        } while (!fut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
+        std::cout << "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
 
@@ -154,19 +160,19 @@ void test1_mesg() {
 }
 
 void test2_mesg() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
     using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(sr)>;
+    using smsg_type = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type = std::remove_reference_t<decltype(sr)>;
 
-    callback_comm_t<comm_type,allocator_type> cb_comm(sr);
+    callback_comm_t<comm_type, allocator_type> cb_comm(sr);
 
-    gridtools::ghex::tl::message_buffer<> smsg{40};
-    smsg_type rmsg{40};
+    gridtools::ghex::tl::message_buffer<> smsg{ 40 };
+    smsg_type rmsg{ 40 };
 
     int * data = smsg.data<int>();
 
@@ -176,11 +182,13 @@ void test2_mesg() {
 
     bool arrived = false;
 
-    if ( rank == 0 ) {
+    if (rank == 0) {
         auto fut = sr.send(smsg, 1, 1);
         fut.wait();
-    } else if (rank == 1) {
-        cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /* src */, int /* tag */) { arrived = true; });
+    }
+    else
+    if (rank == 1) {
+        cb_comm.recv(rmsg, 0, 1, [ &arrived] (const smsg_type&, int /* src */, int /* tag */) { arrived = true; });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -190,11 +198,11 @@ void test2_mesg() {
             c++;
 #endif
             cb_comm.progress();
-         } while (!arrived);
+        } while (!arrived);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
+        std::cout << "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
 
@@ -211,13 +219,13 @@ void test2_mesg() {
 }
 
 void test1_shared_mesg() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport, threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
 
-    gridtools::ghex::tl::message_buffer<> smsg{40};
+    gridtools::ghex::tl::message_buffer<> smsg{ 40 };
 
     int * data = smsg.data<int>();
 
@@ -225,11 +233,13 @@ void test1_shared_mesg() {
         data[i] = i;
     }
 
-    gridtools::ghex::tl::shared_message_buffer<> rmsg{40};
+    gridtools::ghex::tl::shared_message_buffer<> rmsg{ 40 };
 
-    if ( rank == 0 ) {
+    if (rank == 0) {
         sr.send(smsg, 1, 1).get();
-    } else if (rank == 1) {
+    }
+    else
+    if (rank == 1) {
         auto fut = sr.recv(rmsg, 0, 1);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
@@ -239,11 +249,11 @@ void test1_shared_mesg() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-         } while (!fut.ready());
+        } while (!fut.ready());
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
+        std::cout << "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
 
@@ -254,12 +264,11 @@ void test1_shared_mesg() {
     }
 }
 
-
-template <typename Msg>
+template<typename Msg>
 void print_msg(Msg const msg) {
     std::cout << "Reference count " << msg.use_count() << " (size: " << msg.size() << ")\n";
     int * data = msg.template data<int>();
-    for (int i = 0; i < (int)(msg.size()/sizeof(int)); ++i) {
+    for (int i = 0; i < (int)(msg.size() / sizeof(int)); ++i) {
         std::cout << data[i] << ", ";
     }
     std::cout << "\n";

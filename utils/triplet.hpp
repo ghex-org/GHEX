@@ -12,15 +12,15 @@
 
 #define USE_DOUBLE false
 
-template <typename T, typename lmap>
+template<typename T, typename lmap>
 struct array {
     T *ptr;
     int n, m, l;
 
     array(T *_p, int _n, int _m, int _l)
         : ptr(_p), n(gridtools::make_array(_n, _m, _l)[lmap::template find<0>()]),
-          m(gridtools::make_array(_n, _m, _l)[lmap::template find<1>()]),
-          l(gridtools::make_array(_n, _m, _l)[lmap::template find<2>()]) {}
+        m(gridtools::make_array(_n, _m, _l)[lmap::template find<1>()]),
+        l(gridtools::make_array(_n, _m, _l)[lmap::template find<2>()]) {}
 
     T &operator()(int i, int j, int k) {
         // a[(DIM1+2*H)*(DIM2+2*H)*kk+ii*(DIM2+2*H)+jj]
@@ -42,13 +42,13 @@ struct array {
 /** \file Example of use of halo_exchange pattern for regular
     grids. The comments in the code aim at highlight the process of
     instantiating and running a halo exchange pattern.
-*/
+ */
 
-inline int modulus(int __i, int __j) { return (((((__i % __j) < 0) ? (__j + __i % __j) : (__i % __j)))); }
+inline int modulus(int __i, int __j) { return(((((__i % __j) < 0) ? (__j + __i % __j) : (__i % __j)))); }
 
 /* Just and utility to print values
  */
-template <typename array_t>
+template<typename array_t>
 void printbuff(std::ostream &file, array_t const &a, int d1, int d2, int d3) {
     if (d1 <= 10 && d2 <= 10 && d3 <= 6) {
         file << "------------\n";
@@ -66,11 +66,11 @@ void printbuff(std::ostream &file, array_t const &a, int d1, int d2, int d3) {
     }
 }
 
-template <bool use_double, typename VT = double>
+template<bool use_double, typename VT = double>
 struct triple_t;
 
-template <typename VT>
-struct triple_t</*use_double=*/false, VT> {
+template<typename VT>
+struct triple_t</*use_double=*/ false, VT> {
 
     typedef triple_t<false, VT> data_type;
 
@@ -89,8 +89,8 @@ struct triple_t</*use_double=*/false, VT> {
     VT z() const { return _z; }
 };
 
-template <typename VT>
-struct triple_t</*use_double=*/true, VT> {
+template<typename VT>
+struct triple_t</*use_double=*/ true, VT> {
 
     typedef double data_type;
     using this_type = triple_t<true, VT>;
@@ -98,10 +98,9 @@ struct triple_t</*use_double=*/true, VT> {
 
     GT_FUNCTION triple_t(int a, int b, int c)
         : value(static_cast<long long int>(a) * 100000000 + static_cast<long long int>(b) * 10000 +
-                static_cast<long long int>(c)) {}
+            static_cast<long long int>(c)) {}
 
     GT_FUNCTION triple_t() : value(999999999999) {}
-
 
     GT_FUNCTION this_type& operator=(const this_type& other) {
         value = other.value;
@@ -113,7 +112,8 @@ struct triple_t</*use_double=*/true, VT> {
     this_type floor() {
         if (x() == 9999 || y() == 9999 || z() == 9999) {
             return this_type();
-        } else {
+        }
+        else {
             return *this;
         }
     }
@@ -134,32 +134,33 @@ struct triple_t</*use_double=*/true, VT> {
     }
 };
 
-template <bool V, typename T>
+template<bool V, typename T>
 triple_t<V, T> operator*(int a, triple_t<V, T> const &b) {
     return triple_t<V, T>(a * b.x(), a * b.y(), a * b.z());
 }
 
-template <bool V, typename T>
+template<bool V, typename T>
 triple_t<V, T> operator+(int a, triple_t<V, T> const &b) {
     return triple_t<V, T>(a + b.x(), a + b.y(), a + b.z());
 }
 
-template <bool V, typename T>
+template<bool V, typename T>
 triple_t<V, T> operator+(triple_t<V, T> const &a, triple_t<V, T> const &b) {
     return triple_t<V, T>(a.x() + b.x(), a.y() + b.y(), a.z() + b.z());
 }
 
-template <bool V, typename T>
+template<bool V, typename T>
 std::ostream &operator<<(std::ostream &s, triple_t<V, T> const &t) {
     return s << " (" << t.x() << ", " << t.y() << ", " << t.z() << ") ";
 }
 
-template <bool V, typename T>
+template<bool V, typename T>
 bool operator==(triple_t<V, T> const &a, triple_t<V, T> const &b) {
-    return (a.x() == b.x() && a.y() == b.y() && a.z() == b.z());
+    return(a.x() == b.x() && a.y() == b.y() && a.z() == b.z());
 }
 
-template <bool V, typename T>
+template<bool V, typename T>
 bool operator!=(triple_t<V, T> const &a, triple_t<V, T> const &b) {
     return !(a == b);
 }
+

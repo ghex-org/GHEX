@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_CUDA_FUTURE_HPP
 #define INCLUDED_GHEX_CUDA_FUTURE_HPP
@@ -19,90 +19,81 @@
 
 namespace gridtools {
 
-    namespace ghex {
+namespace ghex {
 
-        namespace cuda {
+namespace cuda {
 
-            /** @brief A future-like type that becomes ready once a cuda event is ready. The corresponding cuda stream
-              * will be syncronized when waiting on this object. */
-            template<typename T>
-            struct future
-            {
-                GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t, cudaEventCreateWithFlags, cudaEventDestroy)
+/** @brief A future-like type that becomes ready once a cuda event is ready. The corresponding cuda stream
+ * will be syncronized when waiting on this object. */
+template<typename T>
+struct future {
+    GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t, cudaEventCreateWithFlags, cudaEventDestroy)
 
-                event_type m_event;
-                T m_data;
+    event_type m_event;
+    T m_data;
 
-                future(T&& data, stream& stream)
-                : m_event{cudaEventDisableTiming}
-                //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
-                , m_data{std::move(data)}
-                {
-                    GHEX_CHECK_CUDA_RESULT( cudaEventRecord(m_event, stream) );
-                }
+    future(T&& data, stream& stream)
+        : m_event{cudaEventDisableTiming}
+        //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
+        , m_data{std::move(data)}{
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
+    }
 
-                future(const future&) = delete;
-                future& operator=(const future&) = delete;
-                future(future&& other) = default;
-                future& operator=(future&&) = default;
+    future(const future&) = delete;
+    future& operator=(const future&) = delete;
+    future(future&& other) = default;
+    future& operator=(future&&) = default;
 
-                bool test() noexcept
-                {
-                    return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); 
-                }
+    bool test() noexcept{
+        return(m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true);
+    }
 
-                void wait()
-                {
-                    if (m_event)
-                        GHEX_CHECK_CUDA_RESULT( cudaEventSynchronize(m_event) );
-                }
+    void wait(){
+        if (m_event)
+                GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
+    }
 
-                [[nodiscard]] T get()
-                {
-                    wait();
-                    return std::move(m_data);
-                }
-            };
+    [[nodiscard]] T get(){
+        wait();
+        return std::move(m_data);
+    }
+};
 
-            template<>
-            struct future<void>
-            {
-                GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t, cudaEventCreateWithFlags, cudaEventDestroy)
+template<>
+struct future<void> {
+    GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t, cudaEventCreateWithFlags, cudaEventDestroy)
 
-                event_type m_event;
+    event_type m_event;
 
-                future(stream& stream)
-                : m_event{cudaEventDisableTiming}
-                //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
-                {
-                    GHEX_CHECK_CUDA_RESULT( cudaEventRecord(m_event, stream) );
-                }
+    future(stream& stream)
+        : m_event{cudaEventDisableTiming}
+        //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
+    {
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
+    }
 
-                future(const future&) = delete;
-                future& operator=(const future&) = delete;
-                future(future&& other) = default;
-                future& operator=(future&&) = default;
+    future(const future&) = delete;
+    future& operator=(const future&) = delete;
+    future(future&& other) = default;
+    future& operator=(future&&) = default;
 
-                bool test() noexcept
-                {
-                    return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); 
-                }
+    bool test() noexcept{
+        return(m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true);
+    }
 
-                void wait()
-                {
-                    if (m_event)
-                        GHEX_CHECK_CUDA_RESULT( cudaEventSynchronize(m_event) );
-                }
+    void wait(){
+        if (m_event)
+                GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
+    }
 
-                void get()
-                {
-                    wait();
-                }
-            };
+    void get(){
+        wait();
+    }
+};
 
-        } // namespace cuda
+} // namespace cuda
 
-    } // namespace ghex
+} // namespace ghex
 
 } // namespace gridtools
 

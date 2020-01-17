@@ -26,9 +26,9 @@ GTEST_API_ int main(int argc, char **argv) {
     int provided;
     int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
     if (init_result == MPI_ERR_OTHER)
-        throw std::runtime_error("MPI init failed");
+            throw std::runtime_error("MPI init failed");
     if (provided < required)
-        throw std::runtime_error("MPI does not support required threading level");
+            throw std::runtime_error("MPI does not support required threading level");
 
     // printf("Running main() from %s\n", __FILE__);
     testing::InitGoogleTest(&argc, argv);
@@ -39,7 +39,7 @@ GTEST_API_ int main(int argc, char **argv) {
     delete listeners.Release(listeners.default_result_printer());
     // now add our custom printer
     listeners.Append(new mpi_listener("results_tests"));
-    
+
     //auto tmp = new mpi_listener("results_tests");
     //std::cout << tmp << std::endl;
 

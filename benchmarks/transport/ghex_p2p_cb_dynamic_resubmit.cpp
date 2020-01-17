@@ -34,23 +34,20 @@ using MsgType = gridtools::ghex::tl::shared_message_buffer<AllocType>;
 int *available = NULL;
 int ongoing_comm = 0;
 
-void send_callback(MsgType mesg, int rank, int tag)
-{
+void send_callback(MsgType mesg, int rank, int tag){
     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     available[tag] = 1;
     ongoing_comm--;
 }
 
 gridtools::ghex::tl::callback_communicator<CommType, AllocType> *pcomm = NULL;
-void recv_callback(MsgType mesg, int rank, int tag)
-{
+void recv_callback(MsgType mesg, int rank, int tag){
     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
     pcomm->recv(mesg, rank, tag, recv_callback);
     ongoing_comm--;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     int rank, size, threads, peer_rank;
     int niter, buff_size;
     int inflight;
@@ -59,9 +56,9 @@ int main(int argc, char *argv[])
     int mode;
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
-    if(mode != MPI_THREAD_MULTIPLE){
-	std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
-	std::terminate();
+    if (mode != MPI_THREAD_MULTIPLE) {
+        std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
+        std::terminate();
     }
 #else
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
@@ -76,81 +73,83 @@ int main(int argc, char *argv[])
 
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
-    inflight = atoi(argv[3]);   
-    
+    inflight = atoi(argv[3]);
+
     rank = comm.rank();
     size = comm.size();
-    peer_rank = (rank+1)%2;
+    peer_rank = (rank + 1) % 2;
 
-    if(rank==0)	std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+    if (rank ==
+        0) std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
 
     {
-	gridtools::ghex::timer timer;
-	long bytes = 0;
- 
-	available = new int[inflight];
-	for(int j=0; j<inflight; j++){
-	    available[j] = 1;
-	}
+        gridtools::ghex::timer timer;
+        long bytes = 0;
 
-	if(rank == 1) {
-	    timer.tic();
-	    bytes = (double)niter*size*buff_size/2;
-	}
+        available = new int[inflight];
+        for (int j = 0; j < inflight; j++) {
+            available[j] = 1;
+        }
 
-	if(rank == 0){
+        if (rank == 1) {
+            timer.tic();
+            bytes = (double)niter * size * buff_size / 2;
+        }
 
-	    int i = 0, dbg = 0, blk;
-	    blk = niter / 10;
-	    dbg = dbg + blk;
-	    
-	    /* send niter messages - as soon as a slot becomes free */
-	    int sent = 0;
-	    while(sent < niter){
-		
-		for(int j=0; j<inflight; j++){
-		    if(available[j]){
-			if(rank==0 && sent >= dbg) {
-			    std::cout << sent << " iters\n";
-			    dbg = dbg + blk;
-			}
+        if (rank == 0) {
 
-			available[j] = 0;
-			sent++;
-			ongoing_comm++;
-			MsgType msg = MsgType(buff_size, alloc);
-			comm.send(msg, peer_rank, j, send_callback);
-		    } 
-		    else comm.progress();
-		}
-	    }
+            int i = 0, dbg = 0, blk;
+            blk = niter / 10;
+            dbg = dbg + blk;
 
-	} else {
+            /* send niter messages - as soon as a slot becomes free */
+            int sent = 0;
+            while (sent < niter) {
 
-	    /* recv requests are resubmitted as soon as a request is completed */
-	    /* so the number of submitted recv requests is always constant (inflight) */
-	    /* expect niter messages (i.e., niter recv callbacks) on receiver  */
-	    ongoing_comm = niter;
+                for (int j = 0; j < inflight; j++) {
+                    if (available[j]) {
+                        if (rank == 0 && sent >= dbg) {
+                            std::cout << sent << " iters\n";
+                            dbg = dbg + blk;
+                        }
 
-	    /* submit all recv requests */
-	    for(int j=0; j<inflight; j++){
-		MsgType msg = MsgType(buff_size, alloc);
-		comm.recv(msg, peer_rank, j, recv_callback);
-	    }
-	    
-	    /* requests are re-submitted inside the calback. */
-	    /* progress (below) until niter messages have been received. */
-	}
+                        available[j] = 0;
+                        sent++;
+                        ongoing_comm++;
+                        MsgType msg = MsgType(buff_size, alloc);
+                        comm.send(msg, peer_rank, j, send_callback);
+                    }
+                    else comm.progress();
+                }
+            }
 
-	/* complete all comm */
-	while(ongoing_comm > 0){
-	    comm.progress();
-	}
+        }
+        else {
 
-	comm.flush();
-	comm.barrier();
+            /* recv requests are resubmitted as soon as a request is completed */
+            /* so the number of submitted recv requests is always constant (inflight) */
+            /* expect niter messages (i.e., niter recv callbacks) on receiver  */
+            ongoing_comm = niter;
 
-	if(rank == 1) timer.vtoc(bytes);
+            /* submit all recv requests */
+            for (int j = 0; j < inflight; j++) {
+                MsgType msg = MsgType(buff_size, alloc);
+                comm.recv(msg, peer_rank, j, recv_callback);
+            }
+
+            /* requests are re-submitted inside the calback. */
+            /* progress (below) until niter messages have been received. */
+        }
+
+        /* complete all comm */
+        while (ongoing_comm > 0) {
+            comm.progress();
+        }
+
+        comm.flush();
+        comm.barrier();
+
+        if (rank == 1) timer.vtoc(bytes);
     }
 
 #ifdef USE_MPI
@@ -158,3 +157,4 @@ int main(int argc, char *argv[])
     MPI_Finalize();
 #endif
 }
+

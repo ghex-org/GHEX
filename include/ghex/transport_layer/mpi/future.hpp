@@ -1,126 +1,120 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_TL_MPI_FUTURE_HPP
 #define INCLUDED_GHEX_TL_MPI_FUTURE_HPP
 
 #include "./request.hpp"
 
-namespace gridtools{
-    namespace ghex {
-        namespace tl {
-            namespace mpi {
+namespace gridtools {
 
-                /** @brief future template for non-blocking communication */
-                template<typename T>
-                struct future_t
-                {
-                    using value_type  = T;
-                    using handle_type = request_t;
+namespace ghex {
 
-                    value_type m_data;
-                    handle_type m_handle;
+namespace tl {
 
-                    future_t(value_type&& data, handle_type&& h) 
-                    :   m_data(std::move(data))
-                    ,   m_handle(std::move(h))
-                    {}
-                    future_t(const future_t&) = delete;
-                    future_t(future_t&&) = default;
-                    future_t& operator=(const future_t&) = delete;
-                    future_t& operator=(future_t&&) = default;
+namespace mpi {
 
-                    void wait() noexcept
-                    {
-                        m_handle.wait();
-                    }
+/** @brief future template for non-blocking communication */
+template<typename T>
+struct future_t {
+    using value_type = T;
+    using handle_type = request_t;
 
-                    bool test() noexcept
-                    {
-                        return m_handle.test();
-                    }
+    value_type m_data;
+    handle_type m_handle;
 
-                    bool ready() noexcept
-                    {
-                        return m_handle.test();
-                    }
+    future_t(value_type&& data, handle_type&& h)
+        : m_data(std::move(data))
+        , m_handle(std::move(h))
+    {}
+    future_t(const future_t&) = delete;
+    future_t(future_t&&) = default;
+    future_t& operator=(const future_t&) = delete;
+    future_t& operator=(future_t&&) = default;
 
-                    [[nodiscard]] value_type get()
-                    {
-                        wait(); 
-                        return std::move(m_data); 
-                    }
+    void wait() noexcept{
+        m_handle.wait();
+    }
 
-                    /** Cancel the future.
-                      * @return True if the request was successfully canceled */
-                    bool cancel()
-                    {
-                        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
-                        MPI_Status st;
-                        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
-                        int flag = false;
-                        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
-                        return flag;
-                    }
-                };
+    bool test() noexcept{
+        return m_handle.test();
+    }
 
-                template<>
-                struct future_t<void>
-                {
-                    using handle_type = request_t;
+    bool ready() noexcept{
+        return m_handle.test();
+    }
 
-                    handle_type m_handle;
+    [[nodiscard]] value_type get(){
+        wait();
+        return std::move(m_data);
+    }
 
-                    future_t() noexcept = default; 
-                    future_t(handle_type&& h) 
-                    :   m_handle(std::move(h))
-                    {}
-                    future_t(const future_t&) = delete;
-                    future_t(future_t&&) = default;
-                    future_t& operator=(const future_t&) = delete;
-                    future_t& operator=(future_t&&) = default;
+    /** Cancel the future.
+     * @return True if the request was successfully canceled */
+    bool cancel(){
+        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
+        MPI_Status st;
+        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
+        int flag = false;
+        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
+        return flag;
+    }
+};
 
-                    void wait() noexcept
-                    {
-                        m_handle.wait();
-                    }
+template<>
+struct future_t<void> {
+    using handle_type = request_t;
 
-                    bool test() noexcept
-                    {
-                        return m_handle.test();
-                    }
+    handle_type m_handle;
 
-                    bool ready() noexcept
-                    {
-                        return m_handle.test();
-                    }
+    future_t() noexcept = default;
+    future_t(handle_type&& h)
+        : m_handle(std::move(h))
+    {}
+    future_t(const future_t&) = delete;
+    future_t(future_t&&) = default;
+    future_t& operator=(const future_t&) = delete;
+    future_t& operator=(future_t&&) = default;
 
-                    void get()
-                    {
-                        wait(); 
-                    }
+    void wait() noexcept{
+        m_handle.wait();
+    }
 
-                    bool cancel()
-                    {
-                        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
-                        MPI_Status st;
-                        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
-                        int flag = false;
-                        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
-                        return flag;
-                    }
-                };
+    bool test() noexcept{
+        return m_handle.test();
+    }
 
-            } // namespace mpi
-        } // namespace tl
-    } // namespace ghex
+    bool ready() noexcept{
+        return m_handle.test();
+    }
+
+    void get(){
+        wait();
+    }
+
+    bool cancel(){
+        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
+        MPI_Status st;
+        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
+        int flag = false;
+        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
+        return flag;
+    }
+};
+
+} // namespace mpi
+
+} // namespace tl
+
+} // namespace ghex
+
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_MPI_FUTURE_HPP */
