@@ -4,7 +4,7 @@ PROGRAM test_send_recv_ft
   use ghex_context_mod
   use ghex_comm_mod
   use ghex_message_mod
-  use ghex_future_mod
+  use ghex_request_mod
 
   implicit none  
 
@@ -18,11 +18,12 @@ PROGRAM test_send_recv_ft
   type(ghex_context) :: context
   type(ghex_communicator), dimension(:), pointer :: communicators
   type(ghex_communicator) :: comm
-  type(ghex_future) :: sreq, rreq
 
   ! message
-  integer(8) :: msg_size = 16, np
+  integer(8) :: msg_size = 16000000, np
+  integer :: recv_completed = 0
   type(ghex_message) :: smsg, rmsg
+  type(ghex_request) :: sreq, rreq
   integer(1), dimension(:), pointer :: msg_data
   
   procedure(f_callback), pointer :: pcb
@@ -63,7 +64,7 @@ PROGRAM test_send_recv_ft
   communicators(thrid) = context_get_communicator(context)
   comm = communicators(thrid)
 
-  ! create a message per thread
+  ! create messages
   rmsg = message_new(msg_size, ALLOCATOR_STD)
   smsg = message_new(msg_size, ALLOCATOR_STD)
 
@@ -72,22 +73,26 @@ PROGRAM test_send_recv_ft
   msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
   
   ! send / recv with a callback
-  call comm_send_cb(comm, smsg, mpi_peer, 1)
-  call comm_recv_cb(comm, rmsg, mpi_peer, 1, pcb)
+  sreq = comm_send_cb(comm, smsg, mpi_peer, 1)
+  rreq = comm_recv_cb(comm, rmsg, mpi_peer, 1, pcb)
+  
+  ! use count is always 2 for recv, can be 1 or 2 for send: send can complete in-place here
+  print *, "msg use count", message_use_count(smsg), message_use_count(rmsg)
+  print *, "request state before", request_test(sreq), request_test(rreq)
 
-  ! print *, "msg use count", message_use_count(smsg), message_use_count(rmsg)
+  ! can safely delete the local instance of the shared message:
+  ! ownership is passed to ghex, and the message will be returned to us
+  ! in the recv callback
+  call message_delete(rmsg)
 
-  do while(message_use_count(smsg)>1 .or. message_use_count(rmsg)>1)
+  ! progress the communication
+  do while(message_use_count(smsg)>1 .or. recv_completed /= nthreads)
      np = comm_progress(comm)
   end do
-
-  ! what have we received?
-  msg_data => message_data(rmsg)
-  print *, mpi_rank, ": ", thrid, ": ", msg_data
+  print *, "request state after", request_test(sreq), request_test(rreq)
 
   ! cleanup per-thread
   call message_delete(smsg)
-  call message_delete(rmsg)
   call comm_delete(communicators(thrid))
 
   ! cleanup shared
@@ -107,11 +112,24 @@ contains
     use iso_c_binding
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
-    integer :: use_count = -1
+    integer :: use_count = -1, thrid
+    integer(1), dimension(:), pointer :: msg_data
 
-    ! check the use count (should be 3 at this point)
+    thrid = omp_get_thread_num()+1
+
+    ! check the use count (should be 1 or 2 at this point)
     use_count = message_use_count(mesg)
-    ! print *, "callback use count ", use_count
+    print *, "callback use count ", use_count
+
+    ! what have we received?
+    msg_data => message_data(mesg)
+    ! print *, mpi_rank, ": ", thrid, ": ", msg_data
+
+    ! TODO: this should be atomic
+    recv_completed = recv_completed + 1
+
+    ! TODO: recv data from GHEX
+    ! TODO: resubmit: need recursive locks
   end subroutine recv_callback
 
 END PROGRAM test_send_recv_ft
