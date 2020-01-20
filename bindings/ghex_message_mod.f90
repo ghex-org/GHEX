@@ -18,32 +18,7 @@ MODULE ghex_message_mod
   end type ghex_shared_message
   
   interface
-
-     ! --------------------------------
-     ! shared message interface
-     type(ghex_shared_message) function shared_message_new(size, allocator) bind(c)
-       use iso_c_binding
-       import ghex_shared_message
-       integer(c_size_t), value :: size
-       integer(c_int), value :: allocator
-     end function shared_message_new
-
-     subroutine shared_message_delete(message) bind(c, name='message_delete')
-       use iso_c_binding
-       import ghex_shared_message
-       ! reference, not a value - fortran variable is reset to null 
-       type(ghex_shared_message) :: message
-     end subroutine shared_message_delete
-
-     type(ghex_message) function shared_message_ref(message) bind(c)
-       use iso_c_binding
-       import ghex_message, ghex_shared_message
-       type(ghex_shared_message), value :: message
-     end function shared_message_ref
-
      
-     ! --------------------------------
-     ! message interface
      type(ghex_message) function message_new(size, allocator) bind(c)
        use iso_c_binding
        import ghex_message
@@ -57,18 +32,6 @@ MODULE ghex_message_mod
        ! reference, not a value - fortran variable is reset to null 
        type(ghex_message) :: message
      end subroutine message_delete
-
-     integer(c_int) function message_use_count(message) bind(c)
-       use iso_c_binding
-       import ghex_message
-       type(ghex_message), value :: message
-     end function message_use_count
-
-     logical function message_is_host(message) bind(c)
-       use iso_c_binding
-       import ghex_message
-       type(ghex_message), value :: message
-     end function message_is_host
 
      type(c_ptr) function message_data_wrapped(message, capacity) bind(c, name='message_data')
        use iso_c_binding

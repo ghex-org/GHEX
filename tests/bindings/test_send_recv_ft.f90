@@ -66,10 +66,19 @@ PROGRAM test_send_recv_ft
   msg_data => message_data(smsg)
   msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
 
-  ! send / recv with a request
-  sreq = comm_send(comm, smsg, mpi_peer, 1)
-  rreq = comm_recv(comm, rmsg, mpi_peer, 1)
+  ! send / recv with a request, tag 1
+  sreq = comm_post_send(comm, smsg, mpi_peer, 1)
+  rreq = comm_post_recv(comm, rmsg, mpi_peer, 1)
 
+  ! wait for comm
+  do while( .not.future_ready(sreq) .or. .not.future_ready(rreq) )
+  end do
+
+  ! send / recv with a request, tag 2
+  sreq = comm_post_send(comm, smsg, mpi_peer, 2)
+  rreq = comm_post_recv(comm, rmsg, mpi_peer, 2)
+
+  ! wait for comm
   do while( .not.future_ready(sreq) .or. .not.future_ready(rreq) )
   end do
 
@@ -78,6 +87,8 @@ PROGRAM test_send_recv_ft
   print *, mpi_rank, ": ", thrid, ": ", msg_data
 
   ! cleanup per-thread
+  call message_delete(rmsg)
+  call message_delete(smsg)
   call comm_delete(communicators(thrid))
 
   ! cleanup shared

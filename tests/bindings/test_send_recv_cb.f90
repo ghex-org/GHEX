@@ -39,7 +39,6 @@ PROGRAM test_send_recv_cb
   integer(8) :: msg_size = 16, np
   integer :: recv_completed = 0
   type(ghex_message) :: smsg, rmsg
-  type(ghex_shared_message) :: ssmsg, srmsg
   type(ghex_request) :: sreq, rreq
   integer(1), dimension(:), pointer :: msg_data
   
@@ -66,7 +65,7 @@ PROGRAM test_send_recv_cb
   context = context_new(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, ssmsg, srmsg, msg_data, np)
+  !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, msg_data, np)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
@@ -82,11 +81,10 @@ PROGRAM test_send_recv_cb
   comm = communicators(thrid)
 
   ! create messages, or get a reference to a shared message
-  srmsg = shared_message_new(msg_size, ALLOCATOR_STD)
-  ssmsg = shared_message_new(msg_size, ALLOCATOR_STD)
+  rmsg = message_new(msg_size, ALLOCATOR_STD)
+  smsg = message_new(msg_size, ALLOCATOR_STD)
 
-  rmsg = shared_message_ref(srmsg);
-  smsg = shared_message_ref(ssmsg);
+  print *, "messages before send ", smsg%ptr, rmsg%ptr
 
   ! initialize send data
   msg_data => message_data(smsg)
@@ -97,8 +95,9 @@ PROGRAM test_send_recv_cb
   sreq = comm_send_cb(comm, smsg, mpi_peer, 1)
   rreq = comm_recv_cb(comm, rmsg, mpi_peer, 1, pcb)
 
+  print *, "messages after send ", smsg%ptr, rmsg%ptr
+
   ! use count is always 2 for recv, can be 1 or 2 for send: send can complete in-place here
-  print *, "msg use count", message_use_count(smsg), message_use_count(rmsg)
   print *, "request state before", request_test(sreq), request_test(rreq)
 
   ! can safely delete the local instance of the shared message:
@@ -134,14 +133,13 @@ contains
     use iso_c_binding
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
-    integer :: use_count = -1, thrid
+    integer :: thrid
     integer(1), dimension(:), pointer :: msg_data
+    procedure(f_callback), pointer :: pcb
+    type(ghex_request) :: req
+    pcb => recv_callback
 
     thrid = omp_get_thread_num()+1
-
-    ! check the use count (should be 1 or 2 at this point)
-    use_count = message_use_count(mesg)
-    print *, "callback use count ", use_count
 
     ! what have we received?
     msg_data => message_data(mesg)
@@ -150,13 +148,13 @@ contains
     ! TODO: this should be atomic
     recv_completed = recv_completed + 1
 
-    ! TODO: cannot delete (free) a message here. This is any_message
-    ! created using the reference constructor, it doesn't know how to delete itself
-    ! So different semantics from C++, where the user gets ownership of the message in the callback.
-    ! call message_delete(mesg)
+    ! resubmit if needed
+    ! if (recv_completed < 2) then
+    !    comm = communicators(thrid)
+    !    req = comm_resubmit_recv(comm, mesg, rank, tag, pcb)
+    !    print *, "after resubmit"
+    ! end if
 
-    ! TODO: recv data from GHEX
-    ! TODO: resubmit: need recursive locks
   end subroutine recv_callback
 
 END PROGRAM test_send_recv_cb

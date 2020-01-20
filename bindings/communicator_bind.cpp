@@ -41,12 +41,9 @@ typedef void (*f_callback)(void *mesg, int rank, int tag);
 struct callback {
     f_callback cb;
     callback(f_callback pcb) : cb{pcb} {}
-    void operator()(communicator_type::message_type &&message, int rank, int tag) {
-        if(cb){
-            ghex::bindings::obj_wrapper *wmessage = new ghex::bindings::obj_wrapper(std::move(message));
-            cb(wmessage, rank, tag);
-            delete wmessage;
-        }
+    void operator()(communicator_type::message_type message, int rank, int tag) {
+        printf("callback called\n");
+        if(cb) cb(&message, rank, tag);
     }
 };
 
@@ -67,37 +64,62 @@ int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 }
 
 extern "C"
-void* comm_send(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
+void* comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag)
 {
-    using message_type = ghex::tl::cb::any_message;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    message_type &msg = *ghex::bindings::get_object_ptr_safe<message_type>(wmessage);
-    return new ghex::bindings::obj_wrapper(comm->send(msg, rank, tag));
+    return new ghex::bindings::obj_wrapper(comm->send(*wmessage, rank, tag));
 }
 
 extern "C"
-void* comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
+void* comm_post_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb)
 {
-    using message_type = ghex::tl::cb::any_message;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    message_type &msg = *ghex::bindings::get_object_ptr_safe<message_type>(wmessage);
-    return new ghex::bindings::obj_wrapper(comm->send(msg, rank, tag, callback{cb}));
+    return new ghex::bindings::obj_wrapper(comm->send(*wmessage, rank, tag, callback{cb}));
 }
 
 extern "C"
-void* comm_recv(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag)
+void* comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb)
 {
-    using message_type = ghex::tl::cb::any_message;
+    ghex::bindings::obj_wrapper *req;
+    ghex::tl::cb::any_message *wmessage;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    message_type &msg = *ghex::bindings::get_object_ptr_safe<message_type>(wmessage);
-    return new ghex::bindings::obj_wrapper(comm->recv(msg, rank, tag));
+    wmessage = *wmessage_ref;
+    req = new ghex::bindings::obj_wrapper(comm->send(std::move(*wmessage), rank, tag, callback{cb}));    
+    *wmessage_ref = nullptr;
+    return req;
 }
 
 extern "C"
-void* comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::bindings::obj_wrapper *wmessage, int rank, int tag, f_callback cb)
+void* comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag)
 {
-    using message_type = ghex::tl::cb::any_message;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    message_type &msg = *ghex::bindings::get_object_ptr_safe<message_type>(wmessage);
-    return new ghex::bindings::obj_wrapper(comm->recv(msg, rank, tag, callback{cb}));
+    return new ghex::bindings::obj_wrapper(comm->recv(*wmessage, rank, tag));
+}
+
+extern "C"
+void* comm_post_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb)
+{
+    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    return new ghex::bindings::obj_wrapper(comm->recv(*wmessage, rank, tag, callback{cb}));
+}
+
+extern "C"
+void* comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb)
+{
+    ghex::bindings::obj_wrapper *req;
+    ghex::tl::cb::any_message *wmessage;
+    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    wmessage = *wmessage_ref;
+    req = new ghex::bindings::obj_wrapper(comm->recv(std::move(*wmessage), rank, tag, callback{cb}));    
+    *wmessage_ref = nullptr;
+    return req;
+}
+
+extern "C"
+void* comm_resubmit_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb)
+{
+    ghex::bindings::obj_wrapper *req;
+    printf("wmessage_ref in RESUBMIT %lu\n", wmessage);
+    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    return new ghex::bindings::obj_wrapper(comm->recv(std::move(*wmessage), rank, tag, callback{cb}));    
 }

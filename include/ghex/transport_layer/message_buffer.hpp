@@ -112,6 +112,11 @@ namespace gridtools {
                 message_buffer(const message_buffer&) = delete;
                 message_buffer& operator=(const message_buffer&) = delete;
 
+                ~message_buffer()
+                {
+                    printf("destructor\n");
+                }
+
             public: // member functions
     
                 bool is_shared() const { return can_be_shared; }

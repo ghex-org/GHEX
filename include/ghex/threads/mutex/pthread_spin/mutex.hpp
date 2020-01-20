@@ -53,7 +53,7 @@ namespace gridtools {
                         } 
                     };
 
-                    using lock_guard = std::lock_guard<mutex>;
+                    using lock_guard = std::unique_lock<mutex>;
 
                 } // namespace pthread_spin
             } // namespace mutex
