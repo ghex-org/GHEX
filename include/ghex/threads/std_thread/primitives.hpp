@@ -82,7 +82,7 @@ namespace gridtools {
                 private:
                     std::atomic<int> m_id_counter;
                     const int m_num_threads;
-                    std::mutex m_guard;
+                    std::recursive_mutex m_guard;
                     std::mutex m_cv_guard;
                     int m_barrier_cnt[2];
                     int m_up_counter[2];
@@ -149,13 +149,13 @@ namespace gridtools {
                     template <typename F>
                     inline void_return_type<F> critical(F && f) //const
                     {
-                        std::lock_guard<std::mutex> lock(m_guard);
+                        std::lock_guard<std::recursive_mutex> lock(m_guard);
                         f();
                     }
                     template <typename F>
                     inline return_type<F> critical(F && f) //const
                     {
-                        std::lock_guard<std::mutex> lock(m_guard);
+                        std::lock_guard<std::recursive_mutex> lock(m_guard);
                         return f();
                     }
 

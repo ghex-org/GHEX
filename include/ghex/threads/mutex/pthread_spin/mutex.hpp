@@ -23,14 +23,15 @@ namespace gridtools {
 
                     class mutex
                     {
-                        struct index {
-                            int m_value = 0; 
-                            int value() const noexcept { return m_value; }
-                            int& value() noexcept { return m_value; }
-                        };
                     private: // members
                         pthread_spinlock_t m_lock;
-                        static thread_local index m_index;
+
+                        int& level() noexcept
+                        {
+                            static thread_local int i = 0;
+                            return i;
+                        }
+
                     public:
                         mutex() noexcept 
                         {
@@ -45,9 +46,9 @@ namespace gridtools {
 
                         inline bool try_lock() noexcept
                         {
-                            if (m_index.value())
+                            if (level())
                             {
-                                ++m_index.value();
+                                ++level();
                                 return true;
                             }
                             else
@@ -57,18 +58,16 @@ namespace gridtools {
                         inline void lock() noexcept
                         {
                             while (!try_lock()) { sched_yield(); }
-                            ++m_index.value();
+                            ++level();
                         } 
 
                         inline void unlock() noexcept
                         {
-                            if (m_index.value()==1)
+                            if (level()==1)
                                 pthread_spin_unlock(&m_lock);
-                            --m_index.value();
+                            --level();
                         } 
                     };
-                    
-                    thread_local mutex::index mutex::m_index;
 
                     using lock_guard = std::lock_guard<mutex>;
 

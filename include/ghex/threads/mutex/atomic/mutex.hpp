@@ -24,6 +24,13 @@ namespace gridtools {
                     {
                     private: // members
                         std::atomic<bool> m_flag;
+                        
+                        int& level() noexcept
+                        {
+                            static thread_local int i = 0;
+                            return i;
+                        }
+
                     public:
                         mutex() noexcept : m_flag(0) {}
                         mutex(const mutex&) = delete;
@@ -31,8 +38,16 @@ namespace gridtools {
 
                         inline bool try_lock() noexcept
                         {
-                            bool expected = false;
-                            return m_flag.compare_exchange_weak(expected, true, std::memory_order_relaxed);
+                            if (level())
+                            {
+                                ++level();
+                                return true;
+                            }
+                            else
+                            {
+                                bool expected = false;
+                                return m_flag.compare_exchange_weak(expected, true, std::memory_order_relaxed);
+                            }
                         }
 
                         inline bool try_unlock() noexcept
@@ -44,11 +59,14 @@ namespace gridtools {
                         inline void lock() noexcept
                         {
                             while (!try_lock()) {}
+                            ++level();
                         } 
 
                         inline void unlock() noexcept
                         {
-                            while (!try_unlock()) {}
+                            if (level()==1)
+                                while (!try_unlock()) {}
+                            --level();
                         } 
                     };
 
