@@ -23,8 +23,14 @@ namespace gridtools {
 
                     class mutex
                     {
+                        struct index {
+                            int m_value = 0; 
+                            int value() const noexcept { return m_value; }
+                            int& value() noexcept { return m_value; }
+                        };
                     private: // members
                         pthread_spinlock_t m_lock;
+                        static thread_local index m_index;
                     public:
                         mutex() noexcept 
                         {
@@ -39,19 +45,30 @@ namespace gridtools {
 
                         inline bool try_lock() noexcept
                         {
-                            return (pthread_spin_trylock(&m_lock)==0);
+                            if (m_index.value())
+                            {
+                                ++m_index.value();
+                                return true;
+                            }
+                            else
+                                return (pthread_spin_trylock(&m_lock)==0);
                         }
                            
                         inline void lock() noexcept
                         {
                             while (!try_lock()) { sched_yield(); }
+                            ++m_index.value();
                         } 
 
                         inline void unlock() noexcept
                         {
-                            pthread_spin_unlock(&m_lock);
+                            if (m_index.value()==1)
+                                pthread_spin_unlock(&m_lock);
+                            --m_index.value();
                         } 
                     };
+                    
+                    thread_local mutex::index mutex::m_index;
 
                     using lock_guard = std::lock_guard<mutex>;
 
