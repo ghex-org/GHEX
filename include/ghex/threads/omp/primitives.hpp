@@ -15,6 +15,7 @@
 #include <memory>
 #include <boost/callable_traits.hpp>
 #include "../mutex/pthread_spin/mutex.hpp"
+#include "../mutex/pthread/mutex.hpp"
 #include "../mutex/atomic/mutex.hpp"
 
 namespace gridtools {
@@ -71,8 +72,10 @@ namespace gridtools {
                         id_type id() const noexcept { return impl->id();}
                     };
 
-                    using mutex_type = ::gridtools::ghex::threads::mutex::pthread_spin::mutex;
-                    using lock_type  = ::gridtools::ghex::threads::mutex::pthread_spin::lock_guard;
+                    //using mutex_type = ::gridtools::ghex::threads::mutex::pthread_spin::mutex;
+                    //using lock_type  = ::gridtools::ghex::threads::mutex::pthread_spin::lock_guard;
+                    using mutex_type = ::gridtools::ghex::threads::mutex::pthread::mutex;
+                    using lock_type  = ::gridtools::ghex::threads::mutex::pthread::lock_guard;
                     //using mutex_type = ::gridtools::ghex::threads::mutex::atomic::mutex;
                     //using lock_type  = ::gridtools::ghex::threads::mutex::atomic::lock_guard;
                     //using mutex_type = std::mutex;

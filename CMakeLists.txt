@@ -10,7 +10,6 @@ endif()
 cmake_policy(SET CMP0048 NEW)
 
 set(USE_GPU "OFF" CACHE BOOL "use cuda")
-set(USE_MPI_WITH_UCX_IN_TESTS "OFF" CACHE BOOL "use ucx for unit test")
 set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 
 set(CMAKE_CXX_STANDARD 14)
