@@ -1,9 +1,7 @@
-#include "message_bind.hpp"
+#include "request_bind.hpp"
 #include "obj_wrapper.hpp"
 #include <iostream>
 #include <vector>
-
-#include <ghex/transport_layer/shared_message_buffer.hpp>
 
 namespace ghex = gridtools::ghex;
 
@@ -63,61 +61,69 @@ int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 }
 
 extern "C"
-void* comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag)
+void comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *freq)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    return new ghex::bindings::obj_wrapper(comm->send(*wmessage, rank, tag));
+    auto req = comm->send(*wmessage, rank, tag);
+    new(freq->data) decltype(req)(std::move(req));
 }
 
 extern "C"
-void* comm_post_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb)
+void comm_post_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    return new ghex::bindings::obj_wrapper(comm->send(*wmessage, rank, tag, callback{cb}));
+    auto req = comm->send(*wmessage, rank, tag, callback{cb});
+    if(!freq) return;
+    new(freq->data) decltype(req)(std::move(req));
 }
 
 extern "C"
-void* comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb)
+void comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq)
 {
-    ghex::bindings::obj_wrapper *req;
     ghex::tl::cb::any_message *wmessage;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     wmessage = *wmessage_ref;
-    req = new ghex::bindings::obj_wrapper(comm->send(std::move(*wmessage), rank, tag, callback{cb}));    
+    auto req = comm->send(std::move(*wmessage), rank, tag, callback{cb});
     *wmessage_ref = nullptr;
-    return req;
+    if(!freq) return;
+    new(freq->data) decltype(req)(std::move(req));
 }
 
 extern "C"
-void* comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag)
+void comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *freq)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    return new ghex::bindings::obj_wrapper(comm->recv(*wmessage, rank, tag));
+    auto req = comm->recv(*wmessage, rank, tag);
+    new(freq->data) decltype(req)(std::move(req));
 }
 
 extern "C"
-void* comm_post_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb)
+void comm_post_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    return new ghex::bindings::obj_wrapper(comm->recv(*wmessage, rank, tag, callback{cb}));
+    auto req = comm->recv(*wmessage, rank, tag, callback{cb});
+    if(!freq) return;
+    new(freq->data) decltype(req)(std::move(req));
 }
 
 extern "C"
-void* comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb)
+void comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq)
 {
-    ghex::bindings::obj_wrapper *req;
     ghex::tl::cb::any_message *wmessage;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     wmessage = *wmessage_ref;
-    req = new ghex::bindings::obj_wrapper(comm->recv(std::move(*wmessage), rank, tag, callback{cb}));    
+    auto req = comm->recv(std::move(*wmessage), rank, tag, callback{cb});
     *wmessage_ref = nullptr;
-    return req;
+    if(!freq) return;
+    memset(freq->data, 0, 24);
+    new(freq->data) decltype(req)(std::move(req));
 }
 
 extern "C"
-void* comm_resubmit_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb)
+void comm_resubmit_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
 {
-    ghex::bindings::obj_wrapper *req;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    return new ghex::bindings::obj_wrapper(comm->recv(std::move(*wmessage), rank, tag, callback{cb}));    
+    auto req = comm->recv(std::move(*wmessage), rank, tag, callback{cb});
+    if(!freq) return;
+    new(freq->data) decltype(req)(std::move(req));
 }

@@ -1,5 +1,5 @@
-#ifndef MESSAGE_BIND_HPP
-#define MESSAGE_BIND_HPP
+#ifndef GHEX_FORTRAN_MESSAGE_BIND_INCLUDED_HPP
+#define GHEX_FORTRAN_MESSAGE_BIND_INCLUDED_HPP
 
 #include "obj_wrapper.hpp"
 #include <ghex/transport_layer/shared_message_buffer.hpp>
@@ -38,4 +38,4 @@ using t_std_allocator = std::allocator<unsigned char>;
 	    code;							\
 */
 	
-#endif /* MESSAGE_BIND_HPP */
+#endif /* GHEX_FORTRAN_MESSAGE_BIND_INCLUDED_HPP */

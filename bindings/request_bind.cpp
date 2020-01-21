@@ -1,6 +1,7 @@
 #include "obj_wrapper.hpp"
-#include <vector>
+#include "request_bind.hpp"
 
+#include <vector>
 
 namespace ghex = gridtools::ghex;
 
@@ -33,13 +34,15 @@ using context_type = ghex::tl::context<transport, threading>;
 using communicator_type = context_type::communicator_type;
 
 extern "C"
-bool request_test(ghex::bindings::obj_wrapper *wrequest)
+bool request_test(frequest_type *freq)
 {
-    return ghex::bindings::get_object_ptr_safe<communicator_type::request_cb_type>(wrequest)->test();
+    communicator_type::request_cb_type *req = reinterpret_cast<communicator_type::request_cb_type*>(freq->data);
+    return req->test();
 }
 
 extern "C"
-bool request_cancel(ghex::bindings::obj_wrapper *wrequest)
+bool request_cancel(frequest_type *freq)
 {
-    return ghex::bindings::get_object_ptr_safe<communicator_type::request_cb_type>(wrequest)->cancel();
+    communicator_type::request_cb_type *req = reinterpret_cast<communicator_type::request_cb_type*>(freq->data);
+    return req->cancel();
 }

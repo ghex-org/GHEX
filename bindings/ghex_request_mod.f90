@@ -1,10 +1,12 @@
 MODULE ghex_request_mod
   use iso_c_binding
 
+  ! should be established and defined by cmake, also for request_bind.hpp
+#define GHEX_REQUEST_SIZE 24
   implicit none
 
   type, bind(c) :: ghex_request
-     type(c_ptr) :: ptr = c_null_ptr
+     integer(c_int8_t) :: req(GHEX_REQUEST_SIZE)
   end type ghex_request
   
   interface
@@ -12,13 +14,13 @@ MODULE ghex_request_mod
      logical(c_bool) function request_test(request) bind(c)
        use iso_c_binding
        import ghex_request
-       type(ghex_request), value :: request
+       type(ghex_request) :: request
      end function request_test
      
      logical(c_bool) function request_cancel(request) bind(c)
        use iso_c_binding
        import ghex_request
-       type(ghex_request), value :: request
+       type(ghex_request) :: request
      end function request_cancel
 
   end interface

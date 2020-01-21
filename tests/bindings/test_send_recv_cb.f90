@@ -91,8 +91,8 @@ PROGRAM test_send_recv_cb
 
   !$omp barrier
   ! send / recv with a callback
-  rreq = comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb)
-  sreq = comm_send_cb(comm, smsg, mpi_peer, thrid)
+  call comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb, rreq)
+  call comm_send_cb(comm, smsg, mpi_peer, thrid, req=sreq)
 
   !$omp barrier
   ! progress the communication
@@ -140,7 +140,7 @@ contains
 
     ! resubmit if needed
     comm = communicators(thrid)
-    req = comm_resubmit_recv(comm, mesg, rank, tag, pcb)
+    call comm_resubmit_recv(comm, mesg, rank, tag, pcb, req)
     print *, "recv request has been resubmitted"
 
   end subroutine recv_callback
