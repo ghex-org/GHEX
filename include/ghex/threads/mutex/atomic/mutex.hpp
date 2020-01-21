@@ -38,16 +38,14 @@ namespace gridtools {
 
                         inline bool try_lock() noexcept
                         {
-                            if (level())
+                            bool expected = false;
+                            if (m_flag.compare_exchange_weak(expected, true, std::memory_order_relaxed))
                             {
                                 ++level();
                                 return true;
                             }
                             else
-                            {
-                                bool expected = false;
-                                return m_flag.compare_exchange_weak(expected, true, std::memory_order_relaxed);
-                            }
+                                return false;
                         }
 
                         inline bool try_unlock() noexcept
@@ -58,15 +56,17 @@ namespace gridtools {
                            
                         inline void lock() noexcept
                         {
-                            while (!try_lock()) {}
-                            ++level();
+                            if (level()==0)
+                                while (!try_lock()) {}
+                            else
+                                ++level();
                         } 
 
                         inline void unlock() noexcept
                         {
-                            if (level()==1)
-                                while (!try_unlock()) {}
                             --level();
+                            if (level()==0)
+                                while (!try_unlock()) {}
                         } 
                     };
 
