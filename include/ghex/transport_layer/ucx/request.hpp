@@ -241,6 +241,7 @@ namespace gridtools{
                         if (*m_completed)
                         {
                             m_req = nullptr;
+                            m_completed.reset();
                             return true;
                         }
                         return false;
@@ -248,6 +249,8 @@ namespace gridtools{
 
                     bool cancel()
                     {
+                        // TODO: fix a race. we can only call critical through m_req, but it can be
+                        // set to NULL between when we check below, and when we call the critical region.
                         if (!m_req) return true;
 
                         // TODO at this time, send requests cannot be canceled
@@ -281,6 +284,7 @@ namespace gridtools{
 				    ucp_request_cancel(worker, ucx_ptr);
 				}
 				m_req = nullptr;
+                                m_completed.reset();
 				return true;
 			    }
 			);
