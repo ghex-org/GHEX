@@ -141,6 +141,7 @@ contains
     ! resubmit if needed
     comm = communicators(thrid)
     req = comm_resubmit_recv(comm, mesg, rank, tag, pcb)
+    print *, "recv request has been resubmitted"
 
   end subroutine recv_callback
 
