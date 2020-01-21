@@ -1,10 +1,12 @@
 MODULE ghex_future_mod
   use iso_c_binding
 
+  ! should be established and defined by cmake, also for request_bind.hpp
+#define GHEX_FUTURE_SIZE 8
   implicit none
 
   type, bind(c) :: ghex_future
-     type(c_ptr) :: ptr = c_null_ptr
+     integer(c_int8_t) :: data(GHEX_FUTURE_SIZE) = [0]
   end type ghex_future
   
   interface
@@ -12,19 +14,19 @@ MODULE ghex_future_mod
      subroutine future_wait(future) bind(c)
        use iso_c_binding
        import ghex_future
-       type(ghex_future), value :: future
+       type(ghex_future) :: future
      end subroutine future_wait
      
      logical(c_bool) function future_ready(future) bind(c)
        use iso_c_binding
        import ghex_future
-       type(ghex_future), value :: future
+       type(ghex_future) :: future
      end function future_ready
      
      logical(c_bool) function future_cancel(future) bind(c)
        use iso_c_binding
        import ghex_future
-       type(ghex_future), value :: future
+       type(ghex_future) :: future
      end function future_cancel
 
   end interface

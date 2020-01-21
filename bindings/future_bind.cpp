@@ -1,3 +1,4 @@
+#include "future_bind.hpp"
 #include "obj_wrapper.hpp"
 #include <vector>
 
@@ -33,19 +34,22 @@ using context_type = ghex::tl::context<transport, threading>;
 using communicator_type = context_type::communicator_type;
 
 extern "C"
-void future_wait(ghex::bindings::obj_wrapper *wfuture)
+void future_wait(ffuture_type *ffut)
 {
-    ghex::bindings::get_object_ptr_safe<communicator_type::future<void>>(wfuture)->wait();
+    communicator_type::future<void> *future = reinterpret_cast<communicator_type::future<void>*>(ffut->data);
+    return future->wait();
 }
 
 extern "C"
-bool future_ready(ghex::bindings::obj_wrapper *wfuture)
+bool future_ready(ffuture_type *ffut)
 {
-    return ghex::bindings::get_object_ptr_safe<communicator_type::future<void>>(wfuture)->ready();
+    communicator_type::future<void> *future = reinterpret_cast<communicator_type::future<void>*>(ffut->data);
+    return future->ready();
 }
 
 extern "C"
-bool future_cancel(ghex::bindings::obj_wrapper *wfuture)
+bool future_cancel(ffuture_type *ffut)
 {
-    return ghex::bindings::get_object_ptr_safe<communicator_type::future<void>>(wfuture)->cancel();
+    communicator_type::future<void> *future = reinterpret_cast<communicator_type::future<void>*>(ffut->data);
+    return future->cancel();
 }

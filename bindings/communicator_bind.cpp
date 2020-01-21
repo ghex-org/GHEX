@@ -1,4 +1,5 @@
 #include "request_bind.hpp"
+#include "future_bind.hpp"
 #include "obj_wrapper.hpp"
 #include <iostream>
 #include <vector>
@@ -33,6 +34,7 @@ using transport    = ghex::tl::mpi_tag;
 using context_type = ghex::tl::context<transport, threading>;
 using communicator_type = context_type::communicator_type;
 
+
 /* fortran-side user callback */
 typedef void (*f_callback)(void *mesg, int rank, int tag);
 
@@ -61,11 +63,11 @@ int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 }
 
 extern "C"
-void comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *freq)
+void comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *ffut)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    auto req = comm->send(*wmessage, rank, tag);
-    new(freq->data) decltype(req)(std::move(req));
+    auto fut = comm->send(*wmessage, rank, tag);
+    new(ffut->data) decltype(fut)(std::move(fut));
 }
 
 extern "C"
@@ -90,11 +92,11 @@ void comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message 
 }
 
 extern "C"
-void comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *freq)
+void comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, ffuture_type *ffut)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
-    auto req = comm->recv(*wmessage, rank, tag);
-    new(freq->data) decltype(req)(std::move(req));
+    auto fut = comm->recv(*wmessage, rank, tag);
+    new(ffut->data) decltype(fut)(std::move(fut));
 }
 
 extern "C"
@@ -115,7 +117,6 @@ void comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message 
     auto req = comm->recv(std::move(*wmessage), rank, tag, callback{cb});
     *wmessage_ref = nullptr;
     if(!freq) return;
-    memset(freq->data, 0, 24);
     new(freq->data) decltype(req)(std::move(req));
 }
 

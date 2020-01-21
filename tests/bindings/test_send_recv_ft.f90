@@ -67,16 +67,16 @@ PROGRAM test_send_recv_ft
   msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
 
   ! send / recv with a request, tag 1
-  sreq = comm_post_send(comm, smsg, mpi_peer, 1)
-  rreq = comm_post_recv(comm, rmsg, mpi_peer, 1)
+  call comm_post_send(comm, smsg, mpi_peer, 1, sreq)
+  call comm_post_recv(comm, rmsg, mpi_peer, 1, rreq)
 
   ! wait for comm
   do while( .not.future_ready(sreq) .or. .not.future_ready(rreq) )
   end do
 
   ! send / recv with a request, tag 2
-  sreq = comm_post_send(comm, smsg, mpi_peer, 2)
-  rreq = comm_post_recv(comm, rmsg, mpi_peer, 2)
+  call comm_post_send(comm, smsg, mpi_peer, 2, sreq)
+  call comm_post_recv(comm, rmsg, mpi_peer, 2, rreq)
 
   ! wait for comm
   do while( .not.future_ready(sreq) .or. .not.future_ready(rreq) )

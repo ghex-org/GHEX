@@ -40,7 +40,6 @@ PROGRAM test_send_recv_cb
   integer :: recv_completed = 0
   type(ghex_message) :: smsg, rmsg
   type(ghex_request) :: rreq, sreq
-  type(ghex_request) :: rtemp
   integer(1), dimension(:), pointer :: msg_data
   
   procedure(f_callback), pointer :: pcb
@@ -66,7 +65,7 @@ PROGRAM test_send_recv_cb
   context = context_new(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, rreq, sreq, smsg, rmsg, msg_data, np, rtemp)
+  !$omp parallel private(thrid, comm, rreq, sreq, smsg, rmsg, msg_data, np)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
@@ -91,7 +90,7 @@ PROGRAM test_send_recv_cb
 
   !$omp barrier
   ! send / recv with a callback
-  call comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb, rreq)
+  call comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb)
   call comm_send_cb(comm, smsg, mpi_peer, thrid, req=sreq)
 
   !$omp barrier
@@ -99,11 +98,11 @@ PROGRAM test_send_recv_cb
   do while(.not.request_test(sreq) .or. recv_completed /= nthreads)
      np = comm_progress(comm)
   end do
-  print *, "request state after", request_test(sreq), request_test(rreq)
+  print *, "request state after", request_test(sreq)
 
-  ! cleanup per-thread
-  call message_delete(smsg)
-  call message_delete(rmsg)
+  ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
+  ! call message_delete(smsg)
+  ! call message_delete(rmsg)
   call comm_delete(communicators(thrid))
 
   ! cleanup shared
@@ -140,7 +139,7 @@ contains
 
     ! resubmit if needed
     comm = communicators(thrid)
-    call comm_resubmit_recv(comm, mesg, rank, tag, pcb, req)
+    call comm_resubmit_recv(comm, mesg, rank, tag, pcb)
     print *, "recv request has been resubmitted"
 
   end subroutine recv_callback
