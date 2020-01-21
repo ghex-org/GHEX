@@ -39,7 +39,8 @@ PROGRAM test_send_recv_cb
   integer(8) :: msg_size = 16, np
   integer :: recv_completed = 0
   type(ghex_message) :: smsg, rmsg
-  type(ghex_request) :: sreq, rreq
+  type(ghex_request) :: rreq, sreq
+  type(ghex_request) :: rtemp
   integer(1), dimension(:), pointer :: msg_data
   
   procedure(f_callback), pointer :: pcb
@@ -65,14 +66,14 @@ PROGRAM test_send_recv_cb
   context = context_new(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, msg_data, np)
+  !$omp parallel private(thrid, comm, rreq, sreq, smsg, rmsg, msg_data, np, rtemp)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
 
   ! initialize shared datastructures
   !$omp master
-  allocate(communicators(nthreads))  
+  allocate(communicators(nthreads))
   !$omp end master
   !$omp barrier
 
@@ -84,27 +85,16 @@ PROGRAM test_send_recv_cb
   rmsg = message_new(msg_size, ALLOCATOR_STD)
   smsg = message_new(msg_size, ALLOCATOR_STD)
 
-  print *, "messages before send ", smsg%ptr, rmsg%ptr
-
   ! initialize send data
   msg_data => message_data(smsg)
   msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
 
+  !$omp barrier
   ! send / recv with a callback
-  ! TODO: what is sent here is indistructible. ref-based any_message cannot be freed.
-  sreq = comm_send_cb(comm, smsg, mpi_peer, 1)
-  rreq = comm_recv_cb(comm, rmsg, mpi_peer, 1, pcb)
+  rreq = comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb)
+  sreq = comm_send_cb(comm, smsg, mpi_peer, thrid)
 
-  print *, "messages after send ", smsg%ptr, rmsg%ptr
-
-  ! use count is always 2 for recv, can be 1 or 2 for send: send can complete in-place here
-  print *, "request state before", request_test(sreq), request_test(rreq)
-
-  ! can safely delete the local instance of the shared message:
-  ! ownership is passed to ghex, and the message will be returned to us
-  ! in the recv callback
-  ! call message_delete(rmsg)
-
+  !$omp barrier
   ! progress the communication
   do while(.not.request_test(sreq) .or. recv_completed /= nthreads)
      np = comm_progress(comm)
@@ -132,11 +122,11 @@ contains
   subroutine recv_callback (mesg, rank, tag) bind(c)
     use iso_c_binding
     type(ghex_message), value :: mesg
+    type(ghex_request) :: req
     integer(c_int), value :: rank, tag
     integer :: thrid
     integer(1), dimension(:), pointer :: msg_data
     procedure(f_callback), pointer :: pcb
-    type(ghex_request) :: req
     pcb => recv_callback
 
     thrid = omp_get_thread_num()+1
@@ -149,11 +139,8 @@ contains
     recv_completed = recv_completed + 1
 
     ! resubmit if needed
-    ! if (recv_completed < 2) then
-    !    comm = communicators(thrid)
-    !    req = comm_resubmit_recv(comm, mesg, rank, tag, pcb)
-    !    print *, "after resubmit"
-    ! end if
+    comm = communicators(thrid)
+    req = comm_resubmit_recv(comm, mesg, rank, tag, pcb)
 
   end subroutine recv_callback
 

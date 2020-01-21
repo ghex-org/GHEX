@@ -42,7 +42,6 @@ struct callback {
     f_callback cb;
     callback(f_callback pcb) : cb{pcb} {}
     void operator()(communicator_type::message_type message, int rank, int tag) {
-        printf("callback called\n");
         if(cb) cb(&message, rank, tag);
     }
 };
@@ -119,7 +118,6 @@ extern "C"
 void* comm_resubmit_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb)
 {
     ghex::bindings::obj_wrapper *req;
-    printf("wmessage_ref in RESUBMIT %lu\n", wmessage);
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     return new ghex::bindings::obj_wrapper(comm->recv(std::move(*wmessage), rank, tag, callback{cb}));    
 }
