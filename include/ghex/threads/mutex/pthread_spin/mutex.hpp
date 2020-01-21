@@ -47,25 +47,28 @@ namespace gridtools {
 
                         inline bool try_lock() noexcept
                         {
-                            return (pthread_spin_trylock(&m_lock)==0);
+                            if (pthread_spin_trylock(&m_lock)==0)
+                            {
+                                ++level();
+                                return true;
+                            }
+                            else
+                                return false;
                         }
                            
                         inline void lock() noexcept
                         {
-                            if (level())
-                            {
+                            if (level()==0)
+                                while (!try_lock()) { sched_yield(); }
+                            else
                                 ++level();
-                                return;
-                            }
-                            while (!try_lock()) { sched_yield(); }
-                            ++level();
                         } 
 
                         inline void unlock() noexcept
                         {
-                            if (level()==1)
-                                pthread_spin_unlock(&m_lock);
                             --level();
+                            if (level()==0)
+                                pthread_spin_unlock(&m_lock);
                         } 
                     };
                     
