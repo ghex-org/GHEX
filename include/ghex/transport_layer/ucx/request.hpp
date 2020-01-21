@@ -13,7 +13,7 @@
 
 #include <functional>
 #include "../context.hpp"
-#include "../ucx/worker.hpp"
+#include "./worker.hpp"
 #include "../callback_utils.hpp"
 #include "../../threads/atomic/primitives.hpp"
 
@@ -46,8 +46,8 @@ namespace gridtools{
                     }
                 };
                 using request_data_size_ft = std::integral_constant<std::size_t,
-		    sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
-		    alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
+                sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
+                alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
 
                 template<typename ThreadPrimitives>
                 struct request_data_cb
@@ -56,7 +56,7 @@ namespace gridtools{
                     using message_type      = ::gridtools::ghex::tl::cb::any_message;
                     using rank_type         = endpoint_t::rank_type;
                     using tag_type          = typename worker_type::tag_type;
-                    using state_type        = bool;//::gridtools::ghex::tl::cb::request_state;
+                    using state_type        = bool;
 
                     void*        m_ucx_ptr;
                     worker_type* m_worker;
@@ -66,7 +66,6 @@ namespace gridtools{
                     tag_type     m_tag;
                     std::function<void(message_type, rank_type, tag_type)> m_cb;
                     std::shared_ptr<state_type> m_completed;
-                    //std::exception_ptr m_exception = nullptr;
 
                     static constexpr std::uintptr_t mask = ~(alignof(request_data_cb)-1u);
                     template<typename... Args>
@@ -88,8 +87,8 @@ namespace gridtools{
                 };
 
                 using request_data_size_cb = std::integral_constant<std::size_t,
-		    sizeof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>) +
-		    alignof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>)>;
+                sizeof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>) +
+                alignof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>)>;
 
                 using request_data_size = request_data_size_cb;
                 

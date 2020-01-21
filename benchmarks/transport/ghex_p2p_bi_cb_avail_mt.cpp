@@ -6,12 +6,13 @@
 #include "utils.hpp"
 
 namespace ghex = gridtools::ghex;
+#define USE_MPI
 
 #ifdef USE_MPI
 /* MPI backend */
 #ifdef USE_OPENMP
-#include <ghex/threads/atomic/primitives.hpp>
-using threading    = ghex::threads::atomic::primitives;
+#include <ghex/threads/omp/primitives.hpp>
+using threading    = ghex::threads::omp::primitives;
 #else
 #include <ghex/threads/none/primitives.hpp>
 using threading    = ghex::threads::none::primitives;
@@ -19,6 +20,7 @@ using threading    = ghex::threads::none::primitives;
 #include <ghex/transport_layer/mpi/context.hpp>
 using transport    = ghex::tl::mpi_tag;
 #else
+
 /* UCX backend */
 #ifdef USE_OPENMP
 #include <ghex/threads/omp/primitives.hpp>

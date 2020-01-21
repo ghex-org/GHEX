@@ -11,10 +11,11 @@
 #ifndef INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP
 #define INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP
 
+#include "./error.hpp"
 #include <memory>
-#include <omp.h>
-#include "./request.hpp"
-#include "./status.hpp"
+//#include <omp.h>
+//#include "./request.hpp"
+//#include "./status.hpp"
 
 namespace gridtools{
     namespace ghex {

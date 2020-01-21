@@ -21,25 +21,40 @@ namespace gridtools {
             template<typename ThreadPrimitives>
             struct transport_context<mpi_tag, ThreadPrimitives>
             {
-                using communicator_type = mpi::communicator<ThreadPrimitives>;
                 using parallel_context_type = parallel_context<ThreadPrimitives>;
                 using thread_token = typename parallel_context_type::thread_token;
+                using communicator_type = mpi::communicator<ThreadPrimitives>;
+                using state_type = typename communicator_type::state_type;
+                using state_ptr = std::unique_ptr<state_type>;
+                using state_vector = std::vector<state_ptr>;
 
-                parallel_context<ThreadPrimitives>& m_parallel_context;
+                parallel_context_type& m_parallel_context;
+                std::vector<thread_token>  m_tokens;
+                state_ptr m_state;
+                state_vector m_states;
 
                 template<typename... Args>
                 transport_context(parallel_context<ThreadPrimitives>& pc, Args&&...)
                 : m_parallel_context(pc)
+                , m_tokens(m_parallel_context.thread_primitives().size())
+                , m_state(std::make_unique<state_type>((MPI_Comm)(pc.world()), this, &pc, nullptr))
+                , m_states(m_parallel_context.thread_primitives().size())
                 {}
 
                 communicator_type get_serial_communicator()
                 {
-                    return {(MPI_Comm)(m_parallel_context.world()),this};
+                    return {m_state.get(), m_state.get()};
                 }
 
                 communicator_type get_communicator(const thread_token& t)
                 {
-                    return {(MPI_Comm)(m_parallel_context.world()),this, t.id()};
+                    if (!m_states[t.id()])
+                    {
+                        m_tokens[t.id()] = t;
+                        m_states[t.id()] = std::make_unique<state_type>((MPI_Comm)(m_parallel_context.world()),
+                            this, &m_parallel_context, &m_tokens[t.id()]);
+                    }
+                    return {m_states[t.id()].get(), m_states[t.id()].get()};
                 }
 
             };

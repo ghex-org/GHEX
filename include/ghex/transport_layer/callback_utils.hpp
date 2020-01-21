@@ -49,6 +49,7 @@ namespace gridtools {
                 {
                     std::shared_ptr<request_state> m_request_state;
                     bool is_ready() const noexcept { return m_request_state->is_ready(); }
+                    void reset() { m_request_state.reset(); }
                 };
 
                 // simple wrapper around an l-value reference message (stores pointer and size)
@@ -140,32 +141,59 @@ namespace gridtools {
                     std::size_t size() const noexcept { return m_message->size(); }
                 };
 
-                // type-erased future
-                struct any_future
-                {
-                    struct iface
-                    {
-                        virtual bool ready() = 0;
-                        virtual ~iface() {}
+                template<class FutureType, typename RankType = int, typename TagType = int>
+                class queue {
+                  public: // member types
+                    using message_type = any_message;
+                    using future_type = FutureType;
+                    using rank_type = RankType;
+                    using tag_type = TagType;
+                    using cb_type = std::function<void(message_type, rank_type, tag_type)>;
+
+                    struct element_type {
+                        any_message m_msg;
+                        rank_type m_rank;
+                        tag_type m_tag;
+                        cb_type m_cb;
+                        future_type m_future;
+                        request m_request;
                     };
 
-                    template<class Future>
-                    struct holder final : public iface
-                    {
-                        Future m_future;
-                        holder() = default;
-                        holder(Future&& fut): m_future{std::move(fut)} {}
-                        bool ready() override { return m_future.ready(); }
-                    };
+                    using queue_type = std::vector<element_type>;
 
-                    std::unique_ptr<iface> m_ptr;
+                  private: // members
+                    queue_type m_queue;
 
-                    template<class Future>
-                    any_future(Future&& fut) : m_ptr{std::make_unique<holder<Future>>(std::move(fut))} {}
+                  public: // ctors
+                    queue() { m_queue.reserve(256); }
 
-                    bool ready() { return m_ptr->ready(); }
+                  public: // member functions
+                    template<typename Callback>
+                    request enqueue(any_message&& msg, rank_type rank, tag_type tag, future_type&& fut, Callback&& cb) {
+                        request m_req{std::make_shared<request_state>()};
+                        m_queue.push_back(element_type{std::move(msg), rank, tag, std::forward<Callback>(cb), std::move(fut),
+                                             m_req});
+                        return m_req;
+                    }
+
+                    int progress() {
+                        int completed = 0;
+                        for (unsigned int i = 0; i < m_queue.size(); ++i) {
+                            auto& element = m_queue[i];
+                            if (element.m_future.ready()) {
+                                element.m_cb(std::move(element.m_msg), element.m_rank, element.m_tag);
+                                ++completed;
+                                element.m_request.m_request_state->m_ready = true;
+                                if (i + 1 < m_queue.size()) {
+                                    element = std::move(m_queue.back());
+                                    --i;
+                                }
+                                m_queue.pop_back();
+                            }
+                        }
+                        return completed;
+                    }
                 };
-
 
             } // cb
         } // tl
