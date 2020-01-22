@@ -1,6 +1,4 @@
 PROGRAM test_message
-
-  use omp_lib
   use ghex_message_mod
 
   implicit none  

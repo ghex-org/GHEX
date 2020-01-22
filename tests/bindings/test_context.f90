@@ -1,5 +1,4 @@
 PROGRAM test_context
-
   use omp_lib
   use ghex_context_mod
 
@@ -23,5 +22,6 @@ PROGRAM test_context
 
   ! delete the ghex context
   call context_delete(context)
+  call mpi_finalize(mpi_err)
 
 END PROGRAM test_context

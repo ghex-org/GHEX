@@ -1,21 +1,4 @@
-! problems:
-!
-! 1. if I use message_new, which creates any_message with 101 constructor,
-!    and send that, then inside ghex we have a 'weak' reference (107 constructor),
-!    which doesn not have any type info. Hence it cannot free the message.
-!    Hence, I cannot use this to 'send and forget', because the buffer will not be deallocated
-!
-! 2. I can maybe use that for recv resubmission in the callback, but if the real owner
-!    should free the memory, then he won't know when it is safe, because he is not aware
-!    of the resubmission
-!
-! 3. request id's returned from cb send/recv variants: the previous request
-!    associated with that message is marked as 'completed', but we resubmit.. that
-!    request handle is now useless. From the CB we could get a new request, but
-!    what do I do with it?
-
 PROGRAM test_send_recv_cb
-
   use omp_lib
   use ghex_context_mod
   use ghex_comm_mod
@@ -115,6 +98,7 @@ PROGRAM test_send_recv_cb
 
   ! delete the ghex context
   call context_delete(context)  
+  call mpi_finalize(mpi_err)
 
 contains
 
