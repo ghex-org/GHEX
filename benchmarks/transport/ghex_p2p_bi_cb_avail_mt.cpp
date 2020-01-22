@@ -6,10 +6,7 @@
 #include "utils.hpp"
 
 namespace ghex = gridtools::ghex;
-#define USE_MPI
 
-#ifdef USE_MPI
-/* MPI backend */
 #ifdef USE_OPENMP
 #include <ghex/threads/omp/primitives.hpp>
 using threading    = ghex::threads::omp::primitives;
@@ -17,31 +14,26 @@ using threading    = ghex::threads::omp::primitives;
 #include <ghex/threads/none/primitives.hpp>
 using threading    = ghex::threads::none::primitives;
 #endif
-#include <ghex/transport_layer/mpi/context.hpp>
-using transport    = ghex::tl::mpi_tag;
-#else
 
-/* UCX backend */
-#ifdef USE_OPENMP
-#include <ghex/threads/omp/primitives.hpp>
-using threading    = ghex::threads::omp::primitives;
-#else
-#include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
-#endif
+#ifdef USE_UCP
+
+// UCX backend
 #include <ghex/transport_layer/ucx/address_db_mpi.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
 using db_type      = ghex::tl::ucx::address_db_mpi;
 using transport    = ghex::tl::ucx_tag;
-#endif /* USE_MPI */
+#else
 
-#include <ghex/transport_layer/message_buffer.hpp>
+// MPI backend
+#include <ghex/transport_layer/mpi/context.hpp>
+using transport    = ghex::tl::mpi_tag;
+#endif
+
 #include <ghex/transport_layer/shared_message_buffer.hpp>
 using context_type = ghex::tl::context<transport, threading>;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::request_cb_type;
 
-//using MsgType = gridtools::ghex::tl::message_buffer<>;
 using MsgType = gridtools::ghex::tl::shared_message_buffer<>;
 
 
