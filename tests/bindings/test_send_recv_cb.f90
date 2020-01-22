@@ -1,4 +1,5 @@
 PROGRAM test_send_recv_cb
+  use iso_fortran_env
   use omp_lib
   use ghex_context_mod
   use ghex_comm_mod
@@ -20,7 +21,7 @@ PROGRAM test_send_recv_cb
 
   ! message
   integer(8) :: msg_size = 16, np
-  integer :: recv_completed = 0
+  integer(atomic_int_kind) :: recv_completed[*]
   type(ghex_message) :: smsg, rmsg
   type(ghex_request) :: rreq, sreq
   integer(1), dimension(:), pointer :: msg_data
@@ -81,7 +82,6 @@ PROGRAM test_send_recv_cb
   do while(.not.request_test(sreq) .or. recv_completed /= nthreads)
      np = comm_progress(comm)
   end do
-  print *, "request state after", request_test(sreq)
 
   ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
   ! call message_delete(smsg)
@@ -118,8 +118,7 @@ contains
     msg_data => message_data(mesg)
     print *, mpi_rank, ": ", thrid, ": ", msg_data
 
-    ! TODO: this should be atomic
-    recv_completed = recv_completed + 1
+    call atomic_add(recv_completed, 1)
 
     ! resubmit if needed
     comm = communicators(thrid)
