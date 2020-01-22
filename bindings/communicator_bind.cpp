@@ -57,6 +57,18 @@ void comm_delete(ghex::bindings::obj_wrapper **wrapper_ref)
 }
 
 extern "C"
+int comm_rank(ghex::bindings::obj_wrapper *wrapper)
+{
+    return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->rank();
+}
+
+extern "C"
+int comm_size(ghex::bindings::obj_wrapper *wrapper)
+{
+    return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->size();
+}
+
+extern "C"
 int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 {
     return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->progress();

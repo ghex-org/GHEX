@@ -27,4 +27,9 @@ MODULE ghex_request_mod
 
 CONTAINS
   
+  subroutine request_init(request)
+    type(ghex_request) :: request
+    request%data = 0
+  end subroutine request_init
+  
 END MODULE ghex_request_mod

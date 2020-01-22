@@ -1,5 +1,5 @@
 #include "message_bind.hpp"
-
+#include <string.h>
 #include <iostream>
 #include <vector>
 
@@ -42,6 +42,14 @@ void message_delete(ghex::tl::cb::any_message **wmessage_ref)
     // clear the fortran-side variable
     *wmessage_ref = nullptr;
     delete wmessage;
+}
+
+extern "C"
+void message_zero(ghex::tl::cb::any_message *wmessage)
+{
+    unsigned char* __restrict data = wmessage->data();
+    std::size_t size = wmessage->size();
+    memset(data, 0, size);
 }
 
 extern "C"

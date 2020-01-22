@@ -27,6 +27,18 @@ MODULE ghex_comm_mod
        type(ghex_communicator) :: comm
      end subroutine comm_delete
 
+     integer(c_int) function comm_rank(comm) bind(c)
+       use iso_c_binding
+       import ghex_communicator
+       type(ghex_communicator), value :: comm
+     end function comm_rank
+
+     integer(c_int) function comm_size(comm) bind(c)
+       use iso_c_binding
+       import ghex_communicator
+       type(ghex_communicator), value :: comm
+     end function comm_size
+
      integer(c_int) function comm_progress(comm) bind(c)
        use iso_c_binding
        import ghex_communicator

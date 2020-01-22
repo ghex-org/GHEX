@@ -32,5 +32,10 @@ MODULE ghex_future_mod
   end interface
 
 CONTAINS
+
+  subroutine future_init(future)
+    type(ghex_future) :: future
+    future%data = 0
+  end subroutine future_init
   
 END MODULE ghex_future_mod

@@ -21,7 +21,7 @@ PROGRAM test_send_recv_cb
 
   ! message
   integer(8) :: msg_size = 16, np
-  integer(atomic_int_kind) :: recv_completed[*]
+  integer(atomic_int_kind) :: recv_completed[*] = 0
   type(ghex_message) :: smsg, rmsg
   type(ghex_request) :: rreq, sreq
   integer(1), dimension(:), pointer :: msg_data
