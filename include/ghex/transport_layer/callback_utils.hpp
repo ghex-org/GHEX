@@ -98,24 +98,21 @@ namespace gridtools {
                     : m_data{reinterpret_cast<unsigned char*>(m.data())}
                     , m_size{m.size()*sizeof(typename Message::value_type)}
                     , m_ptr{std::make_unique<holder<Message>>(std::move(m))}
-                    {fprintf(stdout, "HERE %d\n", __LINE__);}
+                    {}
 
                     template<typename T>
                     any_message(ref_message<T>&& m)
                     : m_data{reinterpret_cast<unsigned char*>(m.data())}
                     , m_size{m.size()*sizeof(T)}
-                    {fprintf(stdout, "HERE %d\n", __LINE__);}
+                    {}
 
                     template<typename Message>
                     any_message(std::shared_ptr<Message>& sm)
                     : m_data{reinterpret_cast<unsigned char*>(sm->data())}
                     , m_size{sm->size()*sizeof(typename Message::value_type)}
                     , m_ptr2(sm,&m_size)
-                    {fprintf(stdout, "HERE %d\n", __LINE__);}
+                    {}
                     
-                    ~any_message()
-                    {if(m_ptr.get()) fprintf(stdout, "HERE %p %s %d\n", m_data, __FUNCTION__, __LINE__);}
-
 
                     any_message(any_message&&) = default;
                     any_message& operator=(any_message&&) = default;
