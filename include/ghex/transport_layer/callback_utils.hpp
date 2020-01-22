@@ -21,11 +21,11 @@
     using arg2_t = std::tuple_element_t<2, args_t>;                                           \
     static_assert(std::tuple_size<args_t>::value==3,                                          \
         "callback must have 3 arguments");                                                    \
-    static_assert(std::is_convertible<arg1_t,RANK_TYPE>::value,                               \
+    static_assert(std::is_same<arg1_t,RANK_TYPE>::value,                                      \
         "rank_type is not convertible to second callback argument type");                     \
-    static_assert(std::is_convertible<arg2_t,TAG_TYPE>::value,                                \
+    static_assert(std::is_same<arg2_t,TAG_TYPE>::value,                                       \
         "tag_type is not convertible to third callback argument type");                       \
-    static_assert(std::is_convertible<arg0_t,MESSAGE_TYPE>::value,                            \
+    static_assert(std::is_same<arg0_t,MESSAGE_TYPE>::value,                                   \
         "first callback argument type is not a message_type");
 
 namespace gridtools {
@@ -39,8 +39,10 @@ namespace gridtools {
                     // volatile is needed to prevent the compiler
                     // from optimizing away the check of this member
                     volatile bool m_ready = false;
+                    unsigned int m_index = 0;
                     request_state() = default;
                     request_state(bool r) noexcept : m_ready{r} {}
+                    request_state(bool r, unsigned int i) noexcept : m_ready{r}, m_index{i} {}
                     bool is_ready() const noexcept { return m_ready; }
                 };
 
@@ -113,8 +115,6 @@ namespace gridtools {
                     , m_size{sm->size()*sizeof(typename Message::value_type)}
                     , m_ptr2(sm,&m_size)
                     {}
-                    
-
 
                     any_message(any_message&&) = default;
                     any_message& operator=(any_message&&) = default;
@@ -170,7 +170,7 @@ namespace gridtools {
                   public: // member functions
                     template<typename Callback>
                     request enqueue(any_message&& msg, rank_type rank, tag_type tag, future_type&& fut, Callback&& cb) {
-                        request m_req{std::make_shared<request_state>()};
+                        request m_req{std::make_shared<request_state>(false,m_queue.size())};
                         m_queue.push_back(element_type{std::move(msg), rank, tag, std::forward<Callback>(cb), std::move(fut),
                                              m_req});
                         return m_req;
@@ -186,12 +186,26 @@ namespace gridtools {
                                 element.m_request.m_request_state->m_ready = true;
                                 if (i + 1 < m_queue.size()) {
                                     element = std::move(m_queue.back());
+                                    element.m_request.m_request_state->m_index = i;
                                     --i;
                                 }
                                 m_queue.pop_back();
                             }
                         }
                         return completed;
+                    }
+
+                    bool cancel(unsigned int index)
+                    {
+                        auto& element = m_queue[index];
+                        auto res = element.m_future.cancel();
+                        if (m_queue.size() > index+1)
+                        {
+                            element = std::move(m_queue.back());
+                            element.m_request.m_request_state->m_index = index;
+                        }
+                        m_queue.pop_back();
+                        return res;
                     }
                 };
 

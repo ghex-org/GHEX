@@ -34,43 +34,38 @@ namespace gridtools {
                 template<typename ThreadPrimitives>
                 class communicator {
                   public: // member types
-                    using state_type = communicator_state<ThreadPrimitives>;
-                    using transport_context_type = typename state_type::transport_context_type;
-                    using parallel_context_type = typename state_type::parallel_context_type;
+                    using shared_state_type = shared_communicator_state<ThreadPrimitives>;
+                    using transport_context_type = typename shared_state_type::transport_context_type;
+                    using parallel_context_type = typename shared_state_type::parallel_context_type;
                     using thread_token = typename parallel_context_type::thread_token;
+                    using state_type = communicator_state<ThreadPrimitives>;
                     using rank_type = typename state_type::rank_type;
                     using tag_type = typename state_type::tag_type;
                     using request = request_t;
                     using status = status_t;
                     template<typename T>
                     using future = typename state_type::template future<T>;
-                    // needed for now for high-level API
                     using address_type = rank_type;
-
                     using request_cb_type        = request_cb<ThreadPrimitives>;
-                    //using request_cb_state_type  = typename request_cb_type::state_type;
                     using message_type           = typename request_cb_type::message_type;
 
                   private: // members
-                    state_type* m_recv_state;
-                    state_type* m_send_state;
-                    rank_type m_rank;
-                    rank_type m_size;
+                    shared_state_type* m_shared_state;
+                    state_type* m_state;
 
                   public: // ctors
-                    communicator(state_type* recv_state, state_type* send_state)
-                    : m_recv_state{recv_state}
-                    , m_send_state{send_state}
-                    , m_rank{recv_state->rank()}
-                    , m_size{recv_state->size()} {}
+                    communicator(shared_state_type* shared_state, state_type* state)
+                    : m_shared_state{shared_state}
+                    , m_state{state}
+                    {}
                     communicator(const communicator&) = default;
                     communicator(communicator&&) = default;
                     communicator& operator=(const communicator&) = default;
                     communicator& operator=(communicator&&) = default;
 
                   public: // member functions
-                    rank_type rank() const noexcept { return m_rank; }
-                    rank_type size() const noexcept { return m_size; }
+                    rank_type rank() const noexcept { return m_shared_state->rank(); }
+                    rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
 
                     template<typename Message>
@@ -78,7 +73,7 @@ namespace gridtools {
                         request req;
                         GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(msg.data()),
                                                         sizeof(typename Message::value_type) * msg.size(), MPI_BYTE,
-                                                        dst, tag, m_send_state->m_comm, &req.get()));
+                                                        dst, tag, m_shared_state->m_comm, &req.get()));
                         return req;
                     }
 
@@ -87,11 +82,11 @@ namespace gridtools {
                         request req;
                         GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(msg.data()),
                                                         sizeof(typename Message::value_type) * msg.size(), MPI_BYTE,
-                                                        src, tag, m_recv_state->m_comm, &req.get()));
+                                                        src, tag, m_shared_state->m_comm, &req.get()));
                         return req;
                     }
 
-                    unsigned progress() { return m_recv_state->progress() + m_send_state->progress(); }
+                    unsigned progress() { return m_state->progress(); }
 
                     template<typename V>
                     using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
@@ -145,8 +140,8 @@ namespace gridtools {
                         }
                         else
                         {
-                            return { m_send_state,
-                                m_send_state->m_queue.enqueue(std::move(msg), dst, tag, std::move(fut), 
+                            return { &m_state->m_send_queue,
+                                m_state->m_send_queue.enqueue(std::move(msg), dst, tag, std::move(fut), 
                                         std::forward<CallBack>(callback))};
                         }
                     }
@@ -191,8 +186,8 @@ namespace gridtools {
                         }
                         else
                         {
-                            return { m_recv_state,
-                                m_recv_state->m_queue.enqueue(std::move(msg), src, tag, std::move(fut), 
+                            return { &m_state->m_recv_queue,
+                                m_state->m_recv_queue.enqueue(std::move(msg), src, tag, std::move(fut), 
                                         std::forward<CallBack>(callback))};
                         }
                     }

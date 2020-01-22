@@ -24,21 +24,24 @@ namespace gridtools{
                 template<typename ThreadPrimitives>
                 struct request_cb
                 {
-                    using comm_state_type   = communicator_state<ThreadPrimitives>;
+                    using shared_state_type = shared_communicator_state<ThreadPrimitives>;
+                    using state_type        = communicator_state<ThreadPrimitives>;
+                    using queue_type        = typename state_type::queue_type;
                     using message_type      = ::gridtools::ghex::tl::cb::any_message;
-                    using tag_type          = typename comm_state_type::tag_type;
-                    //using state_type        = //bool;
+                    using tag_type          = typename state_type::tag_type;
                     using completion_type   = ::gridtools::ghex::tl::cb::request;
 
-                    comm_state_type* m_comm_state = nullptr;
+                    //shared_state_type* m_shared_state = nullptr;
+                    //state_type* m_state = nullptr;
+                    queue_type* m_queue = nullptr;
                     completion_type m_completed;
                     
                     bool test()
                     {
-                        if(!m_comm_state) return true;
+                        if(!m_queue) return true;
                         if (m_completed.is_ready())
                         {
-                            m_comm_state = nullptr;
+                            m_queue = nullptr;
                             m_completed.reset();
                             return true;
                         }
@@ -47,7 +50,7 @@ namespace gridtools{
 
                     bool cancel()
                     {
-                        return true;
+                        return m_queue->cancel(m_completed.m_request_state->m_index);
                     }
                 };
 

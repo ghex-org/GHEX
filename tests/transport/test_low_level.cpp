@@ -1,40 +1,92 @@
-#include <ghex/transport_layer/callback_communicator.hpp>
-#include <ghex/transport_layer/mpi/communicator.hpp>
-#include <ghex/transport_layer/mpi/context.hpp>
-#include <ghex/threads/atomic/primitives.hpp>
+#include <ghex/threads/none/primitives.hpp>
 #include <vector>
 #include <iomanip>
+#include <utility>
 
 #include <gtest/gtest.h>
 
-template<typename Comm, typename Alloc>
-using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
-//using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
-
+#ifdef GHEX_TEST_USE_UCX
+#include <ghex/transport_layer/ucx/context.hpp>
+using transport = gridtools::ghex::tl::ucx_tag;
+#else
+#include <ghex/transport_layer/mpi/context.hpp>
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::atomic::primitives;
+#endif
+
+using threading = gridtools::ghex::threads::none::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
+
+#define SIZE 40
+
+/**
+ * Simple Send recv on two ranks.
+ * P0 sends a message to P1 and receive from P1,
+ * P1 sends a message to P0 and receive from P0.
+ */
 
 int rank;
 
-/**
- * Simple Send recv on two ranks. P0 sends a message, P1 receives it and check the content.
- */
+template <typename M>
+void init_msg(M& msg) {
+    int* data = msg.template data<int>();
+    for (size_t i = 0; i < msg.size()/sizeof(int); ++i) {
+        data[i] = static_cast<int>(i);
+    }
+}
 
-void test1() {
+void init_msg(std::vector<unsigned char>& msg) {
+    int c = 0;
+    for (size_t i = 0; i < msg.size(); i += 4) {
+        *(reinterpret_cast<int*>(&msg[i])) = c++;
+    }
+}
+
+template <typename M>
+bool check_msg(M const& msg) {
+    bool ok = true;
+    if (rank > 1)
+        return ok;
+
+    const int* data = msg.template data<int>();
+    for (size_t i = 0; i < msg.size()/sizeof(int); ++i) {
+        if ( data[i] != static_cast<int>(i) )
+            ok = false;
+    }
+    return ok;
+}
+
+bool check_msg(std::vector<unsigned char> const& msg) {
+    bool ok = true;
+    if (rank > 1)
+        return ok;
+
+    int c = 0;
+    for (size_t i = 0; i < msg.size(); i += 4) {
+        int value = *(reinterpret_cast<int const*>(&msg[i]));
+        if ( value != c++ )
+            ok = false;
+    }
+    return ok;
+}
+
+template<typename MsgType>
+auto test_unidirectional() {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
+    
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
-    auto sr = context.get_communicator(token);
 
-    std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
-    std::vector<unsigned char> rmsg(10);
+    auto comm = context.get_communicator(token);
+
+    MsgType smsg(SIZE);
+    MsgType rmsg(SIZE);
+    init_msg(smsg);
 
     if ( rank == 0 ) {
-        sr.send(smsg, 1, 1).get();
-    } else if (rank == 1) {
-        auto fut = sr.recv(rmsg, 0, 1);
+        comm.send(smsg, 1, 1).get();
+    } else {
+        auto fut = comm.recv(rmsg, 0, 1);
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -50,37 +102,80 @@ void test1() {
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
-
-        int j = 1;
-        for (auto i : rmsg) {
-            EXPECT_EQ(static_cast<int>(i), j);
-            ++j;
-        }
     }
+    return std::move(rmsg);
 }
 
-void test2() {
+template<typename MsgType>
+auto test_bidirectional() {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
+
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
-    auto sr = context.get_communicator(token);
 
-    using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(sr)>;
-    callback_comm_t<comm_type,allocator_type> cb_comm(sr);
+    auto comm = context.get_communicator(token);
+    using comm_type = std::remove_reference_t<decltype(comm)>;
 
-    std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
-    smsg_type rmsg(10);
+    MsgType smsg(SIZE);
+    MsgType rmsg(SIZE);
+    init_msg(smsg);
+
+    comm_type::future<void> rfut;
+
+    if ( rank == 0 ) {
+        comm.send(smsg, 1, 1).get();
+        rfut = comm.recv(rmsg, 1, 2);
+    } else if (rank == 1) {
+        comm.send(smsg, 0, 2).get();
+        rfut = comm.recv(rmsg, 0, 1);
+    }
+
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+    int c = 0;
+#endif
+    do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+        c++;
+#endif
+     } while (!rfut.ready());
+
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+    std::cout << "\n***********\n";
+    std::cout <<   "*" << std::setw(8) << c << " *\n";
+    std::cout << "***********\n";
+#endif
+
+    return std::move(rmsg);
+}
+
+template<typename MsgType>
+auto test_unidirectional_cb() {
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+
+    auto comm = context.get_communicator(token);
+
+    using allocator_type  = std::allocator<unsigned char>;
+    using smsg_type       = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type       = std::remove_reference_t<decltype(comm)>;
+    using cb_msg_type     = typename comm_type::message_type;
+
+    MsgType smsg(SIZE);
+    MsgType rmsg(SIZE);
+    init_msg(smsg);
 
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(smsg, 1, 1);
+        auto fut = comm.send(smsg, 1, 1);
         fut.wait();
-    } else if (rank == 1) {
-        cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /*src*/, int /* tag */) { arrived = true; });
+        EXPECT_FALSE(comm.progress());
+    } else {
+        comm.recv(rmsg, 0, 1, [ &arrived](cb_msg_type, int /*src*/, int /* tag */) { arrived = true; });
 
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         int c = 0;
@@ -89,214 +184,194 @@ void test2() {
 #ifdef GHEX_TEST_COUNT_ITERATIONS
             c++;
 #endif
-            cb_comm.progress();
+            comm.progress();
          } while (!arrived);
-
 #ifdef GHEX_TEST_COUNT_ITERATIONS
         std::cout << "\n***********\n";
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
-
-        int j = 1;
-        for (auto i : rmsg) {
-            EXPECT_EQ(static_cast<int>(i), j);
-            ++j;
-        }
+        EXPECT_FALSE(comm.progress());
     }
-
-    EXPECT_FALSE(cb_comm.progress());
-
+    return std::move(rmsg);
 }
 
-void test1_mesg() {
+template<typename MsgType>
+auto test_bidirectional_cb() {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
+
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
-    auto sr = context.get_communicator(token);
 
-    gridtools::ghex::tl::message_buffer<> smsg{40};
+    auto comm = context.get_communicator(token);
 
-    int * data = smsg.data<int>();
+    using allocator_type  = std::allocator<unsigned char>;
+    using smsg_type       = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
+    using comm_type       = std::remove_reference_t<decltype(comm)>;
+    using cb_msg_type     = typename comm_type::message_type;
 
-    for (int i = 0; i < 10; ++i) {
-        data[i] = i;
-    }
-
-    gridtools::ghex::tl::message_buffer<> rmsg{40};
-
-    if ( rank == 0 ) {
-        sr.send(smsg, 1, 1).get();
-    } else if (rank == 1) {
-        auto fut = sr.recv(rmsg, 0, 1);
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-        int c = 0;
-#endif
-        do {
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-            c++;
-#endif
-         } while (!fut.ready());
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-        std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
-        std::cout << "***********\n";
-#endif
-
-        int* data = rmsg.data<int>();
-        for (int i = 0; i < 10; ++i) {
-            EXPECT_EQ(data[i], i);
-        }
-    }
-}
-
-void test2_mesg() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-    auto token = context.get_token();
-    EXPECT_TRUE(token.id() == 0);
-    auto sr = context.get_communicator(token);
-    using allocator_type = std::allocator<unsigned char>;
-    using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
-    using comm_type      = std::remove_reference_t<decltype(sr)>;
-
-    callback_comm_t<comm_type,allocator_type> cb_comm(sr);
-
-    gridtools::ghex::tl::message_buffer<> smsg{40};
-    smsg_type rmsg{40};
-
-    int * data = smsg.data<int>();
-
-    for (int i = 0; i < 10; ++i) {
-        data[i] = i;
-    }
+    MsgType smsg(SIZE);
+    MsgType rmsg(SIZE);
+    init_msg(smsg);
 
     bool arrived = false;
 
     if ( rank == 0 ) {
-        auto fut = sr.send(smsg, 1, 1);
+        auto fut = comm.send(smsg, 1, 1);
+        comm.recv(rmsg, 1, 2, [ &arrived,&rmsg](cb_msg_type, int, int) { arrived = true; });
         fut.wait();
     } else if (rank == 1) {
-        cb_comm.recv(rmsg, 0, 1, [ &arrived](const smsg_type&, int /* src */, int /* tag */) { arrived = true; });
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-        int c = 0;
-#endif
-        do {
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-            c++;
-#endif
-            cb_comm.progress();
-         } while (!arrived);
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-        std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
-        std::cout << "***********\n";
-#endif
-
-        int* data = rmsg.data<int>();
-        for (int i = 0; i < 10; ++i) {
-            EXPECT_EQ(data[i], i);
-        }
+        auto fut = comm.send(smsg, 0, 2);
+        comm.recv(rmsg, 0, 1, [ &arrived,&rmsg](cb_msg_type, int, int) { arrived = true; });
+        fut.wait();
     }
 
-    EXPECT_FALSE(cb_comm.progress());
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+    int c = 0;
+#endif
+    do {
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+        c++;
+#endif
+        comm.progress();
+     } while (!arrived);
 
-    MPI_Barrier(MPI_COMM_WORLD);
+#ifdef GHEX_TEST_COUNT_ITERATIONS
+    std::cout << "\n***********\n";
+    std::cout <<   "*" << std::setw(8) << c << " *\n";
+    std::cout << "***********\n";
+#endif
 
+    EXPECT_FALSE(comm.progress());
+
+    return std::move(rmsg);
 }
 
-void test1_shared_mesg() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-    auto token = context.get_token();
-    EXPECT_TRUE(token.id() == 0);
-    auto sr = context.get_communicator(token);
 
-    gridtools::ghex::tl::message_buffer<> smsg{40};
+template <typename Test>
+bool run_test(Test&& test) {
+    bool ok;
+    auto msg = test();
+    ok = check_msg(msg);
+    return ok;
+}
 
-    int * data = smsg.data<int>();
-
-    for (int i = 0; i < 10; ++i) {
-        data[i] = i;
+TEST(low_level, basic_unidirectional_vector) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = std::vector<unsigned char>;
+    auto test_func = [](){ return test_unidirectional<MsgType>();};
+    if (rank == 1) {
+        EXPECT_TRUE(run_test(test_func));
     }
-
-    gridtools::ghex::tl::shared_message_buffer<> rmsg{40};
-
-    if ( rank == 0 ) {
-        sr.send(smsg, 1, 1).get();
-    } else if (rank == 1) {
-        auto fut = sr.recv(rmsg, 0, 1);
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-        int c = 0;
-#endif
-        do {
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-            c++;
-#endif
-         } while (!fut.ready());
-
-#ifdef GHEX_TEST_COUNT_ITERATIONS
-        std::cout << "\n***********\n";
-        std::cout <<   "*" << std::setw(8) << c << " *\n";
-        std::cout << "***********\n";
-#endif
-
-        int* data = rmsg.data<int>();
-        for (int i = 0; i < 10; ++i) {
-            EXPECT_EQ(data[i], i);
-        }
+    else if (rank == 0) {
+        run_test(test_func);
+    }
+}
+TEST(low_level, basic_unidirectional_buffer) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_unidirectional<MsgType>();};
+    if (rank == 1) {
+        EXPECT_TRUE(run_test(test_func));
+    }
+    else if (rank == 0) {
+        run_test(test_func);
+    }
+}
+TEST(low_level, basic_unidirectional_shared_buffer) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_unidirectional<MsgType>();};
+    if (rank == 1) {
+        EXPECT_TRUE(run_test(test_func));
+    }
+    else if (rank == 0) {
+        run_test(test_func);
     }
 }
 
-
-template <typename Msg>
-void print_msg(Msg const msg) {
-    std::cout << "Reference count " << msg.use_count() << " (size: " << msg.size() << ")\n";
-    int * data = msg.template data<int>();
-    for (int i = 0; i < (int)(msg.size()/sizeof(int)); ++i) {
-        std::cout << data[i] << ", ";
+TEST(low_level, basic_bidirectional_vector) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = std::vector<unsigned char>;
+    auto test_func = [](){ return test_bidirectional<MsgType>();};
+    if (rank < 2) {
+        EXPECT_TRUE(run_test(test_func));
     }
-    std::cout << "\n";
+}
+TEST(low_level, basic_bidirectional_buffer) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_bidirectional<MsgType>();};
+    if (rank < 2) {
+        EXPECT_TRUE(run_test(test_func));
+    }
+}
+TEST(low_level, basic_bidirectional_shared_buffer) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_bidirectional<MsgType>();};
+    if (rank < 2) {
+        EXPECT_TRUE(run_test(test_func));
+    }
 }
 
-TEST(transport, basic) {
-
+TEST(low_level, basic_unidirectional_cb_vector) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    test1();
+    using MsgType = std::vector<unsigned char>;
+    auto test_func = [](){ return test_unidirectional_cb<MsgType>();};
+    if (rank == 1) {
+        EXPECT_TRUE(run_test(test_func));
+    }
+    else if (rank == 0) {
+        run_test(test_func);
+    }
+}
+TEST(low_level, basic_unidirectional_cb_buffer) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_unidirectional_cb<MsgType>();};
+    if (rank == 1) {
+        EXPECT_TRUE(run_test(test_func));
+    }
+    else if (rank == 0) {
+        run_test(test_func);
+    }
+}
+TEST(low_level, basic_unidirectional_cb_shared_buffer) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_unidirectional_cb<MsgType>();};
+    if (rank == 1) {
+        EXPECT_TRUE(run_test(test_func));
+    }
+    else if (rank == 0) {
+        run_test(test_func);
+    }
 }
 
-TEST(transport, basic_call_back) {
-
+TEST(low_level, basic_bidirectional_cb_vector) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    test2();
+    using MsgType = std::vector<unsigned char>;
+    auto test_func = [](){ return test_bidirectional_cb<MsgType>();};
+    if (rank < 2) {
+        EXPECT_TRUE(run_test(test_func));
+    }
 }
-
-TEST(transport, basic_msg) {
-
+TEST(low_level, basic_bidirectional_cb_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    test1_mesg();
+    using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_bidirectional_cb<MsgType>();};
+    if (rank < 2) {
+        EXPECT_TRUE(run_test(test_func));
+    }
 }
-
-TEST(transport, basic_msg_call_back) {
-
+TEST(low_level, basic_bidirectional_cb_shared_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    test2_mesg();
-}
-
-TEST(transport, basic_shared_msg) {
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    test1_shared_mesg();
+    using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
+    auto test_func = [](){ return test_bidirectional_cb<MsgType>();};
+    if (rank < 2) {
+        EXPECT_TRUE(run_test(test_func));
+    }
 }
 
