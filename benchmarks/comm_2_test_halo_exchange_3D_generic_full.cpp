@@ -133,7 +133,7 @@ namespace halo_exchange_3D_generic_full {
 
         // define local domain
         domain_descriptor_type local_domain{
-            context.world().rank(),//comm.rank(),
+            context.rank(),//comm.rank(),
             std::array<int,3>{coords[0]*DIM1,coords[1]*DIM2,coords[2]*DIM3},
             std::array<int,3>{(coords[0]+1)*DIM1-1,(coords[1]+1)*DIM2-1,(coords[2]+1)*DIM3-1}};
         std::vector<domain_descriptor_type> local_domains{local_domain};
@@ -269,7 +269,7 @@ namespace halo_exchange_3D_generic_full {
                 std::array<int,3>{H1m3,H2m3,H3m3},
                 std::array<int,3>{(DIM1 + H1m3 + H1p3), (DIM2 + H2m3 + H2p3), (DIM3 + H3m3 + H3p3)});
 
-            MPI_Barrier(context.world());
+            MPI_Barrier(context.mpi_comm());
 
             // do all the stuff here
             file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
@@ -284,7 +284,7 @@ namespace halo_exchange_3D_generic_full {
             {
                 timer_type t_0;
                 timer_type t_1;
-                MPI_Barrier(context.world());
+                MPI_Barrier(context.mpi_comm());
                 t_0.tic();
                 auto h = co.exchange(
 #ifndef GHEX_1_PATTERN_BENCHMARK
@@ -300,14 +300,14 @@ namespace halo_exchange_3D_generic_full {
                 t_1.tic();
                 h.wait();
                 t_1.toc();
-                MPI_Barrier(context.world());
+                MPI_Barrier(context.mpi_comm());
 
                 timer_type t;
                 t(t_0.sum()+t_1.sum());
 
-                auto t_0_all = gridtools::ghex::reduce(t_0,context.world());
-                auto t_1_all = gridtools::ghex::reduce(t_1,context.world());
-                auto t_all = gridtools::ghex::reduce(t,context.world());
+                auto t_0_all = gridtools::ghex::reduce(t_0,context.mpi_comm());
+                auto t_1_all = gridtools::ghex::reduce(t_1,context.mpi_comm());
+                auto t_all = gridtools::ghex::reduce(t,context.mpi_comm());
                 if (k >= k_start)
                 {
                     t_0_local(t_0);
@@ -406,7 +406,7 @@ namespace halo_exchange_3D_generic_full {
             delete[] gpu_c;
 #endif
 
-            MPI_Barrier(context.world());
+            MPI_Barrier(context.mpi_comm());
 
         }
         else
@@ -414,7 +414,7 @@ namespace halo_exchange_3D_generic_full {
             auto field1 = a;
             auto field2 = b;
             auto field3 = c;
-            MPI_Barrier(context.world());
+            MPI_Barrier(context.mpi_comm());
 
             file << "                         LOCAL        MEAN          STD         MIN         MAX" << std::endl;
             timer_type t_0_local;
@@ -428,7 +428,7 @@ namespace halo_exchange_3D_generic_full {
             {
                 timer_type t_0;
                 timer_type t_1;
-                MPI_Barrier(context.world());
+                MPI_Barrier(context.mpi_comm());
                 t_0.tic();
                 auto h = co.exchange(
 #ifndef GHEX_1_PATTERN_BENCHMARK
@@ -444,14 +444,14 @@ namespace halo_exchange_3D_generic_full {
                 t_1.tic();
                 h.wait();
                 t_1.toc();
-                MPI_Barrier(context.world());
+                MPI_Barrier(context.mpi_comm());
 
                 timer_type t;
                 t(t_0.sum()+t_1.sum());
 
-                auto t_0_all = gridtools::ghex::reduce(t_0,context.world());
-                auto t_1_all = gridtools::ghex::reduce(t_1,context.world());
-                auto t_all = gridtools::ghex::reduce(t,context.world());
+                auto t_0_all = gridtools::ghex::reduce(t_0,context.mpi_comm());
+                auto t_1_all = gridtools::ghex::reduce(t_1,context.mpi_comm());
+                auto t_all = gridtools::ghex::reduce(t,context.mpi_comm());
                 if (k >= k_start)
                 {
                     t_0_local(t_0);
@@ -516,7 +516,7 @@ namespace halo_exchange_3D_generic_full {
                 << std::endl;
             //file << std::endl << std::endl;
 
-            MPI_Barrier(context.world());
+            MPI_Barrier(context.mpi_comm());
         }
         
 
@@ -687,7 +687,7 @@ namespace halo_exchange_3D_generic_full {
         int H3p3)
     {
         gridtools::ghex::tl::mpi::communicator_base world;
-        //std::cout << context.world().rank() << " " << context.world().size() << "\n";
+        //std::cout << context.rank() << " " << context.world().size() << "\n";
 
         std::stringstream ss;
         ss << world.rank();
@@ -706,7 +706,8 @@ namespace halo_exchange_3D_generic_full {
 
         MPI_Cart_get(CartComm, 3, dims, period, coords);
         
-        context_type context(1, CartComm);
+        auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, CartComm);
+        auto& context = *context_ptr;
         auto comm = context.get_communicator(context.get_token());
 
         /* Each process will hold a tile of size

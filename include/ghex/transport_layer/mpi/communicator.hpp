@@ -14,7 +14,6 @@
 #include <boost/optional.hpp>
 #include "../shared_message_buffer.hpp"
 #include "../communicator.hpp"
-//#include "./communicator_base.hpp"
 #include "./future.hpp"
 #include "./request_cb.hpp"
 #include "../context.hpp"
@@ -34,10 +33,10 @@ namespace gridtools {
                 template<typename ThreadPrimitives>
                 class communicator {
                   public: // member types
+                    using thread_primitives_type = ThreadPrimitives;
                     using shared_state_type = shared_communicator_state<ThreadPrimitives>;
                     using transport_context_type = typename shared_state_type::transport_context_type;
-                    using parallel_context_type = typename shared_state_type::parallel_context_type;
-                    using thread_token = typename parallel_context_type::thread_token;
+                    using thread_token = typename thread_primitives_type::token;
                     using state_type = communicator_state<ThreadPrimitives>;
                     using rank_type = typename state_type::rank_type;
                     using tag_type = typename state_type::tag_type;
@@ -99,7 +98,7 @@ namespace gridtools {
 
                     void barrier() {
                         if (auto token_ptr = m_state->m_token_ptr) {
-                            auto& tp = m_shared_state->m_parallel_context->thread_primitives();
+                            auto& tp = *(m_shared_state->m_thread_primitives);
                             auto& token = *token_ptr;
                             tp.barrier(token);
                             tp.single(token, [this]() { MPI_Barrier(m_shared_state->m_comm); } );
@@ -213,166 +212,6 @@ namespace gridtools {
                         }
                     }
                 };
-
-
-                ///** Mpi communicator which exposes basic non-blocking transport functionality and 
-                //  * returns futures to await said transports to complete. */
-                //template<typename ThreadPrimitives>
-                //class communicator//<mpi_tag,ThreadPrimitives>
-                //: public communicator_base
-                //{
-                //public:
-                //    using transport_type = mpi_tag;
-                //    using base_type      = mpi::communicator_base;
-                //    using address_type   = typename base_type::rank_type;
-                //    using rank_type      = typename base_type::rank_type;
-                //    using size_type      = typename base_type::size_type;
-                //    using tag_type       = typename base_type::tag_type;
-                //    using request        = request_t;
-                //    using status         = status_t;
-                //    template<typename T>
-                //    using future         = future_t<T>;
-
-                //public:
-
-                //    using transport_context_type = transport_context<mpi_tag, ThreadPrimitives>;
-                //    transport_context_type* m_transport_context;
-                //    int m_thread_id;
-
-                //    communicator(const MPI_Comm& c, transport_context_type* tc, int thread_id = -1) 
-                //    : base_type{c} 
-                //    , m_transport_context{tc}
-                //    , m_thread_id{thread_id}
-                //    {}
-                //    
-                //    communicator(const communicator&) = default;
-                //    communicator(communicator&&) noexcept = default;
-
-                //    communicator& operator=(const communicator&) = default;
-                //    communicator& operator=(communicator&&) noexcept = default;
-
-                //    /** @return address of this process */
-                //    address_type address() const { return rank(); }
-
-                //public: // send
-
-                //    /** @brief non-blocking send
-                //      * @tparam Message a container type
-                //      * @param msg source container
-                //      * @param dest destination rank
-                //      * @param tag message tag
-                //      * @return completion handle */
-                //    template<typename Message> 
-                //    [[nodiscard]] future<void> send(const Message& msg, rank_type dest, tag_type tag) const
-                //    {
-                //        request req;
-                //        GHEX_CHECK_MPI_RESULT(
-                //            MPI_Isend(reinterpret_cast<const void*>(msg.data()),sizeof(typename Message::value_type)*msg.size(), 
-                //                      MPI_BYTE, dest, tag, *this, &req.get())
-                //        );
-                //        return req;
-                //    }
-                //
-                //public: // recv
-
-                //    /** @brief non-blocking receive
-                //      * @tparam Message a container type
-                //      * @param msg destination container
-                //      * @param source source rank
-                //      * @param tag message tag
-                //      * @return completion handle */
-                //    template<typename Message>
-                //    [[nodiscard]] future<void> recv(Message& msg, rank_type source, tag_type tag) const
-                //    {
-                //        request req;
-                //        GHEX_CHECK_MPI_RESULT(
-                //                MPI_Irecv(reinterpret_cast<void*>(msg.data()),sizeof(typename Message::value_type)*msg.size(), 
-                //                          MPI_BYTE, source, tag, *this, &req.get()));
-                //        return req;
-                //    }
-
-                //    /** @brief non-blocking receive which allocates the container within this function and returns it
-                //      * in the future 
-                //      * @tparam Message a container type
-                //      * @tparam Args additional argument types for construction of Message
-                //      * @param n number of elements to be received
-                //      * @param source source rank
-                //      * @param tag message tag
-                //      * @param args additional arguments to be passed to new container of type Message at construction 
-                //      * @return completion handle with message as payload */
-                //    template<typename Message, typename... Args>
-                //    [[nodiscard]] future<Message> recv(int n, rank_type source, tag_type tag, Args&& ...args) const
-                //    {
-                //        Message msg{n, std::forward<Args>(args)...};
-                //        return { std::move(msg), recv(msg, source, tag).m_handle };
-
-                //    }
-
-                //    /** @brief non-blocking receive which maches any tag from the given source. If a match is found, it
-                //      * allocates the container of type Message within this function and returns it in the future.
-                //      * The container size will be set according to the matched receive operation.
-                //      * @tparam Message a container type
-                //      * @tparam Args additional argument types for construction of Message
-                //      * @param source source rank
-                //      * @param args additional arguments to be passed to new container of type Message at construction 
-                //      * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
-                //    template<typename Message, typename... Args>
-                //    [[nodiscard]] auto recv_any_tag(rank_type source, Args&& ...args) const
-                //    {
-                //        return recv_any<Message>(source, MPI_ANY_TAG, std::forward<Args>(args)...);
-                //    }
-
-                //    /** @brief non-blocking receive which maches any source using the given tag. If a match is found, it
-                //      * allocates the container of type Message within this function and returns it in the future.
-                //      * The container size will be set according to the matched receive operation.
-                //      * @tparam Message a container type
-                //      * @tparam Args additional argument types for construction of Message
-                //      * @param tag message tag
-                //      * @param args additional arguments to be passed to new container of type Message at construction 
-                //      * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
-                //    template<typename Message, typename... Args>
-                //    [[nodiscard]] auto recv_any_source(tag_type tag, Args&& ...args) const
-                //    {
-                //        return recv_any<Message>(MPI_ANY_SOURCE, tag, std::forward<Args>(args)...);
-                //    }
-
-                //    /** @brief non-blocking receive which maches any source and any tag. If a match is found, it
-                //      * allocates the container of type Message within this function and returns it in the future.
-                //      * The container size will be set according to the matched receive operation.
-                //      * @tparam Message a container type
-                //      * @tparam Args additional argument types for construction of Message
-                //      * @param tag message tag
-                //      * @param args additional arguments to be passed to new container of type Message at construction 
-                //      * @return optional which may hold a future< std::tuple<Message,rank_type,tag_type> > */
-                //    template<typename Message, typename... Args>
-                //    [[nodiscard]] auto recv_any_source_any_tag(Args&& ...args) const
-                //    {
-                //        return recv_any<Message>(MPI_ANY_SOURCE, MPI_ANY_TAG, std::forward<Args>(args)...);
-                //    }
-
-                //private: // implementation
-
-                //    template<typename Message, typename... Args>
-                //    [[nodiscard]] boost::optional< future< std::tuple<Message, rank_type, tag_type> > >
-                //    recv_any(rank_type source, tag_type tag, Args&& ...args) const
-                //    {
-                //        MPI_Message mpi_msg;
-                //        status st;
-                //        int flag = 0;
-                //        GHEX_CHECK_MPI_RESULT(MPI_Improbe(source, tag, *this, &flag, &mpi_msg, &st.get()));
-                //        if (flag)
-                //        {
-                //            int count;
-                //            GHEX_CHECK_MPI_RESULT(MPI_Get_count(&st.get(), MPI_CHAR, &count));
-                //            Message msg(count/sizeof(typename Message::value_type), std::forward<Args>(args)...);
-                //            request req;
-                //            GHEX_CHECK_MPI_RESULT(MPI_Imrecv(msg.data(), count, MPI_CHAR, &mpi_msg, &req.get()));
-                //            using future_t = future<std::tuple<Message,rank_type,tag_type>>;
-                //            return future_t{ std::make_tuple(std::move(msg), st.source(), st.tag()), std::move(req) };
-                //        }
-                //        return boost::none;
-                //    }
-                //};
 
             } // namespace mpi
 

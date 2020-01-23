@@ -21,27 +21,29 @@ namespace gridtools {
             template<typename ThreadPrimitives>
             struct transport_context<mpi_tag, ThreadPrimitives>
             {
-                using parallel_context_type = parallel_context<ThreadPrimitives>;
-                using thread_token = typename parallel_context_type::thread_token;
-                using communicator_type = mpi::communicator<ThreadPrimitives>;
+                using thread_primitives_type = ThreadPrimitives;
+                using communicator_type = mpi::communicator<thread_primitives_type>;
+                using thread_token = typename thread_primitives_type::token;
                 using shared_state_type = typename communicator_type::shared_state_type;
                 using state_type = typename communicator_type::state_type;
                 using state_ptr = std::unique_ptr<state_type>;
                 using state_vector = std::vector<state_ptr>;
 
-                parallel_context_type& m_parallel_context;
+                thread_primitives_type& m_thread_primitives;
+                MPI_Comm m_comm;
                 std::vector<thread_token>  m_tokens;
                 shared_state_type m_shared_state;
                 state_type m_state;
                 state_vector m_states;
 
                 template<typename... Args>
-                transport_context(parallel_context<ThreadPrimitives>& pc, Args&&...)
-                : m_parallel_context(pc)
-                , m_tokens(m_parallel_context.thread_primitives().size())
-                , m_shared_state((MPI_Comm)(pc.world()), this, &pc)
+                transport_context(ThreadPrimitives& tp, MPI_Comm mpi_comm, Args&&...)
+                : m_thread_primitives(tp)
+                , m_comm{mpi_comm}
+                , m_tokens(tp.size())
+                , m_shared_state(mpi_comm, this, &tp)
                 , m_state(nullptr)
-                , m_states(m_parallel_context.thread_primitives().size())
+                , m_states(tp.size())
                 {}
 
                 communicator_type get_serial_communicator()
@@ -66,7 +68,7 @@ namespace gridtools {
             {
                 static std::unique_ptr<context<mpi_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm)
                 {
-                    return std::make_unique<context<mpi_tag,ThreadPrimitives>>(num_threads, mpi_comm);
+                    return std::make_unique<context<mpi_tag,ThreadPrimitives>>(num_threads, mpi_comm, mpi_comm);
                 }
             };
 

@@ -125,7 +125,7 @@ namespace gridtools{
                     void destroy()
                     {
                         void* ucx_ptr = m_req->m_ucx_ptr;
-                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
+                        m_req->m_send_worker->m_thread_primitives->critical(
 			    [ucx_ptr]()
 			    {
 				request_init(ucx_ptr);
@@ -142,12 +142,14 @@ namespace gridtools{
                         ucp_worker_progress(m_req->m_send_worker->get());
                         ucp_worker_progress(m_req->m_send_worker->get());
 
-                        auto& tp = m_req->m_send_worker->m_parallel_context->thread_primitives();
-                        return tp.critical(
+                        return m_req->m_send_worker->m_thread_primitives->critical(
 			    [this]()
 			    {
 				ucp_worker_progress(m_req->m_recv_worker->get());
-				ucp_worker_progress(m_req->m_recv_worker->get());
+
+                                // TODO sometimes causes a slowdown, e.g., in the ft_avail
+                                // test with 16 threads
+                                ucp_worker_progress(m_req->m_recv_worker->get());
 
 				// check request status
 				// TODO check whether ucp_request_check_status has to be locked also:
@@ -194,7 +196,7 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        m_req->m_send_worker->m_parallel_context->thread_primitives().critical(
+                        m_req->m_send_worker->m_thread_primitives->critical(
 			    [this]()
 			    {
 				auto ucx_ptr = m_req->m_ucx_ptr;
@@ -268,7 +270,7 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        return m_req->m_worker->m_parallel_context->thread_primitives().critical(
+                        return m_req->m_worker->m_thread_primitives->critical(
 			    [this]()
 			    {
 				if (!(*m_completed))

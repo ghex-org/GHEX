@@ -16,14 +16,10 @@ using threading    = ghex::threads::none::primitives;
 #endif
 
 #ifdef USE_UCP
-
 // UCX backend
-#include <ghex/transport_layer/ucx/address_db_mpi.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
-using db_type      = ghex::tl::ucx::address_db_mpi;
 using transport    = ghex::tl::ucx_tag;
 #else
-
 // MPI backend
 #include <ghex/transport_layer/mpi/context.hpp>
 using transport    = ghex::tl::mpi_tag;
@@ -66,16 +62,20 @@ int main(int argc, char *argv[])
     inflight = atoi(argv[3]);
 
     int num_threads = 1;
+
+#ifdef USE_OPENMP
+#pragma omp parallel
+    {
+#pragma omp master
+        num_threads = omp_get_num_threads();
+    }
+#endif
+
 #ifdef USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
         std::terminate();
-    }
-#pragma omp parallel
-    {
-#pragma omp master
-        num_threads = omp_get_num_threads();
     }
 #else
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
