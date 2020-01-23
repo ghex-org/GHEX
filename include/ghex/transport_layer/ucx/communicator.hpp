@@ -411,15 +411,15 @@ namespace gridtools {
                             {
                                 volatile int received = 0;
                                 volatile int sent = 0;
-                                std::vector<unsigned char> smsg(1), rmsg(1);
+                                std::vector<unsigned char> msg(1);
 
                                 auto send_callback = [&](message_type, int, int) {sent++;};
                                 auto recv_callback = [&](message_type, int, int) {received++;};
 
                                 for(rank_type r=0; r<m_size; r++){
                                     if(r != m_rank){
-                                        recv(smsg, r, 0xdeadbeef, recv_callback);
-                                        send(smsg, r, 0xdeadbeef, send_callback);
+                                        recv(msg, r, 0xdeadbeef, recv_callback);
+                                        send(msg, r, 0xdeadbeef, send_callback);
                                     }
                                 }
 
