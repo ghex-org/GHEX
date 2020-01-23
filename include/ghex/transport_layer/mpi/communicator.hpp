@@ -86,6 +86,15 @@ namespace gridtools {
                         return req;
                     }
 
+                    template <typename Neighs>
+                    std::vector<future<void>> send_multi(const message_type& msg, Neighs const &neighs, int tag) const {
+                        std::vector<future<void>> res;
+                        res.reserve(neighs.size());
+                        for (auto id : neighs)
+                            res.push_back( send(msg, id, tag) );
+                        return res;
+                    }
+
                     unsigned progress() { return m_state->progress(); }
 
                     void barrier() {
