@@ -15,7 +15,6 @@
 #include <pmix.h>
 #include <pthread.h>
 
-#include <string>
 #include <ghex/common/debug.hpp>
 #include <ghex/common/moved_bit.hpp>
 #include "../pmi.hpp"
@@ -59,7 +58,7 @@ namespace gridtools
                          * a name to retrieve such values */
                         PMIX_PROC_CONSTRUCT(&allproc);
                         // (void)strncpy(allproc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
-                        (void)memcpy(allproc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
+                        std::memcpy(allproc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
                         allproc.rank = PMIX_RANK_WILDCARD;
 
                         /* get the number of procs in our job */
@@ -135,7 +134,7 @@ namespace gridtools
 
                         PMIX_PROC_CONSTRUCT(&proc);
                         // (void)strncpy(proc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
-                        (void)memcpy(proc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
+                        std::memcpy(proc.nspace, myproc.nspace, PMIX_MAX_NSLEN);
                         proc.rank = peer_rank;
                         if (PMIX_SUCCESS != (rc = PMIx_Get(&proc, key.c_str(), NULL, 0, &pvalue))) {
                             std::string nspace(myproc.nspace, myproc.nspace+strlen(myproc.nspace));
