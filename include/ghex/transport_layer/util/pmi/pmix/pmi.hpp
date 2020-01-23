@@ -105,7 +105,7 @@ namespace gridtools
 
                         PMIX_VALUE_CONSTRUCT(&value);
                         value.type = PMIX_BYTE_OBJECT;
-                        value.data.bo.bytes = (char*)((void*)data.data());
+                        value.data.bo.bytes = (char*)data.data();
                         value.data.bo.size  = data.size();
                         if (PMIX_SUCCESS != (rc = PMIx_Put(PMIX_GLOBAL, key.c_str(), &value))) {
                             std::string nspace(myproc.nspace, myproc.nspace+strlen(myproc.nspace));
