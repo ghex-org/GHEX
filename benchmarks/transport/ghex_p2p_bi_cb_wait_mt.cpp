@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
             sreqs.resize(inflight);
             rreqs.resize(inflight);
 
-            context.barrier(token);
+            comm.barrier();
 
             if (thread_id == 0)
             {
@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
                 received = 0;
             }
 
-            context.barrier(token);
+            comm.barrier();
             if(thread_id==0 && rank == 0)
             {
                 const auto t = ttimer.stoc();
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
             }
 
             // stop here to help produce a nice std output
-            context.barrier(token);
+            comm.barrier();
             context.thread_primitives().critical(
                 [&]()
                 {
