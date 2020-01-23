@@ -13,11 +13,11 @@
 
 #include "./communicator.hpp"
 
-// Try to use the PMI interface ...
+#ifdef GHEX_USE_PMI
+// use the PMI interface ...
 #include "./address_db_pmi.hpp"
-
+#else
 // ... and go to MPI if not available
-#ifndef GHEX_USE_PMI
 #include "./address_db_mpi.hpp"
 #endif
 
