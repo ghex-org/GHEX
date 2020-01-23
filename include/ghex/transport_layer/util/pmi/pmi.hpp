@@ -17,10 +17,13 @@ namespace gridtools
     {
 	namespace tl
 	{
-	    template<typename PMIImpl>
-	    class pmi;
+            namespace pmi
+            {
+                template<typename PMIImpl>
+                class pmi;
 		
-	    struct pmix_tag {};
+                struct pmix_tag {};
+            } // namespace pmi
 	} // namespace tl
     } // namespace ghex
 } // namespace gridtools

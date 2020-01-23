@@ -15,7 +15,7 @@
 
 #define GHEX_USE_PMI
 #include "../util/pmi/pmix/pmi.hpp"
-using PmiType = gridtools::ghex::tl::pmi<gridtools::ghex::tl::pmix_tag>;
+using PmiType = gridtools::ghex::tl::pmi::pmi<gridtools::ghex::tl::pmi::pmix_tag>;
 
 #include <map>
 #include <vector>
