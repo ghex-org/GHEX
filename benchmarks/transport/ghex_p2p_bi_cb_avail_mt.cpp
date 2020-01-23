@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
                 make_zero(rmsgs[j]);
             }
 
-            context.barrier(token);
+            comm.barrier();
 
             if (thread_id == 0)
             {
@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            context.barrier(token);
+            comm.barrier();
 
             if(thread_id==0 && rank == 0)
             {
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
             }
 
             // stop here to help produce a nice std output
-            context.barrier(token);
+            comm.barrier();
             context.thread_primitives().critical(
                 [&]()
                 {
