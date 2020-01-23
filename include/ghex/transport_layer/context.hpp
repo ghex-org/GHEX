@@ -38,6 +38,8 @@ namespace gridtools {
                 MPI_Comm m_mpi_comm;
                 thread_primitives_type m_thread_primitives;
                 transport_context_type m_transport_context;
+                int m_rank;
+                int m_size;
 
             public:
                 template<typename...Args>
@@ -45,12 +47,18 @@ namespace gridtools {
                     : m_mpi_comm{comm}
                     , m_thread_primitives(num_threads)
                     , m_transport_context{m_thread_primitives, std::forward<Args>(args)...}
+                    , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) }
+                    , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) }
                 {}
 
                 context(const context&) = delete;
                 context(context&&) = delete;
 
             public:
+
+                MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
+                int rank() const noexcept { return m_rank; }
+                int size() const noexcept { return m_size; }
 
                 /*const */thread_primitives_type& thread_primitives() /*const*/ noexcept
                 {
