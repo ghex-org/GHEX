@@ -188,7 +188,7 @@ CONTAINS
     procedure(f_callback), pointer :: cb
 
     cb => cbarg
-    call comm_post_recv_cb_wrapped(comm, message, rank, tag, c_funloc(cb))
+    call comm_post_recv_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
   end subroutine comm_post_recv_cb
 
   subroutine comm_resubmit_recv(comm, message, rank, tag, cbarg, req)

@@ -16,7 +16,7 @@ PROGRAM ghex_p2p_bi_cb_avail_mt
 
   ! threadprivate variables
   integer :: comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0
-  integer :: thread_id = 1
+  integer :: thread_id = 0
 #ifdef USE_OPENMP
   !$omp threadprivate(comm_cnt, nlsend_cnt, nlrecv_cnt, submit_cnt, submit_recv_cnt, thread_id)
 #endif
@@ -80,24 +80,39 @@ contains
 
   subroutine run(context)
     type(ghex_context) :: context
-    type(ghex_communicator) :: comm
 
-    integer :: rank, size, num_threads, peer_rank
+    ! all below variables are thread-local
+    type(ghex_communicator), save :: comm
+
+    integer :: rank = -1, size = -1, num_threads = -1, peer_rank = -1
     logical :: using_mt = .false.
 
     integer :: last_received = 0
     integer :: last_sent = 0
     integer :: dbg = 0, sdbg = 0, rdbg = 0;
-    integer :: j, np
+    integer :: j = 0, np = 0
     integer :: incomplete_sends = 0, send_complete = 0
 
-    type(ghex_message), dimension(:), allocatable :: smsgs, rmsgs
-    type(ghex_request), dimension(:), allocatable :: sreqs, rreqs
-    type(ghex_future) :: bsreq, brreq
-    type(ghex_message) :: bsmsg, brmsg
-    logical :: result
+    type(ghex_message), dimension(:), allocatable, save :: smsgs, rmsgs
+    type(ghex_request), dimension(:), allocatable, save :: sreqs, rreqs
+    type(ghex_future), save :: bsreq, brreq
+    type(ghex_message), save :: bsmsg, brmsg
+    logical :: result = .false.
+    real :: ttic = 0, tic = 0, toc = 0
   
-    procedure(f_callback), pointer :: rcb, scb
+    procedure(f_callback), pointer, save :: rcb, scb
+
+    integer(1), dimension(:), pointer, save :: msg_data
+    
+
+    !$omp threadprivate(comm, rank, size, num_threads, peer_rank)
+    !$omp threadprivate(using_mt, last_received, last_sent)
+    !$omp threadprivate(dbg, sdbg, rdbg, j, np, incomplete_sends, send_complete)
+    !$omp threadprivate(smsgs, rmsgs, sreqs, rreqs)
+    !$omp threadprivate(bsreq, brreq, bsmsg, brmsg, result, rcb, scb)
+    !$omp threadprivate(ttic, tic, toc)
+    !$omp threadprivate(msg_data)
+
     rcb => recv_callback
     scb => send_callback
     
@@ -107,7 +122,7 @@ contains
     ! world info
     rank        = comm_rank(comm);
     size        = comm_size(comm);
-    thread_id   = omp_get_thread_num()+1;
+    thread_id   = omp_get_thread_num();
     num_threads = omp_get_num_threads();
     peer_rank   = modulo(rank+1, 2)
 
@@ -115,7 +130,7 @@ contains
     using_mt = .true.
 #endif
 
-    if (thread_id==1 .and. rank==0) then
+    if (thread_id==0 .and. rank==0) then
        print *, "running ", __FILE__
     end if
 
@@ -125,15 +140,15 @@ contains
        rmsgs(j) = message_new(buff_size, ALLOCATOR_STD);
        call message_zero(smsgs(j))
        call message_zero(rmsgs(j))
+       msg_data => message_data(smsgs(j))
+       msg_data(1) = thread_id
        call request_init(sreqs(j))
        call request_init(rreqs(j))
     end do
 
-    call mpi_barrier(mpi_comm_world)
-
-    if (thread_id == 1) then
-       ! timer.tic();
-       ! ttimer.tic();
+    if (thread_id == 0) then
+       call cpu_time(ttic)
+       tic = ttic
        if(rank == 1) then
           print *, "number of threads: ", num_threads, ", multi-threaded: ", using_mt
        end if
@@ -141,21 +156,24 @@ contains
 
     ! send/recv niter messages - as soon as a slot becomes free
     do while(sent < niter .or. received < niter)
-       if (thread_id == 1 .and. dbg >= (niter/10)) then
+       if (thread_id == 0 .and. dbg >= (niter/10)) then
           dbg = 0
-          print *, rank, " total bwdt MB/s:      ", (received-last_received + sent-last_sent)*size*buff_size/2
-          ! timer.tic();
+          call cpu_time(toc)
+          print *, rank, " total bwdt MB/s:      ", &
+               (received-last_received + sent-last_sent)*size*buff_size/2/(toc-tic)*num_threads/1e6
+          tic = toc
           last_received = received;
           last_sent = sent;
        end if
 
-       if (rank==0 .and. thread_id==1 .and. rdbg >= (niter/10)) then
+       if (rank==0 .and. thread_id==0 .and. rdbg >= (niter/10)) then
           print *,  received, " received"
           rdbg = 0
        end if
 
-       if (rank==0 .and. thread_id==1 .and. sdbg >= (niter/10)) then
+       if (rank==0 .and. thread_id==0 .and. sdbg >= (niter/10)) then
           print *, sent, " sent"
+          sdbg = 0
        end if
 
        do j = 1, inflight
@@ -163,7 +181,7 @@ contains
              submit_recv_cnt = submit_recv_cnt + num_threads
              rdbg = rdbg + num_threads
              dbg = dbg + num_threads
-             call comm_post_recv_cb(comm, rmsgs(j), peer_rank, thread_id*inflight+j, rcb, rreqs(j))
+             call comm_post_recv_cb(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rcb, rreqs(j))
           else
              np = comm_progress(comm)
           end if
@@ -172,26 +190,26 @@ contains
              submit_cnt = submit_cnt + num_threads
              sdbg = sdbg + num_threads
              dbg = dbg + num_threads
-             call comm_post_send_cb(comm, smsgs(j), peer_rank, thread_id*inflight+j, scb, sreqs(j))
+             call comm_post_send_cb(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, scb, sreqs(j))
           else
              np = comm_progress(comm)
           end if
        end do
     end do
 
-    if (thread_id==1 .and. rank == 0) then
-       ! const auto t = ttimer.stoc();
-       ! std::cout << "time:       " << t/1000000 << "s\n";
-       ! std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
-       print *, "final MB/s: "
+    if (thread_id==0 .and. rank == 0) then
+       call cpu_time(toc)
+       print *, "time:", (toc-ttic)/num_threads
+       print *, "final MB/s: ", (niter*size*buff_size)/(toc-ttic)*num_threads/1e6
     end if
 
     ! stop here to help produce a nice std output
 #ifdef USE_OPENMP
     !$omp critical
 #endif
-    print *, "rank " , rank , " thread " , thread_id , " sends submitted " , submit_cnt/num_threads, &
-         " serviced " , comm_cnt , ", non-local sends " , nlsend_cnt , " non-local recvs " , nlrecv_cnt
+101 format ("rank ", I0, " thread " , I0 , " sends submitted " , I0,  &
+          " serviced " , I0 , ", non-local sends " ,  I0 , " non-local recvs " , I0)
+    write (*, 101) rank, thread_id , submit_cnt/num_threads , comm_cnt, nlsend_cnt , nlrecv_cnt
 #ifdef USE_OPENMP
     !$omp end critical
 #endif
@@ -213,18 +231,19 @@ contains
              if(.not. request_test(sreqs(j))) then
                 incomplete_sends = incomplete_sends + 1
              end if
-             if (incomplete_sends == 0) then
-                ! increase thread counter of threads that are done with the sends
-                call atomic_add(tail_send, 1)
-                send_complete = 1
-             end if
           end do
+
+          if (incomplete_sends == 0) then
+             ! increase thread counter of threads that are done with the sends
+             call atomic_add(tail_send, 1)
+             send_complete = 1
+          end if
        end if
 
        ! continue to re-schedule all recvs to allow the peer to complete
        do j = 1, inflight
           if (request_test(rreqs(j))) then
-             call comm_post_recv_cb(comm, rmsgs(j), peer_rank, thread_id*inflight+j, rcb, rreqs(j))
+             call comm_post_recv_cb(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rcb, rreqs(j))
           end if
        end do
     end do
@@ -250,7 +269,7 @@ contains
        ! schedule all recvs to allow the peer to complete
        do j = 1, inflight
           if (request_test(rreqs(j))) then
-             call comm_post_recv_cb(comm, rmsgs(j), peer_rank, thread_id*inflight+j, rcb, rreqs(j))
+             call comm_post_recv_cb(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rcb, rreqs(j))
           end if
        end do
 
@@ -260,7 +279,6 @@ contains
        if (future_ready(brreq)) then
           tail_recv = 1
        end if
-
 #if USE_OPENMP
     !$omp end master
 #endif
@@ -278,9 +296,9 @@ contains
   subroutine send_callback (mesg, rank, tag)
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
-    integer :: pthr
-    pthr = tag/inflight
-    if(pthr /= thread_id) nlsend_cnt = nlsend_cnt + 1;
+    integer(1), dimension(:), pointer, save :: msg_data
+
+    if(tag/inflight /= thread_id) nlsend_cnt = nlsend_cnt + 1;
     comm_cnt = comm_cnt + 1;
     sent = sent + 1;
   end subroutine send_callback
@@ -288,9 +306,8 @@ contains
   subroutine recv_callback (mesg, rank, tag)
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
-    integer :: pthr
-    pthr = tag/inflight
-    if(pthr /= thread_id) nlrecv_cnt = nlrecv_cnt + 1;
+    
+    if(tag/inflight /= thread_id) nlrecv_cnt = nlrecv_cnt + 1;
     comm_cnt = comm_cnt + 1;
     received = received + 1;
   end subroutine recv_callback
