@@ -399,6 +399,35 @@ namespace gridtools {
                             }
                         );
                     }
+
+                    void barrier()
+                    {
+                        // a trivial barrier implementation for debuging purposes only!
+                        // send a message to all other ranks, wait for their message
+                        thread_token &token = *m_send_worker->m_token_ptr;
+                        m_send_worker->m_parallel_context->thread_primitives().barrier(token);
+                        m_send_worker->m_parallel_context->thread_primitives().master(token,
+                            [this]()
+                            {
+                                volatile int received = 0;
+                                volatile int sent = 0;
+                                std::vector<unsigned char> smsg(1), rmsg(1);
+
+                                auto send_callback = [&](message_type, int, int) {sent++;};
+                                auto recv_callback = [&](message_type, int, int) {received++;};
+
+                                for(rank_type r=0; r<m_size; r++){
+                                    if(r != m_rank){
+                                        recv(smsg, r, 0xdeadbeef, recv_callback);
+                                        send(smsg, r, 0xdeadbeef, send_callback);
+                                    }
+                                }
+
+                                while(received!=m_size-1 || sent!=m_size-1) progress();
+                            }
+                        );
+                        m_send_worker->m_parallel_context->thread_primitives().barrier(token);
+                    }
                 };
 
             } // namespace ucx
