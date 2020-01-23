@@ -80,11 +80,6 @@ namespace gridtools {
                 inline int rank() const noexcept { return m_rank; }
                 inline int size() const noexcept { return m_size; }
                 operator MPI_Comm() const noexcept { return m_comm; }
-
-                void barrier() const
-                {
-                    MPI_Barrier(m_comm);
-                }
             };
 
             template<class ThreadPrimitives>
@@ -193,13 +188,6 @@ namespace gridtools {
                 {
                     return m_parallel_context.m_thread_primitives.get_token();
                 }
-                
-                // thread-safe
-                void barrier(thread_token& t) /*const*/
-                {
-                    m_parallel_context.barrier(t);
-                }
-
             };
             
             template<class TransportTag, class ThreadPrimitives>

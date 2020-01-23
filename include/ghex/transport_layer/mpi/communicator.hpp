@@ -88,6 +88,18 @@ namespace gridtools {
 
                     unsigned progress() { return m_state->progress(); }
 
+                    void barrier() {
+                        if (auto token_ptr = m_state->m_token_ptr) {
+                            auto& tp = m_shared_state->m_parallel_context->thread_primitives();
+                            auto& token = *token_ptr;
+                            tp.barrier(token);
+                            tp.single(token, [this]() { MPI_Barrier(m_shared_state->m_comm); } );
+                            tp.barrier(token);
+                        }
+                        else
+                            MPI_Barrier(m_shared_state->m_comm);
+                    }
+
                     template<typename V>
                     using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
                     
