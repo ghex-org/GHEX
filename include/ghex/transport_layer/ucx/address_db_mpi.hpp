@@ -57,7 +57,7 @@ namespace gridtools {
                         {
                             return it->second;
                         }
-                        throw std::string("Cound not find peer address in the MPI address xdatabase.");
+                        throw std::runtime_error("Cound not find peer address in the MPI address xdatabase.");
                     }
 
                     void init(const value_t& addr)
