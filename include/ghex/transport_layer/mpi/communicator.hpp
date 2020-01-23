@@ -85,8 +85,8 @@ namespace gridtools {
                         return req;
                     }
 
-                    template <typename Neighs>
-                    std::vector<future<void>> send_multi(const message_type& msg, Neighs const &neighs, int tag) const {
+                    template <typename MsgType, typename Neighs>
+                    std::vector<future<void>> send_multi(MsgType& msg, Neighs const &neighs, tag_type tag) const {
                         std::vector<future<void>> res;
                         res.reserve(neighs.size());
                         for (auto id : neighs)
@@ -114,11 +114,11 @@ namespace gridtools {
                     template<typename U>    
                     using is_rvalue = std::is_rvalue_reference<U>;
 
-                    template<typename Msg>
-                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, request_cb_type>::type;
+                    template<typename Msg, typename Ret = request_cb_type>
+                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, Ret>::type;
 
-                    template<typename Msg>
-                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, request_cb_type>::type;
+                    template<typename Msg, typename Ret = request_cb_type>
+                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, Ret>::type;
 
                     template<typename Message, typename CallBack>
                     request_cb_type send(std::shared_ptr<Message>& shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback)
@@ -164,6 +164,46 @@ namespace gridtools {
                                 m_state->m_send_queue.enqueue(std::move(msg), dst, tag, std::move(fut), 
                                         std::forward<CallBack>(callback))};
                         }
+                    }
+                    
+                    template <typename Message, typename Neighs, typename CallBack>
+                    lvalue_func<Message&&, std::vector<request_cb_type>>
+                    send_multi(Message&& msg, Neighs const &neighs, tag_type tag, CallBack&& callback) {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        std::vector<request_cb_type> res;
+                        res.reserve(neighs.size());
+                        // keep callback alive by making it shared
+                        using cb_type = typename std::remove_cv<typename std::remove_reference<CallBack>::type>::type;
+                        auto cb_ptr = std::make_shared<cb_type>( std::forward<CallBack>(callback) );
+                        for (auto id : neighs) {
+                            res.push_back( send(std::forward<Message>(msg), id, tag, 
+                                [cb = cb_ptr](message_type m, rank_type r, tag_type t) {
+                                    if (cb.use_count() == 1)
+                                        (*cb)(std::move(m),r,t);
+                                }) );
+                        }
+                        return res;
+                    }
+                    
+                    template <typename Message, typename Neighs, typename CallBack>
+                    rvalue_func<Message&&, std::vector<request_cb_type>>
+                    send_multi(Message&& msg, Neighs const &neighs, tag_type tag, CallBack&& callback) {
+                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
+                        std::vector<request_cb_type> res;
+                        res.reserve(neighs.size());
+                        // keep callback alive by making it shared
+                        using cb_type = typename std::remove_cv<typename std::remove_reference<CallBack>::type>::type;
+                        auto cb_ptr = std::make_shared<cb_type>( std::forward<CallBack>(callback) );
+                        // keep message alive by making it shared
+                        auto shared_msg = std::make_shared<Message>(std::move(msg));
+                        for (auto id : neighs) {
+                            res.push_back( send(shared_msg, id, tag, 
+                                [cb = cb_ptr](message_type m, rank_type r, tag_type t) {
+                                    if (cb.use_count() == 1)
+                                        (*cb)(std::move(m),r,t);
+                                }) );
+                        }
+                        return res;
                     }
 
                     template<typename Message, typename CallBack>
