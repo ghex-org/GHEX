@@ -70,8 +70,9 @@ namespace gridtools {
                     {
                         try {
                             return pmi_impl.get(k, "ghex-rank-address");
-                        } catch(std::string err) {
-                            throw std::runtime_error("PMIx could not find peer address: " + err);
+                        } catch(std::runtime_error &err) {
+                            std::string msg = std::string("PMIx could not find peer address: ") + std::string(err.what());
+                            throw std::runtime_error(msg);
                         }
                     }
 
