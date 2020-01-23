@@ -79,6 +79,11 @@ namespace gridtools
                             if(myproc.rank == 0) LOG("%d PMIx finalized", myproc.rank);
                         }
                     }
+                    
+                    pmi(const pmi&) = delete;
+                    pmi(pmi&&) = default;
+                    pmi& operator=(const pmi&) = delete;
+                    pmi& operator=(pmi&&) = default;
 
                     rank_type rank()
                     {
