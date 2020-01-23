@@ -426,9 +426,9 @@ namespace gridtools {
                         if(m_send_worker->m_token_ptr)
                         {
                             thread_token &token = *m_send_worker->m_token_ptr;
-                            m_send_worker->m_parallel_context->thread_primitives().barrier(token);
-                            m_send_worker->m_parallel_context->thread_primitives().master(token, bfunc);
-                            m_send_worker->m_parallel_context->thread_primitives().barrier(token);
+                            m_send_worker->m_thread_primitives->barrier(token);
+                            m_send_worker->m_thread_primitives->master(token, bfunc);
+                            m_send_worker->m_thread_primitives->barrier(token);
                         } 
                         else 
                         {

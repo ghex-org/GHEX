@@ -17,6 +17,7 @@
 
 #include <string>
 #include <ghex/common/debug.hpp>
+#include <ghex/common/moved_bit.hpp>
 #include "../pmi.hpp"
 
 namespace gridtools
@@ -32,6 +33,7 @@ namespace gridtools
                 {
 
                 private:
+                    moved_bit m_moved;
                     pmix_proc_t allproc;
                     pmix_proc_t myproc;
                     int32_t nprocs;
@@ -70,9 +72,15 @@ namespace gridtools
                         PMIX_VALUE_RELEASE(pvalue);
                     }
 
+                    pmi(const pmi&) = delete;
+                    pmi(pmi&&) = default;
+                    pmi& operator=(const pmi&) = delete;
+                    pmi& operator=(pmi&&) = default;
+
                     ~pmi()
                     {
                         int rc;
+                        if(m_moved) return;
                         if (PMIX_SUCCESS != (rc = PMIx_Finalize(NULL, 0))) {
                             WARN("Client ns %s rank %d:PMIx_Finalize failed: %d\n", myproc.nspace, myproc.rank, rc);
                         } else {
@@ -80,11 +88,6 @@ namespace gridtools
                         }
                     }
                     
-                    pmi(const pmi&) = delete;
-                    pmi(pmi&&) = default;
-                    pmi& operator=(const pmi&) = delete;
-                    pmi& operator=(pmi&&) = default;
-
                     rank_type rank()
                     {
                         return myproc.rank;

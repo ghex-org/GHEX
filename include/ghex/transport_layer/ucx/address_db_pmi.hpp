@@ -30,18 +30,11 @@ namespace gridtools {
         namespace tl {
             namespace ucx {
 
-                static std::mutex db_lock;
-
                 struct address_db_pmi
                 {
                     // PMI interface to obtain peer addresses
                     // per-communicator instance used to store/query connections
                     PmiType pmi_impl;
-
-                    // global instance used to init/finalize the library
-                    // it has to be here because of PMIx finalization bug
-                    // https://github.com/openpmix/openpmix/issues/1558
-                    static PmiType pmi_impl_static;
 
                     using key_t     = endpoint_t::rank_type;
                     using value_t   = address_t;
@@ -55,8 +48,8 @@ namespace gridtools {
                     address_db_pmi(MPI_Comm comm)
                         : m_mpi_comm{comm}
                     {
-                        m_rank = pmi_impl_static.rank();
-                        m_size = pmi_impl_static.size();
+                        m_rank = pmi_impl.rank();
+                        m_size = pmi_impl.size();
 
                         int mpi_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) };
                         int mpi_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) };
@@ -85,15 +78,13 @@ namespace gridtools {
                     void init(const value_t& addr)
                     {
                         std::vector<unsigned char> data(addr.data(), addr.data()+addr.size());
-                        pmi_impl_static.set("ghex-rank-address", data);
+                        pmi_impl.set("ghex-rank-address", data);
 
                         // TODO: we have to call an explicit PMIx Fence due to
                         // https://github.com/open-mpi/ompi/issues/6982
-                        pmi_impl_static.exchange();
+                        pmi_impl.exchange();
                     }
                 };
-
-                PmiType address_db_pmi::pmi_impl_static;
 
             } // namespace ucx
         } // namespace tl
