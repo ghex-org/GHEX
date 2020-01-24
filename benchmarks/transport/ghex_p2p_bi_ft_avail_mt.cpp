@@ -142,28 +142,27 @@ int main(int argc, char *argv[])
             int last_sent = 0;
             while(sent < niter || received < niter)
             {
+                if(rank==0 && thread_id==0 && sdbg>=(niter/10)) {
+                    std::cout << sent << " sent\n";
+                    sdbg = 0;
+                }
+
+                if(rank==0 && thread_id==0 && rdbg>=(niter/10)) {
+                    std::cout << received << " received\n";
+                    rdbg = 0;
+                }
+
+                if(thread_id == 0 && dbg >= (niter/10)) {
+                    dbg = 0;
+                    std::cout << rank << " total bwdt MB/s:      "
+                              << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.toc()
+                              << "\n";
+                    timer.tic();
+                    last_received = received;
+                    last_sent = sent;
+                }
                 for(int j=0; j<inflight; j++)
                 {
-                    if(rank==0 && thread_id==0 && sdbg>=(niter/10)) {
-                        std::cout << sent << " sent\n";
-                        sdbg = 0;
-                    }
-
-                    if(rank==0 && thread_id==0 && rdbg>=(niter/10)) {
-                        std::cout << received << " received\n";
-                        rdbg = 0;
-                    }
-
-                    if(thread_id == 0 && dbg >= (niter/10)) {
-                        dbg = 0;
-                        std::cout << rank << " total bwdt MB/s:      "
-                                  << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.toc()
-                                  << "\n";
-                        timer.tic();
-                        last_received = received;
-                        last_sent = sent;
-                    }
-
                     if(rreqs[j].test()) {
                         received++;
                         rdbg+=num_threads;
