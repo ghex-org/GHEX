@@ -1,4 +1,4 @@
-PROGRAM ghex_p2p_bi_cb_avail_mt
+PROGRAM fhex_bench
   use iso_fortran_env
   use omp_lib
   use ghex_context_mod
@@ -315,7 +315,7 @@ contains
 
     if(tag/inflight /= thread_id) nlsend_cnt = nlsend_cnt + 1;
     comm_cnt = comm_cnt + 1;
-    sent = sent + 1;
+    call atomic_add(sent, 1);
   end subroutine send_callback
 
   subroutine recv_callback (mesg, rank, tag)
@@ -324,7 +324,14 @@ contains
     
     if(tag/inflight /= thread_id) nlrecv_cnt = nlrecv_cnt + 1;
     comm_cnt = comm_cnt + 1;
-    received = received + 1;
+    call atomic_add(received, 1);
   end subroutine recv_callback
 
-END PROGRAM ghex_p2p_bi_cb_avail_mt
+#ifndef USE_OPENMP
+subroutine atomic_add(var, val)
+  integer :: var, val
+  var = var + val
+end subroutine atomic_add
+#endif
+
+END PROGRAM fhex_bench

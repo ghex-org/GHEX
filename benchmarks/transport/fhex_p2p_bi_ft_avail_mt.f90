@@ -1,4 +1,4 @@
-PROGRAM ghex_p2p_bi_cb_avail_mt
+PROGRAM fhex_bench
   use iso_fortran_env
   use omp_lib
   use ghex_context_mod
@@ -100,13 +100,11 @@ contains
     logical :: result = .false.
     real :: ttic = 0, tic = 0, toc = 0
   
-    procedure(f_callback), pointer, save :: rcb, scb
-
     !$omp threadprivate(comm, rank, size, num_threads, peer_rank)
     !$omp threadprivate(using_mt, last_received, last_sent)
     !$omp threadprivate(dbg, sdbg, rdbg, j, np, incomplete_sends, send_complete)
     !$omp threadprivate(smsgs, rmsgs, sreqs, rreqs)
-    !$omp threadprivate(bsreq, brreq, bsmsg, brmsg, result, rcb, scb)
+    !$omp threadprivate(bsreq, brreq, bsmsg, brmsg, result)
     !$omp threadprivate(ttic, tic, toc)
    
     ! ---------------------------------------
@@ -133,9 +131,6 @@ contains
     ! ---------------------------------------
     ! data initialization
     ! ---------------------------------------
-    rcb => recv_callback
-    scb => send_callback
-
     allocate(smsgs(inflight), rmsgs(inflight), sreqs(inflight), rreqs(inflight))
     do j = 1, inflight
        smsgs(j) = message_new(buff_size, ALLOCATOR_STD);
@@ -182,14 +177,14 @@ contains
 
        do j = 1, inflight
           if (future_ready(rreqs(j))) then
-             received = received + 1;
+             call atomic_add(received, 1)
              rdbg = rdbg + num_threads
              dbg = dbg + num_threads
              call comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
           end if
 
           if (sent < niter .and. future_ready(sreqs(j))) then
-             sent = sent + 1
+             call atomic_add(sent, 1)
              sdbg = sdbg + num_threads
              dbg = dbg + num_threads
              call comm_post_send(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, sreqs(j))
@@ -301,26 +296,11 @@ contains
     call comm_delete(comm)
   end subroutine run
 
-  ! ---------------------------------------
-  ! callbacks
-  ! ---------------------------------------
-  subroutine send_callback (mesg, rank, tag)
-    type(ghex_message), value :: mesg
-    integer(c_int), value :: rank, tag
-    integer(1), dimension(:), pointer, save :: msg_data
+#ifndef USE_OPENMP
+subroutine atomic_add(var, val)
+  integer :: var, val
+  var = var + val
+end subroutine atomic_add
+#endif
 
-    if(tag/inflight /= thread_id) nlsend_cnt = nlsend_cnt + 1;
-    comm_cnt = comm_cnt + 1;
-    sent = sent + 1;
-  end subroutine send_callback
-
-  subroutine recv_callback (mesg, rank, tag)
-    type(ghex_message), value :: mesg
-    integer(c_int), value :: rank, tag
-    
-    if(tag/inflight /= thread_id) nlrecv_cnt = nlrecv_cnt + 1;
-    comm_cnt = comm_cnt + 1;
-    received = received + 1;
-  end subroutine recv_callback
-
-END PROGRAM ghex_p2p_bi_cb_avail_mt
+END PROGRAM fhex_bench

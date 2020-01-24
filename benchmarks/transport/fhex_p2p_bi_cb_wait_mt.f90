@@ -1,4 +1,4 @@
-PROGRAM ghex_p2p_bi_cb_avail_mt
+PROGRAM fhex_bench
   use iso_fortran_env
   use omp_lib
   use ghex_context_mod
@@ -159,9 +159,6 @@ contains
     ! ---------------------------------------   
     ! send / recv niter messages, work in inflight requests at a time
     ! ---------------------------------------   
-    i = 0
-    dbg = 0
-    last_i = 0
     do while(i < niter)
 
 #ifdef USE_OPENMP
@@ -187,8 +184,7 @@ contains
        ! complete all inflight requests before moving on
        do while (sent < num_threads*inflight .or. received < num_threads*inflight)
           np = comm_progress(comm)
-       end do
-
+       end do       
 
 #ifdef USE_OPENMP
        !$omp barrier
@@ -208,18 +204,6 @@ contains
        print *, "final MB/s: ", (niter*size*buff_size)/(toc-ttic)*num_threads/1e6
     end if
 
-    ! stop here to help produce a nice std output
-    call comm_barrier(comm)
-#ifdef USE_OPENMP
-    !$omp critical
-#endif
-101 format ("rank ", I0, " thread " , I0 , " sends submitted " , I0,  &
-          " serviced " , I0 , ", non-local sends " ,  I0 , " non-local recvs " , I0)
-    write (*, 101) rank, thread_id , submit_cnt/num_threads , comm_cnt, nlsend_cnt , nlrecv_cnt
-#ifdef USE_OPENMP
-    !$omp end critical
-#endif
-
     ! tail loops - not needed in wait benchmarks
 
     ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
@@ -236,7 +220,7 @@ contains
 
     if(tag/inflight /= thread_id) nlsend_cnt = nlsend_cnt + 1;
     comm_cnt = comm_cnt + 1;
-    sent = sent + 1;
+    call atomic_add(sent, 1);
   end subroutine send_callback
 
   subroutine recv_callback (mesg, rank, tag)
@@ -245,7 +229,14 @@ contains
     
     if(tag/inflight /= thread_id) nlrecv_cnt = nlrecv_cnt + 1;
     comm_cnt = comm_cnt + 1;
-    received = received + 1;
+    call atomic_add(received, 1);
   end subroutine recv_callback
 
-END PROGRAM ghex_p2p_bi_cb_avail_mt
+#ifndef USE_OPENMP
+subroutine atomic_add(var, val)
+  integer :: var, val
+  var = var + val
+end subroutine atomic_add
+#endif
+
+END PROGRAM fhex_bench
