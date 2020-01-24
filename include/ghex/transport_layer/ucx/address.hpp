@@ -32,7 +32,10 @@ namespace gridtools{
 
                     template<typename ForwardIterator>
                     address_t(ForwardIterator first, ForwardIterator last)
-                    : m_buffer(first,last) {}
+                        : m_buffer(first,last) {}
+
+                    address_t(std::vector<unsigned char> &&buffer)
+                        : m_buffer(std::move(buffer)) {}
 
                     address_t(const address_t& other) = default;
                     address_t& operator=(const address_t& other) = default;

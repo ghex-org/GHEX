@@ -21,25 +21,28 @@ namespace gridtools {
             template<typename ThreadPrimitives>
             struct transport_context<mpi_tag, ThreadPrimitives>
             {
-                using communicator_type = mpi::communicator<ThreadPrimitives>;
-                using parallel_context_type = parallel_context<ThreadPrimitives>;
-                using thread_token = typename parallel_context_type::thread_token;
+                using thread_primitives_type = ThreadPrimitives;
+                using communicator_type = mpi::communicator<thread_primitives_type>;
+                //using parallel_context_type = parallel_context<ThreadPrimitives>;
+                using thread_token = typename thread_primitives_type::token;
 
-                parallel_context<ThreadPrimitives>& m_parallel_context;
+                thread_primitives_type& m_thread_primitives;
+                MPI_Comm m_comm;
 
                 template<typename... Args>
-                transport_context(parallel_context<ThreadPrimitives>& pc, Args&&...)
-                : m_parallel_context(pc)
+                transport_context(ThreadPrimitives& tp, MPI_Comm mpi_comm, Args&&...)
+                : m_thread_primitives(tp)
+                , m_comm{mpi_comm}
                 {}
 
                 communicator_type get_serial_communicator()
                 {
-                    return {(MPI_Comm)(m_parallel_context.world()),this};
+                    return {m_comm,this};
                 }
 
                 communicator_type get_communicator(const thread_token& t)
                 {
-                    return {(MPI_Comm)(m_parallel_context.world()),this, t.id()};
+                    return {m_comm,this, t.id()};
                 }
 
             };
@@ -49,7 +52,7 @@ namespace gridtools {
             {
                 static std::unique_ptr<context<mpi_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm)
                 {
-                    return std::make_unique<context<mpi_tag,ThreadPrimitives>>(num_threads, mpi_comm);
+                    return std::make_unique<context<mpi_tag,ThreadPrimitives>>(num_threads, mpi_comm, mpi_comm);
                 }
             };
 

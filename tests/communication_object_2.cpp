@@ -98,21 +98,24 @@ void fill_values(const Domain& d, Field& f)
 
 template<typename T, typename Domain, typename Halos, typename Periodic, typename Global, typename Field, typename Communicator>
 bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, const Global& g_first, const Global& g_last,
-        const Field& f, Communicator& comm)
+        const Field& f, Communicator comm)
 {
     bool passed = true;
     const int i = d.domain_id()%2;
+    int rank, size;
+    MPI_Comm_rank(comm,&rank);
+    MPI_Comm_size(comm,&size);
 
     int xl = -halos[0];
     int hxl = halos[0];
     int hxr = halos[1];
     // hack begin: make it work with 1 rank (works with even number of ranks otherwise)
-    if (i==0 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
+    if (i==0 && size==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
     {
         xl = 0;
         hxl = 0;
     }
-    if (i==1 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
+    if (i==1 && size==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
     {
         hxr = 0;
     }
@@ -125,8 +128,8 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
         int yl = -halos[2];
         for (int y=d.first()[1]-halos[2]; y<=d.last()[1]+halos[3]; ++y, ++yl)
         {
-            if (d.domain_id()<2 &&             y<d.first()[1] && !periodic[1]) continue;
-            if (d.domain_id()>comm.size()-3 && y>d.last()[1]  && !periodic[1]) continue;
+            if (d.domain_id()<2 &&      y<d.first()[1] && !periodic[1]) continue;
+            if (d.domain_id()>size-3 && y>d.last()[1]  && !periodic[1]) continue;
             T y_wrapped = (((y-g_first[1])+(g_last[1]-g_first[1]+1))%(g_last[1]-g_first[1]+1) + g_first[1]);
             int zl = -halos[4];
             for (int z=d.first()[2]-halos[4]; z<=d.last()[2]+halos[5]; ++z, ++zl)
@@ -143,7 +146,7 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
                     << "(" << xl << ", " << yl << ", " << zl << ") values found != expected: "
                     << "(" << value[0] << ", " << value[1] << ", " << value[2] << ") != "
                     << "(" << x_wrapped << ", " << y_wrapped << ", " << z_wrapped << ") " //<< std::endl;
-                    << i << "  " << comm.rank() << std::endl;
+                    << i << "  " << rank << std::endl;
                 }
             }
         }
@@ -167,12 +170,12 @@ TEST(communication_object_2, exchange)
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
-    MPI_Comm_split_type(context.world(), MPI_COMM_TYPE_SHARED, context.world().rank(), MPI_INFO_NULL, &raw_local_comm);
+    MPI_Comm_split_type(context.mpi_comm(), MPI_COMM_TYPE_SHARED, context.rank(), MPI_INFO_NULL, &raw_local_comm);
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
         std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU "
-        << (context.world().rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+        << (context.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
         GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
         print_kernel<<<1, 1>>>();
         cudaDeviceSynchronize();
@@ -181,12 +184,12 @@ TEST(communication_object_2, exchange)
 #ifdef GHEX_EMULATE_GPU
     int num_devices_per_node = 1;
     MPI_Comm raw_local_comm;
-    MPI_Comm_split_type(context.world(), MPI_COMM_TYPE_SHARED, context.world().rank(), MPI_INFO_NULL, &raw_local_comm);
+    MPI_Comm_split_type(context.mpi_comm(), MPI_COMM_TYPE_SHARED, context.rank(), MPI_INFO_NULL, &raw_local_comm);
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << context.world().rank() << " and I own emulated GPU "
-        << (context.world().rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+        std::cout << "I am rank " << context.rank() << " and I own emulated GPU "
+        << (context.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
     }
 #endif
 #endif
@@ -219,7 +222,7 @@ TEST(communication_object_2, exchange)
 
     // compute total domain
     const std::array<int,3> g_first{               0,                                    0,              0};
-    const std::array<int,3> g_last {local_ext[0]*4-1, ((context.world().size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1};
+    const std::array<int,3> g_last {local_ext[0]*4-1, ((context.size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1};
     // maximum halo
     const std::array<int,3> offset{3,3,3};
     // local size including potential halos
@@ -255,13 +258,13 @@ TEST(communication_object_2, exchange)
     // add local domains
     std::vector<domain_descriptor_type> local_domains;
     local_domains.push_back( domain_descriptor_type{
-        context.world().rank()*2,
-        std::array<int,3>{ ((context.world().rank()%2)*2  )*local_ext[0],   (context.world().rank()/2  )*local_ext[1],                0},
-        std::array<int,3>{ ((context.world().rank()%2)*2+1)*local_ext[0]-1, (context.world().rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
+        context.rank()*2,
+        std::array<int,3>{ ((context.rank()%2)*2  )*local_ext[0],   (context.rank()/2  )*local_ext[1],                0},
+        std::array<int,3>{ ((context.rank()%2)*2+1)*local_ext[0]-1, (context.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
     local_domains.push_back( domain_descriptor_type{
-        context.world().rank()*2+1,
-        std::array<int,3>{ ((context.world().rank()%2)*2+1)*local_ext[0],   (context.world().rank()/2  )*local_ext[1],             0},
-        std::array<int,3>{ ((context.world().rank()%2)*2+2)*local_ext[0]-1, (context.world().rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
+        context.rank()*2+1,
+        std::array<int,3>{ ((context.rank()%2)*2+1)*local_ext[0],   (context.rank()/2  )*local_ext[1],             0},
+        std::array<int,3>{ ((context.rank()%2)*2+2)*local_ext[0]-1, (context.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
 
     // halo generators
     std::array<int,6> halos1{0,0,1,0,1,2};
@@ -992,12 +995,12 @@ TEST(communication_object_2, exchange)
     }
 
     bool passed =true;
-    passed = passed && test_values<T1>(local_domains[0], halos1, periodic, g_first, g_last, field_1a, context.world());
-    passed = passed && test_values<T1>(local_domains[1], halos1, periodic, g_first, g_last, field_1b, context.world());
-    passed = passed && test_values<T2>(local_domains[0], halos2, periodic, g_first, g_last, field_2a, context.world());
-    passed = passed && test_values<T2>(local_domains[1], halos2, periodic, g_first, g_last, field_2b, context.world());
-    passed = passed && test_values<T3>(local_domains[0], halos1, periodic, g_first, g_last, field_3a, context.world());
-    passed = passed && test_values<T3>(local_domains[1], halos1, periodic, g_first, g_last, field_3b, context.world());
+    passed = passed && test_values<T1>(local_domains[0], halos1, periodic, g_first, g_last, field_1a, context.mpi_comm());
+    passed = passed && test_values<T1>(local_domains[1], halos1, periodic, g_first, g_last, field_1b, context.mpi_comm());
+    passed = passed && test_values<T2>(local_domains[0], halos2, periodic, g_first, g_last, field_2a, context.mpi_comm());
+    passed = passed && test_values<T2>(local_domains[1], halos2, periodic, g_first, g_last, field_2b, context.mpi_comm());
+    passed = passed && test_values<T3>(local_domains[0], halos1, periodic, g_first, g_last, field_3a, context.mpi_comm());
+    passed = passed && test_values<T3>(local_domains[1], halos1, periodic, g_first, g_last, field_3b, context.mpi_comm());
 
 #ifdef STANDALONE
     if (passed)
