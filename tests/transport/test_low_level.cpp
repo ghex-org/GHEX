@@ -1,5 +1,7 @@
 #include <ghex/transport_layer/callback_communicator.hpp>
 #include <ghex/transport_layer/mpi/communicator.hpp>
+#include <ghex/transport_layer/mpi/context.hpp>
+#include <ghex/threads/atomic/primitives.hpp>
 #include <vector>
 #include <iomanip>
 
@@ -9,6 +11,10 @@ template<typename Comm, typename Alloc>
 using callback_comm_t = gridtools::ghex::tl::callback_communicator<Comm,Alloc>;
 //using callback_comm_t = gridtools::ghex::tl::callback_communicator_ts<Comm,Alloc>;
 
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
+using context_type = gridtools::ghex::tl::context<transport, threading>;
+
 int rank;
 
 /**
@@ -16,7 +22,11 @@ int rank;
  */
 
 void test1() {
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
 
     std::vector<unsigned char> smsg = {1,2,3,4,5,6,7,8,9,10};
     std::vector<unsigned char> rmsg(10);
@@ -50,7 +60,11 @@ void test1() {
 }
 
 void test2() {
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
 
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
@@ -96,7 +110,11 @@ void test2() {
 }
 
 void test1_mesg() {
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
 
     gridtools::ghex::tl::message_buffer<> smsg{40};
 
@@ -136,7 +154,11 @@ void test1_mesg() {
 }
 
 void test2_mesg() {
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
     using allocator_type = std::allocator<unsigned char>;
     using smsg_type      = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type      = std::remove_reference_t<decltype(sr)>;
@@ -189,7 +211,11 @@ void test2_mesg() {
 }
 
 void test1_shared_mesg() {
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> sr;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto token = context.get_token();
+    EXPECT_TRUE(token.id() == 0);
+    auto sr = context.get_communicator(token);
 
     gridtools::ghex::tl::message_buffer<> smsg{40};
 

@@ -38,7 +38,6 @@ namespace gridtools {
     
                 static constexpr bool can_be_shared = true;
 
-            private: // members
 
                 std::shared_ptr<message_type> m_message;
 
@@ -121,4 +120,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_SHARED_MESSAGE_BUFFER_HPP */
-
