@@ -102,24 +102,20 @@ contains
   
     procedure(f_callback), pointer, save :: rcb, scb
 
-    integer(1), dimension(:), pointer, save :: msg_data
-    
-
     !$omp threadprivate(comm, rank, size, num_threads, peer_rank)
     !$omp threadprivate(using_mt, last_received, last_sent)
     !$omp threadprivate(dbg, sdbg, rdbg, j, np, incomplete_sends, send_complete)
     !$omp threadprivate(smsgs, rmsgs, sreqs, rreqs)
     !$omp threadprivate(bsreq, brreq, bsmsg, brmsg, result, rcb, scb)
     !$omp threadprivate(ttic, tic, toc)
-    !$omp threadprivate(msg_data)
+   
+    ! ---------------------------------------
+    ! world info
+    ! ---------------------------------------
 
-    rcb => recv_callback
-    scb => send_callback
-    
     ! obtain a communicator
     comm = context_get_communicator(context)
 
-    ! world info
     rank        = comm_rank(comm);
     size        = comm_size(comm);
     thread_id   = omp_get_thread_num();
@@ -134,17 +130,23 @@ contains
        print *, "running ", __FILE__
     end if
 
+    ! ---------------------------------------
+    ! data initialization
+    ! ---------------------------------------
+    rcb => recv_callback
+    scb => send_callback
+
     allocate(smsgs(inflight), rmsgs(inflight), sreqs(inflight), rreqs(inflight))
     do j = 1, inflight
        smsgs(j) = message_new(buff_size, ALLOCATOR_STD);
        rmsgs(j) = message_new(buff_size, ALLOCATOR_STD);
        call message_zero(smsgs(j))
        call message_zero(rmsgs(j))
-       msg_data => message_data(smsgs(j))
-       msg_data(1) = thread_id
        call request_init(sreqs(j))
        call request_init(rreqs(j))
     end do
+
+    call comm_barrier(comm)
 
     if (thread_id == 0) then
        call cpu_time(ttic)
@@ -154,7 +156,9 @@ contains
        end if
     end if
 
+    ! ---------------------------------------
     ! send/recv niter messages - as soon as a slot becomes free
+    ! ---------------------------------------
     do while(sent < niter .or. received < niter)
        if (thread_id == 0 .and. dbg >= (niter/10)) then
           dbg = 0
@@ -197,6 +201,11 @@ contains
        end do
     end do
 
+    call comm_barrier(comm)
+
+    ! ---------------------------------------
+    ! Timing and statistics output
+    ! ---------------------------------------
     if (thread_id==0 .and. rank == 0) then
        call cpu_time(toc)
        print *, "time:", (toc-ttic)/num_threads
@@ -204,6 +213,7 @@ contains
     end if
 
     ! stop here to help produce a nice std output
+    call comm_barrier(comm)
 #ifdef USE_OPENMP
     !$omp critical
 #endif
@@ -214,10 +224,12 @@ contains
     !$omp end critical
 #endif
 
+    ! ---------------------------------------
     ! tail loops - submit RECV requests until
     ! all SEND requests have been finalized.
     ! This is because UCX cannot cancel SEND requests.
     ! https://github.com/openucx/ucx/issues/1162
+    ! ---------------------------------------
 
     ! complete all posted sends
     do while(tail_send/=num_threads)
@@ -293,6 +305,9 @@ contains
     call comm_delete(comm)
   end subroutine run
 
+  ! ---------------------------------------
+  ! callbacks
+  ! ---------------------------------------
   subroutine send_callback (mesg, rank, tag)
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag

@@ -1,6 +1,6 @@
 #include "message_bind.hpp"
-#include <string.h>
 #include <iostream>
+#include <cstring> 
 #include <vector>
 
 #include <ghex/transport_layer/message_buffer.hpp>
@@ -49,7 +49,7 @@ void message_zero(ghex::tl::cb::any_message *wmessage)
 {
     unsigned char* __restrict data = wmessage->data();
     std::size_t size = wmessage->size();
-    memset(data, 0, size);
+    std::memset(data, 0, size);
 }
 
 extern "C"

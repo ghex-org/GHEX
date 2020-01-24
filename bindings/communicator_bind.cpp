@@ -75,6 +75,12 @@ int comm_progress(ghex::bindings::obj_wrapper *wrapper)
 }
 
 extern "C"
+void comm_barrier(ghex::bindings::obj_wrapper *wrapper)
+{
+    ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->barrier();
+}
+
+extern "C"
 void comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *ffut)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);

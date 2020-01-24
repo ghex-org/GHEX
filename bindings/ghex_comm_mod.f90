@@ -45,6 +45,12 @@ MODULE ghex_comm_mod
        type(ghex_communicator), value :: comm
      end function comm_progress
 
+     subroutine comm_barrier(comm) bind(c)
+       use iso_c_binding
+       import ghex_communicator
+       type(ghex_communicator), value :: comm
+     end subroutine comm_barrier
+
      subroutine comm_send_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="comm_send_cb")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_request

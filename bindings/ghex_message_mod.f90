@@ -39,11 +39,11 @@ MODULE ghex_message_mod
        type(ghex_message), value :: message
      end subroutine message_zero
 
-     type(c_ptr) function message_data_wrapped(message, capacity) bind(c, name='message_data')
+     type(c_ptr) function message_data_wrapped(message, size) bind(c, name='message_data')
        use iso_c_binding
        import ghex_message
        type(ghex_message), value :: message
-       integer(c_size_t), intent(out) :: capacity
+       integer(c_size_t), intent(out) :: size
      end function message_data_wrapped
   end interface
 
@@ -55,11 +55,11 @@ CONTAINS
     integer(1), dimension(:), pointer :: message_data
 
     type(c_ptr) :: c_data = c_null_ptr
-    integer(c_size_t) :: capacity
+    integer(c_size_t) :: size
 
     ! get the data pointer
-    c_data = message_data_wrapped(message, capacity)
-    call c_f_pointer(c_data, message_data, [capacity])
+    c_data = message_data_wrapped(message, size)
+    call c_f_pointer(c_data, message_data, [size])
   end function message_data
 
 END MODULE ghex_message_mod
