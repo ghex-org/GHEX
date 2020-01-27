@@ -14,6 +14,9 @@
 #include <thread>
 #include <condition_variable>
 #include <atomic>
+#include <cassert>
+#include <vector>
+#include <boost/callable_traits.hpp>
 
 namespace gridtools {
     namespace ghex {
