@@ -3,13 +3,14 @@ pkg_check_modules(PC_PMIX QUIET pmix)
 
 find_path(PMIX_INCLUDE_DIR pmix.h
     HINTS
-        ${PMIX_ROOT}  ENV PMIX_ROOT
-        ${PMIX_DIR}   ENV PMIX_DIR
+    ${PMIX_ROOT}  ENV PMIX_ROOT
+    ${PMIX_DIR}   ENV PMIX_DIR
     PATH_SUFFIXES include)
 
-find_library(PMIX_LIBRARY NAMES pmix
+find_library(PMIX_LIBRARY HINT ${PMIX_DIR} NAMES pmix
     HINTS
     ${PMIX_ROOT} ENV PMIX_ROOT
+    ${PMIX_DIR}  ENV PMIX_DIR
     PATH_SUFFIXES lib lib64)
 
 set(PMIX_LIBRARIES    ${PMIX_LIBRARY} CACHE INTERNAL "")

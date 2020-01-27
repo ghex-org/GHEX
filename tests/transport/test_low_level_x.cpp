@@ -24,7 +24,8 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 int rank;
 
 auto test1() {
-    context_type context(1,MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
     auto sr = context.get_communicator(token);
