@@ -163,7 +163,7 @@ namespace gridtools {
                         throw std::runtime_error("ucx cannot be used with multi-threaded context");
 
                     // make shared worker
-                    m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SERIALIZED);
+                    m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SINGLE);
                     // intialize database
                     m_db.init(m_worker.address());
                 }
@@ -186,11 +186,6 @@ namespace gridtools {
                 rank_type rank() const { return m_db.rank(); }
                 rank_type size() const { return m_db.size(); }
                 ucp_context_h get() const noexcept { return m_context.m_context; }
-
-                void barrier()
-                {
-                }
-
             };
 
             namespace ucx {

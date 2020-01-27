@@ -456,28 +456,35 @@ namespace gridtools {
                         // send a message to all other ranks, wait for their message
                         auto bfunc = [this]()
                             {
-                                volatile int received = 0;
                                 volatile int sent = 0;
                                 std::vector<unsigned char> msg(1);
+                                std::vector<rank_type> neighs;
+                                neighs.reserve(size()-1);
+                                for (rank_type r=0; r<size(); ++r)
+                                    if (r != rank())
+                                        neighs.push_back(r);
 
                                 auto send_callback = [&](message_type, int, int) {sent++;};
-                                auto recv_callback = [&](message_type, int, int) {received++;};
+
+                                send_multi(msg,neighs, 0xdeadbeef, send_callback);
 
                                 for(rank_type r=0; r<m_size; r++){
                                     if(r != m_rank){
-                                        recv(msg, r, 0xdeadbeef, recv_callback);
-                                        send(msg, r, 0xdeadbeef, send_callback);
+                                        recv(msg, r, 0xdeadbeef).wait();
                                     }
                                 }
-
-                                while(received!=m_size-1 || sent!=m_size-1) progress();
+                                
+                                while(sent!=1) progress();
                             };
 
                         if(m_send_worker->m_token_ptr)
                         {
                             thread_token &token = *m_send_worker->m_token_ptr;
                             m_send_worker->m_thread_primitives->barrier(token);
-                            m_send_worker->m_thread_primitives->master(token, bfunc);
+                            m_send_worker->m_thread_primitives->single(token, bfunc);
+                            // this thread barrier is needed to flush the progress queue:
+                            // if we omit this barrier, the other threads may see a progress
+                            // when calling progress()
                             m_send_worker->m_thread_primitives->barrier(token);
                         } 
                         else 

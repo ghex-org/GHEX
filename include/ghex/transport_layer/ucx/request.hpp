@@ -126,12 +126,12 @@ namespace gridtools{
                     {
                         void* ucx_ptr = m_req->m_ucx_ptr;
                         m_req->m_send_worker->m_thread_primitives->critical(
-			    [ucx_ptr]()
-			    {
-				request_init(ucx_ptr);
-				ucp_request_free(ucx_ptr);
-			    }
-			);
+                            [ucx_ptr]()
+                            {
+                                request_init(ucx_ptr);
+                                ucp_request_free(ucx_ptr);
+                            }
+                        );
                     }
 
                     bool test()

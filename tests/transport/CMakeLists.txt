@@ -19,7 +19,7 @@ foreach(t_ ${_tests})
         endif()
         add_test(
             NAME ${t_}_ucx
-            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${t_} ${MPIEXEC_POSTFLAGS}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${t_}_ucx ${MPIEXEC_POSTFLAGS}
         )
     endif()
 endforeach(t_ ${_tests})

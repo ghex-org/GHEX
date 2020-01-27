@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_THREADS_OMP_PRIMITIVES_HPP
-#define INCLUDED_GHEX_THREADS_OMP_PRIMITIVES_HPP
+#ifndef INCLUDED_GHEX_THREADS_STD_PRIMITIVES_HPP
+#define INCLUDED_GHEX_THREADS_STD_PRIMITIVES_HPP
 
 #include <thread>
 #include <condition_variable>
@@ -180,4 +180,6 @@ namespace gridtools {
         } // namespace threads
     } // namespace ghex
 } // namespace gridtools
+
 #endif
+

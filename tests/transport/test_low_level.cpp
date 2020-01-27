@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+//#define GHEX_TEST_COUNT_ITERATIONS
+
 #ifdef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/ucx/context.hpp>
 using transport = gridtools::ghex::tl::ucx_tag;
@@ -69,11 +71,8 @@ bool check_msg(std::vector<unsigned char> const& msg) {
     return ok;
 }
 
-template<typename MsgType>
-auto test_unidirectional() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-    
+template<typename MsgType, typename Context>
+auto test_unidirectional(Context& context) {
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
 
@@ -106,11 +105,8 @@ auto test_unidirectional() {
     return std::move(rmsg);
 }
 
-template<typename MsgType>
-auto test_bidirectional() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-
+template<typename MsgType, typename Context>
+auto test_bidirectional(Context& context) {
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
 
@@ -121,7 +117,7 @@ auto test_bidirectional() {
     MsgType rmsg(SIZE);
     init_msg(smsg);
 
-    comm_type::future<void> rfut;
+    typename comm_type::template future<void> rfut;
 
     if ( rank == 0 ) {
         comm.send(smsg, 1, 1).get();
@@ -149,11 +145,8 @@ auto test_bidirectional() {
     return std::move(rmsg);
 }
 
-template<typename MsgType>
-auto test_unidirectional_cb() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-
+template<typename MsgType, typename Context>
+auto test_unidirectional_cb(Context& context) {
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
 
@@ -196,11 +189,8 @@ auto test_unidirectional_cb() {
     return std::move(rmsg);
 }
 
-template<typename MsgType>
-auto test_bidirectional_cb() {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-
+template<typename MsgType, typename Context>
+auto test_bidirectional_cb(Context& context) {
     auto token = context.get_token();
     EXPECT_TRUE(token.id() == 0);
 
@@ -259,8 +249,10 @@ bool run_test(Test&& test) {
 
 TEST(low_level, basic_unidirectional_vector) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
     using MsgType = std::vector<unsigned char>;
-    auto test_func = [](){ return test_unidirectional<MsgType>();};
+    auto test_func = [&context]() mutable { return test_unidirectional<MsgType>(context);};
     if (rank == 1) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -271,7 +263,9 @@ TEST(low_level, basic_unidirectional_vector) {
 TEST(low_level, basic_unidirectional_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_unidirectional<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_unidirectional<MsgType>(context);};
     if (rank == 1) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -282,7 +276,9 @@ TEST(low_level, basic_unidirectional_buffer) {
 TEST(low_level, basic_unidirectional_shared_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_unidirectional<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_unidirectional<MsgType>(context);};
     if (rank == 1) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -294,7 +290,9 @@ TEST(low_level, basic_unidirectional_shared_buffer) {
 TEST(low_level, basic_bidirectional_vector) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = std::vector<unsigned char>;
-    auto test_func = [](){ return test_bidirectional<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_bidirectional<MsgType>(context);};
     if (rank < 2) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -302,7 +300,9 @@ TEST(low_level, basic_bidirectional_vector) {
 TEST(low_level, basic_bidirectional_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_bidirectional<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_bidirectional<MsgType>(context);};
     if (rank < 2) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -310,7 +310,9 @@ TEST(low_level, basic_bidirectional_buffer) {
 TEST(low_level, basic_bidirectional_shared_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_bidirectional<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_bidirectional<MsgType>(context);};
     if (rank < 2) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -319,7 +321,9 @@ TEST(low_level, basic_bidirectional_shared_buffer) {
 TEST(low_level, basic_unidirectional_cb_vector) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = std::vector<unsigned char>;
-    auto test_func = [](){ return test_unidirectional_cb<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_unidirectional_cb<MsgType>(context);};
     if (rank == 1) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -330,7 +334,9 @@ TEST(low_level, basic_unidirectional_cb_vector) {
 TEST(low_level, basic_unidirectional_cb_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_unidirectional_cb<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_unidirectional_cb<MsgType>(context);};
     if (rank == 1) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -341,7 +347,9 @@ TEST(low_level, basic_unidirectional_cb_buffer) {
 TEST(low_level, basic_unidirectional_cb_shared_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_unidirectional_cb<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_unidirectional_cb<MsgType>(context);};
     if (rank == 1) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -353,7 +361,9 @@ TEST(low_level, basic_unidirectional_cb_shared_buffer) {
 TEST(low_level, basic_bidirectional_cb_vector) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = std::vector<unsigned char>;
-    auto test_func = [](){ return test_bidirectional_cb<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_bidirectional_cb<MsgType>(context);};
     if (rank < 2) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -361,7 +371,9 @@ TEST(low_level, basic_bidirectional_cb_vector) {
 TEST(low_level, basic_bidirectional_cb_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_bidirectional_cb<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable{ return test_bidirectional_cb<MsgType>(context);};
     if (rank < 2) {
         EXPECT_TRUE(run_test(test_func));
     }
@@ -369,7 +381,9 @@ TEST(low_level, basic_bidirectional_cb_buffer) {
 TEST(low_level, basic_bidirectional_cb_shared_buffer) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     using MsgType = gridtools::ghex::tl::shared_message_buffer<std::allocator<unsigned char>>;
-    auto test_func = [](){ return test_bidirectional_cb<MsgType>();};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto test_func = [&context]() mutable { return test_bidirectional_cb<MsgType>(context);};
     if (rank < 2) {
         EXPECT_TRUE(run_test(test_func));
     }
