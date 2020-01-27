@@ -283,15 +283,10 @@ namespace gridtools {
                         GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                         std::vector<request_cb_type> res;
                         res.reserve(neighs.size());
-                        // keep callback alive by making it shared
-                        //using cb_type = typename std::remove_cv<typename std::remove_reference<CallBack>::type>::type;
-                        //auto cb_ptr = std::make_shared<cb_type>( std::forward<CallBack>(callback) );
                         auto counter = new std::atomic<int>(neighs.size());
                         for (auto id : neighs) {
                             res.push_back( send(std::forward<Message>(msg), id, tag, 
                                 [callback,counter](message_type m, rank_type r, tag_type t) {
-                                    //if (cb.use_count() == 1)
-                                    //    (*cb)(std::move(m),r,t);
                                     if ( (--(*counter)) == 0) {
                                         callback(std::move(m),r,t);
                                         delete counter;
@@ -307,17 +302,12 @@ namespace gridtools {
                         GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                         std::vector<request_cb_type> res;
                         res.reserve(neighs.size());
-                        // keep callback alive by making it shared
-                        //using cb_type = typename std::remove_cv<typename std::remove_reference<CallBack>::type>::type;
-                        //auto cb_ptr = std::make_shared<cb_type>( std::forward<CallBack>(callback) );
                         // keep message alive by making it shared
                         auto shared_msg = std::make_shared<Message>(std::move(msg));
                         auto counter = new std::atomic<int>(neighs.size());
                         for (auto id : neighs) {
                             res.push_back( send(shared_msg, id, tag, 
                                 [callback, counter](message_type m, rank_type r, tag_type t) {
-                                    //if (cb.use_count() == 1)
-                                    //    (*cb)(std::move(m),r,t);
                                     if ( (--(*counter)) == 0) {
                                         callback(std::move(m),r,t);
                                         delete counter;
