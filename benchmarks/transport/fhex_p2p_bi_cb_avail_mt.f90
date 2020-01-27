@@ -47,17 +47,12 @@ PROGRAM fhex_bench
   read(arg,*) inflight
 
 #ifdef USE_OPENMP
-  call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
-  if (mpi_threading /= MPI_THREAD_MULTIPLE) then
-     print *, "MPI_THREAD_MULTIPLE not supported by MPI, aborting";
-     call exit(1)
-  end if
   !$omp parallel
   num_threads = omp_get_num_threads()
   !$omp end parallel
-#else
-  call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
 #endif
+
+  call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
 
   ! create a context object
   context = context_new(num_threads, mpi_comm_world);
@@ -301,7 +296,15 @@ contains
        result = request_cancel(rreqs(j))
     end do
 
-    ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
+    ! ---------------------------------------
+    ! cleanup
+    ! ---------------------------------------
+    do j = 1, inflight
+       call message_delete(smsgs(j))
+       call message_delete(rmsgs(j))
+    end do
+    deallocate(smsgs, rmsgs, sreqs, rreqs)
+
     call comm_delete(comm)
   end subroutine run
 

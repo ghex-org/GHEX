@@ -79,15 +79,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-#ifdef USE_OPENMP
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
-    if(mode != MPI_THREAD_MULTIPLE){
-        std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
-        std::terminate();
-    }
-#else
     MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
-#endif
 
     {
         auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);

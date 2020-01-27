@@ -47,17 +47,12 @@ PROGRAM fhex_bench
   read(arg,*) inflight
 
 #ifdef USE_OPENMP
-  call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
-  if (mpi_threading /= MPI_THREAD_MULTIPLE) then
-     print *, "MPI_THREAD_MULTIPLE not supported by MPI, aborting";
-     call exit(1)
-  end if
   !$omp parallel
   num_threads = omp_get_num_threads()
   !$omp end parallel
-#else
-  call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
 #endif
+
+  call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
 
   ! create a context object
   context = context_new(num_threads, mpi_comm_world);
@@ -204,9 +199,30 @@ contains
        print *, "final MB/s: ", (niter*size*buff_size)/(toc-ttic)*num_threads/1e6
     end if
 
+
+    ! stop here to help produce a nice std output
+    call comm_barrier(comm)
+#ifdef USE_OPENMP
+    !$omp critical
+#endif
+101 format ("rank ", I0, " thread " , I0 , " sends submitted " , I0,  &
+          " serviced " , I0 , ", non-local sends " ,  I0 , " non-local recvs " , I0)
+    write (*, 101) rank, thread_id , submit_cnt/num_threads , comm_cnt, nlsend_cnt , nlrecv_cnt
+#ifdef USE_OPENMP
+    !$omp end critical
+#endif    
+
     ! tail loops - not needed in wait benchmarks
 
-    ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
+    ! ---------------------------------------
+    ! cleanup
+    ! ---------------------------------------
+    do j = 1, inflight
+       call message_delete(smsgs(j))
+       call message_delete(rmsgs(j))
+    end do
+    deallocate(smsgs, rmsgs, sreqs, rreqs)
+
     call comm_delete(comm)
   end subroutine run
 
