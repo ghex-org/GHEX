@@ -21,6 +21,8 @@ namespace gridtools{
         namespace tl {
             namespace mpi {
 
+                /** @brief completion handle returned from callback based communications
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 struct request_cb
                 {
@@ -31,8 +33,6 @@ namespace gridtools{
                     using tag_type          = typename state_type::tag_type;
                     using completion_type   = ::gridtools::ghex::tl::cb::request;
 
-                    //shared_state_type* m_shared_state = nullptr;
-                    //state_type* m_state = nullptr;
                     queue_type* m_queue = nullptr;
                     completion_type m_completed;
                     

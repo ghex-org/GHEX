@@ -23,6 +23,8 @@ namespace gridtools {
 
             namespace mpi {
 
+                /** @brief common data which is shared by all communicators. This class is thread safe.
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 struct shared_communicator_state {
                     using thread_primitives_type = ThreadPrimitives;
@@ -48,6 +50,8 @@ namespace gridtools {
                     rank_type size() const noexcept { return m_size; }
                 };
 
+                /** @brief communicator per-thread data.
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 struct communicator_state {
                     using shared_state_type = shared_communicator_state<ThreadPrimitives>;

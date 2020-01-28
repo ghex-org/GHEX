@@ -31,6 +31,10 @@ namespace gridtools {
 
             namespace mpi {
 
+                /** @brief A communicator for MPI point-to-point communication.
+                  * This class is lightweight and copying/moving instances is safe and cheap.
+                  * Communicators can be created through the context, and are thread-compatible.
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 class communicator {
                   public: // member types

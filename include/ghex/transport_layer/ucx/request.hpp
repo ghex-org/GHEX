@@ -22,8 +22,11 @@ namespace gridtools{
         namespace tl {
             namespace ucx {
 
+                /** @brief the type of the communication */
                 enum class request_kind : int { none=0, send, recv };
 
+                /** @brief data required for future based communication which will be stored in ucx provided storage.
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 struct request_data_ft
                 {
@@ -34,7 +37,14 @@ namespace gridtools{
                     worker_type* m_send_worker;
                     request_kind m_kind;
 
+                    /** @brief alignment mask */
                     static constexpr std::uintptr_t mask = ~(alignof(request_data_ft)-1u);
+
+                    /** @brief construct the struct inplace.
+                      * @tparam Args constructor argument types
+                      * @param ptr ucx provided pointer to storage
+                      * @param ...args constructor arguments
+                      * @return pointer to the instance (may be different from ucx pointer due to alignment) */
                     template<typename... Args>
                     static request_data_ft* construct(void* ptr, Args&& ...args)
                     {
@@ -49,6 +59,8 @@ namespace gridtools{
                 sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
                 alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
 
+                /** @brief data required for callback based communication which will be stored in ucx provided storage.
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 struct request_data_cb
                 {
@@ -67,7 +79,14 @@ namespace gridtools{
                     std::function<void(message_type, rank_type, tag_type)> m_cb;
                     std::shared_ptr<state_type> m_completed;
 
+                    /** @brief alignment mask */
                     static constexpr std::uintptr_t mask = ~(alignof(request_data_cb)-1u);
+
+                    /** @brief construct the struct inplace.
+                      * @tparam Args constructor argument types
+                      * @param ptr ucx provided pointer to storage
+                      * @param ...args constructor arguments
+                      * @return pointer to the instance (may be different from ucx pointer due to alignment) */
                     template<typename... Args>
                     static request_data_cb* construct(void* __restrict ptr, Args&& ...args)
                     {
@@ -78,6 +97,7 @@ namespace gridtools{
                         return a_ptr;
                     }
 
+                    /** @brief return pointer to an instance from ucx provided storage pointer */
                     static request_data_cb& get(void* __restrict ptr)
                     {
                         unsigned char* __restrict cptr = (unsigned char*)ptr;
@@ -85,15 +105,18 @@ namespace gridtools{
                         ((reinterpret_cast<std::uintptr_t>(cptr) + alignof(request_data_cb)-1) & mask);
                     }
                 };
-
                 using request_data_size_cb = std::integral_constant<std::size_t,
                 sizeof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>) +
                 alignof(request_data_cb<::gridtools::ghex::threads::atomic::primitives>)>;
 
+                /** @brief minimum size of the ucx provided storage in bytes */
                 using request_data_size = request_data_size_cb;
                 
+                /** @brief make the ucx provided storage zero */
                 inline void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
 
+                /** @brief completion handle returned from future based communications
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 struct request_ft
                 {
@@ -142,33 +165,29 @@ namespace gridtools{
                         ucp_worker_progress(m_req->m_send_worker->get());
                         ucp_worker_progress(m_req->m_send_worker->get());
 
-                        return m_req->m_send_worker->m_thread_primitives->critical(
-			    [this]()
-			    {
-				ucp_worker_progress(m_req->m_recv_worker->get());
+                        return m_req->m_send_worker->m_thread_primitives->critical([this]() {
+                            ucp_worker_progress(m_req->m_recv_worker->get());
 
-                                // TODO sometimes causes a slowdown, e.g., in the ft_avail
-                                // test with 16 threads
-                                ucp_worker_progress(m_req->m_recv_worker->get());
+                            // TODO sometimes causes a slowdown, e.g., in the ft_avail
+                            // test with 16 threads
+                            ucp_worker_progress(m_req->m_recv_worker->get());
 
-				// check request status
-				// TODO check whether ucp_request_check_status has to be locked also:
-				// it does access the worker!
-				// TODO are we allowed to call this?
-				// m_req might be a send request submitted on another thread, and hence might access
-				// the other threads's send worker...
-				if (UCS_INPROGRESS != ucp_request_check_status(m_req->m_ucx_ptr))
-				{
-				    auto ucx_ptr = m_req->m_ucx_ptr;
-				    request_init(ucx_ptr);
-				    ucp_request_free(ucx_ptr);
-				    m_req = nullptr;
-				    return true;
-				}
-				else
-				    return false;
-			    }
-			);
+                            // check request status
+                            // TODO check whether ucp_request_check_status has to be locked also:
+                            // it does access the worker!
+                            // TODO are we allowed to call this?
+                            // m_req might be a send request submitted on another thread, and hence might access
+                            // the other threads's send worker...
+                            if (UCS_INPROGRESS != ucp_request_check_status(m_req->m_ucx_ptr)) {
+                                auto ucx_ptr = m_req->m_ucx_ptr;
+                                request_init(ucx_ptr);
+                                ucp_request_free(ucx_ptr);
+                                m_req = nullptr;
+                                return true;
+                            }
+                            else
+                                return false;
+                        });
                     }
 
                     void wait()
@@ -196,20 +215,19 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        m_req->m_send_worker->m_thread_primitives->critical(
-			    [this]()
-			    {
-				auto ucx_ptr = m_req->m_ucx_ptr;
-				auto worker = m_req->m_recv_worker->get();
-				ucp_request_cancel(worker, ucx_ptr);
-			    }
-			);
+                        m_req->m_send_worker->m_thread_primitives->critical([this]() {
+                            auto ucx_ptr = m_req->m_ucx_ptr;
+                            auto worker = m_req->m_recv_worker->get();
+                            ucp_request_cancel(worker, ucx_ptr);
+                        });
                         // wait for the request to either complete, or be canceled
                         wait();
                         return true;
                     }
                 };
 
+                /** @brief completion handle returned from callback based communications
+                  * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
                 struct request_cb
                 {
@@ -270,26 +288,22 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        return m_req->m_worker->m_thread_primitives->critical(
-			    [this]()
-			    {
-				if (!(*m_completed))
-				{
-				    auto ucx_ptr = m_req->m_ucx_ptr;
-				    auto worker = m_req->m_worker->get();
+                        return m_req->m_worker->m_thread_primitives->critical([this]() {
+                            if (!(*m_completed)) {
+                                auto ucx_ptr = m_req->m_ucx_ptr;
+                                auto worker = m_req->m_worker->get();
 
-				    // set to zero here????
-				    // if we assume that the callback is always called, we
-				    // can handle this in the callback body- otherwise needs
-				    // to be done here:
-				    //request_init(ucx_ptr);
-				    ucp_request_cancel(worker, ucx_ptr);
-				}
-				m_req = nullptr;
-                                m_completed.reset();
-				return true;
-			    }
-			);
+                                // set to zero here????
+                                // if we assume that the callback is always called, we
+                                // can handle this in the callback body- otherwise needs
+                                // to be done here:
+                                //request_init(ucx_ptr);
+                                ucp_request_cancel(worker, ucx_ptr);
+                            }
+                            m_req = nullptr;
+                            m_completed.reset();
+                            return true;
+                        });
                     }
                 };
 
