@@ -1,7 +1,7 @@
-#include <ghex/threads/none/primitives.hpp>
 #include <iostream>
 #include <iomanip>
-
+#include <ghex/threads/none/primitives.hpp>
+#include <ghex/common/timer.hpp>
 #include <gtest/gtest.h>
 
 #ifdef GHEX_TEST_USE_UCX
@@ -21,9 +21,17 @@ TEST(transport, barrier) {
 
     auto token = context.get_token();
     auto comm = context.get_communicator(token);
+    int rank = context.rank();
+    gridtools::ghex::timer timer;
 
-    for(int i=0; i<10000; i++)  {
+    timer.tic();
+    for(int i=0; i<1000000; i++)  {
         comm.barrier();
+    }
+    const auto t = timer.stoc();
+    if(rank==0)
+    {
+        std::cout << "time:       " << t/1000000 << "s\n";
     }
 
     EXPECT_FALSE(comm.progress());
