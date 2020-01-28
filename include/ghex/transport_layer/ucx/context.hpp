@@ -155,14 +155,13 @@ namespace gridtools {
                     // check the actual parameters
                     ucp_context_attr_t attr;
                     attr.field_mask =
-                        UCP_ATTR_FIELD_REQUEST_SIZE | // internal request size
-                        UCP_ATTR_FIELD_THREAD_MODE;   // thread safety
+                        UCP_ATTR_FIELD_REQUEST_SIZE ; // internal request size
                     ucp_context_query(m_context.m_context, &attr);
                     m_req_size = attr.request_size;
-                    if (attr.thread_mode != UCS_THREAD_MODE_MULTI)
-                        throw std::runtime_error("ucx cannot be used with multi-threaded context");
 
                     // make shared worker
+                    // use single-threaded UCX mode, as per developer advice
+                    // https://github.com/openucx/ucx/issues/4609
                     m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SINGLE);
                     // intialize database
                     m_db.init(m_worker.address());

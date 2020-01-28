@@ -68,19 +68,19 @@ namespace gridtools {
                     
                     int size() const noexcept { return 1; }
 
-                    inline void barrier(token&) const noexcept {}
+                    inline void barrier(token&) const {}
 
                     template <typename F>
-                    inline void single(token&, F && f) const noexcept { f(); }
+                    inline void single(token&, F && f) const { f(); }
 
                     template <typename F>
-                    inline void master(token&, F && f) const noexcept { f(); }
+                    inline void master(token&, F && f) const { f(); }
 
                     template <typename F>
-                    inline void_return_type<F> critical(F && f) const noexcept { f(); }
+                    inline void_return_type<F> critical(F && f) const { f(); }
 
                     template <typename F>
-                    inline return_type<F> critical(F && f) const noexcept { return f(); }
+                    inline return_type<F> critical(F && f) const { return f(); }
                 };
 
             } // namespace none
