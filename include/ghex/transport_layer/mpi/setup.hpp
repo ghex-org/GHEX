@@ -12,7 +12,6 @@
 #define INCLUDED_GHEX_TL_MPI_SETUP_HPP
 
 #include "./communicator_base.hpp"
-//#include "./request.hpp"
 #include "./status.hpp"
 #include "./future.hpp"
 #include <vector>
