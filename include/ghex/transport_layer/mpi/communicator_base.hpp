@@ -13,9 +13,6 @@
 
 #include "./error.hpp"
 #include <memory>
-//#include <omp.h>
-//#include "./request.hpp"
-//#include "./status.hpp"
 
 namespace gridtools{
     namespace ghex {
