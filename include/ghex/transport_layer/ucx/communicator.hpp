@@ -41,6 +41,18 @@ namespace gridtools {
                     using request_cb_state_type  = typename request_cb_type::state_type;
                     using message_type           = typename request_cb_type::message_type;
 
+                    template<typename V>
+                    using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
+                    
+                    template<typename U>    
+                    using is_rvalue = std::is_rvalue_reference<U>;
+
+                    template<typename Msg, typename Ret = request_cb_type>
+                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, Ret>::type;
+
+                    template<typename Msg, typename Ret = request_cb_type>
+                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, Ret>::type;
+                    
                     worker_type*  m_recv_worker;
                     worker_type*  m_send_worker;
                     ucp_worker_h  m_ucp_rw;
@@ -62,14 +74,21 @@ namespace gridtools {
                     communicator& operator=(const communicator&) = default;
                     communicator& operator=(communicator&&) = default;
 
-                    //rank_type rank() const noexcept { return m_send_worker->rank(); }
-                    //rank_type size() const noexcept { return m_send_worker->size(); }
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
 
-                    static void empty_send_callback(void *, ucs_status_t) {}
-                    static void empty_recv_callback(void *, ucs_status_t, ucp_tag_recv_info_t*) {}
+                    template<typename Allocator>
+                    static message_type make_message(std::size_t bytes, Allocator alloc)
+                    {
+                        return message_buffer<Allocator>(bytes, alloc);
+                    }
+                    
+                    template<typename Allocator = std::allocator<unsigned char>>
+                    static message_type make_message(std::size_t bytes)
+                    {
+                        return make_message(bytes, Allocator{});
+                    }
 
                     template <typename MsgType>
                     [[nodiscard]] future<void> send(const MsgType &msg, rank_type dst, tag_type tag)
@@ -164,9 +183,6 @@ namespace gridtools {
                         p+= ucp_worker_progress(m_ucp_sw);
                         p+= ucp_worker_progress(m_ucp_sw);
                         p+= ucp_worker_progress(m_ucp_sw);
-                        //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
-                        //using lk_t=typename tp_t::lock_type;
-                        //lk_t lk(m_send_worker->m_thread_primitives->m_mutex);
                         m_send_worker->m_thread_primitives->critical(
                             [this,&p]()
                             {
@@ -177,18 +193,6 @@ namespace gridtools {
                         return p;
                     }
 
-                    template<typename V>
-                    using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
-                    
-                    template<typename U>    
-                    using is_rvalue = std::is_rvalue_reference<U>;
-
-                    template<typename Msg, typename Ret = request_cb_type>
-                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, Ret>::type;
-
-                    template<typename Msg, typename Ret = request_cb_type>
-                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, Ret>::type;
-                    
                     template<typename Message, typename CallBack>
                     request_cb_type send(std::shared_ptr<Message>& shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback)
                     {
@@ -218,24 +222,6 @@ namespace gridtools {
                         return send(message_type{std::move(msg)}, dst, tag, std::forward<CallBack>(callback));
                     }
 	    
-                    inline static void send_callback(void * __restrict ucx_req, ucs_status_t __restrict status)
-                    {
-                        auto& req = request_cb_data_type::get(ucx_req);
-                        if (status == UCS_OK)
-                            // call the callback
-                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
-                        // else: cancelled - do nothing
-                        // set completion bit
-                        //req.m_completed->m_ready = true;
-                        *req.m_completed = true;
-                        req.m_kind = request_kind::none;
-                        // destroy the request - releases the message
-                        req.~request_cb_data_type();
-                        // free ucx request
-                        //request_init(ucx_req);
-				        ucp_request_free(ucx_req);
-                    }
-
                     template<typename CallBack>
                     request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
@@ -255,7 +241,6 @@ namespace gridtools {
                             // send operation is completed immediately and the call-back function is not invoked
                             // call the callback
                             callback(std::move(msg), dst, tag);
-                            //return {nullptr, std::make_shared<request_cb_state_type>(true)};
                             return {};
                         } 
                         else if(!UCS_PTR_IS_ERR(ret))
@@ -346,66 +331,15 @@ namespace gridtools {
                         return recv(message_type{std::move(msg)}, src, tag, std::forward<CallBack>(callback));
                     }
 	    
-                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t* /*info*/)
-                    {
-                        //const rank_type src = (rank_type)(info->sender_tag & 0x00000000fffffffful);
-                        //const tag_type  tag = (tag_type)((info->sender_tag & 0xffffffff00000000ul) >> 32);
-                        
-                        auto& req = request_cb_data_type::get(ucx_req);
-
-                        if (status == UCS_OK)
-                        {
-                            if (static_cast<int>(req.m_kind) == 0)
-                            {
-                                // we're in early completion mode
-                                return;
-                            }
-
-                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
-                            // set completion bit
-                            //req.m_completed->m_ready = true;
-                            *req.m_completed = true;
-                            // destroy the request - releases the message
-                            req.m_kind = request_kind::none;
-                            req.~request_cb_data_type();
-                            // free ucx request
-                            //request_init(ucx_req);
-                            ucp_request_free(ucx_req);
-                        }
-                        else if (status == UCS_ERR_CANCELED)
-                        {
-			                // canceled - do nothing
-                            // set completion bit
-                            //req.m_completed->m_ready = true;
-                            *req.m_completed = true;
-                            req.m_kind = request_kind::none;
-                            // destroy the request - releases the message
-                            req.~request_cb_data_type(); 
-                            // free ucx request
-                            //request_init(ucx_req);
-                            ucp_request_free(ucx_req);
-                        }
-                        else
-                        {
-                            // an error occurred
-                            throw std::runtime_error("ghex: ucx error - recv message truncated");
-                            //req.m_exception = std::make_exception_ptr(std::runtime_error("ghex: ucx error - recv message truncated"));
-                        }
-                    }
-                    
                     template<typename CallBack>
                     request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {
                         const auto rtag = ((std::uint_fast64_t)tag << 32) | 
                                            (std::uint_fast64_t)(src);
-                        //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
-                        //using lk_t=typename tp_t::lock_type;
-                        //lk_t lk(m_send_worker->m_thread_primitives->m_mutex);
                         return m_send_worker->m_thread_primitives->critical(
                             [this,rtag,&msg,src,tag,&callback]()
                             {
                                 auto ret = ucp_tag_recv_nb(
-                                    //m_recv_worker->get(),                            // worker
                                     m_ucp_rw,                                        // worker
                                     msg.data(),                                      // buffer
                                     msg.size(),                                      // buffer size
@@ -422,10 +356,8 @@ namespace gridtools {
                                         callback(std::move(msg), src, tag);
 		    		                    // we need to free the request here, not in the callback
                                         auto ucx_ptr = ret;
-                                        //request_init(ucx_ptr);
                                         request_cb_data_type::get(ucx_ptr).m_kind = request_kind::none;
 				                        ucp_request_free(ucx_ptr);
-                                        //return request_cb_type{nullptr, std::make_shared<request_cb_state_type>(true)};
                                         return request_cb_type{};
                                     }
                                     else
@@ -490,6 +422,68 @@ namespace gridtools {
                         else 
                         {
                             bfunc();
+                        }
+                    }
+
+                private:
+                    
+                    static void empty_send_callback(void *, ucs_status_t) {}
+
+                    static void empty_recv_callback(void *, ucs_status_t, ucp_tag_recv_info_t*) {}
+
+
+                    inline static void send_callback(void * __restrict ucx_req, ucs_status_t __restrict status)
+                    {
+                        auto& req = request_cb_data_type::get(ucx_req);
+                        if (status == UCS_OK)
+                            // call the callback
+                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                        // else: cancelled - do nothing
+                        // set completion bit
+                        *req.m_completed = true;
+                        // destroy the request - releases the message
+                        req.m_kind = request_kind::none;
+                        req.~request_cb_data_type();
+                        // free ucx request
+				        ucp_request_free(ucx_req);
+                    }
+
+                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t* /*info*/)
+                    {
+                        auto& req = request_cb_data_type::get(ucx_req);
+
+                        if (status == UCS_OK)
+                        {
+                            if (static_cast<int>(req.m_kind) == 0)
+                            {
+                                // we're in early completion mode
+                                return;
+                            }
+
+                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                            // set completion bit
+                            *req.m_completed = true;
+                            // destroy the request - releases the message
+                            req.m_kind = request_kind::none;
+                            req.~request_cb_data_type();
+                            // free ucx request
+                            ucp_request_free(ucx_req);
+                        }
+                        else if (status == UCS_ERR_CANCELED)
+                        {
+			                // canceled - do nothing
+                            // set completion bit
+                            *req.m_completed = true;
+                            // destroy the request - releases the message
+                            req.m_kind = request_kind::none;
+                            req.~request_cb_data_type(); 
+                            // free ucx request
+                            ucp_request_free(ucx_req);
+                        }
+                        else
+                        {
+                            // an error occurred
+                            throw std::runtime_error("ghex: ucx error - recv message truncated");
                         }
                     }
                 };

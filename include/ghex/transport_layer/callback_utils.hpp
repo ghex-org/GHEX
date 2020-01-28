@@ -43,6 +43,7 @@ namespace gridtools {
                     request_state(bool r) noexcept : m_ready{r} {}
                     request_state(bool r, unsigned int i) noexcept : m_ready{r}, m_index{i} {}
                     bool is_ready() const noexcept { return m_ready; }
+                    int queue_index() const noexcept { return m_index; }
                 };
 
                 /** @brief simple request with shared state as member returned by callback based send/recvs. */
@@ -51,6 +52,7 @@ namespace gridtools {
                     std::shared_ptr<request_state> m_request_state;
                     bool is_ready() const noexcept { return m_request_state->is_ready(); }
                     void reset() { m_request_state.reset(); }
+                    int queue_index() const noexcept { return m_request_state->queue_index(); }
                 };
 
                 /** @brief simple wrapper around an l-value reference message (stores pointer and size)
@@ -142,8 +144,12 @@ namespace gridtools {
                     std::size_t size() const noexcept { return m_size; }
                 };
 
+                /** @brief A container for storing callbacks and progressing them.
+                  * @tparam FutureType a future type
+                  * @tparam RankType the rank type (integer)
+                  * @tparam TagType the tag type (integer) */
                 template<class FutureType, typename RankType = int, typename TagType = int>
-                class queue {
+                class callback_queue{
                   public: // member types
                     using message_type = any_message;
                     using future_type = FutureType;
@@ -151,6 +157,7 @@ namespace gridtools {
                     using tag_type = TagType;
                     using cb_type = std::function<void(message_type, rank_type, tag_type)>;
 
+                    // internal element which is stored in the queue
                     struct element_type {
                         any_message m_msg;
                         rank_type m_rank;
@@ -166,9 +173,17 @@ namespace gridtools {
                     queue_type m_queue;
 
                   public: // ctors
-                    queue() { m_queue.reserve(256); }
+                    callback_queue() { m_queue.reserve(256); }
 
                   public: // member functions
+                    /** @brief Add a callback to the queue and receive a completion handle (request).
+                      * @tparam Callback callback type
+                      * @param msg the message (data)
+                      * @param rank the destination/source rank
+                      * @param tag the message tag
+                      * @param fut the send/recv operation's return value
+                      * @param cb the callback
+                      * @return returns a completion handle */
                     template<typename Callback>
                     request enqueue(any_message&& msg, rank_type rank, tag_type tag, future_type&& fut, Callback&& cb) {
                         request m_req{std::make_shared<request_state>(false,m_queue.size())};
@@ -177,6 +192,9 @@ namespace gridtools {
                         return m_req;
                     }
 
+                    /** @brief progress the queue and call the callbacks if the futures are ready. Note, that the order
+                      * of progression is not defined.
+                      * @return number of progressed elements */
                     int progress() {
                         int completed = 0;
                         for (unsigned int i = 0; i < m_queue.size(); ++i) {
@@ -196,6 +214,10 @@ namespace gridtools {
                         return completed;
                     }
 
+                    /** @brief Cancel a callback
+                      * @param index the queue index - access to this index is given through the request returned when
+                      * enqueing.
+                      * @return true if cancelling was successful */
                     bool cancel(unsigned int index)
                     {
                         auto& element = m_queue[index];

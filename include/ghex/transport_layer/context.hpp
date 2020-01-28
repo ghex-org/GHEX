@@ -55,29 +55,32 @@ namespace gridtools {
                 context(context&&) = delete;
 
             public:
-
                 MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
                 int rank() const noexcept { return m_rank; }
                 int size() const noexcept { return m_size; }
 
-                /*const */thread_primitives_type& thread_primitives() /*const*/ noexcept
+                // per-rank thread primitives
+                // thread-safe
+                thread_primitives_type& thread_primitives() noexcept
                 {
                     return m_thread_primitives;
                 }
 
+                // per-rank communicator
+                // only serial part of code
                 mpi::setup_communicator get_setup_communicator()
                 {
                     return mpi::setup_communicator(m_mpi_comm);
                 }
 
-                // per-rank communicator (recv)
-                // thread-safe
+                // per-rank communicator
+                // only serial part of code
                 communicator_type get_serial_communicator()
                 {
                     return m_transport_context.get_serial_communicator();
                 }
 
-                // per-thread communicator (send)
+                // per-thread communicator
                 // thread-safe
                 communicator_type get_communicator(const thread_token& t)
                 {

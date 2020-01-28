@@ -57,7 +57,7 @@ namespace gridtools {
                     using tag_type = typename shared_state_type::tag_type;
                     template<typename T>
                     using future = future_t<T>;
-                    using queue_type = ::gridtools::ghex::tl::cb::queue<future<void>, rank_type, tag_type>;
+                    using queue_type = ::gridtools::ghex::tl::cb::callback_queue<future<void>, rank_type, tag_type>;
 
                     thread_token* m_token_ptr;
                     queue_type m_send_queue;
