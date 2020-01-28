@@ -14,7 +14,7 @@
 #include <boost/optional.hpp>
 #include <atomic>
 #include "../shared_message_buffer.hpp"
-#include "../communicator.hpp"
+#include "../tags.hpp"
 #include "./future.hpp"
 #include "./request_cb.hpp"
 #include "../context.hpp"

@@ -14,7 +14,7 @@
 #include <mpi.h>
 #include <memory>
 #include "./config.hpp"
-#include "./communicator.hpp"
+#include "./tags.hpp"
 #include "./mpi/setup.hpp"
 
 namespace gridtools {

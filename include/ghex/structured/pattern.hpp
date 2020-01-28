@@ -12,7 +12,7 @@
 #define INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
 
 #include "./grid.hpp"
-#include "../transport_layer/communicator.hpp"
+#include "../transport_layer/tags.hpp"
 #include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
