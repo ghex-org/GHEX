@@ -472,7 +472,7 @@ namespace gridtools {
                                     if(r != m_rank){
                                         recv(rmsg, r, 0xdeadbeef).wait();
                                         if (*reinterpret_cast<unsigned char*>(rmsg.data()) != msgid)
-                                            throw "UCX barrier error: unexpected message id.";
+                                            throw std::runtime_error("UCX barrier error: unexpected message id.");
                                     }
                                 }
                                 
