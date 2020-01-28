@@ -33,9 +33,8 @@ namespace gridtools {
         namespace tl {
             namespace cb {
 
-                // shared request state
-                struct request_state
-                {
+                /** @brief shared request state for completion handlers returned by callback based sends/recvs. */
+                struct request_state {
                     // volatile is needed to prevent the compiler
                     // from optimizing away the check of this member
                     volatile bool m_ready = false;
@@ -46,7 +45,7 @@ namespace gridtools {
                     bool is_ready() const noexcept { return m_ready; }
                 };
 
-                // simple request class which is returned from send and recv calls
+                /** @brief simple request with shared state as member returned by callback based send/recvs. */
                 struct request
                 {
                     std::shared_ptr<request_state> m_request_state;
@@ -54,11 +53,12 @@ namespace gridtools {
                     void reset() { m_request_state.reset(); }
                 };
 
-                // simple wrapper around an l-value reference message (stores pointer and size)
+                /** @brief simple wrapper around an l-value reference message (stores pointer and size)
+                  * @tparam T value type of the messages content */
                 template<typename T>
                 struct ref_message
                 {
-                    using value_type = T;//unsigned char;
+                    using value_type = T;
                     T* m_data;
                     std::size_t m_size;
                     T* data() noexcept { return m_data; }
@@ -67,10 +67,13 @@ namespace gridtools {
                 };
 
                 // type-erased message
+                /** @brief type erased message capable of holding any message. Uses optimized initialization for  
+                  * ref_messages and std::shared_ptr pointing to messages. */
                 struct any_message
                 {
                     using value_type = unsigned char;
 
+                    // common interface to a message
                     struct iface
                     {
                         virtual unsigned char* data() noexcept = 0;
@@ -79,6 +82,7 @@ namespace gridtools {
                         virtual ~iface() {}
                     };
 
+                    // struct which holds the actual message and provides access through the interface iface
                     template<class Message>
                     struct holder final : public iface
                     {
@@ -94,8 +98,13 @@ namespace gridtools {
                     unsigned char* __restrict m_data;
                     std::size_t m_size;
                     std::unique_ptr<iface> m_ptr;
-                    std::shared_ptr<std::size_t> m_ptr2;
+                    std::shared_ptr<char> m_ptr2;
 
+                    /** @brief Construct from an r-value: moves the message inside the type-erased structure.
+                      * Requires the message not to reallocate during the move. Note, that this operation will allocate
+                      * storage on the heap for the holder structure of the message.
+                      * @tparam Message a message type
+                      * @param m a message */
                     template<class Message>
                     any_message(Message&& m)
                     : m_data{reinterpret_cast<unsigned char*>(m.data())}
@@ -103,42 +112,34 @@ namespace gridtools {
                     , m_ptr{std::make_unique<holder<Message>>(std::move(m))}
                     {}
 
+                    /** @brief Construct from a reference: copies the pointer to the data and size of the data.
+                      * Note, that this operation will not allocate storage on the heap.
+                      * @tparam T a message type
+                      * @param m a ref_message to a message. */
                     template<typename T>
                     any_message(ref_message<T>&& m)
                     : m_data{reinterpret_cast<unsigned char*>(m.data())}
                     , m_size{m.size()*sizeof(T)}
                     {}
 
+                    /** @brief Construct from a shared pointer: will share ownership with the shared pointer (aliasing)
+                      * and keeps the message wrapped by the shared pointer alive. Note, that this operation may
+                      * allocate on the heap, but does not allocate storage for the holder structure.
+                      * @tparam Message a message type
+                      * @param sm a shared pointer to a message*/
                     template<typename Message>
                     any_message(std::shared_ptr<Message>& sm)
                     : m_data{reinterpret_cast<unsigned char*>(sm->data())}
                     , m_size{sm->size()*sizeof(typename Message::value_type)}
-                    , m_ptr2(sm,&m_size)
+                    , m_ptr2(sm,reinterpret_cast<char*>(sm.get()))
                     {}
 
                     any_message(any_message&&) = default;
                     any_message& operator=(any_message&&) = default;
 
-                    unsigned char* data() noexcept { return m_data; /*m_ptr->data();*/ }
-                    const unsigned char* data() const noexcept { return m_data; /*m_ptr->data();*/ }
-                    std::size_t size() const noexcept { return m_size; /*m_ptr->size();*/ }
-                };
-
-
-                // simple shared message which is internally used for send_multi
-                template<typename Message>
-                struct shared_message
-                {
-                    using value_type = typename Message::value_type;
-                    std::shared_ptr<Message> m_message;
-
-                    shared_message(Message&& m) : m_message{std::make_shared<Message>(std::move(m))} {}
-                    shared_message(const shared_message&) = default;
-                    shared_message(shared_message&&) = default;
-
-                    value_type* data() noexcept { return m_message->data(); }
-                    const value_type* data() const noexcept { return m_message->data(); }
-                    std::size_t size() const noexcept { return m_message->size(); }
+                    unsigned char* data() noexcept { return m_data;}
+                    const unsigned char* data() const noexcept { return m_data; }
+                    std::size_t size() const noexcept { return m_size; }
                 };
 
                 template<class FutureType, typename RankType = int, typename TagType = int>

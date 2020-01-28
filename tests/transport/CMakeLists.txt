@@ -25,7 +25,7 @@ foreach(t_ ${_tests})
 endforeach(t_ ${_tests})
 
 if (GHEX_USE_UCP)
-    set(_tests_ucx test_ucx_context)
+    set(_tests_ucx test_ucx_context test_leaks)
 
     foreach(t_ ${_tests_ucx})
 
