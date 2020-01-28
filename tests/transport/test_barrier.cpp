@@ -25,7 +25,7 @@ TEST(transport, barrier) {
     gridtools::ghex::timer timer;
 
     timer.tic();
-    for(int i=0; i<1000000; i++)  {
+    for(int i=0; i<100000; i++)  {
         comm.barrier();
     }
     const auto t = timer.stoc();
@@ -33,6 +33,4 @@ TEST(transport, barrier) {
     {
         std::cout << "time:       " << t/1000000 << "s\n";
     }
-
-    EXPECT_FALSE(comm.progress());
 }

@@ -233,7 +233,7 @@ namespace gridtools {
                         req.~request_cb_data_type();
                         // free ucx request
                         //request_init(ucx_req);
-				        ucp_request_free(ucx_req);
+                        ucp_request_free(ucx_req);
                     }
 
                     template<typename CallBack>
@@ -352,7 +352,6 @@ namespace gridtools {
                         //const tag_type  tag = (tag_type)((info->sender_tag & 0xffffffff00000000ul) >> 32);
                         
                         auto& req = request_cb_data_type::get(ucx_req);
-
                         if (status == UCS_OK)
                         {
                             if (static_cast<int>(req.m_kind) == 0)
@@ -413,7 +412,6 @@ namespace gridtools {
                                     rtag,                                            // tag
                                     ~std::uint_fast64_t(0ul),                        // tag mask
                                     &communicator::recv_callback);                   // callback function pointer
-
                                 if(!UCS_PTR_IS_ERR(ret))
                                 {
 			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
@@ -454,10 +452,11 @@ namespace gridtools {
                     {
                         // a trivial barrier implementation for debuging purposes only!
                         // send a message to all other ranks, wait for their message
+                        static unsigned char msgid = 0;
                         auto bfunc = [this]()
                             {
                                 volatile int sent = 0;
-                                std::vector<unsigned char> msg(1);
+                                std::vector<unsigned char> smsg(1), rmsg(1);
                                 std::vector<rank_type> neighs;
                                 neighs.reserve(size()-1);
                                 for (rank_type r=0; r<size(); ++r)
@@ -466,15 +465,19 @@ namespace gridtools {
 
                                 auto send_callback = [&](message_type, int, int) {sent++;};
 
-                                send_multi(msg,neighs, 0xdeadbeef, send_callback);
+                                smsg[0] = msgid;
+                                send_multi(smsg,neighs, 0xdeadbeef, send_callback);
 
                                 for(rank_type r=0; r<m_size; r++){
                                     if(r != m_rank){
-                                        recv(msg, r, 0xdeadbeef).wait();
+                                        recv(rmsg, r, 0xdeadbeef).wait();
+                                        if (*reinterpret_cast<unsigned char*>(rmsg.data()) != msgid)
+                                            throw "UCX barrier error: unexpected message id.";
                                     }
                                 }
                                 
                                 while(sent!=1) progress();
+                                msgid++;
                             };
 
                         if(m_send_worker->m_token_ptr)

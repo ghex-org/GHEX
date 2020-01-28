@@ -110,7 +110,7 @@ namespace gridtools {
                         return {m_tokens[id].get()};
                     }
 
-                    inline void barrier(token& t) const noexcept
+                    inline void barrier(token& t) const
                     {
                         int expected = b_count; 
                         while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
@@ -126,7 +126,7 @@ namespace gridtools {
                     }
 
                     template <typename F>
-                    inline void single(token& t, F && f) const noexcept
+                    inline void single(token& t, F && f) const
                     {
                         if (t.impl->m_selected) {
                             f();
@@ -134,7 +134,7 @@ namespace gridtools {
                     }
 
                     template <typename F>
-                    inline void master(token& t, F && f) const noexcept
+                    inline void master(token& t, F && f) const
                     {
                         if (t.impl->m_id == 0) {
                             f();
@@ -142,14 +142,14 @@ namespace gridtools {
                     }
 
                     template <typename F>
-                    inline void_return_type<F> critical(F && f) const noexcept
+                    inline void_return_type<F> critical(F && f) const
                     {
                         lock_type l(m_mutex);
                         f();
                     }
 
                     template <typename F>
-                    inline return_type<F> critical(F && f) const noexcept
+                    inline return_type<F> critical(F && f) const
                     {
                         lock_type l(m_mutex);
                         return f();
