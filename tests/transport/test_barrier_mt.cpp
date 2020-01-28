@@ -30,8 +30,6 @@ TEST(transport, barrier_mt_std) {
         for(int i=0; i<50; i++)  {
             comm.barrier();
         }
-
-        EXPECT_FALSE(comm.progress());
     };
 
     std::vector<std::thread> threads;
@@ -53,8 +51,6 @@ TEST(transport, barrier_mt_std_atomic) {
         for(int i=0; i<50; i++)  {
             comm.barrier();
         }
-
-        EXPECT_FALSE(comm.progress());
     };
 
     std::vector<std::thread> threads;
@@ -81,8 +77,6 @@ TEST(transport, barrier_mt_omp) {
         for(int i=0; i<50; i++)  {
             comm.barrier();
         }
-
-        EXPECT_FALSE(comm.progress());
     }
 }
 
@@ -102,7 +96,5 @@ TEST(transport, barrier_mt_omp_atomic) {
         for(int i=0; i<50; i++)  {
             comm.barrier();
         }
-
-        EXPECT_FALSE(comm.progress());
     }
 }

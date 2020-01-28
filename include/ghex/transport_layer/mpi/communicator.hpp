@@ -49,6 +49,18 @@ namespace gridtools {
                     using request_cb_type        = request_cb<ThreadPrimitives>;
                     using message_type           = typename request_cb_type::message_type;
 
+                    template<typename V>
+                    using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
+                    
+                    template<typename U>    
+                    using is_rvalue = std::is_rvalue_reference<U>;
+
+                    template<typename Msg, typename Ret = request_cb_type>
+                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, Ret>::type;
+
+                    template<typename Msg, typename Ret = request_cb_type>
+                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, Ret>::type;
+
                   private: // members
                     shared_state_type* m_shared_state;
                     state_type* m_state;
@@ -67,6 +79,19 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_shared_state->rank(); }
                     rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
+
+                    template<typename Allocator>
+                    static message_type make_message(std::size_t bytes, Allocator alloc)
+                    {
+                        return message_buffer<Allocator>(bytes, alloc);
+                    }
+                    
+                    template<typename Allocator = std::allocator<unsigned char>>
+                    static message_type make_message(std::size_t bytes)
+                    {
+                        return make_message(bytes, Allocator{});
+                    }
+
 
                     template<typename Message>
                     [[nodiscard]] future<void> send(const Message& msg, rank_type dst, tag_type tag) const {
@@ -87,7 +112,7 @@ namespace gridtools {
                     }
 
                     template <typename MsgType, typename Neighs>
-                    std::vector<future<void>> send_multi(MsgType& msg, Neighs const &neighs, tag_type tag) const {
+                    [[nodiscard]] std::vector<future<void>> send_multi(MsgType& msg, Neighs const &neighs, tag_type tag) const {
                         std::vector<future<void>> res;
                         res.reserve(neighs.size());
                         for (auto id : neighs)
@@ -108,18 +133,6 @@ namespace gridtools {
                         else
                             MPI_Barrier(m_shared_state->m_comm);
                     }
-
-                    template<typename V>
-                    using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
-                    
-                    template<typename U>    
-                    using is_rvalue = std::is_rvalue_reference<U>;
-
-                    template<typename Msg, typename Ret = request_cb_type>
-                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, Ret>::type;
-
-                    template<typename Msg, typename Ret = request_cb_type>
-                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, Ret>::type;
 
                     template<typename Message, typename CallBack>
                     request_cb_type send(std::shared_ptr<Message>& shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback)
