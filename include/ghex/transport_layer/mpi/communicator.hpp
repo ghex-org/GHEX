@@ -53,18 +53,6 @@ namespace gridtools {
                     using request_cb_type        = request_cb<ThreadPrimitives>;
                     using message_type           = typename request_cb_type::message_type;
 
-                    template<typename V>
-                    using ref_message = ::gridtools::ghex::tl::cb::ref_message<V>;
-                    
-                    template<typename U>    
-                    using is_rvalue = std::is_rvalue_reference<U>;
-
-                    template<typename Msg, typename Ret = request_cb_type>
-                    using rvalue_func =  typename std::enable_if<is_rvalue<Msg>::value, Ret>::type;
-
-                    template<typename Msg, typename Ret = request_cb_type>
-                    using lvalue_func =  typename std::enable_if<!is_rvalue<Msg>::value, Ret>::type;
-
                   private: // members
                     shared_state_type* m_shared_state;
                     state_type* m_state;
@@ -84,21 +72,8 @@ namespace gridtools {
                     rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
 
-                    template<typename Allocator>
-                    static message_type make_message(std::size_t bytes, Allocator alloc)
-                    {
-                        return message_buffer<Allocator>(bytes, alloc);
-                    }
-                    
-                    template<typename Allocator = std::allocator<unsigned char>>
-                    static message_type make_message(std::size_t bytes)
-                    {
-                        return make_message(bytes, Allocator{});
-                    }
-
-
                     template<typename Message>
-                    [[nodiscard]] future<void> send(const Message& msg, rank_type dst, tag_type tag) const {
+                    [[nodiscard]] future<void> send(const Message& msg, rank_type dst, tag_type tag) {
                         request req;
                         GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(msg.data()),
                                                         sizeof(typename Message::value_type) * msg.size(), MPI_BYTE,
@@ -107,21 +82,12 @@ namespace gridtools {
                     }
 
                     template<typename Message>
-                    [[nodiscard]] future<void> recv(Message& msg, rank_type src, tag_type tag) const {
+                    [[nodiscard]] future<void> recv(Message& msg, rank_type src, tag_type tag) {
                         request req;
                         GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(msg.data()),
                                                         sizeof(typename Message::value_type) * msg.size(), MPI_BYTE,
                                                         src, tag, m_shared_state->m_comm, &req.get()));
                         return req;
-                    }
-
-                    template <typename MsgType, typename Neighs>
-                    [[nodiscard]] std::vector<future<void>> send_multi(MsgType& msg, Neighs const &neighs, tag_type tag) const {
-                        std::vector<future<void>> res;
-                        res.reserve(neighs.size());
-                        for (auto id : neighs)
-                            res.push_back( send(msg, id, tag) );
-                        return res;
                     }
 
                     unsigned progress() { return m_state->progress(); }
@@ -136,35 +102,6 @@ namespace gridtools {
                         }
                         else
                             MPI_Barrier(m_shared_state->m_comm);
-                    }
-
-                    template<typename Message, typename CallBack>
-                    request_cb_type send(std::shared_ptr<Message>& shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        return send(message_type{shared_msg_ptr}, dst, tag, std::forward<CallBack>(callback));
-                    }
-
-                    template<typename Alloc, typename CallBack>
-                    request_cb_type send(shared_message_buffer<Alloc>& shared_msg, rank_type dst, tag_type tag, CallBack&& callback)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        return send(message_type{shared_msg.m_message}, dst, tag, std::forward<CallBack>(callback));
-                    }
-                    
-                    template<typename Message, typename CallBack>
-                    lvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        using V = typename std::remove_reference_t<Message>::value_type;
-                        return send(message_type{ref_message<V>{msg.data(),msg.size()}}, dst, tag, std::forward<CallBack>(callback));
-                    }
-
-                    template<typename Message, typename CallBack>
-                    rvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        return send(message_type{std::move(msg)}, dst, tag, std::forward<CallBack>(callback));
                     }
 
                     template<typename CallBack>
@@ -184,71 +121,6 @@ namespace gridtools {
                         }
                     }
                     
-                    template <typename Message, typename Neighs, typename CallBack>
-                    lvalue_func<Message&&, std::vector<request_cb_type>>
-                    send_multi(Message&& msg, Neighs const &neighs, tag_type tag, const CallBack& callback) {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        std::vector<request_cb_type> res;
-                        res.reserve(neighs.size());
-                        auto counter = new std::atomic<int>(neighs.size());
-                        for (auto id : neighs) {
-                            res.push_back( send(std::forward<Message>(msg), id, tag, 
-                                [callback,counter](message_type m, rank_type r, tag_type t) {
-                                    if ( (--(*counter)) == 0)
-                                        callback(std::move(m),r,t);
-                                }) );
-                        }
-                        return res;
-                    }
-                    
-                    template <typename Message, typename Neighs, typename CallBack>
-                    rvalue_func<Message&&, std::vector<request_cb_type>>
-                    send_multi(Message&& msg, Neighs const &neighs, tag_type tag, const CallBack& callback) {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        std::vector<request_cb_type> res;
-                        res.reserve(neighs.size());
-                        // keep message alive by making it shared
-                        auto shared_msg = std::make_shared<Message>(std::move(msg));
-                        auto counter = new std::atomic<int>(neighs.size());
-                        for (auto id : neighs) {
-                            res.push_back( send(shared_msg, id, tag, 
-                                [callback, counter](message_type m, rank_type r, tag_type t) {
-                                    if ( (--(*counter)) == 0)
-                                        callback(std::move(m),r,t);
-                                }) );
-                        }
-                        return res;
-                    }
-
-                    template<typename Message, typename CallBack>
-                    request_cb_type recv(std::shared_ptr<Message>& shared_msg_ptr, rank_type src, tag_type tag, CallBack&& callback)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        return recv(message_type{shared_msg_ptr}, src, tag, std::forward<CallBack>(callback));
-                    }
-                    
-                    template<typename Alloc, typename CallBack>
-                    request_cb_type recv(shared_message_buffer<Alloc>& shared_msg, rank_type src, tag_type tag, CallBack&& callback)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        return recv(message_type{shared_msg.m_message}, src, tag, std::forward<CallBack>(callback));
-                    }
-
-                    template<typename Message, typename CallBack>
-                    lvalue_func<Message&&> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        using V = typename std::remove_reference_t<Message>::value_type;
-                        return recv(message_type{ref_message<V>{msg.data(),msg.size()}}, src, tag, std::forward<CallBack>(callback));
-                    }
-
-                    template<typename Message, typename CallBack>
-                    rvalue_func<Message&&> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback, std::true_type)
-                    {
-                        GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
-                        return recv(message_type{std::move(msg)}, src, tag, std::forward<CallBack>(callback));
-                    }
-
                     template<typename CallBack>
                     request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {

@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 
 #include "./communicator.hpp"
+#include "../communicator.hpp"
 
 #ifdef GHEX_USE_PMI
 // use the PMI interface ...
@@ -31,7 +32,7 @@ namespace gridtools {
             public: // member types
                 using rank_type         = ucx::endpoint_t::rank_type;
                 using worker_type       = ucx::worker_t<ThreadPrimitives>;
-                using communicator_type = ucx::communicator<ThreadPrimitives>;
+                using communicator_type = communicator<ucx::communicator<ThreadPrimitives>>;
 
             private: // member types
 
