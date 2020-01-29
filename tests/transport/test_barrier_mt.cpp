@@ -64,7 +64,8 @@ TEST(transport, barrier_mt_std_atomic) {
 TEST(transport, barrier_mt_omp) {
     int num_threads = 1;
     omp_set_num_threads(4);
-#pragma omp parallel master
+#pragma omp parallel
+#pragma omp master
     num_threads = omp_get_num_threads();
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading3>::create(num_threads, MPI_COMM_WORLD);
@@ -83,7 +84,8 @@ TEST(transport, barrier_mt_omp) {
 TEST(transport, barrier_mt_omp_atomic) {
     int num_threads = 1;
     omp_set_num_threads(4);
-#pragma omp parallel master
+#pragma omp parallel 
+#pragma omp master
     num_threads = omp_get_num_threads();
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading2>::create(num_threads, MPI_COMM_WORLD);
