@@ -11,27 +11,34 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "../utils/gtest_main_atlas.cpp"
 
-#include <gridtools/common/layout_map.hpp>
-
-//#include "atlas/parallel/mpi/mpi.h"
 #include "atlas/grid.h"
 #include "atlas/mesh.h"
 #include "atlas/meshgenerator.h"
-#include "atlas/functionspace/NodeColumns.h"
+#include "atlas/functionspace.h"
 #include "atlas/field.h"
-#include "atlas/array/ArrayView.h"
-#include "atlas/output/Gmsh.h" // needed only for debug, should be removed later
-#include "atlas/runtime/Log.h" // needed only for debug, should be removed later
+#include "atlas/array.h"
 
-#include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
-#include "../include/ghex/transport_layer/communicator.hpp"
-// #include "../include/utils.hpp" TO_DO: check if it is needed anymore
+#ifndef GHEX_TEST_USE_UCX
+#include <ghex/transport_layer/mpi/context.hpp>
+#else
+#include <ghex/transport_layer/ucx/context.hpp>
+#endif
+#include <ghex/threads/std_thread/primitives.hpp>
 #include "../include/ghex/unstructured/grid.hpp"
 #include "../include/ghex/unstructured/pattern.hpp"
 #include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
 #include "../include/ghex/communication_object.hpp"
+
+
+#ifndef GHEX_TEST_USE_UCX
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+#else
+using transport = gridtools::ghex::tl::ucx_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+#endif
+using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 
 TEST(atlas_integration, dependencies) {
@@ -57,13 +64,10 @@ TEST(atlas_integration, dependencies) {
 
 TEST(atlas_integration, domain_descriptor) {
 
-    // Using atlas communicator
-    // int rank = static_cast<int>(atlas::mpi::comm().rank());
-    // int size = ...
-    // Using our communicator
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
-    int rank = comm.rank();
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
 
     // Generate global classic reduced Gaussian grid
     atlas::StructuredGrid grid("N16");
@@ -99,7 +103,7 @@ TEST(atlas_integration, domain_descriptor) {
                                                     nb_levels,
                                                     nb_nodes};
 
-    if (rank == 0) {
+    if ((size == 4) && (rank == 0)) {
         EXPECT_TRUE(d.first() == 0);
         EXPECT_TRUE(d.last() == 421);
     }
@@ -109,14 +113,10 @@ TEST(atlas_integration, domain_descriptor) {
 
 TEST(atlas_integration, halo_generator) {
 
-    // Using atlas communicator
-    // int rank = static_cast<int>(atlas::mpi::comm().rank());
-    // int size = ...
-    // Using our communicator
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
-    int rank = comm.rank();
-    int size = comm.size();
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
 
     // Generate global classic reduced Gaussian grid
     atlas::StructuredGrid grid("N16");
@@ -154,14 +154,10 @@ TEST(atlas_integration, halo_generator) {
 
 TEST(atlas_integration, make_pattern) {
 
-    // Using atlas communicator
-    // int rank = static_cast<int>(atlas::mpi::comm().rank());
-    // int size = ...
-    // Using our communicator
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
-    int rank = comm.rank();
-    int size = comm.size();
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
 
     // Generate global classic reduced Gaussian grid
     atlas::StructuredGrid grid("N16");
@@ -196,7 +192,7 @@ TEST(atlas_integration, make_pattern) {
     gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     using grid_type = gridtools::ghex::unstructured::grid;
-    EXPECT_NO_THROW(auto patterns_ = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains););
+    EXPECT_NO_THROW(auto patterns_ = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains););
 
 }
 
@@ -205,14 +201,10 @@ TEST(atlas_integration, halo_exchange) {
 
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
-    // Using atlas communicator
-    // int rank = static_cast<int>(atlas::mpi::comm().rank());
-    // int size = ...
-    // Using our communicator
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
-    int rank = comm.rank();
-    int size = comm.size();
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
 
     // ==================== Atlas code ====================
 
@@ -266,13 +258,13 @@ TEST(atlas_integration, halo_exchange) {
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;
-    auto patterns = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
 
     // Istantiate communication object
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p});
+        cos.push_back(communication_object_t{p, context.get_communicator(context.get_token())});
     }
 
     // Istantiate data descriptor

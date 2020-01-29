@@ -13,16 +13,15 @@
 
 #include <vector>
 #include <map>
-#include <cassert>
 #include <numeric>
 #include <cstring>
 
-#include "../transport_layer/communicator.hpp"
-#include "../transport_layer/mpi/setup.hpp"
+#include "../transport_layer/context.hpp"
+#include "../allocator/unified_memory_allocator.hpp"
 #include "../pattern.hpp"
 #include "../buffer_info.hpp"
 #include "./grid.hpp"
-#include "../allocator/unified_memory_allocator.hpp"
+
 
 namespace gridtools {
     namespace ghex {
@@ -32,24 +31,23 @@ namespace gridtools {
          * This class provides access to the receive and send iteration spaces, determined by the halos,
          * and holds all connections to the neighbors.
          *
-         * @tparam Transport transport protocol
+         * @tparam Communicator communicator type
          * @tparam Index index type for domain and iteration space
          * @tparam DomainId domain id type*/
-        template<typename Transport, typename Index, typename DomainId>
-        class pattern<Transport, unstructured::detail::grid<Index>, DomainId> {
+        template<typename Communicator, typename Index, typename DomainId>
+        class pattern<Communicator, unstructured::detail::grid<Index>, DomainId> {
 
             public:
 
                 // member types
-
-                using communicator_type = tl::communicator<Transport>;
+                using communicator_type = Communicator;
                 using address_type = typename communicator_type::address_type;
                 using index_type = Index;
                 using grid_type = unstructured::detail::grid<index_type>;
                 using domain_id_type = DomainId;
-                using pattern_container_type = pattern_container<Transport, grid_type, domain_id_type>;
+                using pattern_container_type = pattern_container<communicator_type, grid_type, domain_id_type>;
 
-                friend class pattern_container<Transport, grid_type, domain_id_type>;
+                friend class pattern_container<communicator_type, grid_type, domain_id_type>;
 
                 /** @brief essentially a partition index and a sequence of remote indexes;
                  * number of levels is provided as well, defaul is 1 (2D case):
@@ -218,20 +216,24 @@ namespace gridtools {
             template<typename Index>
             struct make_pattern_impl<unstructured::detail::grid<Index>> {
 
-                template<typename Transport, typename HaloGenerator, typename DomainRange>
-                static auto apply(tl::mpi::setup_communicator& comm, tl::communicator<Transport>& new_comm, HaloGenerator&& hgen, DomainRange&& d_range) {
+                template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
+                static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
 
                     // typedefs
+                    using context_type = tl::context<Transport, ThreadPrimitives>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
                     using domain_id_type = typename domain_type::domain_id_type;
                     using grid_type = unstructured::detail::grid<Index>;
-                    using pattern_type = pattern<Transport, grid_type, domain_id_type>;
+                    using communicator_type = typename context_type::communicator_type;
+                    using pattern_type = pattern<communicator_type, grid_type, domain_id_type>;
                     using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
                     using index_container_type = typename pattern_type::index_container_type;
                     using index_type = typename pattern_type::index_type;
                     using address_type = typename pattern_type::address_type;
 
                     // get this rank, address and size from new communicator
+                    auto comm = context.get_setup_communicator();
+                    auto new_comm = context.get_serial_communicator();
                     auto my_rank = new_comm.rank(); // WARN: comm or new_comm?
                     auto my_address = new_comm.address();
                     size_t size = static_cast<std::size_t>(new_comm.size());
@@ -332,7 +334,7 @@ namespace gridtools {
 
                     }
 
-                    return pattern_container<Transport, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);
+                    return pattern_container<communicator_type, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);
 
                 }
 

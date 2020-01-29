@@ -15,6 +15,8 @@
 #include <condition_variable>
 #include <atomic>
 
+#include <boost/callable_traits.hpp>
+
 namespace gridtools {
     namespace ghex {
         namespace threads {
