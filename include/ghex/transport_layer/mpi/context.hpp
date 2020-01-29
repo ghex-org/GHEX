@@ -98,7 +98,8 @@ namespace gridtools {
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(mpi_comm,&rank));
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_split(mpi_comm, 0, rank, &new_comm));
                     }
-                    return std::make_unique<context<mpi_tag,ThreadPrimitives>>(num_threads, new_comm, new_comm);
+                    return std::unique_ptr<context<mpi_tag, ThreadPrimitives>>{
+                        new context<mpi_tag,ThreadPrimitives>{num_threads, new_comm, new_comm}};
                 }
             };
 

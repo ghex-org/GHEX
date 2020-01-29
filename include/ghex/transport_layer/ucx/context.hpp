@@ -242,7 +242,8 @@ namespace gridtools {
 #else
                     ucx::address_db_mpi addr_db{comm};
 #endif
-                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, comm, std::move(addr_db));
+                    return std::unique_ptr<context<ucx_tag, ThreadPrimitives>>{
+                        new context<ucx_tag,ThreadPrimitives>{num_threads, comm, std::move(addr_db)}};
                 }
             };
             
