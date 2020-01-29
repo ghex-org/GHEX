@@ -72,6 +72,13 @@ namespace gridtools {
                     rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
 
+                    /** @brief send a message. The message must be kept alive by the caller until the communication is
+                     * finished.
+                     * @tparam Message a meassage type
+                     * @param msg an l-value reference to the message to be sent
+                     * @param dst the destination rank
+                     * @param tag the communication tag
+                     * @return a future to test/wait for completion */
                     template<typename Message>
                     [[nodiscard]] future<void> send(const Message& msg, rank_type dst, tag_type tag) {
                         request req;
@@ -81,6 +88,13 @@ namespace gridtools {
                         return req;
                     }
 
+                    /** @brief receive a message. The message must be kept alive by the caller until the communication is
+                     * finished.
+                     * @tparam Message a meassage type
+                     * @param msg an l-value reference to the message to be sent
+                     * @param src the source rank
+                     * @param tag the communication tag
+                     * @return a future to test/wait for completion */
                     template<typename Message>
                     [[nodiscard]] future<void> recv(Message& msg, rank_type src, tag_type tag) {
                         request req;
@@ -90,20 +104,22 @@ namespace gridtools {
                         return req;
                     }
 
+                    /** @brief Function to poll the transport layer and check for completion of operations with an
+                      * associated callback. When an operation completes, the corresponfing call-back is invoked
+                      * with the message, rank and tag associated with this communication.
+                      * @return non-zero if any communication was progressed, zero otherwise. */
                     unsigned progress() { return m_state->progress(); }
 
-                    void barrier() {
-                        if (auto token_ptr = m_state->m_token_ptr) {
-                            auto& tp = *(m_shared_state->m_thread_primitives);
-                            auto& token = *token_ptr;
-                            tp.barrier(token);
-                            tp.single(token, [this]() { MPI_Barrier(m_shared_state->m_comm); } );
-                            tp.barrier(token);
-                        }
-                        else
-                            MPI_Barrier(m_shared_state->m_comm);
-                    }
-
+                   /** @brief send a message and get notified with a callback when the communication has finished.
+                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
+                     * message at the caller's site. 
+                     * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                     * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                     * @param msg r-value reference to any_message instance
+                     * @param dst the destination rank
+                     * @param tag the communication tag
+                     * @param callback a callback instance
+                     * @return a request to test (but not wait) for completion */
                     template<typename CallBack>
                     request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
@@ -121,6 +137,16 @@ namespace gridtools {
                         }
                     }
                     
+                   /** @brief receive a message and get notified with a callback when the communication has finished.
+                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
+                     * message at the caller's site. 
+                     * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                     * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                     * @param msg r-value reference to any_message instance
+                     * @param src the source rank
+                     * @param tag the communication tag
+                     * @param callback a callback instance
+                     * @return a request to test (but not wait) for completion */
                     template<typename CallBack>
                     request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {
@@ -136,6 +162,18 @@ namespace gridtools {
                                 m_state->m_recv_queue.enqueue(std::move(msg), src, tag, std::move(fut), 
                                         std::forward<CallBack>(callback))};
                         }
+                    }
+
+                    void barrier() {
+                        if (auto token_ptr = m_state->m_token_ptr) {
+                            auto& tp = *(m_shared_state->m_thread_primitives);
+                            auto& token = *token_ptr;
+                            tp.barrier(token);
+                            tp.single(token, [this]() { MPI_Barrier(m_shared_state->m_comm); } );
+                            tp.barrier(token);
+                        }
+                        else
+                            MPI_Barrier(m_shared_state->m_comm);
                     }
                 };
 

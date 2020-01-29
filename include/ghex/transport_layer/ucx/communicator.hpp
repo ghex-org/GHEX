@@ -65,9 +65,16 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
-
-                    template <typename MsgType>
-                    [[nodiscard]] future<void> send(const MsgType &msg, rank_type dst, tag_type tag)
+                   
+                    /** @brief send a message. The message must be kept alive by the caller until the communication is
+                     * finished.
+                     * @tparam Message a meassage type
+                     * @param msg an l-value reference to the message to be sent
+                     * @param dst the destination rank
+                     * @param tag the communication tag
+                     * @return a future to test/wait for completion */
+                    template <typename Message>
+                    [[nodiscard]] future<void> send(const Message &msg, rank_type dst, tag_type tag)
                     {
                         const auto& ep = m_send_worker->connect(dst);
                         const auto stag = ((std::uint_fast64_t)tag << 32) | 
@@ -75,7 +82,7 @@ namespace gridtools {
                         auto ret = ucp_tag_send_nb(
                             ep.get(),                                        // destination
                             msg.data(),                                      // buffer
-                            msg.size()*sizeof(typename MsgType::value_type), // buffer size
+                            msg.size()*sizeof(typename Message::value_type), // buffer size
                             ucp_dt_make_contig(1),                           // data type
                             stag,                                            // tag
                             &communicator::empty_send_callback);             // callback function pointer: empty here
@@ -96,8 +103,15 @@ namespace gridtools {
                         }
                     }
 		
-                    template <typename MsgType>
-                    [[nodiscard]] future<void> recv(MsgType &msg, rank_type src, tag_type tag)
+                    /** @brief receive a message. The message must be kept alive by the caller until the communication is
+                     * finished.
+                     * @tparam Message a meassage type
+                     * @param msg an l-value reference to the message to be sent
+                     * @param src the source rank
+                     * @param tag the communication tag
+                     * @return a future to test/wait for completion */
+                    template <typename Message>
+                    [[nodiscard]] future<void> recv(Message &msg, rank_type src, tag_type tag)
                     {
                         const auto rtag = ((std::uint_fast64_t)tag << 32) | 
                                            (std::uint_fast64_t)(src);
@@ -107,7 +121,7 @@ namespace gridtools {
                                 auto ret = ucp_tag_recv_nb(
                                     m_recv_worker->get(),                            // worker
                                     msg.data(),                                      // buffer
-                                    msg.size()*sizeof(typename MsgType::value_type), // buffer size
+                                    msg.size()*sizeof(typename Message::value_type), // buffer size
                                     ucp_dt_make_contig(1),                           // data type
                                     rtag,                                            // tag
                                     ~std::uint_fast64_t(0ul),                        // tag mask
@@ -137,13 +151,10 @@ namespace gridtools {
                         );
                     }
 
-                    /** Function to invoke to poll the transport layer and check for the completions
-                     * of the operations without a future associated to them (that is, they are associated
-                     * to a call-back). When an operation completes, the corresponfing call-back is invoked
-                     * with the rank and tag associated with that request.
-                     *
-                     * @return unsigned Non-zero if any communication was progressed, zero otherwise.
-                     */
+                    /** @brief Function to poll the transport layer and check for completion of operations with an
+                      * associated callback. When an operation completes, the corresponfing call-back is invoked
+                      * with the message, rank and tag associated with this communication.
+                      * @return non-zero if any communication was progressed, zero otherwise. */
                     unsigned progress()
                     {
                         int p = 0;
@@ -160,6 +171,16 @@ namespace gridtools {
                         return p;
                     }
 	    
+                   /** @brief send a message and get notified with a callback when the communication has finished.
+                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
+                     * message at the caller's site. 
+                     * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                     * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                     * @param msg r-value reference to any_message instance
+                     * @param dst the destination rank
+                     * @param tag the communication tag
+                     * @param callback a callback instance
+                     * @return a request to test (but not wait) for completion */
                     template<typename CallBack>
                     request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
@@ -200,6 +221,16 @@ namespace gridtools {
                         }
                     }
 
+                   /** @brief receive a message and get notified with a callback when the communication has finished.
+                     * The ownership of the message is transferred to this communicator and it is safe to destroy the
+                     * message at the caller's site. 
+                     * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                     * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                     * @param msg r-value reference to any_message instance
+                     * @param src the source rank
+                     * @param tag the communication tag
+                     * @param callback a callback instance
+                     * @return a request to test (but not wait) for completion */
                     template<typename CallBack>
                     request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {

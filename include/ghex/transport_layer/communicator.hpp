@@ -19,6 +19,9 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
+            /** @brief This class combines the minimal backend-specific communicator implementation with the common
+              * functionality for a low-level communicator.
+              * @tparam Communicator backend communicator class*/
             template<class Communicator>
             class communicator : public Communicator
             {
@@ -48,40 +51,71 @@ namespace gridtools {
                 communicator& operator=(communicator&&) = default;
 
             public: // member functions
+                /** @brief generate a message buffer with a fixed size
+                  * @tparam Allocator allocator type
+                  * @param bytes size of buffer in bytes
+                  * @param alloc allocator instance
+                  * @return type erased message buffer */
                 template<typename Allocator>
                 static message_type make_message(std::size_t bytes, Allocator alloc) {
                     return message_buffer<Allocator>(bytes, alloc);
                 }
                 
+                /** @brief generate a message buffer with a fixed size from a default constructed allocator
+                  * @tparam Allocator allocator type
+                  * @param bytes size of buffer in bytes
+                  * @return type erased message buffer */
                 template<typename Allocator = std::allocator<unsigned char>>
                 static message_type make_message(std::size_t bytes) {
                     return make_message(bytes, Allocator{});
                 }
 
+                // use member functions from backend-specific base class
                 using Communicator::send;
                 using Communicator::recv;
                 
-                template <typename MsgType, typename Neighs>
-                [[nodiscard]] std::vector<future<void>> send_multi(MsgType& msg, Neighs const &neighs, tag_type tag) {
-                    std::vector<future<void>> res;
-                    res.reserve(neighs.size());
-                    for (auto id : neighs)
-                        res.push_back( send(msg, id, tag) );
-                    return res;
-                }
-
+                /** @brief send a shared message (shared pointer to a message) and get notified with a callback when the
+                  * communication has finished.
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a message type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param shared_msg_ptr a shared pointer to a message
+                  * @param dst the destination rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Message, typename CallBack>
                 request_cb send(std::shared_ptr<Message>& shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                     return send(message_type{shared_msg_ptr}, dst, tag, std::forward<CallBack>(callback));
                 }
 
+                /** @brief send a shared message (shared_message_buffer) and get notified with a callback when the
+                  * communication has finished.
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Alloc an allocator type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param shared_msg a sheared message
+                  * @param dst the destination rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Alloc, typename CallBack>
                 request_cb send(shared_message_buffer<Alloc>& shared_msg, rank_type dst, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                     return send(message_type{shared_msg.m_message}, dst, tag, std::forward<CallBack>(callback));
                 }
                 
+                /** @brief send a message and get notified with a callback when the communication has finished.
+                  * The message must be kept alive by the caller until the communication is finished.
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a meassage type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param msg an l-value reference to the message to be sent
+                  * @param dst the destination rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Message, typename CallBack>
                 lvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
@@ -89,12 +123,52 @@ namespace gridtools {
                     return send(message_type{ref_message<V>{msg.data(),msg.size()}}, dst, tag, std::forward<CallBack>(callback));
                 }
 
+                /** @brief send a message and get notified with a callback when the communication has finished.
+                  * The ownership of the message is transferred to this communicator and it is safe to destroy the
+                  * message at the caller's site. 
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a meassage type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param msg an r-value reference to the message to be sent
+                  * @param dst the destination rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Message, typename CallBack>
                 rvalue_func<Message&&> send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                     return send(message_type{std::move(msg)}, dst, tag, std::forward<CallBack>(callback));
                 }
-                
+
+                /** @brief send a message to multiple destinations. The message must be kept alive by the caller until
+                  * the communication is finished. 
+                  * @tparam Message a message type
+                  * @tparam Neighs a container class holding rank types
+                  * @param msg an l-value reference to the message to be sent
+                  * @param neighs a conainer of receivers
+                  * @param tag the communication tag
+                  * @return a vector of futures to test/wait for completion */
+                template <typename Message, typename Neighs>
+                [[nodiscard]] std::vector<future<void>> send_multi(Message& msg, const Neighs& neighs, tag_type tag) {
+                    std::vector<future<void>> res;
+                    res.reserve(neighs.size());
+                    for (auto id : neighs)
+                        res.push_back( send(msg, id, tag) );
+                    return res;
+                }
+
+                /** @brief send a message to multiple destinations and get notified with a callback when the
+                  * communication has finished. The message must be kept alive by the caller until the communication is
+                  * finished. 
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a message type
+                  * @tparam Neighs a container class holding rank types
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param msg an l-value reference to the message to be sent
+                  * @param neighs a conainer of receivers
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a vector of requests to thest (but not wait) for completion on each send operation */
                 template <typename Message, typename Neighs, typename CallBack>
                 lvalue_func<Message&&, std::vector<request_cb>>
                 send_multi(Message&& msg, Neighs const &neighs, tag_type tag, const CallBack& callback) {
@@ -114,6 +188,18 @@ namespace gridtools {
                     return res;
                 }
                 
+                /** @brief send a message to multiple destinations and get notified with a callback when the
+                  * communication has finished. The ownership of the message is transferred to this communicator and it
+                  * is safe to destroy the message at the caller's site. 
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a message type
+                  * @tparam Neighs a container class holding rank types
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param msg an r-value reference to the message to be sent
+                  * @param neighs a conainer of receivers
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a vector of requests to thest (but not wait) for completion on each send operation */
                 template <typename Message, typename Neighs, typename CallBack>
                 rvalue_func<Message&&, std::vector<request_cb>>
                 send_multi(Message&& msg, Neighs const &neighs, tag_type tag, const CallBack& callback) {
@@ -135,18 +221,48 @@ namespace gridtools {
                     return res;
                 }
 
+                /** @brief receive a shared message (shared pointer to a message) and get notified with a callback when the
+                  * communication has finished.
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a message type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param shared_msg_ptr a shared pointer to a message
+                  * @param src the source rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Message, typename CallBack>
                 request_cb recv(std::shared_ptr<Message>& shared_msg_ptr, rank_type src, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                     return recv(message_type{shared_msg_ptr}, src, tag, std::forward<CallBack>(callback));
                 }
                 
+                /** @brief receive a shared message (shared_message_buffer) and get notified with a callback when the
+                  * communication has finished.
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Alloc an allocator type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param shared_msg a sheared message
+                  * @param src the source rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Alloc, typename CallBack>
                 request_cb recv(shared_message_buffer<Alloc>& shared_msg, rank_type src, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
                     return recv(message_type{shared_msg.m_message}, src, tag, std::forward<CallBack>(callback));
                 }
 
+                /** @brief receive a message and get notified with a callback when the communication has finished.
+                  * The message must be kept alive by the caller until the communication is finished.
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a meassage type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param msg an l-value reference to the message to be sent
+                  * @param src the source rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Message, typename CallBack>
                 lvalue_func<Message&&> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
@@ -154,6 +270,17 @@ namespace gridtools {
                     return recv(message_type{ref_message<V>{msg.data(),msg.size()}}, src, tag, std::forward<CallBack>(callback));
                 }
 
+                /** @brief receive a message and get notified with a callback when the communication has finished.
+                  * The ownership of the message is transferred to this communicator and it is safe to destroy the
+                  * message at the caller's site. 
+                  * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
+                  * @tparam Message a meassage type
+                  * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
+                  * @param msg an r-value reference to the message to be sent
+                  * @param src the source rank
+                  * @param tag the communication tag
+                  * @param callback a callback instance
+                  * @return a request to test (but not wait) for completion */
                 template<typename Message, typename CallBack>
                 rvalue_func<Message&&> recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback) {
                     GHEX_CHECK_CALLBACK_F(message_type,rank_type,tag_type) 
