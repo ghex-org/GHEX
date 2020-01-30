@@ -13,6 +13,7 @@
 
 #include "../context.hpp"
 #include "./communicator.hpp"
+#include "../communicator.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -22,7 +23,7 @@ namespace gridtools {
             struct transport_context<mpi_tag, ThreadPrimitives>
             {
                 using thread_primitives_type = ThreadPrimitives;
-                using communicator_type = mpi::communicator<thread_primitives_type>;
+                using communicator_type = communicator<mpi::communicator<thread_primitives_type>>;
                 using thread_token = typename thread_primitives_type::token;
                 using shared_state_type = typename communicator_type::shared_state_type;
                 using state_type = typename communicator_type::state_type;
@@ -97,7 +98,8 @@ namespace gridtools {
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(mpi_comm,&rank));
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_split(mpi_comm, 0, rank, &new_comm));
                     }
-                    return std::make_unique<context<mpi_tag,ThreadPrimitives>>(num_threads, new_comm, new_comm);
+                    return std::unique_ptr<context<mpi_tag, ThreadPrimitives>>{
+                        new context<mpi_tag,ThreadPrimitives>{num_threads, new_comm, new_comm}};
                 }
             };
 
