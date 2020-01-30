@@ -85,6 +85,7 @@ namespace gridtools {
                         GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(msg.data()),
                                                         sizeof(typename Message::value_type) * msg.size(), MPI_BYTE,
                                                         dst, tag, m_shared_state->m_comm, &req.get()));
+                        req.m_kind = request_kind::send;
                         return req;
                     }
 
@@ -101,6 +102,7 @@ namespace gridtools {
                         GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(msg.data()),
                                                         sizeof(typename Message::value_type) * msg.size(), MPI_BYTE,
                                                         src, tag, m_shared_state->m_comm, &req.get()));
+                        req.m_kind = request_kind::recv;
                         return req;
                     }
 
