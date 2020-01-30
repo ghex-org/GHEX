@@ -11,43 +11,44 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "../utils/gtest_main_atlas.cpp"
-
-#include <gridtools/common/layout_map.hpp>
 
 #include "atlas/grid.h"
 #include "atlas/mesh.h"
 #include "atlas/meshgenerator.h"
-#include "atlas/functionspace/NodeColumns.h"
+#include "atlas/functionspace.h"
 #include "atlas/field.h"
-#include "atlas/array/ArrayView.h"
-#include "atlas/output/Gmsh.h" // needed only for debug, should be removed later
-#include "atlas/runtime/Log.h" // needed only for debug, should be removed later
+#include "atlas/array.h"
 
-#include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
-#include "../include/ghex/transport_layer/communicator.hpp"
-// #include "../include/utils.hpp" TO_DO: check if it is needed anymore
+#ifndef GHEX_TEST_USE_UCX
+#include <ghex/transport_layer/mpi/context.hpp>
+#else
+#include <ghex/transport_layer/ucx/context.hpp>
+#endif
+#include <ghex/threads/std_thread/primitives.hpp>
 #include "../include/ghex/unstructured/grid.hpp"
 #include "../include/ghex/unstructured/pattern.hpp"
 #include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
 #include "../include/ghex/communication_object_2.hpp"
 
 
+#ifndef GHEX_TEST_USE_UCX
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+#else
+using transport = gridtools::ghex::tl::ucx_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+#endif
+using context_type = gridtools::ghex::tl::context<transport, threading>;
+
+
 TEST(atlas_integration, halo_exchange) {
 
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
-    int rank = comm.rank();
-    int size = comm.size();
-
-#ifndef NDEBUG
-    std::stringstream ss;
-    ss << rank;
-    std::string filename = "halo_exchange_int_size_4_rank_" + ss.str() + ".txt";
-    std::ofstream file(filename.c_str());
-#endif
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
 
     // ==================== Atlas code ====================
 
@@ -101,10 +102,10 @@ TEST(atlas_integration, halo_exchange) {
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;
-    auto patterns = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
 
-    // Instantiate communication objects
-    auto cos = gridtools::ghex::make_communication_object<decltype(patterns)>();
+    // Instantiate communication object
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
 
     // Instantiate data descriptor
     gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
@@ -115,7 +116,7 @@ TEST(atlas_integration, halo_exchange) {
 
     // ==================== GHEX halo exchange ====================
 
-    auto h = cos.exchange(patterns(data_1));
+    auto h = co.exchange(patterns(data_1));
     h.wait();
 
     // ==================== test for correctness ====================
@@ -123,14 +124,6 @@ TEST(atlas_integration, halo_exchange) {
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
             EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
-#ifndef NDEBUG
-            // Write output to file for comparing results with multiple node runs
-            if (size == 4) {
-                file << GHEX_field_1_data(node, level);
-                if (GHEX_field_1_data(node, level) != atlas_field_1_data(node, level)) file << " INVALID VALUE";
-                file << "\n";
-            }
-#endif
         }
     }
 
@@ -141,10 +134,10 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
 
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
-    int rank = comm.rank();
-    int size = comm.size();
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
 
     // Generate global classic reduced Gaussian grid
     atlas::StructuredGrid grid("O256");
@@ -188,26 +181,26 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
 
     // Fields creation and initialization
     atlas::FieldSet fields_1, fields_2;
-    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("atlas_field_1")));
-    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("GHEX_field_1")));
-    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("atlas_field_2")));
-    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("GHEX_field_2")));
-    auto atlas_field_1_data = atlas::array::make_view<int, 2>(fields_1["atlas_field_1"]);
-    auto GHEX_field_1_data = atlas::array::make_view<int, 2>(fields_1["GHEX_field_1"]);
-    auto atlas_field_2_data = atlas::array::make_view<double, 2>(fields_2["atlas_field_2"]);
-    auto GHEX_field_2_data = atlas::array::make_view<double, 2>(fields_2["GHEX_field_2"]);
+    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("serial_field_1")));
+    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("multi_field_1")));
+    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("serial_field_2")));
+    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("multi_field_2")));
+    auto serial_field_1_data = atlas::array::make_view<int, 2>(fields_1["serial_field_1"]);
+    auto multi_field_1_data = atlas::array::make_view<int, 2>(fields_1["multi_field_1"]);
+    auto serial_field_2_data = atlas::array::make_view<double, 2>(fields_2["serial_field_2"]);
+    auto multi_field_2_data = atlas::array::make_view<double, 2>(fields_2["multi_field_2"]);
     for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
             auto value = (rank << 15) + (node << 7) + level;
-            atlas_field_1_data(node, level) = value;
-            GHEX_field_1_data(node, level) = value;
+            serial_field_1_data(node, level) = value;
+            multi_field_1_data(node, level) = value;
         }
     }
     for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
             auto value = ((rank << 15) + (node << 7) + level) * 0.5;
-            atlas_field_2_data(node, level) = value;
-            GHEX_field_2_data(node, level) = value;
+            serial_field_2_data(node, level) = value;
+            multi_field_2_data(node, level) = value;
         }
     }
 
@@ -216,36 +209,41 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;
-    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains_1);
-    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(mpi_comm, hg, local_domains_2);
+    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_1);
+    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_2);
 
-    // Instantiate communication objects
-    auto cos = gridtools::ghex::make_communication_object<decltype(patterns_1)>();
+    // Instantiate communication object
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns_1)>(context.get_communicator(context.get_token()));
 
     // Instantiate data descriptors
-    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains_1.front(), fields_1["GHEX_field_1"]};
-    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> data_2{local_domains_2.front(), fields_2["GHEX_field_2"]};
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> serial_data_1{local_domains_1.front(), fields_1["serial_field_1"]};
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> multi_data_1{local_domains_1.front(), fields_1["multi_field_1"]};
 
-    // ==================== atlas halo exchange ====================
+    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> serial_data_2{local_domains_2.front(), fields_2["serial_field_2"]};
+    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> multi_data_2{local_domains_2.front(), fields_2["multi_field_2"]};
 
-    fs_nodes_1.haloExchange(fields_1["atlas_field_1"]);
-    fs_nodes_2.haloExchange(fields_2["atlas_field_2"]);
+    // ==================== serial halo exchange ====================
+
+    auto h_s1 = co.exchange(patterns_1(serial_data_1));
+    h_s1.wait();
+    auto h_s2 = co.exchange(patterns_2(serial_data_2));
+    h_s2.wait();
 
     // ==================== GHEX halo exchange ====================
 
-    auto h = cos.exchange(patterns_1(data_1), patterns_2(data_2));
-    h.wait();
+    auto h_m = co.exchange(patterns_1(multi_data_1), patterns_2(multi_data_2));
+    h_m.wait();
 
     // ==================== test for correctness ====================
 
     for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
-            EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
+            EXPECT_TRUE(serial_field_1_data(node, level) == multi_field_1_data(node, level));
         }
     }
     for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
-            EXPECT_DOUBLE_EQ(GHEX_field_2_data(node, level), atlas_field_2_data(node, level));
+            EXPECT_DOUBLE_EQ(serial_field_2_data(node, level), multi_field_2_data(node, level));
         }
     }
 
