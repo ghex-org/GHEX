@@ -169,7 +169,7 @@ namespace gridtools {
 
                     using queue_type = std::vector<element_type>;
 
-                  //private: // members
+                  private: // members
                     queue_type m_queue;
 
                   public: // ctors
