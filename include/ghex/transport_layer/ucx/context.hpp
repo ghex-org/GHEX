@@ -170,7 +170,7 @@ namespace gridtools {
                     // intialize database
                     m_db.init(m_worker.address());
                 }
-
+                
                 communicator_type get_serial_communicator()
                 {
                     return {&m_worker,&m_worker};
@@ -237,13 +237,14 @@ namespace gridtools {
             {
                 static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm comm)
                 {
+                    auto new_comm = detail::clone_mpi_comm(comm);
 #if defined GHEX_USE_PMI
-                    ucx::address_db_pmi addr_db{comm};
+                    ucx::address_db_pmi addr_db{new_comm};
 #else
-                    ucx::address_db_mpi addr_db{comm};
+                    ucx::address_db_mpi addr_db{new_comm};
 #endif
                     return std::unique_ptr<context<ucx_tag, ThreadPrimitives>>{
-                        new context<ucx_tag,ThreadPrimitives>{num_threads, comm, std::move(addr_db)}};
+                        new context<ucx_tag,ThreadPrimitives>{num_threads, new_comm, std::move(addr_db)}};
                 }
             };
             
