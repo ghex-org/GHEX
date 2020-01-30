@@ -22,7 +22,7 @@ using communicator_type = typename context_type::communicator_type;
 
 
 template<typename MsgType, typename CommType>
-auto test_ring_send_recv_ft(CommType& comm, MsgType &&rmsg, MsgType &&smsg) 
+auto test_ring_send_recv_ft(CommType& comm, MsgType& rmsg, MsgType& smsg) 
 {
     gridtools::ghex::timer timer;
     int *data_ptr;
@@ -36,11 +36,10 @@ auto test_ring_send_recv_ft(CommType& comm, MsgType &&rmsg, MsgType &&smsg)
     *data_ptr = rank;
 
     timer.tic();
-    communicator_type::future<void> sreq, rreq;
     for(int i=0; i<NITERS; i++){
 
-        rreq = comm.recv(rmsg, rpeer_rank, 1);
-        sreq = comm.send(smsg, speer_rank, 1);
+        auto rreq = comm.recv(rmsg, rpeer_rank, 1);
+        auto sreq = comm.send(smsg, speer_rank, 1);
         while(!(rreq.ready() && sreq.ready()));
 
         data_ptr = reinterpret_cast<int*>(rmsg.data());
@@ -57,7 +56,7 @@ template<typename MsgType, typename CommType>
 auto test_ring_send_recv_ft(CommType& comm) 
 {
     MsgType smsg(4), rmsg(4);
-    test_ring_send_recv_ft(comm, std::move(rmsg), std::move(smsg));
+    test_ring_send_recv_ft(comm, rmsg, smsg);
 }
 
 TEST(transport, ring_send_recv_ft)
