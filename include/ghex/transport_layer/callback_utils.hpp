@@ -222,13 +222,14 @@ namespace gridtools {
                     {
                         auto& element = m_queue[index];
                         auto res = element.m_future.cancel();
+                        if (!res) return false;
                         if (m_queue.size() > index+1)
                         {
                             element = std::move(m_queue.back());
                             element.m_request.m_request_state->m_index = index;
                         }
                         m_queue.pop_back();
-                        return res;
+                        return true;
                     }
                 };
 
