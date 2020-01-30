@@ -14,7 +14,6 @@
 #include <atomic>
 #include "../shared_message_buffer.hpp"
 #include "./future.hpp"
-#include <iostream>
 
 namespace gridtools {
     namespace ghex {
