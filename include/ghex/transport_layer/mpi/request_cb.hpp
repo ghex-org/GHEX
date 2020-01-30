@@ -15,7 +15,6 @@
 #include "../context.hpp"
 #include "./communicator_state.hpp"
 #include "../callback_utils.hpp"
-#include <iostream>
 
 namespace gridtools{
     namespace ghex {
@@ -52,10 +51,13 @@ namespace gridtools{
                     bool cancel()
                     {
                         if(!m_queue) return false;
-                        std::cout << "sldkjfdklsfjds" << std::endl;
-                        std::cout << "queue size = " << m_queue->m_queue.size() << std::endl;
-                        std::cout << "cancelling index " << m_completed.queue_index() << std::endl;
-                        return m_queue->cancel(m_completed.queue_index());
+                        auto res = m_queue->cancel(m_completed.queue_index());
+                        if (res)
+                        {
+                            m_queue = nullptr;
+                            m_completed.reset();
+                        }
+                        return res;
                     }
                 };
 
