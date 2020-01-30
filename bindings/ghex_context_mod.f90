@@ -17,18 +17,30 @@ MODULE ghex_context_mod
        integer, value :: mpi_comm
      end function context_new
 
-     subroutine context_delete(comm) bind(c)
+     subroutine context_delete(context) bind(c)
        use iso_c_binding
        import ghex_context
        ! reference, not a value - fortran variable is reset to null 
-       type(ghex_context) :: comm
+       type(ghex_context) :: context
      end subroutine context_delete
+
+     integer(c_int) function context_rank(context) bind(c)
+       use iso_c_binding
+       import ghex_context
+       type(ghex_context), value :: context
+     end function context_rank
+
+     integer(c_int) function context_size(context) bind(c)
+       use iso_c_binding
+       import ghex_context
+       type(ghex_context), value :: context
+     end function context_size
      
-     type(ghex_communicator) function context_get_communicator(comm) bind(c)
+     type(ghex_communicator) function context_get_communicator(context) bind(c)
        use iso_c_binding
        use ghex_comm_mod
        import ghex_context
-       type(ghex_context), value :: comm
+       type(ghex_context), value :: context
      end function context_get_communicator
 
   end interface
