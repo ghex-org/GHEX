@@ -69,12 +69,6 @@ TEST(transport, ring_send_recv_ft)
     test_ring_send_recv_ft<std::vector<unsigned char>>(comm);
     test_ring_send_recv_ft<gridtools::ghex::tl::message_buffer<>>(comm);
     test_ring_send_recv_ft<gridtools::ghex::tl::shared_message_buffer<>>(comm);
-    
-    {
-        gridtools::ghex::tl::message_buffer<> smsg(4), rmsg(4);
-        communicator_type::message_type asmsg{std::move(smsg)}, armsg{std::move(rmsg)};
-        test_ring_send_recv_ft(comm, std::move(asmsg), std::move(armsg));
-    }
 }
 
 
