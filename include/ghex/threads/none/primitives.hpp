@@ -56,7 +56,22 @@ namespace gridtools {
                         id_type id() const noexcept { return m_id; }
                     };
 
+                    struct mutex_ {
+                        bool try_lock() { return true; }
+                        void lock() {}
+                        void unlock() {}
+                    };
+
+                    struct lock_{
+                        lock_(mutex_) {}
+                    };
+                    
+                    using mutex_type = mutex_;
+                    using lock_type  = lock_;
+
                 private: // members
+
+                    mutex_type m_mutex;
 
                 public: // ctors
                     primitives(int=1) noexcept {} 
@@ -65,6 +80,8 @@ namespace gridtools {
 
                 public: // public member functions
                     inline token get_token() noexcept { return {0}; }
+                    
+                    mutex_type& mutex() { return m_mutex; }
                     
                     int size() const noexcept { return 1; }
 

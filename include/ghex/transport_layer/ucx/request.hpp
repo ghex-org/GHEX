@@ -68,7 +68,7 @@ namespace gridtools{
                     using message_type      = ::gridtools::ghex::tl::cb::any_message;
                     using rank_type         = endpoint_t::rank_type;
                     using tag_type          = typename worker_type::tag_type;
-                    using state_type        = bool;
+                    using state_type        = short; //bool;
 
                     void*        m_ucx_ptr;
                     worker_type* m_worker;
@@ -235,17 +235,23 @@ namespace gridtools{
                     using state_type   = typename data_type::state_type;
                     using message_type = typename data_type::message_type;
 
+                    using lock_type = typename ThreadPrimitives::lock_type;
+                    using mutex_type = typename ThreadPrimitives::mutex_type;
+
                     data_type*                  m_req = nullptr;
                     std::shared_ptr<state_type> m_completed;
+                    mutex_type*                 m_mutex = nullptr;
 
                     request_cb() = default;
-                    request_cb(data_type* ptr, std::shared_ptr<state_type> sp) noexcept : m_req{ptr}, m_completed{sp} {}
+                    request_cb(data_type* ptr, std::shared_ptr<state_type> sp, mutex_type* mtx) noexcept
+                    : m_req{ptr}, m_completed{sp}, m_mutex{mtx} {}
                     request_cb(const request_cb&) = delete;
                     request_cb& operator=(const request_cb&) = delete;
 
                     request_cb(request_cb&& other) noexcept
                     : m_req{ std::exchange(other.m_req, nullptr) }
                     , m_completed{std::move(other.m_completed)}
+                    , m_mutex{ std::exchange(other.m_mutex, nullptr) }
                     {}
 
                     request_cb& operator=(request_cb&& other) noexcept
@@ -258,7 +264,7 @@ namespace gridtools{
                     bool test()
                     {
                         if(!m_req) return true;
-                        if (*m_completed)
+                        if (*m_completed == 2)
                         {
                             m_req = nullptr;
                             m_completed.reset();
@@ -272,38 +278,69 @@ namespace gridtools{
                         // TODO: fix a race. we can only call critical through m_req, but it can be
                         // set to NULL between when we check below, and when we call the critical region.
                         if (!m_req) return false;
+                        if (!m_mutex) return false;
 
-                        // TODO at this time, send requests cannot be canceled
-                        // in UCX (1.7.0rc1)
-                        // https://github.com/openucx/ucx/issues/1162
-                        //
-                        // TODO the below is only correct for recv requests,
-                        // or for send requests under the assumption that
-                        // the requests cannot be moved between threads.
-                        //
-                        // For the send worker we do not use locks, hence
-                        // if request is canceled on another thread, it might
-                        // clash with another send being submitted by the owner
-                        // of ucp_worker
-
-                        if (m_req->m_kind == request_kind::send) return false;
-
-                        return m_req->m_worker->m_thread_primitives->critical([this]() {
-                            if (!(*m_completed)) {
-                                auto ucx_ptr = m_req->m_ucx_ptr;
-                                auto worker = m_req->m_worker->get();
-
-                                // set to zero here????
-                                // if we assume that the callback is always called, we
-                                // can handle this in the callback body- otherwise needs
-                                // to be done here:
-                                //request_init(ucx_ptr);
-                                ucp_request_cancel(worker, ucx_ptr);
+                        {
+                            lock_type lock{*m_mutex};
+                            if (*m_completed > 0)
+                            {
+                                // already completed (2) or completing (1) by callback
+                                m_req = nullptr;
+                                m_completed.reset();
+                                return false;
                             }
+
+                            if (m_req->m_kind == request_kind::send) return false;
+                            
+                            // set flag to cancelled
+                            *m_completed = 3;
+                                
+                            auto ucx_ptr = m_req->m_ucx_ptr;
+                            auto worker = m_req->m_worker->get();
+
+                            // set to zero here????
+                            // if we assume that the callback is always called, we
+                            // can handle this in the callback body- otherwise needs
+                            // to be done here:
+                            //request_init(ucx_ptr);
+                            m_req->m_kind = request_kind::none;
+                            ucp_request_cancel(worker, ucx_ptr);
                             m_req = nullptr;
                             m_completed.reset();
                             return true;
-                        });
+                        }
+
+                        //// TODO at this time, send requests cannot be canceled
+                        //// in UCX (1.7.0rc1)
+                        //// https://github.com/openucx/ucx/issues/1162
+                        ////
+                        //// TODO the below is only correct for recv requests,
+                        //// or for send requests under the assumption that
+                        //// the requests cannot be moved between threads.
+                        ////
+                        //// For the send worker we do not use locks, hence
+                        //// if request is canceled on another thread, it might
+                        //// clash with another send being submitted by the owner
+                        //// of ucp_worker
+
+                        //if (m_req->m_kind == request_kind::send) return false;
+
+                        //return m_req->m_worker->m_thread_primitives->critical([this]() {
+                        //    if (!(*m_completed)) {
+                        //        auto ucx_ptr = m_req->m_ucx_ptr;
+                        //        auto worker = m_req->m_worker->get();
+
+                        //        // set to zero here????
+                        //        // if we assume that the callback is always called, we
+                        //        // can handle this in the callback body- otherwise needs
+                        //        // to be done here:
+                        //        //request_init(ucx_ptr);
+                        //        ucp_request_cancel(worker, ucx_ptr);
+                        //    }
+                        //    m_req = nullptr;
+                        //    m_completed.reset();
+                        //    return true;
+                        //});
                     }
                 };
 

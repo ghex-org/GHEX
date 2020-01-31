@@ -82,11 +82,14 @@ namespace gridtools {
                         void set_selected(bool v) noexcept { impl->set_selected(v); }
                         bool is_selected() const noexcept { return impl->is_selected(); }
                     };
+                    
+                    using mutex_type = std::mutex;
+                    using lock_type  = std::lock_guard<mutex_type>;
                 private:
                     std::atomic<int> m_id_counter;
                     const int m_num_threads;
-                    std::mutex m_guard;
-                    std::mutex m_cv_guard;
+                    mutex_type m_guard;
+                    mutex_type m_cv_guard;
                     int m_barrier_cnt[2];
                     int m_up_counter[2];
                     std::vector<std::condition_variable> m_cv_down, m_cv_up;
@@ -106,6 +109,7 @@ namespace gridtools {
                     primitives(const primitives&) = delete;
                     primitives(primitives&&) = delete;
 
+                    mutex_type& mutex() { return m_guard; }
 
                     int size() const noexcept {
                         return m_num_threads;
@@ -155,7 +159,7 @@ namespace gridtools {
                     inline void_return_type<F> critical(F && f) //const
                     {
                         if (m_num_threads > 1 ) {
-                            std::lock_guard<std::mutex> lock(m_guard);
+                            lock_type lock(m_guard);
                             f();
                         }
                         else
@@ -165,7 +169,7 @@ namespace gridtools {
                     inline return_type<F> critical(F && f) //const
                     {
                         if (m_num_threads > 1 ) {
-                            std::lock_guard<std::mutex> lock(m_guard);
+                            lock_type lock(m_guard);
                             return f();
                         }
                         else

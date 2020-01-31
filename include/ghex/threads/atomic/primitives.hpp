@@ -98,6 +98,8 @@ namespace gridtools {
 
                 public: // public member functions
                     
+                    mutex_type& mutex() { return m_mutex; }
+                    
                     int size() const noexcept
                     {
                         return m_num_threads;
