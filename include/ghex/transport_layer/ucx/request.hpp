@@ -198,7 +198,7 @@ namespace gridtools{
 
                     bool cancel()
                     {
-                        if (!m_req) return true;
+                        if (!m_req) return false;
 
                         // TODO at this time, send requests cannot be canceled
                         // in UCX (1.7.0rc1)
@@ -271,7 +271,7 @@ namespace gridtools{
                     {
                         // TODO: fix a race. we can only call critical through m_req, but it can be
                         // set to NULL between when we check below, and when we call the critical region.
-                        if (!m_req) return true;
+                        if (!m_req) return false;
 
                         // TODO at this time, send requests cannot be canceled
                         // in UCX (1.7.0rc1)

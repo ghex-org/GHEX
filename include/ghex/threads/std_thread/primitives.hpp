@@ -122,6 +122,8 @@ namespace gridtools {
                     }
 
                     void barrier(token& bt) /*const*/ {
+                        if (m_num_threads < 2 )
+                            return;
                         std::unique_lock<std::mutex> lock(m_cv_guard);
 
                         m_barrier_cnt[bt.epoch()]--;
@@ -152,14 +154,22 @@ namespace gridtools {
                     template <typename F>
                     inline void_return_type<F> critical(F && f) //const
                     {
-                        std::lock_guard<std::mutex> lock(m_guard);
-                        f();
+                        if (m_num_threads > 1 ) {
+                            std::lock_guard<std::mutex> lock(m_guard);
+                            f();
+                        }
+                        else
+                            f();
                     }
                     template <typename F>
                     inline return_type<F> critical(F && f) //const
                     {
-                        std::lock_guard<std::mutex> lock(m_guard);
-                        return f();
+                        if (m_num_threads > 1 ) {
+                            std::lock_guard<std::mutex> lock(m_guard);
+                            return f();
+                        }
+                        else
+                            return f();
                     }
 
                     template <typename F>

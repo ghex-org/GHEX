@@ -47,11 +47,6 @@ namespace gridtools {
                 , m_states(tp.size())
                 {}
 
-                ~transport_context()
-                {
-                    MPI_Comm_free(&m_comm);
-                }
-
                 communicator_type get_serial_communicator()
                 {
                     return {&m_shared_state, &m_state};
@@ -74,30 +69,7 @@ namespace gridtools {
             {
                 static std::unique_ptr<context<mpi_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm mpi_comm)
                 {
-                    // clone the communicator first to be independent of user calls to the mpi runtime
-                    MPI_Comm new_comm;
-                    int topo_type;
-                    GHEX_CHECK_MPI_RESULT(MPI_Topo_test(mpi_comm, &topo_type));
-                    if (MPI_CART == topo_type)
-                    {
-                        // using a cart comm
-                        int ndims;
-                        GHEX_CHECK_MPI_RESULT(MPI_Cartdim_get(mpi_comm, &ndims));
-                        auto dims = new int[ndims];
-                        auto periods = new int[ndims];
-                        auto coords = new int[ndims];
-                        GHEX_CHECK_MPI_RESULT(MPI_Cart_get(mpi_comm, ndims, dims, periods, coords));
-                        GHEX_CHECK_MPI_RESULT(MPI_Cart_create(mpi_comm, ndims, dims, periods, 0, &new_comm));
-                        delete[] dims;
-                        delete[] periods;
-                        delete[] coords;
-                    }
-                    else
-                    {
-                        int rank;
-                        GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(mpi_comm,&rank));
-                        GHEX_CHECK_MPI_RESULT(MPI_Comm_split(mpi_comm, 0, rank, &new_comm));
-                    }
+                    auto new_comm = detail::clone_mpi_comm(mpi_comm);
                     return std::unique_ptr<context<mpi_tag, ThreadPrimitives>>{
                         new context<mpi_tag,ThreadPrimitives>{num_threads, new_comm, new_comm}};
                 }
