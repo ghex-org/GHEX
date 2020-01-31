@@ -50,7 +50,14 @@ namespace gridtools{
 
                     bool cancel()
                     {
-                        return m_queue->cancel(m_completed.m_request_state->m_index);
+                        if(!m_queue) return false;
+                        auto res = m_queue->cancel(m_completed.queue_index());
+                        if (res)
+                        {
+                            m_queue = nullptr;
+                            m_completed.reset();
+                        }
+                        return res;
                     }
                 };
 
