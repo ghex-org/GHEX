@@ -49,6 +49,7 @@ auto test_ring_send_recv_ft(CommType& comm, std::size_t buffer_size)
     data_ptr = reinterpret_cast<int*>(smsg.data());
     *data_ptr = rank;
 
+    comm.barrier();
     timer.tic();
     for(int i=0; i<NITERS; i++){
 
@@ -98,6 +99,7 @@ auto test_ring_send_recv_cb(CommType& comm, std::size_t buffer_size)
     data_ptr = reinterpret_cast<int*>(smsg.data());
     *data_ptr = rank;
 
+    comm.barrier();
     timer.tic();
     volatile int received = 0;
     volatile int sent = 0;
@@ -146,6 +148,7 @@ auto test_ring_send_recv_cb_disown(CommType& comm, std::size_t buffer_size)
     int rpeer_rank = (rank-1)%size;
     if(rpeer_rank<0) rpeer_rank = size-1;
 
+    comm.barrier();
     timer.tic();
     volatile int received = 0;
     volatile int sent = 0;
@@ -223,6 +226,7 @@ auto test_ring_send_recv_cb_resubmit(CommType& comm, std::size_t buffer_size)
     auto smsg = Factory::make(buffer_size);
     auto rmsg = Factory::make(buffer_size);
 
+    comm.barrier();
     timer.tic();    
     volatile int received = 0;
 
@@ -281,7 +285,8 @@ auto test_ring_send_recv_cb_resubmit_disown(CommType& comm, std::size_t buffer_s
     
     auto smsg = Factory::make(buffer_size);
 
-    timer.tic();    
+    comm.barrier();
+    timer.tic(); 
     volatile int received = 0;
 
     typename communicator_type::request_cb rreq;
