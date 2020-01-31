@@ -258,6 +258,7 @@ namespace gridtools{
                     {
                         m_req = std::exchange(other.m_req, nullptr);
                         m_completed = std::move(other.m_completed);
+                        m_mutex = std::exchange(other.m_mutex, nullptr);
                         return *this;
                     }
 
