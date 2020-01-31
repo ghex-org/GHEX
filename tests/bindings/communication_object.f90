@@ -20,9 +20,13 @@ PROGRAM test_context
   integer :: l_ext_buffer(3)
   integer :: g_first(3), g_last(3)
   integer :: g_dim(3) = [3, 3, 3]
+  integer :: local_offset(3)
   integer :: periodic(3) = [1, 1, 1]
-  real(8), dimension(:,:,:), allocatable :: data
   type(ghex_pattern) :: pattern
+  real(8), dimension(:,:,:), pointer :: data
+  type(ghex_field_descriptor) :: field_desc
+  type(ghex_communication_object) :: co
+  type(ghex_exchange_future) :: hex
 
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
 
@@ -33,6 +37,7 @@ PROGRAM test_context
   
   ! setup
   halo = [2,2,2,2,2,2]
+  local_offset = [2,2,2]
   
   ! use 27 ranks to test all halo connectivities
   if (size /= 27) then
@@ -55,15 +60,24 @@ PROGRAM test_context
   domain_desc(1)%first = domain_desc(1)%first * l_dim + 1
   domain_desc(1)%last = domain_desc(1)%first + l_dim - 1
 
-  print *, rank, domain_desc(1)%first, domain_desc(1)%last
-
   ! allocate data
-  l_ext_buffer = [l_dim(2)+halo(3)+halo(4), l_dim(1)+halo(1)+halo(2), l_dim(3)+halo(5)+halo(6)]
-  allocate(data(l_ext_buffer(1), l_ext_buffer(2), l_ext_buffer(3)))
+  l_ext_buffer = [l_dim(3)+halo(5)+halo(6), l_dim(2)+halo(3)+halo(4), l_dim(1)+halo(1)+halo(2)]
+  allocate(data(l_ext_buffer(3), l_ext_buffer(2), l_ext_buffer(1)))
+  data(:,:,:) = rank
 
   ! make pattern
   pdomains => domain_desc
   pattern = ghex_make_pattern(context, halo, pdomains, periodic, g_first, g_last)
+
+  ! define the data field description
+  field_desc = ghex_wrap_field(domain_desc(1)%id, data, local_offset)
+
+  ! create communication object
+  comm = context_get_communicator(context)
+  co = ghex_make_communication_object(comm)
+
+  ! exchange halos
+  hex = ghex_exchange(co, pattern, field_desc)
 
   ! delete the ghex context
   call context_delete(context)  

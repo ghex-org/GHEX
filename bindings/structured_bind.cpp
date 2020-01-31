@@ -2,11 +2,19 @@
 #include <array>
 #include <ghex/structured/domain_descriptor.hpp>
 #include <ghex/structured/pattern.hpp>
+#include <ghex/structured/simple_field_wrapper.hpp>
+#include <ghex/communication_object_2.hpp>
 
 using domain_descriptor_type  = ghex::structured::domain_descriptor<int,3>;
 using domain_id_type          = typename domain_descriptor_type::domain_id_type;
 using grid_type               = ghex::structured::grid;
-using pattern_type            = ghex::pattern<communicator_type, grid_type, domain_id_type>;
+using grid_detail_type        = ghex::structured::detail::grid<std::array<int, 3>>;
+using pattern_type            = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
+using communication_obj_type  = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
+using field_descriptor_type   = ghex::structured::simple_field_wrapper<double,ghex::cpu,domain_descriptor_type,2,1,0>;
+
+// template<typename T, typename Arch, int... Is>
+// using field_descriptor_type  = ghex::structured::simple_field_wrapper<T,Arch,domain_descriptor_type, Is...>;
 
 struct domain_descriptor {
     int id;
@@ -52,6 +60,35 @@ void *ghex_make_pattern(ghex::bindings::obj_wrapper *wcontext, int *_halo,
     }
 
     auto halo1    = domain_descriptor_type::halo_generator_type(g_first, g_last, halo, periodic);
-    auto pattern1 = ghex::make_pattern<grid_type>(context, halo1, local_domains);
-    return new ghex::bindings::obj_wrapper(std::move(pattern1));
+
+    pattern_type pattern = ghex::make_pattern<grid_type>(context, halo1, local_domains);
+    return new ghex::bindings::obj_wrapper(std::move(pattern));
+}
+
+extern "C"
+void *ghex_wrap_field(int domain_id, double *field, int _local_offset[3], int _field_extents[3])
+{
+    std::array<int, 3> &local_offset  = *((std::array<int, 3>*)_local_offset);
+    std::array<int, 3> &field_extents = *((std::array<int, 3>*)_field_extents);
+    field_descriptor_type field_desc  = ghex::wrap_field<ghex::cpu,2,1,0>(domain_id, field, local_offset, field_extents);
+    return new ghex::bindings::obj_wrapper(std::move(field_desc));
+}
+
+extern "C"
+void *ghex_make_communication_object(ghex::bindings::obj_wrapper *wcomm)
+{
+    communication_obj_type co = 
+        ghex::make_communication_object<pattern_type>(ghex::bindings::get_object_safe<communicator_type>(wcomm));
+    return new ghex::bindings::obj_wrapper(std::move(co));
+}
+
+extern "C"
+void *ghex_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *pwrapper, ghex::bindings::obj_wrapper *fwrapper)
+{
+    communication_obj_type &co         = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
+    pattern_type           &pattern    = *ghex::bindings::get_object_ptr_safe<pattern_type>(pwrapper);
+    field_descriptor_type  &field_desc = *ghex::bindings::get_object_ptr_safe<field_descriptor_type>(fwrapper);
+
+    auto hex = co.exchange(pattern(field_desc));
+    return new ghex::bindings::obj_wrapper(std::move(hex));
 }
