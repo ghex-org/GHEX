@@ -171,6 +171,9 @@ namespace gridtools {
                   private: // members
                     queue_type m_queue;
 
+                  public:
+                    int m_progressed_cancels = 0;
+
                   public: // ctors
                     callback_queue() { m_queue.reserve(256); }
 
@@ -228,9 +231,31 @@ namespace gridtools {
                             element.m_request.m_request_state->m_index = index;
                         }
                         m_queue.pop_back();
+                        ++m_progressed_cancels;
                         return true;
                     }
                 };
+
+                /** @brief a class to return the number of progressed callbacks */
+                struct progress_status {
+                    int m_num_sends = 0;
+                    int m_num_recvs = 0;
+                    int m_num_cancels = 0;
+ 
+                    int num() const noexcept { return m_num_sends+m_num_recvs+m_num_cancels; }
+                    int num_sends() const noexcept { return m_num_sends; }
+                    int num_recvs() const noexcept { return m_num_recvs; }
+                    int num_cancels() const noexcept { return m_num_cancels; }
+
+                    progress_status& operator+=(const progress_status& other) noexcept {
+                        m_num_sends += other.m_num_sends;
+                        m_num_recvs += other.m_num_recvs;
+                        m_num_cancels += other.m_num_cancels;
+                        return *this;
+                    }
+                };
+
+                progress_status operator+(progress_status a, progress_status b) { return a+=b; }
 
             } // cb
         } // tl

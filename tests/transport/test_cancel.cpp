@@ -76,12 +76,9 @@ bool test_2(Context& context, unsigned int size) {
         int counter = 0;
         auto req = comm.recv(msg, 0, 42, [&counter](msg_t, rank_t, tag_t){ ++counter; });
         bool ok = req.cancel();
-        for (int i=0; i<100; ++i)
-            comm.progress();
-        EXPECT_TRUE(counter == 0);
+        auto status = comm.progress();
+        while (status.num_cancels() == 0) { status += comm.progress(); };
         comm.recv(msg, 0, 42+42).wait();
-        for (int i=0; i<100; ++i)
-            comm.progress();
         EXPECT_TRUE(counter == 0);
         comm.barrier();
         return ok;

@@ -49,9 +49,10 @@ namespace gridtools {
                     using status = status_t;
                     template<typename T>
                     using future = typename state_type::template future<T>;
-                    using address_type = rank_type;
-                    using request_cb_type        = request_cb<ThreadPrimitives>;
-                    using message_type           = typename request_cb_type::message_type;
+                    using address_type    = rank_type;
+                    using request_cb_type = request_cb<ThreadPrimitives>;
+                    using message_type    = typename request_cb_type::message_type;
+                    using progress_status = typename state_type::progress_status;
 
                   private: // members
                     shared_state_type* m_shared_state;
@@ -110,7 +111,7 @@ namespace gridtools {
                       * associated callback. When an operation completes, the corresponfing call-back is invoked
                       * with the message, rank and tag associated with this communication.
                       * @return non-zero if any communication was progressed, zero otherwise. */
-                    unsigned progress() { return m_state->progress(); }
+                    progress_status progress() { return m_state->progress(); }
 
                    /** @brief send a message and get notified with a callback when the communication has finished.
                      * The ownership of the message is transferred to this communicator and it is safe to destroy the
@@ -129,6 +130,7 @@ namespace gridtools {
                         if (fut.ready())
                         {
                             callback(std::move(msg), dst, tag);
+                            ++(m_state->m_progressed_sends);
                             return {};
                         }
                         else
@@ -156,6 +158,7 @@ namespace gridtools {
                         if (fut.ready())
                         {
                             callback(std::move(msg), src, tag);
+                            ++(m_state->m_progressed_recvs);
                             return {};
                         }
                         else
@@ -171,6 +174,7 @@ namespace gridtools {
                             auto& tp = *(m_shared_state->m_thread_primitives);
                             auto& token = *token_ptr;
                             tp.single(token, [this]() { MPI_Barrier(m_shared_state->m_comm); } );
+                            progress(); // progress once more to set progress counters to zero
                             tp.barrier(token);
                         }
                         else

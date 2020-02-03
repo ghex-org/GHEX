@@ -21,7 +21,6 @@ using msg_type = typename communicator_type::message_type;
 
 #define NITERS 100000
 
-
 template<typename Message>
 struct message_factory {
     static Message make(std::size_t size) { return Message(size); }
@@ -100,6 +99,7 @@ auto test_ring_send_recv_cb(CommType& comm, std::size_t buffer_size)
     *data_ptr = rank;
 
     comm.barrier();
+    //comm.progress();
     timer.tic();
     volatile int received = 0;
     volatile int sent = 0;
@@ -110,13 +110,17 @@ auto test_ring_send_recv_cb(CommType& comm, std::size_t buffer_size)
 
         comm.recv(rmsg, rpeer_rank, 1, recv_callback);
         comm.send(smsg, speer_rank, 1, send_callback);
-        while(received<=i || sent<=i) comm.progress();
+        auto status = comm.progress();
+        while(received<=i || sent<=i) { status += comm.progress(); }
+        EXPECT_EQ(status.num_sends(), 1);
+        EXPECT_EQ(status.num_recvs(), 1);
 
         data_ptr = reinterpret_cast<int*>(rmsg.data());
         EXPECT_TRUE(*data_ptr == rpeer_rank);
     }
 
     EXPECT_TRUE(received==NITERS && sent==NITERS);
+
 
     const auto t = timer.stoc();
     if(rank==0)

@@ -39,6 +39,7 @@ namespace gridtools {
                     using request_cb_data_type   = typename request_cb_type::data_type;
                     using request_cb_state_type  = typename request_cb_type::state_type;
                     using message_type           = typename request_cb_type::message_type;
+                    using progress_status        = gridtools::ghex::tl::cb::progress_status;
                     
                     worker_type*  m_recv_worker;
                     worker_type*  m_send_worker;
@@ -154,20 +155,25 @@ namespace gridtools {
                       * associated callback. When an operation completes, the corresponfing call-back is invoked
                       * with the message, rank and tag associated with this communication.
                       * @return non-zero if any communication was progressed, zero otherwise. */
-                    unsigned progress()
+                    progress_status progress()
                     {
+                        gridtools::ghex::tl::cb::progress_status status;
                         int p = 0;
                         p+= ucp_worker_progress(m_ucp_sw);
                         p+= ucp_worker_progress(m_ucp_sw);
                         p+= ucp_worker_progress(m_ucp_sw);
+                        status.m_num_sends = std::exchange(m_send_worker->m_progressed_sends, 0);
                         m_send_worker->m_thread_primitives->critical(
-                            [this,&p]()
+                            [this,&p,&status]()
                             {
                                 p+= ucp_worker_progress(m_ucp_rw);
                                 p+= ucp_worker_progress(m_ucp_rw);
+                                status.m_num_recvs = std::exchange(m_recv_worker->m_progressed_recvs, 0);
+                                status.m_num_cancels = std::exchange(m_recv_worker->m_progressed_cancels, 0);
                             }
                         );
-                        return p;
+                        //return p;
+                        return status;
                     }
 	    
                    /** @brief send a message and get notified with a callback when the communication has finished.
@@ -199,6 +205,7 @@ namespace gridtools {
                             // send operation is completed immediately and the call-back function is not invoked
                             // call the callback
                             callback(std::move(msg), dst, tag);
+                            ++(m_send_worker->m_progressed_sends);
                             return {};
                         } 
                         else if(!UCS_PTR_IS_ERR(ret))
@@ -252,6 +259,7 @@ namespace gridtools {
                                     {
                                         // early completed
                                         callback(std::move(msg), src, tag);
+                                        ++(m_recv_worker->m_progressed_recvs);
 		    		                    // we need to free the request here, not in the callback
                                         auto ucx_ptr = ret;
                                         request_cb_data_type::get(ucx_ptr).m_kind = request_kind::none;
@@ -307,6 +315,7 @@ namespace gridtools {
                                 }
                                 
                                 while(sent!=size()-1) progress();
+                                progress(); // progress once more to set progress counters to zero
                                 msgid++;
                             };
 
@@ -335,10 +344,12 @@ namespace gridtools {
                     inline static void send_callback(void * __restrict ucx_req, ucs_status_t __restrict status)
                     {
                         auto& req = request_cb_data_type::get(ucx_req);
-                        if (status == UCS_OK)
+                        if (status == UCS_OK) {
                             // call the callback
                             req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
-                        // else: cancelled - do nothing
+                            ++(req.m_worker->m_progressed_sends);
+                        }
+                        // else: cancelled - do nothing - cancel for sends does not exist
                         // set completion bit
                         *req.m_completed = true;
                         // destroy the request - releases the message
@@ -361,6 +372,7 @@ namespace gridtools {
                             }
 
                             req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                            req.m_worker->m_thread_primitives->critical([&req](){++(req.m_worker->m_progressed_recvs);});
                             // set completion bit
                             *req.m_completed = true;
                             // destroy the request - releases the message
@@ -372,6 +384,7 @@ namespace gridtools {
                         else if (status == UCS_ERR_CANCELED)
                         {
 			                // canceled - do nothing
+                            req.m_worker->m_thread_primitives->critical([&req](){++(req.m_worker->m_progressed_cancels);});
                             // set completion bit
                             *req.m_completed = true;
                             // destroy the request - releases the message
