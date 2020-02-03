@@ -27,7 +27,6 @@ using transport = gridtools::ghex::tl::mpi_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
 using threading2 = gridtools::ghex::threads::atomic::primitives;
 using threading3 = gridtools::ghex::threads::omp::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 TEST(transport, barrier_mt_std) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(4, MPI_COMM_WORLD);

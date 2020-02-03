@@ -170,7 +170,6 @@ namespace gridtools {
                         if (auto token_ptr = m_state->m_token_ptr) {
                             auto& tp = *(m_shared_state->m_thread_primitives);
                             auto& token = *token_ptr;
-                            tp.barrier(token);
                             tp.single(token, [this]() { MPI_Barrier(m_shared_state->m_comm); } );
                             tp.barrier(token);
                         }

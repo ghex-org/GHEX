@@ -14,8 +14,6 @@ using transport = gridtools::ghex::tl::mpi_tag;
 #endif
 
 using threading = gridtools::ghex::threads::none::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
-
 
 template<typename Message, typename Context>
 bool test_1(Context& context, unsigned int size) {

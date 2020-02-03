@@ -13,7 +13,6 @@ using transport = gridtools::ghex::tl::mpi_tag;
 #endif
 
 using threading = gridtools::ghex::threads::none::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 TEST(transport, barrier) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);

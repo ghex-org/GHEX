@@ -68,7 +68,6 @@ namespace gridtools {
                     std::size_t size() const noexcept { return m_size; }
                 };
 
-                // type-erased message
                 /** @brief type erased message capable of holding any message. Uses optimized initialization for  
                   * ref_messages and std::shared_ptr pointing to messages. */
                 struct any_message
@@ -159,7 +158,7 @@ namespace gridtools {
 
                     // internal element which is stored in the queue
                     struct element_type {
-                        any_message m_msg;
+                        message_type m_msg;
                         rank_type m_rank;
                         tag_type m_tag;
                         cb_type m_cb;
@@ -185,7 +184,7 @@ namespace gridtools {
                       * @param cb the callback
                       * @return returns a completion handle */
                     template<typename Callback>
-                    request enqueue(any_message&& msg, rank_type rank, tag_type tag, future_type&& fut, Callback&& cb) {
+                    request enqueue(message_type&& msg, rank_type rank, tag_type tag, future_type&& fut, Callback&& cb) {
                         request m_req{std::make_shared<request_state>(false,m_queue.size())};
                         m_queue.push_back(element_type{std::move(msg), rank, tag, std::forward<Callback>(cb), std::move(fut),
                                              m_req});
