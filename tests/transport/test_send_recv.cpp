@@ -99,7 +99,6 @@ auto test_ring_send_recv_cb(CommType& comm, std::size_t buffer_size)
     *data_ptr = rank;
 
     comm.barrier();
-    //comm.progress();
     timer.tic();
     volatile int received = 0;
     volatile int sent = 0;
@@ -120,7 +119,6 @@ auto test_ring_send_recv_cb(CommType& comm, std::size_t buffer_size)
     }
 
     EXPECT_TRUE(received==NITERS && sent==NITERS);
-
 
     const auto t = timer.stoc();
     if(rank==0)
