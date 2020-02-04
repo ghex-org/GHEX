@@ -20,38 +20,38 @@ MODULE ghex_comm_mod
        integer(c_int), value :: rank, tag
      end subroutine f_callback
 
-     subroutine comm_delete(comm) bind(c)
+     subroutine ghex_comm_delete(comm) bind(c)
        use iso_c_binding
        import ghex_communicator
        ! reference, not a value - fortran variable is reset to null
        type(ghex_communicator) :: comm
-     end subroutine comm_delete
+     end subroutine ghex_comm_delete
 
-     integer(c_int) function comm_rank(comm) bind(c)
+     integer(c_int) function ghex_comm_rank(comm) bind(c)
        use iso_c_binding
        import ghex_communicator
        type(ghex_communicator), value :: comm
-     end function comm_rank
+     end function ghex_comm_rank
 
-     integer(c_int) function comm_size(comm) bind(c)
+     integer(c_int) function ghex_comm_size(comm) bind(c)
        use iso_c_binding
        import ghex_communicator
        type(ghex_communicator), value :: comm
-     end function comm_size
+     end function ghex_comm_size
 
-     integer(c_int) function comm_progress(comm) bind(c)
+     integer(c_int) function ghex_comm_progress(comm) bind(c)
        use iso_c_binding
        import ghex_communicator
        type(ghex_communicator), value :: comm
-     end function comm_progress
+     end function ghex_comm_progress
 
-     subroutine comm_barrier(comm) bind(c)
+     subroutine ghex_comm_barrier(comm) bind(c)
        use iso_c_binding
        import ghex_communicator
        type(ghex_communicator), value :: comm
-     end subroutine comm_barrier
+     end subroutine ghex_comm_barrier
 
-     subroutine comm_send_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="comm_send_cb")
+     subroutine ghex_comm_send_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="ghex_comm_send_cb")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_request
        type(ghex_communicator), value :: comm
@@ -60,9 +60,9 @@ MODULE ghex_comm_mod
        integer(c_int), value :: tag
        type(c_funptr), value :: cb
        type(ghex_request), optional :: req
-     end subroutine comm_send_cb_wrapped
+     end subroutine ghex_comm_send_cb_wrapped
 
-     subroutine comm_post_send_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="comm_post_send_cb")
+     subroutine ghex_comm_post_send_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="ghex_comm_post_send_cb")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_request
        type(ghex_communicator), value :: comm
@@ -71,9 +71,9 @@ MODULE ghex_comm_mod
        integer(c_int), value :: tag
        type(c_funptr), value :: cb
        type(ghex_request), optional :: req
-     end subroutine comm_post_send_cb_wrapped
+     end subroutine ghex_comm_post_send_cb_wrapped
 
-     subroutine comm_post_send(comm, message, rank, tag, future) bind(c, name="comm_post_send")
+     subroutine ghex_comm_post_send(comm, message, rank, tag, future) bind(c, name="ghex_comm_post_send")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_future
        type(ghex_communicator), value :: comm
@@ -81,9 +81,9 @@ MODULE ghex_comm_mod
        integer(c_int), value :: rank
        integer(c_int), value :: tag
        type(ghex_future) :: future
-     end subroutine comm_post_send
+     end subroutine ghex_comm_post_send
 
-     subroutine comm_recv_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="comm_recv_cb")
+     subroutine ghex_comm_recv_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="ghex_comm_recv_cb")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_request
        type(ghex_communicator), value :: comm
@@ -92,9 +92,9 @@ MODULE ghex_comm_mod
        integer(c_int), value :: tag
        type(c_funptr), value :: cb
        type(ghex_request), optional :: req
-     end subroutine comm_recv_cb_wrapped
+     end subroutine ghex_comm_recv_cb_wrapped
 
-     subroutine comm_post_recv_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="comm_post_recv_cb")
+     subroutine ghex_comm_post_recv_cb_wrapped(comm, message, rank, tag, cb, req) bind(c, name="ghex_comm_post_recv_cb")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_request
        type(ghex_communicator), value :: comm
@@ -103,9 +103,9 @@ MODULE ghex_comm_mod
        integer(c_int), value :: tag
        type(c_funptr), value :: cb
        type(ghex_request), optional :: req
-     end subroutine comm_post_recv_cb_wrapped
+     end subroutine ghex_comm_post_recv_cb_wrapped
 
-     subroutine comm_post_recv(comm, message, rank, tag, future) bind(c, name="comm_post_recv")
+     subroutine ghex_comm_post_recv(comm, message, rank, tag, future) bind(c, name="ghex_comm_post_recv")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_future
        type(ghex_communicator), value :: comm
@@ -113,9 +113,9 @@ MODULE ghex_comm_mod
        integer(c_int), value :: rank
        integer(c_int), value :: tag
        type(ghex_future) :: future
-     end subroutine comm_post_recv
+     end subroutine ghex_comm_post_recv
 
-     subroutine comm_resubmit_recv_wrapped(comm, message, rank, tag, cb, req) bind(c, name="comm_resubmit_recv")
+     subroutine ghex_comm_resubmit_recv_wrapped(comm, message, rank, tag, cb, req) bind(c, name="ghex_comm_resubmit_recv")
        use iso_c_binding
        import ghex_communicator, ghex_message, ghex_request
        type(ghex_communicator), value :: comm
@@ -124,14 +124,14 @@ MODULE ghex_comm_mod
        integer(c_int), value :: tag
        type(c_funptr), value :: cb
        type(ghex_request), optional :: req
-     end subroutine comm_resubmit_recv_wrapped
+     end subroutine ghex_comm_resubmit_recv_wrapped
 
   end interface
 
 CONTAINS
 
   ! Need the wrappers for send/recv to enforce correct callback type.
-  subroutine comm_send_cb(comm, message, rank, tag, cbarg, req)
+  subroutine ghex_comm_send_cb(comm, message, rank, tag, cbarg, req)
     use iso_c_binding
     type(ghex_communicator), intent(in) :: comm
     type(ghex_message) :: message
@@ -147,10 +147,10 @@ CONTAINS
        cb => null()
     end if
 
-    call comm_send_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
-  end subroutine comm_send_cb
+    call ghex_comm_send_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
+  end subroutine ghex_comm_send_cb
 
-  subroutine comm_post_send_cb(comm, message, rank, tag, cbarg, req)
+  subroutine ghex_comm_post_send_cb(comm, message, rank, tag, cbarg, req)
     use iso_c_binding
     type(ghex_communicator), intent(in) :: comm
     type(ghex_message), value :: message
@@ -166,10 +166,10 @@ CONTAINS
        cb => null()
     end if
 
-    call comm_post_send_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
-  end subroutine comm_post_send_cb
+    call ghex_comm_post_send_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
+  end subroutine ghex_comm_post_send_cb
 
-  subroutine comm_recv_cb(comm, message, rank, tag, cbarg, req)
+  subroutine ghex_comm_recv_cb(comm, message, rank, tag, cbarg, req)
     use iso_c_binding
     type(ghex_communicator), intent(in) :: comm
     type(ghex_message) :: message
@@ -180,10 +180,10 @@ CONTAINS
     procedure(f_callback), pointer :: cb
 
     cb => cbarg
-    call comm_recv_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
-  end subroutine comm_recv_cb
+    call ghex_comm_recv_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
+  end subroutine ghex_comm_recv_cb
 
-  subroutine comm_post_recv_cb(comm, message, rank, tag, cbarg, req)
+  subroutine ghex_comm_post_recv_cb(comm, message, rank, tag, cbarg, req)
     use iso_c_binding
     type(ghex_communicator), intent(in) :: comm
     type(ghex_message), value :: message
@@ -194,10 +194,10 @@ CONTAINS
     procedure(f_callback), pointer :: cb
 
     cb => cbarg
-    call comm_post_recv_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
-  end subroutine comm_post_recv_cb
+    call ghex_comm_post_recv_cb_wrapped(comm, message, rank, tag, c_funloc(cb), req)
+  end subroutine ghex_comm_post_recv_cb
 
-  subroutine comm_resubmit_recv(comm, message, rank, tag, cbarg, req)
+  subroutine ghex_comm_resubmit_recv(comm, message, rank, tag, cbarg, req)
     use iso_c_binding
     type(ghex_communicator), intent(in) :: comm
     type(ghex_message), value :: message
@@ -208,7 +208,7 @@ CONTAINS
     procedure(f_callback), pointer :: cb
 
     cb => cbarg
-    call comm_resubmit_recv_wrapped(comm, message, rank, tag, c_funloc(cb), req)
-  end subroutine comm_resubmit_recv
+    call ghex_comm_resubmit_recv_wrapped(comm, message, rank, tag, c_funloc(cb), req)
+  end subroutine ghex_comm_resubmit_recv
 
 END MODULE ghex_comm_mod

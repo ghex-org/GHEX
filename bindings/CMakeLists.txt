@@ -18,7 +18,7 @@ find_package(OpenMP REQUIRED)
 enable_language(Fortran)
 # add_library(ghex SHARED message_bind.cpp communicator_bind.cpp future_bind.cpp ghex_message_mod.f90 ghex_comm_mod.f90 ghex_future_mod.f90)
 
-add_library(fhex SHARED communicator_bind.cpp context_bind.cpp message_bind.cpp future_bind.cpp request_bind.cpp structured_bind.cpp ghex_comm_mod.f90 ghex_context_mod.f90 ghex_message_mod.f90 ghex_future_mod.f90 ghex_request_mod.f90 ghex_structured_mod.f90)
+add_library(fhex SHARED communicator_bind.cpp context_bind.cpp message_bind.cpp future_bind.cpp request_bind.cpp structured_bind.cpp ghex_comm_mod.f90 ghex_mod.f90 ghex_message_mod.f90 ghex_future_mod.f90 ghex_request_mod.f90 ghex_structured_mod.f90)
 
 if (GHEX_USE_PMIX)
    target_compile_definitions(fhex PRIVATE GHEX_USE_PMIX)
@@ -34,7 +34,3 @@ target_compile_definitions(fhex PRIVATE GHEX_USE_OPENMP)
 target_link_libraries(fhex ghexlib)
 target_include_directories(fhex PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
-install (FILES "${PROJECT_BINARY_DIR}/bindings/ghex_context_mod.mod" DESTINATION include)
-# install (FILES "${PROJECT_BINARY_DIR}/bindings/ghex_message_mod.mod" DESTINATION include)
-# install (FILES "${PROJECT_BINARY_DIR}/bindings/ghex_comm_mod.mod" DESTINATION include)
-# install (FILES "${PROJECT_BINARY_DIR}/bindings/ghex_future_mod.mod" DESTINATION include)

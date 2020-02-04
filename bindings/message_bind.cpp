@@ -12,7 +12,7 @@ namespace ghex = gridtools::ghex;
 std_allocator_type std_allocator;
 
 extern "C"
-void *message_new(std::size_t size, int allocator_type)
+void *ghex_message_new(std::size_t size, int allocator_type)
 {
     void *wmessage = nullptr;
 
@@ -35,7 +35,7 @@ void *message_new(std::size_t size, int allocator_type)
 }
 
 extern "C"
-void message_delete(ghex::tl::cb::any_message **wmessage_ref)
+void ghex_message_delete(ghex::tl::cb::any_message **wmessage_ref)
 {
     ghex::tl::cb::any_message *wmessage = *wmessage_ref;
 
@@ -45,7 +45,7 @@ void message_delete(ghex::tl::cb::any_message **wmessage_ref)
 }
 
 extern "C"
-void message_zero(ghex::tl::cb::any_message *wmessage)
+void ghex_message_zero(ghex::tl::cb::any_message *wmessage)
 {
     unsigned char* __restrict data = wmessage->data();
     std::size_t size = wmessage->size();
@@ -53,7 +53,7 @@ void message_zero(ghex::tl::cb::any_message *wmessage)
 }
 
 extern "C"
-unsigned char *message_data(ghex::tl::cb::any_message *wmessage, std::size_t *size)
+unsigned char *ghex_message_data(ghex::tl::cb::any_message *wmessage, std::size_t *size)
 {
     *size = wmessage->size();
     return wmessage->data();

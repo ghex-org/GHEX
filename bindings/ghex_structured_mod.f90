@@ -1,7 +1,6 @@
 MODULE ghex_structured_mod
   use iso_c_binding
 
-  use ghex_context_mod
   use ghex_comm_mod
 
   implicit none
@@ -29,11 +28,10 @@ MODULE ghex_structured_mod
   end type ghex_exchange_handle
 
   interface
-     type(ghex_pattern) function ghex_make_pattern_wrapped(context, halo, domain_desc, ndomain_desc, periodic, &
+     type(ghex_pattern) function ghex_make_pattern_wrapped(halo, domain_desc, ndomain_desc, periodic, &
           global_first, global_last) bind(c, name="ghex_make_pattern")
        use iso_c_binding
-       import ghex_pattern, ghex_domain_descriptor, ghex_context
-       type(ghex_context), value :: context
+       import ghex_pattern, ghex_domain_descriptor
        integer(c_int), dimension(:) :: halo(6)
        type(c_ptr), value :: domain_desc
        integer(c_int), dimension(:) :: periodic(3)
@@ -56,8 +54,8 @@ MODULE ghex_structured_mod
        type(ghex_communicator), value :: comm
      end function ghex_make_communication_object
 
-     type(ghex_exchange_future) function ghex_exchange(co, pattern, field) bind(c)
-       import ghex_exchange_future, ghex_communication_object, ghex_pattern, ghex_field_descriptor
+     type(ghex_exchange_handle) function ghex_exchange(co, pattern, field) bind(c)
+       import ghex_exchange_handle, ghex_communication_object, ghex_pattern, ghex_field_descriptor
        type(ghex_communication_object), value :: co
        type(ghex_pattern), value :: pattern
        type(ghex_field_descriptor), value :: field
@@ -67,14 +65,13 @@ MODULE ghex_structured_mod
 
 CONTAINS
 
-  type(ghex_pattern) function ghex_make_pattern(context, halo, domain_desc, periodic, global_first, global_last)
-    type(ghex_context) :: context
+  type(ghex_pattern) function ghex_make_pattern(halo, domain_desc, periodic, global_first, global_last)
     integer, dimension(:) :: halo(6)
     type(ghex_domain_descriptor), pointer, dimension(:) :: domain_desc
     integer, dimension(:) :: periodic(3)
     integer, dimension(:) :: global_first(3), global_last(3)
 
-    ghex_make_pattern = ghex_make_pattern_wrapped(context, halo, c_loc(domain_desc), size(domain_desc, 1), periodic, &
+    ghex_make_pattern = ghex_make_pattern_wrapped(halo, c_loc(domain_desc), size(domain_desc, 1), periodic, &
          global_first, global_last)
   end function ghex_make_pattern
   

@@ -11,25 +11,25 @@ MODULE ghex_request_mod
   
   interface
      
-     logical(c_bool) function request_test(request) bind(c)
+     logical(c_bool) function ghex_request_test(request) bind(c)
        use iso_c_binding
        import ghex_request
        type(ghex_request) :: request
-     end function request_test
+     end function ghex_request_test
      
-     logical(c_bool) function request_cancel(request) bind(c)
+     logical(c_bool) function ghex_request_cancel(request) bind(c)
        use iso_c_binding
        import ghex_request
        type(ghex_request) :: request
-     end function request_cancel
+     end function ghex_request_cancel
 
   end interface
 
 CONTAINS
   
-  subroutine request_init(request)
+  subroutine ghex_request_init(request)
     type(ghex_request) :: request
     request%data = 0
-  end subroutine request_init
+  end subroutine ghex_request_init
   
 END MODULE ghex_request_mod

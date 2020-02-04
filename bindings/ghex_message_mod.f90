@@ -19,47 +19,47 @@ MODULE ghex_message_mod
 
   interface
 
-     type(ghex_message) function message_new(size, allocator) bind(c)
+     type(ghex_message) function ghex_message_new(size, allocator) bind(c)
        use iso_c_binding
        import ghex_message
        integer(c_size_t), value :: size
        integer(c_int), value :: allocator
-     end function message_new
+     end function ghex_message_new
 
-     subroutine message_delete(message) bind(c)
+     subroutine ghex_message_delete(message) bind(c)
        use iso_c_binding
        import ghex_message
        ! reference, not a value - fortran variable is reset to null 
        type(ghex_message) :: message
-     end subroutine message_delete
+     end subroutine ghex_message_delete
 
-     subroutine message_zero(message) bind(c)
+     subroutine ghex_message_zero(message) bind(c)
        use iso_c_binding
        import ghex_message
        type(ghex_message), value :: message
-     end subroutine message_zero
+     end subroutine ghex_message_zero
 
-     type(c_ptr) function message_data_wrapped(message, size) bind(c, name='message_data')
+     type(c_ptr) function ghex_message_data_wrapped(message, size) bind(c, name='ghex_message_data')
        use iso_c_binding
        import ghex_message
        type(ghex_message), value :: message
        integer(c_size_t), intent(out) :: size
-     end function message_data_wrapped
+     end function ghex_message_data_wrapped
   end interface
 
 CONTAINS
 
-  function message_data(message)
+  function ghex_message_data(message)
     use iso_c_binding
     type(ghex_message), value :: message
-    integer(1), dimension(:), pointer :: message_data
+    integer(1), dimension(:), pointer :: ghex_message_data
 
     type(c_ptr) :: c_data = c_null_ptr
     integer(c_size_t) :: size
 
     ! get the data pointer
-    c_data = message_data_wrapped(message, size)
-    call c_f_pointer(c_data, message_data, [size])
-  end function message_data
+    c_data = ghex_message_data_wrapped(message, size)
+    call c_f_pointer(c_data, ghex_message_data, [size])
+  end function ghex_message_data
 
 END MODULE ghex_message_mod

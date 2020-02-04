@@ -11,31 +11,31 @@ MODULE ghex_future_mod
   
   interface
      
-     subroutine future_wait(future) bind(c)
+     subroutine ghex_future_wait(future) bind(c)
        use iso_c_binding
        import ghex_future
        type(ghex_future) :: future
-     end subroutine future_wait
+     end subroutine ghex_future_wait
      
-     logical(c_bool) function future_ready(future) bind(c)
+     logical(c_bool) function ghex_future_ready(future) bind(c)
        use iso_c_binding
        import ghex_future
        type(ghex_future) :: future
-     end function future_ready
+     end function ghex_future_ready
      
-     logical(c_bool) function future_cancel(future) bind(c)
+     logical(c_bool) function ghex_future_cancel(future) bind(c)
        use iso_c_binding
        import ghex_future
        type(ghex_future) :: future
-     end function future_cancel
+     end function ghex_future_cancel
 
   end interface
 
 CONTAINS
 
-  subroutine future_init(future)
+  subroutine ghex_future_init(future)
     type(ghex_future) :: future
     future%data = 0
-  end subroutine future_init
+  end subroutine ghex_future_init
   
 END MODULE ghex_future_mod

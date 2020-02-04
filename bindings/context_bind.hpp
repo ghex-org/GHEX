@@ -31,10 +31,10 @@ using transport    = ghex::tl::ucx_tag;
 using transport    = ghex::tl::mpi_tag;
 #endif
 
-using context_type = ghex::tl::context<transport, threading>;
-using communicator_type = context_type::communicator_type;
+using context_type      = ghex::tl::context<transport, threading>;
 using context_uptr_type = std::unique_ptr<context_type>;
+using communicator_type = context_type::communicator_type;
 
-#define wrapper2context(wcontext) (*ghex::bindings::get_object_ptr_safe<context_uptr_type>(wcontext)->get())
+extern context_uptr_type context;
 
 #endif /* GHEX_FORTRAN_CONTEXT_BIND_INCLUDED_HPP */

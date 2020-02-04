@@ -1,38 +1,9 @@
+#include "context_bind.hpp"
 #include "request_bind.hpp"
 #include "future_bind.hpp"
 #include "obj_wrapper.hpp"
 #include <iostream>
 #include <vector>
-
-namespace ghex = gridtools::ghex;
-
-#ifdef GHEX_USE_OPENMP
-
-/* OpenMP */
-#include <ghex/threads/omp/primitives.hpp>
-using threading    = ghex::threads::omp::primitives;
-#else
-
-/* no multithreading */
-#include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
-#endif
-
-
-#ifdef GHEX_USE_UCP
-
-/* UCX backend */
-#include <ghex/transport_layer/ucx/context.hpp>
-using transport    = ghex::tl::ucx_tag;
-#else
-
-/* fallback MPI backend */
-#include <ghex/transport_layer/mpi/context.hpp>
-using transport    = ghex::tl::mpi_tag;
-#endif
-
-using context_type = ghex::tl::context<transport, threading>;
-using communicator_type = context_type::communicator_type;
 
 
 /* fortran-side user callback */
@@ -47,7 +18,7 @@ struct callback {
 };
 
 extern "C"
-void comm_delete(ghex::bindings::obj_wrapper **wrapper_ref)
+void ghex_comm_delete(ghex::bindings::obj_wrapper **wrapper_ref)
 {
     ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
 
@@ -57,31 +28,31 @@ void comm_delete(ghex::bindings::obj_wrapper **wrapper_ref)
 }
 
 extern "C"
-int comm_rank(ghex::bindings::obj_wrapper *wrapper)
+int ghex_comm_rank(ghex::bindings::obj_wrapper *wrapper)
 {
     return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->rank();
 }
 
 extern "C"
-int comm_size(ghex::bindings::obj_wrapper *wrapper)
+int ghex_comm_size(ghex::bindings::obj_wrapper *wrapper)
 {
     return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->size();
 }
 
 extern "C"
-int comm_progress(ghex::bindings::obj_wrapper *wrapper)
+int ghex_comm_progress(ghex::bindings::obj_wrapper *wrapper)
 {
     return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->progress();
 }
 
 extern "C"
-void comm_barrier(ghex::bindings::obj_wrapper *wrapper)
+void ghex_comm_barrier(ghex::bindings::obj_wrapper *wrapper)
 {
     ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->barrier();
 }
 
 extern "C"
-void comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *ffut)
+void ghex_comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *ffut)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     auto fut = comm->send(*wmessage, rank, tag);
@@ -89,7 +60,7 @@ void comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_messag
 }
 
 extern "C"
-void comm_post_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
+void ghex_comm_post_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     auto req = comm->send(*wmessage, rank, tag, callback{cb});
@@ -98,7 +69,7 @@ void comm_post_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_mes
 }
 
 extern "C"
-void comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq)
+void ghex_comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq)
 {
     ghex::tl::cb::any_message *wmessage;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
@@ -110,7 +81,7 @@ void comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message 
 }
 
 extern "C"
-void comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, ffuture_type *ffut)
+void ghex_comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, ffuture_type *ffut)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     auto fut = comm->recv(*wmessage, rank, tag);
@@ -118,7 +89,7 @@ void comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_messag
 }
 
 extern "C"
-void comm_post_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
+void ghex_comm_post_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     auto req = comm->recv(*wmessage, rank, tag, callback{cb});
@@ -127,7 +98,7 @@ void comm_post_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_mes
 }
 
 extern "C"
-void comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq)
+void ghex_comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq)
 {
     ghex::tl::cb::any_message *wmessage;
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
@@ -139,7 +110,7 @@ void comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message 
 }
 
 extern "C"
-void comm_resubmit_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
+void ghex_comm_resubmit_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     auto req = comm->recv(std::move(*wmessage), rank, tag, callback{cb});

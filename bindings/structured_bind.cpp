@@ -23,12 +23,9 @@ struct domain_descriptor {
 };
 
 extern "C"
-void *ghex_make_pattern(ghex::bindings::obj_wrapper *wcontext, int *_halo,
-    struct domain_descriptor *_domain_desc, int ndomain_desc, int _periodic[3],
+void *ghex_make_pattern(int *_halo, struct domain_descriptor *_domain_desc, int ndomain_desc, int _periodic[3],
     int _g_first[3], int _g_last[3])
 {
-    context_type &context = wrapper2context(wcontext);
-
     std::vector<domain_descriptor_type> local_domains;
     std::array<int, 3> &periodic = *((std::array<int, 3>*)_periodic);
     std::array<int, 6> &halo = *((std::array<int, 6>*)(_halo));
@@ -61,7 +58,7 @@ void *ghex_make_pattern(ghex::bindings::obj_wrapper *wcontext, int *_halo,
 
     auto halo1    = domain_descriptor_type::halo_generator_type(g_first, g_last, halo, periodic);
 
-    pattern_type pattern = ghex::make_pattern<grid_type>(context, halo1, local_domains);
+    pattern_type pattern = ghex::make_pattern<grid_type>(*context, halo1, local_domains);
     return new ghex::bindings::obj_wrapper(std::move(pattern));
 }
 

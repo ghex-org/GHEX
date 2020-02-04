@@ -1,6 +1,6 @@
-PROGRAM test_context
+PROGRAM test_halo_exchange
   use omp_lib
-  use ghex_context_mod
+  use ghex_mod
   use ghex_comm_mod
   use ghex_structured_mod
 
@@ -8,7 +8,6 @@ PROGRAM test_context
 
   include 'mpif.h'  
 
-  type(ghex_context) :: context
   type(ghex_communicator) :: comm
   integer :: mpi_err, mpi_threading
   integer :: nthreads = 1, rank, size
@@ -26,14 +25,14 @@ PROGRAM test_context
   real(8), dimension(:,:,:), pointer :: data
   type(ghex_field_descriptor) :: field_desc
   type(ghex_communication_object) :: co
-  type(ghex_exchange_future) :: hex
+  type(ghex_exchange_handle) :: hex
 
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
+  call mpi_comm_rank(mpi_comm_world, rank, mpi_err)
+  call mpi_comm_size(mpi_comm_world, size, mpi_err)
 
-  ! create a context object
-  context = context_new(nthreads, mpi_comm_world)
-  rank = context_rank(context)
-  size = context_size(context)
+  ! init ghex
+  call ghex_init(nthreads, mpi_comm_world)
   
   ! setup
   halo = [2,2,2,2,2,2]
@@ -66,21 +65,22 @@ PROGRAM test_context
   data(:,:,:) = rank
 
   ! make pattern
-  pdomains => domain_desc
-  pattern = ghex_make_pattern(context, halo, pdomains, periodic, g_first, g_last)
+  ! pdomains => domain_desc
+  ! pattern = ghex_make_pattern(halo, pdomains, periodic, g_first, g_last)
 
   ! define the data field description
-  field_desc = ghex_wrap_field(domain_desc(1)%id, data, local_offset)
+  ! field_desc = ghex_wrap_field(domain_desc(1)%id, data, local_offset)
 
   ! create communication object
-  comm = context_get_communicator(context)
-  co = ghex_make_communication_object(comm)
+  comm = ghex_get_communicator()
+  rank = comm_rank(comm)
+  size = comm_size(comm)
+  ! co = ghex_make_communication_object(comm)
 
   ! exchange halos
-  hex = ghex_exchange(co, pattern, field_desc)
+  ! hex = ghex_exchange(co, pattern, field_desc)
 
-  ! delete the ghex context
-  call context_delete(context)  
+  call ghex_finalize()
   call mpi_finalize(mpi_err)
 
-END PROGRAM test_context
+END PROGRAM test_halo_exchange
