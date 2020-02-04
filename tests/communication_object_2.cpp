@@ -174,7 +174,7 @@ TEST(communication_object_2, exchange)
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU "
+        std::cout << "I am rank " << context.rank() << " and I own GPU "
         << (context.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
         GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
         print_kernel<<<1, 1>>>();
