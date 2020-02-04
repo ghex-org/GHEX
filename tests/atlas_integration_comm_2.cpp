@@ -30,6 +30,9 @@
 #include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
 #include "../include/ghex/communication_object_2.hpp"
 
+#ifdef __CUDACC__
+#include "gridtools/common/cuda_util.hpp"
+#endif
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
@@ -50,20 +53,42 @@ TEST(atlas_integration, halo_exchange) {
     int rank = context.rank();
     int size = context.size();
 
-    // ==================== Atlas code ====================
-
-    // Generate global classic reduced Gaussian grid
+    // Global octahedral Gaussian grid
     atlas::StructuredGrid grid("O256");
 
-    // Generate mesh associated to structured grid
+    // Generate mesh
     atlas::StructuredMeshGenerator meshgenerator;
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
-    // Number of vertical levels required
+    // Number of vertical levels
     std::size_t nb_levels = 10;
 
-    // Generate functionspace associated to mesh
+    // Generate functionspace associated to the mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    // Instantiate domain descriptor
+    std::vector<domain_descriptor_t> local_domains{};
+    std::stringstream ss_1;
+    atlas::idx_t nb_nodes_1;
+    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
+    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
+    domain_descriptor_t d{rank,
+                          rank,
+                          mesh.nodes().partition(),
+                          mesh.nodes().remote_index(),
+                          nb_levels,
+                          nb_nodes_1};
+    local_domains.push_back(d);
+
+    // Instantiate halo generator
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+
+    // Make patterns
+    using grid_type = gridtools::ghex::unstructured::grid;
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+    // Make communication object
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
 
     // Fields creation and initialization
     atlas::FieldSet fields;
@@ -79,53 +104,51 @@ TEST(atlas_integration, halo_exchange) {
         }
     }
 
-    // ==================== GHEX code ====================
-
-    // Instantiate vector of local domains
-    std::vector<domain_descriptor_t> local_domains{};
-
-    // Instantiate domain descriptor with halo size = 1 and add it to local domains
-    std::stringstream ss_1;
-    atlas::idx_t nb_nodes_1;
-    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
-    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
-    domain_descriptor_t d{rank,
-                          rank,
-                          mesh.nodes().partition(),
-                          mesh.nodes().remote_index(),
-                          nb_levels,
-                          nb_nodes_1};
-    local_domains.push_back(d);
-
-    // Instantate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
-
-    // Make patterns
-    using grid_type = gridtools::ghex::unstructured::grid;
-    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
-
-    // Instantiate communication object
-    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
-
     // Instantiate data descriptor
     gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
-    // ==================== atlas halo exchange ====================
-
+    // Atlas halo exchange (reference values)
     fs_nodes.haloExchange(fields["atlas_field_1"]);
 
-    // ==================== GHEX halo exchange ====================
-
+    // GHEX halo exchange
     auto h = co.exchange(patterns(data_1));
     h.wait();
 
-    // ==================== test for correctness ====================
-
+    // test for correctness
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
             EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
         }
     }
+
+#ifdef __CUDACC__
+    // Additional field for GPU halo exchange
+    fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1_gpu")));
+    auto GHEX_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["GHEX_field_1_gpu"]);
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            auto value = (rank << 15) + (node << 7) + level;
+            GHEX_field_1_gpu_data(node, level) = value;
+        }
+    }
+    fields["GHEX_field_1_gpu"].cloneToDevice();
+
+    // Additional data descriptor for GPU halo exchange
+    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
+
+    // GHEX halo exchange on GPU
+    auto h_gpu = co.exchange(patterns(data_1_gpu));
+    h_gpu.wait();
+
+    // Test for correctness
+    fields["GHEX_field_1_gpu"].cloneFromDevice();
+    fields["GHEX_field_1_gpu"].reactivateHostWriteViews();
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_data(node, level));
+        }
+    }
+#endif
 
 }
 
@@ -139,22 +162,21 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     int rank = context.rank();
     int size = context.size();
 
-    // Generate global classic reduced Gaussian grid
+    // Global octahedral Gaussian grid
     atlas::StructuredGrid grid("O256");
 
-    // Generate mesh associated to structured grid
+    // Generate mesh
     atlas::StructuredMeshGenerator meshgenerator;
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
-    // Number of vertical levels required
+    // Number of vertical levels
     std::size_t nb_levels = 10;
 
-    // Instantiate 2 vector of local domains, respectively for halo size = 1 and halo size = 2
-    std::vector<domain_descriptor_t> local_domains_1{};
-    std::vector<domain_descriptor_t> local_domains_2{};
-
-    // Generate 2 functionspaces associated to mesh and GHEX domain descriptors, accordingly
+    // Generate functionspace associated to the mesh with halo size = 1
     atlas::functionspace::NodeColumns fs_nodes_1(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    // Instantiate domain descriptor (halo size = 1)
+    std::vector<domain_descriptor_t> local_domains_1{};
     std::stringstream ss_1;
     atlas::idx_t nb_nodes_1;
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
@@ -166,7 +188,12 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
                             nb_levels,
                             nb_nodes_1};
     local_domains_1.push_back(d_1);
+
+    // Generate functionspace associated to the mesh with halo size = 2
     atlas::functionspace::NodeColumns fs_nodes_2(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(2));
+
+    // Instantiate domain descriptor (halo size = 1)
+    std::vector<domain_descriptor_t> local_domains_2{};
     std::stringstream ss_2;
     atlas::idx_t nb_nodes_2;
     ss_2 << "nb_nodes_including_halo[" << 2 << "]";
@@ -178,6 +205,17 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
                             nb_levels,
                             nb_nodes_2};
     local_domains_2.push_back(d_2);
+
+    // Instantate halo generator
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+
+    // Make patterns
+    using grid_type = gridtools::ghex::unstructured::grid;
+    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_1);
+    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_2);
+
+    // Make communication object
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns_1)>(context.get_communicator(context.get_token()));
 
     // Fields creation and initialization
     atlas::FieldSet fields_1, fields_2;
@@ -204,38 +242,23 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
         }
     }
 
-    // Instantate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
-
-    // Make patterns
-    using grid_type = gridtools::ghex::unstructured::grid;
-    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_1);
-    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_2);
-
-    // Instantiate communication object
-    auto co = gridtools::ghex::make_communication_object<decltype(patterns_1)>(context.get_communicator(context.get_token()));
-
     // Instantiate data descriptors
     gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> serial_data_1{local_domains_1.front(), fields_1["serial_field_1"]};
     gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> multi_data_1{local_domains_1.front(), fields_1["multi_field_1"]};
-
     gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> serial_data_2{local_domains_2.front(), fields_2["serial_field_2"]};
     gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> multi_data_2{local_domains_2.front(), fields_2["multi_field_2"]};
 
-    // ==================== serial halo exchange ====================
-
+    // Serial halo exchange
     auto h_s1 = co.exchange(patterns_1(serial_data_1));
     h_s1.wait();
     auto h_s2 = co.exchange(patterns_2(serial_data_2));
     h_s2.wait();
 
-    // ==================== GHEX halo exchange ====================
-
+    // Multiple halo exchange
     auto h_m = co.exchange(patterns_1(multi_data_1), patterns_2(multi_data_2));
     h_m.wait();
 
-    // ==================== test for correctness ====================
-
+    // Test for correctness
     for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
             EXPECT_TRUE(serial_field_1_data(node, level) == multi_field_1_data(node, level));
@@ -246,5 +269,47 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
             EXPECT_DOUBLE_EQ(serial_field_2_data(node, level), multi_field_2_data(node, level));
         }
     }
+
+#ifdef __CUDACC__
+    // Additional fields for GPU halo exchange
+    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("gpu_multi_field_1")));
+    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("gpu_multi_field_2")));
+    auto gpu_multi_field_1_data = atlas::array::make_host_view<int, 2>(fields_1["gpu_multi_field_1"]);
+    auto gpu_multi_field_2_data = atlas::array::make_host_view<double, 2>(fields_2["gpu_multi_field_2"]);
+    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+            auto value = (rank << 15) + (node << 7) + level;
+            gpu_multi_field_1_data(node, level) = value;
+        }
+    }
+    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+            auto value = ((rank << 15) + (node << 7) + level) * 0.5;
+            gpu_multi_field_2_data(node, level) = value;
+        }
+    }
+    fields_1["gpu_multi_field_1"].cloneToDevice();
+    fields_2["gpu_multi_field_2"].cloneToDevice();
+
+    // Additional data descriptors for GPU halo exchange
+    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> gpu_multi_data_1{local_domains_1.front(), 0, fields_1["gpu_multi_field_1"]};
+    gridtools::ghex::atlas_data_descriptor_gpu<double, domain_descriptor_t> gpu_multi_data_2{local_domains_2.front(), 0, fields_2["gpu_multi_field_2"]};
+
+    // Multiple halo exchange on the GPU
+    auto h_m_gpu = co.exchange(patterns_1(gpu_multi_data_1), patterns_2(gpu_multi_data_2));
+    h_m_gpu.wait();
+
+    // Test for correctness
+    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+            EXPECT_TRUE(serial_field_1_data(node, level) == gpu_multi_field_1_data(node, level));
+        }
+    }
+    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+            EXPECT_DOUBLE_EQ(serial_field_2_data(node, level), gpu_multi_field_2_data(node, level));
+        }
+    }
+#endif
 
 }
