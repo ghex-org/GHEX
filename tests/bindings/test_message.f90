@@ -9,14 +9,14 @@ PROGRAM test_message
   type(ghex_message) :: msg
   integer(1), dimension(:), pointer :: msg_data
   
-  msg = message_new(msg_size, ALLOCATOR_STD)
+  msg = ghex_message_new(msg_size, ALLOCATOR_STD)
   
-  msg_data => message_data(msg)
+  msg_data => ghex_message_data(msg)
   msg_data(1:msg_size) = (/(i, i=1,msg_size,1)/)
 
   print *, "values:    ", msg_data
 
   ! cleanup
-  call message_delete(msg)
+  call ghex_message_delete(msg)
 
 END PROGRAM test_message

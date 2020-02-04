@@ -1,7 +1,7 @@
 PROGRAM test_send_recv_cb
   use iso_fortran_env
   use omp_lib
-  use ghex_context_mod
+  use ghex_mod
   use ghex_comm_mod
   use ghex_message_mod
   use ghex_request_mod
@@ -14,8 +14,6 @@ PROGRAM test_send_recv_cb
   integer :: mpi_threading, mpi_size, mpi_rank, mpi_peer
   integer :: nthreads = 0, thrid
 
-  ! comm context
-  type(ghex_context) :: context
   type(ghex_communicator), dimension(:), pointer :: communicators
   type(ghex_communicator) :: comm
 
@@ -45,8 +43,8 @@ PROGRAM test_send_recv_cb
   nthreads = omp_get_num_threads()
   !$omp end parallel
 
-  ! create a context object
-  context = context_new(nthreads, mpi_comm_world);
+  ! init ghex
+  call ghex_init(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
   !$omp parallel private(thrid, comm, rreq, sreq, smsg, rmsg, msg_data, np)
@@ -61,32 +59,32 @@ PROGRAM test_send_recv_cb
   !$omp barrier
 
   ! allocate a communicator per thread and store in a shared array
-  communicators(thrid) = context_get_communicator(context)
+  communicators(thrid) = ghex_get_communicator()
   comm = communicators(thrid)
 
   ! create messages, or get a reference to a shared message
-  rmsg = message_new(msg_size, ALLOCATOR_STD)
-  smsg = message_new(msg_size, ALLOCATOR_STD)
+  rmsg = ghex_message_new(msg_size, ALLOCATOR_STD)
+  smsg = ghex_message_new(msg_size, ALLOCATOR_STD)
 
   ! initialize send data
-  msg_data => message_data(smsg)
+  msg_data => ghex_message_data(smsg)
   msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
 
   !$omp barrier
   ! send / recv with a callback
-  call comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb)
-  call comm_send_cb(comm, smsg, mpi_peer, thrid, req=sreq)
+  call ghex_comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb)
+  call ghex_comm_send_cb(comm, smsg, mpi_peer, thrid, req=sreq)
 
   !$omp barrier
   ! progress the communication
-  do while(.not.request_test(sreq) .or. recv_completed /= nthreads)
-     np = comm_progress(comm)
+  do while(.not.ghex_request_test(sreq) .or. recv_completed /= nthreads)
+     np = ghex_comm_progress(comm)
   end do
 
   ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
   ! call message_delete(smsg)
   ! call message_delete(rmsg)
-  call comm_delete(communicators(thrid))
+  call ghex_comm_delete(communicators(thrid))
 
   ! cleanup shared
   !$omp barrier
@@ -96,8 +94,7 @@ PROGRAM test_send_recv_cb
 
   !$omp end parallel
 
-  ! delete the ghex context
-  call context_delete(context)  
+  call ghex_finalize()  
   call mpi_finalize(mpi_err)
 
 contains
@@ -115,14 +112,14 @@ contains
     thrid = omp_get_thread_num()+1
 
     ! what have we received?
-    msg_data => message_data(mesg)
+    msg_data => ghex_message_data(mesg)
     print *, mpi_rank, ": ", thrid, ": ", msg_data
 
     call atomic_add(recv_completed, 1)
 
     ! resubmit if needed
     comm = communicators(thrid)
-    call comm_resubmit_recv(comm, mesg, rank, tag, pcb)
+    call ghex_comm_resubmit_recv(comm, mesg, rank, tag, pcb)
     print *, "recv request has been resubmitted"
 
   end subroutine recv_callback

@@ -1,7 +1,7 @@
 PROGRAM fhex_bench
   use iso_fortran_env
   use omp_lib
-  use ghex_context_mod
+  use ghex_mod
   use ghex_comm_mod
   use ghex_message_mod
   use ghex_request_mod
@@ -10,9 +10,6 @@ PROGRAM fhex_bench
   implicit none  
   
   include 'mpif.h'  
-
-  ! globally accessible variables
-  type(ghex_context) :: context
 
   ! threadprivate variables
   integer :: comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0
@@ -54,27 +51,25 @@ PROGRAM fhex_bench
 
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
 
-  ! create a context object
-  context = context_new(num_threads, mpi_comm_world);
+  ! init ghex
+  call ghex_init(num_threads, mpi_comm_world);
 
 #ifdef USE_OPENMP
   !$omp parallel
 #endif
 
-  call run(context)
+  call run()
 
 #ifdef USE_OPENMP
   !$omp end parallel
 #endif
 
-  ! delete the ghex context
-  call context_delete(context)  
+  call ghex_finalize()  
   call mpi_finalize(mpi_err)
 
 contains
 
-  subroutine run(context)
-    type(ghex_context) :: context
+  subroutine run()
 
     ! all below variables are thread-local
     type(ghex_communicator), save :: comm
@@ -107,10 +102,10 @@ contains
     ! ---------------------------------------
 
     ! obtain a communicator
-    comm = context_get_communicator(context)
+    comm = ghex_get_communicator()
 
-    rank        = comm_rank(comm);
-    size        = comm_size(comm);
+    rank        = ghex_comm_rank(comm);
+    size        = ghex_comm_size(comm);
     thread_id   = omp_get_thread_num();
     num_threads = omp_get_num_threads();
     peer_rank   = modulo(rank+1, 2)
@@ -128,15 +123,15 @@ contains
     ! ---------------------------------------
     allocate(smsgs(inflight), rmsgs(inflight), sreqs(inflight), rreqs(inflight))
     do j = 1, inflight
-       smsgs(j) = message_new(buff_size, ALLOCATOR_STD);
-       rmsgs(j) = message_new(buff_size, ALLOCATOR_STD);
-       call message_zero(smsgs(j))
-       call message_zero(rmsgs(j))
-       call future_init(sreqs(j))
-       call future_init(rreqs(j))
+       smsgs(j) = ghex_message_new(buff_size, ALLOCATOR_STD);
+       rmsgs(j) = ghex_message_new(buff_size, ALLOCATOR_STD);
+       call ghex_message_zero(smsgs(j))
+       call ghex_message_zero(rmsgs(j))
+       call ghex_future_init(sreqs(j))
+       call ghex_future_init(rreqs(j))
     end do
 
-    call comm_barrier(comm)
+    call ghex_comm_barrier(comm)
 
     if (thread_id == 0) then
        call cpu_time(ttic)
@@ -171,23 +166,23 @@ contains
        end if
 
        do j = 1, inflight
-          if (future_ready(rreqs(j))) then
+          if (ghex_future_ready(rreqs(j))) then
              call atomic_add(received, 1)
              rdbg = rdbg + num_threads
              dbg = dbg + num_threads
-             call comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
+             call ghex_comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
           end if
 
-          if (sent < niter .and. future_ready(sreqs(j))) then
+          if (sent < niter .and. ghex_future_ready(sreqs(j))) then
              call atomic_add(sent, 1)
              sdbg = sdbg + num_threads
              dbg = dbg + num_threads
-             call comm_post_send(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, sreqs(j))
+             call ghex_comm_post_send(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, sreqs(j))
           end if
        end do
     end do
 
-    call comm_barrier(comm)
+    call ghex_comm_barrier(comm)
 
     ! ---------------------------------------
     ! Timing and statistics output
@@ -208,13 +203,13 @@ contains
     ! complete all posted sends
     do while(tail_send/=num_threads)
 
-       np = comm_progress(comm)
+       np = ghex_comm_progress(comm)
 
        ! check if we have completed all our posted sends
        if(send_complete == 0) then
           incomplete_sends = 0;
           do j = 1, inflight
-             if(.not. future_ready(sreqs(j))) then
+             if(.not. ghex_future_ready(sreqs(j))) then
                 incomplete_sends = incomplete_sends + 1
              end if
           end do
@@ -228,8 +223,8 @@ contains
 
        ! continue to re-schedule all recvs to allow the peer to complete
        do j = 1, inflight
-          if (future_ready(rreqs(j))) then
-             call comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
+          if (ghex_future_ready(rreqs(j))) then
+             call ghex_comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
           end if
        end do
     end do
@@ -240,29 +235,29 @@ contains
 #if USE_OPENMP
     !$omp master
 #endif
-    bsmsg = message_new(1_8, ALLOCATOR_STD);
-    brmsg = message_new(1_8, ALLOCATOR_STD);
-    call comm_post_send(comm, bsmsg, peer_rank, 800000, bsreq);
-    call comm_post_recv(comm, brmsg, peer_rank, 800000, brreq);
+    bsmsg = ghex_message_new(1_8, ALLOCATOR_STD);
+    brmsg = ghex_message_new(1_8, ALLOCATOR_STD);
+    call ghex_comm_post_send(comm, bsmsg, peer_rank, 800000, bsreq);
+    call ghex_comm_post_recv(comm, brmsg, peer_rank, 800000, brreq);
 #if USE_OPENMP
     !$omp end master
 #endif
 
     do while(tail_recv == 0)
 
-       np = comm_progress(comm)
+       np = ghex_comm_progress(comm)
        
        ! schedule all recvs to allow the peer to complete
        do j = 1, inflight
-          if (future_ready(rreqs(j))) then
-             call comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
+          if (ghex_future_ready(rreqs(j))) then
+             call ghex_comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
           end if
        end do
 
 #if USE_OPENMP
        !$omp master
 #endif
-       if (future_ready(brreq)) then
+       if (ghex_future_ready(brreq)) then
           tail_recv = 1
        end if
 #if USE_OPENMP
@@ -272,19 +267,19 @@ contains
 
     ! peer has sent everything, so we can cancel all posted recv requests
     do j = 1, inflight
-       result = future_cancel(rreqs(j))
+       result = ghex_future_cancel(rreqs(j))
     end do
 
     ! ---------------------------------------
     ! cleanup
     ! ---------------------------------------
     do j = 1, inflight
-       call message_delete(smsgs(j))
-       call message_delete(rmsgs(j))
+       call ghex_message_delete(smsgs(j))
+       call ghex_message_delete(rmsgs(j))
     end do
     deallocate(smsgs, rmsgs, sreqs, rreqs)
 
-    call comm_delete(comm)
+    call ghex_comm_delete(comm)
 
   end subroutine run
 
