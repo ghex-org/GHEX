@@ -1,7 +1,7 @@
-/*
+﻿/*
  * GridTools
  *
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2019, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,69 +9,86 @@
  */
 
 #include <vector>
-#include <sys/time.h>
 
-//#include "atlas/parallel/mpi/mpi.h"
-#include "atlas/library/Library.h"
+#include <gtest/gtest.h>
+
 #include "atlas/grid.h"
 #include "atlas/mesh.h"
 #include "atlas/meshgenerator.h"
-#include "atlas/functionspace/NodeColumns.h"
+#include "atlas/functionspace.h"
 #include "atlas/field.h"
-#include "atlas/array/ArrayView.h"
-#include "atlas/output/Gmsh.h" // needed only for debug, should be removed later
-#include "atlas/runtime/Log.h" // needed only for debug, should be removed later
+#include "atlas/array.h"
 
-#include "../include/ghex/transport_layer/mpi/communicator_base.hpp"
-#include "../include/ghex/transport_layer/communicator.hpp"
-// #include "../include/utils.hpp" TO_DO: check if it is needed anymore
+#ifndef GHEX_TEST_USE_UCX
+#include <ghex/transport_layer/mpi/context.hpp>
+#else
+#include <ghex/transport_layer/ucx/context.hpp>
+#endif
+#include <ghex/threads/std_thread/primitives.hpp>
 #include "../include/ghex/unstructured/grid.hpp"
 #include "../include/ghex/unstructured/pattern.hpp"
 #include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
-#include "../include/ghex/communication_object.hpp"
-#include "../include/ghex/arch_list.hpp"
+#include "../include/ghex/communication_object_2.hpp"
+
+#ifdef __CUDACC__
+#include "gridtools/common/cuda_util.hpp"
+#endif
+
+#ifndef GHEX_TEST_USE_UCX
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+#else
+using transport = gridtools::ghex::tl::ucx_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+#endif
+using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 
-int main(int argc, char **argv) {
-
-    MPI_Init(&argc, &argv);
-
-    atlas::Library::instance().initialise(argc, argv);
+TEST(atlas_integration, halo_exchange) {
 
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
-    // Using atlas communicator
-    // int rank = static_cast<int>(atlas::mpi::comm().rank());
-    // int size = ...
-    // Using our communicator
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
-    int rank = comm.rank();
-    int size = comm.size();
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
 
-    struct timeval start_atlas;
-    struct timeval stop_atlas;
-    double lapse_time_atlas;
-    struct timeval start_GHEX;
-    struct timeval stop_GHEX;
-    double lapse_time_GHEX;
+    // Global octahedral Gaussian grid
+    atlas::StructuredGrid grid("O256");
 
-    const std::size_t n_iter = 100;
-
-    // ==================== Atlas code ====================
-
-    // Generate global classic reduced Gaussian grid
-    atlas::StructuredGrid grid("O1280");
-
-    // Generate mesh associated to structured grid
+    // Generate mesh
     atlas::StructuredMeshGenerator meshgenerator;
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
-    // Number of vertical levels required
-    std::size_t nb_levels = 100;
+    // Number of vertical levels
+    std::size_t nb_levels = 10;
 
-    // Generate functionspace associated to mesh
+    // Generate functionspace associated to the mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    // Instantiate domain descriptor
+    std::vector<domain_descriptor_t> local_domains{};
+    std::stringstream ss_1;
+    atlas::idx_t nb_nodes_1;
+    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
+    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
+    domain_descriptor_t d{rank,
+                          rank,
+                          mesh.nodes().partition(),
+                          mesh.nodes().remote_index(),
+                          nb_levels,
+                          nb_nodes_1};
+    local_domains.push_back(d);
+
+    // Instantiate halo generator
+    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+
+    // Make patterns
+    using grid_type = gridtools::ghex::unstructured::grid;
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+    // Make communication object
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
 
     // Fields creation and initialization
     atlas::FieldSet fields;
@@ -81,114 +98,222 @@ int main(int argc, char **argv) {
     auto GHEX_field_1_data = atlas::array::make_view<int, 2>(fields["GHEX_field_1"]);
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            atlas_field_1_data(node, level) = rank;
-            GHEX_field_1_data(node, level) = rank;
+            auto value = (rank << 15) + (node << 7) + level;
+            atlas_field_1_data(node, level) = value;
+            GHEX_field_1_data(node, level) = value;
         }
     }
 
-    // ==================== GHEX code ====================
+    // Instantiate data descriptor
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
-    // Instantiate vector of local domains
-    std::vector<domain_descriptor_t> local_domains{};
+    // Atlas halo exchange (reference values)
+    fs_nodes.haloExchange(fields["atlas_field_1"]);
 
-    // Instantiate domain descriptor with halo size = 1 and add it to local domains
+    // GHEX halo exchange
+    auto h = co.exchange(patterns(data_1));
+    h.wait();
+
+    // test for correctness
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
+        }
+    }
+
+#ifdef __CUDACC__
+    // Additional field for GPU halo exchange
+    fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1_gpu")));
+    auto GHEX_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["GHEX_field_1_gpu"]);
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            auto value = (rank << 15) + (node << 7) + level;
+            GHEX_field_1_gpu_data(node, level) = value;
+        }
+    }
+    fields["GHEX_field_1_gpu"].cloneToDevice();
+
+    // Additional data descriptor for GPU halo exchange
+    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
+
+    // GHEX halo exchange on GPU
+    auto h_gpu = co.exchange(patterns(data_1_gpu));
+    h_gpu.wait();
+
+    // Test for correctness
+    fields["GHEX_field_1_gpu"].cloneFromDevice();
+    fields["GHEX_field_1_gpu"].reactivateHostWriteViews();
+    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes.levels(); ++level) {
+            EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_data(node, level));
+        }
+    }
+#endif
+
+}
+
+
+TEST(atlas_integration, halo_exchange_multiple_patterns) {
+
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+    int size = context.size();
+
+    // Global octahedral Gaussian grid
+    atlas::StructuredGrid grid("O256");
+
+    // Generate mesh
+    atlas::StructuredMeshGenerator meshgenerator;
+    atlas::Mesh mesh = meshgenerator.generate(grid);
+
+    // Number of vertical levels
+    std::size_t nb_levels = 10;
+
+    // Generate functionspace associated to the mesh with halo size = 1
+    atlas::functionspace::NodeColumns fs_nodes_1(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+
+    // Instantiate domain descriptor (halo size = 1)
+    std::vector<domain_descriptor_t> local_domains_1{};
     std::stringstream ss_1;
     atlas::idx_t nb_nodes_1;
     ss_1 << "nb_nodes_including_halo[" << 1 << "]";
     mesh.metadata().get( ss_1.str(), nb_nodes_1 );
-    domain_descriptor_t d{0,
-                          rank,
-                          mesh.nodes().partition(),
-                          mesh.nodes().remote_index(),
-                          nb_levels,
-                          nb_nodes_1};
-    local_domains.push_back(d);
+    domain_descriptor_t d_1{rank,
+                            rank,
+                            mesh.nodes().partition(),
+                            mesh.nodes().remote_index(),
+                            nb_levels,
+                            nb_nodes_1};
+    local_domains_1.push_back(d_1);
+
+    // Generate functionspace associated to the mesh with halo size = 2
+    atlas::functionspace::NodeColumns fs_nodes_2(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(2));
+
+    // Instantiate domain descriptor (halo size = 1)
+    std::vector<domain_descriptor_t> local_domains_2{};
+    std::stringstream ss_2;
+    atlas::idx_t nb_nodes_2;
+    ss_2 << "nb_nodes_including_halo[" << 2 << "]";
+    mesh.metadata().get( ss_2.str(), nb_nodes_2 );
+    domain_descriptor_t d_2{rank,
+                            rank,
+                            mesh.nodes().partition(),
+                            mesh.nodes().remote_index(),
+                            nb_levels,
+                            nb_nodes_2};
+    local_domains_2.push_back(d_2);
 
     // Instantate halo generator
     gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
 
     // Make patterns
-    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::unstructured::grid>(mpi_comm, hg, local_domains);
+    using grid_type = gridtools::ghex::unstructured::grid;
+    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_1);
+    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_2);
 
-    // Istantiate communication object
-    using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
-    std::vector<communication_object_t> cos;
-    for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p});
+    // Make communication object
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns_1)>(context.get_communicator(context.get_token()));
+
+    // Fields creation and initialization
+    atlas::FieldSet fields_1, fields_2;
+    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("serial_field_1")));
+    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("multi_field_1")));
+    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("serial_field_2")));
+    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("multi_field_2")));
+    auto serial_field_1_data = atlas::array::make_view<int, 2>(fields_1["serial_field_1"]);
+    auto multi_field_1_data = atlas::array::make_view<int, 2>(fields_1["multi_field_1"]);
+    auto serial_field_2_data = atlas::array::make_view<double, 2>(fields_2["serial_field_2"]);
+    auto multi_field_2_data = atlas::array::make_view<double, 2>(fields_2["multi_field_2"]);
+    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+            auto value = (rank << 15) + (node << 7) + level;
+            serial_field_1_data(node, level) = value;
+            multi_field_1_data(node, level) = value;
+        }
     }
-
-    // Istantiate data descriptor
-    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
-
-    // ==================== atlas halo exchange ====================
-
-    MPI_Barrier(mpi_comm);
-
-    fs_nodes.haloExchange(fields["atlas_field_1"]);
-
-    MPI_Barrier(mpi_comm);
-
-    gettimeofday(&start_atlas, nullptr);
-
-    for (auto i = 0; i < n_iter; ++i) {
-        fs_nodes.haloExchange(fields["atlas_field_1"]);
-    }
-
-    gettimeofday(&stop_atlas, nullptr);
-
-    MPI_Barrier(mpi_comm);
-
-    lapse_time_atlas =
-            ((static_cast<double>(stop_atlas.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop_atlas.tv_usec)) -
-             (static_cast<double>(start_atlas.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_atlas.tv_usec))) *
-            1000.0 / n_iter;
-
-    // ==================== GHEX halo exchange ====================
-
-    MPI_Barrier(mpi_comm);
-
-    auto h = cos.front().exchange(data_1);
-    h.wait();
-
-    MPI_Barrier(mpi_comm);
-
-    gettimeofday(&start_GHEX, nullptr);
-
-    for (auto i = 0; i < n_iter; ++i) {
-        auto h_ = cos.front().exchange(data_1);
-        h_.wait();
-    }
-
-    gettimeofday(&stop_GHEX, nullptr);
-
-    MPI_Barrier(mpi_comm);
-
-    lapse_time_GHEX =
-            ((static_cast<double>(stop_GHEX.tv_sec) + 1 / 1000000.0 * static_cast<double>(stop_GHEX.tv_usec)) -
-             (static_cast<double>(start_GHEX.tv_sec) + 1 / 1000000.0 * static_cast<double>(start_GHEX.tv_usec))) *
-            1000.0 / n_iter;
-
-    // ==================== test for correctness ====================
-
-    bool passed = true;
-
-    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            passed = passed and (GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
+    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+            auto value = ((rank << 15) + (node << 7) + level) * 0.5;
+            serial_field_2_data(node, level) = value;
+            multi_field_2_data(node, level) = value;
         }
     }
 
-    if (passed) {
-        std::cout << "RESULT: PASSED!\n";
-        std::cout << "rank = " << rank << "; atlas time = " << lapse_time_atlas << "ms; GHEX time = " << lapse_time_GHEX << "ms\n";
-    } else {
-        std::cout << "RESULT: FAILED!\n";
+    // Instantiate data descriptors
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> serial_data_1{local_domains_1.front(), fields_1["serial_field_1"]};
+    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> multi_data_1{local_domains_1.front(), fields_1["multi_field_1"]};
+    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> serial_data_2{local_domains_2.front(), fields_2["serial_field_2"]};
+    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> multi_data_2{local_domains_2.front(), fields_2["multi_field_2"]};
+
+    // Serial halo exchange
+    auto h_s1 = co.exchange(patterns_1(serial_data_1));
+    h_s1.wait();
+    auto h_s2 = co.exchange(patterns_2(serial_data_2));
+    h_s2.wait();
+
+    // Multiple halo exchange
+    auto h_m = co.exchange(patterns_1(multi_data_1), patterns_2(multi_data_2));
+    h_m.wait();
+
+    // Test for correctness
+    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+            EXPECT_TRUE(serial_field_1_data(node, level) == multi_field_1_data(node, level));
+        }
+    }
+    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+            EXPECT_DOUBLE_EQ(serial_field_2_data(node, level), multi_field_2_data(node, level));
+        }
     }
 
-    atlas::Library::instance().finalise();
+#ifdef __CUDACC__
+    // Additional fields for GPU halo exchange
+    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("gpu_multi_field_1")));
+    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("gpu_multi_field_2")));
+    auto gpu_multi_field_1_data = atlas::array::make_host_view<int, 2>(fields_1["gpu_multi_field_1"]);
+    auto gpu_multi_field_2_data = atlas::array::make_host_view<double, 2>(fields_2["gpu_multi_field_2"]);
+    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+            auto value = (rank << 15) + (node << 7) + level;
+            gpu_multi_field_1_data(node, level) = value;
+        }
+    }
+    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+            auto value = ((rank << 15) + (node << 7) + level) * 0.5;
+            gpu_multi_field_2_data(node, level) = value;
+        }
+    }
+    fields_1["gpu_multi_field_1"].cloneToDevice();
+    fields_2["gpu_multi_field_2"].cloneToDevice();
 
-    MPI_Finalize();
+    // Additional data descriptors for GPU halo exchange
+    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> gpu_multi_data_1{local_domains_1.front(), 0, fields_1["gpu_multi_field_1"]};
+    gridtools::ghex::atlas_data_descriptor_gpu<double, domain_descriptor_t> gpu_multi_data_2{local_domains_2.front(), 0, fields_2["gpu_multi_field_2"]};
 
-    return 0;
+    // Multiple halo exchange on the GPU
+    auto h_m_gpu = co.exchange(patterns_1(gpu_multi_data_1), patterns_2(gpu_multi_data_2));
+    h_m_gpu.wait();
+
+    // Test for correctness
+    fields_1["gpu_multi_field_1"].cloneFromDevice();
+    fields_2["gpu_multi_field_2"].cloneFromDevice();
+    fields_1["gpu_multi_field_1"].reactivateHostWriteViews();
+    fields_2["gpu_multi_field_2"].reactivateHostWriteViews();
+    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+            EXPECT_TRUE(serial_field_1_data(node, level) == gpu_multi_field_1_data(node, level));
+        }
+    }
+    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+            EXPECT_DOUBLE_EQ(serial_field_2_data(node, level), gpu_multi_field_2_data(node, level));
+        }
+    }
+#endif
 
 }
