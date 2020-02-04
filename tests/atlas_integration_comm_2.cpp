@@ -300,6 +300,10 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     h_m_gpu.wait();
 
     // Test for correctness
+    fields_1["gpu_multi_field_1"].cloneFromDevice();
+    fields_2["gpu_multi_field_2"].cloneFromDevice();
+    fields_1["gpu_multi_field_1"].reactivateHostWriteViews();
+    fields_2["gpu_multi_field_2"].reactivateHostWriteViews();
     for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
             EXPECT_TRUE(serial_field_1_data(node, level) == gpu_multi_field_1_data(node, level));

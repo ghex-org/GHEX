@@ -140,7 +140,7 @@ if (USE_GPU)
     endforeach()
 
     if (GHEX_ENABLE_ATLAS_BINDINGS)
-        set(_tests_atlas_gpu atlas_integration_comm_2 atlas_integration_comm_2_GHEX_only)
+        set(_tests_atlas_gpu atlas_integration_comm_2)
         foreach (_t ${_tests_atlas_gpu})
             add_executable(${_t}_gpu ${_t}.cu)
             target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
