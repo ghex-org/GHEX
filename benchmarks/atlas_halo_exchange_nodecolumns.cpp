@@ -44,7 +44,7 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 
-TEST(atlas_integration, halo_exchange) {
+TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
 
@@ -54,14 +54,14 @@ TEST(atlas_integration, halo_exchange) {
     int size = context.size();
 
     // Global octahedral Gaussian grid
-    atlas::StructuredGrid grid("O256");
+    atlas::StructuredGrid grid("O1280");
 
     // Generate mesh
     atlas::StructuredMeshGenerator meshgenerator;
     atlas::Mesh mesh = meshgenerator.generate(grid);
 
     // Number of vertical levels
-    std::size_t nb_levels = 10;
+    std::size_t nb_levels = 100;
 
     // Generate functionspace associated to the mesh
     atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
@@ -107,7 +107,7 @@ TEST(atlas_integration, halo_exchange) {
     // Instantiate data descriptor
     gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
-    // Atlas halo exchange (reference values)
+    // Atlas halo exchange
     fs_nodes.haloExchange(fields["atlas_field_1"]);
 
     // GHEX halo exchange
@@ -122,30 +122,41 @@ TEST(atlas_integration, halo_exchange) {
     }
 
 #ifdef __CUDACC__
-    // Additional field for GPU halo exchange
+    // Additional fields for GPU halo exchange
+    fields.add(fs_nodes.createField<int>(atlas::option::name("atlas_field_1_gpu")));
     fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1_gpu")));
+    auto atlas_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["atlas_field_1_gpu"]);
     auto GHEX_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["GHEX_field_1_gpu"]);
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
             auto value = (rank << 15) + (node << 7) + level;
+            atlas_field_1_gpu_data(node, level) = value;
             GHEX_field_1_gpu_data(node, level) = value;
         }
     }
+    fields["atlas_field_1_gpu"].cloneToDevice();
     fields["GHEX_field_1_gpu"].cloneToDevice();
 
     // Additional data descriptor for GPU halo exchange
     gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
+
+    // Atlas halo exchange
+    fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true);
 
     // GHEX halo exchange on GPU
     auto h_gpu = co.exchange(patterns(data_1_gpu));
     h_gpu.wait();
 
     // Test for correctness
+    fields["atlas_field_1_gpu"].cloneFromDevice();
     fields["GHEX_field_1_gpu"].cloneFromDevice();
+    fields["atlas_field_1_gpu"].reactivateHostWriteViews();
     fields["GHEX_field_1_gpu"].reactivateHostWriteViews();
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
             EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_data(node, level));
+            // Not strictly needed, just double check Atlas on GPU
+            EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_gpu_data(node, level));
         }
     }
 #endif
