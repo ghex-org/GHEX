@@ -255,7 +255,7 @@ namespace gridtools {
                     }
                 };
 
-                progress_status operator+(progress_status a, progress_status b) { return a+=b; }
+                static progress_status operator+(progress_status a, progress_status b) { return a+=b; }
 
             } // cb
         } // tl
