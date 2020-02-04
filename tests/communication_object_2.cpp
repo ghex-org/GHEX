@@ -546,7 +546,7 @@ TEST(communication_object_2, exchange)
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func = [](field_vec_type& vec)
+    auto func = [&context](field_vec_type& vec)
     {
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.exchange(vec.data(), vec.size()).wait();
