@@ -37,7 +37,7 @@ PROGRAM test_context
   !$omp barrier
 
   ! allocate a communicator per thread and store in a shared array
-  communicators(thrid) = ghex_get_communicator()
+  communicators(thrid) = ghex_comm_new()
   comm = communicators(thrid)
 
   ! do some work

@@ -20,6 +20,11 @@ MODULE ghex_comm_mod
        integer(c_int), value :: rank, tag
      end subroutine f_callback
 
+     type(ghex_communicator) function ghex_comm_new() bind(c)
+       use iso_c_binding
+       import ghex_communicator
+     end function ghex_comm_new
+
      subroutine ghex_comm_delete(comm) bind(c)
        use iso_c_binding
        import ghex_communicator

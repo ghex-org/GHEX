@@ -49,18 +49,25 @@ MODULE ghex_structured_mod
        integer(c_int), dimension(:) :: field_extents(3)
      end function ghex_wrap_field_wrapped
 
-     type(ghex_communication_object) function ghex_make_communication_object(comm) bind(c)
-       import ghex_communicator, ghex_communication_object
-       type(ghex_communicator), value :: comm
-     end function ghex_make_communication_object
+     ! those are CO functions, but right now they are also grid-specific
+     type(ghex_communication_object) function ghex_struct_co_new() bind(c)
+       import ghex_communication_object
+     end function ghex_struct_co_new
 
-     type(ghex_exchange_handle) function ghex_exchange(co, pattern, field) bind(c)
+     subroutine ghex_struct_co_delete(co) bind(c)
+       use iso_c_binding
+       import ghex_communication_object
+       ! reference, not a value - fortran variable is reset to null
+       type(ghex_communication_object) :: co
+     end subroutine ghex_struct_co_delete
+     
+     type(ghex_exchange_handle) function ghex_struct_exchange(co, pattern, field) bind(c)
        import ghex_exchange_handle, ghex_communication_object, ghex_pattern, ghex_field_descriptor
        type(ghex_communication_object), value :: co
        type(ghex_pattern), value :: pattern
        type(ghex_field_descriptor), value :: field
-     end function ghex_exchange
-
+     end function ghex_struct_exchange
+     
   end interface
 
 CONTAINS

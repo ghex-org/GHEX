@@ -54,7 +54,7 @@ PROGRAM test_send_recv_ft
   !$omp barrier
 
   ! allocate a communicator per thread and store in a shared array
-  communicators(thrid) = ghex_get_communicator()
+  communicators(thrid) = ghex_comm_new()
   comm = communicators(thrid)
 
   ! create a message per thread

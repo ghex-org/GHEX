@@ -18,6 +18,14 @@ struct callback {
 };
 
 extern "C"
+void* ghex_comm_new()
+{
+    auto token = context->get_token();
+    auto comm  = context->get_communicator(token);
+    return new ghex::bindings::obj_wrapper(std::move(comm));
+}
+
+extern "C"
 void ghex_comm_delete(ghex::bindings::obj_wrapper **wrapper_ref)
 {
     ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;

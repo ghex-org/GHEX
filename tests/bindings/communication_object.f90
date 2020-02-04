@@ -1,14 +1,12 @@
 PROGRAM test_halo_exchange
   use omp_lib
   use ghex_mod
-  use ghex_comm_mod
   use ghex_structured_mod
 
   implicit none  
 
   include 'mpif.h'  
 
-  type(ghex_communicator) :: comm
   integer :: mpi_err, mpi_threading
   integer :: nthreads = 1, rank, size
   integer :: tmp
@@ -72,13 +70,12 @@ PROGRAM test_halo_exchange
   ! field_desc = ghex_wrap_field(domain_desc(1)%id, data, local_offset)
 
   ! create communication object
-  comm = ghex_get_communicator()
-  rank = comm_rank(comm)
-  size = comm_size(comm)
-  ! co = ghex_make_communication_object(comm)
+  co = ghex_struct_co_new()
 
   ! exchange halos
   ! hex = ghex_exchange(co, pattern, field_desc)
+
+  call ghex_struct_co_delete(co)
 
   call ghex_finalize()
   call mpi_finalize(mpi_err)

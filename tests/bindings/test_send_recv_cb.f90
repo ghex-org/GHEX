@@ -59,7 +59,7 @@ PROGRAM test_send_recv_cb
   !$omp barrier
 
   ! allocate a communicator per thread and store in a shared array
-  communicators(thrid) = ghex_get_communicator()
+  communicators(thrid) = ghex_comm_new()
   comm = communicators(thrid)
 
   ! create messages, or get a reference to a shared message

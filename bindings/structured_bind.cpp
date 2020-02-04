@@ -72,15 +72,26 @@ void *ghex_wrap_field(int domain_id, double *field, int _local_offset[3], int _f
 }
 
 extern "C"
-void *ghex_make_communication_object(ghex::bindings::obj_wrapper *wcomm)
+void* ghex_struct_co_new()
 {
-    communication_obj_type co = 
-        ghex::make_communication_object<pattern_type>(ghex::bindings::get_object_safe<communicator_type>(wcomm));
+    auto token = context->get_token();
+    auto comm  = context->get_communicator(token);
+    communication_obj_type co = ghex::make_communication_object<pattern_type>(comm);
     return new ghex::bindings::obj_wrapper(std::move(co));
 }
 
 extern "C"
-void *ghex_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *pwrapper, ghex::bindings::obj_wrapper *fwrapper)
+void ghex_struct_co_delete(ghex::bindings::obj_wrapper **wrapper_ref)
+{
+    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
+
+    // clear the fortran-side variable
+    *wrapper_ref = nullptr;
+    delete wrapper;
+}
+
+extern "C"
+void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *pwrapper, ghex::bindings::obj_wrapper *fwrapper)
 {
     communication_obj_type &co         = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
     pattern_type           &pattern    = *ghex::bindings::get_object_ptr_safe<pattern_type>(pwrapper);

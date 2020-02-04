@@ -16,11 +16,6 @@ MODULE ghex_mod
        use iso_c_binding
      end subroutine ghex_finalize
 
-     type(ghex_communicator) function ghex_get_communicator() bind(c)
-       use iso_c_binding
-       use ghex_comm_mod
-     end function ghex_get_communicator
-
   end interface
 
 END MODULE ghex_mod

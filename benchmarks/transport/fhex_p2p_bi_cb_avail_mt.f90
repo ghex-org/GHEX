@@ -104,7 +104,7 @@ contains
     ! ---------------------------------------
 
     ! obtain a communicator
-    comm = ghex_get_communicator()
+    comm = ghex_comm_new()
 
     rank        = ghex_comm_rank(comm);
     size        = ghex_comm_size(comm);
