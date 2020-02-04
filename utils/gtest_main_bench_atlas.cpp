@@ -35,7 +35,7 @@ GTEST_API_ int main(int argc, char** argv) {
     // first delete the original printer
     delete listeners.Release(listeners.default_result_printer());
     // now add our custom printer
-    listeners.Append(new mpi_listener("results_tests"));
+    listeners.Append(new mpi_listener("results_benchmarks"));
 
     // record the local return value for tests run on this mpi rank
     //      0 : success

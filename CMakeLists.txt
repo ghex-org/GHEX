@@ -121,6 +121,9 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     if (GHEX_ENABLE_ATLAS_BINDINGS)
         add_library(gtest_main_atlas ./utils/gtest_main_atlas.cpp)
         target_link_libraries(gtest_main_atlas GTest::gtest ghexlib)
+
+        add_library(gtest_main_bench_atlas ./utils/gtest_main_bench_atlas.cpp)
+        target_link_libraries(gtest_main_bench_atlas GTest::gtest ghexlib)
     endif()
 endif()
 
