@@ -25,8 +25,8 @@ namespace gridtools {
                 struct communicator
                 {
                     using worker_type            = worker_t<ThreadPrimitives>;
-                    using parallel_context_type  = parallel_context<ThreadPrimitives>;
-                    using thread_token           = typename parallel_context_type::thread_token;
+                    using thread_primitives_type = ThreadPrimitives;
+                    using thread_token           = typename thread_primitives_type::token;
                     using rank_type              = endpoint_t::rank_type;
                     using tag_type               = typename worker_type::tag_type;
                     using request                = request_ft<ThreadPrimitives>;
@@ -105,7 +105,7 @@ namespace gridtools {
                     {
                         const auto rtag = ((std::uint_fast64_t)tag << 32) | 
                                            (std::uint_fast64_t)(src);
-                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                        return m_send_worker->m_thread_primitives->critical(
                             [this,rtag,&msg,src,tag]()
                             {
                                 auto ret = ucp_tag_recv_nb(
@@ -156,8 +156,8 @@ namespace gridtools {
                         p+= ucp_worker_progress(m_ucp_sw);
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
-                        //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        m_send_worker->m_parallel_context->thread_primitives().critical(
+                        //lk_t lk(m_send_worker->m_thread_primitives->m_mutex);
+                        m_send_worker->m_thread_primitives->critical(
                             [this,&p]()
                             {
                                 p+= ucp_worker_progress(m_ucp_rw);
@@ -350,8 +350,8 @@ namespace gridtools {
                                            (std::uint_fast64_t)(src);
                         //using tp_t=std::remove_reference_t<decltype(m_send_worker->m_parallel_context->thread_primitives())>;
                         //using lk_t=typename tp_t::lock_type;
-                        //lk_t lk(m_send_worker->m_parallel_context->thread_primitives().m_mutex);
-                        return m_send_worker->m_parallel_context->thread_primitives().critical(
+                        //lk_t lk(m_send_worker->m_thread_primitives->m_mutex);
+                        return m_send_worker->m_thread_primitives->critical(
                             [this,rtag,&msg,src,tag,&callback]()
                             {
                                 auto ret = ucp_tag_recv_nb(
@@ -398,6 +398,42 @@ namespace gridtools {
                                 }
                             }
                         );
+                    }
+
+                    void barrier()
+                    {
+                        // a trivial barrier implementation for debuging purposes only!
+                        // send a message to all other ranks, wait for their message
+                        auto bfunc = [this]()
+                            {
+                                volatile int received = 0;
+                                volatile int sent = 0;
+                                std::vector<unsigned char> msg(1);
+
+                                auto send_callback = [&](message_type, int, int) {sent++;};
+                                auto recv_callback = [&](message_type, int, int) {received++;};
+
+                                for(rank_type r=0; r<m_size; r++){
+                                    if(r != m_rank){
+                                        recv(msg, r, 0xdeadbeef, recv_callback);
+                                        send(msg, r, 0xdeadbeef, send_callback);
+                                    }
+                                }
+
+                                while(received!=m_size-1 || sent!=m_size-1) progress();
+                            };
+
+                        if(m_send_worker->m_token_ptr)
+                        {
+                            thread_token &token = *m_send_worker->m_token_ptr;
+                            m_send_worker->m_thread_primitives->barrier(token);
+                            m_send_worker->m_thread_primitives->master(token, bfunc);
+                            m_send_worker->m_thread_primitives->barrier(token);
+                        } 
+                        else 
+                        {
+                            bfunc();
+                        }
                     }
                 };
 

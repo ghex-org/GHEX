@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2019, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_TL_UCX_ENDPOINT_DB_MPI_HPP
 #define INCLUDED_GHEX_TL_UCX_ENDPOINT_DB_MPI_HPP
@@ -38,7 +38,7 @@ namespace gridtools {
                     std::map<key_t,value_t> m_address_map;
 
                     address_db_mpi(MPI_Comm comm)
-                    : m_mpi_comm{comm}
+                        : m_mpi_comm{comm}
                     , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) }
                     , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) }
                     {}
@@ -50,15 +50,14 @@ namespace gridtools {
                     key_t size() const noexcept { return m_size; }
                     int est_size() const noexcept { return m_size; }
 
-                    value_t* find(key_t k)
+                    value_t find(key_t k)
                     {
                         auto it = m_address_map.find(k);
                         if (it != m_address_map.end())
                         {
-                            return &(it->second);
+                            return it->second;
                         }
-                        else
-                            return nullptr;
+                        throw std::runtime_error("Cound not find peer address in the MPI address xdatabase.");
                     }
 
                     void init(const value_t& addr)
@@ -100,4 +99,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_UCX_ENDPOINT_DB_MPI_HPP */
-
