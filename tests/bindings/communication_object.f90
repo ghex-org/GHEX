@@ -2,6 +2,7 @@ PROGRAM test_halo_exchange
   use omp_lib
   use ghex_mod
   use ghex_structured_mod
+  use ghex_exchange_mod
 
   implicit none  
 
@@ -12,17 +13,16 @@ PROGRAM test_halo_exchange
   integer :: tmp
   integer :: halo(6)
   integer :: l_dim(3) = [32, 32, 32]
-  type(ghex_domain_descriptor), target, dimension(:) :: domain_desc(1)
-  type(ghex_domain_descriptor), pointer, dimension(:) :: pdomains
   integer :: local_extents(3)
   integer :: gfirst(3), glast(3)
   integer :: gdim(3) = [3, 3, 3]
-  type(ghex_pattern) :: pattern
   real(8), dimension(:,:,:), pointer :: data
-  type(ghex_field_descriptor) :: field_desc
+
+  type(ghex_domain_descriptor), target, dimension(:) :: domain_desc(1)
+  type(ghex_field_descriptor)     :: field_desc
   type(ghex_communication_object) :: co
-  type(ghex_exchange_descriptor) :: ex_desc
-  type(ghex_exchange_handle) :: hex
+  type(ghex_exchange_descriptor)  :: ex_desc
+  type(ghex_exchange_handle)      :: ex_handle
 
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
   call mpi_comm_rank(mpi_comm_world, rank, mpi_err)
@@ -76,7 +76,13 @@ PROGRAM test_halo_exchange
   co = ghex_struct_co_new()
 
   ! exchange halos
-  ! hex = ghex_struct_exchange(co, fields)
+  ex_handle = ghex_exchange(co, ex_desc)
+  call ghex_exchange_handle_wait(ex_handle)
+  call ghex_exchange_handle_delete(ex_handle)
+
+  if (rank == 13) then
+     print *, data
+  end if
 
   ! cleanup
   call ghex_exchange_delete(ex_desc)

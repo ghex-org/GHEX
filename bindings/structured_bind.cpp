@@ -19,16 +19,16 @@ struct domain_descriptor {
     int device_id;
     int first[3];  // indices of the first LOCAL grid point, in global index space
     int last[3];   // indices of the last LOCAL grid point, in global index space
-    int gfirst[3];  // indices of the first GLOBAL grid point, (1,1,1) by default
+    int gfirst[3]; // indices of the first GLOBAL grid point, (1,1,1) by default
     int glast[3];  // indices of the last GLOBAL grid point (model dimensions)
-    std::unique_ptr<field_vector_type> *fields;
+    field_vector_type *fields;
 };
 
 // compare two fields to establish, if the same pattern can be used for both
 struct field_compare {
     bool operator()( const field_descriptor& lhs, const field_descriptor& rhs ) const
     {
-        if(lhs.halo[0] < rhs.halo[0]) return true;
+        if(lhs.halo[0] < rhs.halo[0]) return true; // if(lhs.halo[0] > rhs.halo[0]) return false;
         if(lhs.halo[1] < rhs.halo[1]) return true;
         if(lhs.halo[2] < rhs.halo[2]) return true;
         if(lhs.halo[3] < rhs.halo[3]) return true;
@@ -43,24 +43,52 @@ struct field_compare {
     }
 };
 
-using domain_descriptor_type    = ghex::structured::domain_descriptor<int,3>;
-using domain_id_type            = typename domain_descriptor_type::domain_id_type;
+// those are configurable at compile time
+#define GHEX_DIMS                 3
+using arch_type                 = ghex::cpu;
+using domain_id_type            = int;
+using fp_type                   = double;
+
 using grid_type                 = ghex::structured::grid;
-using grid_detail_type          = ghex::structured::detail::grid<std::array<int, 3>>;
+using grid_detail_type          = ghex::structured::detail::grid<std::array<domain_id_type, GHEX_DIMS>>;
+using domain_descriptor_type    = ghex::structured::domain_descriptor<domain_id_type, GHEX_DIMS>;
 using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
 using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
-using field_descriptor_type     = ghex::structured::simple_field_wrapper<double,ghex::cpu,domain_descriptor_type,2,1,0>;
-using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, field_descriptor_type::arch_type, field_descriptor_type>;
-using pattern_field_vector_type = std::vector<pattern_field_type>;
+using field_descriptor_type     = ghex::structured::simple_field_wrapper<fp_type, arch_type, domain_descriptor_type,2,1,0>;
+using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
+using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
 using pattern_map_type          = std::map<field_descriptor, pattern_type, field_compare>;
+using exchange_handle_type      = communication_obj_type::handle_type;
+
+// a map of field descriptors to patterns
+pattern_map_type field_to_pattern;
+
+extern "C"
+void* ghex_struct_co_new()
+{
+    auto token = context->get_token();
+    auto comm  = context->get_communicator(token);
+    communication_obj_type co = ghex::make_communication_object<pattern_type>(comm);
+    return new ghex::bindings::obj_wrapper(std::move(co));
+}
+
+extern "C"
+void ghex_struct_co_delete(ghex::bindings::obj_wrapper **wrapper_ref)
+{
+    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
+
+    // clear the fortran-side variable
+    *wrapper_ref = nullptr;
+    delete wrapper;
+}
 
 extern "C"
 void ghex_domain_add_field(domain_descriptor &domain_desc, field_descriptor &field_desc)
 {
     if(nullptr == domain_desc.fields){
-        domain_desc.fields = new std::unique_ptr<field_vector_type>( new field_vector_type() );
+        domain_desc.fields = new field_vector_type();
     }
-    domain_desc.fields->get()->push_back(field_desc);
+    domain_desc.fields->push_back(field_desc);
 }
 
 extern "C"
@@ -112,27 +140,24 @@ void* ghex_exchange_new(domain_descriptor *domains_desc, int n_domains)
     // a vector of `pattern(wrapped_field)` values
     pattern_field_vector_type pattern_fields;
 
-    // a map of field descriptors to patterns
-    pattern_map_type field_to_pattern;
     for(int i=0; i<n_domains; i++){
-        field_vector_type &fields = *(domains_desc[i].fields->get());
+        field_vector_type &fields = *(domains_desc[i].fields);
         for(auto field: fields){
             auto pit = field_to_pattern.find(field);
             if (pit == field_to_pattern.end()) {
                 std::array<int, 3> &periodic = *((std::array<int, 3>*)field.periodic);
                 std::array<int, 6> &halo = *((std::array<int, 6>*)(field.halo));
                 auto halo_generator = domain_descriptor_type::halo_generator_type(gfirst, glast, halo, periodic);
-                auto pattern = ghex::make_pattern<grid_type>(*context, halo_generator, local_domains);
-                field_to_pattern.emplace(std::make_pair(std::move(field), std::move(pattern)));
-                pit = field_to_pattern.find(field);
+                pit = field_to_pattern.emplace(std::make_pair(std::move(field), ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;
             } 
             
             pattern_type &pattern = (*pit).second;
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
-            field_descriptor_type field_desc  = 
-                ghex::wrap_field<ghex::cpu,2,1,0>(domains_desc[i].id, field.data, offset, extents);
-            pattern_fields.push_back(pattern(field_desc));
+            std::unique_ptr<field_descriptor_type> field_desc_uptr(new field_descriptor_type(ghex::wrap_field<ghex::cpu,2,1,0>(domains_desc[i].id, field.data, offset, extents)));
+            auto ptr = field_desc_uptr.get();
+            pattern_fields.first.push_back(std::move(field_desc_uptr));
+            pattern_fields.second.push_back(pattern(*ptr));
         }
     }
 
@@ -150,31 +175,28 @@ void ghex_exchange_delete(ghex::bindings::obj_wrapper **wrapper_ref)
 }
 
 extern "C"
-void* ghex_struct_co_new()
+void *ghex_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
-    auto token = context->get_token();
-    auto comm  = context->get_communicator(token);
-    communication_obj_type co = ghex::make_communication_object<pattern_type>(comm);
-    return new ghex::bindings::obj_wrapper(std::move(co));
+    communication_obj_type    &co             = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
+    pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_safe<pattern_field_vector_type>(ewrapper);
+
+    exchange_handle_type hex = co.exchange(pattern_fields.second.data(), pattern_fields.second.size());
+    return new ghex::bindings::obj_wrapper(std::move(hex));
 }
 
 extern "C"
-void ghex_struct_co_delete(ghex::bindings::obj_wrapper **wrapper_ref)
+void ghex_exchange_handle_wait(ghex::bindings::obj_wrapper *ehwrapper)
+{
+    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_safe<exchange_handle_type>(ehwrapper);
+    hex.wait();
+}
+
+extern "C"
+void ghex_exchange_handle_delete(ghex::bindings::obj_wrapper **wrapper_ref)
 {
     ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
 
     // clear the fortran-side variable
     *wrapper_ref = nullptr;
     delete wrapper;
-}
-
-extern "C"
-void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *pwrapper, ghex::bindings::obj_wrapper *fwrapper)
-{
-    communication_obj_type &co         = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
-    pattern_type           &pattern    = *ghex::bindings::get_object_ptr_safe<pattern_type>(pwrapper);
-    field_descriptor_type  &field_desc = *ghex::bindings::get_object_ptr_safe<field_descriptor_type>(fwrapper);
-
-    auto hex = co.exchange(pattern(field_desc));
-    return new ghex::bindings::obj_wrapper(std::move(hex));
 }
