@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <fstream>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -29,6 +30,7 @@
 #include "../include/ghex/unstructured/pattern.hpp"
 #include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
 #include "../include/ghex/communication_object_2.hpp"
+#include "../include/ghex/common/timer.hpp"
 
 #ifdef __CUDACC__
 #include "gridtools/common/cuda_util.hpp"
@@ -46,15 +48,31 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 TEST(atlas_integration, halo_exchange_nodecolumns) {
 
+    using timer_type = gridtools::ghex::timer;
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
+
+    const int n_iter = 50;
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
     int size = context.size();
 
+    // Output file
+    std::stringstream ss_file;
+    ss_file << rank;
+    std::string filename = "atlas_halo_exchange_nodecolumns_times_" + ss_file.str() + ".txt";
+    std::ofstream file(filename.c_str());
+    file << "Atlas halo exchange nodecolumns - Timings\n";
+
+    // Timers
+    timer_type t_atlas_cpu_local, t_atlas_cpu_global; // Atlas on CPU
+    timer_type t_ghex_cpu_local, t_ghex_cpu_global; // GHEX on CPU
+    timer_type t_atlas_gpu_local, t_atlas_gpu_global; // Atlas on GPU
+    timer_type t_ghex_gpu_local, t_ghex_gpu_global; // GHEX on GPU
+
     // Global octahedral Gaussian grid
-    atlas::StructuredGrid grid("O1280");
+    atlas::StructuredGrid grid("O256"); // WARN: change it back immediately!
 
     // Generate mesh
     atlas::StructuredMeshGenerator meshgenerator;
@@ -108,11 +126,34 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // Atlas halo exchange
-    fs_nodes.haloExchange(fields["atlas_field_1"]);
+    fs_nodes.haloExchange(fields["atlas_field_1"]); // first iteration
+    for (auto i = 0; i < n_iter; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        fs_nodes.haloExchange(fields["atlas_field_1"]);
+        t_local.toc();
+        t_atlas_cpu_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_atlas_cpu_global(t_global);
+    }
 
     // GHEX halo exchange
-    auto h = co.exchange(patterns(data_1));
+    auto h = co.exchange(patterns(data_1)); // first iteration
     h.wait();
+    for (auto i = 0; i < n_iter; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h = co.exchange(patterns(data_1));
+        h.wait();
+        t_local.toc();
+        t_ghex_cpu_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_ghex_cpu_global(t_global);
+    }
 
     // test for correctness
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
@@ -120,6 +161,15 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
             EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
         }
     }
+
+    // Write timings
+    file << "- Atlas CPU benchmark\n"
+        << "\tlocal time = " << t_atlas_cpu_local.mean() / 1000.0 << "+/-" << t_atlas_cpu_local.stddev() / 1000.0 << "s\n"
+        << "\tglobal time = " << t_atlas_cpu_global.mean() / 1000.0 << "+/-" << t_atlas_cpu_global.stddev() / 1000.0 << "s\n";
+
+    file << "- GHEX CPU benchmark\n"
+        << "\tlocal time = " << t_ghex_cpu_local.mean() / 1000.0 << "+/-" << t_ghex_cpu_local.stddev() / 1000.0 << "s\n"
+        << "\tglobal time = " << t_ghex_cpu_global.mean() / 1000.0 << "+/-" << t_ghex_cpu_global.stddev() / 1000.0 << "s\n";
 
 #ifdef __CUDACC__
     // Additional fields for GPU halo exchange
@@ -140,12 +190,35 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     // Additional data descriptor for GPU halo exchange
     gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
 
-    // Atlas halo exchange
-    fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true);
+    // Atlas halo exchange on GPU
+    fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true); // first iteration
+    for (auto i = 0; i < n_iter; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true);
+        t_local.toc();
+        t_atlas_gpu_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_atlas_gpu_global(t_global);
+    }
 
     // GHEX halo exchange on GPU
-    auto h_gpu = co.exchange(patterns(data_1_gpu));
+    auto h_gpu = co.exchange(patterns(data_1_gpu)); // first iteration
     h_gpu.wait();
+    for (auto i = 0; i < n_iter; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h_gpu = co.exchange(patterns(data_1_gpu));
+        h_gpu.wait();
+        t_local.toc();
+        t_ghex_gpu_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_ghex_gpu_global(t_global);
+    }
 
     // Test for correctness
     fields["atlas_field_1_gpu"].cloneFromDevice();
@@ -159,6 +232,15 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
             EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_gpu_data(node, level));
         }
     }
+
+    // Write timings
+    file << "- Atlas GPU benchmark\n"
+        << "\tlocal time = " << t_atlas_gpu_local.mean() / 1000.0 << "+/-" << t_atlas_gpu_local.stddev() / 1000.0 << "s\n"
+        << "\tglobal time = " << t_atlas_gpu_global.mean() / 1000.0 << "+/-" << t_atlas_gpu_global.stddev() / 1000.0 << "s\n";
+
+    file << "- GHEX GPU benchmark\n"
+        << "\tlocal time = " << t_ghex_gpu_local.mean() / 1000.0 << "+/-" << t_ghex_gpu_local.stddev() / 1000.0 << "s\n"
+        << "\tglobal time = " << t_ghex_gpu_global.mean() / 1000.0 << "+/-" << t_ghex_gpu_global.stddev() / 1000.0 << "s\n";
 #endif
 
 }
