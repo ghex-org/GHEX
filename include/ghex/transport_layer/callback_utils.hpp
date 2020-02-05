@@ -255,8 +255,6 @@ namespace gridtools {
                     }
                 };
 
-                static progress_status operator+(progress_status a, progress_status b) { return a+=b; }
-
             } // cb
         } // tl
     } // ghex
