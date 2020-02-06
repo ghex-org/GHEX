@@ -11,11 +11,11 @@ PROGRAM test_halo_exchange
   integer :: mpi_err, mpi_threading
   integer :: nthreads = 1, rank, size
   integer :: tmp
-  integer :: halo(6)
-  integer :: l_dim(3) = [1, 2, 3]
-  integer :: local_extents(3)
-  integer :: gfirst(3), glast(3)
-  integer :: gdim(3) = [3, 3, 3]
+  integer :: gfirst(3), glast(3)  ! global index space
+  integer :: gdim(3) = [3, 3, 3]  ! number of domains
+  integer :: ldim(3) = [1, 1, 1]  ! dimensions of the local domains
+  integer :: local_extents(3)     ! index space of the local domains, in global coordinates
+  integer :: halo(6)              ! halo definition
   real(8), dimension(:,:,:), pointer :: data
 
   type(ghex_domain_descriptor), target, dimension(:) :: domain_desc(1)
@@ -42,7 +42,7 @@ PROGRAM test_halo_exchange
 
   ! define the global index domain
   gfirst = [1, 1, 1]
-  glast = gdim * l_dim
+  glast = gdim * ldim
 
   ! define the local index domain
   domain_desc(1)%id = rank
@@ -50,8 +50,8 @@ PROGRAM test_halo_exchange
   tmp = rank;  domain_desc(1)%first(1) = modulo(tmp, 3)
   tmp = tmp/3; domain_desc(1)%first(2) = modulo(tmp, 3)
   tmp = tmp/3; domain_desc(1)%first(3) = modulo(tmp, 3)
-  domain_desc(1)%first = domain_desc(1)%first * l_dim + 1
-  domain_desc(1)%last  = domain_desc(1)%first + l_dim - 1
+  domain_desc(1)%first = domain_desc(1)%first * ldim + 1
+  domain_desc(1)%last  = domain_desc(1)%first + ldim - 1
   domain_desc(1)%gfirst = gfirst
   domain_desc(1)%glast  = glast
 
@@ -59,7 +59,7 @@ PROGRAM test_halo_exchange
   ! call exit
   
   ! allocate field data
-  local_extents = [l_dim(1)+halo(1)+halo(2), l_dim(2)+halo(3)+halo(4), l_dim(3)+halo(5)+halo(6)]
+  local_extents = [ldim(1)+halo(1)+halo(2), ldim(2)+halo(3)+halo(4), ldim(3)+halo(5)+halo(6)]
   allocate(data(local_extents(1), local_extents(2), local_extents(3)))
   data(:,:,:) = rank
 
@@ -79,10 +79,6 @@ PROGRAM test_halo_exchange
   ex_handle = ghex_exchange(co, ex_desc)
   call ghex_exchange_handle_wait(ex_handle)
   call ghex_exchange_handle_delete(ex_handle)
-
-  if (rank == 0) then
-     print *, data
-  end if
 
   ! cleanup
   call ghex_exchange_desc_delete(ex_desc)
