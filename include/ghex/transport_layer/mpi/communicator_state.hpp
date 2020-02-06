@@ -62,16 +62,26 @@ namespace gridtools {
                     template<typename T>
                     using future = future_t<T>;
                     using queue_type = ::gridtools::ghex::tl::cb::callback_queue<future<void>, rank_type, tag_type>;
+                    using progress_status = gridtools::ghex::tl::cb::progress_status;
 
                     thread_token* m_token_ptr;
                     queue_type m_send_queue;
                     queue_type m_recv_queue;
+                    int  m_progressed_sends = 0;
+                    int  m_progressed_recvs = 0;
 
                     communicator_state(thread_token* t)
                     : m_token_ptr{t}
                     {}
 
-                    int progress() { return m_send_queue.progress() + m_recv_queue.progress(); }
+                    progress_status progress() {
+                        m_progressed_sends += m_send_queue.progress();
+                        m_progressed_recvs += m_recv_queue.progress();
+                        return {
+                            std::exchange(m_progressed_sends,0),
+                            std::exchange(m_progressed_recvs,0),
+                            std::exchange(m_recv_queue.m_progressed_cancels,0)};
+                    }
                 };
 
             } // namespace mpi

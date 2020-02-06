@@ -88,6 +88,9 @@ namespace gridtools {
                     ucp_worker_handle       m_worker;
                     address_t               m_address;
                     cache_type              m_endpoint_cache;
+                    int                     m_progressed_sends = 0;
+                    volatile int            m_progressed_recvs = 0;
+                    volatile int            m_progressed_cancels = 0;
 
                     worker_t() = default;
                     worker_t(transport_context_type* c, thread_primitives_type* tp, thread_token* t, ucs_thread_mode_t mode);

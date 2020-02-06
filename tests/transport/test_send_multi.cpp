@@ -101,8 +101,8 @@ TEST(transport, send_multi) {
         EXPECT_TRUE(ok);
     }
 
-
-//    EXPECT_FALSE(cb_comm.progress());
+    auto status = comm.progress();
+    EXPECT_EQ(status.num(), 0);
 }
 
 TEST(transport, send_multi_cb) {
@@ -167,7 +167,8 @@ TEST(transport, send_multi_cb) {
         EXPECT_TRUE(ok);
     }
 
-    EXPECT_FALSE(comm.progress());
+    auto status = comm.progress();
+    EXPECT_EQ(status.num(), 0);
 }
 
 TEST(transport, send_multi_cb_move) {
@@ -232,5 +233,6 @@ TEST(transport, send_multi_cb_move) {
         EXPECT_TRUE(ok);
     }
 
-    EXPECT_FALSE(comm.progress());
+    auto status = comm.progress();
+    EXPECT_EQ(status.num(), 0);
 }

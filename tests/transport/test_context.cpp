@@ -26,13 +26,6 @@ using transport = gridtools::ghex::tl::mpi_tag;
 using threading_std = gridtools::ghex::threads::std_thread::primitives;
 using threading_atc = gridtools::ghex::threads::atomic::primitives;
 using threading = threading_std;
-//using threading = threading_atc;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
-using comm_type = typename context_type::communicator_type;
-using msg_type = typename comm_type::message_type;
-using rank_type = typename comm_type::rank_type;
-using tag_type = typename comm_type::tag_type;
-using future = typename comm_type::template future<void>;
 
 const std::size_t size = 1024;
 
@@ -42,6 +35,13 @@ TEST(context, multi) {
     auto& context_1 = *context_ptr_1;
     auto context_ptr_2 = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
     auto& context_2 = *context_ptr_2;
+
+    using context_type = std::remove_reference_t<decltype(context_1)>;
+    using comm_type = typename context_type::communicator_type;
+    using msg_type = typename comm_type::message_type;
+    using rank_type = typename comm_type::rank_type;
+    using tag_type = typename comm_type::tag_type;
+    using future = typename comm_type::template future<void>;
 
     auto func = [&context_1, &context_2]() {
         auto token_1 = context_1.get_token();
@@ -121,6 +121,13 @@ TEST(context, multi_ordered) {
     const int num_threads = 4;
     auto context_ptr_1 = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
     auto& context_1 = *context_ptr_1;
+
+    using context_type = std::remove_reference_t<decltype(context_1)>;
+    using comm_type = typename context_type::communicator_type;
+    using msg_type = typename comm_type::message_type;
+    using rank_type = typename comm_type::rank_type;
+    using tag_type = typename comm_type::tag_type;
+    using future = typename comm_type::template future<void>;
 
     auto func = [&context_1]() {
         auto token_1 = context_1.get_token();

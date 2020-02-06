@@ -68,7 +68,6 @@ namespace gridtools {
                     std::size_t size() const noexcept { return m_size; }
                 };
 
-                // type-erased message
                 /** @brief type erased message capable of holding any message. Uses optimized initialization for  
                   * ref_messages and std::shared_ptr pointing to messages. */
                 struct any_message
@@ -159,7 +158,7 @@ namespace gridtools {
 
                     // internal element which is stored in the queue
                     struct element_type {
-                        any_message m_msg;
+                        message_type m_msg;
                         rank_type m_rank;
                         tag_type m_tag;
                         cb_type m_cb;
@@ -171,6 +170,9 @@ namespace gridtools {
 
                   private: // members
                     queue_type m_queue;
+
+                  public:
+                    int m_progressed_cancels = 0;
 
                   public: // ctors
                     callback_queue() { m_queue.reserve(256); }
@@ -185,7 +187,7 @@ namespace gridtools {
                       * @param cb the callback
                       * @return returns a completion handle */
                     template<typename Callback>
-                    request enqueue(any_message&& msg, rank_type rank, tag_type tag, future_type&& fut, Callback&& cb) {
+                    request enqueue(message_type&& msg, rank_type rank, tag_type tag, future_type&& fut, Callback&& cb) {
                         request m_req{std::make_shared<request_state>(false,m_queue.size())};
                         m_queue.push_back(element_type{std::move(msg), rank, tag, std::forward<Callback>(cb), std::move(fut),
                                              m_req});
@@ -229,7 +231,27 @@ namespace gridtools {
                             element.m_request.m_request_state->m_index = index;
                         }
                         m_queue.pop_back();
+                        ++m_progressed_cancels;
                         return true;
+                    }
+                };
+
+                /** @brief a class to return the number of progressed callbacks */
+                struct progress_status {
+                    int m_num_sends = 0;
+                    int m_num_recvs = 0;
+                    int m_num_cancels = 0;
+ 
+                    int num() const noexcept { return m_num_sends+m_num_recvs+m_num_cancels; }
+                    int num_sends() const noexcept { return m_num_sends; }
+                    int num_recvs() const noexcept { return m_num_recvs; }
+                    int num_cancels() const noexcept { return m_num_cancels; }
+
+                    progress_status& operator+=(const progress_status& other) noexcept {
+                        m_num_sends += other.m_num_sends;
+                        m_num_recvs += other.m_num_recvs;
+                        m_num_cancels += other.m_num_cancels;
+                        return *this;
                     }
                 };
 

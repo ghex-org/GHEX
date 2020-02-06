@@ -166,7 +166,8 @@ auto test_unidirectional_cb(Context& context) {
     if ( rank == 0 ) {
         auto fut = comm.send(smsg, 1, 1);
         fut.wait();
-        EXPECT_FALSE(comm.progress());
+        auto status = comm.progress();
+        EXPECT_EQ(status.num(), 0);
     } else {
         comm.recv(rmsg, 0, 1, [ &arrived](cb_msg_type, int /*src*/, int /* tag */) { arrived = true; });
 
@@ -184,7 +185,8 @@ auto test_unidirectional_cb(Context& context) {
         std::cout <<   "*" << std::setw(8) << c << " *\n";
         std::cout << "***********\n";
 #endif
-        EXPECT_FALSE(comm.progress());
+        auto status = comm.progress();
+        EXPECT_EQ(status.num(), 0);
     }
     return std::move(rmsg);
 }
@@ -233,7 +235,8 @@ auto test_bidirectional_cb(Context& context) {
     std::cout << "***********\n";
 #endif
 
-    EXPECT_FALSE(comm.progress());
+    auto status = comm.progress();
+    EXPECT_EQ(status.num(), 0);
 
     return std::move(rmsg);
 }
