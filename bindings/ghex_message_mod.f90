@@ -13,10 +13,6 @@ MODULE ghex_message_mod
      type(c_ptr) :: ptr = c_null_ptr
   end type ghex_message
 
-  type, bind(c) :: ghex_shared_message
-     type(c_ptr) :: ptr = c_null_ptr
-  end type ghex_shared_message
-
   interface
 
      type(ghex_message) function ghex_message_new(size, allocator) bind(c)
@@ -25,13 +21,6 @@ MODULE ghex_message_mod
        integer(c_size_t), value :: size
        integer(c_int), value :: allocator
      end function ghex_message_new
-
-     subroutine ghex_message_delete(message) bind(c)
-       use iso_c_binding
-       import ghex_message
-       ! reference, not a value - fortran variable is reset to null 
-       type(ghex_message) :: message
-     end subroutine ghex_message_delete
 
      subroutine ghex_message_zero(message) bind(c)
        use iso_c_binding

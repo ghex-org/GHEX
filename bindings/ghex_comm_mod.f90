@@ -25,13 +25,6 @@ MODULE ghex_comm_mod
        import ghex_communicator
      end function ghex_comm_new
 
-     subroutine ghex_comm_delete(comm) bind(c, name="ghex_obj_delete")
-       use iso_c_binding
-       import ghex_communicator
-       ! reference, not a value - fortran variable is reset to null
-       type(ghex_communicator) :: comm
-     end subroutine ghex_comm_delete
-
      integer(c_int) function ghex_comm_rank(comm) bind(c)
        use iso_c_binding
        import ghex_communicator

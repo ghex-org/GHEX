@@ -77,13 +77,13 @@ PROGRAM test_halo_exchange
 
   ! exchange halos
   ex_handle = ghex_exchange(co, ex_desc)
-  call ghex_exchange_handle_wait(ex_handle)
-  call ghex_exchange_handle_delete(ex_handle)
+  call ghex_wait(ex_handle)
+  call ghex_delete(ex_handle)
 
   ! cleanup
-  call ghex_exchange_desc_delete(ex_desc)
-  call ghex_struct_co_delete(co)
-  call ghex_domain_delete(domain_desc(1))
+  call ghex_delete(ex_desc)
+  call ghex_delete(co)
+  call ghex_delete(domain_desc(1))
   call ghex_finalize()
   call mpi_finalize(mpi_err)
 

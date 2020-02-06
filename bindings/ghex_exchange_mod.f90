@@ -14,6 +14,15 @@ MODULE ghex_exchange_mod
      type(c_ptr) :: ptr = c_null_ptr
   end type ghex_exchange_handle
 
+  interface ghex_wait
+     ! exchange handle 
+     subroutine ghex_exchange_handle_wait(exchange_handle) bind(c)
+       use iso_c_binding
+       import ghex_exchange_handle
+       type(ghex_exchange_handle), value :: exchange_handle
+     end subroutine ghex_exchange_handle_wait
+  end interface ghex_wait
+
   interface
 
      ! exchange descriptor methods
@@ -24,26 +33,6 @@ MODULE ghex_exchange_mod
        type(c_ptr), value :: domains_desc
        integer(c_int), value :: n_domains
      end function ghex_exchange_desc_new_wrapped
-
-     subroutine ghex_exchange_desc_delete(exchange_desc) bind(c, name="ghex_obj_delete")
-       use iso_c_binding
-       import ghex_exchange_descriptor
-       type(ghex_exchange_descriptor) :: exchange_desc
-     end subroutine ghex_exchange_desc_delete
-
-
-     ! exchange handle 
-     subroutine ghex_exchange_handle_wait(exchange_handle) bind(c)
-       use iso_c_binding
-       import ghex_exchange_handle
-       type(ghex_exchange_handle), value :: exchange_handle
-     end subroutine ghex_exchange_handle_wait
-
-     subroutine ghex_exchange_handle_delete(exchange_handle) bind(c, name="ghex_obj_delete")
-       use iso_c_binding
-       import ghex_exchange_handle
-       type(ghex_exchange_handle) :: exchange_handle
-     end subroutine ghex_exchange_handle_delete
 
      type(ghex_exchange_handle) function ghex_exchange(co, exchange_desc) bind(c)
        import ghex_exchange_handle, ghex_communication_object, ghex_exchange_descriptor

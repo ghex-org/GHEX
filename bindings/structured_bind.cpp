@@ -77,8 +77,7 @@ void* ghex_struct_co_new()
 {
     auto token = context->get_token();
     auto comm  = context->get_communicator(token);
-    communication_obj_type co = ghex::make_communication_object<pattern_type>(comm);
-    return new ghex::bindings::obj_wrapper(std::move(co));
+    return new ghex::bindings::obj_wrapper(ghex::make_communication_object<pattern_type>(comm));
 }
 
 extern "C"

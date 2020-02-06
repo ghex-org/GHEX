@@ -21,8 +21,7 @@ extern "C"
 void* ghex_comm_new()
 {
     auto token = context->get_token();
-    auto comm  = context->get_communicator(token);
-    return new ghex::bindings::obj_wrapper(std::move(comm));
+    return new ghex::bindings::obj_wrapper(context->get_communicator(token));
 }
 
 extern "C"

@@ -42,24 +42,10 @@ MODULE ghex_structured_mod
        type(ghex_field_descriptor) :: field_desc
      end subroutine ghex_domain_add_field
 
-     subroutine ghex_domain_delete(domains_desc) bind(c)
-       use iso_c_binding
-       import ghex_domain_descriptor, ghex_field_descriptor
-       type(ghex_domain_descriptor) :: domains_desc
-     end subroutine ghex_domain_delete
-
-
      ! those are CO functions, but right now they are also grid-specific
      type(ghex_communication_object) function ghex_struct_co_new() bind(c)
        import ghex_communication_object
      end function ghex_struct_co_new
-
-     subroutine ghex_struct_co_delete(co) bind(c, name="ghex_obj_delete")
-       use iso_c_binding
-       import ghex_communication_object
-       ! reference, not a value - fortran variable is reset to null
-       type(ghex_communication_object) :: co
-     end subroutine ghex_struct_co_delete
      
   end interface
 

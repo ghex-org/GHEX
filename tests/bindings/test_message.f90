@@ -1,4 +1,5 @@
 PROGRAM test_message
+  use ghex_mod
   use ghex_message_mod
 
   implicit none  
@@ -17,6 +18,6 @@ PROGRAM test_message
   print *, "values:    ", msg_data
 
   ! cleanup
-  call ghex_message_delete(msg)
+  call ghex_delete(msg)
 
 END PROGRAM test_message
