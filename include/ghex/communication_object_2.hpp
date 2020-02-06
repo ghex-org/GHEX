@@ -16,7 +16,7 @@
 #include "./common/utils.hpp"
 #include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
-#include "./transport_layer/communicator.hpp"
+#include "./transport_layer/tags.hpp"
 #include "./structured/simple_field_wrapper.hpp"
 #include "./arch_traits.hpp"
 #include <map>

@@ -110,27 +110,27 @@ namespace gridtools {
                         return {m_tokens[id].get()};
                     }
 
-                    inline void barrier(token&) const noexcept
+                    inline void barrier(token&) const
                     {
                         #pragma omp barrier
                     }
 
                     template <typename F>
-                    inline void single(token&, F && f) const noexcept
+                    inline void single(token&, F && f) const
                     {
                         #pragma omp single
                         f();
                     }
 
                     template <typename F>
-                    inline void master(token&, F && f) const noexcept
+                    inline void master(token&, F && f) const
                     {
                         #pragma omp master
                         f();
                     }
 
                     template <typename F>
-                    inline void_return_type<F> critical(F && f) const noexcept
+                    inline void_return_type<F> critical(F && f) const
                     {
                         //#pragma omp critical
                         lock_type l(m_mutex);
@@ -138,7 +138,7 @@ namespace gridtools {
                     }
 
                     template <typename F>
-                    inline return_type<F> critical(F && f) const noexcept
+                    inline return_type<F> critical(F && f) const
                     {
                         lock_type l(m_mutex);
                         return f();

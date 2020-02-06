@@ -30,7 +30,6 @@
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
-#include <ghex/transport_layer/communicator.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 #include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"
@@ -515,7 +514,8 @@ namespace halo_exchange_3D_generic_full {
 
         MPI_Cart_get(CartComm, 3, dims, period, coords);
     
-        context_type context(1, CartComm);
+        auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, CartComm);
+        auto& context = *context_ptr;
         auto comm = context.get_communicator(context.get_token());
 
         /* Each process will hold a tile of size
