@@ -72,7 +72,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     timer_type t_ghex_gpu_local, t_ghex_gpu_global; // GHEX on GPU
 
     // Global octahedral Gaussian grid
-    atlas::StructuredGrid grid("O256"); // WARN: change it back immediately!
+    atlas::StructuredGrid grid("O1280");
 
     // Generate mesh
     atlas::StructuredMeshGenerator meshgenerator;
