@@ -7,9 +7,9 @@
 
 struct field_descriptor {
     double *data;
-    int offset[3];
-    int extents[3];
-    int halo[6];
+    int   offset[3];
+    int  extents[3];
+    int     halo[6];
     int periodic[3];
 };
 
@@ -17,10 +17,10 @@ using field_vector_type = std::vector<field_descriptor>;
 struct domain_descriptor {
     int id;
     int device_id;
-    int first[3];  // indices of the first LOCAL grid point, in global index space
-    int last[3];   // indices of the last LOCAL grid point, in global index space
-    int gfirst[3]; // indices of the first GLOBAL grid point, (1,1,1) by default
-    int glast[3];  // indices of the last GLOBAL grid point (model dimensions)
+    int  first[3];  // indices of the first LOCAL grid point, in global index space
+    int   last[3];  // indices of the last LOCAL grid point, in global index space
+    int gfirst[3];  // indices of the first GLOBAL grid point, (1,1,1) by default
+    int  glast[3];  // indices of the last GLOBAL grid point (model dimensions)
     field_vector_type *fields;
 };
 
@@ -28,16 +28,25 @@ struct domain_descriptor {
 struct field_compare {
     bool operator()( const field_descriptor& lhs, const field_descriptor& rhs ) const
     {
-        if(lhs.halo[0] < rhs.halo[0]) return true; // if(lhs.halo[0] > rhs.halo[0]) return false;
-        if(lhs.halo[1] < rhs.halo[1]) return true;
-        if(lhs.halo[2] < rhs.halo[2]) return true;
-        if(lhs.halo[3] < rhs.halo[3]) return true;
-        if(lhs.halo[4] < rhs.halo[4]) return true;
-        if(lhs.halo[5] < rhs.halo[5]) return true;
+        if(lhs.halo[0] < rhs.halo[0]) return true; 
+        if(lhs.halo[0] > rhs.halo[0]) return false;
+        if(lhs.halo[1] < rhs.halo[1]) return true; 
+        if(lhs.halo[1] > rhs.halo[1]) return false;
+        if(lhs.halo[2] < rhs.halo[2]) return true; 
+        if(lhs.halo[2] > rhs.halo[2]) return false;
+        if(lhs.halo[3] < rhs.halo[3]) return true; 
+        if(lhs.halo[3] > rhs.halo[3]) return false;
+        if(lhs.halo[4] < rhs.halo[4]) return true; 
+        if(lhs.halo[4] > rhs.halo[4]) return false;
+        if(lhs.halo[5] < rhs.halo[5]) return true; 
+        if(lhs.halo[5] > rhs.halo[5]) return false;
         
-        if(lhs.periodic[0] < rhs.periodic[0]) return true;
-        if(lhs.periodic[1] < rhs.periodic[1]) return true;
-        if(lhs.periodic[2] < rhs.periodic[2]) return true;
+        if(lhs.periodic[0] < rhs.periodic[0]) return true; 
+        if(lhs.periodic[0] > rhs.periodic[0]) return false;
+        if(lhs.periodic[1] < rhs.periodic[1]) return true; 
+        if(lhs.periodic[1] > rhs.periodic[1]) return false;
+        if(lhs.periodic[2] < rhs.periodic[2]) return true; 
+        if(lhs.periodic[2] > rhs.periodic[2]) return false;
 
         return false;
     }
@@ -73,16 +82,6 @@ void* ghex_struct_co_new()
 }
 
 extern "C"
-void ghex_struct_co_delete(ghex::bindings::obj_wrapper **wrapper_ref)
-{
-    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
-
-    // clear the fortran-side variable
-    *wrapper_ref = nullptr;
-    delete wrapper;
-}
-
-extern "C"
 void ghex_domain_add_field(domain_descriptor &domain_desc, field_descriptor &field_desc)
 {
     if(nullptr == domain_desc.fields){
@@ -98,7 +97,7 @@ void ghex_domain_delete(domain_descriptor *domain_desc)
 }
 
 extern "C"
-void* ghex_exchange_new(domain_descriptor *domains_desc, int n_domains)
+void* ghex_exchange_desc_new(domain_descriptor *domains_desc, int n_domains)
 {
 
     if(0 == n_domains) return NULL;
@@ -148,13 +147,15 @@ void* ghex_exchange_new(domain_descriptor *domains_desc, int n_domains)
                 std::array<int, 3> &periodic = *((std::array<int, 3>*)field.periodic);
                 std::array<int, 6> &halo = *((std::array<int, 6>*)(field.halo));
                 auto halo_generator = domain_descriptor_type::halo_generator_type(gfirst, glast, halo, periodic);
-                pit = field_to_pattern.emplace(std::make_pair(std::move(field), ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;
+                pit = field_to_pattern.emplace(std::make_pair(std::move(field), 
+                        ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;
             } 
             
             pattern_type &pattern = (*pit).second;
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
-            std::unique_ptr<field_descriptor_type> field_desc_uptr(new field_descriptor_type(ghex::wrap_field<ghex::cpu,2,1,0>(domains_desc[i].id, field.data, offset, extents)));
+            std::unique_ptr<field_descriptor_type> field_desc_uptr(
+                new field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(domains_desc[i].id, field.data, offset, extents)));
             auto ptr = field_desc_uptr.get();
             pattern_fields.first.push_back(std::move(field_desc_uptr));
             pattern_fields.second.push_back(pattern(*ptr));
@@ -165,23 +166,11 @@ void* ghex_exchange_new(domain_descriptor *domains_desc, int n_domains)
 }
 
 extern "C"
-void ghex_exchange_delete(ghex::bindings::obj_wrapper **wrapper_ref)
-{
-    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
-
-    // clear the fortran-side variable
-    *wrapper_ref = nullptr;
-    delete wrapper;
-}
-
-extern "C"
 void *ghex_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
     communication_obj_type    &co             = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
     pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_safe<pattern_field_vector_type>(ewrapper);
-
-    exchange_handle_type hex = co.exchange(pattern_fields.second.data(), pattern_fields.second.size());
-    return new ghex::bindings::obj_wrapper(std::move(hex));
+    return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.second.data(), pattern_fields.second.size()));
 }
 
 extern "C"
@@ -189,14 +178,4 @@ void ghex_exchange_handle_wait(ghex::bindings::obj_wrapper *ehwrapper)
 {
     exchange_handle_type &hex = *ghex::bindings::get_object_ptr_safe<exchange_handle_type>(ehwrapper);
     hex.wait();
-}
-
-extern "C"
-void ghex_exchange_handle_delete(ghex::bindings::obj_wrapper **wrapper_ref)
-{
-    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
-
-    // clear the fortran-side variable
-    *wrapper_ref = nullptr;
-    delete wrapper;
 }

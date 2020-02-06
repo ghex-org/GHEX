@@ -7,9 +7,9 @@ MODULE ghex_structured_mod
   ! field descriptor - always associated with a domain
   type, bind(c) :: ghex_field_descriptor
      type(c_ptr)    :: data = c_null_ptr
-     integer(c_int) :: offset(3) = [-1]        ! by default - values from the halo
+     integer(c_int) ::  offset(3) = [-1]       ! by default - values from the halo
      integer(c_int) :: extents(3) = [-1]       ! by default - size of the local extents + halos
-     integer(c_int) :: halo(6) = [-1]          ! halo to be used for this field
+     integer(c_int) ::    halo(6) = [-1]       ! halo to be used for this field
      integer(c_int) :: periodic(3) = [0]
   end type ghex_field_descriptor
 
@@ -54,7 +54,7 @@ MODULE ghex_structured_mod
        import ghex_communication_object
      end function ghex_struct_co_new
 
-     subroutine ghex_struct_co_delete(co) bind(c)
+     subroutine ghex_struct_co_delete(co) bind(c, name="ghex_obj_delete")
        use iso_c_binding
        import ghex_communication_object
        ! reference, not a value - fortran variable is reset to null
@@ -82,8 +82,8 @@ CONTAINS
        field_desc%offset = [halo(1), halo(3), halo(5)]
     endif
 
-    if (present(offset)) then
-       field_desc%offset = offset
+    if (present(periodic)) then
+       field_desc%periodic = periodic
     endif
 
   end subroutine ghex_field_init

@@ -17,3 +17,13 @@ void ghex_finalize()
 {
     context.reset();
 }
+
+extern "C"
+void ghex_obj_delete(ghex::bindings::obj_wrapper **wrapper_ref)
+{
+    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
+
+    // clear the fortran-side variable
+    *wrapper_ref = nullptr;
+    delete wrapper;
+}

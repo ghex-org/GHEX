@@ -26,16 +26,6 @@ void* ghex_comm_new()
 }
 
 extern "C"
-void ghex_comm_delete(ghex::bindings::obj_wrapper **wrapper_ref)
-{
-    ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
-
-    // clear the fortran-side variable
-    *wrapper_ref = nullptr;
-    delete wrapper;
-}
-
-extern "C"
 int ghex_comm_rank(ghex::bindings::obj_wrapper *wrapper)
 {
     return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->rank();

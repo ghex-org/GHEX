@@ -4,10 +4,12 @@ MODULE ghex_exchange_mod
   use ghex_structured_mod
   implicit none
 
+  ! definition of the exchange, including physical fields and the communication pattern
   type, bind(c) :: ghex_exchange_descriptor
      type(c_ptr) :: ptr = c_null_ptr
   end type ghex_exchange_descriptor
 
+  ! a handle to track a particular communication instance, supports wait()
   type, bind(c) :: ghex_exchange_handle
      type(c_ptr) :: ptr = c_null_ptr
   end type ghex_exchange_handle
@@ -15,18 +17,19 @@ MODULE ghex_exchange_mod
   interface
 
      ! exchange descriptor methods
-     type(ghex_exchange_descriptor) function ghex_exchange_new_wrapped(domains_desc, n_domains) bind(c, name="ghex_exchange_new")
+     type(ghex_exchange_descriptor) function ghex_exchange_desc_new_wrapped(domains_desc, n_domains) &
+          bind(c, name="ghex_exchange_desc_new")
        use iso_c_binding
        import ghex_domain_descriptor, ghex_exchange_descriptor
        type(c_ptr), value :: domains_desc
        integer(c_int), value :: n_domains
-     end function ghex_exchange_new_wrapped
+     end function ghex_exchange_desc_new_wrapped
 
-     subroutine ghex_exchange_delete(exchange_desc) bind(c)
+     subroutine ghex_exchange_desc_delete(exchange_desc) bind(c, name="ghex_obj_delete")
        use iso_c_binding
        import ghex_exchange_descriptor
        type(ghex_exchange_descriptor) :: exchange_desc
-     end subroutine ghex_exchange_delete
+     end subroutine ghex_exchange_desc_delete
 
 
      ! exchange handle 
@@ -36,7 +39,7 @@ MODULE ghex_exchange_mod
        type(ghex_exchange_handle), value :: exchange_handle
      end subroutine ghex_exchange_handle_wait
 
-     subroutine ghex_exchange_handle_delete(exchange_handle) bind(c)
+     subroutine ghex_exchange_handle_delete(exchange_handle) bind(c, name="ghex_obj_delete")
        use iso_c_binding
        import ghex_exchange_handle
        type(ghex_exchange_handle) :: exchange_handle
@@ -52,10 +55,10 @@ MODULE ghex_exchange_mod
 
 CONTAINS
 
-  type(ghex_exchange_descriptor) function ghex_exchange_new(domains_desc)
+  type(ghex_exchange_descriptor) function ghex_exchange_desc_new(domains_desc)
     type(ghex_domain_descriptor), dimension(:), target :: domains_desc
     
-    ghex_exchange_new = ghex_exchange_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
-  end function ghex_exchange_new
+    ghex_exchange_desc_new = ghex_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
+  end function ghex_exchange_desc_new
 
 END MODULE ghex_exchange_mod
