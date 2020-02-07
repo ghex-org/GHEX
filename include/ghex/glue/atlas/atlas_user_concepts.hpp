@@ -16,8 +16,8 @@
 #include <cstring>
 #include <cmath>
 
-#include "atlas/field.h"
-#include "atlas/array/ArrayView.h"
+#include <atlas/field.h>
+#include <atlas/array.h>
 
 #include "../../unstructured/grid.hpp"
 #include "../../arch_list.hpp"
@@ -295,7 +295,7 @@ namespace gridtools {
 
                 domain_id_t domain_id() const { return m_domain.domain_id(); }
 
-                device_id_type device_id() const { return 0; };
+                device_id_type device_id() const { return 0; }
 
                 /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
                 void set(const T& value, const index_t idx, const std::size_t level) {

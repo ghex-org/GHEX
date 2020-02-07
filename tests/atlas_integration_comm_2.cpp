@@ -12,12 +12,12 @@
 
 #include <gtest/gtest.h>
 
-#include "atlas/grid.h"
-#include "atlas/mesh.h"
-#include "atlas/meshgenerator.h"
-#include "atlas/functionspace.h"
-#include "atlas/field.h"
-#include "atlas/array.h"
+#include <atlas/grid.h>
+#include <atlas/mesh.h>
+#include <atlas/meshgenerator.h>
+#include <atlas/functionspace.h>
+#include <atlas/field.h>
+#include <atlas/array.h>
 
 #ifndef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/mpi/context.hpp>
@@ -25,13 +25,13 @@
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
 #include <ghex/threads/std_thread/primitives.hpp>
-#include "../include/ghex/unstructured/grid.hpp"
-#include "../include/ghex/unstructured/pattern.hpp"
-#include "../include/ghex/glue/atlas/atlas_user_concepts.hpp"
-#include "../include/ghex/communication_object_2.hpp"
+#include <ghex/unstructured/grid.hpp>
+#include <ghex/unstructured/pattern.hpp>
+#include <ghex/glue/atlas/atlas_user_concepts.hpp>
+#include <ghex/communication_object_2.hpp>
 
 #ifdef __CUDACC__
-#include "gridtools/common/cuda_util.hpp"
+#include <gridtools/common/cuda_util.hpp>
 #endif
 
 #ifndef GHEX_TEST_USE_UCX
