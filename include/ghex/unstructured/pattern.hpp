@@ -138,13 +138,6 @@ namespace gridtools {
                         return (address < other.address ? true : (address == other.address ? (tag < other.tag) : false));
                     }
 
-                    // print
-                    // /** @brief print*/
-                    // template<class CharT, class Traits>
-                    // friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id) {
-                    //     os << "{id=" << dom_id.id << ", tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
-                    //     return os;
-                    // }
                     /** @brief print*/
                     template<class CharT, class Traits>
                     friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id) {
