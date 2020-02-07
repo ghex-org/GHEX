@@ -301,8 +301,8 @@ namespace gridtools {
                         }
 
                         // set up all-to-all communication, send side
-                        comm.allToAll(recv_counts, send_counts);
-                        comm.allToAll(recv_levels, send_levels);
+                        comm.all_to_all(recv_counts, send_counts);
+                        comm.all_to_all(recv_levels, send_levels);
                         send_count = std::accumulate(send_counts.begin(), send_counts.end(), 0);
                         send_indexes.resize(send_count);
                         send_displs[0] = 0;
@@ -311,8 +311,8 @@ namespace gridtools {
                         }
 
                         // set up send halos
-                        comm.allToAllv(&recv_indexes[0], &recv_counts[0], &recv_displs[0],
-                                &send_indexes[0], &send_counts[0], &send_displs[0]);
+                        comm.all_to_allv(recv_indexes, recv_counts, recv_displs,
+                                send_indexes, send_counts, send_displs);
                         for (std::size_t rank = 0; rank < size; ++rank) {
                             if (send_counts[rank]) {
                                 // WARN: very simplified definition of extended domain id;
