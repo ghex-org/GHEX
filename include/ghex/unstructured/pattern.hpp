@@ -15,6 +15,7 @@
 #include <map>
 #include <numeric>
 #include <cstring>
+#include <iosfwd>
 
 #include "../transport_layer/context.hpp"
 #include "../allocator/unified_memory_allocator.hpp"
@@ -68,13 +69,13 @@ namespace gridtools {
                         iteration_space() noexcept = default;
                         iteration_space(const int partition,
                                 const std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>& local_index,
-                                const std::size_t levels = 1) noexcept :
+                                const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{local_index},
                             m_levels{levels} {}
                         iteration_space(const int partition,
                                 std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>&& local_index,
-                                const std::size_t levels = 1) noexcept :
+                                const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{std::move(local_index)},
                             m_levels{levels} {}
@@ -83,7 +84,7 @@ namespace gridtools {
                         // iteration_space(const int partition, V&& remote_index) noexcept :
                         //     m_partition{partition},
                         //     m_remote_index{std::forward<V>(remote_index)} {}
-                        iteration_space(const int partition, const index_type first, const index_type last, const std::size_t levels = 1) noexcept :
+                        iteration_space(const int partition, const index_type first, const index_type last, const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{},
                             m_levels{levels} {
