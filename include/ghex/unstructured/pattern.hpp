@@ -96,7 +96,6 @@ namespace gridtools {
 
                         // member functions
                         int partition() const noexcept { return m_partition; }
-                        // std::vector<index_type, gridtools::allocator::unified_memory_allocator<index_type>>& local_index() noexcept { return m_local_index; }
                         const std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>& local_index() const noexcept { return m_local_index; }
                         std::size_t levels() const noexcept { return m_levels; }
                         std::size_t size() const noexcept { return m_local_index.size() * m_levels; }
