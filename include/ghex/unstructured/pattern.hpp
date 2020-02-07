@@ -169,7 +169,6 @@ namespace gridtools {
             private:
 
                 // members
-                communicator_type m_comm;
                 iteration_space_pair m_domain;
                 extended_domain_id_type m_id;
                 map_type m_send_map;
@@ -179,16 +178,16 @@ namespace gridtools {
             public:
 
                 // ctors
-                pattern(communicator_type& comm, const iteration_space_pair& domain, const extended_domain_id_type& id) :
-                    m_comm(comm),
-                    m_domain(domain),
-                    m_id(id) {}
+                pattern(const iteration_space_pair& domain, const extended_domain_id_type& id) :
+                    m_domain{domain},
+                    m_id{id},
+                    m_send_map{},
+                    m_recv_map{},
+                    m_container{nullptr} {}
                 pattern(const pattern&) = default;
                 pattern(pattern&&) = default;
 
                 // member functions
-                communicator_type& communicator() noexcept { return m_comm; }
-                const communicator_type& communicator() const noexcept { return m_comm; }
                 domain_id_type domain_id() const noexcept { return m_id.id; }
                 extended_domain_id_type extended_domain_id() const noexcept { return m_id; }
                 map_type& send_halos() noexcept { return m_send_map; }
@@ -263,7 +262,7 @@ namespace gridtools {
                     for (const auto& d : d_range) { // WARN: so far, multiple domains are not fully supported
 
                         // setup pattern
-                        pattern_type p{new_comm, {my_rank, d.first(), d.last(), d.levels()}, {my_rank, my_rank, my_address, 0}};
+                        pattern_type p{{my_rank, d.first(), d.last(), d.levels()}, {my_rank, my_rank, my_address, 0}};
 
                         std::fill(recv_counts.begin(), recv_counts.end(), 0);
                         std::fill(send_counts.begin(), send_counts.end(), 0);
