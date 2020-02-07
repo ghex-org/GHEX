@@ -1,4 +1,4 @@
-set(_serial_tests aligned_allocator)
+set(_serial_tests aligned_allocator unified_memory_allocator)
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
