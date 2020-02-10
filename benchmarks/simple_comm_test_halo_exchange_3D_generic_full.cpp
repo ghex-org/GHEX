@@ -30,7 +30,6 @@
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
-#include <ghex/transport_layer/communicator.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 #include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"

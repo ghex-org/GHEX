@@ -57,17 +57,24 @@ namespace gridtools{
                         wait(); 
                         return std::move(m_data); 
                     }
+                    
+                    bool is_recv() const noexcept { return (m_handle.m_kind == request_kind::recv); }
 
                     /** Cancel the future.
                       * @return True if the request was successfully canceled */
                     bool cancel()
                     {
-                        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
-                        MPI_Status st;
-                        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
-                        int flag = false;
-                        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
-                        return flag;
+                        // we can  only cancel recv requests...
+                        if  (is_recv()) {
+                            GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
+                            MPI_Status st;
+                            GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
+                            int flag = false;
+                            GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
+                            return flag;
+                        }
+                        else
+                            return false;
                     }
                 };
 
@@ -107,14 +114,21 @@ namespace gridtools{
                         wait(); 
                     }
 
+                    bool is_recv() const noexcept { return (m_handle.m_kind == request_kind::recv); }
+
                     bool cancel()
                     {
-                        GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
-                        MPI_Status st;
-                        GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
-                        int flag = false;
-                        GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
-                        return flag;
+                        // we can  only cancel recv requests...
+                        if  (is_recv()) {
+                            GHEX_CHECK_MPI_RESULT(MPI_Cancel(&m_handle.get()));
+                            MPI_Status st;
+                            GHEX_CHECK_MPI_RESULT(MPI_Wait(&m_handle.get(), &st));
+                            int flag = false;
+                            GHEX_CHECK_MPI_RESULT(MPI_Test_cancelled(&st, &flag));
+                            return flag;
+                        }
+                        else
+                            return false;
                     }
                 };
 

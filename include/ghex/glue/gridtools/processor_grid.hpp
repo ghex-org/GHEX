@@ -15,7 +15,6 @@
 #include <array>
 
 #include "../../structured/domain_descriptor.hpp"
-#include "../../transport_layer/communicator.hpp"
 #include "../../transport_layer/mpi/communicator.hpp"
 
 #include <numeric>
