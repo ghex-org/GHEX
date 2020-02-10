@@ -217,7 +217,7 @@ namespace gridtools {
                                 dst,
                                 tag,
                                 std::forward<CallBack>(callback),
-                                std::make_shared<request_cb_state_type>(0));
+                                std::make_shared<request_cb_state_type>(request_cb_state_type::ongoing));
                             return {req_ptr, req_ptr->m_completed, &(m_send_worker->m_thread_primitives->mutex())};
                         }
                         else
@@ -275,7 +275,7 @@ namespace gridtools {
                                             src,
                                             tag,
                                             std::forward<CallBack>(callback),
-                                            std::make_shared<request_cb_state_type>(0));
+                                            std::make_shared<request_cb_state_type>(request_cb_state_type::ongoing));
                                         return request_cb_type{req_ptr, req_ptr->m_completed, 
                                             &(m_send_worker->m_thread_primitives->mutex())};
                                     }
@@ -352,7 +352,7 @@ namespace gridtools {
                         }
                         // else: cancelled - do nothing - cancel for sends does not exist
                         // set completion bit
-                        *req.m_completed = 2;
+                        *req.m_completed = request_cb_state_type::completed;
                         // destroy the request - releases the message
                         req.m_kind = request_kind::none;
                         req.~request_cb_data_type();
@@ -374,7 +374,7 @@ namespace gridtools {
                             req.m_worker->m_thread_primitives->critical(
                             [&req, ucx_req]()
                             {
-                                if (*req.m_completed == 3)
+                                if (*req.m_completed == request_cb_state_type::cancelled)
                                 {
                                     // cancelled
                                     // make sure it is really cancelled
@@ -387,14 +387,14 @@ namespace gridtools {
                                 else
                                 {
                                     // set flag to completing state
-                                    *req.m_completed = 1;
+                                    *req.m_completed = request_cb_state_type::completing;
                                 }
                             });
 
                             req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
                             req.m_worker->m_thread_primitives->critical([&req](){++(req.m_worker->m_progressed_recvs);});
                             // set completion bit
-                            *req.m_completed = 2;
+                            *req.m_completed = request_cb_state_type::completed;
                             // destroy the request - releases the message
                             req.m_kind = request_kind::none;
                             req.~request_cb_data_type();
@@ -406,7 +406,7 @@ namespace gridtools {
 			                // canceled - do nothing
                             req.m_worker->m_thread_primitives->critical([&req](){++(req.m_worker->m_progressed_cancels);});
                             // set completion bit
-                            *req.m_completed = 2;
+                            *req.m_completed = request_cb_state_type::completed;
                             // destroy the request - releases the message
                             req.m_kind = request_kind::none;
                             req.~request_cb_data_type(); 

@@ -59,6 +59,8 @@ namespace gridtools{
                 sizeof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>) +
                 alignof(request_data_ft<::gridtools::ghex::threads::atomic::primitives>)>;
 
+                enum class request_state : int { ongoing=0, completing, completed, cancelled };
+
                 /** @brief data required for callback based communication which will be stored in ucx provided storage.
                   * @tparam ThreadPrimitives The thread primitives type */
                 template<typename ThreadPrimitives>
@@ -68,7 +70,7 @@ namespace gridtools{
                     using message_type      = ::gridtools::ghex::tl::cb::any_message;
                     using rank_type         = endpoint_t::rank_type;
                     using tag_type          = typename worker_type::tag_type;
-                    using state_type        = short; //bool;
+                    using state_type        = request_state;
 
                     void*        m_ucx_ptr;
                     worker_type* m_worker;
@@ -265,7 +267,7 @@ namespace gridtools{
                     bool test()
                     {
                         if(!m_req) return true;
-                        if (*m_completed == 2)
+                        if (*m_completed == state_type::completed)
                         {
                             m_req = nullptr;
                             m_completed.reset();
@@ -283,7 +285,7 @@ namespace gridtools{
 
                         {
                             lock_type lock{*m_mutex};
-                            if (*m_completed > 0)
+                            if (static_cast<std::underlying_type_t<state_type>>(*m_completed) > 0)
                             {
                                 // already completed (2) or completing (1) by callback
                                 m_req = nullptr;
@@ -291,57 +293,32 @@ namespace gridtools{
                                 return false;
                             }
 
+                            //// TODO at this time, send requests cannot be canceled
+                            //// in UCX (1.7.0rc1)
+                            //// https://github.com/openucx/ucx/issues/1162
+                            ////
+                            //// TODO the below is only correct for recv requests,
+                            //// or for send requests under the assumption that
+                            //// the requests cannot be moved between threads.
+                            ////
+                            //// For the send worker we do not use locks, hence
+                            //// if request is canceled on another thread, it might
+                            //// clash with another send being submitted by the owner
+                            //// of ucp_worker
                             if (m_req->m_kind == request_kind::send) return false;
                             
                             // set flag to cancelled
-                            *m_completed = 3;
+                            *m_completed = state_type::cancelled;
                                 
                             auto ucx_ptr = m_req->m_ucx_ptr;
                             auto worker = m_req->m_worker->get();
 
-                            // set to zero here????
-                            // if we assume that the callback is always called, we
-                            // can handle this in the callback body- otherwise needs
-                            // to be done here:
-                            //request_init(ucx_ptr);
                             m_req->m_kind = request_kind::none;
                             ucp_request_cancel(worker, ucx_ptr);
                             m_req = nullptr;
                             m_completed.reset();
                             return true;
                         }
-
-                        //// TODO at this time, send requests cannot be canceled
-                        //// in UCX (1.7.0rc1)
-                        //// https://github.com/openucx/ucx/issues/1162
-                        ////
-                        //// TODO the below is only correct for recv requests,
-                        //// or for send requests under the assumption that
-                        //// the requests cannot be moved between threads.
-                        ////
-                        //// For the send worker we do not use locks, hence
-                        //// if request is canceled on another thread, it might
-                        //// clash with another send being submitted by the owner
-                        //// of ucp_worker
-
-                        //if (m_req->m_kind == request_kind::send) return false;
-
-                        //return m_req->m_worker->m_thread_primitives->critical([this]() {
-                        //    if (!(*m_completed)) {
-                        //        auto ucx_ptr = m_req->m_ucx_ptr;
-                        //        auto worker = m_req->m_worker->get();
-
-                        //        // set to zero here????
-                        //        // if we assume that the callback is always called, we
-                        //        // can handle this in the callback body- otherwise needs
-                        //        // to be done here:
-                        //        //request_init(ucx_ptr);
-                        //        ucp_request_cancel(worker, ucx_ptr);
-                        //    }
-                        //    m_req = nullptr;
-                        //    m_completed.reset();
-                        //    return true;
-                        //});
                     }
                 };
 
