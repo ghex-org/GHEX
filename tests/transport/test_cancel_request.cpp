@@ -1,3 +1,13 @@
+/* 
+ * GridTools
+ * 
+ * Copyright (c) 2014-2020, ETH Zurich
+ * All rights reserved.
+ * 
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * 
+ */
 #include <ghex/transport_layer/callback_communicator.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 #include <ghex/threads/atomic/primitives.hpp>
