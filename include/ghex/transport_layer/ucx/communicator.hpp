@@ -376,7 +376,8 @@ namespace gridtools {
                             {
                                 if (*req.m_completed == request_cb_state_type::cancelled)
                                 {
-                                    // cancelled
+                                    // cancelled just before we're executing this code
+                                    ++(req.m_worker->m_progressed_cancels);
                                     // make sure it is really cancelled
                                     req.m_kind = request_kind::none;
                                     req.~request_cb_data_type(); 
@@ -404,7 +405,8 @@ namespace gridtools {
                         else if (status == UCS_ERR_CANCELED)
                         {
 			                // canceled - do nothing
-                            req.m_worker->m_thread_primitives->critical([&req](){++(req.m_worker->m_progressed_cancels);});
+                            // need lock here? probably not
+                            ++(req.m_worker->m_progressed_cancels);
                             // set completion bit
                             *req.m_completed = request_cb_state_type::completed;
                             // destroy the request - releases the message
