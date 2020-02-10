@@ -12,12 +12,13 @@
 #define INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 
 #include "./communicator.hpp"
+#include "../communicator.hpp"
 
-// Try to use the PMI interface ...
+#ifdef GHEX_USE_PMI
+// use the PMI interface ...
 #include "./address_db_pmi.hpp"
-
+#else
 // ... and go to MPI if not available
-#ifndef GHEX_USE_PMI
 #include "./address_db_mpi.hpp"
 #endif
 
@@ -31,7 +32,7 @@ namespace gridtools {
             public: // member types
                 using rank_type         = ucx::endpoint_t::rank_type;
                 using worker_type       = ucx::worker_t<ThreadPrimitives>;
-                using communicator_type = ucx::communicator<ThreadPrimitives>;
+                using communicator_type = communicator<ucx::communicator<ThreadPrimitives>>;
 
             private: // member types
 
@@ -167,7 +168,7 @@ namespace gridtools {
                     // intialize database
                     m_db.init(m_worker.address());
                 }
-
+                
                 communicator_type get_serial_communicator()
                 {
                     return {&m_worker,&m_worker};
@@ -186,11 +187,6 @@ namespace gridtools {
                 rank_type rank() const { return m_db.rank(); }
                 rank_type size() const { return m_db.size(); }
                 ucp_context_h get() const noexcept { return m_context.m_context; }
-
-                void barrier()
-                {
-                }
-
             };
 
             namespace ucx {
@@ -239,12 +235,14 @@ namespace gridtools {
             {
                 static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm comm)
                 {
+                    auto new_comm = detail::clone_mpi_comm(comm);
 #if defined GHEX_USE_PMI
-                    ucx::address_db_pmi addr_db{comm};
+                    ucx::address_db_pmi addr_db{new_comm};
 #else
-                    ucx::address_db_mpi addr_db{comm};
+                    ucx::address_db_mpi addr_db{new_comm};
 #endif
-                    return std::make_unique<context<ucx_tag,ThreadPrimitives>>(num_threads, comm, std::move(addr_db));
+                    return std::unique_ptr<context<ucx_tag, ThreadPrimitives>>{
+                        new context<ucx_tag,ThreadPrimitives>{num_threads, new_comm, std::move(addr_db)}};
                 }
             };
             

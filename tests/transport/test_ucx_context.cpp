@@ -57,7 +57,7 @@ TEST(transport_layer, ucx_context)
             comm.send(payload, 0, token.id()).wait();
         }
 
-        context.barrier(token);
+        comm.barrier();
     };
 
     std::vector<std::thread> threads;
