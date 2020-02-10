@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_TL_UCX_ENDPOINT_HPP
 #define INCLUDED_GHEX_TL_UCX_ENDPOINT_HPP
 
+#include "../../common/moved_bit.hpp"
 #include "./error.hpp"
 #include "./address.hpp"
 
@@ -26,7 +27,7 @@ namespace gridtools {
                     rank_type m_rank;
                     ucp_ep_h  m_ep;
                     ucp_worker_h m_worker;
-                    bool      m_moved = false;
+                    moved_bit m_moved;
 
                     endpoint_t() noexcept : m_moved(true) {}
                     endpoint_t(rank_type rank, ucp_worker_h local_worker, const address_t& remote_worker_address)
@@ -43,16 +44,8 @@ namespace gridtools {
 
                     endpoint_t(const endpoint_t&) = delete;
                     endpoint_t& operator=(const endpoint_t&) = delete;
-
-                    endpoint_t(endpoint_t&& other) noexcept
-                    : m_rank(other.m_rank)
-                    , m_ep(other.m_ep)
-                    , m_worker(other.m_worker)
-                    , m_moved(other.m_moved)
-                    {
-                        other.m_moved = true;
-                    }
-
+                    endpoint_t(endpoint_t&& other) noexcept = default;
+                    
                     endpoint_t& operator=(endpoint_t&& other) noexcept
                     {
                         destroy();
@@ -60,8 +53,7 @@ namespace gridtools {
                         ::new((void*)(&m_ep)) ucp_ep_h{other.m_ep};
                         m_rank = other.m_rank;
                         m_worker= other.m_worker;
-                        m_moved = other.m_moved;
-                        other.m_moved = true;
+                        m_moved = std::move(other.m_moved);
                         return *this;
                     }
 
@@ -81,7 +73,7 @@ namespace gridtools {
                         }
                     }
 
-                    operator bool() const noexcept { return m_moved; }
+                    //operator bool() const noexcept { return m_moved; }
                     operator ucp_ep_h() const noexcept { return m_ep; }
 
                     rank_type rank() const noexcept { return m_rank; }
