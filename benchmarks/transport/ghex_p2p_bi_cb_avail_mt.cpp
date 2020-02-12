@@ -270,8 +270,8 @@ int main(int argc, char *argv[])
                 context.thread_primitives().master(token,
                     [&]() mutable
                     {
-                        sf = comm.send(smsg, peer_rank, 0x800000, [](communicator_type::message_type, int, int){});
-                        rf = comm.recv(rmsg, peer_rank, 0x800000, [](communicator_type::message_type, int, int){});
+                        sf = comm.send(smsg, peer_rank, 0x80000, [](communicator_type::message_type, int, int){});
+                        rf = comm.recv(rmsg, peer_rank, 0x80000, [](communicator_type::message_type, int, int){});
                     });
 
                 while(tail_recv == 0){
