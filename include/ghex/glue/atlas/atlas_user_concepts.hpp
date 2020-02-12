@@ -37,12 +37,12 @@ namespace gridtools {
         template<typename DomainId>
         class atlas_halo_generator;
 
-        /** @brief implements domain descriptor concept for Atlas domains
+        /** @brief Implements domain descriptor concept for Atlas domains
          * An Atlas domain has inner notion of the halos.
          * It has to be istantiated using a mesh which has already grown the required halo layer
          * due to the creation of a function space with a halo.
          * Null halo is fine too, provided that the mesh is in its final state.
-         * Be careful: domain size includes halos!
+         * Domain size is given including halo size.
          * @tparam DomainId domain id type*/
         template<typename DomainId>
         class atlas_domain_descriptor {
@@ -60,7 +60,7 @@ namespace gridtools {
                 int m_rank;
                 atlas::Field m_partition;
                 atlas::Field m_remote_index;
-                std::size_t m_levels; // WARN: should it be of index_t ?
+                std::size_t m_levels;
                 index_t m_size;
                 index_t m_first;
                 index_t m_last;
@@ -68,15 +68,13 @@ namespace gridtools {
             public:
 
                 // ctors
-                // NOTE: a constructor which takes as argument a reference to the whole mesh
-                // may not be a good idea, since it has to be spoecialized for a given function space.
-                /** @brief construct a local domain
+                /** @brief Constructs a local domain
                  * @param id domain id
-                 * @param partition field with partition indexes
-                 * @param remote_index field with local indexes in remote partition
-                 * @param size size of the domain + all required halo points
+                 * @param rank rank of processing element
+                 * @param partition partition indexes of domain (+ halo) elements (Atlas field)
+                 * @param remote_index local indexes in remote partition for domain (+ halo) elements (Atlas field)
                  * @param levels number of vertical levels
-                 * @param rank PE rank*/
+                 * @param size number of domain + halo points*/
                 atlas_domain_descriptor(domain_id_type id,
                                         const int rank,
                                         const atlas::Field& partition,
@@ -142,8 +140,9 @@ namespace gridtools {
 
         /** @brief halo generator for atlas domains
          * An Atlas domain has already the notion of halos.
-         * The purpose of the Atlas halo generator is to fill a container
-         * with indexes referring to remote partitions.
+         * The purpose of the halo generator is to fill a container
+         * in which each element (halo) gathers all the indexes
+         * referring to the same remote partition.
          * @tparam DomainId domain id type*/
         template<typename DomainId>
         class atlas_halo_generator {
@@ -154,12 +153,12 @@ namespace gridtools {
                 using domain_type = atlas_domain_descriptor<DomainId>;
                 using index_t = atlas::idx_t;
 
-                /** @brief essentially a partition index and a sequence of remote indexes;
-                 * conceptually, it is similar to an iteration space
-                 * (only differences are that here it is already specialized for atlas
-                 * and provides an insert method as well),
-                 * and this is why the two concepts could potentially coincide.
-                 * WARN: size() gives only horizontal size.*/
+                /** @brief Halo concept for Atlas. Puts together a neighbouring partition index
+                 * and the sequences of indexes of the elements of that partition.
+                 * Conceptually it is similar to an iteration space
+                 * and the two concepts could potentially coincide.
+                 * Stores information on the number of vertical levels as well,
+                 * but its size corresponds only to the horizontal size.*/
                 class halo {
 
                     private:
@@ -178,6 +177,7 @@ namespace gridtools {
                             m_local_index{},
                             m_remote_index{},
                             m_levels{levels} {}
+                        // following one not strictly needed
                         halo(const int partition,
                              const std::vector<index_t, gridtools::ghex::allocator::unified_memory_allocator<index_t>>& local_index,
                              const std::vector<index_t>& remote_index,
@@ -187,7 +187,7 @@ namespace gridtools {
                             m_remote_index{remote_index},
                             m_levels{levels} {
                             assert(local_index.size() == remote_index.size());
-                        } // WARN: is this constructor actually needed?
+                        }
 
                         // member functions
                         int partition() const noexcept { return m_partition; }
@@ -228,17 +228,17 @@ namespace gridtools {
             public:
 
                 // ctors
-                /** @brief construct a halo generator
-                 * @param rank PE rank
-                 * @param size number of PEs*/
+                /** @brief constructs a halo generator
+                 * @param rank rank of processing element
+                 * @param size number of processing elements*/
                 atlas_halo_generator(const int rank, const int size) noexcept :
                     m_rank{rank},
                     m_size{size} {}
 
                 // member functions
-                /** @brief generate halos
+                /** @brief generate halos (assumes 1 local domain per processing element)
                  * @param domain local domain instance
-                 * @return vector of receive halos, one for each PE*/
+                 * @return vector of receive halos, one for each local domain*/
                 auto operator()(const domain_type& domain) const {
 
                     std::vector<halo> halos{};
@@ -250,7 +250,7 @@ namespace gridtools {
                     const index_t* remote_index_data = atlas::array::make_view<index_t, 1>(domain.remote_index()).data();
 
                     // if the index refers to another rank, or even to the same rank but as a halo point,
-                    // corresponding halo is updated
+                    // the corresponding halo is updated
                     for (auto domain_idx = 0; domain_idx < domain.size(); ++domain_idx) {
                         if ((partition_data[domain_idx] != m_rank) || (remote_index_data[domain_idx] != domain_idx)) {
                             halos[partition_data[domain_idx]].push_back(domain_idx, remote_index_data[domain_idx]);
@@ -263,7 +263,9 @@ namespace gridtools {
 
         };
 
-        /** @brief CPU data descriptor*/
+        /** @brief CPU data descriptor
+         * @tparam T value type
+         * @tparam DomainDescriptor domain descriptor type*/
         template <typename T, typename DomainDescriptor>
         class atlas_data_descriptor {
 
@@ -283,6 +285,9 @@ namespace gridtools {
 
             public:
 
+                /** @brief constructs a CPU data descriptor
+                 * @param domain local domain instance
+                 * @param field Atlas field to be wrapped*/
                 atlas_data_descriptor(const DomainDescriptor& domain,
                                       const atlas::Field& field) :
                     m_domain{domain},
@@ -307,13 +312,9 @@ namespace gridtools {
                     return m_values(static_cast<std::size_t>(idx), level); // WARN: why std::size_t cast is needed here?
                 }
 
-                /** @brief multiple access set function, needed by GHEX in order to perform the unpacking.
-                 * WARN: it could be more efficient if the iteration space includes also the indexes on this domain;
-                 * in order to do so, iteration space needs to include an additional set of indexes;
-                 * for now, the needed indices are retrieved by looping over the whole doamin,
-                 * and filtering out all the indices by those on the desired remote partition.
+                /** @brief multiple access set function, needed by GHEX to perform the unpacking.
                  * @tparam IterationSpace iteration space type
-                 * @param is iteration space which to loop through in order to retrieve the coordinates at which to set back the buffer values
+                 * @param is iteration space which to loop through when setting back the buffer values
                  * @param buffer buffer with the data to be set back*/
                 template <typename IterationSpace>
                 void set(const IterationSpace& is, const Byte* buffer) {
@@ -325,9 +326,9 @@ namespace gridtools {
                     }
                 }
 
-                /** @brief multiple access get function, needed by GHEX in order to perform the packing
+                /** @brief multiple access get function, needed by GHEX to perform the packing
                  * @tparam IterationSpace iteration space type
-                 * @param is iteration space which to loop through in order to retrieve the coordinates at which to get the data
+                 * @param is iteration space which to loop through when getting the data from the internal storage
                  * @param buffer buffer to be filled*/
                 template <typename IterationSpace>
                 void get(const IterationSpace& is, Byte* buffer) const {
@@ -391,7 +392,9 @@ namespace gridtools {
             }
         }
 
-        /** @brief GPU data descriptor*/
+        /** @brief GPU data descriptor
+         * @tparam T value type
+         * @tparam DomainDescriptor domain descriptor type*/
         template <typename T, typename DomainDescriptor>
         class atlas_data_descriptor_gpu {
 
@@ -411,10 +414,14 @@ namespace gridtools {
 
             public:
 
+                /** @brief constructs a GPU data descriptor
+                 * @param domain local domain instance
+                 * @param device_id device id
+                 * @param field Atlas field to be wrapped*/
                 atlas_data_descriptor_gpu(
                         const DomainDescriptor& domain,
                         const device_id_type device_id,
-                        const atlas::Field& field) : // WARN: different from cpu data descriptor, but easy to change there
+                        const atlas::Field& field) :
                     m_domain{domain},
                     m_device_id{device_id},
                     m_values{atlas::array::make_device_view<T, 2>(field)} {}
