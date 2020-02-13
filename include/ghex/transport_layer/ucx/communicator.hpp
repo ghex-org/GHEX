@@ -359,6 +359,7 @@ namespace gridtools {
 				        ucp_request_free(ucx_req);
                     }
 
+                    // this function must be called from within a locked region
                     inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t* /*info*/)
                     {
                         auto& req = request_cb_data_type::get(ucx_req);
@@ -372,7 +373,7 @@ namespace gridtools {
                             }
 
                             req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
-                            req.m_worker->m_thread_primitives->critical([&req](){++(req.m_worker->m_progressed_recvs);});
+                            ++(req.m_worker->m_progressed_recvs);
                             // set completion bit
                             *req.m_completed = true;
                             // destroy the request - releases the message
@@ -384,7 +385,7 @@ namespace gridtools {
                         else if (status == UCS_ERR_CANCELED)
                         {
 			                // canceled - do nothing
-                            req.m_worker->m_thread_primitives->critical([&req](){++(req.m_worker->m_progressed_cancels);});
+                            ++(req.m_worker->m_progressed_cancels);
                             // set completion bit
                             *req.m_completed = true;
                             // destroy the request - releases the message

@@ -227,8 +227,8 @@ int main(int argc, char *argv[])
                 context.thread_primitives().master(token,
                     [&comm,&sf,&rf,&smsg,&rmsg,peer_rank]()
                     {
-                        sf = comm.send(smsg, peer_rank, 0x800000);
-                        rf = comm.recv(rmsg, peer_rank, 0x800000);
+                        sf = comm.send(smsg, peer_rank, 0x80000);
+                        rf = comm.recv(rmsg, peer_rank, 0x80000);
                     });
 
                 while(tail_recv == 0){
