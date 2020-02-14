@@ -60,7 +60,7 @@ namespace gridtools {
                     private:
 
                         int m_partition;
-                        std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>> m_local_index;
+                        std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>> m_local_index;
                         std::size_t m_levels;
 
                     public:
@@ -68,13 +68,13 @@ namespace gridtools {
                         // ctors
                         iteration_space() noexcept = default;
                         iteration_space(const int partition,
-                                const std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>& local_index,
+                                const std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>>& local_index,
                                 const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{local_index},
                             m_levels{levels} {}
                         iteration_space(const int partition,
-                                std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>&& local_index,
+                                std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>>&& local_index,
                                 const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{std::move(local_index)},
@@ -96,7 +96,7 @@ namespace gridtools {
 
                         // member functions
                         int partition() const noexcept { return m_partition; }
-                        const std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>>& local_index() const noexcept { return m_local_index; }
+                        const std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>>& local_index() const noexcept { return m_local_index; }
                         std::size_t levels() const noexcept { return m_levels; }
                         std::size_t size() const noexcept { return m_local_index.size() * m_levels; }
 
@@ -311,7 +311,7 @@ namespace gridtools {
                                 // a more complex one is needed for multiple domains
                                 int tag = (my_address << 7) + rank; // WARN: maximum rank / address = 2^7 - 1
                                 extended_domain_id_type id{static_cast<int>(rank), static_cast<int>(rank), static_cast<address_type>(rank), tag};
-                                std::vector<index_type, gridtools::ghex::allocator::unified_memory_allocator<index_type>> remote_index{};
+                                std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>> remote_index{};
                                 remote_index.resize(send_counts[rank]);
                                 std::memcpy(&remote_index[0],
                                         &send_indexes[static_cast<std::size_t>(send_displs[rank])],
