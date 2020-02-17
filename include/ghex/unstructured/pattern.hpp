@@ -50,11 +50,12 @@ namespace gridtools {
 
                 friend class pattern_container<communicator_type, grid_type, domain_id_type>;
 
-                /** @brief essentially a partition index and a sequence of remote indexes;
-                 * number of levels is provided as well, defaul is 1 (2D case):
-                 * the assumption is that each 2D element is a column, with 'levels' vertical elements.
-                 * WARN: a second index, and therefore a more complex iteration space,
-                 * is needed to handle correctly multiple vertical layers*/
+                /** @brief unstructured iteration space for accessing halo elements
+                 * Indices in 'm_local_index' are always assumed as local to partition 'm_partition'
+                 * (note that, on the other hand, each element returned by a halo generator has two series of indices,
+                 * one local to the receiving partition ('local index') and one local to the remote (sending) partiton ('remote index').
+                 * Number of levels is provided as well, with the assumption that each 2D element is a column
+                 * with 'levels' vertical elements (default is 1, i.e. 2D or fully unstructured case)*/
                 class iteration_space {
 
                     private:
@@ -118,7 +119,7 @@ namespace gridtools {
                 using iteration_space_pair = iteration_space;
                 using index_container_type = std::vector<iteration_space_pair>;
 
-                /** @brief extended domain id, including rank and tag information
+                /** @brief extended domain id, including rank, address and tag information
                  * WARN: domain id temporarily set equal to rank, differently from structured pattern case*/
                 struct extended_domain_id_type {
 
@@ -129,10 +130,6 @@ namespace gridtools {
                     int tag;
 
                     // member functions
-                    // /** @brief unique ordering given by id and tag*/
-                    // bool operator < (const extended_domain_id_type& other) const noexcept {
-                    //     return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
-                    // }
                     /** @brief unique ordering given by address and tag*/
                     bool operator < (const extended_domain_id_type& other) const noexcept {
                         return (address < other.address ? true : (address == other.address ? (tag < other.tag) : false));
@@ -151,7 +148,6 @@ namespace gridtools {
                 using map_type = std::map<extended_domain_id_type, index_container_type>;
 
                 // static member functions
-
                 /** @brief compute number of elements in an object of type index_container_type */
                 static int num_elements(const index_container_type& c) noexcept {
                     std::size_t s{0};
@@ -191,9 +187,8 @@ namespace gridtools {
 
                 /** @brief tie pattern to field
                  * @tparam Field field type
-                 * @param pc pattern container
                  * @param field field instance
-                 * @return buffer_info object which holds a refernce to the field, the pattern and the pattern container*/
+                 * @return buffer_info object which holds pointers to the field and the pattern*/
                 template<typename Field>
                 buffer_info<pattern, typename Field::arch_type, Field> operator()(Field& field) const {
                     return { *this, field, field.device_id() };
@@ -203,8 +198,9 @@ namespace gridtools {
 
         namespace detail {
 
-            /** @brief construct pattern with the help of all to all communication.
-             * WARN: strong assumption: halo can be factorized into horizontal dimension and vertical layers*/
+            /** @brief constructs the pattern with the help of all to all communications
+             * Note: halos are decomposed into horizontal dimensions and vertical levels,
+             * but a fully unstructured case can be treated exactly as a 2D case (m_levels = 1)*/
             template<typename Index>
             struct make_pattern_impl<unstructured::detail::grid<Index>> {
 
@@ -249,7 +245,7 @@ namespace gridtools {
                     std::vector<std::size_t> send_levels{};
                     send_levels.resize(size);
 
-                    // needed with multiple domains per PE
+                    // needed with multiple domains per rank
                     int m_max_tag = 999;
 
                     for (const auto& d : d_range) { // WARN: so far, multiple domains are not fully supported
