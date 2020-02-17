@@ -99,7 +99,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     local_domains.push_back(d);
 
     // Instantiate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;

@@ -15,6 +15,7 @@
 #include <cassert>
 #include <cstring>
 #include <cmath>
+#include <iosfwd>
 
 #include <atlas/field.h>
 #include <atlas/array.h>
@@ -38,9 +39,9 @@ namespace gridtools {
         class atlas_halo_generator;
 
         /** @brief Implements domain descriptor concept for Atlas domains
-         * An Atlas domain has inner notion of the halos.
-         * It has to be istantiated using a mesh which has already grown the required halo layer
-         * due to the creation of a function space with a halo.
+         * An Atlas domain is assumed to inlude the halo region as well,
+         * and has therefore to be istantiated using a mesh which has already grown the required halo layer
+         * after the creation of a function space with a halo.
          * Null halo is fine too, provided that the mesh is in its final state.
          * Domain size is given including halo size.
          * @tparam DomainId domain id type*/
@@ -153,7 +154,8 @@ namespace gridtools {
                 using domain_type = atlas_domain_descriptor<DomainId>;
                 using index_t = atlas::idx_t;
 
-                /** @brief Halo concept for Atlas. Puts together a neighbouring partition index
+                /** @brief Halo concept for Atlas
+                 * Puts together a neighbouring partition index
                  * and the sequences of indexes of the elements of that partition.
                  * Conceptually it is similar to an iteration space
                  * and the two concepts could potentially coincide.
@@ -222,18 +224,14 @@ namespace gridtools {
             private:
 
                 //members
-                int m_rank;
                 int m_size;
 
             public:
 
                 // ctors
                 /** @brief constructs a halo generator
-                 * @param rank rank of processing element
                  * @param size number of processing elements*/
-                atlas_halo_generator(const int rank, const int size) noexcept :
-                    m_rank{rank},
-                    m_size{size} {}
+                atlas_halo_generator(const int size) noexcept : m_size{size} {}
 
                 // member functions
                 /** @brief generate halos (assumes 1 local domain per processing element)
@@ -241,18 +239,18 @@ namespace gridtools {
                  * @return vector of receive halos, one for each local domain*/
                 auto operator()(const domain_type& domain) const {
 
+                    const int* partition_data = atlas::array::make_view<int, 1>(domain.partition()).data();
+                    const index_t* remote_index_data = atlas::array::make_view<index_t, 1>(domain.remote_index()).data();
+
                     std::vector<halo> halos{};
                     for (int rank = 0; rank < m_size; ++rank) {
                         halos.push_back({rank, domain.levels()});
                     }
 
-                    const int* partition_data = atlas::array::make_view<int, 1>(domain.partition()).data();
-                    const index_t* remote_index_data = atlas::array::make_view<index_t, 1>(domain.remote_index()).data();
-
                     // if the index refers to another rank, or even to the same rank but as a halo point,
                     // the corresponding halo is updated
                     for (auto domain_idx = 0; domain_idx < domain.size(); ++domain_idx) {
-                        if ((partition_data[domain_idx] != m_rank) || (remote_index_data[domain_idx] != domain_idx)) {
+                        if ((partition_data[domain_idx] != domain.rank()) || (remote_index_data[domain_idx] != domain_idx)) {
                             halos[partition_data[domain_idx]].push_back(domain_idx, remote_index_data[domain_idx]);
                         }
                     }

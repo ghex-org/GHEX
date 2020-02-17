@@ -81,7 +81,7 @@ TEST(atlas_integration, halo_exchange) {
     local_domains.push_back(d);
 
     // Instantiate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;
@@ -207,7 +207,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     local_domains_2.push_back(d_2);
 
     // Instantate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;

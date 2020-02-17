@@ -25,7 +25,7 @@ __global__ void add_one(T* values, const std::size_t n) {
 template <typename T> // Integer values assumed, type T used basically to test different alignments
 void run_test(const std::size_t n) {
 
-    using allocator_type = gridtools::ghex::allocator::unified_memory_allocator<T>;
+    using allocator_type = gridtools::ghex::allocator::cuda::unified_memory_allocator<T>;
 
     // Allocate on the CPU
     allocator_type alloc{};

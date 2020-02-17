@@ -144,7 +144,7 @@ TEST(atlas_integration, halo_generator) {
                                                     nb_nodes_1};
 
     // Instantate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // 1) test: halo generator exceptions
     EXPECT_NO_THROW(auto halos_ = hg(d););
@@ -189,7 +189,7 @@ TEST(atlas_integration, make_pattern) {
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     using grid_type = gridtools::ghex::unstructured::grid;
     EXPECT_NO_THROW(auto patterns_ = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains););
@@ -254,7 +254,7 @@ TEST(atlas_integration, halo_exchange) {
     local_domains.push_back(d);
 
     // Instantate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{rank, size};
+    gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;
