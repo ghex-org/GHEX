@@ -1,7 +1,7 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -26,28 +26,7 @@ namespace gridtools {
                 static MPI_Comm clone_mpi_comm(MPI_Comm mpi_comm) {
                     // clone the communicator first to be independent of user calls to the mpi runtime
                     MPI_Comm new_comm;
-                    int topo_type;
-                    GHEX_CHECK_MPI_RESULT(MPI_Topo_test(mpi_comm, &topo_type));
-                    if (MPI_CART == topo_type)
-                    {
-                        // using a cart comm
-                        int ndims;
-                        GHEX_CHECK_MPI_RESULT(MPI_Cartdim_get(mpi_comm, &ndims));
-                        auto dims = new int[ndims];
-                        auto periods = new int[ndims];
-                        auto coords = new int[ndims];
-                        GHEX_CHECK_MPI_RESULT(MPI_Cart_get(mpi_comm, ndims, dims, periods, coords));
-                        GHEX_CHECK_MPI_RESULT(MPI_Cart_create(mpi_comm, ndims, dims, periods, 0, &new_comm));
-                        delete[] dims;
-                        delete[] periods;
-                        delete[] coords;
-                    }
-                    else
-                    {
-                        int rank;
-                        GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(mpi_comm,&rank));
-                        GHEX_CHECK_MPI_RESULT(MPI_Comm_split(mpi_comm, 0, rank, &new_comm));
-                    }
+                    MPI_Comm_dup(mpi_comm, &new_comm);
                     return new_comm;
                 }
                 

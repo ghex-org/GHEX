@@ -1,3 +1,13 @@
+/* 
+ * GridTools
+ * 
+ * Copyright (c) 2014-2020, ETH Zurich
+ * All rights reserved.
+ * 
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * 
+ */
 #include <iostream>
 #include <vector>
 #include <atomic>
@@ -217,8 +227,8 @@ int main(int argc, char *argv[])
                 context.thread_primitives().master(token,
                     [&comm,&sf,&rf,&smsg,&rmsg,peer_rank]()
                     {
-                        sf = comm.send(smsg, peer_rank, 0x800000);
-                        rf = comm.recv(rmsg, peer_rank, 0x800000);
+                        sf = comm.send(smsg, peer_rank, 0x80000);
+                        rf = comm.recv(rmsg, peer_rank, 0x80000);
                     });
 
                 while(tail_recv == 0){
