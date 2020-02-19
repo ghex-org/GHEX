@@ -68,8 +68,8 @@ namespace gridtools {
                 /** @brief Constructs a local domain
                  * @param id domain id
                  * @param rank rank of processing element
-                 * @param partition partition indexes of domain (+ halo) elements (Atlas field)
-                 * @param remote_index local indexes in remote partition for domain (+ halo) elements (Atlas field)
+                 * @param partition partition indices of domain (+ halo) elements (Atlas field)
+                 * @param remote_index local indices in remote partition for domain (+ halo) elements (Atlas field)
                  * @param levels number of vertical levels
                  * @param size number of domain + halo points*/
                 atlas_domain_descriptor(domain_id_type id,
@@ -128,8 +128,8 @@ namespace gridtools {
                     os << "domain id = " << domain.domain_id() << ";\n"
                        << "size = " << domain.size() << ";\n"
                        << "# levels = " << domain.levels() << ";\n"
-                       << "partition indexes: [" << domain.partition() << "]\n"
-                       << "remote indexes: [" << domain.remote_index() << "]\n";
+                       << "partition indices: [" << domain.partition() << "]\n"
+                       << "remote indices: [" << domain.remote_index() << "]\n";
                     return os;
                 }
 
@@ -138,7 +138,7 @@ namespace gridtools {
         /** @brief halo generator for atlas domains
          * An Atlas domain has already the notion of halos.
          * The purpose of the halo generator is to fill a container
-         * in which each element (halo) gathers all the indexes
+         * in which each element (halo) gathers all the indices
          * referring to the same remote partition.
          * @tparam DomainId domain id type*/
         template<typename DomainId>
@@ -152,7 +152,7 @@ namespace gridtools {
 
                 /** @brief Halo concept for Atlas
                  * Puts together a neighbouring partition index
-                 * and the sequences of indexes of the elements of that partition.
+                 * and the sequences of indices of the elements of that partition.
                  * Conceptually it is similar to an iteration space
                  * and the two concepts could potentially coincide.
                  * Stores information on the number of vertical levels as well,
@@ -207,9 +207,9 @@ namespace gridtools {
                             os << "size = " << h.size() << ";\n"
                                << "# levels = " << h.levels() << ";\n"
                                << "partition = " << h.partition() << ";\n"
-                               << "local indexes: [ ";
+                               << "local indices: [ ";
                             for (auto idx : h.local_index()) { os << idx << " "; }
-                            os << "]\nremote indexes: [ ";
+                            os << "]\nremote indices: [ ";
                             for (auto idx : h.remote_index()) { os << idx << " "; }
                             os << "]\n";
                             return os;
