@@ -149,6 +149,7 @@ namespace gridtools {
                 // member types
                 using domain_type = atlas_domain_descriptor<DomainId>;
                 using index_t = atlas::idx_t;
+                using u_m_allocator_t = gridtools::ghex::allocator::cuda::unified_memory_allocator<index_t>;
 
                 /** @brief Halo concept for Atlas
                  * Puts together a neighbouring partition index
@@ -162,7 +163,7 @@ namespace gridtools {
                     private:
 
                         int m_partition;
-                        std::vector<index_t, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_t>> m_local_index;
+                        std::vector<index_t, u_m_allocator_t> m_local_index;
                         std::vector<index_t> m_remote_index;
                         std::size_t m_levels;
 
@@ -177,7 +178,7 @@ namespace gridtools {
                             m_levels{levels} {}
                         // following one not strictly needed
                         halo(const int partition,
-                             const std::vector<index_t, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_t>>& local_index,
+                             const std::vector<index_t, u_m_allocator_t>& local_index,
                              const std::vector<index_t>& remote_index,
                              const std::size_t levels = 1) noexcept :
                             m_partition{partition},
@@ -189,8 +190,8 @@ namespace gridtools {
 
                         // member functions
                         int partition() const noexcept { return m_partition; }
-                        std::vector<index_t, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_t>>& local_index() noexcept { return m_local_index; }
-                        const std::vector<index_t, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_t>>& local_index() const noexcept { return m_local_index; }
+                        std::vector<index_t, u_m_allocator_t>& local_index() noexcept { return m_local_index; }
+                        const std::vector<index_t, u_m_allocator_t>& local_index() const noexcept { return m_local_index; }
                         std::vector<index_t>& remote_index() noexcept { return m_remote_index; }
                         const std::vector<index_t>& remote_index() const noexcept { return m_remote_index; }
                         std::size_t levels() const noexcept { return m_levels; }
