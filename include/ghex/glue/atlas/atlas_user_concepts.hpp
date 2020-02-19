@@ -280,7 +280,7 @@ namespace gridtools {
 
             private:
 
-                const domain_descriptor_type& m_domain;
+                domain_id_type m_domain_id;
                 atlas::array::ArrayView<value_type, 2> m_values;
 
             public:
@@ -290,7 +290,7 @@ namespace gridtools {
                  * @param field Atlas field to be wrapped*/
                 atlas_data_descriptor(const domain_descriptor_type& domain,
                                       const atlas::Field& field) :
-                    m_domain{domain},
+                    m_domain_id{domain.domain_id()},
                     m_values{atlas::array::make_view<value_type, 2>(field)} {}
 
                 /** @brief data type size, mandatory*/
@@ -298,7 +298,7 @@ namespace gridtools {
                     return sizeof (value_type);
                 }
 
-                domain_id_type domain_id() const { return m_domain.domain_id(); }
+                domain_id_type domain_id() const { return m_domain_id; }
 
                 device_id_type device_id() const { return 0; }
 
@@ -407,7 +407,7 @@ namespace gridtools {
 
             private:
 
-                const domain_descriptor_type& m_domain;
+                domain_id_type m_domain_id;
                 device_id_type m_device_id;
                 atlas::array::ArrayView<value_type, 2> m_values;
 
@@ -421,7 +421,7 @@ namespace gridtools {
                         const domain_descriptor_type& domain,
                         const device_id_type device_id,
                         const atlas::Field& field) :
-                    m_domain{domain},
+                    m_domain_id{domain.domain_id()},
                     m_device_id{device_id},
                     m_values{atlas::array::make_device_view<value_type, 2>(field)} {}
 
@@ -430,7 +430,7 @@ namespace gridtools {
                     return sizeof (value_type);
                 }
 
-                domain_id_type domain_id() const { return m_domain.domain_id(); }
+                domain_id_type domain_id() const { return m_domain_id; }
 
                 device_id_type device_id() const { return m_device_id; };
 
