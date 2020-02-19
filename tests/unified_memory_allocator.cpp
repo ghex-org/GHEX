@@ -50,6 +50,7 @@ void run_test(const std::size_t n) {
     // Launch kernels to access from GPU
     add_one<T><<<n/32, 32>>>(ptr, n); // n = k * 32, k = 1, 2, ...
     add_one<T><<<n/32, 32>>>(&(vec[0]), n); // n = k * 32, k = 1, 2, ...
+    cudaDeviceSynchronize();
 
     // Access from the CPU and verify
     for (std::size_t i = 0; i < n; ++i) {
