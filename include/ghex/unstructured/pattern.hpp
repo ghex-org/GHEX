@@ -80,11 +80,6 @@ namespace gridtools {
                             m_partition{partition},
                             m_local_index{std::move(local_index)},
                             m_levels{levels} {}
-                        // less safe but maybe preferable
-                        // template<typename V>
-                        // iteration_space(const int partition, V&& remote_index) noexcept :
-                        //     m_partition{partition},
-                        //     m_remote_index{std::forward<V>(remote_index)} {}
                         iteration_space(const int partition, const index_type first, const index_type last, const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{},
