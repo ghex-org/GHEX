@@ -34,10 +34,6 @@ namespace gridtools {
 
     namespace ghex {
 
-        // forward declaration
-        template<typename DomainId>
-        class atlas_halo_generator;
-
         /** @brief Implements domain descriptor concept for Atlas domains
          * An Atlas domain is assumed to inlude the halo region as well,
          * and has therefore to be istantiated using a mesh which has already grown the required halo layer
@@ -261,65 +257,71 @@ namespace gridtools {
 
         };
 
-        /** @brief CPU data descriptor
-         * @tparam T value type
-         * @tparam DomainDescriptor domain descriptor type*/
-        template <typename T, typename DomainDescriptor>
-        class atlas_data_descriptor {
+        /** @brief Atlas data descriptor (forward declaration)
+         * @tparam Arch device type in which field storage is allocated
+         * @tparam DomainId domain id type
+         * @tparam T value type*/
+        template <typename Arch, typename DomainId, typename T>
+        class atlas_data_descriptor;
+
+        /** @brief Atlas data descriptor (CPU specialization)*/
+        template <typename DomainId, typename T>
+        class atlas_data_descriptor<gridtools::ghex::cpu, DomainId, T> {
 
             public:
 
-                using value_type = T;
-                using index_t = typename DomainDescriptor::index_t;
-                using domain_id_t = typename DomainDescriptor::domain_id_type;
                 using arch_type = gridtools::ghex::cpu;
+                using domain_id_type = DomainId;
+                using value_type = T;
+                using domain_descriptor_type = atlas_domain_descriptor<domain_id_type>;
+                using index_t = typename domain_descriptor_type::index_t;
                 using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
-                using Byte = unsigned char;
+                using byte_t = unsigned char;
 
             private:
 
-                const DomainDescriptor& m_domain;
-                atlas::array::ArrayView<T, 2> m_values;
+                const domain_descriptor_type& m_domain;
+                atlas::array::ArrayView<value_type, 2> m_values;
 
             public:
 
                 /** @brief constructs a CPU data descriptor
                  * @param domain local domain instance
                  * @param field Atlas field to be wrapped*/
-                atlas_data_descriptor(const DomainDescriptor& domain,
+                atlas_data_descriptor(const domain_descriptor_type& domain,
                                       const atlas::Field& field) :
                     m_domain{domain},
-                    m_values{atlas::array::make_view<T, 2>(field)} {}
+                    m_values{atlas::array::make_view<value_type, 2>(field)} {}
 
                 /** @brief data type size, mandatory*/
                 std::size_t data_type_size() const {
-                    return sizeof (T);
+                    return sizeof (value_type);
                 }
 
-                domain_id_t domain_id() const { return m_domain.domain_id(); }
+                domain_id_type domain_id() const { return m_domain.domain_id(); }
 
                 device_id_type device_id() const { return 0; }
 
-                /** @brief single access set function, not mandatory but used by the corresponding multiple access operator*/
-                void set(const T& value, const index_t idx, const std::size_t level) {
-                    m_values(static_cast<std::size_t>(idx), level) = value; // WARN: why std::size_t cast is needed here?
-                }
-
-                /** @brief single access get function, not mandatory but used by the corresponding multiple access operator*/
-                const T& get(const index_t idx, const std::size_t level) const {
+                /** @brief single access operator, used by multiple access set function*/
+                value_type& operator()(const index_t idx, const std::size_t level) {
                     return m_values(static_cast<std::size_t>(idx), level); // WARN: why std::size_t cast is needed here?
                 }
 
-                /** @brief multiple access set function, needed by GHEX to perform the unpacking.
+                /** @brief single access operator (const version), used by multiple access get function*/
+                const value_type& operator()(const index_t idx, const std::size_t level) const {
+                    return m_values(static_cast<std::size_t>(idx), level); // WARN: why std::size_t cast is needed here?
+                }
+
+                /** @brief multiple access set function, needed by GHEX to perform the unpacking
                  * @tparam IterationSpace iteration space type
                  * @param is iteration space which to loop through when setting back the buffer values
                  * @param buffer buffer with the data to be set back*/
                 template <typename IterationSpace>
-                void set(const IterationSpace& is, const Byte* buffer) {
+                void set(const IterationSpace& is, const byte_t* buffer) {
                     for (index_t idx : is.local_index()) {
                         for (std::size_t level = 0; level < is.levels(); ++level) {
-                            set(*(reinterpret_cast<const T*>(buffer)), idx, level);
-                            buffer += sizeof(T);
+                            std::memcpy(&((*this)(idx, level)), buffer, sizeof(value_type));
+                            buffer += sizeof(value_type);
                         }
                     }
                 }
@@ -329,26 +331,26 @@ namespace gridtools {
                  * @param is iteration space which to loop through when getting the data from the internal storage
                  * @param buffer buffer to be filled*/
                 template <typename IterationSpace>
-                void get(const IterationSpace& is, Byte* buffer) const {
+                void get(const IterationSpace& is, byte_t* buffer) const {
                     for (index_t idx : is.local_index()) {
                         for (std::size_t level = 0; level < is.levels(); ++level) {
-                            std::memcpy(buffer, &get(idx, level), sizeof(T));
-                            buffer += sizeof(T);
+                            std::memcpy(buffer, &((*this)(idx, level)), sizeof(value_type));
+                            buffer += sizeof(value_type);
                         }
                     }
                 }
 
                 template<typename IndexContainer>
-                void pack(T* buffer, const IndexContainer& c, void*) {
+                void pack(value_type* buffer, const IndexContainer& c, void*) {
                     for (const auto& is : c) {
-                        get(is, reinterpret_cast<Byte*>(buffer));
+                        get(is, reinterpret_cast<byte_t*>(buffer));
                     }
                 }
 
                 template<typename IndexContainer>
-                void unpack(const T* buffer, const IndexContainer& c, void*) {
+                void unpack(const value_type* buffer, const IndexContainer& c, void*) {
                     for (const auto& is : c) {
-                        set(is, reinterpret_cast<const Byte*>(buffer));
+                        set(is, reinterpret_cast<const byte_t*>(buffer));
                     }
                 }
 
@@ -390,25 +392,24 @@ namespace gridtools {
             }
         }
 
-        /** @brief GPU data descriptor
-         * @tparam T value type
-         * @tparam DomainDescriptor domain descriptor type*/
-        template <typename T, typename DomainDescriptor>
-        class atlas_data_descriptor_gpu {
+        /** @brief Atlas data descriptor (GPU specialization)*/
+        template <typename DomainId, typename T>
+        class atlas_data_descriptor<gridtools::ghex::gpu, DomainId, T> {
 
             public:
 
-                using value_type = T;
-                using index_t = typename DomainDescriptor::index_t;
-                using domain_id_t = typename DomainDescriptor::domain_id_type;
                 using arch_type = gridtools::ghex::gpu;
+                using domain_id_type = DomainId;
+                using value_type = T;
+                using domain_descriptor_type = atlas_domain_descriptor<domain_id_type>;
+                using index_t = typename domain_descriptor_type::index_t;
                 using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
 
             private:
 
-                const DomainDescriptor& m_domain;
+                const domain_descriptor_type& m_domain;
                 device_id_type m_device_id;
-                atlas::array::ArrayView<T, 2> m_values;
+                atlas::array::ArrayView<value_type, 2> m_values;
 
             public:
 
@@ -416,28 +417,28 @@ namespace gridtools {
                  * @param domain local domain instance
                  * @param device_id device id
                  * @param field Atlas field to be wrapped*/
-                atlas_data_descriptor_gpu(
-                        const DomainDescriptor& domain,
+                atlas_data_descriptor(
+                        const domain_descriptor_type& domain,
                         const device_id_type device_id,
                         const atlas::Field& field) :
                     m_domain{domain},
                     m_device_id{device_id},
-                    m_values{atlas::array::make_device_view<T, 2>(field)} {}
+                    m_values{atlas::array::make_device_view<value_type, 2>(field)} {}
 
                 /** @brief data type size, mandatory*/
                 std::size_t data_type_size() const {
-                    return sizeof (T);
+                    return sizeof (value_type);
                 }
 
-                domain_id_t domain_id() const { return m_domain.domain_id(); }
+                domain_id_type domain_id() const { return m_domain.domain_id(); }
 
                 device_id_type device_id() const { return m_device_id; };
 
                 template<typename IndexContainer>
-                void pack(T* buffer, const IndexContainer& c, void*) {
+                void pack(value_type* buffer, const IndexContainer& c, void*) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_index().size()) / THREADS_PER_BLOCK));
-                        pack_kernel<T, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
+                        pack_kernel<value_type, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
                                 m_values,
                                 is.local_index().size(),
                                 &(is.local_index()[0]),
@@ -448,10 +449,10 @@ namespace gridtools {
                 }
 
                 template<typename IndexContainer>
-                void unpack(const T* buffer, const IndexContainer& c, void*) {
+                void unpack(const value_type* buffer, const IndexContainer& c, void*) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_index().size()) / THREADS_PER_BLOCK));
-                        unpack_kernel<T, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
+                        unpack_kernel<value_type, index_t><<<n_blocks, THREADS_PER_BLOCK>>>(
                                 is.size(),
                                 buffer,
                                 is.local_index().size(),
