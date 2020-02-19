@@ -28,6 +28,7 @@
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
+#include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
 
 #ifdef __CUDACC__
@@ -46,7 +47,10 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 TEST(atlas_integration, halo_exchange) {
 
-    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
+    using domain_id_t = int;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
+    using grid_type = gridtools::ghex::unstructured::grid;
+    using cpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
@@ -84,7 +88,6 @@ TEST(atlas_integration, halo_exchange) {
     gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // Make patterns
-    using grid_type = gridtools::ghex::unstructured::grid;
     auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
 
     // Make communication object
@@ -105,7 +108,7 @@ TEST(atlas_integration, halo_exchange) {
     }
 
     // Instantiate data descriptor
-    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
+    cpu_data_descriptor_t data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // Atlas halo exchange (reference values)
     fs_nodes.haloExchange(fields["atlas_field_1"]);
@@ -122,6 +125,9 @@ TEST(atlas_integration, halo_exchange) {
     }
 
 #ifdef __CUDACC__
+    // Additional data descriptor type for GPU
+    using gpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
+
     // Additional field for GPU halo exchange
     fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1_gpu")));
     auto GHEX_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["GHEX_field_1_gpu"]);
@@ -134,7 +140,7 @@ TEST(atlas_integration, halo_exchange) {
     fields["GHEX_field_1_gpu"].cloneToDevice();
 
     // Additional data descriptor for GPU halo exchange
-    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
+    gpu_data_descriptor_t data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
 
     // GHEX halo exchange on GPU
     auto h_gpu = co.exchange(patterns(data_1_gpu));
@@ -155,7 +161,11 @@ TEST(atlas_integration, halo_exchange) {
 
 TEST(atlas_integration, halo_exchange_multiple_patterns) {
 
-    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
+    using domain_id_t = int;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
+    using grid_type = gridtools::ghex::unstructured::grid;
+    using cpu_int_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
+    using cpu_double_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, double>;
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
@@ -210,7 +220,6 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // Make patterns
-    using grid_type = gridtools::ghex::unstructured::grid;
     auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_1);
     auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_2);
 
@@ -243,10 +252,10 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     }
 
     // Instantiate data descriptors
-    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> serial_data_1{local_domains_1.front(), fields_1["serial_field_1"]};
-    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> multi_data_1{local_domains_1.front(), fields_1["multi_field_1"]};
-    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> serial_data_2{local_domains_2.front(), fields_2["serial_field_2"]};
-    gridtools::ghex::atlas_data_descriptor<double, domain_descriptor_t> multi_data_2{local_domains_2.front(), fields_2["multi_field_2"]};
+    cpu_int_data_descriptor_t serial_data_1{local_domains_1.front(), fields_1["serial_field_1"]};
+    cpu_int_data_descriptor_t multi_data_1{local_domains_1.front(), fields_1["multi_field_1"]};
+    cpu_double_data_descriptor_t serial_data_2{local_domains_2.front(), fields_2["serial_field_2"]};
+    cpu_double_data_descriptor_t multi_data_2{local_domains_2.front(), fields_2["multi_field_2"]};
 
     // Serial halo exchange
     auto h_s1 = co.exchange(patterns_1(serial_data_1));
@@ -271,6 +280,10 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     }
 
 #ifdef __CUDACC__
+    // Additional data descriptor types for GPU
+    using gpu_int_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
+    using gpu_double_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, double>;
+
     // Additional fields for GPU halo exchange
     fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("gpu_multi_field_1")));
     fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("gpu_multi_field_2")));
@@ -292,8 +305,8 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     fields_2["gpu_multi_field_2"].cloneToDevice();
 
     // Additional data descriptors for GPU halo exchange
-    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> gpu_multi_data_1{local_domains_1.front(), 0, fields_1["gpu_multi_field_1"]};
-    gridtools::ghex::atlas_data_descriptor_gpu<double, domain_descriptor_t> gpu_multi_data_2{local_domains_2.front(), 0, fields_2["gpu_multi_field_2"]};
+    gpu_int_data_descriptor_t gpu_multi_data_1{local_domains_1.front(), 0, fields_1["gpu_multi_field_1"]};
+    gpu_double_data_descriptor_t gpu_multi_data_2{local_domains_2.front(), 0, fields_2["gpu_multi_field_2"]};
 
     // Multiple halo exchange on the GPU
     auto h_m_gpu = co.exchange(patterns_1(gpu_multi_data_1), patterns_2(gpu_multi_data_2));

@@ -28,6 +28,7 @@
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
+#include <ghex/arch_list.hpp>
 #include <ghex/communication_object.hpp>
 
 
@@ -154,6 +155,8 @@ TEST(atlas_integration, halo_generator) {
 
 TEST(atlas_integration, make_pattern) {
 
+    using grid_type = gridtools::ghex::unstructured::grid;
+
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
@@ -191,7 +194,6 @@ TEST(atlas_integration, make_pattern) {
     // Instantate halo generator
     gridtools::ghex::atlas_halo_generator<int> hg{size};
 
-    using grid_type = gridtools::ghex::unstructured::grid;
     EXPECT_NO_THROW(auto patterns_ = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains););
 
 }
@@ -199,7 +201,10 @@ TEST(atlas_integration, make_pattern) {
 
 TEST(atlas_integration, halo_exchange) {
 
-    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
+    using domain_id_t = int;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
+    using grid_type = gridtools::ghex::unstructured::grid;
+    using data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
@@ -257,7 +262,6 @@ TEST(atlas_integration, halo_exchange) {
     gridtools::ghex::atlas_halo_generator<int> hg{size};
 
     // Make patterns
-    using grid_type = gridtools::ghex::unstructured::grid;
     auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
 
     // Istantiate communication object
@@ -268,7 +272,7 @@ TEST(atlas_integration, halo_exchange) {
     }
 
     // Istantiate data descriptor
-    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
+    data_descriptor_t data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // ==================== atlas halo exchange ====================
 

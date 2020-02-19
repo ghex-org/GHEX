@@ -29,6 +29,7 @@
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
+#include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
 #include <ghex/common/timer.hpp>
 
@@ -49,7 +50,9 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     using timer_type = gridtools::ghex::timer;
-    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<int>;
+    using domain_id_t = int;
+    using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
+    using cpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
 
     const int n_iter = 50;
 
@@ -123,7 +126,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     }
 
     // Instantiate data descriptor
-    gridtools::ghex::atlas_data_descriptor<int, domain_descriptor_t> data_1{local_domains.front(), fields["GHEX_field_1"]};
+    cpu_data_descriptor_t data_1{local_domains.front(), fields["GHEX_field_1"]};
 
     // Atlas halo exchange
     fs_nodes.haloExchange(fields["atlas_field_1"]); // first iteration
@@ -172,6 +175,10 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
         << "\tglobal time = " << t_ghex_cpu_global.mean() / 1000.0 << "+/-" << t_ghex_cpu_global.stddev() / 1000.0 << "s\n";
 
 #ifdef __CUDACC__
+
+    // Additional data descriptor type for GPU
+    using gpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
+
     // Additional fields for GPU halo exchange
     fields.add(fs_nodes.createField<int>(atlas::option::name("atlas_field_1_gpu")));
     fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1_gpu")));
@@ -188,7 +195,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     fields["GHEX_field_1_gpu"].cloneToDevice();
 
     // Additional data descriptor for GPU halo exchange
-    gridtools::ghex::atlas_data_descriptor_gpu<int, domain_descriptor_t> data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
+    gpu_data_descriptor_t data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
 
     // Atlas halo exchange on GPU
     fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true); // first iteration
