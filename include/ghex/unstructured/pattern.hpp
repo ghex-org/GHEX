@@ -74,12 +74,6 @@ namespace gridtools {
                             m_partition{partition},
                             m_local_index{local_index},
                             m_levels{levels} {}
-                        iteration_space(const int partition,
-                                std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>>&& local_index,
-                                const std::size_t levels = 1) :
-                            m_partition{partition},
-                            m_local_index{std::move(local_index)},
-                            m_levels{levels} {}
                         iteration_space(const int partition, const index_type first, const index_type last, const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{},
