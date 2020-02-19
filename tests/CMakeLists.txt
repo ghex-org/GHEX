@@ -8,6 +8,19 @@ foreach (_t ${_serial_tests})
     )
 endforeach()
 
+if (USE_GPU)
+    set(_serial_tests_gpu unified_memory_allocator)
+    foreach (_t ${_serial_tests_gpu})
+        add_executable(${_t}_gpu ${_t}.cu)
+        target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
+        target_link_libraries(${_t}_gpu gtest_main_mt)
+        add_test(
+            NAME ${_t}.cu
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
+        )
+    endforeach()
+endif()
+
 #set(_tests mpi_allgather communication_object)
 set(_tests mpi_allgather)
 
