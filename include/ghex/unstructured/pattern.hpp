@@ -58,10 +58,14 @@ namespace gridtools {
                  * with 'levels' vertical elements (default is 1, i.e. 2D or fully unstructured case)*/
                 class iteration_space {
 
+                    public:
+
+                        using u_m_allocator_t = gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>;
+
                     private:
 
                         int m_partition;
-                        std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>> m_local_index;
+                        std::vector<index_type, u_m_allocator_t> m_local_index;
                         std::size_t m_levels;
 
                     public:
@@ -69,7 +73,7 @@ namespace gridtools {
                         // ctors
                         iteration_space() noexcept = default;
                         iteration_space(const int partition,
-                                const std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>>& local_index,
+                                const std::vector<index_type, u_m_allocator_t>& local_index,
                                 const std::size_t levels = 1) :
                             m_partition{partition},
                             m_local_index{local_index},
@@ -86,7 +90,7 @@ namespace gridtools {
 
                         // member functions
                         int partition() const noexcept { return m_partition; }
-                        const std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>>& local_index() const noexcept { return m_local_index; }
+                        const std::vector<index_type, u_m_allocator_t>& local_index() const noexcept { return m_local_index; }
                         std::size_t levels() const noexcept { return m_levels; }
                         std::size_t size() const noexcept { return m_local_index.size() * m_levels; }
 
@@ -207,6 +211,7 @@ namespace gridtools {
                     using index_container_type = typename pattern_type::index_container_type;
                     using index_type = typename pattern_type::index_type;
                     using address_type = typename pattern_type::address_type;
+                    using u_m_allocator_t = gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>;
 
                     // get this rank, address and size from new communicator
                     auto comm = context.get_setup_communicator();
@@ -296,7 +301,7 @@ namespace gridtools {
                                 // a more complex one is needed for multiple domains
                                 int tag = (my_address << 7) + rank; // WARN: maximum rank / address = 2^7 - 1
                                 extended_domain_id_type id{static_cast<int>(rank), static_cast<int>(rank), static_cast<address_type>(rank), tag};
-                                std::vector<index_type, gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>> remote_index{};
+                                std::vector<index_type, u_m_allocator_t> remote_index{};
                                 remote_index.resize(send_counts[rank]);
                                 std::memcpy(&remote_index[0],
                                         &send_indexes[static_cast<std::size_t>(send_displs[rank])],
