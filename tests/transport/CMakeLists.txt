@@ -6,7 +6,7 @@ foreach(t_ ${_tests})
     target_link_libraries(${t_} gtest_main_mt)
     add_test(
         NAME ${t_}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t_}> ${MPIEXEC_POSTFLAGS}
     )
 
     if (GHEX_USE_UCP)
@@ -18,7 +18,7 @@ foreach(t_ ${_tests})
         endif()
         add_test(
             NAME ${t_}_ucx
-            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_ucx> ${MPIEXEC_POSTFLAGS}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t_}_ucx> ${MPIEXEC_POSTFLAGS}
         )
     endif()
 endforeach(t_ ${_tests})
@@ -35,7 +35,7 @@ if (GHEX_USE_UCP)
         endif()
         add_test(
             NAME ${t_}
-            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t_}> ${MPIEXEC_POSTFLAGS}
         )
 
     endforeach(t_ ${_tests_ucx})
