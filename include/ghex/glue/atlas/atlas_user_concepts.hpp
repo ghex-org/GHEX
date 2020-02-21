@@ -436,10 +436,10 @@ namespace gridtools {
                 device_id_type device_id() const { return m_device_id; };
 
                 template<typename IndexContainer>
-                void pack(value_type* buffer, const IndexContainer& c, void*) {
+                void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_index().size()) / GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
-                        pack_kernel<value_type, index_t><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK>>>(
+                        pack_kernel<value_type, index_t><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
                                 m_values,
                                 is.local_index().size(),
                                 &(is.local_index()[0]),
@@ -450,10 +450,10 @@ namespace gridtools {
                 }
 
                 template<typename IndexContainer>
-                void unpack(const value_type* buffer, const IndexContainer& c, void*) {
+                void unpack(const value_type* buffer, const IndexContainer& c, void* stream_ptr) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_index().size()) / GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
-                        unpack_kernel<value_type, index_t><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK>>>(
+                        unpack_kernel<value_type, index_t><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
                                 is.size(),
                                 buffer,
                                 is.local_index().size(),
