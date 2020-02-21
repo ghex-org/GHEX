@@ -275,7 +275,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     }
     for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
-            EXPECT_DOUBLE_EQ(serial_field_2_data(node, level), multi_field_2_data(node, level));
+            EXPECT_TRUE(serial_field_2_data(node, level) == multi_field_2_data(node, level));
         }
     }
 
@@ -324,7 +324,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     }
     for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
-            EXPECT_DOUBLE_EQ(serial_field_2_data(node, level), gpu_multi_field_2_data(node, level));
+            EXPECT_TRUE(serial_field_2_data(node, level) == gpu_multi_field_2_data(node, level));
         }
     }
 #endif
