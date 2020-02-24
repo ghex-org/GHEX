@@ -164,7 +164,10 @@ namespace gridtools {
                         throw std::runtime_error("ucx cannot be used with multi-threaded context");
 
                     // make shared worker
-                    m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SERIALIZED);
+                    // use single-threaded UCX mode, as per developer advice
+                    // https://github.com/openucx/ucx/issues/4609
+                    m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SINGLE);
+                    
                     // intialize database
                     m_db.init(m_worker.address());
                 }
