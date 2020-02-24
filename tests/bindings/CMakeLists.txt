@@ -1,8 +1,7 @@
 find_package(OpenMP REQUIRED)
 enable_language(Fortran)
 
-# set(_tests test_callbacks_p2p test_callbacks_multi test_future test_sendrecv)
-set(_tests test_context test_communicator test_message test_send_recv_ft test_send_recv_cb communication_object)
+set(_tests test_f_context test_f_communicator test_f_message test_f_send_recv_ft test_f_send_recv_cb test_f_communication_object)
 
 foreach (_t ${_tests})
   add_executable(${_t} ${_t}.f90)
