@@ -17,6 +17,18 @@ struct callback {
     }
 };
 
+struct progress_status_type {
+    int num_sends = 0;
+    int num_recvs = 0;
+    int num_cancels = 0;
+
+    progress_status_type(const ghex::tl::cb::progress_status &ps) :
+        num_sends{ps.m_num_sends},
+        num_recvs{ps.m_num_recvs},
+        num_cancels{ps.m_num_cancels} 
+    {}
+};
+
 extern "C"
 void* ghex_comm_new()
 {
@@ -37,7 +49,7 @@ int ghex_comm_size(ghex::bindings::obj_wrapper *wrapper)
 }
 
 extern "C"
-int ghex_comm_progress(ghex::bindings::obj_wrapper *wrapper)
+progress_status_type ghex_comm_progress(ghex::bindings::obj_wrapper *wrapper)
 {
     return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->progress();
 }

@@ -18,10 +18,11 @@ PROGRAM test_send_recv_cb
   type(ghex_communicator) :: comm
 
   ! message
-  integer(8) :: msg_size = 16, np
+  integer(8) :: msg_size = 16
   integer(atomic_int_kind) :: recv_completed[*] = 0
   type(ghex_message) :: smsg, rmsg
   type(ghex_request) :: rreq, sreq
+  type(ghex_progress_status) :: ps
   integer(1), dimension(:), pointer :: msg_data
   
   procedure(f_callback), pointer :: pcb
@@ -47,7 +48,7 @@ PROGRAM test_send_recv_cb
   call ghex_init(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, rreq, sreq, smsg, rmsg, msg_data, np)
+  !$omp parallel private(thrid, comm, rreq, sreq, smsg, rmsg, msg_data, ps)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
@@ -78,7 +79,7 @@ PROGRAM test_send_recv_cb
   !$omp barrier
   ! progress the communication
   do while(.not.ghex_request_test(sreq) .or. recv_completed /= nthreads)
-     np = ghex_comm_progress(comm)
+     ps = ghex_comm_progress(comm)
   end do
 
   ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb

@@ -10,6 +10,12 @@ MODULE ghex_comm_mod
      type(c_ptr) :: ptr = c_null_ptr
   end type ghex_communicator
 
+  type, bind(c) :: ghex_progress_status
+     integer(c_int) :: num_sends = 0
+     integer(c_int) :: num_recvs = 0
+     integer(c_int) :: num_cancels = 0
+  end type ghex_progress_status
+
   interface
 
      ! callback type
@@ -37,9 +43,9 @@ MODULE ghex_comm_mod
        type(ghex_communicator), value :: comm
      end function ghex_comm_size
 
-     integer(c_int) function ghex_comm_progress(comm) bind(c)
+     type(ghex_progress_status) function ghex_comm_progress(comm) bind(c)
        use iso_c_binding
-       import ghex_communicator
+       import ghex_communicator, ghex_progress_status
        type(ghex_communicator), value :: comm
      end function ghex_comm_progress
 

@@ -10,7 +10,7 @@ PROGRAM test_context
   integer :: mpi_err
   integer :: mpi_threading
   integer :: nthreads = 0, thrid
-  integer :: np = 0
+  type(ghex_progress_status) :: ps
   type(ghex_communicator), dimension(:), pointer :: communicators
   type(ghex_communicator) :: comm
 
@@ -24,7 +24,7 @@ PROGRAM test_context
   call ghex_init(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, np)
+  !$omp parallel private(thrid, comm, ps)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
@@ -41,7 +41,7 @@ PROGRAM test_context
   comm = communicators(thrid)
 
   ! do some work
-  np = ghex_comm_progress(comm)
+  ps = ghex_comm_progress(comm)
 
   ! cleanup per-thread
   call ghex_comm_delete(communicators(thrid))
