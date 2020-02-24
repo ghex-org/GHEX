@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_TL_CALLBACK_UTILS_HPP
 
 #include <boost/callable_traits.hpp>
+#include <functional>
 
 /** @brief checks the arguments of callback function object */
 #define GHEX_CHECK_CALLBACK_F(MESSAGE_TYPE, RANK_TYPE, TAG_TYPE)                              \
