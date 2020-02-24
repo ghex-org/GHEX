@@ -1,7 +1,7 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -30,7 +30,6 @@
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
-#include <ghex/transport_layer/communicator.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 #include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"

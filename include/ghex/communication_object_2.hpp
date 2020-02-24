@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -16,7 +16,7 @@
 #include "./common/utils.hpp"
 #include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
-#include "./transport_layer/communicator.hpp"
+#include "./transport_layer/tags.hpp"
 #include "./structured/simple_field_wrapper.hpp"
 #include "./arch_traits.hpp"
 #include <map>

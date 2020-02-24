@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -11,10 +11,8 @@
 #ifndef INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP
 #define INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP
 
+#include "./error.hpp"
 #include <memory>
-#include <omp.h>
-#include "./request.hpp"
-#include "./status.hpp"
 
 namespace gridtools{
     namespace ghex {

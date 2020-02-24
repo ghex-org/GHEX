@@ -1,13 +1,13 @@
-/*
+/* 
  * GridTools
- *
- * Copyright (c) 2019, ETH Zurich
+ * 
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- *
+ * 
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
+ * 
  */
-
 #ifndef INCLUDED_GHEX_COMMUNICATION_OBJECT_HPP
 #define INCLUDED_GHEX_COMMUNICATION_OBJECT_HPP
 
@@ -78,7 +78,7 @@ namespace gridtools {
             std::size_t m_n_receive_halos;
             std::vector<s_buffer_t> m_send_buffers;
             std::vector<r_buffer_t> m_receive_buffers;
-            const communicator_t& m_communicator;
+            communicator_t m_communicator;
             ordered_map_t m_ordered_send_halos;
             ordered_map_t m_ordered_receive_halos;
 

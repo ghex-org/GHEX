@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -57,7 +57,7 @@ TEST(transport_layer, ucx_context)
             comm.send(payload, 0, token.id()).wait();
         }
 
-        context.barrier(token);
+        comm.barrier();
     };
 
     std::vector<std::thread> threads;

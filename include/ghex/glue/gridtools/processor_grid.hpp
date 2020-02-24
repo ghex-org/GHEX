@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -15,7 +15,6 @@
 #include <array>
 
 #include "../../structured/domain_descriptor.hpp"
-#include "../../transport_layer/communicator.hpp"
 #include "../../transport_layer/mpi/communicator.hpp"
 
 #include <numeric>

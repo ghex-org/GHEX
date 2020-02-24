@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -18,12 +18,16 @@ namespace gridtools{
     namespace ghex {
         namespace tl {
             namespace mpi {
+                
+                /** @brief the type of the communication */
+                enum class request_kind : int { none=0, send, recv };
 
                 /** @brief thin wrapper around MPI_Request */
                 struct request_t
                 {
                     GHEX_C_STRUCT(req_type, MPI_Request)
                     req_type m_req = MPI_REQUEST_NULL;
+                    request_kind m_kind = request_kind::none;
 
                     void wait()
                     {

@@ -1,7 +1,7 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -14,6 +14,7 @@
 #include <map>
 #include <deque>
 #include <unordered_map>
+#include "../../common/moved_bit.hpp"
 #include "./error.hpp"
 #include "./endpoint.hpp"
 #include "../context.hpp"
@@ -37,23 +38,19 @@ namespace gridtools {
                     struct ucp_worker_handle
                     {
                         ucp_worker_h m_worker;
-                        bool         m_moved = false;
+                        moved_bit m_moved;
 
                         ucp_worker_handle() noexcept : m_moved{true} {}
                         ucp_worker_handle(const ucp_worker_handle&) = delete;
                         ucp_worker_handle& operator=(const ucp_worker_handle&) = delete;
-
-                        ucp_worker_handle(ucp_worker_handle&& other) noexcept
-                        : m_worker(other.m_worker)
-                        , m_moved(std::exchange(other.m_moved, true))
-                        {}
+                        ucp_worker_handle(ucp_worker_handle&& other) noexcept = default;
 
                         ucp_worker_handle& operator=(ucp_worker_handle&& other) noexcept
                         {
                             destroy();
                             m_worker.~ucp_worker_h();
                             ::new((void*)(&m_worker)) ucp_worker_h{other.m_worker};
-                            m_moved = std::exchange(other.m_moved, true);
+                            m_moved = std::move(other.m_moved);
                             return *this;
                         }
 
@@ -64,12 +61,9 @@ namespace gridtools {
                         void destroy() noexcept
                         {
                             if (!m_moved)
-                            {
                                 ucp_worker_destroy(m_worker);
-                            }
                         }
 
-                        operator bool() const noexcept { return m_moved; }
                         operator ucp_worker_h() const noexcept { return m_worker; }
                         ucp_worker_h& get()       noexcept { return m_worker; }
                         const ucp_worker_h& get() const noexcept { return m_worker; }
@@ -88,6 +82,9 @@ namespace gridtools {
                     ucp_worker_handle       m_worker;
                     address_t               m_address;
                     cache_type              m_endpoint_cache;
+                    int                     m_progressed_sends = 0;
+                    volatile int            m_progressed_recvs = 0;
+                    volatile int            m_progressed_cancels = 0;
 
                     worker_t() = default;
                     worker_t(transport_context_type* c, thread_primitives_type* tp, thread_token* t, ucs_thread_mode_t mode);
