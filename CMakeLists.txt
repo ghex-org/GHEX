@@ -49,6 +49,14 @@ else()
     set(MPI_CXX_SKIP_MPICXX OFF)
 endif()
 
+set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas bindings")
+if (GHEX_ENABLE_ATLAS_BINDINGS)
+    find_package(eckit REQUIRED HINTS ${eckit_DIR})
+    find_package(Atlas REQUIRED HINTS ${Atlas_DIR})
+    # Temporary workaround to fix missing dependency in Atlas target: eckit
+    target_link_libraries(atlas INTERFACE eckit)
+endif()
+
 set(GHEX_BUILD_TESTS OFF CACHE BOOL "True if tests shall be built")
 set(GHEX_BUILD_BENCHMARKS OFF CACHE BOOL "True if benchmarks shall be built")
 
@@ -64,6 +72,9 @@ if (GHEX_USE_UCP)
     if (GHEX_USE_PMIX)
         target_link_libraries(ghexlib INTERFACE PMIx::libpmix)
     endif()
+endif()
+if (GHEX_ENABLE_ATLAS_BINDINGS)
+    target_link_libraries(ghexlib INTERFACE atlas)
 endif()
 target_compile_features(ghexlib INTERFACE cxx_std_14)
 
@@ -105,6 +116,14 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
         target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
 
         add_subdirectory(benchmarks)
+    endif()
+
+    if (GHEX_ENABLE_ATLAS_BINDINGS)
+        add_library(gtest_main_atlas ./utils/gtest_main_atlas.cpp)
+        target_link_libraries(gtest_main_atlas GTest::gtest ghexlib)
+
+        add_library(gtest_main_bench_atlas ./utils/gtest_main_bench_atlas.cpp)
+        target_link_libraries(gtest_main_bench_atlas GTest::gtest ghexlib)
     endif()
 endif()
 

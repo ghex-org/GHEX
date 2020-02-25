@@ -1,4 +1,4 @@
-set(_serial_tests aligned_allocator)
+set(_serial_tests aligned_allocator unified_memory_allocator)
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
@@ -7,6 +7,19 @@ foreach (_t ${_serial_tests})
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
     )
 endforeach()
+
+if (USE_GPU)
+    set(_serial_tests_gpu unified_memory_allocator)
+    foreach (_t ${_serial_tests_gpu})
+        add_executable(${_t}_gpu ${_t}.cu)
+        target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
+        target_link_libraries(${_t}_gpu gtest_main_mt)
+        add_test(
+            NAME ${_t}.cu
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
+        )
+    endforeach()
+endif()
 
 #set(_tests mpi_allgather communication_object)
 set(_tests mpi_allgather)
@@ -75,6 +88,7 @@ foreach(_var ${_variants})
             COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPIEXEC_PREFLAGS} communication_object_2_${_var}_hybrid ${MPIEXEC_POSTFLAGS}
         )
     endif()
+
     if (USE_GPU)
         add_executable(communication_object_2_${_var}_gpu communication_object_2.cu)
         target_compile_definitions(communication_object_2_${_var}_gpu PUBLIC GHEX_TEST_${define})
@@ -114,6 +128,19 @@ foreach (_t ${_tests_gt})
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
     )
 endforeach()
+
+if (GHEX_ENABLE_ATLAS_BINDINGS)
+    set(_tests_atlas atlas_integration atlas_integration_comm_2)
+    foreach (_t ${_tests_atlas})
+        add_executable(${_t} ${_t}.cpp)
+        target_link_libraries(${_t} gtest_main_atlas)
+        add_test(
+            NAME ${_t}.cpp
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
+            )
+    endforeach()
+endif()
+
 if (USE_GPU)
     foreach (_t ${_tests_gt})
         add_executable(${_t}_gpu ${_t}.cu)
@@ -124,7 +151,19 @@ if (USE_GPU)
             COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
         )
     endforeach()
+
+    if (GHEX_ENABLE_ATLAS_BINDINGS)
+        set(_tests_atlas_gpu atlas_integration_comm_2)
+        foreach (_t ${_tests_atlas_gpu})
+            add_executable(${_t}_gpu ${_t}.cu)
+            target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
+            target_link_libraries(${_t}_gpu gtest_main_atlas)
+            add_test(
+                NAME ${_t}.cu
+                COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
+            )
+        endforeach()
+    endif()
 endif()
 
 add_subdirectory(transport)
-

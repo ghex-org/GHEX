@@ -203,7 +203,7 @@ namespace gridtools {
 
             /** @brief communication object constructor
              * @param p pattern*/
-            communication_object(const Pattern& p, communicator_t comm) :
+            communication_object(const Pattern& p, const communicator_t& comm) :
                 m_pattern{p},
                 m_send_halos{m_pattern.send_halos()},
                 m_receive_halos{m_pattern.recv_halos()},
