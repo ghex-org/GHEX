@@ -18,6 +18,8 @@
 #include <vector>
 #include <boost/callable_traits.hpp>
 
+#include <boost/callable_traits.hpp>
+
 namespace gridtools {
     namespace ghex {
         namespace threads {

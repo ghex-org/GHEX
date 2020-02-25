@@ -24,7 +24,7 @@ namespace gridtools {
      * This class provides access to the receive and send iteration spaces, determined by the halos, and holds
      * all connections to the neighbors.
      *
-     * @tparam Transport transport protocol
+     * @tparam Communicator communicator type
      * @tparam CoordinateArrayType coordinate-like array type
      * @tparam DomainIdType domain id type*/
     template<typename Communicator, typename CoordinateArrayType, typename DomainIdType>
@@ -116,7 +116,7 @@ namespace gridtools {
             }
         };
 
-        // an extended domain id, including rank and tag information
+        // an extended domain id, including rank, address and tag information
         // used as key in halo lookup map
         struct extended_domain_id_type
         {
@@ -189,9 +189,8 @@ namespace gridtools {
 
         /** @brief tie pattern to field
          * @tparam Field field type
-         * @param pc pattern container
          * @param field field instance
-         * @return buffer_info object which holds a refernce to the field, the pattern and the pattern container */
+         * @return buffer_info object which holds pointers to the field and the pattern*/
         template<typename Field>
         buffer_info<pattern, typename Field::arch_type, Field> operator()(Field& field) const
         {
@@ -201,7 +200,7 @@ namespace gridtools {
 
     namespace detail {
 
-        // construct pattern with the help of all to all communication
+        // constructs the pattern with the help of all to all communications
         template<typename CoordinateArrayType>
         struct make_pattern_impl<::gridtools::ghex::structured::detail::grid<CoordinateArrayType>>
         {
