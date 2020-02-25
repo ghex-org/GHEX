@@ -44,7 +44,7 @@ PROGRAM test_context
   ps = ghex_comm_progress(comm)
 
   ! cleanup per-thread
-  call ghex_comm_delete(communicators(thrid))
+  call ghex_delete(communicators(thrid))
 
   ! cleanup shared
   !$omp barrier

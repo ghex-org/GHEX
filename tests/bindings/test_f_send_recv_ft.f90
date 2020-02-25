@@ -71,6 +71,10 @@ PROGRAM test_send_recv_ft
   do while( .not.ghex_future_ready(sreq) .or. .not.ghex_future_ready(rreq) )
   end do
 
+  ! what have we received?
+  msg_data => ghex_message_data(rmsg)
+  print *, mpi_rank, ": ", thrid, ": ", msg_data
+
   ! send / recv with a request, tag 2
   call ghex_comm_post_send(comm, smsg, mpi_peer, 2, sreq)
   call ghex_comm_post_recv(comm, rmsg, mpi_peer, 2, rreq)
@@ -84,9 +88,9 @@ PROGRAM test_send_recv_ft
   print *, mpi_rank, ": ", thrid, ": ", msg_data
 
   ! cleanup per-thread
-  call ghex_message_delete(rmsg)
-  call ghex_message_delete(smsg)
-  call ghex_comm_delete(communicators(thrid))
+  call ghex_delete(rmsg)
+  call ghex_delete(smsg)
+  call ghex_delete(communicators(thrid))
 
   ! cleanup shared
   !$omp barrier
