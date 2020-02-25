@@ -16,7 +16,7 @@ if (USE_GPU)
         target_link_libraries(${_t}_gpu gtest_main_mt)
         add_test(
             NAME ${_t}.cu
-            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
         )
     endforeach()
 endif()
@@ -144,7 +144,7 @@ if (GHEX_ENABLE_ATLAS_BINDINGS)
         target_link_libraries(${_t} gtest_main_atlas)
         add_test(
             NAME ${_t}.cpp
-            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
             )
     endforeach()
 endif()
@@ -168,7 +168,7 @@ if (USE_GPU)
             target_link_libraries(${_t}_gpu gtest_main_atlas)
             add_test(
                 NAME ${_t}.cu
-                COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${_t} ${MPIEXEC_POSTFLAGS}
+                COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
             )
         endforeach()
     endif()
