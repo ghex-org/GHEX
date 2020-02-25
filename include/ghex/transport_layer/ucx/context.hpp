@@ -167,6 +167,7 @@ namespace gridtools {
                     // use single-threaded UCX mode, as per developer advice
                     // https://github.com/openucx/ucx/issues/4609
                     m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SINGLE);
+                    
                     // intialize database
                     m_db.init(m_worker.address());
                 }
