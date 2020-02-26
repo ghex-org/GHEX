@@ -71,6 +71,8 @@ contains
 
   subroutine run()
 
+    character(len=256) :: pname
+    
     ! all below variables are thread-local
     type(ghex_communicator), save :: comm
 
@@ -80,7 +82,7 @@ contains
     integer :: last_received = 0
     integer :: last_sent = 0
     integer :: dbg = 0, sdbg = 0, rdbg = 0;
-    integer :: i = 0, last_i = 0, j = 0, np = 0
+    integer :: i = 0, last_i = 0, j = 0
     integer :: incomplete_sends = 0, send_complete = 0
 
     type(ghex_message), dimension(:), allocatable, save :: smsgs, rmsgs
@@ -92,7 +94,7 @@ contains
   
     !$omp threadprivate(comm, rank, size, num_threads, peer_rank)
     !$omp threadprivate(using_mt, last_received, last_sent)
-    !$omp threadprivate(dbg, sdbg, rdbg, i, last_i, j, np, incomplete_sends, send_complete)
+    !$omp threadprivate(dbg, sdbg, rdbg, i, last_i, j, incomplete_sends, send_complete)
     !$omp threadprivate(smsgs, rmsgs, sreqs, rreqs)
     !$omp threadprivate(bsreq, brreq, bsmsg, brmsg, result)
     !$omp threadprivate(ttic, tic, toc)
@@ -115,7 +117,8 @@ contains
 #endif
 
     if (thread_id==0 .and. rank==0) then
-       print *, "running ", __FILE__
+       call getarg(0, pname)
+       print *, "running ", pname
     end if
 
     ! ---------------------------------------
