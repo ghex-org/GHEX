@@ -108,7 +108,8 @@ namespace gridtools {
          * @param halos list of halo sizes (dim0_dir-, dim0_dir+, dim1_dir-, dim1_dir+, ...)
          * @param periodic list of bools indicating periodicity per dimension (true, true, false, ...) */
         template<typename Array, typename RangeHalos, typename RangePeriodic>
-        halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic)
+        halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic, bool include_corners = true)
+        : m_include_corners{include_corners}
         {
             std::copy(std::begin(g_first), std::end(g_first), m_first.begin());
             std::copy(std::begin(g_last), std::end(g_last), m_last.begin());
@@ -118,13 +119,13 @@ namespace gridtools {
             std::copy(periodic.begin(), periodic.end(), m_periodic.begin());
         }
 
-        // construct without periodicity
-        halo_generator(std::initializer_list<int> halos)
-        {
-            m_halos.fill(0);
-            m_periodic.fill(false);
-            std::copy(halos.begin(), halos.end(), m_halos.begin());
-        }
+        //// construct without periodicity
+        //halo_generator(std::initializer_list<int> halos)
+        //{
+        //    m_halos.fill(0);
+        //    m_periodic.fill(false);
+        //    std::copy(halos.begin(), halos.end(), m_halos.begin());
+        //}
 
         /** @brief generate halos
          * @param dom local domain instance
@@ -158,7 +159,11 @@ namespace gridtools {
             std::array<box2,3> outer_spaces{left,middle,right};
 
             // generate outer halos
-            auto outer_halos = compute_spaces<box2>(outer_spaces);
+            std::vector<box2> outer_halos;
+            if (m_include_corners)
+                outer_halos = compute_spaces<box2>(outer_spaces);
+            else
+                outer_halos = compute_spaces_without_corners<box2>(outer_spaces);
 
             // filter out unused halos
             decltype(outer_halos) halos;
@@ -226,11 +231,32 @@ namespace gridtools {
             }
         }
 
+        template<typename Box, typename Spaces>
+        std::vector<Box> compute_spaces_without_corners(const Spaces& spaces) const
+        {
+            std::vector<Box> x;
+            x.reserve(dimension::value*2);
+            for (int d=0; d<dimension::value; ++d) {
+                x.push_back(spaces[1]);
+                x.back().local().first()[d]    = spaces[0].local().first()[d];
+                x.back().global().first()[d] = spaces[0].global().first()[d];
+                x.back().local().last()[d]   = spaces[0].local().last()[d];
+                x.back().global().last()[d]  = spaces[0].global().last()[d];
+                x.push_back(spaces[1]);
+                x.back().local().first()[d]    = spaces[2].local().first()[d];
+                x.back().global().first()[d] = spaces[2].global().first()[d];
+                x.back().local().last()[d]   = spaces[2].local().last()[d];
+                x.back().global().last()[d]  = spaces[2].global().last()[d];
+            }
+            return x;
+        }
+
     private: // members
         coordinate_type m_first;
         coordinate_type m_last;
         std::array<int,dimension::value*2> m_halos;
         std::array<bool,dimension::value> m_periodic;
+        bool m_include_corners;
     };
     } // namespace structured
     } // namespace ghex
