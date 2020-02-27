@@ -156,7 +156,7 @@ namespace gridtools {
                     inline void_return_type<F> critical(F && f) //const
                     {
                         if (m_num_threads > 1 ) {
-                            std::lock_guard<std::mutex> lock(m_guard);
+                            std::lock_guard<std::mutex> lock(m_cv_guard);
                             f();
                         }
                         else
@@ -166,7 +166,7 @@ namespace gridtools {
                     inline return_type<F> critical(F && f) //const
                     {
                         if (m_num_threads > 1 ) {
-                            std::lock_guard<std::mutex> lock(m_guard);
+                            std::lock_guard<std::mutex> lock(m_cv_guard);
                             return f();
                         }
                         else

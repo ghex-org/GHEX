@@ -5,8 +5,14 @@
 #include <ghex/structured/simple_field_wrapper.hpp>
 #include <ghex/communication_object_2.hpp>
 
+// those are configurable at compile time
+#define GHEX_DIMS                 3
+using arch_type                 = ghex::cpu;
+using domain_id_type            = int;
+using fp_type                   = float;
+
 struct field_descriptor {
-    double *data;
+    fp_type *data;
     int   offset[3];
     int  extents[3];
     int     halo[6];
@@ -51,12 +57,6 @@ struct field_compare {
         return false;
     }
 };
-
-// those are configurable at compile time
-#define GHEX_DIMS                 3
-using arch_type                 = ghex::cpu;
-using domain_id_type            = int;
-using fp_type                   = double;
 
 using grid_type                 = ghex::structured::grid;
 using grid_detail_type          = ghex::structured::detail::grid<std::array<domain_id_type, GHEX_DIMS>>;

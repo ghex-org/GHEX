@@ -1,11 +1,12 @@
 MODULE ghex_mod
   use iso_c_binding
+  use ghex_defs
   use ghex_comm_mod
   use ghex_message_mod
   use ghex_exchange_mod
 
   implicit none
-
+  
   interface
      
      subroutine ghex_init(nthreads, mpi_comm) bind(c)
@@ -19,6 +20,11 @@ MODULE ghex_mod
      end subroutine ghex_finalize
 
   end interface
+
+  interface ghex_initialized
+     procedure :: ghex_initialized_exchange_desc
+     procedure :: ghex_initialized_communication_object     
+  end interface ghex_initialized
 
   interface ghex_delete
 

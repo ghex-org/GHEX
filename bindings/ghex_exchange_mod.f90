@@ -50,4 +50,14 @@ CONTAINS
     ghex_exchange_desc_new = ghex_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
   end function ghex_exchange_desc_new
 
+  function ghex_initialized_exchange_desc(obj)
+    type(ghex_exchange_descriptor) :: obj
+    logical :: ghex_initialized_exchange_desc
+    if (c_associated(obj%ptr)) then
+      ghex_initialized_exchange_desc = .true.
+    else
+      ghex_initialized_exchange_desc = .false.
+    end if
+  end function ghex_initialized_exchange_desc
+  
 END MODULE ghex_exchange_mod

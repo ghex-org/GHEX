@@ -1,5 +1,6 @@
 MODULE ghex_structured_mod
   use iso_c_binding
+  use ghex_defs
   use ghex_comm_mod
 
   implicit none
@@ -53,7 +54,7 @@ CONTAINS
 
   subroutine ghex_field_init(field_desc, data, halo, offset, periodic)
     type(ghex_field_descriptor) :: field_desc
-    real(8), dimension(:,:,:), target :: data
+    real(ghex_fp_kind), dimension(:,:,:), target :: data
     integer :: halo(6)
     integer, optional :: offset(3)
     integer, optional :: periodic(3)
@@ -74,4 +75,14 @@ CONTAINS
 
   end subroutine ghex_field_init
 
+  function ghex_initialized_communication_object(obj)
+    type(ghex_communication_object) :: obj
+    logical :: ghex_initialized_communication_object
+    if (c_associated(obj%ptr)) then
+      ghex_initialized_communication_object = .true.
+    else
+      ghex_initialized_communication_object = .false.
+    end if
+  end function ghex_initialized_communication_object
+  
 END MODULE ghex_structured_mod
