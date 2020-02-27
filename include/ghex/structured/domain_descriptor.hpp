@@ -106,7 +106,8 @@ namespace gridtools {
          * @param g_first first global coordinate of total domain (used for periodicity)
          * @param g_last last global coordinate of total domain (including, used for periodicity)
          * @param halos list of halo sizes (dim0_dir-, dim0_dir+, dim1_dir-, dim1_dir+, ...)
-         * @param periodic list of bools indicating periodicity per dimension (true, true, false, ...) */
+         * @param periodic list of bools indicating periodicity per dimension (true, true, false, ...)
+         * @param include_corners indicates wether halos are considered only along the axes or include corners as well*/
         template<typename Array, typename RangeHalos, typename RangePeriodic>
         halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic, bool include_corners = true)
         : m_include_corners{include_corners}
@@ -118,14 +119,6 @@ namespace gridtools {
             std::copy(halos.begin(), halos.end(), m_halos.begin());
             std::copy(periodic.begin(), periodic.end(), m_periodic.begin());
         }
-
-        //// construct without periodicity
-        //halo_generator(std::initializer_list<int> halos)
-        //{
-        //    m_halos.fill(0);
-        //    m_periodic.fill(false);
-        //    std::copy(halos.begin(), halos.end(), m_halos.begin());
-        //}
 
         /** @brief generate halos
          * @param dom local domain instance
