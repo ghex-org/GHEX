@@ -13,11 +13,11 @@ PROGRAM test_halo_exchange
   integer :: nthreads = 1, rank, size
   integer :: tmp, i
   integer :: gfirst(3), glast(3)      ! global index space
-  integer :: gdim(3) = [1, 2, 2]      ! number of domains
-  integer :: ldim(3) = [128, 64, 64]  ! dimensions of the local domains
+  integer :: gdim(3) = [2, 2, 2]      ! number of domains
+  integer :: ldim(3) = [64, 64, 64]  ! dimensions of the local domains
   integer :: rank_coord(3)            ! local rank coordinates in a cartesian rank space
   integer :: halo(6)                  ! halo definition
-  integer :: niters = 1000
+  integer :: niters = 100
 
   ! -------------- variables used by the Bifrost-like implementation
   integer :: xsb, xeb, ysb, yeb, zsb, zeb
@@ -247,7 +247,7 @@ PROGRAM test_halo_exchange
     i = i+1
   end do
   call cpu_time(toc)
-  print *, rank, " exchange compact:      ", (toc-tic)
+  print *, rank, " exchange sequenced:      ", (toc-tic)
 
   ! cleanup
   call ghex_delete(ed)
