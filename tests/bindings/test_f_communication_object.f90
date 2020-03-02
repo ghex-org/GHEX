@@ -12,11 +12,11 @@ PROGRAM test_halo_exchange
   integer :: ierr, mpi_err, mpi_threading
   integer :: nthreads = 1, rank, size
   integer :: tmp, i
-  integer :: gfirst(3), glast(3)      ! global index space
-  integer :: gdim(3) = [2, 2, 2]      ! number of domains
-  integer :: ldim(3) = [64, 64, 64]  ! dimensions of the local domains
-  integer :: rank_coord(3)            ! local rank coordinates in a cartesian rank space
-  integer :: halo(6)                  ! halo definition
+  integer :: gfirst(3), glast(3)       ! global index space
+  integer :: gdim(3) = [4, 8, 4]       ! number of domains
+  integer :: ldim(3) = [64, 64, 64] ! dimensions of the local domains
+  integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
+  integer :: halo(6)                   ! halo definition
   integer :: niters = 100
 
   ! -------------- variables used by the Bifrost-like implementation
@@ -49,7 +49,7 @@ PROGRAM test_halo_exchange
   call ghex_init(nthreads, mpi_comm_world)
 
   ! halo width
-  mb = 5
+  mb = 4
   
   ! halo information
   halo(:) = 0
@@ -61,6 +61,10 @@ PROGRAM test_halo_exchange
   end if
   if (gdim(3) >1) then
     halo(5:6) = mb
+  end if
+
+  if (rank==0) then
+     print *, "halos: ", halo
   end if
   
   ! use 27 ranks to test all halo connectivities
@@ -130,23 +134,7 @@ PROGRAM test_halo_exchange
   allocate(data8(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
 
   data1(xs:xe, ys:ye, zs:ze) = rank
-
-  call cpu_time(tic)
-  i = 0
-  do while (i < niters)
-    call update_sendrecv(data1)
-    call update_sendrecv(data2)
-    call update_sendrecv(data3)
-    call update_sendrecv(data4)
-    call update_sendrecv(data5)
-    call update_sendrecv(data6)
-    call update_sendrecv(data7)
-    call update_sendrecv(data8)
-    i = i + 1
-  end do
-  call cpu_time(toc)
-  print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)  
-  
+ 
   ! initialize the field datastructure - COMPACT
   call ghex_field_init(field_desc, data1, halo, periodic=[1,1,0])
   call ghex_domain_add_field(domain_desc(1), field_desc)
@@ -212,16 +200,19 @@ PROGRAM test_halo_exchange
   co = ghex_struct_co_new()
 
   ! exchange halos - COMPACT
+  ex_handle = ghex_exchange(co, ed)
+  call ghex_wait(ex_handle)
   call cpu_time(tic)
   i = 0
   do while (i < niters)
     ex_handle = ghex_exchange(co, ed)
     call ghex_wait(ex_handle)
-    call ghex_delete(ex_handle)
     i = i+1
   end do
   call cpu_time(toc)
-  print *, rank, " exchange compact:      ", (toc-tic)
+  if (rank == 0) then 
+     print *, rank, " exchange compact:      ", (toc-tic)
+  end if
 
   co1 = ghex_struct_co_new()
   co2 = ghex_struct_co_new()
@@ -233,6 +224,43 @@ PROGRAM test_halo_exchange
   co8 = ghex_struct_co_new()
 
   ! exchange halos - SEQUENCE
+  ex_handle = ghex_exchange(co1, ed1); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co2, ed2); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co3, ed3); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co4, ed4); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co5, ed5); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co6, ed6); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co7, ed7); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co8, ed8); call ghex_wait(ex_handle)
+
+  call cpu_time(tic)
+  i = 0
+  do while (i < niters)
+    ex_handle = ghex_exchange(co1, ed1); call ghex_wait(ex_handle)
+    ex_handle = ghex_exchange(co2, ed2); call ghex_wait(ex_handle)
+    ex_handle = ghex_exchange(co3, ed3); call ghex_wait(ex_handle)
+    ex_handle = ghex_exchange(co4, ed4); call ghex_wait(ex_handle)
+    ex_handle = ghex_exchange(co5, ed5); call ghex_wait(ex_handle)
+    ex_handle = ghex_exchange(co6, ed6); call ghex_wait(ex_handle)
+    ex_handle = ghex_exchange(co7, ed7); call ghex_wait(ex_handle)
+    ex_handle = ghex_exchange(co8, ed8); call ghex_wait(ex_handle)
+    i = i+1
+  end do
+  call cpu_time(toc)
+  if (rank == 0) then 
+     print *, rank, " exchange sequenced (multiple COs):      ", (toc-tic); 
+  end if
+
+  ! exchange halos - SEQUENCE
+  ex_handle = ghex_exchange(co, ed1); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co, ed2); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co, ed3); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co, ed4); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co, ed5); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co, ed6); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co, ed7); call ghex_wait(ex_handle)
+  ex_handle = ghex_exchange(co, ed8); call ghex_wait(ex_handle)
+
   call cpu_time(tic)
   i = 0
   do while (i < niters)
@@ -247,7 +275,36 @@ PROGRAM test_halo_exchange
     i = i+1
   end do
   call cpu_time(toc)
-  print *, rank, " exchange sequenced:      ", (toc-tic)
+  if (rank == 0) then 
+     print *, rank, " exchange sequenced (single CO):      ", (toc-tic); 
+  end if
+
+  call update_sendrecv(data1)
+  call update_sendrecv(data2)
+  call update_sendrecv(data3)
+  call update_sendrecv(data4)
+  call update_sendrecv(data5)
+  call update_sendrecv(data6)
+  call update_sendrecv(data7)
+  call update_sendrecv(data8)
+
+  call cpu_time(tic)
+  i = 0
+  do while (i < niters)
+    call update_sendrecv(data1)
+    call update_sendrecv(data2)
+    call update_sendrecv(data3)
+    call update_sendrecv(data4)
+    call update_sendrecv(data5)
+    call update_sendrecv(data6)
+    call update_sendrecv(data7)
+    call update_sendrecv(data8)
+    i = i + 1
+  end do
+  call cpu_time(toc)
+  if (rank == 0) then 
+     print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)  
+  end if
 
   ! cleanup
   call ghex_delete(ed)
