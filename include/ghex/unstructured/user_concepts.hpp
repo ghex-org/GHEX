@@ -94,9 +94,9 @@ namespace gridtools {
                     // member functions
                     void set_halo_vertices() {
                         vertices_type all_vertices{};
-                        all_vertices.insert(m_adjncy().begin(), m_adjncy().end());
+                        all_vertices.insert(m_adjncy.begin(), m_adjncy.end());
                         std::set_difference(all_vertices.begin(), all_vertices.end(),
-                                            m_vertices().begin(), m_vertices().end(),
+                                            m_vertices.begin(), m_vertices.end(),
                                             std::inserter(m_halo_vertices, m_halo_vertices.begin()));
                     }
 
@@ -234,7 +234,7 @@ namespace gridtools {
                      * @param domain local domain instance
                      * @param field field to be wrapped
                      * @param levels number of vertical layers for semi-structured grids*/
-                    template <template <typename> typename Container>
+                    template <template <typename> class Container>
                     data_descriptor(const domain_descriptor_type& domain,
                                     const Container<value_type>& field,
                                     const index_type levels = 1) :
