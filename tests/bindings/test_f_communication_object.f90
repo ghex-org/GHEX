@@ -49,7 +49,7 @@ PROGRAM test_halo_exchange
   call ghex_init(nthreads, mpi_comm_world)
 
   ! halo width
-  mb = 4
+  mb = 5
   
   ! halo information
   halo(:) = 0
