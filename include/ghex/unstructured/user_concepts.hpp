@@ -46,7 +46,8 @@ namespace gridtools {
                     // member types
                     using domain_id_type = DomainId;
                     using global_index_type = Idx;
-                    using vertices_type = std::set<global_index_type>;
+                    using vertices_type = std::vector<global_index_type>;
+                    using vertices_set_type = std::set<global_index_type>;
                     using adjncy_type = std::vector<global_index_type>; // named after ParMetis CSR arrays
                     using map_type = std::vector<std::pair<global_index_type, adjncy_type>>;
 
@@ -76,21 +77,23 @@ namespace gridtools {
                         m_adjncy{},
                         m_halo_vertices{} {
                         for (const auto& v_elem : v_map) {
-                            m_vertices.insert(v_elem.first);
+                            m_vertices.push_back(v_elem.first);
                             m_adjncy.insert(m_adjncy.end(), v_elem.second.begin(), v_elem.second.end());
-                            set_halo_vertices();
                         }
+                        set_halo_vertices();
                     }
 
                 private:
 
                     // member functions
                     void set_halo_vertices() {
-                        vertices_type all_vertices{};
-                        all_vertices.insert(m_adjncy.begin(), m_adjncy.end());
-                        std::set_difference(all_vertices.begin(), all_vertices.end(),
-                                            m_vertices.begin(), m_vertices.end(),
-                                            std::inserter(m_halo_vertices, m_halo_vertices.begin()));
+                        vertices_set_type vertices_set{m_vertices.begin(), m_vertices.end()};
+                        vertices_set_type all_vertices_set{m_adjncy.begin(), m_adjncy.end()};
+                        vertices_set_type halo_vertices_set{};
+                        std::set_difference(all_vertices_set.begin(), all_vertices_set.end(),
+                                            vertices_set.begin(), vertices_set.end(),
+                                            std::inserter(halo_vertices_set, halo_vertices_set.begin()));
+                        m_halo_vertices.insert(m_halo_vertices.end(), halo_vertices_set.begin(), halo_vertices_set.end());
                     }
 
                 public:

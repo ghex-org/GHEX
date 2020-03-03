@@ -43,8 +43,9 @@ TEST(unstructured_user_concepts, domain_descriptor) {
 
     using domain_id_type = int;
     using global_index_type = int;
-    using vertices_type = std::set<global_index_type>;
     using domain_descriptor_type = gridtools::ghex::unstructured::domain_descriptor<domain_id_type, global_index_type>;
+    using vertices_type = std::vector<global_index_type>;
+    using vertices_set_type = std::set<global_index_type>;
     using adjncy_type = std::vector<global_index_type>;
     using map_type = std::vector<std::pair<global_index_type, adjncy_type>>;
 
@@ -66,8 +67,9 @@ TEST(unstructured_user_concepts, domain_descriptor) {
             EXPECT_TRUE(d.size() == 4);
             vertices_type reference_vertices{0, 13, 5, 2};
             EXPECT_TRUE(d.vertices() == reference_vertices);
-            vertices_type reference_halo_vertices{1, 20, 7, 3, 11};
-            EXPECT_TRUE(d.halo_vertices() == reference_halo_vertices);
+            vertices_set_type reference_halo_vertices{1, 20, 7, 3, 11};
+            vertices_set_type halo_vertices{d.halo_vertices().begin(), d.halo_vertices().end()};
+            EXPECT_TRUE(halo_vertices == reference_halo_vertices);
             break;
         }
         case 1: {
@@ -85,8 +87,9 @@ TEST(unstructured_user_concepts, domain_descriptor) {
             EXPECT_TRUE(d.size() == 7);
             vertices_type reference_vertices{1, 19, 20, 4, 7, 15, 8};
             EXPECT_TRUE(d.vertices() == reference_vertices);
-            vertices_type reference_halo_vertices{0, 13, 16, 9};
-            EXPECT_TRUE(d.halo_vertices() == reference_halo_vertices);
+            vertices_set_type reference_halo_vertices{0, 13, 16, 9};
+            vertices_set_type halo_vertices{d.halo_vertices().begin(), d.halo_vertices().end()};
+            EXPECT_TRUE(halo_vertices == reference_halo_vertices);
             break;
         }
         case 2: {
@@ -100,8 +103,9 @@ TEST(unstructured_user_concepts, domain_descriptor) {
             EXPECT_TRUE(d.size() == 3);
             vertices_type reference_vertices{3, 16, 18};
             EXPECT_TRUE(d.vertices() == reference_vertices);
-            vertices_type reference_halo_vertices{5, 1, 6};
-            EXPECT_TRUE(d.halo_vertices() == reference_halo_vertices);
+            vertices_set_type reference_halo_vertices{5, 1, 6};
+            vertices_set_type halo_vertices{d.halo_vertices().begin(), d.halo_vertices().end()};
+            EXPECT_TRUE(halo_vertices == reference_halo_vertices);
             break;
         }
         case 3: {
@@ -118,8 +122,9 @@ TEST(unstructured_user_concepts, domain_descriptor) {
             EXPECT_TRUE(d.size() == 6);
             vertices_type reference_vertices{17, 6, 11, 10, 12, 9};
             EXPECT_TRUE(d.vertices() == reference_vertices);
-            vertices_type reference_halo_vertices{0, 4, 3};
-            EXPECT_TRUE(d.halo_vertices() == reference_halo_vertices);
+            vertices_set_type reference_halo_vertices{0, 4, 3};
+            vertices_set_type halo_vertices{d.halo_vertices().begin(), d.halo_vertices().end()};
+            EXPECT_TRUE(halo_vertices == reference_halo_vertices);
             break;
         }
     }
