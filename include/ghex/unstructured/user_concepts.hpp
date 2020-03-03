@@ -46,9 +46,7 @@ namespace gridtools {
                     // member types
                     using domain_id_type = DomainId;
                     using global_index_type = Idx;
-                    using index_type = std::size_t; // TO DO: should be derived? (check better)
                     using vertices_type = std::set<global_index_type>;
-                    using xadj_type = std::vector<index_type>; // named after ParMetis CSR arrays
                     using adjncy_type = std::vector<global_index_type>; // named after ParMetis CSR arrays
                     using map_type = std::vector<std::pair<global_index_type, adjncy_type>>;
 
@@ -57,7 +55,6 @@ namespace gridtools {
                     // members
                     domain_id_type m_id;
                     vertices_type m_vertices;
-                    xadj_type m_xadj; // named after ParMetis CSR arrays
                     adjncy_type m_adjncy; // named after ParMetis CSR arrays
                     vertices_type m_halo_vertices;
 
@@ -67,23 +64,19 @@ namespace gridtools {
                     domain_descriptor() = default;
                     domain_descriptor(const domain_id_type id,
                                       const vertices_type& vertices,
-                                      const xadj_type& xadj,
                                       const adjncy_type& adjncy) :
                         m_id{id},
                         m_vertices{vertices},
-                        m_xadj{xadj},
                         m_adjncy{adjncy},
                         m_halo_vertices{} { set_halo_vertices(); }
                     domain_descriptor(const domain_id_type id,
                                       const map_type& v_map) :
                         m_id{id},
                         m_vertices{},
-                        m_xadj{static_cast<index_type>(0)}, // first element is 0 by construction
                         m_adjncy{},
                         m_halo_vertices{} {
                         for (const auto& v_elem : v_map) {
                             m_vertices.insert(v_elem.first);
-                            m_xadj.push_back(static_cast<index_type>(v_elem.second.size()));
                             m_adjncy.insert(m_adjncy.end(), v_elem.second.begin(), v_elem.second.end());
                             set_halo_vertices();
                         }
@@ -107,7 +100,6 @@ namespace gridtools {
                     /** @brief domain size, not including halo */
                     std::size_t size() const noexcept { return m_vertices.size(); }
                     const vertices_type& vertices() const noexcept { return m_vertices; }
-                    const xadj_type& xadj() const noexcept { return m_xadj; }
                     const adjncy_type& adjncy() const noexcept { return m_adjncy; }
                     const vertices_type& halo_vertices() const noexcept { return m_halo_vertices; }
 
@@ -119,9 +111,6 @@ namespace gridtools {
                            << "size = " << domain.size() << ";\n"
                            << "vertices: [ ";
                         for (auto v : domain.vertices()) { os << v << " "; }
-                        os << "]\n";
-                        os << "xadj: [ ";
-                        for (auto x : domain.xadj()) { os << x << " "; }
                         os << "]\n";
                         os << "adjncy: [ ";
                         for (auto v : domain.adjncy()) { os << v << " "; }
