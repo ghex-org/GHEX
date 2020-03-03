@@ -137,6 +137,16 @@ foreach (_t ${_tests_gt})
     )
 endforeach()
 
+set(_tests_unstructured unstructured_user_concepts)
+foreach (_t ${_tests_unstructured})
+    add_executable(${_t} ${_t}.cpp)
+    target_link_libraries(${_t} gtest_main_mt)
+    add_test(
+        NAME ${_t}.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+
 if (GHEX_ENABLE_ATLAS_BINDINGS)
     set(_tests_atlas atlas_integration atlas_integration_comm_2)
     foreach (_t ${_tests_atlas})
