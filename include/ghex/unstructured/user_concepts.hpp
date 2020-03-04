@@ -55,9 +55,10 @@ namespace gridtools {
 
                     // members
                     domain_id_type m_id;
-                    vertices_type m_vertices;
+                    vertices_type m_vertices; // including halo vertices
                     adjncy_type m_adjncy; // named after ParMetis CSR arrays
-                    vertices_type m_halo_vertices;
+                    std::size_t m_inner_size;
+                    std::size_t m_size;
 
                 public:
 
@@ -68,14 +69,12 @@ namespace gridtools {
                                       const adjncy_type& adjncy) :
                         m_id{id},
                         m_vertices{vertices},
-                        m_adjncy{adjncy},
-                        m_halo_vertices{} { set_halo_vertices(); }
+                        m_adjncy{adjncy} { set_halo_vertices(); }
                     domain_descriptor(const domain_id_type id,
                                       const map_type& v_map) :
                         m_id{id},
                         m_vertices{},
-                        m_adjncy{},
-                        m_halo_vertices{} {
+                        m_adjncy{} {
                         for (const auto& v_elem : v_map) {
                             m_vertices.push_back(v_elem.first);
                             m_adjncy.insert(m_adjncy.end(), v_elem.second.begin(), v_elem.second.end());
@@ -93,24 +92,26 @@ namespace gridtools {
                         std::set_difference(all_vertices_set.begin(), all_vertices_set.end(),
                                             vertices_set.begin(), vertices_set.end(),
                                             std::inserter(halo_vertices_set, halo_vertices_set.begin()));
-                        m_halo_vertices.insert(m_halo_vertices.end(), halo_vertices_set.begin(), halo_vertices_set.end());
+                        m_inner_size = m_vertices.size();
+                        m_vertices.insert(m_vertices.end(), halo_vertices_set.begin(), halo_vertices_set.end());
+                        m_size = m_vertices.size();
                     }
 
                 public:
 
                     // member functions
                     domain_id_type domain_id() const noexcept { return m_id; }
-                    /** @brief domain size, not including halo */
-                    std::size_t size() const noexcept { return m_vertices.size(); }
+                    std::size_t inner_size() const noexcept { return m_inner_size; }
+                    std::size_t size() const noexcept { return m_size; }
                     const vertices_type& vertices() const noexcept { return m_vertices; }
                     const adjncy_type& adjncy() const noexcept { return m_adjncy; }
-                    const vertices_type& halo_vertices() const noexcept { return m_halo_vertices; }
 
                     // print
                     /** @brief print */
                     template<typename CharT, typename Traits>
                     friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const domain_descriptor& domain) {
                         os << "domain id = " << domain.domain_id() << ";\n"
+                           << "inner size = " << domain.inner_size() << ";\n"
                            << "size = " << domain.size() << ";\n"
                            << "vertices: [ ";
                         for (auto v : domain.vertices()) { os << v << " "; }
@@ -138,6 +139,7 @@ namespace gridtools {
                     using domain_type = domain_descriptor<DomainId, Idx>;
                     using global_index_type = typename domain_type::global_index_type;
                     using vertices_type = typename domain_type::vertices_type;
+                    using it_diff_type = typename vertices_type::iterator::difference_type;
 
                     /** @brief Halo concept for unstructured grids
                      * TO DO: if everything works, this class definition should be removed,
@@ -185,7 +187,7 @@ namespace gridtools {
                      * Should make_pattern be modified accordingly?*/
                     auto operator()(const domain_type& domain) const {
                         std::vector<halo> halos{};
-                        halos.push_back({domain.halo_vertices()});
+                        halos.push_back({{domain.vertices().begin() + static_cast<it_diff_type>(domain.inner_size()), domain.vertices().end()}});
                         return halos;
                     }
 
@@ -210,14 +212,15 @@ namespace gridtools {
                     using global_index_type = Idx;
                     using value_type = T;
                     using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
-                    using index_type = std::size_t; // TO DO: should be the same of the Iteration space (check better)
                     using domain_descriptor_type = domain_descriptor<domain_id_type, global_index_type>;
-                    using storage_type = std::vector<T>;
+                    using storage_type = std::vector<T>; // maybe can be more specific or use some library objects
+                    using index_type = std::size_t; // TO DO: should be the same of (derived from) the Iteration space
                     using byte_t = unsigned char;
 
                 private:
 
                     domain_id_type m_domain_id;
+                    std::size_t m_domain_size;
                     storage_type m_values;
                     index_type m_levels; // TO DO: make it more abstract, should be one for each structured dimension
 
@@ -234,16 +237,17 @@ namespace gridtools {
                                     const Container<value_type>& field,
                                     const index_type levels = 1) :
                         m_domain_id{domain.domain_id()},
+                        m_domain_size{domain.size()},
                         m_values{field.begin(), field.end()},
                         m_levels {levels} {
-                        assert(field.size() == ((domain.size() + domain.halo_vertices().size()) * levels));
+                        assert(field.size() == (domain.size() * levels));
                     }
 
                     // member functions
 
-                    std::size_t data_type_size() const noexcept { return sizeof (value_type); } // TO DO: really needed?
-                    domain_id_type domain_id() const noexcept { return m_domain_id; }
                     device_id_type device_id() const noexcept { return 0; } // significant for the GPU
+                    domain_id_type domain_id() const noexcept { return m_domain_id; }
+                    std::size_t domain_size() const noexcept { return m_domain_size; }
                     index_type levels() const noexcept { return m_levels; }
 
                     /** @brief single access operator, used by multiple access set function*/
