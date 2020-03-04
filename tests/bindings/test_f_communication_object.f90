@@ -13,8 +13,8 @@ PROGRAM test_halo_exchange
   integer :: nthreads = 1, rank, size
   integer :: tmp, i
   integer :: gfirst(3), glast(3)       ! global index space
-  integer :: gdim(3) = [4, 8, 4]       ! number of domains
-  integer :: ldim(3) = [64, 64, 64] ! dimensions of the local domains
+  integer :: gdim(3) = [4, 4, 2]       ! number of domains
+  integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
   integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
   integer :: halo(6)                   ! halo definition
   integer :: niters = 100
@@ -136,63 +136,63 @@ PROGRAM test_halo_exchange
   data1(xs:xe, ys:ye, zs:ze) = rank
  
   ! initialize the field datastructure - COMPACT
-  call ghex_field_init(field_desc, data1, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data1, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
-  call ghex_field_init(field_desc, data2, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data2, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
-  call ghex_field_init(field_desc, data3, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data3, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
-  call ghex_field_init(field_desc, data4, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data4, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
-  call ghex_field_init(field_desc, data5, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data5, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
-  call ghex_field_init(field_desc, data6, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data6, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
-  call ghex_field_init(field_desc, data7, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data7, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
-  call ghex_field_init(field_desc, data8, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data8, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
 
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
 
   ! initialize the field datastructure - SEQUENCE  
-  call ghex_field_init(field_desc, data1, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data1, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d1(1), field_desc)
   ed1 = ghex_exchange_desc_new(d1)
 
-  call ghex_field_init(field_desc, data2, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data2, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d2(1), field_desc)
   ed2 = ghex_exchange_desc_new(d2)
 
-  call ghex_field_init(field_desc, data3, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data3, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d3(1), field_desc)
   ed3 = ghex_exchange_desc_new(d3)
 
-  call ghex_field_init(field_desc, data4, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data4, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d4(1), field_desc)
   ed4 = ghex_exchange_desc_new(d4)
 
-  call ghex_field_init(field_desc, data5, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data5, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d5(1), field_desc)
   ed5 = ghex_exchange_desc_new(d5)
 
-  call ghex_field_init(field_desc, data6, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data6, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d6(1), field_desc)
   ed6 = ghex_exchange_desc_new(d6)
 
-  call ghex_field_init(field_desc, data7, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data7, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d7(1), field_desc)
   ed7 = ghex_exchange_desc_new(d7)
 
-  call ghex_field_init(field_desc, data8, halo, periodic=[1,1,0])
+  call ghex_field_init(field_desc, data8, halo, periodic=[1,1,1])
   call ghex_domain_add_field(d8(1), field_desc)
   ed8 = ghex_exchange_desc_new(d8)
 
