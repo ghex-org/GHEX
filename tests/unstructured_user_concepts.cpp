@@ -21,11 +21,11 @@
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
 #include <ghex/threads/std_thread/primitives.hpp>
-#include <ghex/unstructured/grid.hpp>
-#include <ghex/unstructured/pattern.hpp>
+//#include <ghex/unstructured/grid.hpp>
+//#include <ghex/unstructured/pattern.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/arch_list.hpp>
-#include <ghex/communication_object_2.hpp>
+//#include <ghex/communication_object_2.hpp>
 
 
 #ifndef GHEX_TEST_USE_UCX

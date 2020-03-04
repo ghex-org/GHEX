@@ -19,10 +19,9 @@
 #include <cstring>
 #include <iosfwd>
 
-#include "./grid.hpp"
 #include "../arch_list.hpp"
 #include "../arch_traits.hpp"
-#include "../allocator/unified_memory_allocator.hpp"
+//#include "../allocator/unified_memory_allocator.hpp"
 
 #ifdef __CUDACC__
 #include "../../cuda_utils/error.hpp"
@@ -162,7 +161,6 @@ namespace gridtools {
                             // member functions
                             /** @brief size of the halo */
                             std::size_t size() const noexcept { return m_vertices.size(); }
-                            vertices_type& vertices() noexcept { return m_vertices; }
                             const vertices_type& vertices() const noexcept { return m_vertices; }
                             void push_back(const global_index_type v) { m_vertices.push_back(v); }
 
