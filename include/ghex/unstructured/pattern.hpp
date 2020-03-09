@@ -13,8 +13,8 @@
 
 #include <vector>
 #include <map>
-#include <numeric>
-#include <cstring>
+//#include <numeric>
+//#include <cstring>
 #include <iosfwd>
 
 #include "../transport_layer/context.hpp"
@@ -33,7 +33,7 @@ namespace gridtools {
          * and holds all connections to the neighbors.
          *
          * @tparam Communicator communicator type
-         * @tparam Index index type for domain and iteration space
+         * @tparam Index index type for domain (local indices) and iteration space
          * @tparam DomainId domain id type*/
         template<typename Communicator, typename Index, typename DomainId>
         class pattern<Communicator, unstructured::detail::grid<Index>, DomainId> {
@@ -42,78 +42,52 @@ namespace gridtools {
 
                 // member types
                 using communicator_type = Communicator;
-                using address_type = typename communicator_type::address_type;
                 using index_type = Index;
-                using grid_type = unstructured::detail::grid<index_type>;
                 using domain_id_type = DomainId;
+                using address_type = typename communicator_type::address_type;
+                using grid_type = unstructured::detail::grid<index_type>;
                 using pattern_container_type = pattern_container<communicator_type, grid_type, domain_id_type>;
 
                 friend class pattern_container<communicator_type, grid_type, domain_id_type>;
 
-                /** @brief unstructured iteration space for accessing halo elements
-                 * Indices in 'm_local_index' are always assumed as local to partition 'm_partition'
-                 * (note that, on the other hand, each element returned by a halo generator has two series of indices,
-                 * one local to the receiving partition ('local index') and one local to the remote (sending) partiton ('remote index').
-                 * Number of levels is provided as well, with the assumption that each 2D element is a column
-                 * with 'levels' vertical elements (default is 1, i.e. 2D or fully unstructured case)*/
+                /** @brief unstructured iteration space for accessing halo elements*/
                 class iteration_space {
 
                     public:
 
-                        using u_m_allocator_t = gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>;
+                        using allocator_type = gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>;
+                        using local_indices_type = std::vector<index_type, allocator_type>;
 
                     private:
 
-                        int m_partition;
-                        std::vector<index_type, u_m_allocator_t> m_local_index;
-                        std::size_t m_levels;
+                        local_indices_type m_local_indices;
 
                     public:
 
                         // ctors
                         iteration_space() noexcept = default;
-                        iteration_space(const int partition,
-                                const std::vector<index_type, u_m_allocator_t>& local_index,
-                                const std::size_t levels = 1) :
-                            m_partition{partition},
-                            m_local_index{local_index},
-                            m_levels{levels} {}
-                        iteration_space(const int partition, const index_type first, const index_type last, const std::size_t levels = 1) :
-                            m_partition{partition},
-                            m_local_index{},
-                            m_levels{levels} {
-                            m_local_index.resize(static_cast<std::size_t>(last - first + 1));
-                            for (index_type idx = first; idx <= last; ++idx) {
-                                m_local_index[static_cast<std::size_t>(idx)] = idx;
-                            }
-                        }
+                        iteration_space(const local_indices_type& local_indices) : m_local_indices{local_indices} {}
 
                         // member functions
-                        int partition() const noexcept { return m_partition; }
-                        const std::vector<index_type, u_m_allocator_t>& local_index() const noexcept { return m_local_index; }
-                        std::size_t levels() const noexcept { return m_levels; }
-                        std::size_t size() const noexcept { return m_local_index.size() * m_levels; }
+                        std::size_t size() const noexcept { return m_local_indices.size(); }
+                        const local_indices_type& local_indices() const noexcept { return m_local_indices; }
 
                         // print
                         /** @brief print */
-                        template<class CharT, class Traits>
+                        template <typename CharT, typename Traits>
                         friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const iteration_space& is) {
                             os << "size = " << is.size() << ";\n"
-                               << "# levels = " << is.levels() << ";\n"
-                               << "partition = " << is.partition() << ";\n"
-                               << "local indexes: [ ";
-                            for (auto idx : is.local_index()) { os << idx << " "; }
+                               << "local indices: [ ";
+                            for (auto idx : is.local_indices()) { os << idx << " "; }
                             os << "]\n";
                             return os;
                         }
 
                 };
 
-                using iteration_space_pair = iteration_space;
-                using index_container_type = std::vector<iteration_space_pair>;
+                using index_container_type = std::vector<iteration_space>;
 
-                /** @brief extended domain id, including rank, address and tag information
-                 * WARN: domain id temporarily set equal to rank, differently from structured pattern case*/
+                /** @brief extended domain id, including rank, address and tag information*/
                 struct extended_domain_id_type {
 
                     // members
@@ -125,13 +99,16 @@ namespace gridtools {
                     // member functions
                     /** @brief unique ordering given by address and tag*/
                     bool operator < (const extended_domain_id_type& other) const noexcept {
-                        return (address < other.address ? true : (address == other.address ? (tag < other.tag) : false));
+                        return address < other.address ? true : (address == other.address ? (tag < other.tag) : false);
                     }
 
                     /** @brief print*/
-                    template<class CharT, class Traits>
-                    friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id) {
-                        os << "{tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank << "}";
+                    template <typename CharT, typename Traits>
+                    friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& ext_id) {
+                        os << "{id = " << ext_id.id
+                           << ", rank = " << ext_id.mpi_rank
+                           << ", address = " << ext_id.address
+                           << ", tag = " << ext_id.tag << "}";
                         return os;
                     }
 
@@ -141,8 +118,8 @@ namespace gridtools {
                 using map_type = std::map<extended_domain_id_type, index_container_type>;
 
                 // static member functions
-                /** @brief compute number of elements in an object of type index_container_type */
-                static int num_elements(const index_container_type& c) noexcept {
+                /** @brief compute number of elements in an object of type index_container_type*/
+                static std::size_t num_elements(const index_container_type& c) noexcept {
                     std::size_t s{0};
                     for (const auto& is : c) s += is.size();
                     return s;
@@ -151,7 +128,6 @@ namespace gridtools {
             private:
 
                 // members
-                iteration_space_pair m_domain;
                 extended_domain_id_type m_id;
                 map_type m_send_map;
                 map_type m_recv_map;
@@ -160,8 +136,7 @@ namespace gridtools {
             public:
 
                 // ctors
-                pattern(const iteration_space_pair& domain, const extended_domain_id_type& id) :
-                    m_domain{domain},
+                pattern(const extended_domain_id_type& id) :
                     m_id{id},
                     m_send_map{},
                     m_recv_map{},
@@ -191,9 +166,7 @@ namespace gridtools {
 
         namespace detail {
 
-            /** @brief constructs the pattern with the help of all to all communications
-             * Note: halos are decomposed into horizontal dimensions and vertical levels,
-             * but a fully unstructured case can be treated exactly as a 2D case (m_levels = 1)*/
+            /** @brief constructs the pattern with the help of all to all communications*/
             template<typename Index>
             struct make_pattern_impl<unstructured::detail::grid<Index>> {
 
@@ -203,24 +176,26 @@ namespace gridtools {
                     // typedefs
                     using context_type = tl::context<Transport, ThreadPrimitives>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
-                    using domain_id_type = typename domain_type::domain_id_type;
                     using grid_type = unstructured::detail::grid<Index>;
                     using communicator_type = typename context_type::communicator_type;
+                    using domain_id_type = typename domain_type::domain_id_type;
                     using pattern_type = pattern<communicator_type, grid_type, domain_id_type>;
-                    using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
-                    using index_container_type = typename pattern_type::index_container_type;
                     using index_type = typename pattern_type::index_type;
                     using address_type = typename pattern_type::address_type;
-                    using u_m_allocator_t = gridtools::ghex::allocator::cuda::unified_memory_allocator<index_type>;
+                    using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
+                    using index_container_type = typename pattern_type::index_container_type;
+                    using allocator_type = typename pattern_type::iteration_space::allocator_type;
 
-                    // get this rank, address and size from new communicator
+                    // get setup comm and new comm, and then this rank, this address and size from new comm
                     auto comm = context.get_setup_communicator();
                     auto new_comm = context.get_serial_communicator();
-                    auto my_rank = new_comm.rank(); // WARN: comm or new_comm?
+                    auto my_rank = new_comm.rank();
                     auto my_address = new_comm.address();
                     size_t size = static_cast<std::size_t>(new_comm.size());
 
                     std::vector<pattern_type> my_patterns;
+
+                    // OK UP TO HERE, NOW COMMENTING EVERYTHING AND DECOMMENTING ONCE AT A TIME
 
                     std::vector<int> recv_counts{};
                     recv_counts.resize(size);

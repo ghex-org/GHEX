@@ -55,7 +55,7 @@ namespace gridtools {
                     // members
                     domain_id_type m_id;
                     vertices_type m_vertices; // including halo vertices
-                    adjncy_type m_adjncy; // named after ParMetis CSR arrays
+                    adjncy_type m_adjncy; // named after ParMetis CSR arrays; TO DO: needed mostly for debugging, can be removed
                     std::size_t m_inner_size;
                     std::size_t m_size;
 
@@ -178,15 +178,11 @@ namespace gridtools {
                     };
 
                     // member functions
-                    /** @brief generate halo(s)
+                    /** @brief generate halo
                      * @param domain local domain instance
-                     * @return (vector of) receive halo(s)
-                     * TO DO: now it generates only one halo: should this actually be the rule?
-                     * Should make_pattern be modified accordingly?*/
-                    auto operator()(const domain_type& domain) const {
-                        std::vector<halo> halos{};
-                        halos.push_back({{domain.vertices().begin() + static_cast<it_diff_type>(domain.inner_size()), domain.vertices().end()}});
-                        return halos;
+                     * @return receive halo*/
+                    halo operator()(const domain_type& domain) const {
+                        return {{domain.vertices().begin() + static_cast<it_diff_type>(domain.inner_size()), domain.vertices().end()}};
                     }
 
             };

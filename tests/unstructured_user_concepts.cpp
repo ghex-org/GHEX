@@ -72,7 +72,7 @@ TEST(unstructured_user_concepts, domain_descriptor_and_halos) {
             vertices_type reference_inner_vertices{0, 13, 5, 2};
             EXPECT_TRUE(inner_vertices == reference_inner_vertices);
             halo_generator_type halo_generator{};
-            auto h = halo_generator(d).front();
+            auto h = halo_generator(d);
             vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{1, 20, 7, 3, 11};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
@@ -96,7 +96,7 @@ TEST(unstructured_user_concepts, domain_descriptor_and_halos) {
             vertices_type reference_inner_vertices{1, 19, 20, 4, 7, 15, 8};
             EXPECT_TRUE(inner_vertices == reference_inner_vertices);
             halo_generator_type halo_generator{};
-            auto h = halo_generator(d).front();
+            auto h = halo_generator(d);
             vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{0, 13, 16, 9};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
@@ -116,7 +116,7 @@ TEST(unstructured_user_concepts, domain_descriptor_and_halos) {
             vertices_type reference_inner_vertices{3, 16, 18};
             EXPECT_TRUE(inner_vertices == reference_inner_vertices);
             halo_generator_type halo_generator{};
-            auto h = halo_generator(d).front();
+            auto h = halo_generator(d);
             vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{5, 1, 6};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
@@ -139,7 +139,7 @@ TEST(unstructured_user_concepts, domain_descriptor_and_halos) {
             vertices_type reference_inner_vertices{17, 6, 11, 10, 12, 9};
             EXPECT_TRUE(inner_vertices == reference_inner_vertices);
             halo_generator_type halo_generator{};
-            auto h = halo_generator(d).front();
+            auto h = halo_generator(d);
             vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{0, 4, 3};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
