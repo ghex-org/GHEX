@@ -98,6 +98,8 @@ namespace gridtools {
                     inline ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
+
+                    const ::gridtools::ghex::tl::mpi::hwtopo& hwtopo() const noexcept { return m_context->m_hwtopo; }
                 };
 
             } // namespace ucx
