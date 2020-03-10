@@ -12,10 +12,8 @@
 #define INCLUDED_GHEX_TL_MPI_HWTOPO_HPP
 
 #include <vector>
-//#include <algorithm>
 #include <unordered_set>
 #include "./error.hpp"
-//#include "../../common/moved_bit.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -47,7 +45,6 @@ namespace gridtools {
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(m_shared_comm,&m_rank));
                         int size;
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_size(m_shared_comm,&size));
-                        // prepare database
                         // gather rank info from all ranks within shared comm
                         std::vector<int> ranks(size);
                         MPI_Allgather(&rank, 1, MPI_INT, ranks.data(), 1, MPI_INT, m_shared_comm);

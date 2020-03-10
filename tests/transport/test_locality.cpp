@@ -64,11 +64,9 @@ TEST(locality, enumerate) {
                 EXPECT_EQ((comm.is_local(rr) ? 1 : 0), local_ranks[rr]);
             }
             const int equal_hosts = (std::strcmp(my_host_name.data(), other_host_name.data()) == 0) ? 1 : 0;
-            EXPECT_EQ(is_neighbor, equal_hosts);
+            if (is_neighbor == 1)
+                EXPECT_EQ(equal_hosts, 1);
         }
     }
-
-    // send 
 }
-
 
