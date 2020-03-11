@@ -10,7 +10,7 @@ PROGRAM test_halo_exchange
 
   real    :: tic, toc
   integer :: ierr, mpi_err, mpi_threading
-  integer :: nthreads = 1, rank, size
+  integer :: nthreads = 1, rank, size, world_rank
   integer :: tmp, i
   integer :: gfirst(3), glast(3)       ! global index space
   integer :: gdim(3) = [4, 4, 2]       ! number of domains
@@ -41,9 +41,12 @@ PROGRAM test_halo_exchange
 
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
-  call mpi_comm_rank(mpi_comm_world, rank, mpi_err)
-  call mpi_comm_size(mpi_comm_world, size, mpi_err)
-  C_CART = mpi_comm_world
+  call mpi_cart_create(mpi_comm_world, 3, gdim, [1, 1, 1], .true., C_CART,ierr)
+  ! C_CART = mpi_comm_world
+
+  call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
+  call mpi_comm_rank(C_CART, rank, mpi_err)
+  call mpi_comm_size(C_CART, size, mpi_err)
 
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world)
@@ -331,21 +334,29 @@ contains
   ! cartesian coordinates computations
   ! -------------------------------------------------------------
   subroutine rank2coord(rank, coord)
-    integer :: rank, tmp
+    integer :: rank, tmp, ierr
     integer :: coord(3)
 
-    tmp = rank;        coord(1) = modulo(tmp, gdim(1))
-    tmp = tmp/gdim(1); coord(2) = modulo(tmp, gdim(2))
-    tmp = tmp/gdim(2); coord(3) = tmp
+    if (C_CART == mpi_comm_world) then
+       tmp = rank;        coord(3) = modulo(tmp, gdim(3))
+       tmp = tmp/gdim(3); coord(2) = modulo(tmp, gdim(2))
+       tmp = tmp/gdim(2); coord(1) = tmp
+    else
+       call mpi_cart_coords(C_CART, rank, gdim, coord, ierr)
+    end if
     coord = coord + 1
   end subroutine rank2coord
   
   subroutine coord2rank(icoord, rank)
-    integer :: icoord(3), coord(3)
+    integer :: icoord(3), coord(3), ierr
     integer :: rank
 
     coord = icoord - 1
-    rank = (coord(3)*gdim(2) + coord(2))*gdim(1) + coord(1)
+    if (C_CART == mpi_comm_world) then
+       rank = (coord(1)*gdim(2) + coord(2))*gdim(3) + coord(3)
+    else
+       call mpi_cart_rank(C_CART, coord, rank, ierr)
+    end if
   end subroutine coord2rank
   
   function get_nbor(icoord, shift, idx)
@@ -357,10 +368,10 @@ contains
     coord = icoord
     coord(idx) = coord(idx)+shift
     if (coord(idx) > gdim(idx)) then
-      coord(idx) = 1
+       coord(idx) = 1
     end if
     if (coord(idx) == 0) then
-      coord(idx) = gdim(idx)
+       coord(idx) = gdim(idx)
     end if
     call coord2rank(coord, get_nbor)
   end function get_nbor
@@ -395,18 +406,26 @@ contains
     end if
 
     ! z dimension is NOT periodic
+    ! if (gdim(3) > 1) then
+    !   if (rank_coord(3) /= gdim(3)) then
+    !     R_ZUP = get_nbor(rank_coord, +1, 3); exist_zup = .true.
+    !   else
+    !     R_ZUP = MPI_PROC_NULL
+    !   end if
+    !   if (rank_coord(3) /= 1) then
+    !     R_ZDN = get_nbor(rank_coord, -1, 3); exist_zdn = .true.
+    !   else
+    !     R_ZDN = MPI_PROC_NULL
+    !   end if
+    ! end if
     if (gdim(3) > 1) then
-      if (rank_coord(3) /= gdim(3)) then
-        R_ZUP = get_nbor(rank_coord, +1, 3); exist_zup = .true.
-      else
-        R_ZUP = MPI_PROC_NULL
-      end if
-      if (rank_coord(3) /= 1) then
-        R_ZDN = get_nbor(rank_coord, -1, 3); exist_zdn = .true.
-      else
-        R_ZDN = MPI_PROC_NULL
-      end if
+       R_ZUP = get_nbor(rank_coord, +1, 3); exist_zup = .true.
+       R_ZDN = get_nbor(rank_coord, -1, 3); exist_zdn = .true.
+    else
+       R_ZUP = MPI_PROC_NULL
+       R_ZDN = MPI_PROC_NULL
     end if
+
   end subroutine init_mpi_nbors
   
  
