@@ -40,6 +40,7 @@ TEST(locality, enumerate) {
 
     // check for symmetry
     std::vector<int> local_ranks(comm.size());
+    // host names must be contained in a message-compatible data
     std::vector<char> my_host_name(HOST_NAME_MAX+1,0);
     std::vector<char> other_host_name(HOST_NAME_MAX+1,0);
     gethostname(my_host_name.data(), HOST_NAME_MAX+1);
@@ -69,4 +70,3 @@ TEST(locality, enumerate) {
         }
     }
 }
-
