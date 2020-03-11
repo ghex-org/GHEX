@@ -31,7 +31,7 @@ namespace gridtools {
                 using state_vector = std::vector<state_ptr>;
 
                 thread_primitives_type& m_thread_primitives;
-                mpi::hwtopo& m_hwtopo;
+                const mpi::rank_topology& m_rank_topology;
                 MPI_Comm m_comm;
                 std::vector<thread_token>  m_tokens;
                 shared_state_type m_shared_state;
@@ -39,9 +39,9 @@ namespace gridtools {
                 state_vector m_states;
 
                 template<typename... Args>
-                transport_context(ThreadPrimitives& tp, mpi::hwtopo& t, MPI_Comm mpi_comm, Args&&...)
+                transport_context(ThreadPrimitives& tp, const mpi::rank_topology& t, MPI_Comm mpi_comm, Args&&...)
                 : m_thread_primitives(tp)
-                , m_hwtopo{t}
+                , m_rank_topology{t}
                 , m_comm{mpi_comm}
                 , m_tokens(tp.size())
                 , m_shared_state(mpi_comm, this, &tp)

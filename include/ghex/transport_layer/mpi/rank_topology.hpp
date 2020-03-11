@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_TL_MPI_HWTOPO_HPP
-#define INCLUDED_GHEX_TL_MPI_HWTOPO_HPP
+#ifndef INCLUDED_GHEX_TL_MPI_RANK_TOPOLOGY_HPP
+#define INCLUDED_GHEX_TL_MPI_RANK_TOPOLOGY_HPP
 
 #include <vector>
 #include <unordered_set>
@@ -21,7 +21,7 @@ namespace gridtools {
             namespace mpi {
                 
                 /** @brief Class representing node (shared memory) topology. */
-                class hwtopo {
+                class rank_topology {
                 public: // member types
                     using set_type  = std::unordered_set<int>;
                     using size_type = set_type::size_type;
@@ -34,7 +34,7 @@ namespace gridtools {
 
                 public: // ctors
                     /** @brief construct from MPI communicator */
-                    hwtopo(MPI_Comm comm) : m_comm(comm) {
+                    rank_topology(MPI_Comm comm) : m_comm(comm) {
                         // get rank from comm
                         int rank;
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(comm,&rank));
@@ -53,10 +53,10 @@ namespace gridtools {
                         GHEX_CHECK_MPI_RESULT(MPI_Comm_free(&m_shared_comm));
                     }
 
-                    hwtopo(const hwtopo&) = default;
-                    hwtopo(hwtopo&&) noexcept = default;
-                    hwtopo& operator=(const hwtopo&) = default;
-                    hwtopo& operator=(hwtopo&&) noexcept = default;
+                    rank_topology(const rank_topology&) = default;
+                    rank_topology(rank_topology&&) noexcept = default;
+                    rank_topology& operator=(const rank_topology&) = default;
+                    rank_topology& operator=(rank_topology&&) noexcept = default;
 
                 public: // member functions
                     /** @brief return whether rank is located on this node */
@@ -74,4 +74,4 @@ namespace gridtools {
     } // namespace ghex
 } //namespace gridtools
 
-#endif // INCLUDED_GHEX_TL_MPI_HWTOPO_HPP
+#endif // INCLUDED_GHEX_TL_MPI_RANK_TOPOLOGY_HPP

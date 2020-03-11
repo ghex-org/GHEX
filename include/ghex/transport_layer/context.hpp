@@ -16,7 +16,7 @@
 #include "./config.hpp"
 #include "./tags.hpp"
 #include "./mpi/setup.hpp"
-#include "./mpi/hwtopo.hpp"
+#include "./mpi/rank_topology.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -59,7 +59,7 @@ namespace gridtools {
 
             private: // members
                 MPI_Comm m_mpi_comm;
-                mpi::hwtopo m_hwtopo;
+                mpi::rank_topology m_rank_topology;
                 thread_primitives_type m_thread_primitives;
                 transport_context_type m_transport_context;
                 int m_rank;
@@ -69,9 +69,9 @@ namespace gridtools {
                 template<typename...Args>
                 context(int num_threads, MPI_Comm comm, Args&&... args)
                     : m_mpi_comm{comm}
-                    , m_hwtopo{comm}
+                    , m_rank_topology{comm}
                     , m_thread_primitives(num_threads)
-                    , m_transport_context{m_thread_primitives, m_hwtopo, std::forward<Args>(args)...}
+                    , m_transport_context{m_thread_primitives, m_rank_topology, std::forward<Args>(args)...}
                     , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) }
                     , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) }
                 {}

@@ -99,7 +99,7 @@ namespace gridtools {
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
 
-                    const ::gridtools::ghex::tl::mpi::hwtopo& hwtopo() const noexcept { return m_context->m_hwtopo; }
+                    const ::gridtools::ghex::tl::mpi::rank_topology& rank_topology() const noexcept { return m_context->m_rank_topology; }
                 };
 
             } // namespace ucx
