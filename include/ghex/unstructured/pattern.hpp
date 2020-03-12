@@ -183,16 +183,16 @@ namespace gridtools {
                     using communicator_type = typename context_type::communicator_type;
                     using domain_id_type = typename domain_type::domain_id_type;
                     using global_index_type = typename domain_type::global_index_type;
-                    using vertices_type = std::vector<global_index_type>;
-                    using vertices_set_type = std::set<global_index_type>;
                     using pattern_type = pattern<communicator_type, grid_type, domain_id_type>;
                     using index_type = typename pattern_type::index_type;
                     using address_type = typename pattern_type::address_type;
                     using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
                     using iteration_space_type = typename pattern_type::iteration_space;
                     using index_container_type = typename pattern_type::index_container_type;
-                    using allocator_type = typename iteration_space_type::allocator_type;
+                    using vertices_type = std::vector<global_index_type>;
+                    using vertices_map_type = std::map<global_index_type, index_type>;
                     using rank_local_index_type = index_type;
+                    using allocator_type = typename iteration_space_type::allocator_type;
 
                     // get setup comm and new comm, and then this rank, this address and size from new comm
                     auto comm = context.get_setup_communicator();
@@ -249,158 +249,170 @@ namespace gridtools {
 
                     // other setup helpers
                     auto all_addresses = comm.all_gather(my_address).get(); // addresses of all ranks
-                    int m_max_tag = ((num_domains - 1) << 7) + num_domains; // TO DO: maximum domain id should not be hard-coded. TO DO: should add 1?
+                    std::vector<domain_id_type> max_domain_ids{}; // max domain id on every rank
+                    for (const auto& d_ids : all_domain_ids) {
+                        max_domain_ids.push_back(std::max_element(d_ids.begin(), d_ids.end()));
+                    }
+                    domain_id_type max_domain_id = std::max_element(max_domain_ids.begin(), max_domain_ids.end()); // max domain id among all ranks
+                    int m_max_tag = (max_domain_id << 7) + max_domain_id; // TO DO: maximum shift should not be hard-coded. TO DO: should add 1?
 
-                    // send
+                    // ========== SEND ==========
 
                     std::vector<std::vector<int>> all_send_counts{}; // number of elements to be sent from each local domain to all ranks (int, since has to be used as elem counter)
                     for (auto other_rank = 0; other_rank < size; ++other_rank) {
-                        std::vector<int> other_send_count{}; // TO DO: better way to do that
-                        other_send_count.resize(all_num_domains[other_rank]);
-                        std::fill(other_send_count.begin(), other_send_count.end(), 0);
-                        all_send_counts.push_back(std::move(other_send_count));
+                        std::vector<int> other_send_counts{};
+                        other_send_counts.resize(all_num_domains[other_rank]);
+                        std::fill(other_send_counts.begin(), other_send_counts.end(), 0);
+                        all_send_counts.push_back(std::move(other_send_counts)); // TO DO: better way to achieve that
                     }
-                    std::vector<rank_local_index_type> all_send_indices{}; // elements to be sent to all ranks (in terms of rank local indices)
+                    std::vector<std::vector<rank_local_index_type>> all_send_indices{}; // elements to be sent from all local domains to all ranks (in terms of rank local indices)
+                    all_send_indices.resize(size);
 
-                    for (auto p = 0; p < my_patterns.size(); ++p) {
+                    for (auto p = 0; p < my_patterns.size(); ++p) { // loop through local domains
 
                         auto d = d_range[p]; // local domain
                         auto my_id = d.domain_id(); // local domain id
+                        vertices_map_type d_vertices_map{}; // local vertices map
+                        for (auto local_idx = 0; local_idx < d.inner_size(); ++local_idx) {
+                            d_vertices_map.insert(std::make_pair(d.vertices()[local_idx], local_idx));
+                        }
 
-                        // setup send halos
-                        vertices_set_type d_vertices_set{d.vertices().begin(), d.vertices().end()};
                         std::size_t all_reduced_halos_start_idx{0};
-                        for (auto other_rank = 0; other_rank < size; ++other_rank) { // loop through all_reduced_halos
+                        for (auto other_rank = 0; other_rank < size; ++other_rank) { // loop through all_reduced_halos, one rank at a time
                             auto other_address = all_addresses[other_rank];
                             rank_local_index_type other_rank_idx{0};
                             for (auto other_domain_idx = 0; other_domain_idx < all_num_domains[other_rank]; ++other_domain_idx) { // loop through all domains on other rank; TO DO: std::size_t?
                                 auto other_halo_size = all_halo_sizes[other_rank][other_domain_idx];
                                 if (other_halo_size) {
                                     auto other_id = all_domain_ids[other_rank][other_domain_idx];
-                                    int tag = (my_id << 7) + other_id; // TO DO: maximum domain id should not be hard-coded
+                                    int tag = (static_cast<int>(my_id) << 7) + static_cast<int>(other_id); // TO DO: maximum shift should not be hard-coded
                                     extended_domain_id_type id{other_id, other_rank, other_address, tag};
                                     iteration_space_type is{};
                                     for (auto all_reduced_halos_idx = all_reduced_halos_start_idx;
                                          all_reduced_halos_idx < all_reduced_halos_start_idx + other_halo_size;
                                          ++all_reduced_halos_idx, ++other_rank_idx) { // loop through halo vertices
-                                        if (d_vertices_set.find(all_reduced_halos[all_reduced_halos_idx]) != d_vertices_set.end()) {
-                                            is.push_back(all_reduced_halos[all_reduced_halos_idx]);
-                                            all_send_indices.push_back(other_rank_idx);
+                                        auto it = d_vertices_map.find(all_reduced_halos[all_reduced_halos_idx]);
+                                        if (it != d_vertices_map.end()) {
+                                            is.push_back((*it).second);
+                                            all_send_indices[other_rank].push_back(other_rank_idx);
                                         }
                                     }
                                     index_container_type ic{is};
                                     my_patterns[p].send_halos().insert(std::make_pair(id, ic));
-                                    all_send_counts[other_rank][other_domain_idx] = static_cast<int>(is.size());
+                                    all_send_counts[other_rank][p] += static_cast<int>(is.size());
                                     all_reduced_halos_start_idx += other_halo_size;
                                 }
                             }
                         }
 
-                        // setup all-to-all communication, send side (TO DO: all_to_all interface chould be made similar to all_gather, this will avoid vector flattening)
-                        std::vector<int> all_flat_send_counts{};
-                        std::vector<int> all_flat_send_counts_displs{};
-                        all_flat_send_counts_displs.resize(static_cast<std::size_t>(size));
-                        all_flat_send_counts_displs[0] = 0;
-                        std::vector<int> all_rank_send_counts;
-                        all_rank_send_counts.resize(static_cast<std::size_t>(size));
-                        std::vector<int> all_rank_send_displs;
-                        all_rank_send_displs.resize(static_cast<std::size_t>(size));
-                        all_rank_send_displs[0] = 0;
-                        for (auto other_rank = 0; other_rank < size; ++other_rank) {
-                            int total_rank_count{0};
-                            for (auto sc : all_send_counts[static_cast<std::size_t>(other_rank)]) {
-                                all_flat_send_counts.push_back(sc);
-                                total_rank_count += sc;
-                            }
-                            all_rank_send_counts[static_cast<std::size_t>(other_rank)] = total_rank_count;
-                            if (other_rank > 0) {
-                                all_flat_send_counts_displs[static_cast<std::size_t>(other_rank)] =
-                                        all_flat_send_counts_displs[static_cast<std::size_t>(other_rank - 1)] +
-                                        all_num_domains[static_cast<std::size_t>(other_rank - 1)];
-                                all_rank_send_displs[static_cast<std::size_t>(other_rank)] =
-                                        all_rank_send_displs[static_cast<std::size_t>(other_rank - 1)] +
-                                        total_rank_count;
-                        }
-
-                        // setup all-to-all communication, recv side
-                        std::vector<int> all_flat_recv_counts{};
-                        all_flat_recv_counts.resize(size);
-                        comm.all_to_allv(all_flat_send_counts, all_num_domains, all_flat_send_counts_displs,
-                                         all_flat_recv_counts, all_num_domains, all_flat_send_counts_displs);
-
-                        // setup receive halos
-                        comm.all_to_allv();
-
-                        /*
-                        std::fill(recv_counts.begin(), recv_counts.end(), 0);
-                        std::fill(send_counts.begin(), send_counts.end(), 0);
-                        std::fill(recv_displs.begin(), recv_displs.end(), 0);
-                        std::fill(send_displs.begin(), send_displs.end(), 0);
-
-                        // set up receive halos
-                        auto generated_recv_halos = hgen(d);
-                        for (const auto& h : generated_recv_halos) {
-                            if (h.size()) {
-                                // WARN: very simplified definition of extended domain id;
-                                // a more complex one is needed for multiple domains
-                                int tag = (h.partition() << 7) + my_address; // WARN: maximum address / rank = 2^7 - 1
-                                extended_domain_id_type id{h.partition(), h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
-                                index_container_type ic{ {h.partition(), h.local_index(), h.levels()} };
-                                p.recv_halos().insert(std::make_pair(id, ic));
-                                recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
-                                recv_levels[static_cast<std::size_t>(h.partition())] = h.levels();
-                            }
-                        }
-
-                        // set up all-to-all communication, receive side
-                        recv_count = std::accumulate(recv_counts.begin(), recv_counts.end(), 0);
-                        recv_indexes.resize(recv_count);
-                        recv_displs[0] = 0;
-                        for (std::size_t rank = 1; rank < size; ++rank) {
-                            recv_displs[rank] = recv_displs[rank - 1] + recv_counts[rank - 1];
-                        }
-                        for (const auto& h : generated_recv_halos) {
-                            if (h.size()) {
-                                std::memcpy(&recv_indexes[static_cast<std::size_t>(recv_displs[static_cast<std::size_t>(h.partition())])],
-                                        &h.remote_index()[0],
-                                        h.size() * sizeof(index_type));
-                            }
-                        }
-
-                        // set up all-to-all communication, send side
-                        comm.all_to_all(recv_counts, send_counts);
-                        comm.all_to_all(recv_levels, send_levels);
-                        send_count = std::accumulate(send_counts.begin(), send_counts.end(), 0);
-                        send_indexes.resize(send_count);
-                        send_displs[0] = 0;
-                        for (std::size_t rank = 1; rank < size; ++rank) {
-                            send_displs[rank] = send_displs[rank - 1] + send_counts[rank - 1];
-                        }
-
-                        // set up send halos
-                        comm.all_to_allv(recv_indexes, recv_counts, recv_displs,
-                                send_indexes, send_counts, send_displs);
-                        for (std::size_t rank = 0; rank < size; ++rank) {
-                            if (send_counts[rank]) {
-                                // WARN: very simplified definition of extended domain id;
-                                // a more complex one is needed for multiple domains
-                                int tag = (my_address << 7) + rank; // WARN: maximum rank / address = 2^7 - 1
-                                extended_domain_id_type id{static_cast<int>(rank), static_cast<int>(rank), static_cast<address_type>(rank), tag};
-                                std::vector<index_type, u_m_allocator_t> remote_index{};
-                                remote_index.resize(send_counts[rank]);
-                                std::memcpy(&remote_index[0],
-                                        &send_indexes[static_cast<std::size_t>(send_displs[rank])],
-                                        static_cast<std::size_t>(send_counts[rank]) * sizeof(index_type));
-                                index_container_type ic{ {static_cast<int>(rank), std::move(remote_index), send_levels[rank]} };
-                                p.send_halos().insert(std::make_pair(id, ic));
-                            }
-                        }
-                        */
-
-                        // update patterns list
-                        my_patterns.push_back(p);
-
                     }
+
+                    // FROM HERE
+
+                    // setup all-to-all communication, send side (TO DO: all_to_all interface chould be made similar to all_gather, this will avoid vector flattening)
+                    std::vector<int> all_flat_send_counts{};
+                    std::vector<int> all_flat_send_counts_displs{};
+                    all_flat_send_counts_displs.resize(static_cast<std::size_t>(size));
+                    all_flat_send_counts_displs[0] = 0;
+                    std::vector<int> all_rank_send_counts;
+                    all_rank_send_counts.resize(static_cast<std::size_t>(size));
+                    std::vector<int> all_rank_send_displs;
+                    all_rank_send_displs.resize(static_cast<std::size_t>(size));
+                    all_rank_send_displs[0] = 0;
+                    for (auto other_rank = 0; other_rank < size; ++other_rank) {
+                        int total_rank_count{0};
+                        for (auto sc : all_send_counts[static_cast<std::size_t>(other_rank)]) {
+                            all_flat_send_counts.push_back(sc);
+                            total_rank_count += sc;
+                        }
+                        all_rank_send_counts[static_cast<std::size_t>(other_rank)] = total_rank_count;
+                        if (other_rank > 0) {
+                            all_flat_send_counts_displs[static_cast<std::size_t>(other_rank)] =
+                                    all_flat_send_counts_displs[static_cast<std::size_t>(other_rank - 1)] +
+                                    all_num_domains[static_cast<std::size_t>(other_rank - 1)];
+                            all_rank_send_displs[static_cast<std::size_t>(other_rank)] =
+                                    all_rank_send_displs[static_cast<std::size_t>(other_rank - 1)] +
+                                    total_rank_count;
+                        }
+                    }
+
+                    // ========== RECV ==========
+
+                    // setup all-to-all communication, recv side
+                    std::vector<int> all_flat_recv_counts{};
+                    all_flat_recv_counts.resize(size);
+                    comm.all_to_allv(all_flat_send_counts, all_num_domains, all_flat_send_counts_displs,
+                                     all_flat_recv_counts, all_num_domains, all_flat_send_counts_displs);
+
+                    // setup receive halos
+                    // comm.all_to_allv();
+                    // USE: - all_send_indices
+
+                    /*
+                    std::fill(recv_counts.begin(), recv_counts.end(), 0);
+                    std::fill(send_counts.begin(), send_counts.end(), 0);
+                    std::fill(recv_displs.begin(), recv_displs.end(), 0);
+                    std::fill(send_displs.begin(), send_displs.end(), 0);
+
+                    // set up receive halos
+                    auto generated_recv_halos = hgen(d);
+                    for (const auto& h : generated_recv_halos) {
+                        if (h.size()) {
+                            // WARN: very simplified definition of extended domain id;
+                            // a more complex one is needed for multiple domains
+                            int tag = (h.partition() << 7) + my_address; // WARN: maximum address / rank = 2^7 - 1
+                            extended_domain_id_type id{h.partition(), h.partition(), static_cast<address_type>(h.partition()), tag}; // WARN: address is not obtained from the other domain
+                            index_container_type ic{ {h.partition(), h.local_index(), h.levels()} };
+                            p.recv_halos().insert(std::make_pair(id, ic));
+                            recv_counts[static_cast<std::size_t>(h.partition())] = static_cast<int>(h.size());
+                            recv_levels[static_cast<std::size_t>(h.partition())] = h.levels();
+                        }
+                    }
+
+                    // set up all-to-all communication, receive side
+                    recv_count = std::accumulate(recv_counts.begin(), recv_counts.end(), 0);
+                    recv_indexes.resize(recv_count);
+                    recv_displs[0] = 0;
+                    for (std::size_t rank = 1; rank < size; ++rank) {
+                        recv_displs[rank] = recv_displs[rank - 1] + recv_counts[rank - 1];
+                    }
+                    for (const auto& h : generated_recv_halos) {
+                        if (h.size()) {
+                            std::memcpy(&recv_indexes[static_cast<std::size_t>(recv_displs[static_cast<std::size_t>(h.partition())])],
+                                    &h.remote_index()[0],
+                                    h.size() * sizeof(index_type));
+                        }
+                    }
+
+                    // set up all-to-all communication, send side
+                    comm.all_to_all(recv_counts, send_counts);
+                    comm.all_to_all(recv_levels, send_levels);
+                    send_count = std::accumulate(send_counts.begin(), send_counts.end(), 0);
+                    send_indexes.resize(send_count);
+                    send_displs[0] = 0;
+                    for (std::size_t rank = 1; rank < size; ++rank) {
+                        send_displs[rank] = send_displs[rank - 1] + send_counts[rank - 1];
+                    }
+
+                    // set up send halos
+                    comm.all_to_allv(recv_indexes, recv_counts, recv_displs,
+                            send_indexes, send_counts, send_displs);
+                    for (std::size_t rank = 0; rank < size; ++rank) {
+                        if (send_counts[rank]) {
+                            // WARN: very simplified definition of extended domain id;
+                            // a more complex one is needed for multiple domains
+                            int tag = (my_address << 7) + rank; // WARN: maximum rank / address = 2^7 - 1
+                            extended_domain_id_type id{static_cast<int>(rank), static_cast<int>(rank), static_cast<address_type>(rank), tag};
+                            std::vector<index_type, u_m_allocator_t> remote_index{};
+                            remote_index.resize(send_counts[rank]);
+                            std::memcpy(&remote_index[0],
+                                    &send_indexes[static_cast<std::size_t>(send_displs[rank])],
+                                    static_cast<std::size_t>(send_counts[rank]) * sizeof(index_type));
+                            index_container_type ic{ {static_cast<int>(rank), std::move(remote_index), send_levels[rank]} };
+                            p.send_halos().insert(std::make_pair(id, ic));
+                        }
+                    }
+                    */
 
                     return pattern_container<communicator_type, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);
 
