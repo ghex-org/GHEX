@@ -12,8 +12,9 @@
 #define INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
 
 #include <vector>
+#include <set>
 #include <map>
-//#include <numeric>
+#include <numeric>
 //#include <cstring>
 #include <iosfwd>
 
@@ -25,6 +26,7 @@
 
 
 namespace gridtools {
+
     namespace ghex {
 
         /** @brief unstructured pattern specialization
@@ -71,6 +73,7 @@ namespace gridtools {
                         // member functions
                         std::size_t size() const noexcept { return m_local_indices.size(); }
                         const local_indices_type& local_indices() const noexcept { return m_local_indices; }
+                        void push_back(const index_type idx) { m_local_indices.push_back(idx); }
 
                         // print
                         /** @brief print */
@@ -85,7 +88,7 @@ namespace gridtools {
 
                 };
 
-                using index_container_type = std::vector<iteration_space>;
+                using index_container_type = std::vector<iteration_space>; // TO DO: should be simplified, just one halo per local domain
 
                 /** @brief extended domain id, including rank, address and tag information*/
                 struct extended_domain_id_type {
@@ -174,29 +177,38 @@ namespace gridtools {
                 static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
 
                     // typedefs
+                    using grid_type = unstructured::detail::grid<Index>;
                     using context_type = tl::context<Transport, ThreadPrimitives>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
-                    using grid_type = unstructured::detail::grid<Index>;
                     using communicator_type = typename context_type::communicator_type;
                     using domain_id_type = typename domain_type::domain_id_type;
+                    using global_index_type = typename domain_type::global_index_type;
+                    using vertices_type = std::vector<global_index_type>;
+                    using vertices_set_type = std::set<global_index_type>;
                     using pattern_type = pattern<communicator_type, grid_type, domain_id_type>;
                     using index_type = typename pattern_type::index_type;
                     using address_type = typename pattern_type::address_type;
                     using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
+                    using iteration_space_type = typename pattern_type::iteration_space;
                     using index_container_type = typename pattern_type::index_container_type;
-                    using allocator_type = typename pattern_type::iteration_space::allocator_type;
+                    using allocator_type = typename iteration_space_type::allocator_type;
+                    using rank_local_index_type = index_type;
 
                     // get setup comm and new comm, and then this rank, this address and size from new comm
                     auto comm = context.get_setup_communicator();
                     auto new_comm = context.get_serial_communicator();
                     auto my_rank = new_comm.rank();
                     auto my_address = new_comm.address();
-                    size_t size = static_cast<std::size_t>(new_comm.size());
+                    auto size = new_comm.size();
 
+                    // setup patterns
                     std::vector<pattern_type> my_patterns;
+                    for (const auto& d : d_range) {
+                        pattern_type p{{d.domain_id(), my_rank, my_address, 0}};
+                        my_patterns.push_back(p);
+                    }
 
-                    // OK UP TO HERE, NOW COMMENTING EVERYTHING AND DECOMMENTING ONCE AT A TIME
-
+                    /*
                     std::vector<int> recv_counts{};
                     recv_counts.resize(size);
                     std::vector<int> send_counts{};
@@ -213,15 +225,113 @@ namespace gridtools {
                     recv_levels.resize(size);
                     std::vector<std::size_t> send_levels{};
                     send_levels.resize(size);
+                    */
 
-                    // needed with multiple domains per rank
-                    int m_max_tag = 999;
+                    // gather halos from all local domains on all ranks
+                    int num_domains = static_cast<int>(d_range.size()); // number of local domains (int, since has to be used as elem counter)
+                    auto all_num_domains = comm.all_gather(num_domains).get(); // numbers of local domains on all ranks
+                    std::vector<domain_id_type> domain_ids{}; // domain id for each local domain
+                    std::vector<std::size_t> halo_sizes{}; // halo size for each local domain
+                    vertices_type reduced_halo{}; // single reduced halo with halo vertices of all local domains
+                    for (const auto& d : d_range) {
+                        domain_ids.push_back(d.domain_id());
+                        auto h = hgen(d);
+                        halo_sizes.push_back(h.size());
+                        reduced_halo.insert(reduced_halo.end(), h.vertices.begin(), h.vertices.end());
+                    }
+                    auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains).get(); // domain id for each local domain on all ranks
+                    auto all_halo_sizes = comm.all_gather(halo_sizes, all_num_domains).get(); // halo size for each local domain on all ranks
+                    std::vector<int> all_reduced_halo_sizes{}; // size of reduced halo on all ranks (int, since has to be used as elem counter)
+                    for (const auto& hs : all_halo_sizes) {
+                        all_reduced_halo_sizes.push_back(static_cast<int>(std::accumulate(hs.begin(), hs.end(), 0)));
+                    }
+                    auto all_reduced_halos = comm.all_gather(reduced_halo, all_reduced_halo_sizes).get(); // single reduced halo with halo vertices of all local domains on all ranks
 
-                    for (const auto& d : d_range) { // WARN: so far, multiple domains are not fully supported
+                    // other setup helpers
+                    auto all_addresses = comm.all_gather(my_address).get(); // addresses of all ranks
+                    int m_max_tag = ((num_domains - 1) << 7) + num_domains; // TO DO: maximum domain id should not be hard-coded. TO DO: should add 1?
 
-                        // setup pattern
-                        pattern_type p{{my_rank, d.first(), d.last(), d.levels()}, {my_rank, my_rank, my_address, 0}};
+                    // send
 
+                    std::vector<std::vector<int>> all_send_counts{}; // number of elements to be sent from each local domain to all ranks (int, since has to be used as elem counter)
+                    for (auto other_rank = 0; other_rank < size; ++other_rank) {
+                        std::vector<int> other_send_count{}; // TO DO: better way to do that
+                        other_send_count.resize(all_num_domains[other_rank]);
+                        std::fill(other_send_count.begin(), other_send_count.end(), 0);
+                        all_send_counts.push_back(std::move(other_send_count));
+                    }
+                    std::vector<rank_local_index_type> all_send_indices{}; // elements to be sent to all ranks (in terms of rank local indices)
+
+                    for (auto p = 0; p < my_patterns.size(); ++p) {
+
+                        auto d = d_range[p]; // local domain
+                        auto my_id = d.domain_id(); // local domain id
+
+                        // setup send halos
+                        vertices_set_type d_vertices_set{d.vertices().begin(), d.vertices().end()};
+                        std::size_t all_reduced_halos_start_idx{0};
+                        for (auto other_rank = 0; other_rank < size; ++other_rank) { // loop through all_reduced_halos
+                            auto other_address = all_addresses[other_rank];
+                            rank_local_index_type other_rank_idx{0};
+                            for (auto other_domain_idx = 0; other_domain_idx < all_num_domains[other_rank]; ++other_domain_idx) { // loop through all domains on other rank; TO DO: std::size_t?
+                                auto other_halo_size = all_halo_sizes[other_rank][other_domain_idx];
+                                if (other_halo_size) {
+                                    auto other_id = all_domain_ids[other_rank][other_domain_idx];
+                                    int tag = (my_id << 7) + other_id; // TO DO: maximum domain id should not be hard-coded
+                                    extended_domain_id_type id{other_id, other_rank, other_address, tag};
+                                    iteration_space_type is{};
+                                    for (auto all_reduced_halos_idx = all_reduced_halos_start_idx;
+                                         all_reduced_halos_idx < all_reduced_halos_start_idx + other_halo_size;
+                                         ++all_reduced_halos_idx, ++other_rank_idx) { // loop through halo vertices
+                                        if (d_vertices_set.find(all_reduced_halos[all_reduced_halos_idx]) != d_vertices_set.end()) {
+                                            is.push_back(all_reduced_halos[all_reduced_halos_idx]);
+                                            all_send_indices.push_back(other_rank_idx);
+                                        }
+                                    }
+                                    index_container_type ic{is};
+                                    my_patterns[p].send_halos().insert(std::make_pair(id, ic));
+                                    all_send_counts[other_rank][other_domain_idx] = static_cast<int>(is.size());
+                                    all_reduced_halos_start_idx += other_halo_size;
+                                }
+                            }
+                        }
+
+                        // setup all-to-all communication, send side (TO DO: all_to_all interface chould be made similar to all_gather, this will avoid vector flattening)
+                        std::vector<int> all_flat_send_counts{};
+                        std::vector<int> all_flat_send_counts_displs{};
+                        all_flat_send_counts_displs.resize(static_cast<std::size_t>(size));
+                        all_flat_send_counts_displs[0] = 0;
+                        std::vector<int> all_rank_send_counts;
+                        all_rank_send_counts.resize(static_cast<std::size_t>(size));
+                        std::vector<int> all_rank_send_displs;
+                        all_rank_send_displs.resize(static_cast<std::size_t>(size));
+                        all_rank_send_displs[0] = 0;
+                        for (auto other_rank = 0; other_rank < size; ++other_rank) {
+                            int total_rank_count{0};
+                            for (auto sc : all_send_counts[static_cast<std::size_t>(other_rank)]) {
+                                all_flat_send_counts.push_back(sc);
+                                total_rank_count += sc;
+                            }
+                            all_rank_send_counts[static_cast<std::size_t>(other_rank)] = total_rank_count;
+                            if (other_rank > 0) {
+                                all_flat_send_counts_displs[static_cast<std::size_t>(other_rank)] =
+                                        all_flat_send_counts_displs[static_cast<std::size_t>(other_rank - 1)] +
+                                        all_num_domains[static_cast<std::size_t>(other_rank - 1)];
+                                all_rank_send_displs[static_cast<std::size_t>(other_rank)] =
+                                        all_rank_send_displs[static_cast<std::size_t>(other_rank - 1)] +
+                                        total_rank_count;
+                        }
+
+                        // setup all-to-all communication, recv side
+                        std::vector<int> all_flat_recv_counts{};
+                        all_flat_recv_counts.resize(size);
+                        comm.all_to_allv(all_flat_send_counts, all_num_domains, all_flat_send_counts_displs,
+                                         all_flat_recv_counts, all_num_domains, all_flat_send_counts_displs);
+
+                        // setup receive halos
+                        comm.all_to_allv();
+
+                        /*
                         std::fill(recv_counts.begin(), recv_counts.end(), 0);
                         std::fill(send_counts.begin(), send_counts.end(), 0);
                         std::fill(recv_displs.begin(), recv_displs.end(), 0);
@@ -285,6 +395,7 @@ namespace gridtools {
                                 p.send_halos().insert(std::make_pair(id, ic));
                             }
                         }
+                        */
 
                         // update patterns list
                         my_patterns.push_back(p);
@@ -300,6 +411,7 @@ namespace gridtools {
         } // namespace detail
 
     } // namespace ghex
+
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP */

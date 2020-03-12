@@ -137,7 +137,7 @@ namespace gridtools {
                     // member types
                     using domain_type = domain_descriptor<DomainId, Idx>;
                     using global_index_type = typename domain_type::global_index_type;
-                    using vertices_type = typename domain_type::vertices_type;
+                    using vertices_type = typename domain_type::vertices_type; // mandatory: inferred from the domain
                     using it_diff_type = typename vertices_type::iterator::difference_type;
 
                     /** @brief Halo concept for unstructured grids
