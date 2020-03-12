@@ -13,8 +13,8 @@ PROGRAM test_halo_exchange
   integer :: nthreads = 1, rank, size, world_rank
   integer :: tmp, i
   integer :: gfirst(3), glast(3)       ! global index space
-  integer :: gdim(3) = [4, 4, 2]       ! number of domains
-  integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
+  integer :: gdim(3) = [2, 4, 2]       ! number of domains
+  integer :: ldim(3) = [64, 64, 64] ! dimensions of the local domains
   integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
   integer :: halo(6)                   ! halo definition
   integer :: niters = 100
@@ -41,18 +41,19 @@ PROGRAM test_halo_exchange
 
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
-  call mpi_cart_create(mpi_comm_world, 3, gdim, [1, 1, 1], .true., C_CART,ierr)
-  ! C_CART = mpi_comm_world
-
   call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
+  call mpi_comm_size(mpi_comm_world, size, mpi_err)
+  ! call mpi_dims_create(size, 3, gdim, mpi_err)
+  ! call mpi_cart_create(mpi_comm_world, 3, gdim, [1, 1, 1], .true., C_CART,ierr)
+  C_CART = mpi_comm_world
+
   call mpi_comm_rank(C_CART, rank, mpi_err)
-  call mpi_comm_size(C_CART, size, mpi_err)
 
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world)
 
   ! halo width
-  mb = 5
+  mb = 1
   
   ! halo information
   halo(:) = 0
@@ -342,7 +343,7 @@ contains
        tmp = tmp/gdim(3); coord(2) = modulo(tmp, gdim(2))
        tmp = tmp/gdim(2); coord(1) = tmp
     else
-       call mpi_cart_coords(C_CART, rank, gdim, coord, ierr)
+       call mpi_cart_coords(C_CART, rank, 3, coord, ierr)
     end if
     coord = coord + 1
   end subroutine rank2coord
@@ -367,11 +368,13 @@ contains
     
     coord = icoord
     coord(idx) = coord(idx)+shift
-    if (coord(idx) > gdim(idx)) then
-       coord(idx) = 1
-    end if
-    if (coord(idx) == 0) then
-       coord(idx) = gdim(idx)
+    if (C_CART == mpi_comm_world) then
+       if (coord(idx) > gdim(idx)) then
+          coord(idx) = 1
+       end if
+       if (coord(idx) == 0) then
+          coord(idx) = gdim(idx)
+       end if
     end if
     call coord2rank(coord, get_nbor)
   end function get_nbor
@@ -425,6 +428,8 @@ contains
        R_ZUP = MPI_PROC_NULL
        R_ZDN = MPI_PROC_NULL
     end if
+
+    ! print *, rank, R_XUP, R_XDN, R_YUP, R_YDN, R_ZUP, R_ZDN
 
   end subroutine init_mpi_nbors
   
