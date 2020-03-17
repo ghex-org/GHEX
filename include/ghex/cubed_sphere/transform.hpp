@@ -36,6 +36,7 @@ namespace gridtools {
             //            | +-->x    |
             //            +----------+
 
+            /** @brief affine transform matrix for tile coordinate transforms */
             struct transform {
                 std::array<int,4> m_rotation;
                 std::array<int,2> m_translation;
@@ -43,6 +44,11 @@ namespace gridtools {
                 //constexpr bool switched_xy() const noexcept {return m_rotation[0]==0;}
                 //constexpr bool reversed_x() const noexcept {return switched_xy()?(m_rotation[2]==-1):(m_rotation[0]==-1);}
                 //constexpr bool reversed_y() const noexcept {return switched_xy()?(m_rotation[1]==-1):(m_rotation[3]==-1);}
+                /** @brief transform tile coordinates
+                  * @param x x coordinate
+                  * @param y y coordinate
+                  * @param c number of cells along the cube edges
+                  * @return transformed coordinate array */
                 constexpr std::array<int,2> operator()(int x, int y, int c) const noexcept {
                     return { m_rotation[0]*x + m_rotation[1]*y + m_translation[0]*c + m_offset[0],
                              m_rotation[2]*x + m_rotation[3]*y + m_translation[1]*c + m_offset[1]};

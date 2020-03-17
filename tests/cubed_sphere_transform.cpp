@@ -54,7 +54,7 @@ void transform_test(int c, int b, int tile) {
     using namespace gridtools::ghex::cubed_sphere;
 
     // halo regions along the 4 edges in tile coordinates
-    const auto halo_regions = std::array<std::pair<std::array<int,2>,std::array<int,2>>,4>{
+    const std::array<std::pair<std::array<int,2>,std::array<int,2>>,4> halo_regions {
         std::make_pair(std::array<int,2>{   -b,    0}, std::array<int,2>{   -1,  c-1}),
         std::make_pair(std::array<int,2>{    c,    0}, std::array<int,2>{c+b-1,  c-1}),
         std::make_pair(std::array<int,2>{    0,   -b}, std::array<int,2>{  c-1,   -1}),
