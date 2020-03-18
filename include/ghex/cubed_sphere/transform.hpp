@@ -41,9 +41,15 @@ namespace gridtools {
                 std::array<int,4> m_rotation;
                 std::array<int,2> m_translation;
                 std::array<int,2> m_offset;
-                //constexpr bool switched_xy() const noexcept {return m_rotation[0]==0;}
-                //constexpr bool reversed_x() const noexcept {return switched_xy()?(m_rotation[2]==-1):(m_rotation[0]==-1);}
-                //constexpr bool reversed_y() const noexcept {return switched_xy()?(m_rotation[1]==-1):(m_rotation[3]==-1);}
+                constexpr bool switched_xy() const noexcept {return m_rotation[0]==0;}
+                constexpr bool reversed_x() const noexcept {
+                    return switched_xy() ? (m_rotation[1]==-1) : (m_rotation[0]==-1);
+                //    return switched_xy() ? (m_rotation[2]==-1):(m_rotation[0]==-1);
+                }
+                constexpr bool reversed_y() const noexcept {
+                    return switched_xy() ? (m_rotation[2]==-1) : (m_rotation[3]==-1);
+                //    return switched_xy()?(m_rotation[1]==-1):(m_rotation[3]==-1);
+                }
                 /** @brief transform tile coordinates
                   * @param x x coordinate
                   * @param y y coordinate

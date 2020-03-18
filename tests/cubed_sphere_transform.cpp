@@ -60,9 +60,10 @@ void transform_test(int c, int b, int tile) {
         std::make_pair(std::array<int,2>{    0,   -b}, std::array<int,2>{  c-1,   -1}),
         std::make_pair(std::array<int,2>{    0,    c}, std::array<int,2>{  c-1,c+b-1})};
 
-    // halo regions along the 4 edges in respective neighbor tile coordinates
+    // expected halo regions along the 4 edges in respective neighbor tile coordinates
     std::array<std::pair<std::array<int,2>,std::array<int,2>>,4> expected_halo_regions;
     if (tile % 2 == 0) {
+        // even tiles
         expected_halo_regions = std::array<std::pair<std::array<int,2>,std::array<int,2>>,4>{
             std::make_pair(std::array<int,2>{  c-1,  c-b}, std::array<int,2>{    0,  c-1}),
             std::make_pair(std::array<int,2>{    0,    0}, std::array<int,2>{  b-1,  c-1}),
@@ -70,6 +71,7 @@ void transform_test(int c, int b, int tile) {
             std::make_pair(std::array<int,2>{    0,  c-1}, std::array<int,2>{  b-1,    0})};
     }
     else {
+        // odd tiles
         expected_halo_regions = std::array<std::pair<std::array<int,2>,std::array<int,2>>,4>{
             std::make_pair(std::array<int,2>{  c-b,    0}, std::array<int,2>{  c-1,  c-1}),
             std::make_pair(std::array<int,2>{  c-1,    0}, std::array<int,2>{    0,  b-1}),
@@ -77,6 +79,7 @@ void transform_test(int c, int b, int tile) {
             std::make_pair(std::array<int,2>{    0,    0}, std::array<int,2>{  c-1,  b-1})};
     }
 
+    // loop over neighbors
     for (int n=0; n<4; ++n) {
         // get transform to neighbor n
         const auto& t = transform_lu[tile][n];
@@ -123,7 +126,7 @@ TEST(cubed_sphere, transform)
     neighbor_test(5, 4, 1, 3, 0);
     // cube size c (number of cells along an edge of the cube)
     for (int c=10; c<30; ++c) {
-        // buffer/halo size b
+        // halo size b
         for (int b=1; b<4; ++b) {
             transform_test(c, b, 0);
             transform_test(c, b, 1);
