@@ -49,7 +49,18 @@ PROGRAM fhex_bench
   !$omp end parallel
 #endif
 
+#ifdef USE_OPENMP
+  !$omp parallel
+  num_threads = omp_get_num_threads()
+  !$omp end parallel
+  call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
+  if (mpi_threading /= MPI_THREAD_MULTIPLE) then
+     print *, "MPI_THREAD_MULTIPLE not supported by MPI, aborting";
+     call exit(1)
+  end if
+#else
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
+#endif
 
   ! init ghex
   call ghex_init(num_threads, mpi_comm_world);

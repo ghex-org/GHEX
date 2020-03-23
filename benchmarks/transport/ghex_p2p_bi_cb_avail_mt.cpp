@@ -79,12 +79,16 @@ int main(int argc, char *argv[])
 #pragma omp master
         num_threads = omp_get_num_threads();
     }
+    MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
+    if(mode != MPI_THREAD_MULTIPLE){
+        std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
+        std::terminate();
+    }
+#else
+    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
 #endif
 
-    MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &mode);
-
     {
-
         auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
         auto& context = *context_ptr;
 
