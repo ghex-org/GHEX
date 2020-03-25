@@ -15,6 +15,7 @@
 #include <set>
 #include <map>
 #include <numeric>
+#include <algorithm>
 //#include <cstring>
 #include <iosfwd>
 
@@ -111,7 +112,7 @@ namespace gridtools {
                         os << "{id = " << ext_id.id
                            << ", rank = " << ext_id.mpi_rank
                            << ", address = " << ext_id.address
-                           << ", tag = " << ext_id.tag << "}";
+                           << ", tag = " << ext_id.tag << "}\n";
                         return os;
                     }
 
@@ -185,13 +186,11 @@ namespace gridtools {
                     using global_index_type = typename domain_type::global_index_type;
                     using pattern_type = pattern<communicator_type, grid_type, domain_id_type>;
                     using index_type = typename pattern_type::index_type;
-                    using address_type = typename pattern_type::address_type;
                     using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
                     using iteration_space_type = typename pattern_type::iteration_space;
                     using index_container_type = typename pattern_type::index_container_type;
                     using vertices_type = std::vector<global_index_type>;
                     using vertices_map_type = std::map<global_index_type, index_type>;
-                    using allocator_type = typename iteration_space_type::allocator_type;
 
                     // get setup comm and new comm, and then this rank, this address and size from new comm
                     auto comm = context.get_setup_communicator();
@@ -217,7 +216,7 @@ namespace gridtools {
                         domain_ids.push_back(d.domain_id());
                         auto h = hgen(d);
                         halo_sizes.push_back(h.size());
-                        reduced_halo.insert(reduced_halo.end(), h.vertices.begin(), h.vertices.end());
+                        reduced_halo.insert(reduced_halo.end(), h.vertices().begin(), h.vertices().end());
                     }
                     auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains).get(); // domain id for each local domain on all ranks
                     auto all_halo_sizes = comm.all_gather(halo_sizes, all_num_domains).get(); // halo size for each local domain on all ranks
@@ -225,62 +224,64 @@ namespace gridtools {
                     for (const auto& hs : all_halo_sizes) {
                         all_reduced_halo_sizes.push_back(static_cast<int>(std::accumulate(hs.begin(), hs.end(), 0)));
                     }
-                    auto all_reduced_halos = comm.all_gather(reduced_halo, all_reduced_halo_sizes).get(); // single reduced halo with halo vertices of all local domains on all ranks
+                    auto all_reduced_halos = comm.all_gather(reduced_halo, all_reduced_halo_sizes).get(); // single reduced halos with halo vertices of all local domains on all ranks
 
                     // other setup helpers
                     auto all_addresses = comm.all_gather(my_address).get(); // addresses of all ranks
                     std::vector<domain_id_type> max_domain_ids{}; // max domain id on every rank
                     for (const auto& d_ids : all_domain_ids) {
-                        max_domain_ids.push_back(std::max_element(d_ids.begin(), d_ids.end()));
+                        max_domain_ids.push_back(*(std::max_element(d_ids.begin(), d_ids.end())));
                     }
-                    domain_id_type max_domain_id = std::max_element(max_domain_ids.begin(), max_domain_ids.end()); // max domain id among all ranks
+                    domain_id_type max_domain_id = *(std::max_element(max_domain_ids.begin(), max_domain_ids.end())); // max domain id among all ranks
                     int m_max_tag = (max_domain_id << 7) + max_domain_id; // TO DO: maximum shift should not be hard-coded. TO DO: should add 1?
 
                     // ========== SEND ==========
 
                     std::vector<std::vector<int>> all_send_counts{}; // number of elements to be sent from each local domain to all ranks (int, since has to be used as elem counter)
-                    for (auto other_rank = 0; other_rank < size; ++other_rank) {
-                        std::vector<int> other_send_counts{};
-                        other_send_counts.resize(all_num_domains[static_cast<std::size_t>(other_rank)]);
-                        std::fill(other_send_counts.begin(), other_send_counts.end(), 0);
-                        all_send_counts.push_back(std::move(other_send_counts)); // TO DO: better way to achieve that
+                    all_send_counts.resize(size);
+                    for (auto& scs : all_send_counts) {
+                        scs.resize(d_range.size());
+                        std::fill(scs.begin(), scs.end(), 0);
                     }
+
                     std::vector<std::vector<index_type>> all_send_indices{}; // elements to be sent from all local domains to all ranks (in terms of local indices)
                     all_send_indices.resize(size);
 
-                    for (auto p = 0; p < my_patterns.size(); ++p) { // loop through local domains
+                    for (std::size_t p = 0; p < my_patterns.size(); ++p) { // loop through local domains
 
                         auto d = d_range[p]; // local domain
                         auto my_id = d.domain_id(); // local domain id
                         vertices_map_type d_vertices_map{}; // local vertices map
-                        for (auto local_idx = 0; local_idx < d.inner_size(); ++local_idx) {
+                        for (std::size_t local_idx = 0; local_idx < d.inner_size(); ++local_idx) {
                             d_vertices_map.insert(std::make_pair(d.vertices()[local_idx], local_idx));
                         }
 
-                        std::size_t all_reduced_halos_start_idx{0};
                         for (auto other_rank = 0; other_rank < size; ++other_rank) { // loop through all_reduced_halos, one rank at a time
                             auto other_address = all_addresses[static_cast<std::size_t>(other_rank)];
+                            std::size_t reduced_halo_start_idx{0};
+                            index_type rank_local_idx{0};
                             for (auto other_domain_idx = 0; other_domain_idx < all_num_domains[static_cast<std::size_t>(other_rank)]; ++other_domain_idx) { // loop through all domains on other rank; TO DO: std::size_t?
                                 auto other_halo_size = all_halo_sizes[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)];
                                 if (other_halo_size) {
-                                    index_type local_idx{0};
                                     auto other_id = all_domain_ids[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)];
                                     int tag = (static_cast<int>(my_id) << 7) + static_cast<int>(other_id); // TO DO: maximum shift should not be hard-coded
                                     extended_domain_id_type id{other_id, other_rank, other_address, tag};
                                     iteration_space_type is{};
-                                    for (auto all_reduced_halos_idx = all_reduced_halos_start_idx;
-                                         all_reduced_halos_idx < all_reduced_halos_start_idx + other_halo_size;
-                                         ++all_reduced_halos_idx, ++local_idx) { // loop through halo vertices
-                                        auto it = d_vertices_map.find(all_reduced_halos[all_reduced_halos_idx]);
+                                    for (auto reduced_halo_idx = reduced_halo_start_idx;
+                                         reduced_halo_idx < reduced_halo_start_idx + other_halo_size;
+                                         ++reduced_halo_idx, ++rank_local_idx) { // loop through halo vertices
+                                        auto it = d_vertices_map.find(all_reduced_halos[static_cast<std::size_t>(other_rank)][reduced_halo_idx]);
                                         if (it != d_vertices_map.end()) {
                                             is.push_back((*it).second);
-                                            all_send_indices[static_cast<std::size_t>(other_rank)].push_back(local_idx);
+                                            all_send_indices[static_cast<std::size_t>(other_rank)].push_back(rank_local_idx);
                                         }
                                     }
-                                    index_container_type ic{is};
-                                    my_patterns[p].send_halos().insert(std::make_pair(id, ic));
-                                    all_send_counts[static_cast<std::size_t>(other_rank)][p] += static_cast<int>(is.size());
-                                    all_reduced_halos_start_idx += other_halo_size;
+                                    if (is.size()) {
+                                        index_container_type ic{is};
+                                        my_patterns[p].send_halos().insert(std::make_pair(id, ic));
+                                        all_send_counts[static_cast<std::size_t>(other_rank)][p] += static_cast<int>(is.size());
+                                    }
+                                    reduced_halo_start_idx += other_halo_size;
                                 }
                             }
                         }
@@ -391,27 +392,44 @@ namespace gridtools {
                         }
                     }
 
-                    for (auto p = 0; p < my_patterns.size(); ++p) { // loop through local domains
+                    index_type rank_local_start_index{0};
+                    for (std::size_t p = 0; p < my_patterns.size(); ++p) { // loop through local domains. TO DO: this should probably be the innermost loop
 
                         auto d = d_range[p]; // local domain
                         auto my_id = d.domain_id(); // local domain id
+                        auto halo_size = hgen(d).size(); // local halo size
 
                         for (auto other_rank = 0; other_rank < size; ++other_rank) {
                             auto other_address = all_addresses[static_cast<std::size_t>(other_rank)];
+                            std::size_t recv_indices_start_idx{0};
                             for (auto other_domain_idx = 0; other_domain_idx < all_num_domains[static_cast<std::size_t>(other_rank)]; ++other_domain_idx) {
                                 if (all_recv_counts[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)]) {
                                     auto other_id = all_domain_ids[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)];
                                     int tag = (static_cast<int>(other_id) << 7) + static_cast<int>(my_id); // TO DO: maximum shift should not be hard-coded
                                     extended_domain_id_type id{other_id, other_rank, other_address, tag};
                                     iteration_space_type is{};
-                                    for (auto local_idx : all_recv_indices[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)]) {
-                                        is.push_back(local_idx);
+                                    for (auto recv_indices_idx = recv_indices_start_idx;
+                                         recv_indices_idx < recv_indices_start_idx +
+                                         static_cast<std::size_t>(all_recv_counts[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)]);
+                                         ++recv_indices_idx) {
+                                        if ((all_recv_indices[static_cast<std::size_t>(other_rank)][recv_indices_idx] >=
+                                             rank_local_start_index) &&
+                                                (all_recv_indices[static_cast<std::size_t>(other_rank)][recv_indices_idx] <
+                                                 rank_local_start_index + static_cast<index_type>(halo_size))) {
+                                            is.push_back(all_recv_indices[static_cast<std::size_t>(other_rank)][recv_indices_idx] - rank_local_start_index);
+                                        }
                                     }
-                                    index_container_type ic{is};
-                                    my_patterns[p].recv_halos().insert(std::make_pair(id, ic));
+                                    if (is.size()) {
+                                        index_container_type ic{is};
+                                        my_patterns[p].recv_halos().insert(std::make_pair(id, ic));
+                                    }
+                                    recv_indices_start_idx +=
+                                            static_cast<std::size_t>(all_recv_counts[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)]);
                                 }
                             }
                         }
+
+                        rank_local_start_index += halo_size;
                     }
 
                     return pattern_container<communicator_type, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);

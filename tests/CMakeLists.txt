@@ -147,6 +147,17 @@ foreach (_t ${_tests_unstructured})
     )
 endforeach()
 
+set(_tests_unstructured_oversubscription unstructured_user_concepts)
+foreach (_t ${_tests_unstructured_oversubscription})
+    add_executable(${_t}_oversubscription ${_t}.cpp)
+    target_compile_definitions(${_t}_oversubscription PUBLIC GHEX_TEST_UNSTRUCTURED_OVERSUBSCRIPTION)
+    target_link_libraries(${_t}_oversubscription gtest_main_mt)
+    add_test(
+        NAME ${_t}_oversubscription.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_oversubscription> ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+
 if (GHEX_ENABLE_ATLAS_BINDINGS)
     set(_tests_atlas atlas_integration atlas_integration_comm_2)
     foreach (_t ${_tests_atlas})
