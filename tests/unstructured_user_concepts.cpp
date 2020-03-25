@@ -347,16 +347,65 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe) {
     check_send_halos_indices(patterns[1]);
     check_recv_halos_indices(patterns[1]);
 
-    // TO DO: only for debug, please remove
-    if (!rank) {
-        for (auto p : patterns) {
-            std::cout << "\ndomain " << p.domain_id() << "\n\n";
-            std::cout << "recv halos:\n\n";
-            for (auto rh : p.recv_halos()) {
-                std::cout << rh.first;
-                std::cout << rh.second.front() << "\n";
-            }
+}
+
+/** @brief Test pattern setup with multiple domains per rank, oddly distributed */
+TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+
+    switch (rank) {
+
+        case 0: {
+
+            domain_id_type domain_id_1{0};
+            domain_id_type domain_id_2{1};
+            domain_id_type domain_id_3{2};
+            auto v_map_1 = init_v_map(domain_id_1);
+            auto v_map_2 = init_v_map(domain_id_2);
+            auto v_map_3 = init_v_map(domain_id_3);
+            domain_descriptor_type d_1{domain_id_1, v_map_1};
+            domain_descriptor_type d_2{domain_id_2, v_map_2};
+            domain_descriptor_type d_3{domain_id_3, v_map_3};
+            std::vector<domain_descriptor_type> local_domains{d_1, d_2, d_3};
+            halo_generator_type hg{};
+
+            // setup patterns
+            auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+            // check halos
+            check_send_halos_indices(patterns[0]);
+            check_recv_halos_indices(patterns[0]);
+            check_send_halos_indices(patterns[1]);
+            check_recv_halos_indices(patterns[1]);
+            check_send_halos_indices(patterns[2]);
+            check_recv_halos_indices(patterns[2]);
+
+            break;
+
         }
+
+        case 1: {
+
+            domain_id_type domain_id_1{3};
+            auto v_map_1 = init_v_map(domain_id_1);
+            domain_descriptor_type d_1{domain_id_1, v_map_1};
+            std::vector<domain_descriptor_type> local_domains{d_1};
+            halo_generator_type hg{};
+
+            // setup patterns
+            auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+            // check halos
+            check_send_halos_indices(patterns[0]);
+            check_recv_halos_indices(patterns[0]);
+
+            break;
+
+        }
+
     }
 
 }
