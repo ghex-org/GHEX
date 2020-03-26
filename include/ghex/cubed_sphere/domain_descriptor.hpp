@@ -40,6 +40,13 @@ namespace gridtools {
             };
 
             // strict ordering of domain_id objects
+            static inline bool operator>(const domain_id_t& a, const domain_id_t& b) noexcept {
+                if (a.tile > b.tile) return true;
+                if (b.tile > a.tile) return false;
+                if (a.id > b.id) return true;
+                if (b.id > a.id) return false;
+                return false;
+            }
             static inline bool operator<(const domain_id_t& a, const domain_id_t& b) noexcept {
                 if (a.tile < b.tile) return true;
                 if (b.tile < a.tile) return false;

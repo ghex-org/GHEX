@@ -71,6 +71,8 @@ namespace gridtools {
                 std::array<int,4>{4,1,3,0}  // 5
             };
 
+            static constexpr transform identity_transform = {{1,0,0,1},{0,0},{0,0}};
+
             // transform of tile coordinates to neighbor tile coordinates, order -x,+x,-y,+y
             static constexpr std::array<std::array<transform,4>,6> transform_lu = {
                 std::array<transform,4>{

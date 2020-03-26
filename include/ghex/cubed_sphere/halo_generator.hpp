@@ -248,8 +248,12 @@ namespace gridtools {
                                 break;
                         // get inverse transform
                         const auto& t = inverse_transform_lu[d.domain_id().tile][n];
-                        const auto f = t(x.first()[1],x.first()[2],d.x());
-                        const auto l = t(x.last()[1],x.last()[2],d.x());
+                        auto f = t(x.first()[1],x.first()[2],d.x());
+                        auto l = t(x.last()[1],x.last()[2],d.x());
+                        f[0] -= d.first()[1];
+                        f[1] -= d.first()[2];
+                        l[0] -= d.first()[1];
+                        l[1] -= d.first()[2];
                         auto first_a_local_new = first_a_local;
                         auto last_a_local_new = last_a_local;
                         first_a_local_new[3] += x.first()[3]-first_a_global[3];
