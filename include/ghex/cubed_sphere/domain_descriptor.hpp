@@ -11,17 +11,6 @@
 #ifndef INCLUDED_GHEX_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP
 #define INCLUDED_GHEX_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP
 
-//#include <type_traits>
-//#include <initializer_list>
-//#include <array>
-//#include <vector>
-//#include <algorithm>
-//#include <iterator>
-//
-//#include "../common/utils.hpp"
-//#include "./grid.hpp"
-//
-
 #include <stdexcept>
 #include <cassert>
 #include "../common/coordinate.hpp"

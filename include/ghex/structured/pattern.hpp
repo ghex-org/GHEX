@@ -15,7 +15,6 @@
 #include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
-//#include <iostream>
 
 namespace gridtools {
     namespace ghex {
@@ -308,10 +307,6 @@ namespace gridtools {
                                 // intersect in global coordinates
                                 const auto& extent = extents_vec[k];
                                 const auto& domain_id = domain_id_vec[k];
-
-                                //std::cout << "need to intersect " << halo.global().first() << " " 
-                                //<< halo.global().last() << " with " << extent.global().first() << " "
-                                //<< extent.global().last() << std::endl;
                                 const auto x = 
                                 hgen.intersect(*d_it, halo.local().first(),    halo.local().last(),
                                                       halo.global().first(),   halo.global().last(),
@@ -319,7 +314,6 @@ namespace gridtools {
                                 const coordinate_type x_global_first{x.global().first()};
                                 const coordinate_type x_global_last{x.global().last()};
                                 if (x_global_first <= x_global_last) {
-                                    //std::cout << "valid" << std::endl;
                                     my_patterns[i].recv_halos()[domain_id].push_back(
                                         iteration_space_pair{
                                             iteration_space{
@@ -327,22 +321,6 @@ namespace gridtools {
                                                 coordinate_type{x.local().last()}},
                                             iteration_space{x_global_first, x_global_last}});
                                 }
-
-                                //// TODO: use iteration space's intersection member function here instead
-                                //const auto left  = max(halo.global().first(),extent.global().first());
-                                //const auto right = min(halo.global().last(),extent.global().last());
-                                //if (left <= right)
-                                //{
-                                //    // instersection is not empty
-                                //    // get local coordinates for intersection
-                                //    const auto leftl  = halo.local().first()+(left-halo.global().first());
-                                //    const auto rightl = halo.local().first()+(right-halo.global().first());
-                                //    // prepare pair of intersection (local and global)
-                                //    iteration_space h{left, right};
-                                //    iteration_space hl{leftl, rightl};
-                                //    // add halo to respective extended domain id key
-                                //    my_patterns[i].recv_halos()[domain_id].push_back(iteration_space_pair{hl,h});
-                                //}
                             }
                         }
                     }
@@ -422,7 +400,7 @@ namespace gridtools {
                                 if (dd.id == id_is_pair.first.id) break;
                                 ++ll;
                             }
-                            // TODO: use iteration space's transform to do that!
+                            // use iteration space's transform to do that?
                             const auto is_g = extents_vec[ll].global();
                             const auto is_l = extents_vec[ll].local();
                             is_vec[l].local().first() = is_l.first() + (is_vec[l].global().first()-is_g.first());

@@ -16,8 +16,6 @@
 #include "./transform.hpp"
 #include "./domain_descriptor.hpp"
 
-#include <iostream>
-
 namespace gridtools {
     namespace ghex {
         namespace cubed_sphere {
@@ -137,32 +135,15 @@ namespace gridtools {
                             domain_box_local.last()  + (h.last()  - domain_box.last())};
                         halo_regions.push_back( box2{h_loc, h} );
                     }
-                    //const box2 d_box{domain_box_local, domain_box};
-                    //std::cout << "domain region\n"
-                    //<< "  global: " << "                  " << d_box.global().last() << "\n"
-                    //<< "          " << d_box.global().first() << "\n"
-                    //<< "  local:  " << "                  " << d_box.local().last() << "\n"
-                    //<< "          " << d_box.local().first() << "\n";
-                    //std::cout << std::endl;
 
                     // loop over 4 halo regions and intersect with this tile
                     // and with neighbor tiles to find halo regions
                     std::vector<box2> result;
                     for (const auto& h_box : halo_regions) {
-                        //std::cout << "region\n"
-                        //<< "  global: " << "                  " << h_box.global().last() << "\n"
-                        //<< "          " << h_box.global().first() << "\n"
-                        //<< "  local:  " << "                  " << h_box.local().last() << "\n"
-                        //<< "          " << h_box.local().first() << "\n";
                         // intersect with this tile
                         const auto h_i = intersect(h_box, tile_box);
                         if ((h_i.global().first()[1] <= h_i.global().last()[1]) && 
                             (h_i.global().first()[2] <= h_i.global().last()[2])) {
-                            //std::cout << "  intersected with tile\n"
-                            //<< "    global: " << "                  " << h_i.global().last() << "\n"
-                            //<< "            " << h_i.global().first() << "\n"
-                            //<< "    local:  " << "                  " << h_i.local().last() << "\n"
-                            //<< "            " << h_i.local().first() << "\n";
                             result.push_back(h_i);
                         }
                         // intersect with the 4 neighbor tiles
@@ -170,11 +151,6 @@ namespace gridtools {
                             auto h_n = intersect(h_box, neighbor_regions[n]);
                             if ((h_n.global().first()[1] <= h_n.global().last()[1]) && 
                                 (h_n.global().first()[2] <= h_n.global().last()[2])) {
-                                //std::cout << "  intersected with neighbor tile " << tile_lu[tile_id][n] << "\n"
-                                //<< "    global: " << "                  " << h_n.global().last() << "\n"
-                                //<< "            " << h_n.global().first() << "\n"
-                                //<< "    local:  " << "                  " << h_n.local().last() << "\n"
-                                //<< "            " << h_n.local().first() << "\n";
                                 // transform to neighbor coordinates
                                 const auto& t = transform_lu[tile_id][n];
                                 const auto f = t(h_n.global().first()[1], h_n.global().first()[2], c);
@@ -197,9 +173,6 @@ namespace gridtools {
                                     h_n.global().first()[2] = f[1];
                                     h_n.global().last ()[2] = l[1];
                                 }
-                                //std::cout << "  transformed coords\n"
-                                //<< "    global: " << "                  " << h_n.global().last() << "\n"
-                                //<< "            " << h_n.global().first() << "\n";
                                 result.push_back(h_n);
                             }
                         }
@@ -215,8 +188,6 @@ namespace gridtools {
                 // intersect without transform
                 box2 intersect(const box2& a, const box& b) const {
                     const box global = intersect(a.global(), b);
-                    //{ max(a.global().first(), b.first()),
-                    //                  min(a.global().last(), b.last()) };
                     const box local {
                         a.local().first() + (global.first() - a.global().first()),
                         a.local().last()  + (global.last()  - a.global().last())};
@@ -240,7 +211,6 @@ namespace gridtools {
                         // transform is needed
                         // intersect global box
                         const auto x = intersect(b_a_global, b_b_global);
-                        //std::cout << "x global " << x.first() << " " << x.last() << std::endl;
                         // look up neighbor index
                         int n;
                         for (n=0; n<4; ++n)
@@ -280,15 +250,6 @@ namespace gridtools {
                         return intersect(box2{b_a_local,b_a_global}, b_b_global);
                     }
                 }
-
-                //template<typename Array>
-                //box2 transform(const domain_type& d,
-                //               Array&& first, Array& last,
-                //               domain_id remote_id,
-                //               Array&& remote_first, Array&& remote_last) const noexcept {
-                //}
-                               
-
             };
 
         } // namespace cubed_sphere

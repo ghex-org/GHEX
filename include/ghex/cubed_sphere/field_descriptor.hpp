@@ -146,17 +146,11 @@ namespace gridtools {
                             coord[3]};
                         const coordinate_type buffer_coord = global_coord - m_buffer_desc.m_first;
 
-                        //std::cout << "buffer coord " 
-                        //<< buffer_coord[0] << ", "
-                        //<< buffer_coord[1] << ", "
-                        //<< buffer_coord[2] << ", "
-                        //<< buffer_coord[3] << " ";
                         const auto memory_location =
                             m_buffer_desc.m_strides[0]*buffer_coord[0] +
                             m_buffer_desc.m_strides[1]*buffer_coord[1] +
                             m_buffer_desc.m_strides[2]*buffer_coord[2] +
                             m_buffer_desc.m_strides[3]*buffer_coord[3];
-                        //std::cout << "memory : " << memory_location/sizeof(T);
                         return *reinterpret_cast<T*>(
                             reinterpret_cast<char*>(m_buffer_desc.m_ptr) + memory_location);
                     }
@@ -182,24 +176,14 @@ namespace gridtools {
                     const T& buffer(const coordinate_type& coord) const noexcept {
                         const auto x = coord[1] + m_data_is.m_domain_first[1];
                         const auto y = coord[2] + m_data_is.m_domain_first[2];
-                        //std::cout << "global coord " << coord[0] << ", " << x << ", " << y << ", " << coord[3]
-                        //    << " ";
                         const auto xy = m_transform(x,y,c);
                         const coordinate_type tile_coord{coord[0],xy[0],xy[1],coord[3]};
-                        //std::cout << "tranformed coord " << coord[0] << ", " << xy[0] << ", " << xy[1] << ", " << coord[3]
-                        //    << " ";
                         const coordinate_type buffer_coord = tile_coord - m_buffer_desc.m_first;
-                        //std::cout << "buffer coord " 
-                        //<< buffer_coord[0] << ", "
-                        //<< buffer_coord[1] << ", "
-                        //<< buffer_coord[2] << ", "
-                        //<< buffer_coord[3] << " ";
                         const auto memory_location =
                             m_buffer_desc.m_strides[0]*buffer_coord[0] +
                             m_buffer_desc.m_strides[1]*buffer_coord[1] +
                             m_buffer_desc.m_strides[2]*buffer_coord[2] +
                             m_buffer_desc.m_strides[3]*buffer_coord[3];
-                        //std::cout << "memory : " << memory_location/sizeof(T);
                         return *reinterpret_cast<const T*>(
                             reinterpret_cast<const char*>(m_buffer_desc.m_ptr) + memory_location);
                     }
@@ -218,8 +202,6 @@ namespace gridtools {
                 
                 template<typename IndexContainer>
                 void pack(T* buffer, const IndexContainer& c, void* /*arg*/) {
-                    //std::cout << "packing!!" << std::endl;
-                    // loop over iteration spaces
                     for (const auto& is : c) {
                         const coordinate_type buffer_offset {
                             0,
@@ -252,27 +234,11 @@ namespace gridtools {
                                 data_first,
                                 data_last,
                                 m_byte_strides}};
-                        //std::cout << "  buffer strides = "
-                        //    << buffer_strides[0] << ", "
-                        //    << buffer_strides[1] << ", "
-                        //    << buffer_strides[2] << ", "
-                        //    << buffer_strides[3] << " "
-                        //    << std::endl;
-                        //std::cout << "  iteration space size = " << is.size() << std::endl;
                         ::gridtools::ghex::detail::for_loop<4,4,layout_map>::
                             template apply(
                                 [&pack_is](int c, int x, int y, int z) {
-                        //            std::cout << "    local coord "
-                        //            << c << ","
-                        //            << x << ","
-                        //            << y << ","
-                        //            << z << ": ";
                                     pack_is.buffer(coordinate_type{c,x,y,z}) =
                                     pack_is.data(coordinate_type{c,x,y,z});
-                                    //std::cout << pack_is.data(coordinate_type{c,x,y,z});
-                                    //std::cout << std::endl;
-                                    //std::cout << pack_is.buffer(coordinate_type{c,x,y,z});
-                        //            std::cout << std::endl;
                                 },
                                 pack_is.m_data_is.m_first,
                                 pack_is.m_data_is.m_last);
@@ -282,10 +248,8 @@ namespace gridtools {
         
                 template<typename IndexContainer>
                 void unpack(const T* buffer, const IndexContainer& c, void* /*arg*/) {
-                    //std::cout << "unpacking!!!" << std::endl;
                     // loop over iteration spaces
                     for (const auto& is : c) {
-                    //    std::cout << "  iteration space" << std::endl;
                         // transform
                         const transform * t;
                         // check if on different tile
@@ -315,23 +279,12 @@ namespace gridtools {
                         ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
                             apply<layout_map,value_type>(buffer_extents,buffer_strides,0u);
 
-                        //std::cout << "component extents = " << m_extents[0] << std::endl;
                         coordinate_type data_first;
                         coordinate_type data_last;
                         data_first[0] = 0;
                         data_last[0] = m_extents[0]-1;
                         std::copy(is.local().first().begin()+1, is.local().first().end(), data_first.begin()+1);
                         std::copy(is.local().last().begin()+1, is.local().last().end(), data_last.begin()+1);
-                        //std::cout << "is.local().first() = "
-                        //<< is.local().first()[0] << ", "
-                        //<< is.local().first()[1] << ", "
-                        //<< is.local().first()[2] << ", "
-                        //<< is.local().first()[3] << std::endl;
-                        //std::cout << "is.global().first() = "
-                        //<< is.global().first()[0] << ", "
-                        //<< is.global().first()[1] << ", "
-                        //<< is.global().first()[2] << ", "
-                        //<< is.global().first()[3] << std::endl;
 
                         const unpack_iteration_space unpack_is{
                             const_buffer_descriptor{
@@ -352,14 +305,8 @@ namespace gridtools {
                         ::gridtools::ghex::detail::for_loop<4,4,layout_map>::
                             template apply(
                                 [&unpack_is](int c, int x, int y, int z) {
-                        //            std::cout << "    local coord "
-                        //            << c << ","
-                        //            << x << ","
-                        //            << y << ","
-                        //            << z << ": ";
                                     unpack_is.data(coordinate_type{c,x,y,z}) =
                                     unpack_is.buffer(coordinate_type{c,x,y,z});
-                        //            std::cout << std::endl;
                                 },
                                 unpack_is.m_data_is.m_first,
                                 unpack_is.m_data_is.m_last);
