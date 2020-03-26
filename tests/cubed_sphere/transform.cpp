@@ -9,7 +9,7 @@
  * 
  */
 
-#include <ghex/cubed_sphere/transform.hpp>
+#include <ghex/structured/cubed_sphere/transform.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
 
@@ -30,7 +30,7 @@ bool operator==(const std::array<T,N>& a, const std::array<T,N>& b) {
 
 // helper function
 int reverse_idx_lu(int tile, int ntile) {
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     int d=0;
     for (auto d0 : tile_lu[ntile]) {
         if (d0==tile)
@@ -42,7 +42,7 @@ int reverse_idx_lu(int tile, int ntile) {
 
 // check neighbour tiles
 void neighbor_test(int tile, int mx, int px, int my, int py) {
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     EXPECT_EQ(tile_lu[tile][0], mx);
     EXPECT_EQ(tile_lu[tile][1], px);
     EXPECT_EQ(tile_lu[tile][2], my);
@@ -51,7 +51,7 @@ void neighbor_test(int tile, int mx, int px, int my, int py) {
 
 // check the transformed halo region
 void transform_test(int c, int b, int tile) {
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
 
     // halo regions along the 4 edges in tile coordinates
     const std::array<std::pair<std::array<int,2>,std::array<int,2>>,4> halo_regions {

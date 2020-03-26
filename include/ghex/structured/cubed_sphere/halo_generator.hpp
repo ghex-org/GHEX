@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_CUBED_SPHERE_HALO_GENERATOR_HPP
-#define INCLUDED_GHEX_CUBED_SPHERE_HALO_GENERATOR_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_HALO_GENERATOR_HPP
+#define INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_HALO_GENERATOR_HPP
 
 #include <algorithm>
 #include <vector>
@@ -18,6 +18,7 @@
 
 namespace gridtools {
     namespace ghex {
+        namespace structured {
         namespace cubed_sphere {
     
             class halo_generator {
@@ -253,7 +254,8 @@ namespace gridtools {
             };
 
         } // namespace cubed_sphere
+        } // namespace structured
     } // namespace ghex
 } // namespace gridtools
 
-#endif // INCLUDED_GHEX_CUBED_SPHERE_HALO_GENERATOR_HPP
+#endif // INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_HALO_GENERATOR_HPP

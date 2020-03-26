@@ -1,4 +1,4 @@
-set(_serial_tests aligned_allocator unified_memory_allocator cubed_sphere_transform)
+set(_serial_tests aligned_allocator unified_memory_allocator)
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
@@ -32,54 +32,6 @@ foreach (_t ${_tests})
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
     )
 endforeach()
-
-set(_simple_tests cubed_sphere_halo_generator)
-# MPI, CPU
-foreach (_x ${_simple_tests})
-    set(_t ${_x})
-    add_executable(${_t} ${_x}.cpp)
-    target_link_libraries(${_t} gtest_main_mt)
-    add_test(
-        NAME ${_t}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 6 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
-    )
-endforeach()
-# MPI, GPU
-if (USE_GPU)
-foreach (_x ${_simple_tests})
-    set(_t ${_x}_gpu)
-    add_executable(${_t} ${_x}.cu)
-    target_link_libraries(${_t} gtest_main_mt)
-    add_test(
-        NAME ${_t}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 6 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
-    )
-endif()
-# UCX, CPU
-if (GHEX_USE_UCP)
-foreach (_x ${_simple_tests})
-    set(_t ${_x}_ucx)
-    add_executable(${_t} ${_x}.cpp)
-    target_compile_definitions(${_t} PUBLIC GHEX_TEST_USE_UCX)
-    target_link_libraries(${_t} gtest_main_mt)
-    add_test(
-        NAME ${_t}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 6 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
-    )
-endforeach()
-# MPI, GPU
-if (USE_GPU)
-foreach (_x ${_simple_tests})
-    set(_t ${_x}_ucx_gpu)
-    add_executable(${_t} ${_x}.cu)
-    target_compile_definitions(${_t} PUBLIC GHEX_TEST_USE_UCX)
-    target_link_libraries(${_t} gtest_main_mt)
-    add_test(
-        NAME ${_t}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 6 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
-    )
-endif()
-endif()
 
 if (GHEX_USE_UCP)
     set(_variants_ucx serial serial_split threads async_async async_deferred)
@@ -222,3 +174,4 @@ if (USE_GPU)
 endif()
 
 add_subdirectory(transport)
+add_subdirectory(cubed_sphere)

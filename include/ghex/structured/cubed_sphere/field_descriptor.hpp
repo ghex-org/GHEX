@@ -8,19 +8,20 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_CUBED_SPHERE_FIELD_DESCRIPTOR_HPP
-#define INCLUDED_GHEX_CUBED_SPHERE_FIELD_DESCRIPTOR_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_FIELD_DESCRIPTOR_HPP
+#define INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_FIELD_DESCRIPTOR_HPP
 
 #include <algorithm>
 #include "./halo_generator.hpp"
-#include "../structured/field_utils.hpp"
-#include "../common/utils.hpp"
-#include "../arch_traits.hpp"
+#include "../field_utils.hpp"
+#include "../../common/utils.hpp"
+#include "../../arch_traits.hpp"
 #include <gridtools/common/array.hpp>
 #include <gridtools/common/layout_map.hpp>
 
 namespace gridtools {
     namespace ghex {
+        namespace structured {
         namespace cubed_sphere {
 
             template<typename T, typename Arch, int ComponentOrder=0, int XOrder=3, int YOrder=2, int ZOrder=1>
@@ -318,7 +319,8 @@ namespace gridtools {
             };
 
         } // namespace cubed_sphere
+        } // namespace structured
     } // namespace ghex
 } // namespace gridtools
 
-#endif // INCLUDED_GHEX_CUBED_SPHERE_FIELD_DESCRIPTOR_HPP
+#endif // INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_FIELD_DESCRIPTOR_HPP

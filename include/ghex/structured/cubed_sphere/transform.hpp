@@ -8,13 +8,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_CUBED_SPHERE_TRANSFORM_HPP
-#define INCLUDED_GHEX_CUBED_SPHERE_TRANSFORM_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_TRANSFORM_HPP
+#define INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_TRANSFORM_HPP
 
 #include <array>
 
 namespace gridtools {
     namespace ghex {
+        namespace structured {
         namespace cubed_sphere {
 
             // cubed sphere tiles and coordinate system
@@ -142,7 +143,8 @@ namespace gridtools {
             };
 
         } // namespace cubed_sphere
+        } // namespace structured
     } // namespace ghex
 } // namespace gridtools
 
-#endif // INCLUDED_GHEX_CUBED_SPHERE_TRANSFORM_HPP
+#endif // INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_TRANSFORM_HPP

@@ -8,15 +8,16 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP
-#define INCLUDED_GHEX_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP
+#define INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP
 
 #include <stdexcept>
 #include <cassert>
-#include "../common/coordinate.hpp"
+#include "../../common/coordinate.hpp"
 
 namespace gridtools {
     namespace ghex {
+        namespace structured {
         namespace cubed_sphere {
     
             // forward declaration
@@ -103,7 +104,8 @@ namespace gridtools {
             };
 
         } // namespace cubed_sphere
+        } // namespace structured
     } // namespace ghex
 } // namespace gridtools
 
-#endif // INCLUDED_GHEX_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP
+#endif // INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_DOMAIN_DESCRIPTOR_HPP

@@ -12,8 +12,8 @@
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object_2.hpp>
 #include <ghex/threads/none/primitives.hpp>
-#include <ghex/cubed_sphere/halo_generator.hpp>
-#include <ghex/cubed_sphere/field_descriptor.hpp>
+#include <ghex/structured/cubed_sphere/halo_generator.hpp>
+#include <ghex/structured/cubed_sphere/field_descriptor.hpp>
 
 #ifndef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/mpi/context.hpp>
@@ -108,7 +108,7 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 template<typename Field>
 void check_even_0(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -193,7 +193,7 @@ void check_even_0(const Field& field, int halo, int n) {
 template<typename Field>
 void check_even_1(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -278,7 +278,7 @@ void check_even_1(const Field& field, int halo, int n) {
 template<typename Field>
 void check_even_2(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -363,7 +363,7 @@ void check_even_2(const Field& field, int halo, int n) {
 template<typename Field>
 void check_even_3(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -451,7 +451,7 @@ void check_even_3(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_0(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -536,7 +536,7 @@ void check_odd_0(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_1(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -621,7 +621,7 @@ void check_odd_1(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_2(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -706,7 +706,7 @@ void check_odd_2(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_3(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[3]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -826,7 +826,7 @@ void check_field(const Field& field, int halo, int n) {
 
 TEST(cubed_sphere, domain)
 {
-    using namespace gridtools::ghex::cubed_sphere;
+    using namespace gridtools::ghex::structured::cubed_sphere;
 
     // create context
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
