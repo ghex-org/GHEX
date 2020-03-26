@@ -108,8 +108,6 @@ int main(int argc, char *argv[])
             const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
-            bind_to_core(thread_id);
-
             bool using_mt = false;
 #ifdef USE_OPENMP
             using_mt = true;
