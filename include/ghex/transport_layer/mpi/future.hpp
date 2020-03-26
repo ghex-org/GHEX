@@ -25,6 +25,10 @@ namespace gridtools{
                 static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
                     const auto count = last-first;
                     if (count == 0) return last;
+                    // maybe static needed to avoid unnecessary allocations
+                    //static thread_local std::vector<MPI_Request> reqs;
+                    //reqs.resize(0);
+                    //reqs.reserve(count);
                     std::vector<MPI_Request> reqs;
                     reqs.reserve(count);
                     int indx, flag;
