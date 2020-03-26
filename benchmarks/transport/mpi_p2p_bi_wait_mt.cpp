@@ -13,7 +13,6 @@
 #include <string.h>
 #include <atomic>
 
-#include <ghex/transport_layer/ucx/threads.hpp>
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 

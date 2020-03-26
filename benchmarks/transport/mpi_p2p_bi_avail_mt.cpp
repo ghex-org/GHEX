@@ -13,7 +13,6 @@
 #include <string.h>
 #include <atomic>
 
-#include <ghex/transport_layer/ucx/threads.hpp>
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
@@ -125,7 +124,13 @@ int main(int argc, char *argv[])
 	    if(rank == 1) std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
 	}
 
-	int dbg = 0, sdbg = 0, rdbg = 0, flag, j;
+	/* pre-post - required for testany to work */
+        for(int j=0; j<inflight; j++){
+            MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
+            MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
+        }
+
+        int dbg = 0, sdbg = 0, rdbg = 0, flag, j;
 	char header[256];
 	snprintf(header, 256, "%d total bwdt ", rank);
 	while(sent<niter || received<niter){
