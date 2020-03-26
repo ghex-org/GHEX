@@ -17,6 +17,35 @@
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
+#ifdef USE_OPENMP
+#include <omp.h>
+#define DO_PRAGMA(x) _Pragma(#x)
+
+#define GET_THREAD_NUM()  omp_get_thread_num()
+#define GET_NUM_THREADS() omp_get_num_threads()
+#define IN_PARALLEL()     omp_in_parallel()
+
+#define THREAD_BARRIER()      DO_PRAGMA(omp barrier)
+#define THREAD_MASTER()       DO_PRAGMA(omp master)
+#define THREAD_PARALLEL_BEG() DO_PRAGMA(omp parallel)
+#define THREAD_PARALLEL_END() 
+#define THREAD_IS_MT 1
+
+#else
+
+#define GET_THREAD_NUM()  0
+#define GET_NUM_THREADS() 1
+#define IN_PARALLEL()     0
+
+#define DECLARE_THREAD_PRIVATE(name)
+#define THREAD_BARRIER()              
+#define THREAD_MASTER()               
+#define THREAD_PARALLEL_BEG()
+#define THREAD_PARALLEL_END() 
+#define THREAD_IS_MT 0
+
+#endif /* USE_OPENMP */
+
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
 int last_received = 0;
@@ -96,12 +125,6 @@ int main(int argc, char *argv[])
 	    if(rank == 1) std::cout << "number of threads: " << nthr << ", multi-threaded: " << THREAD_IS_MT << "\n";
 	}
 
-	/* pre-post */
-	for(int j=0; j<inflight; j++){
-	    MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
-	    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
-	}
-
 	int dbg = 0, sdbg = 0, rdbg = 0, flag, j;
 	char header[256];
 	snprintf(header, 256, "%d total bwdt ", rank);
@@ -125,23 +148,46 @@ int main(int argc, char *argv[])
 	    	last_sent = sent;
 	    }
 
+            // testany version is much faster with OpenMPI, esp. for large messages 
+#define USE_TESTANY
+#ifdef USE_TESTANY
 	    MPI_Testany(inflight, rreq, &j, &flag, MPI_STATUS_IGNORE);
 	    if(flag) {
-		MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
-		dbg += nthr;
-		rdbg += nthr;
-		received++;
+	        MPI_Irecv(rbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &rreq[j]);
+	        dbg += nthr;
+	        rdbg += nthr;
+	        received++;
 	    }
 
 	    if(sent<niter){
-		MPI_Testany(inflight, sreq, &j, &flag, MPI_STATUS_IGNORE);
-		if(flag) {
-		    MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
-		    dbg += nthr;
-		    sdbg += nthr;
-		    sent++;
-		}
+	        MPI_Testany(inflight, sreq, &j, &flag, MPI_STATUS_IGNORE);
+	        if(flag) {
+	            MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
+	            dbg += nthr;
+	            sdbg += nthr;
+	            sent++;
+	        }
 	    }
+#else
+            for(int i=0; i<inflight; i++){
+                MPI_Test(&rreq[i], &j, MPI_STATUS_IGNORE);
+                if(j){
+                    MPI_Irecv(rbuffers[i], buff_size, MPI_BYTE, peer_rank, thrid*inflight+i, mpi_comm, &rreq[i]);
+                    dbg += nthr;
+                    rdbg += nthr;
+                    received++;
+                }
+            }
+            for(int i=0; i<inflight; i++){
+                MPI_Test(&sreq[i], &j, MPI_STATUS_IGNORE);
+                if(j){
+                    MPI_Isend(sbuffers[i], buff_size, MPI_BYTE, peer_rank, thrid*inflight+i, mpi_comm, &sreq[i]);
+                    dbg += nthr;
+                    sdbg += nthr;
+                    sent++;
+                }
+            }
+#endif
 	}
 
 	THREAD_MASTER(){
@@ -156,5 +202,5 @@ int main(int argc, char *argv[])
     } 
 
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Finalize();
+    // MPI_Finalize(); // segfault due to unfinished requests
 }
