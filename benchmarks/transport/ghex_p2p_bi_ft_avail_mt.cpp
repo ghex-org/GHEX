@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
             int last_sent = 0;
             while(sent < niter || received < niter)
             {
-                for(int j=0; j<inflight; j++)
+                //for(int j=0; j<inflight; j++)
                 {
                     if(rank==0 && thread_id==0 && sdbg>=(niter/10)) {
                         std::cout << sent << " sent\n";
@@ -166,18 +166,24 @@ int main(int argc, char *argv[])
                         last_sent = sent;
                     }
 
-                    if(rreqs[j].test()) {
+                    auto r_it = future_type::test_any(rreqs.begin(),rreqs.end());
+                    if (r_it != rreqs.end()) {
                         received++;
                         rdbg+=num_threads;
                         dbg+=num_threads;
-                        rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
+                        const auto j = r_it-rreqs.begin();
+                        *r_it = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
                     }
-
-                    if(sent < niter && sreqs[j].test()) {
-                        sent++;
-                        sdbg+=num_threads;
-                        dbg+=num_threads;
-                        sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);
+                    
+                    if(sent < niter) {
+                        auto s_it = future_type::test_any(sreqs.begin(),sreqs.end());
+                        if (s_it != sreqs.end()) {
+                            sent++;
+                            sdbg+=num_threads;
+                            dbg+=num_threads;
+                            const auto j = s_it-sreqs.begin();
+                            *s_it = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);
+                        }
                     }
                 }
             }
