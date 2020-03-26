@@ -25,18 +25,22 @@ namespace gridtools{
                 static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
                     const auto count = last-first;
                     if (count == 0) return last;
+                    // should we handle null requests ourselves?
+                    //for (auto it = first; it!=last; ++it)
+                    //    if (*it==MPI_REQUEST_NULL)
+                    //        return it;
                     // maybe static needed to avoid unnecessary allocations
-                    //static thread_local std::vector<MPI_Request> reqs;
-                    //reqs.resize(0);
-                    //reqs.reserve(count);
-                    std::vector<MPI_Request> reqs;
+                    static thread_local std::vector<MPI_Request> reqs;
+                    reqs.resize(0);
+                    reqs.reserve(count);
+                    //std::vector<MPI_Request> reqs;
                     reqs.reserve(count);
                     int indx, flag;
                     std::transform(first, last, std::back_inserter(reqs), [](auto& fut){
                         return fut.m_handle.m_req.m_struct; });
                     GHEX_CHECK_MPI_RESULT(
                         MPI_Testany(count, reqs.data(), &indx, &flag, MPI_STATUS_IGNORE));
-                    if (flag) return first+indx;
+                    if (flag && indx != MPI_UNDEFINED) return first+indx;
                     else return last;
                 }
 
@@ -46,17 +50,21 @@ namespace gridtools{
                 {
                     const auto count = last-first;
                     if (count == 0) return last;
+                    // should we handle null requests ourselves?
+                    //for (auto it = first; it!=last; ++it)
+                    //    if (get(*it)==MPI_REQUEST_NULL)
+                    //        return it;
                     // maybe static needed to avoid unnecessary allocations
-                    //static thread_local std::vector<MPI_Request> reqs;
-                    //reqs.resize(0);
-                    //reqs.reserve(count);
-                    std::vector<MPI_Request> reqs;
+                    static thread_local std::vector<MPI_Request> reqs;
+                    reqs.resize(0);
+                    reqs.reserve(count);
+                    //std::vector<MPI_Request> reqs;
                     int indx, flag;
                     std::transform(first, last, std::back_inserter(reqs),
                         [&get](auto& x) { return get(x).m_handle.m_req.m_struct; });
                     GHEX_CHECK_MPI_RESULT(
                         MPI_Testany(count, reqs.data(), &indx, &flag, MPI_STATUS_IGNORE));
-                    if (flag) return first+indx;
+                    if (flag && indx != MPI_UNDEFINED) return first+indx;
                     else return last;
                 }
 
