@@ -136,44 +136,57 @@ int main(int argc, char *argv[])
                     std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
             }
 
+            /* pre-post */
+            for(int j=0; j<inflight; j++){
+                rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
+                sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);
+            }
+
             int dbg = 0, sdbg = 0, rdbg = 0;
             int last_received = 0;
             int last_sent = 0;
             while(sent < niter || received < niter)
             {
-                if(rank==0 && thread_id==0 && sdbg>=(niter/10)) {
-                    std::cout << sent << " sent\n";
-                    sdbg = 0;
-                }
-
-                if(rank==0 && thread_id==0 && rdbg>=(niter/10)) {
-                    std::cout << received << " received\n";
-                    rdbg = 0;
-                }
-
-                if(thread_id == 0 && dbg >= (niter/10)) {
-                    dbg = 0;
-                    std::cout << rank << " total bwdt MB/s:      "
-                              << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.toc()
-                              << "\n";
-                    timer.tic();
-                    last_received = received;
-                    last_sent = sent;
-                }
-                for(int j=0; j<inflight; j++)
+                //for(int j=0; j<inflight; j++)
                 {
-                    if(rreqs[j].test()) {
+                    if(rank==0 && thread_id==0 && sdbg>=(niter/10)) {
+                        std::cout << sent << " sent\n";
+                        sdbg = 0;
+                    }
+
+                    if(rank==0 && thread_id==0 && rdbg>=(niter/10)) {
+                        std::cout << received << " received\n";
+                        rdbg = 0;
+                    }
+
+                    if(thread_id == 0 && dbg >= (niter/10)) {
+                        dbg = 0;
+                        std::cout << rank << " total bwdt MB/s:      "
+                        << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.toc()
+                        << "\n";
+                        timer.tic();
+                        last_received = received;
+                        last_sent = sent;
+                    }
+
+                    auto r_it = future_type::test_any(rreqs.begin(),rreqs.end());
+                    if (r_it != rreqs.end()) {
                         received++;
                         rdbg+=num_threads;
                         dbg+=num_threads;
-                        rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
+                        const auto j = r_it-rreqs.begin();
+                        *r_it = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
                     }
-
-                    if(sent < niter && sreqs[j].test()) {
-                        sent++;
-                        sdbg+=num_threads;
-                        dbg+=num_threads;
-                        sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);
+                    
+                    if(sent < niter) {
+                        auto s_it = future_type::test_any(sreqs.begin(),sreqs.end());
+                        if (s_it != sreqs.end()) {
+                            sent++;
+                            sdbg+=num_threads;
+                            dbg+=num_threads;
+                            const auto j = s_it-sreqs.begin();
+                            *s_it = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);
+                        }
                     }
                 }
             }
