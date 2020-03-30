@@ -25,7 +25,7 @@
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/arch_list.hpp>
-//#include <ghex/communication_object_2.hpp>
+#include <ghex/communication_object_2.hpp>
 
 
 #ifndef GHEX_TEST_USE_UCX
@@ -49,6 +49,7 @@ using vertices_set_type = domain_descriptor_type::vertices_set_type;
 using adjncy_type = domain_descriptor_type::adjncy_type;
 using map_type = domain_descriptor_type::map_type;
 using it_diff_type = vertices_type::iterator::difference_type;
+using data_descriptor_cpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, int>;
 
 
 /* Domains
@@ -320,6 +321,38 @@ TEST(unstructured_user_concepts, pattern_setup) {
 
 }
 
+/** @brief Test data descriptor concept*/
+TEST(unstructured_user_concepts, data_descriptor) {
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+
+    domain_id_type domain_id{rank}; // 1 domain per rank
+    auto v_map = init_v_map(domain_id);
+    domain_descriptor_type d{domain_id, v_map};
+    std::vector<domain_descriptor_type> local_domains{d};
+    halo_generator_type hg{};
+
+    // setup patterns
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+    // communication object
+    using pattern_container_type = decltype(patterns);
+    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+
+    // create application field
+    std::vector<int> field(d.size(), 0);
+    for (std::size_t idx = 0; idx < d.inner_size(); ++idx) {
+        field[idx] = static_cast<int>(d.domain_id()) * 100 + static_cast<int>(d.vertices()[idx]);
+    }
+
+    data_descriptor_cpu_int_type data{d, field};
+
+    EXPECT_NO_THROW(co.bexchange(patterns(data)));
+
+}
+
 #else
 
 /** @brief Test pattern setup with multiple domains per rank */
@@ -411,13 +444,3 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
 }
 
 #endif
-
-/** @brief Test data descriptor concept*/
-/*TEST(unstructured_user_concepts, data_descriptor) {
-
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-    int rank = context.rank();
-    int size = context.size();
-
-}*/

@@ -208,7 +208,8 @@ namespace gridtools {
                     using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
                     using domain_descriptor_type = domain_descriptor<domain_id_type, global_index_type>;
                     using storage_type = std::vector<T>; // maybe can be more specific or use some library objects
-                    using index_type = std::size_t; // TO DO: should be the same of (derived from) the Iteration space
+                    using storage_index_type = std::size_t; // index for internal storage only
+                    using allocator_type = std::allocator<value_type>;
                     using byte_t = unsigned char;
 
                 private:
@@ -216,7 +217,7 @@ namespace gridtools {
                     domain_id_type m_domain_id;
                     std::size_t m_domain_size;
                     storage_type m_values;
-                    index_type m_levels; // TO DO: make it more abstract, should be one for each structured dimension
+                    storage_index_type m_levels; // TO DO: make it more abstract, should be one for each structured dimension
 
                 public:
 
@@ -226,10 +227,10 @@ namespace gridtools {
                      * @param domain local domain instance
                      * @param field field to be wrapped
                      * @param levels number of vertical layers for semi-structured grids*/
-                    template <template <typename> class Container>
+                    template <template <typename, typename> class Container>
                     data_descriptor(const domain_descriptor_type& domain,
-                                    const Container<value_type>& field,
-                                    const index_type levels = 1) :
+                                    const Container<value_type, allocator_type>& field,
+                                    const storage_index_type levels = 1) :
                         m_domain_id{domain.domain_id()},
                         m_domain_size{domain.size()},
                         m_values{field.begin(), field.end()},
@@ -242,15 +243,15 @@ namespace gridtools {
                     device_id_type device_id() const noexcept { return 0; } // significant for the GPU
                     domain_id_type domain_id() const noexcept { return m_domain_id; }
                     std::size_t domain_size() const noexcept { return m_domain_size; }
-                    index_type levels() const noexcept { return m_levels; }
+                    storage_index_type levels() const noexcept { return m_levels; }
 
                     /** @brief single access operator, used by multiple access set function*/
-                    value_type& operator()(const index_type local_v, const index_type level) {
+                    value_type& operator()(const storage_index_type local_v, const storage_index_type level) {
                         return m_values[local_v * m_levels + level];
                     }
 
                     /** @brief single access operator (const version), used by multiple access get function*/
-                    const value_type& operator()(const index_type local_v, const index_type level) const {
+                    const value_type& operator()(const storage_index_type local_v, const storage_index_type level) const {
                         return m_values[local_v * m_levels + level];
                     }
 
@@ -260,8 +261,8 @@ namespace gridtools {
                      * @param buffer buffer with the data to be set back*/
                     template <typename IterationSpace>
                     void set(const IterationSpace& is, const byte_t* buffer) {
-                        for (index_type local_v : is.local_index()) /* TO DO: change names in iteration_space */ {
-                            for (index_type level = 0; level < is.levels(); ++level) {
+                        for (storage_index_type local_v : is.local_indices()) /* TO DO: explicit cast? */ {
+                            for (storage_index_type level = 0; level < m_levels; ++level) {
                                 std::memcpy(&((*this)(local_v, level)), buffer, sizeof(value_type));
                                 buffer += sizeof(value_type);
                             }
@@ -274,8 +275,8 @@ namespace gridtools {
                      * @param buffer buffer to be filled*/
                     template <typename IterationSpace>
                     void get(const IterationSpace& is, byte_t* buffer) const {
-                        for (index_type local_v : is.local_index()) /* TO DO: change names in iteration_space */ {
-                            for (index_type level = 0; level < is.levels(); ++level) {
+                        for (storage_index_type local_v : is.local_indices()) /* TO DO: explicit cast? */ {
+                            for (storage_index_type level = 0; level < m_levels; ++level) {
                                 std::memcpy(buffer, &((*this)(local_v, level)), sizeof(value_type));
                                 buffer += sizeof(value_type);
                             }
