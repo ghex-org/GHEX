@@ -10,15 +10,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container: mrtravis/gridtools:gcc-9-mpi
-    strategy:
-      build_type: [Debug]
 
     steps:
       - uses: actions/checkout@v1
       - name: Configure
         run: |
           mkdir -p build && cd build
-          cmake .. -DGHEX_BUILD_TESTS=ON
+          cmake .. -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
