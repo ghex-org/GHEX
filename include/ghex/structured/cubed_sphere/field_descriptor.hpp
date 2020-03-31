@@ -62,11 +62,20 @@ namespace gridtools {
                     for (std::size_t i=0; i<num_elements; ++i) {
                         if (index*num_elements+i < pack_is.m_buffer_desc.m_size) {
                             // compute local coordinate
-                            coordinate_t local_coordinate;
+                            coordinate_type local_coordinate;
                             ::gridtools::ghex::structured::detail::compute_coordinate<4>::template apply<Layout>(
                                 pack_is.m_buffer_desc.m_strides, local_coordinate, index*num_elements+i);
                             // add offset
-                            const coordinate_t x = local_coordinate + pack_is.m_data_is.m_first;
+                            const coordinate_type x = local_coordinate + pack_is.m_data_is.m_first;
+                            printf("block %d thread %d index %d: coordinate %d %d %d %d\n"
+                                blockIdx.x,
+                                threadIdx.x,
+                                index,
+                                x[0],
+                                x[1],
+                                x[2],
+                                x[3]
+                            );
                             // assign
                             pack_is.buffer(x) = pack_is.data(x);
                         }
@@ -80,11 +89,11 @@ namespace gridtools {
                     for (std::size_t i=0; i<num_elements; ++i) {
                         if (index*num_elements+i < unpack_is.m_buffer_desc.m_size) {
                             // compute local coordinate
-                            coordinate_t local_coordinate;
+                            coordinate_type local_coordinate;
                             ::gridtools::ghex::structured::detail::compute_coordinate<4>::template apply<Layout>(
                                 unpack_is.m_buffer_desc.m_strides, local_coordinate, index*num_elements+i);
                             // add offset
-                            const coordinate_t x = local_coordinate + unpack_is.m_data_is.m_first;
+                            const coordinate_type x = local_coordinate + unpack_is.m_data_is.m_first;
                             // assign
                             unpack_is.data(x) = unpack_is.buffer(x);
                         }
@@ -92,7 +101,7 @@ namespace gridtools {
                 }
 
                 template<typename LMap>
-                struct serialization<::gridtools::ghex::gpu,LayoutMap> {
+                struct serialization<::gridtools::ghex::gpu,LMap> {
                     static constexpr std::size_t block_dim = 128;
                     static constexpr std::size_t elements_per_thread = 1;
 
@@ -103,17 +112,17 @@ namespace gridtools {
                         const std::size_t num_threads = (pack_is.m_buffer_desc.m_size + elements_per_thread-1)
                             /elements_per_thread;
                         const std::size_t num_blocks = (num_threads+block_dim-1)/block_dim;
-                        pack_kernel<LMap><<<num_blocks,block_dim,0,*stream_ptr>>>(pack_is, num_elements_per_thread);
+                        pack_kernel<LMap><<<num_blocks,block_dim,0,*stream_ptr>>>(pack_is, elements_per_thread);
                     }
 
                     template<typename UnPackIterationSpace>
                     static void unpack(UnPackIterationSpace&& unpack_is, void* arg) {
                         using coordinate_type = typename UnPackIterationSpace::coordinate_t;
                         auto stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
-                        const std::size_t num_threads = (pack_is.m_buffer_desc.m_size + elements_per_thread-1)
+                        const std::size_t num_threads = (unpack_is.m_buffer_desc.m_size + elements_per_thread-1)
                             /elements_per_thread;
                         const std::size_t num_blocks = (num_threads+block_dim-1)/block_dim;
-                        unpack_kernel<LMap><<<num_blocks,block_dim,0,*stream_ptr>>>(unpack_is, num_elements_per_thread);
+                        unpack_kernel<LMap><<<num_blocks,block_dim,0,*stream_ptr>>>(unpack_is, elements_per_thread);
                     }
                 };
 #endif
@@ -135,7 +144,6 @@ namespace gridtools {
                     using layout_map_buffer_yx   = ::gridtools::layout_map<ComponentOrder,YOrder,XOrder,ZOrder>;
                     using serialization_type     = serialization<arch_type,layout_map>;
 
-                private: // member types
                     struct buffer_descriptor {
                         T* m_ptr;
                         const coordinate_type m_first;
@@ -173,6 +181,7 @@ namespace gridtools {
                         const buffer_descriptor m_buffer_desc;
                         const const_basic_iteration_space m_data_is;
                         
+                        GT_FUNCTION
                         T& buffer(const coordinate_type& coord) const noexcept {
                             const coordinate_type global_coord{
                                 coord[0],
@@ -190,6 +199,7 @@ namespace gridtools {
                                 reinterpret_cast<char*>(m_buffer_desc.m_ptr) + memory_location);
                         }
 
+                        GT_FUNCTION
                         const T& data(const coordinate_type& coord) const noexcept {
                             const coordinate_type data_coord = coord + m_data_is.m_offset;
                             const auto memory_location =
@@ -209,6 +219,7 @@ namespace gridtools {
                         const transform& m_transform;
                         const int c;
 
+                        GT_FUNCTION
                         const T& buffer(const coordinate_type& coord) const noexcept {
                             const auto x = coord[1] + m_data_is.m_domain_first[1];
                             const auto y = coord[2] + m_data_is.m_domain_first[2];
@@ -224,6 +235,7 @@ namespace gridtools {
                                 reinterpret_cast<const char*>(m_buffer_desc.m_ptr) + memory_location);
                         }
 
+                        GT_FUNCTION
                         T& data(const coordinate_type& coord) const noexcept {
                             const coordinate_type data_coord = coord + m_data_is.m_offset;
                             const auto memory_location =

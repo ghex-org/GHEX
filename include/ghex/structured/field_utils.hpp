@@ -84,9 +84,9 @@ namespace gridtools {
         template<int D, int K>
         struct compute_coordinate_impl
         {
-            template<typename Layout, typename Coordinate, typename I>
+            template<typename Layout, typename Strides, typename Coordinate, typename I>
             GT_FUNCTION
-            static void apply(const Coordinate& strides, Coordinate& coord, I i)
+            static void apply(const Strides& strides, Coordinate& coord, I i)
             {
                 const auto idx = Layout::template find<D-(K)>();
                 coord[idx]     = i/strides[idx];
@@ -96,18 +96,18 @@ namespace gridtools {
         template<int D>
         struct compute_coordinate_impl<D,0>
         {
-            template<typename Layout, typename Coordinate, typename I>
+            template<typename Layout, typename Strides, typename Coordinate, typename I>
             GT_FUNCTION
-            static void apply(const Coordinate&, Coordinate&, I)
+            static void apply(const Strides&, Coordinate&, I)
             {
             }
         };
         template<int D>
         struct compute_coordinate
         {
-            template<typename Layout, typename Coordinate, typename I>
+            template<typename Layout, typename Strides, typename Coordinate, typename I>
             GT_FUNCTION
-            static void apply(const Coordinate& strides, Coordinate& coord, I i)
+            static void apply(const Strides& strides, Coordinate& coord, I i)
             {
                 const auto idx = Layout::template find<0>();
                 coord[idx]     = i/strides[idx];
