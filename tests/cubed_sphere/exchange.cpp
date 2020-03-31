@@ -850,28 +850,6 @@ TEST(cubed_sphere, domain)
     std::vector<float> data_dom_2((2*halo+5)*(2*halo+5)*6*8,-1); // fields
     std::vector<float> data_dom_3((2*halo+5)*(2*halo+5)*6*8,-1); // fields
 
-    // wrap field memory in a field_descriptor
-    field_descriptor<float,gridtools::ghex::cpu> field_dom_0(
-        domain0,
-        data_dom_0.data(),
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
-    field_descriptor<float,gridtools::ghex::cpu> field_dom_1(
-        domain1,
-        data_dom_1.data(),
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
-    field_descriptor<float,gridtools::ghex::cpu> field_dom_2(
-        domain2,
-        data_dom_2.data(),
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
-    field_descriptor<float,gridtools::ghex::cpu> field_dom_3(
-        domain3,
-        data_dom_3.data(),
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
-
     // initialize physical domain (leave halos as they are)
     for (int comp=0; comp<8; ++comp)
         for (int z=0; z<6; ++z)
@@ -912,7 +890,51 @@ TEST(cubed_sphere, domain)
                             10*y +
                              1*z;
                 }
-    
+
+#ifdef __CUDACC__
+    using arch_t = gridtools::ghex::gpu;
+    float* data_ptr_0 = nullptr;
+    float* data_ptr_1 = nullptr;
+    float* data_ptr_2 = nullptr;
+    float* data_ptr_3 = nullptr;
+    cudaMalloc((void**)&data_ptr_0, data_dom_0.size()*sizeof(float));
+    cudaMalloc((void**)&data_ptr_1, data_dom_1.size()*sizeof(float));
+    cudaMalloc((void**)&data_ptr_2, data_dom_2.size()*sizeof(float));
+    cudaMalloc((void**)&data_ptr_3, data_dom_3.size()*sizeof(float));
+    cudaMemcpy(data_ptr_0, data_dom_0.data(), data_dom_0.size()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(data_ptr_1, data_dom_1.data(), data_dom_1.size()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(data_ptr_2, data_dom_2.data(), data_dom_2.size()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(data_ptr_3, data_dom_3.data(), data_dom_3.size()*sizeof(float), cudaMemcpyHostToDevice);
+#else
+    using arch_t = gridtools::ghex::cpu;
+    float* data_ptr_0 = data_dom_0.data();
+    float* data_ptr_1 = data_dom_1.data();
+    float* data_ptr_2 = data_dom_2.data();
+    float* data_ptr_3 = data_dom_3.data();
+#endif
+
+    // wrap field memory in a field_descriptor
+    field_descriptor<float,arch_t> field_dom_0(
+        domain0,
+        data_ptr_0,
+        std::array<int,4>{0,halo,halo,0},
+        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+    field_descriptor<float,arch_t> field_dom_1(
+        domain1,
+        data_ptr_1,
+        std::array<int,4>{0,halo,halo,0},
+        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+    field_descriptor<float,arch_t> field_dom_2(
+        domain2,
+        data_ptr_2,
+        std::array<int,4>{0,halo,halo,0},
+        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+    field_descriptor<float,arch_t> field_dom_3(
+        domain3,
+        data_ptr_3,
+        std::array<int,4>{0,halo,halo,0},
+        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+
     // create a structured pattern
     auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
         context, halo_gen, local_domains);
@@ -928,6 +950,17 @@ TEST(cubed_sphere, domain)
         pattern1(field_dom_1),
         pattern1(field_dom_2),
         pattern1(field_dom_3)).wait();
+
+#ifdef __CUDACC__
+    cudaMemcpy(data_dom_0.data(), data_ptr_0, data_dom_0.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(data_dom_1.data(), data_ptr_1, data_dom_1.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(data_dom_2.data(), data_ptr_2, data_dom_2.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(data_dom_3.data(), data_ptr_3, data_dom_3.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaFree(data_ptr_0);
+    cudaFree(data_ptr_1);
+    cudaFree(data_ptr_2);
+    cudaFree(data_ptr_3);
+#endif
 
     // check results
     check_field(field_dom_0, 2, 5);
