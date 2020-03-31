@@ -22,7 +22,7 @@ foreach (_x ${_cubed_sphere_tests})
 endforeach()
 # MPI, GPU
 if (USE_GPU)
-    foreach (_x ${_simple_tests})
+    foreach (_x ${_cubed_sphere_tests})
         set(_t cubed_sphere_${_x}_gpu)
         add_executable(${_t} ${_x}.cu)
         target_link_libraries(${_t} gtest_main_mt)
@@ -30,10 +30,11 @@ if (USE_GPU)
             NAME ${_t}
             COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 6 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
         )
+    endforeach()
 endif()
 # UCX, CPU
 if (GHEX_USE_UCP)
-    foreach (_x ${_simple_tests})
+    foreach (_x ${_cubed_sphere_tests})
         set(_t cubed_sphere_${_x}_ucx)
         add_executable(${_t} ${_x}.cpp)
         target_compile_definitions(${_t} PUBLIC GHEX_TEST_USE_UCX)
@@ -54,5 +55,6 @@ if (GHEX_USE_UCP)
                 NAME ${_t}
                 COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 6 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
             )
+        endforeach()
     endif()
 endif()
