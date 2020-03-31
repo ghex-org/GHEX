@@ -11,7 +11,9 @@
 
 #include <set>
 #include <vector>
+#include <map>
 #include <utility>
+#include <cassert>
 
 #include <gtest/gtest.h>
 
@@ -233,37 +235,37 @@ void check_send_halos_indices(const pattern_type& p) {
  *
  *             id  |     0     |     1     |     2     |     3     |
  *             -----------------------------------------------------
- *              0  |     -     |  [0, 2]   |    [1]    |    [0]    |
- *   senders    1  | [0, 2, 4] |     -     |    [0]    |    [2]    |
- *              2  |    [1]    |    [3]    |     -     |    [1]    |
- *              3  |    [3]    |    [1]    |    [2]    |     -     |
+ *              0  |     -     |  [7, 9]   |    [4]    |    [6]    |
+ *   senders    1  | [4, 6, 8] |     -     |    [3]    |    [8]    |
+ *              2  |    [5]    |   [10]    |     -     |    [7]    |
+ *              3  |    [7]    |    [8]    |    [5]    |     -     |
  *
  * */
 void check_recv_halos_indices(const pattern_type& p) {
     std::map<domain_id_type, local_indices_type> ref_map{};
     switch (p.domain_id()) {
         case 0: {
-            ref_map.insert({std::make_pair(domain_id_type{1}, local_indices_type{0, 2, 4}),
-                            std::make_pair(domain_id_type{2}, local_indices_type{1}),
-                            std::make_pair(domain_id_type{3}, local_indices_type{3})});
+            ref_map.insert({std::make_pair(domain_id_type{1}, local_indices_type{4, 6, 8}),
+                            std::make_pair(domain_id_type{2}, local_indices_type{5}),
+                            std::make_pair(domain_id_type{3}, local_indices_type{7})});
             break;
         }
         case 1: {
-            ref_map.insert({std::make_pair(domain_id_type{0}, local_indices_type{0, 2}),
-                            std::make_pair(domain_id_type{2}, local_indices_type{3}),
-                            std::make_pair(domain_id_type{3}, local_indices_type{1})});
+            ref_map.insert({std::make_pair(domain_id_type{0}, local_indices_type{7, 9}),
+                            std::make_pair(domain_id_type{2}, local_indices_type{10}),
+                            std::make_pair(domain_id_type{3}, local_indices_type{8})});
             break;
         }
         case 2: {
-            ref_map.insert({std::make_pair(domain_id_type{0}, local_indices_type{1}),
-                            std::make_pair(domain_id_type{1}, local_indices_type{0}),
-                            std::make_pair(domain_id_type{3}, local_indices_type{2})});
+            ref_map.insert({std::make_pair(domain_id_type{0}, local_indices_type{4}),
+                            std::make_pair(domain_id_type{1}, local_indices_type{3}),
+                            std::make_pair(domain_id_type{3}, local_indices_type{5})});
             break;
         }
         case 3: {
-            ref_map.insert({std::make_pair(domain_id_type{0}, local_indices_type{0}),
-                            std::make_pair(domain_id_type{1}, local_indices_type{2}),
-                            std::make_pair(domain_id_type{2}, local_indices_type{1})});
+            ref_map.insert({std::make_pair(domain_id_type{0}, local_indices_type{6}),
+                            std::make_pair(domain_id_type{1}, local_indices_type{8}),
+                            std::make_pair(domain_id_type{2}, local_indices_type{7})});
             break;
         }
     }
@@ -274,6 +276,33 @@ void check_recv_halos_indices(const pattern_type& p) {
         EXPECT_TRUE(res.second); // ids are unique
         EXPECT_NO_THROW(ref_map.at(rh.first.id)); // ids are correct
         EXPECT_TRUE(rh.second.front().local_indices() == ref_map.at(rh.first.id)); // indices are correct
+    }
+}
+
+
+template <typename Container>
+void initialize_data(const domain_descriptor_type& d, Container& field) {
+    using value_type = typename Container::value_type;
+    assert(field.size() == d.size());
+    for (std::size_t idx = 0; idx < d.inner_size(); ++idx) {
+        field[idx] = static_cast<value_type>(d.domain_id()) * 100 + static_cast<value_type>(d.vertices()[idx]);
+    }
+}
+
+
+template <typename Container>
+void check_exchanged_data(const domain_descriptor_type& d, const Container& field, const pattern_type& p) {
+    using value_type = typename Container::value_type;
+    using index_type = pattern_type::index_type;
+    std::map<index_type, domain_id_type> halo_map{};
+    for (const auto& rh : p.recv_halos()) {
+        for (const auto idx : rh.second.front().local_indices()) {
+            halo_map.insert(std::make_pair(idx, rh.first.id));
+        }
+    }
+    for (const auto& pair : halo_map) {
+        EXPECT_EQ(field[static_cast<std::size_t>(pair.first)],
+                static_cast<value_type>(pair.second * 100 + d.vertices()[static_cast<std::size_t>(pair.first)]));
     }
 }
 
@@ -334,22 +363,24 @@ TEST(unstructured_user_concepts, data_descriptor) {
     std::vector<domain_descriptor_type> local_domains{d};
     halo_generator_type hg{};
 
-    // setup patterns
     auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
 
     // communication object
     using pattern_container_type = decltype(patterns);
     auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
 
-    // create application field
+    // application data
     std::vector<int> field(d.size(), 0);
-    for (std::size_t idx = 0; idx < d.inner_size(); ++idx) {
-        field[idx] = static_cast<int>(d.domain_id()) * 100 + static_cast<int>(d.vertices()[idx]);
-    }
-
+    initialize_data(d, field);
     data_descriptor_cpu_int_type data{d, field};
 
     EXPECT_NO_THROW(co.bexchange(patterns(data)));
+
+    auto h = co.exchange(patterns(data));
+    h.wait();
+
+    // check exchanged data
+    check_exchanged_data(d, field, patterns[0]);
 
 }
 
@@ -440,6 +471,47 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
         }
 
     }
+
+}
+
+/** @brief Test data descriptor concept*/
+TEST(unstructured_user_concepts, data_descriptor_oversubscribe) {
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+
+    domain_id_type domain_id_1{rank * 2};
+    domain_id_type domain_id_2{rank * 2 + 1};
+    auto v_map_1 = init_v_map(domain_id_1);
+    auto v_map_2 = init_v_map(domain_id_2);
+    domain_descriptor_type d_1{domain_id_1, v_map_1};
+    domain_descriptor_type d_2{domain_id_2, v_map_2};
+    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
+    halo_generator_type hg{};
+
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+    // communication object
+    using pattern_container_type = decltype(patterns);
+    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+
+    // application data
+    std::vector<int> field_1(d_1.size(), 0);
+    std::vector<int> field_2(d_2.size(), 0);
+    initialize_data(d_1, field_1);
+    initialize_data(d_2, field_2);
+    data_descriptor_cpu_int_type data_1{d_1, field_1};
+    data_descriptor_cpu_int_type data_2{d_2, field_2};
+
+    EXPECT_NO_THROW(co.bexchange(patterns(data_1), patterns(data_2)));
+
+    auto h = co.exchange(patterns(data_1), patterns(data_2));
+    h.wait();
+
+    // check exchanged data
+    check_exchanged_data(d_1, field_1, patterns[0]);
+    check_exchanged_data(d_2, field_2, patterns[1]);
 
 }
 

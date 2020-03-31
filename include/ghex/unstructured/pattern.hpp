@@ -415,7 +415,9 @@ namespace gridtools {
                                              rank_local_start_index) &&
                                                 (all_recv_indices[static_cast<std::size_t>(other_rank)][recv_indices_idx] <
                                                  rank_local_start_index + static_cast<index_type>(halo_size))) {
-                                            is.push_back(all_recv_indices[static_cast<std::size_t>(other_rank)][recv_indices_idx] - rank_local_start_index);
+                                            is.push_back(all_recv_indices[static_cast<std::size_t>(other_rank)][recv_indices_idx] -
+                                                    rank_local_start_index +
+                                                    d.inner_size()); // index offset
                                         }
                                     }
                                     if (is.size()) {
