@@ -557,7 +557,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
                         100*(n+y-field.offsets()[2]) + 
                         10*(n-(x-field.offsets()[1]+n)-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom middle - expect from neighbor tile -y id 1
                 for (int x=x_dom_min; x<x_dom_max; ++x) {
@@ -566,7 +567,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
                         100*(n+y-field.offsets()[2]) + 
                         10*(n-(x-field.offsets()[1])-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom right  - expect empty
                 for (int x=x_dom_max; x<x_max; ++x) {
