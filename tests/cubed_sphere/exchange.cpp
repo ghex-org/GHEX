@@ -917,23 +917,27 @@ TEST(cubed_sphere, domain)
     field_descriptor<float,arch_t> field_dom_0(
         domain0,
         data_ptr_0,
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,6},
+        8);
     field_descriptor<float,arch_t> field_dom_1(
         domain1,
         data_ptr_1,
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,6},
+        8);
     field_descriptor<float,arch_t> field_dom_2(
         domain2,
         data_ptr_2,
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,6},
+        8);
     field_descriptor<float,arch_t> field_dom_3(
         domain3,
         data_ptr_3,
-        std::array<int,4>{0,halo,halo,0},
-        std::array<int,4>{8,2*halo+5,2*halo+5,6});
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,6},
+        8);
 
     // create a structured pattern
     auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(

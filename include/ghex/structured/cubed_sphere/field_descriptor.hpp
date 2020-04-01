@@ -25,6 +25,9 @@ namespace gridtools {
         namespace structured {
             namespace cubed_sphere {
 
+                /** @brief Helper class to dispatch to CPU/GPU implementations of pack/unpack kernels
+                  * @tparam Arch Architecture type
+                  * @tparam LayoutMap Data layout map*/
                 template<typename Arch, typename LayoutMap>
                 struct serialization;
                 
@@ -95,7 +98,9 @@ namespace gridtools {
 
                 template<typename LMap>
                 struct serialization<::gridtools::ghex::gpu,LMap> {
+                    // kernels use a 1-D compute grid with block-dim threads per block
                     static constexpr std::size_t block_dim = 128;
+                    // number of values to pack/unpack per thread
                     static constexpr std::size_t elements_per_thread = 1;
 
                     template<typename PackIterationSpace>
@@ -120,6 +125,13 @@ namespace gridtools {
                 };
 #endif
 
+                /** @brief Describes a field spanning a subdomain of a cubed-sphere tile
+                  * @tparam T value type
+                  * @tparam Arch Architecture type
+                  * @tparam ComponentOrder Data layout order parameter (3 == stride 1, 0 == largest stride)
+                  * @tparam XOrder Data layout order parameter (3 == stride 1, 0 == largest stride)
+                  * @tparam YOrder Data layout order parameter (3 == stride 1, 0 == largest stride)
+                  * @tparam ZOrder Data layout order parameter (3 == stride 1, 0 == largest stride)*/
                 template<typename T, typename Arch, int ComponentOrder=0, int XOrder=3, int YOrder=2, int ZOrder=1>
                 class field_descriptor {
                 public: // member types
@@ -138,6 +150,7 @@ namespace gridtools {
                     using layout_map_buffer_yx   = ::gridtools::layout_map<ComponentOrder,YOrder,XOrder,ZOrder>;
                     using serialization_type     = serialization<arch_type,layout_map>;
 
+                    // holds buffer information (read-write access)
                     struct buffer_descriptor {
                         T* m_ptr;
                         const coordinate_type m_first;
@@ -145,6 +158,7 @@ namespace gridtools {
                         const size_type m_size;
                     };
                     
+                    // holds buffer information (read only access)
                     struct const_buffer_descriptor {
                         const T* m_ptr;
                         const coordinate_type m_first;
@@ -152,6 +166,7 @@ namespace gridtools {
                         const size_type m_size;
                     };
                     
+                    // holds halo iteration space information (read-write access)
                     struct basic_iteration_space {
                         T* m_ptr;
                         const coordinate_type m_domain_first;
@@ -162,6 +177,7 @@ namespace gridtools {
                         const strides_type m_local_strides;
                     };
 
+                    // holds halo iteration space information (read only access)
                     struct const_basic_iteration_space {
                         const T* m_ptr;
                         const coordinate_type m_domain_first;
@@ -172,12 +188,17 @@ namespace gridtools {
                         const strides_type m_local_strides;
                     };
 
+                    // iteration space for packing data
+                    // does not apply any transform (data is packed according to the local coordinate system)
                     struct pack_iteration_space {
                         using value_t = T;
                         using coordinate_t = coordinate_type;
                         const buffer_descriptor m_buffer_desc;
                         const const_basic_iteration_space m_data_is;
                         
+                        /** @brief accesses buffer at specified local coordinate
+                          * @param coord 4-dimensional array (component, x, y, z) in local coordinate system
+                          * @return reference to the value in the buffer */
                         GT_FUNCTION
                         T& buffer(const coordinate_type& coord) const noexcept {
                             const coordinate_type global_coord{
@@ -186,7 +207,6 @@ namespace gridtools {
                                 coord[2] + m_data_is.m_domain_first[2],
                                 coord[3]};
                             const coordinate_type buffer_coord = global_coord - m_buffer_desc.m_first;
-
                             const auto memory_location =
                                 m_buffer_desc.m_strides[0]*buffer_coord[0] +
                                 m_buffer_desc.m_strides[1]*buffer_coord[1] +
@@ -196,6 +216,9 @@ namespace gridtools {
                                 reinterpret_cast<char*>(m_buffer_desc.m_ptr) + memory_location);
                         }
 
+                        /** @brief accesses field at specified local coordinate
+                          * @param coord 4-dimensional array (component, x, y, z) in local coordinate system
+                          * @return const reference to the value in the field */
                         GT_FUNCTION
                         const T& data(const coordinate_type& coord) const noexcept {
                             const coordinate_type data_coord = coord + m_data_is.m_offset;
@@ -209,6 +232,8 @@ namespace gridtools {
                         }
                     };
 
+                    // iteration space for unpacking data
+                    // transforms coordinates and values depending on the transformation matrix
                     struct unpack_iteration_space {
                         using value_t = T;
                         using coordinate_t = coordinate_type;
@@ -217,6 +242,9 @@ namespace gridtools {
                         const transform m_transform;
                         const int c;
 
+                        /** @brief accesses buffer at specified local coordinate
+                          * @param coord 4-dimensional array (component, x, y, z) in local coordinate system
+                          * @return const reference to the value in the buffer */
                         GT_FUNCTION
                         const T& buffer(const coordinate_type& coord) const noexcept {
                             const auto x = coord[1] + m_data_is.m_domain_first[1];
@@ -233,6 +261,9 @@ namespace gridtools {
                                 reinterpret_cast<const char*>(m_buffer_desc.m_ptr) + memory_location);
                         }
 
+                        /** @brief accesses field at specified local coordinate
+                          * @param coord 4-dimensional array (component, x, y, z) in local coordinate system
+                          * @return reference to the value in the field */
                         GT_FUNCTION
                         T& data(const coordinate_type& coord) const noexcept {
                             const coordinate_type data_coord = coord + m_data_is.m_offset;
@@ -258,9 +289,18 @@ namespace gridtools {
                     strides_type    m_byte_strides;  /// memory strides in bytes
 
                 public: // ctors
+                    /** @brief construct field_descriptor from existing data
+                      * @tparam Array 3-dimensional array-like type
+                      * @param dom domain descriptor
+                      * @param data pointer to data
+                      * @param offsets (x,y,z)-offset of first phyisical value (not halo) from the orign of the memory
+                      * @param extents (x,y,z)-extent of the memory (including buffer regions)
+                      * @param n_components number of components in this field
+                      * @param is_vector whether this field is a vector or a collection of scalars
+                      * @param d_id device id */
                     template<typename Array>
                     field_descriptor(const domain_descriptor& dom, value_type* data,
-                                     const Array& offsets, const Array& extents,
+                                     const Array& offsets, const Array& extents, unsigned int n_components,
                                      bool is_vector = false, device_id_type d_id = 0)
                     : m_dom_id{dom.domain_id()}
                     , m_c{dom.x()}
@@ -269,28 +309,13 @@ namespace gridtools {
                     , m_device_id{d_id}
                     { 
                         std::copy(dom.first().begin(), dom.first().end(), m_dom_first.begin());
-                        std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
-                        std::copy(extents.begin(), extents.end(), m_extents.begin());
+                        m_offsets[0] = 0;
+                        std::copy(offsets.begin(), offsets.end(), m_offsets.begin()+1);
+                        m_extents[0] = n_components;
+                        std::copy(extents.begin(), extents.end(), m_extents.begin()+1);
                         // compute strides
                         ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
                             apply<layout_map,value_type>(m_extents,m_byte_strides,0u);
-                        m_dom_first[0] = 0;
-                    }
-
-                    template<typename Array0, typename Array1, typename Array2>
-                    field_descriptor(const domain_descriptor& dom, value_type* data,
-                                     const Array0& offsets, const Array1& extents,
-                                     const Array2& byte_strides, bool is_vector = false, device_id_type d_id = 0)
-                    : m_dom_id{dom.domain_id()}
-                    , m_c{dom.x()}
-                    , m_is_vector{is_vector}
-                    , m_data{data}
-                    , m_device_id{d_id}
-                    { 
-                        std::copy(dom.first().begin(), dom.first().end(), m_dom_first.begin());
-                        std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
-                        std::copy(extents.begin(), extents.end(), m_extents.begin());
-                        std::copy(byte_strides.begin(), byte_strides.end(), m_byte_strides.begin());
                         m_dom_first[0] = 0;
                     }
 
@@ -301,20 +326,30 @@ namespace gridtools {
 
                 public: // member functions
             
+                    /** @brief returns the device id */
                     typename arch_traits<arch_type>::device_id_type device_id() const { return m_device_id; }
+                    /** @brief returns the domain id */
                     domain_id_type domain_id() const noexcept { return m_dom_id; }
+                    /** @brief returns the field 4-D extents (c,x,y,z) */
                     const coordinate_type& extents() const noexcept { return m_extents; }
+                    /** @brief returns the field 4-D offsets (c,x,y,z) */
                     const coordinate_type& offsets() const noexcept { return m_offsets; }
+                    /** @brief returns the field 4-D byte strides (c,x,y,z) */
                     const strides_type& byte_strides() const noexcept { return m_byte_strides; }
+                    /** @brief returns the pointer to the data */
                     value_type* data() const { return m_data; }
+                    /** @brief set a new pointer to the data */
                     void set_data(value_type* ptr) { m_data = ptr; }
+                    /** @brief returns the number of components c */
                     int num_components() const noexcept { return m_extents[0]; }
+                    /** @brief returns the size of the cube (number of cells along an edge) */
                     int x() const noexcept { return m_c; }
-
                     
                     template<typename IndexContainer>
                     void pack(T* buffer, const IndexContainer& c, void* arg) {
+                        // loop over pattern's iteration spaces
                         for (const auto& is : c) {
+                            // 4-D description of the halo in the buffer
                             const coordinate_type buffer_offset {
                                 0,
                                 is.global().first()[1],
@@ -328,6 +363,7 @@ namespace gridtools {
                             strides_type buffer_strides;
                             ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
                                 apply<layout_map,value_type>(buffer_extents,buffer_strides,0u);
+                            // 4-D description of the halo in the local domain
                             coordinate_type data_first;
                             coordinate_type data_last;
                             data_first[0] = 0;
@@ -342,8 +378,9 @@ namespace gridtools {
                             strides_type local_strides;
                             ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
                                 apply<layout_map>(local_extents,local_strides);
-
+                            // number of values to pack
                             const size_type size = is.size()*num_components();
+                            // dispatch to specialized packer
                             serialization_type::pack(
                                 pack_iteration_space{
                                     buffer_descriptor{
@@ -366,22 +403,23 @@ namespace gridtools {
             
                     template<typename IndexContainer>
                     void unpack(const T* buffer, const IndexContainer& c, void* arg) {
-                        // loop over iteration spaces
+                        // loop over pattern's iteration spaces
                         for (const auto& is : c) {
-                            // transform
+                            // pointer to transform matrix
                             const transform * t;
-                            // check if on different tile
+                            // check if iteration space is on different tile
                             if (is.global().first()[0] != m_dom_id.tile) {
                                 // find neighbor tile's direction: -x,+x,-y,+y
                                 int n;
                                 for (n=0; n<4; ++n)
                                     if (tile_lu[m_dom_id.tile][n] == is.global().first()[0])
                                         break;
+                                // assign transform
                                 t = &transform_lu[m_dom_id.tile][n];
                             }
                             else
                                 t = &identity_transform;
-
+                            // 4-D description of the halo in the buffer
                             const coordinate_type buffer_offset {
                                 0,
                                 is.global().first()[1],
@@ -395,7 +433,7 @@ namespace gridtools {
                             strides_type buffer_strides;
                             ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
                                 apply<layout_map,value_type>(buffer_extents,buffer_strides,0u);
-
+                            // 4-D description of the halo in the local domain
                             coordinate_type data_first;
                             coordinate_type data_last;
                             data_first[0] = 0;
@@ -410,8 +448,9 @@ namespace gridtools {
                             strides_type local_strides;
                             ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
                                 apply<layout_map>(local_extents,local_strides);
-
+                            // number of values to unpack
                             const size_type size = is.size()*num_components();
+                            // dispatch to specialized unpacker
                             serialization_type::unpack(
                                 unpack_iteration_space{
                                     const_buffer_descriptor{
