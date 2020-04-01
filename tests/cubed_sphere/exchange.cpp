@@ -960,6 +960,10 @@ TEST(cubed_sphere, domain)
     cudaFree(data_ptr_1);
     cudaFree(data_ptr_2);
     cudaFree(data_ptr_3);
+    field_dom_0.set_data(data_dom_0.data());
+    field_dom_1.set_data(data_dom_1.data());
+    field_dom_2.set_data(data_dom_2.data());
+    field_dom_3.set_data(data_dom_3.data());
 #endif
 
     // check results

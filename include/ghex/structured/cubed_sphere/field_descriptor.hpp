@@ -56,26 +56,18 @@ namespace gridtools {
 
 #ifdef __CUDACC__
                 template<typename Layout, typename PackIterationSpace>
-                __global__ void pack_kernel(PackIterationSpace pack_is, std::size_t num_elements) {
+                __global__ void pack_kernel(PackIterationSpace pack_is, unsigned int num_elements) {
+                    using value_type = typename PackIterationSpace::value_t;
                     using coordinate_type = typename PackIterationSpace::coordinate_t;
-                    const std::size_t index = blockIdx.x*blockDim.x + threadIdx.x;
-                    for (std::size_t i=0; i<num_elements; ++i) {
+                    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
+                    for (unsigned int i=0; i<num_elements; ++i) {
                         if (index*num_elements+i < pack_is.m_buffer_desc.m_size) {
                             // compute local coordinate
                             coordinate_type local_coordinate;
                             ::gridtools::ghex::structured::detail::compute_coordinate<4>::template apply<Layout>(
-                                pack_is.m_buffer_desc.m_strides, local_coordinate, index*num_elements+i);
+                                pack_is.m_data_is.m_local_strides, local_coordinate, index*num_elements+i);
                             // add offset
                             const coordinate_type x = local_coordinate + pack_is.m_data_is.m_first;
-                            printf("block %d thread %d index %d: coordinate %d %d %d %d\n"
-                                blockIdx.x,
-                                threadIdx.x,
-                                index,
-                                x[0],
-                                x[1],
-                                x[2],
-                                x[3]
-                            );
                             // assign
                             pack_is.buffer(x) = pack_is.data(x);
                         }
@@ -83,15 +75,16 @@ namespace gridtools {
                 }
 
                 template<typename Layout, typename UnPackIterationSpace>
-                __global__ void unpack_kernel(UnPackIterationSpace unpack_is, std::size_t num_elements) {
+                __global__ void unpack_kernel(UnPackIterationSpace unpack_is, unsigned int num_elements) {
+                    using value_type = typename UnPackIterationSpace::value_t;
                     using coordinate_type = typename UnPackIterationSpace::coordinate_t;
-                    const std::size_t index = blockIdx.x*blockDim.x + threadIdx.x;
-                    for (std::size_t i=0; i<num_elements; ++i) {
+                    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
+                    for (unsigned int i=0; i<num_elements; ++i) {
                         if (index*num_elements+i < unpack_is.m_buffer_desc.m_size) {
                             // compute local coordinate
                             coordinate_type local_coordinate;
                             ::gridtools::ghex::structured::detail::compute_coordinate<4>::template apply<Layout>(
-                                unpack_is.m_buffer_desc.m_strides, local_coordinate, index*num_elements+i);
+                                unpack_is.m_data_is.m_local_strides, local_coordinate, index*num_elements+i);
                             // add offset
                             const coordinate_type x = local_coordinate + unpack_is.m_data_is.m_first;
                             // assign
@@ -139,7 +132,8 @@ namespace gridtools {
                     using domain_id_type         = domain_id_t;
                     using coordinate_type        = ::gridtools::array<
                         typename domain_descriptor_type::coordinate_type::value_type, dimension::value>;
-                    using strides_type           = ::gridtools::array<std::size_t, dimension::value>;
+                    using size_type              = unsigned int;
+                    using strides_type           = ::gridtools::array<size_type, dimension::value>;
                     using layout_map_buffer_xy   = layout_map;
                     using layout_map_buffer_yx   = ::gridtools::layout_map<ComponentOrder,YOrder,XOrder,ZOrder>;
                     using serialization_type     = serialization<arch_type,layout_map>;
@@ -148,14 +142,14 @@ namespace gridtools {
                         T* m_ptr;
                         const coordinate_type m_first;
                         const strides_type m_strides;
-                        const std::size_t m_size;
+                        const size_type m_size;
                     };
                     
                     struct const_buffer_descriptor {
                         const T* m_ptr;
                         const coordinate_type m_first;
                         const strides_type m_strides;
-                        const std::size_t m_size;
+                        const size_type m_size;
                     };
                     
                     struct basic_iteration_space {
@@ -165,6 +159,7 @@ namespace gridtools {
                         const coordinate_type m_first;
                         const coordinate_type m_last;
                         const strides_type m_strides;
+                        const strides_type m_local_strides;
                     };
 
                     struct const_basic_iteration_space {
@@ -174,9 +169,11 @@ namespace gridtools {
                         const coordinate_type m_first;
                         const coordinate_type m_last;
                         const strides_type m_strides;
+                        const strides_type m_local_strides;
                     };
 
                     struct pack_iteration_space {
+                        using value_t = T;
                         using coordinate_t = coordinate_type;
                         const buffer_descriptor m_buffer_desc;
                         const const_basic_iteration_space m_data_is;
@@ -213,10 +210,11 @@ namespace gridtools {
                     };
 
                     struct unpack_iteration_space {
+                        using value_t = T;
                         using coordinate_t = coordinate_type;
                         const const_buffer_descriptor m_buffer_desc;
                         const basic_iteration_space m_data_is;
-                        const transform& m_transform;
+                        const transform m_transform;
                         const int c;
 
                         GT_FUNCTION
@@ -336,8 +334,16 @@ namespace gridtools {
                             data_last[0] = m_extents[0]-1;
                             std::copy(is.local().first().begin()+1, is.local().first().end(), data_first.begin()+1);
                             std::copy(is.local().last().begin()+1, is.local().last().end(), data_last.begin()+1);
+                            const coordinate_type local_extents{
+                                data_last[0]-data_first[0]+1,
+                                data_last[1]-data_first[1]+1,
+                                data_last[2]-data_first[2]+1,
+                                data_last[3]-data_first[3]+1};
+                            strides_type local_strides;
+                            ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
+                                apply<layout_map>(local_extents,local_strides);
 
-                            const std::size_t size = is.size()*num_components();
+                            const size_type size = is.size()*num_components();
                             serialization_type::pack(
                                 pack_iteration_space{
                                     buffer_descriptor{
@@ -351,7 +357,8 @@ namespace gridtools {
                                         m_offsets,
                                         data_first,
                                         data_last,
-                                        m_byte_strides}},
+                                        m_byte_strides,
+                                        local_strides}},
                                 arg);
                             buffer += size;
                         }
@@ -395,8 +402,16 @@ namespace gridtools {
                             data_last[0] = m_extents[0]-1;
                             std::copy(is.local().first().begin()+1, is.local().first().end(), data_first.begin()+1);
                             std::copy(is.local().last().begin()+1, is.local().last().end(), data_last.begin()+1);
+                            const coordinate_type local_extents{
+                                data_last[0]-data_first[0]+1,
+                                data_last[1]-data_first[1]+1,
+                                data_last[2]-data_first[2]+1,
+                                data_last[3]-data_first[3]+1};
+                            strides_type local_strides;
+                            ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
+                                apply<layout_map>(local_extents,local_strides);
 
-                            const std::size_t size = is.size()*num_components();
+                            const size_type size = is.size()*num_components();
                             serialization_type::unpack(
                                 unpack_iteration_space{
                                     const_buffer_descriptor{
@@ -410,7 +425,8 @@ namespace gridtools {
                                         m_offsets,
                                         data_first,
                                         data_last,
-                                        m_byte_strides},
+                                        m_byte_strides,
+                                        local_strides},
                                     *t,
                                     m_c},
                                 arg);
