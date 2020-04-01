@@ -145,7 +145,8 @@ void check_even_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
                         100*(n-(y-field.offsets()[2])-1) +
                         10*(n+x-field.offsets()[1]);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check right         - expect from same tile id 1
                 for (int x=x_dom_max; x<x_max; ++x) {
@@ -165,7 +166,8 @@ void check_even_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*2 + 1000*c + z +
                         100*(n-(y-field.offsets()[2]-n)-1) +
                         10*(n+x-field.offsets()[1]);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top middle    - expect from same tile id 2
                 for (int x=x_dom_min; x<x_dom_max; ++x) {
@@ -289,7 +291,8 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
                         100*(n-(y-field.offsets()[2]+n)-1) +
                         10*(n+x-field.offsets()[1]);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom middle - expect from same tile id 0
                 for (int x=x_dom_min; x<x_dom_max; ++x) {
@@ -318,7 +321,8 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*2 + 1000*c + z +
                         100*(n-(y-field.offsets()[2])-1) +
                         10*(n+x-field.offsets()[1]);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check right         - expect from same tile id 3
                 for (int x=x_dom_max; x<x_max; ++x) {
@@ -344,7 +348,8 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*2 + 1000*c + z +
                         100*(y-field.offsets()[2]-n) +
                         10*(n-(x-field.offsets()[1])-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top right     - expect from neighbor tile +y id 0
                 for (int x=x_dom_max; x<x_max; ++x) {
@@ -353,7 +358,8 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
                         100*(y-field.offsets()[2]-n) +
                         10*(n-(x-field.offsets()[1]-n)-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
             }
         }
@@ -423,7 +429,8 @@ void check_even_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*2 + 1000*c + z +
                         100*(y-field.offsets()[2]-n) +
                         10*(n-(n+x-field.offsets()[1])-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top middle    - expect from neighbor tile +y id 0
                 for (int x=x_dom_min; x<x_dom_max; ++x) {
@@ -432,7 +439,8 @@ void check_even_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
                         100*(y-field.offsets()[2]-n) +
                         10*(n-(x-field.offsets()[1])-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top right     - expect empty
                 for (int x=x_dom_max; x<x_max; ++x) {
@@ -468,7 +476,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
                         100*(n+y-field.offsets()[2]) + 
                         10*(n-(x-field.offsets()[1])-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom right  - expect from neighbor tile -y id 1
                 for (int x=x_dom_max; x<x_max; ++x) {
@@ -477,7 +486,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
                         100*(n+y-field.offsets()[2]) + 
                         10*(n-(x-field.offsets()[1]-n)-1);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
             }
             for (int y=y_dom_min; y<y_dom_max; ++y) {
@@ -582,7 +592,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
                         100*(n-(y-field.offsets()[2])-1) + 
                         10*(x-field.offsets()[1]-n);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
             }
             for (int y=y_dom_max; y<y_max; ++y) {
@@ -611,7 +622,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
                         100*(n-(y-field.offsets()[2]-n)-1) + 
                         10*(x-field.offsets()[1]-n);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
             }
         }
@@ -735,7 +747,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
                         100*(n-(y-field.offsets()[2]+n)-1) + 
                         10*(x-field.offsets()[1]-n);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
             }
             for (int y=y_dom_min; y<y_dom_max; ++y) {
@@ -755,7 +768,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
                         100*(n-(y-field.offsets()[2])-1) + 
                         10*(x-field.offsets()[1]-n);
-                    EXPECT_EQ(value, expected);
+                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    EXPECT_EQ(value, v_factor*expected);
                 }
             }
             for (int y=y_dom_max; y<y_max; ++y) {
@@ -938,6 +952,159 @@ TEST(cubed_sphere, domain)
         std::array<int,3>{halo,halo,0},
         std::array<int,3>{2*halo+5,2*halo+5,6},
         8);
+
+    // create a structured pattern
+    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
+        context, halo_gen, local_domains);
+
+    // make a communication object
+    using pattern_type = decltype(pattern1);
+    auto co = gridtools::ghex::make_communication_object<pattern_type>(
+        context.get_communicator(context.get_token()));
+    
+    // exchange halo data
+    co.exchange(
+        pattern1(field_dom_0),
+        pattern1(field_dom_1),
+        pattern1(field_dom_2),
+        pattern1(field_dom_3)).wait();
+
+#ifdef __CUDACC__
+    cudaMemcpy(data_dom_0.data(), data_ptr_0, data_dom_0.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(data_dom_1.data(), data_ptr_1, data_dom_1.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(data_dom_2.data(), data_ptr_2, data_dom_2.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(data_dom_3.data(), data_ptr_3, data_dom_3.size()*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaFree(data_ptr_0);
+    cudaFree(data_ptr_1);
+    cudaFree(data_ptr_2);
+    cudaFree(data_ptr_3);
+    field_dom_0.set_data(data_dom_0.data());
+    field_dom_1.set_data(data_dom_1.data());
+    field_dom_2.set_data(data_dom_2.data());
+    field_dom_3.set_data(data_dom_3.data());
+#endif
+
+    // check results
+    check_field(field_dom_0, 2, 5);
+    check_field(field_dom_1, 2, 5);
+    check_field(field_dom_2, 2, 5);
+    check_field(field_dom_3, 2, 5);
+}
+
+TEST(cubed_sphere, domain_vector)
+{
+    using namespace gridtools::ghex::structured::cubed_sphere;
+
+    // create context
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    
+    // halo generator with 2 halo lines in x and y dimensions (on both sides)
+    halo_generator halo_gen(2);
+    
+    // define 4 local domains
+    domain_descriptor domain0 (10, context.rank(), 0, std::array<int,3>{0,0,0}, std::array<int,3>{4,4,6});
+    domain_descriptor domain1 (10, context.rank(), 1, std::array<int,3>{5,0,0}, std::array<int,3>{9,4,6});
+    domain_descriptor domain2 (10, context.rank(), 2, std::array<int,3>{0,5,0}, std::array<int,3>{4,9,6});
+    domain_descriptor domain3 (10, context.rank(), 3, std::array<int,3>{5,5,0}, std::array<int,3>{9,9,6});
+    std::vector<domain_descriptor> local_domains{ domain0, domain1, domain2, domain3 };
+
+    // allocate large enough memory for fields, sufficient for 3 halo lines
+    // use 3 components per field and 7 z-levels
+    const int halo=3;
+    std::vector<float> data_dom_0((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+    std::vector<float> data_dom_1((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+    std::vector<float> data_dom_2((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+    std::vector<float> data_dom_3((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+
+    // initialize physical domain (leave halos as they are)
+    for (int comp=0; comp<3; ++comp)
+        for (int z=0; z<7; ++z)
+            for (int y=0; y<5; ++y)
+                for (int x=0; x<5; ++x)
+                {
+                    const auto idx =
+                    (x+halo) +
+                    (y+halo)*(2*halo+5) +
+                    z*(2*halo+5)*(2*halo+5) +
+                    comp*(2*halo+5)*(2*halo+5)*7;
+                    data_dom_0[idx] =
+                        100000*(domain0.domain_id().tile+1) +
+                         10000*domain0.domain_id().id +
+                          1000*comp +
+                           100*x +
+                            10*y +
+                             1*z;
+                    data_dom_1[idx] =
+                        100000*(domain1.domain_id().tile+1) +
+                         10000*domain1.domain_id().id +
+                          1000*comp +
+                           100*x +
+                            10*y +
+                             1*z;
+                    data_dom_2[idx] =
+                        100000*(domain2.domain_id().tile+1) +
+                         10000*domain2.domain_id().id +
+                          1000*comp +
+                           100*x +
+                            10*y +
+                             1*z;
+                    data_dom_3[idx] =
+                        100000*(domain3.domain_id().tile+1) +
+                         10000*domain3.domain_id().id +
+                          1000*comp +
+                           100*x +
+                            10*y +
+                             1*z;
+                }
+
+#ifdef __CUDACC__
+    using arch_t = gridtools::ghex::gpu;
+    float* data_ptr_0 = nullptr;
+    float* data_ptr_1 = nullptr;
+    float* data_ptr_2 = nullptr;
+    float* data_ptr_3 = nullptr;
+    cudaMalloc((void**)&data_ptr_0, data_dom_0.size()*sizeof(float));
+    cudaMalloc((void**)&data_ptr_1, data_dom_1.size()*sizeof(float));
+    cudaMalloc((void**)&data_ptr_2, data_dom_2.size()*sizeof(float));
+    cudaMalloc((void**)&data_ptr_3, data_dom_3.size()*sizeof(float));
+    cudaMemcpy(data_ptr_0, data_dom_0.data(), data_dom_0.size()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(data_ptr_1, data_dom_1.data(), data_dom_1.size()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(data_ptr_2, data_dom_2.data(), data_dom_2.size()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(data_ptr_3, data_dom_3.data(), data_dom_3.size()*sizeof(float), cudaMemcpyHostToDevice);
+#else
+    using arch_t = gridtools::ghex::cpu;
+    float* data_ptr_0 = data_dom_0.data();
+    float* data_ptr_1 = data_dom_1.data();
+    float* data_ptr_2 = data_dom_2.data();
+    float* data_ptr_3 = data_dom_3.data();
+#endif
+
+    // wrap field memory in a field_descriptor
+    field_descriptor<float,arch_t> field_dom_0(
+        domain0,
+        data_ptr_0,
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,7},
+        3, true);
+    field_descriptor<float,arch_t> field_dom_1(
+        domain1,
+        data_ptr_1,
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,7},
+        3, true);
+    field_descriptor<float,arch_t> field_dom_2(
+        domain2,
+        data_ptr_2,
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,7},
+        3, true);
+    field_descriptor<float,arch_t> field_dom_3(
+        domain3,
+        data_ptr_3,
+        std::array<int,3>{halo,halo,0},
+        std::array<int,3>{2*halo+5,2*halo+5,7},
+        3, true);
 
     // create a structured pattern
     auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(

@@ -146,8 +146,6 @@ namespace gridtools {
                         typename domain_descriptor_type::coordinate_type::value_type, dimension::value>;
                     using size_type              = unsigned int;
                     using strides_type           = ::gridtools::array<size_type, dimension::value>;
-                    using layout_map_buffer_xy   = layout_map;
-                    using layout_map_buffer_yx   = ::gridtools::layout_map<ComponentOrder,YOrder,XOrder,ZOrder>;
                     using serialization_type     = serialization<arch_type,layout_map>;
 
                     // holds buffer information (read-write access)
@@ -201,12 +199,15 @@ namespace gridtools {
                           * @return reference to the value in the buffer */
                         GT_FUNCTION
                         T& buffer(const coordinate_type& coord) const noexcept {
+                            // make global coordinates
                             const coordinate_type global_coord{
                                 coord[0],
                                 coord[1] + m_data_is.m_domain_first[1],
                                 coord[2] + m_data_is.m_domain_first[2],
                                 coord[3]};
+                            // compute buffer coordinates, relative to the buffer origin
                             const coordinate_type buffer_coord = global_coord - m_buffer_desc.m_first;
+                            // dot product with strides to compute address
                             const auto memory_location =
                                 m_buffer_desc.m_strides[0]*buffer_coord[0] +
                                 m_buffer_desc.m_strides[1]*buffer_coord[1] +
@@ -221,7 +222,9 @@ namespace gridtools {
                           * @return const reference to the value in the field */
                         GT_FUNCTION
                         const T& data(const coordinate_type& coord) const noexcept {
+                            // make data memory coordinates from local coordinates
                             const coordinate_type data_coord = coord + m_data_is.m_offset;
+                            // dot product with strides to compute address
                             const auto memory_location =
                                 m_data_is.m_strides[0]*data_coord[0] +
                                 m_data_is.m_strides[1]*data_coord[1] +
@@ -241,24 +244,38 @@ namespace gridtools {
                         const basic_iteration_space m_data_is;
                         const transform m_transform;
                         const int c;
+                        const bool m_is_vector;
 
                         /** @brief accesses buffer at specified local coordinate
                           * @param coord 4-dimensional array (component, x, y, z) in local coordinate system
-                          * @return const reference to the value in the buffer */
+                          * @return value in the buffer */
                         GT_FUNCTION
-                        const T& buffer(const coordinate_type& coord) const noexcept {
+                        T buffer(const coordinate_type& coord) const noexcept {
+                            // make global coordinates
                             const auto x = coord[1] + m_data_is.m_domain_first[1];
                             const auto y = coord[2] + m_data_is.m_domain_first[2];
+                            // transform to the neighbor's coordinate system
                             const auto xy = m_transform(x,y,c);
                             const coordinate_type tile_coord{coord[0],xy[0],xy[1],coord[3]};
+                            // compute buffer coordinates, relative to the buffer origin
                             const coordinate_type buffer_coord = tile_coord - m_buffer_desc.m_first;
+                            // dot product with strides to compute address
                             const auto memory_location =
                                 m_buffer_desc.m_strides[0]*buffer_coord[0] +
                                 m_buffer_desc.m_strides[1]*buffer_coord[1] +
                                 m_buffer_desc.m_strides[2]*buffer_coord[2] +
                                 m_buffer_desc.m_strides[3]*buffer_coord[3];
-                            return *reinterpret_cast<const T*>(
-                                reinterpret_cast<const char*>(m_buffer_desc.m_ptr) + memory_location);
+                            // reverse the x component if necessary
+                            if (m_is_vector && coord[0]==0 && m_transform.m_rotation[2]==-1)
+                                return -(*reinterpret_cast<const T*>(reinterpret_cast<const char*>(m_buffer_desc.m_ptr) +
+                                    memory_location));
+                            // reverse the y component if necessary
+                            else if (m_is_vector && coord[0]==1 && m_transform.m_rotation[1]==-1)
+                                return -(*reinterpret_cast<const T*>(reinterpret_cast<const char*>(m_buffer_desc.m_ptr) +
+                                    memory_location));
+                            else
+                                return *reinterpret_cast<const T*>(reinterpret_cast<const char*>(m_buffer_desc.m_ptr) +
+                                    memory_location);
                         }
 
                         /** @brief accesses field at specified local coordinate
@@ -266,7 +283,9 @@ namespace gridtools {
                           * @return reference to the value in the field */
                         GT_FUNCTION
                         T& data(const coordinate_type& coord) const noexcept {
+                            // make data memory coordinates from local coordinates
                             const coordinate_type data_coord = coord + m_data_is.m_offset;
+                            // dot product with strides to compute address
                             const auto memory_location =
                                 m_data_is.m_strides[0]*data_coord[0] +
                                 m_data_is.m_strides[1]*data_coord[1] +
@@ -301,10 +320,10 @@ namespace gridtools {
                     template<typename Array>
                     field_descriptor(const domain_descriptor& dom, value_type* data,
                                      const Array& offsets, const Array& extents, unsigned int n_components,
-                                     bool is_vector = false, device_id_type d_id = 0)
+                                     bool is_vector_ = false, device_id_type d_id = 0)
                     : m_dom_id{dom.domain_id()}
                     , m_c{dom.x()}
-                    , m_is_vector{is_vector}
+                    , m_is_vector{is_vector_}
                     , m_data{data}
                     , m_device_id{d_id}
                     { 
@@ -344,6 +363,8 @@ namespace gridtools {
                     int num_components() const noexcept { return m_extents[0]; }
                     /** @brief returns the size of the cube (number of cells along an edge) */
                     int x() const noexcept { return m_c; }
+                    /** @brief returns true if this field describes a vector field */
+                    bool is_vector() const noexcept { return m_is_vector; }
                     
                     template<typename IndexContainer>
                     void pack(T* buffer, const IndexContainer& c, void* arg) {
@@ -467,7 +488,8 @@ namespace gridtools {
                                         m_byte_strides,
                                         local_strides},
                                     *t,
-                                    m_c},
+                                    m_c,
+                                    m_is_vector},
                                 arg);
                             buffer += size;
                         }
