@@ -101,6 +101,14 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
     const value_type value = *reinterpret_cast<const value_type*>(                         \
         reinterpret_cast<const char*>(field.data())+memory_location);
 
+template<typename Id>
+int id_to_int(const Id& id) {
+    if (id[0]==0 && id[1]==0) return 0;
+    else if (id[1]==0) return 1;
+    else if (id[0]==0) return 2;
+    else return 3;
+}
+
 // even checks
 // -----------
 
@@ -806,8 +814,9 @@ void check_odd_3(const Field& field, int halo, int n) {
 // check received data
 template<typename Field>
 void check_field(const Field& field, int halo, int n) {
+    const auto id = id_to_int(field.domain_id().id);
     if (field.domain_id().tile % 2 == 0) {
-        switch (field.domain_id().id) {
+        switch (id) {
             case 0:
                 check_even_0(field, halo, n);
                 break;
@@ -823,7 +832,7 @@ void check_field(const Field& field, int halo, int n) {
         }
     }
     else {
-        switch (field.domain_id().id) {
+        switch (id) {
             case 0:
                 check_odd_0(field, halo, n);
                 break;
@@ -850,12 +859,15 @@ TEST(cubed_sphere, domain)
     
     // halo generator with 2 halo lines in x and y dimensions (on both sides)
     halo_generator halo_gen(2);
+
+    // cube with size 10 and 6 levels
+    cube c{10,6};
     
     // define 4 local domains
-    domain_descriptor domain0 (10, context.rank(), 0, std::array<int,3>{0,0,0}, std::array<int,3>{4,4,5});
-    domain_descriptor domain1 (10, context.rank(), 1, std::array<int,3>{5,0,0}, std::array<int,3>{9,4,5});
-    domain_descriptor domain2 (10, context.rank(), 2, std::array<int,3>{0,5,0}, std::array<int,3>{4,9,5});
-    domain_descriptor domain3 (10, context.rank(), 3, std::array<int,3>{5,5,0}, std::array<int,3>{9,9,5});
+    domain_descriptor domain0 (c, context.rank(), 0, 4, 0, 4);
+    domain_descriptor domain1 (c, context.rank(), 5, 9, 0, 4);
+    domain_descriptor domain2 (c, context.rank(), 0, 4, 5, 9);
+    domain_descriptor domain3 (c, context.rank(), 5, 9, 5, 9);
     std::vector<domain_descriptor> local_domains{ domain0, domain1, domain2, domain3 };
 
     // allocate large enough memory for fields, sufficient for 3 halo lines
@@ -879,28 +891,28 @@ TEST(cubed_sphere, domain)
                     comp*(2*halo+5)*(2*halo+5)*6;
                     data_dom_0[idx] =
                         100000*(domain0.domain_id().tile+1) +
-                         10000*domain0.domain_id().id +
+                         10000*id_to_int(domain0.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
                              1*z;
                     data_dom_1[idx] =
                         100000*(domain1.domain_id().tile+1) +
-                         10000*domain1.domain_id().id +
+                         10000*id_to_int(domain1.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
                              1*z;
                     data_dom_2[idx] =
                         100000*(domain2.domain_id().tile+1) +
-                         10000*domain2.domain_id().id +
+                         10000*id_to_int(domain2.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
                              1*z;
                     data_dom_3[idx] =
                         100000*(domain3.domain_id().tile+1) +
-                         10000*domain3.domain_id().id +
+                         10000*id_to_int(domain3.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
@@ -1004,11 +1016,14 @@ TEST(cubed_sphere, domain_vector)
     // halo generator with 2 halo lines in x and y dimensions (on both sides)
     halo_generator halo_gen(2);
     
+    // cube with size 10 and 7 levels
+    cube c{10,7};
+    
     // define 4 local domains
-    domain_descriptor domain0 (10, context.rank(), 0, std::array<int,3>{0,0,0}, std::array<int,3>{4,4,6});
-    domain_descriptor domain1 (10, context.rank(), 1, std::array<int,3>{5,0,0}, std::array<int,3>{9,4,6});
-    domain_descriptor domain2 (10, context.rank(), 2, std::array<int,3>{0,5,0}, std::array<int,3>{4,9,6});
-    domain_descriptor domain3 (10, context.rank(), 3, std::array<int,3>{5,5,0}, std::array<int,3>{9,9,6});
+    domain_descriptor domain0 (c, context.rank(), 0, 4, 0, 4);
+    domain_descriptor domain1 (c, context.rank(), 5, 9, 0, 4);
+    domain_descriptor domain2 (c, context.rank(), 0, 4, 5, 9);
+    domain_descriptor domain3 (c, context.rank(), 5, 9, 5, 9);
     std::vector<domain_descriptor> local_domains{ domain0, domain1, domain2, domain3 };
 
     // allocate large enough memory for fields, sufficient for 3 halo lines
@@ -1032,28 +1047,28 @@ TEST(cubed_sphere, domain_vector)
                     comp*(2*halo+5)*(2*halo+5)*7;
                     data_dom_0[idx] =
                         100000*(domain0.domain_id().tile+1) +
-                         10000*domain0.domain_id().id +
+                         10000*id_to_int(domain0.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
                              1*z;
                     data_dom_1[idx] =
                         100000*(domain1.domain_id().tile+1) +
-                         10000*domain1.domain_id().id +
+                         10000*id_to_int(domain1.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
                              1*z;
                     data_dom_2[idx] =
                         100000*(domain2.domain_id().tile+1) +
-                         10000*domain2.domain_id().id +
+                         10000*id_to_int(domain2.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
                              1*z;
                     data_dom_3[idx] =
                         100000*(domain3.domain_id().tile+1) +
-                         10000*domain3.domain_id().id +
+                         10000*id_to_int(domain3.domain_id().id) +
                           1000*comp +
                            100*x +
                             10*y +
