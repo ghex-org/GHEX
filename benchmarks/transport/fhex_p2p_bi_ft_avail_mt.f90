@@ -150,6 +150,12 @@ contains
        end if
     end if
 
+    ! pre-post comm
+    do j = 1, inflight
+       call ghex_comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
+       call ghex_comm_post_send(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, sreqs(j))
+    end do
+
     ! ---------------------------------------
     ! send/recv niter messages - as soon as a slot becomes free
     ! ---------------------------------------
@@ -173,7 +179,7 @@ contains
           print *, sent, " sent"
           sdbg = 0
        end if
-
+       
        do j = 1, inflight
           if (ghex_future_ready(rreqs(j))) then
              call atomic_add(received, 1)
@@ -189,6 +195,25 @@ contains
              call ghex_comm_post_send(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, sreqs(j))
           end if
        end do
+
+       ! j = ghex_future_test_any(rreqs)
+       ! if (j <= inflight) then
+       !    call atomic_add(received, 1)
+       !    rdbg = rdbg + num_threads
+       !    dbg = dbg + num_threads
+       !    call ghex_comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
+       ! end if
+
+       ! if (sent < niter) then
+       !    j = ghex_future_test_any(sreqs)
+       !    if (j <= inflight) then
+       !       call atomic_add(sent, 1)
+       !       sdbg = sdbg + num_threads
+       !       dbg = dbg + num_threads
+       !       call ghex_comm_post_send(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, sreqs(j))
+       !    end if
+       ! end if
+
     end do
 
     call ghex_comm_barrier(comm)

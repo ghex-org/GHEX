@@ -23,6 +23,12 @@ MODULE ghex_future_mod
        type(ghex_future) :: future
      end function ghex_future_ready
      
+     integer(c_int) function ghex_future_test_any_wrapped(futures, n_futures) bind(c, name="ghex_future_test_any")
+       use iso_c_binding
+       type(c_ptr), value :: futures
+       integer(c_int), value :: n_futures
+     end function ghex_future_test_any_wrapped
+     
      logical(c_bool) function ghex_future_cancel(future) bind(c)
        use iso_c_binding
        import ghex_future
@@ -37,5 +43,10 @@ CONTAINS
     type(ghex_future) :: future
     future%data = 0
   end subroutine ghex_future_init
+
+  integer(c_int) function ghex_future_test_any(futures)
+    type(ghex_future), dimension(:), target :: futures
+    ghex_future_test_any = ghex_future_test_any_wrapped(c_loc(futures), size(futures))
+  end function ghex_future_test_any
   
 END MODULE ghex_future_mod
