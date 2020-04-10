@@ -4,7 +4,7 @@ project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 14)
-    set(CMAKE_CUDA_EXTENSIONS OFF)    
+    set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
 
 cmake_policy(SET CMP0048 NEW)
@@ -15,6 +15,10 @@ set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
+
+if (MACOS_GHEX)
+ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_MACOS_GHEX_")
+endif()
 
 set(default_build_type "Debug")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -98,7 +102,7 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     if (GHEX_BUILD_TESTS)
         add_library(gtest_main_mt ./utils/gtest_main.cpp)
         target_link_libraries(gtest_main_mt GTest::gtest ghexlib)
-    
+
         if (GHEX_USE_UCP)
             add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp)
             target_link_libraries(gtest_main_ucx GTest::gtest ghexlib)
@@ -106,11 +110,11 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
 
         add_subdirectory(tests)
     endif()
-  
+
     if (GHEX_BUILD_BENCHMARKS)
         add_library(gtest_main_bench ./utils/gtest_main_bench.cpp)
         target_link_libraries(gtest_main_bench GTest::gtest ghexlib)
- 
+
         add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp)
         target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
         target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
