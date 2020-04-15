@@ -24,8 +24,8 @@
 #define GET_NUM_THREADS() omp_get_num_threads()
 #define IN_PARALLEL()     omp_in_parallel()
 
-#define THREAD_BARRIER()             DO_PRAGMA(omp barrier)
-#define THREAD_MASTER()              DO_PRAGMA(omp master)
+#define THREAD_BARRIER()      DO_PRAGMA(omp barrier)
+#define THREAD_MASTER()       DO_PRAGMA(omp master)
 #define THREAD_PARALLEL_BEG() DO_PRAGMA(omp parallel)
 #define THREAD_PARALLEL_END() 
 #define THREAD_IS_MT 1
@@ -141,8 +141,15 @@ int main(int argc, char *argv[])
 	    }
 
 	    /* wait for all to complete */
-	    MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
-	    MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
+#ifdef USE_WAITALL
+            MPI_Waitall(inflight, sreq, MPI_STATUS_IGNORE);
+            MPI_Waitall(inflight, rreq, MPI_STATUS_IGNORE);
+#else
+	    for(int j=0; j<inflight; j++){
+                MPI_Wait(rreq+j, MPI_STATUS_IGNORE);
+                MPI_Wait(sreq+j, MPI_STATUS_IGNORE);
+            }
+#endif
 	}
 
 	THREAD_MASTER(){
