@@ -186,6 +186,21 @@ namespace gridtools {
             return halos;
         }
 
+        box2 intersect(const domain_type& /*d*/,
+                       const coordinate_type& first_a_local,  const coordinate_type& /*last_a_local*/,
+                       const coordinate_type& first_a_global, const coordinate_type& last_a_global,
+                       const coordinate_type& first_b_global, const coordinate_type& last_b_global) 
+            const noexcept 
+        {
+            const box global_box{
+                max(first_a_global, first_b_global),
+                min(last_a_global,  last_b_global)};
+            const box local_box{
+                first_a_local + (global_box.first() - first_a_global),
+                first_a_local + (global_box.last()  - first_a_global)};
+            return {local_box, global_box};
+        }
+
     private: // member functions
         template<typename Box, typename Spaces>
         std::vector<Box> compute_spaces(const Spaces& spaces) const

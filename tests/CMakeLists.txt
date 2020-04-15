@@ -33,7 +33,6 @@ foreach (_t ${_tests})
     )
 endforeach()
 
-
 if (GHEX_USE_UCP)
     set(_variants_ucx serial serial_split threads async_async async_deferred)
 
@@ -176,3 +175,4 @@ endif()
 
 add_subdirectory(transport)
 add_subdirectory(bindings)
+add_subdirectory(cubed_sphere)

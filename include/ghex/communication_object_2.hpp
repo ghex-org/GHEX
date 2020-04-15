@@ -484,7 +484,8 @@ namespace gridtools {
             {
                 for (const auto& p_id_c : halos)
                 {
-                    const auto num_elements   = pattern_type::num_elements(p_id_c.second);
+                    const auto num_elements = pattern_type::num_elements(p_id_c.second)*
+                        field_ptr->num_components();
                     if (num_elements < 1) continue;
                     const auto remote_address = p_id_c.first.address;
                     const auto remote_dom_id  = p_id_c.first.id;

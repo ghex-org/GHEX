@@ -296,6 +296,9 @@ namespace structured {
 
         GT_FUNCTION
         void set_data(value_type* ptr) { m_data = ptr; }
+        
+        GT_FUNCTION
+        int num_components() const noexcept { return 1; }
 
         /** @brief access operator
          * @param x coordinate vector with respect to offset specified in constructor
