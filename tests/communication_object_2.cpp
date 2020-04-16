@@ -10,6 +10,9 @@
  */
 
 #include <ghex/structured/pattern.hpp>
+#include <ghex/structured/regular/domain_descriptor.hpp>
+#include <ghex/structured/regular/halo_generator.hpp>
+#include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/communication_object_2.hpp>
 #ifndef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/mpi/context.hpp>
@@ -73,9 +76,10 @@ std::ostream& operator<<(std::ostream& os, const array_type<T,N>& arr)
 }
 
 
-using domain_descriptor_type = gridtools::ghex::structured::domain_descriptor<int,3>;
+using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
+using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
 template<typename T, typename Arch, int... Is>
-using field_descriptor_type  = gridtools::ghex::structured::simple_field_wrapper<T,Arch,domain_descriptor_type, Is...>;
+using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
 
 
 template<typename T, typename Domain, typename Field>
@@ -269,8 +273,8 @@ TEST(communication_object_2, exchange)
     // halo generators
     std::array<int,6> halos1{0,0,1,0,1,2};
     std::array<int,6> halos2{2,2,2,2,2,2};
-    auto halo_gen1 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos1, periodic);
-    auto halo_gen2 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos2, periodic);
+    auto halo_gen1 = halo_generator_type(g_first, g_last, halos1, periodic);
+    auto halo_gen2 = halo_generator_type(g_first, g_last, halos2, periodic);
 
     // make patterns
     auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen1, local_domains);

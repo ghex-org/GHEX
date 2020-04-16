@@ -17,7 +17,7 @@
 #include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
 #include "./transport_layer/tags.hpp"
-#include "./structured/simple_field_wrapper.hpp"
+#include "./structured/regular/field_descriptor.hpp"
 #include "./arch_traits.hpp"
 #include <map>
 #include <stdio.h>
@@ -284,13 +284,13 @@ namespace gridtools {
                 return h;
             }
 
-        public: // exchange a number of buffer_infos with Field = simple_field_wrapper (optimization for gpu below)
+        public: // exchange a number of buffer_infos with Field = field_descriptor (optimization for gpu below)
 
 #ifdef __CUDACC__
             template<typename Arch, typename T, int... Order>
             [[nodiscard]] std::enable_if_t<std::is_same<Arch,gpu>::value, handle_type>
             exchange_u(
-                buffer_info_type<Arch,structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
                 std::size_t length)
             {
                 using memory_t   = buffer_memory<gpu>;
@@ -308,7 +308,7 @@ namespace gridtools {
             template<typename Arch, typename T, int... Order>
             [[nodiscard]] std::enable_if_t<std::is_same<Arch,cpu>::value, handle_type>
             exchange_u(
-                buffer_info_type<Arch,structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
                 std::size_t length)
             {
                 return exchange(first, length);

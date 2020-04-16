@@ -8,15 +8,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP
-#define INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_REGULAR_FIELD_DESCRIPTOR_HPP
+#define INCLUDED_GHEX_STRUCTURED_REGULAR_FIELD_DESCRIPTOR_HPP
 
-#include "./field_utils.hpp"
+#include "../field_utils.hpp"
 #include "./domain_descriptor.hpp"
 #include <cstring>
 #include <cstdint>
 #include <gridtools/common/array.hpp>
-#include "../arch_traits.hpp"
+#include "../../arch_traits.hpp"
 
 
 #define NCTIS 128
@@ -48,6 +48,7 @@ namespace gridtools {
 
 namespace ghex {
 namespace structured {    
+namespace regular {
 #ifdef __CUDACC__
     template<typename Layout, typename T, std::size_t D, typename I, typename S>
     __global__ void pack_kernel(int size, const T* data, T* buffer, 
@@ -195,7 +196,7 @@ namespace structured {
      * @tparam DomainDescriptor domain type
      * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)*/
     template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-    class simple_field_wrapper
+    class field_descriptor
     {
     public: // member types
         using value_type             = T;
@@ -218,7 +219,7 @@ namespace structured {
 
     public: // ctors
         
-        simple_field_wrapper() noexcept = default;
+        field_descriptor() noexcept = default;
 
         /** @brief construcor 
          * @tparam Array coordinate-like type
@@ -228,7 +229,7 @@ namespace structured {
          * @param extents extent of the wrapped N-dimensional array (including buffer regions)*/
         template<typename Array>
         GT_FUNCTION_HOST
-        simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, device_id_type d_id = 0)
+        field_descriptor(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, device_id_type d_id = 0)
         : m_dom_id(dom_id), m_data(data), m_device_id(d_id)
         { 
             std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
@@ -239,7 +240,7 @@ namespace structured {
 
         template<typename Array0, typename Array1, typename Array2>
         GT_FUNCTION_HOST
-        simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array0& offsets, const Array1& extents, const Array2& byte_strides, device_id_type d_id = 0)
+        field_descriptor(domain_id_type dom_id, value_type* data, const Array0& offsets, const Array1& extents, const Array2& byte_strides, device_id_type d_id = 0)
         : m_dom_id(dom_id), m_data(data), m_device_id(d_id)
         { 
             std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
@@ -249,7 +250,7 @@ namespace structured {
 
         template<typename Array>
         GT_FUNCTION_HOST
-        simple_field_wrapper(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, padding_256, device_id_type d_id = 0)
+        field_descriptor(domain_id_type dom_id, value_type* data, const Array& offsets, const Array& extents, padding_256, device_id_type d_id = 0)
         : m_dom_id(dom_id), m_data(data), m_device_id(d_id)
         { 
             std::copy(offsets.begin(), offsets.end(), m_offsets.begin());
@@ -269,14 +270,14 @@ namespace structured {
             m_data = reinterpret_cast<value_type*>(reinterpret_cast<char*>(m_data)+delta);
         }
         //GT_FUNCTION_HOST
-        simple_field_wrapper(simple_field_wrapper&&) noexcept = default;
+        field_descriptor(field_descriptor&&) noexcept = default;
         //GT_FUNCTION_HOST
-        simple_field_wrapper(const simple_field_wrapper&) noexcept = default;
+        field_descriptor(const field_descriptor&) noexcept = default;
 
         //GT_FUNCTION_HOST
-        simple_field_wrapper& operator=(simple_field_wrapper&&) noexcept = default;
+        field_descriptor& operator=(field_descriptor&&) noexcept = default;
         //GT_FUNCTION_HOST
-        simple_field_wrapper& operator=(const simple_field_wrapper&) noexcept = default;
+        field_descriptor& operator=(const field_descriptor&) noexcept = default;
 
     public: // member functions
         GT_FUNCTION
@@ -330,6 +331,7 @@ namespace structured {
             serialization<Arch,dimension,layout_map>::unpack(buffer, c, m_data, m_byte_strides, m_offsets, arg);
         }
     };
+} // namespace regular
 } // namespace structured
 
     /** @brief wrap a N-dimensional array (field) of contiguous memory 
@@ -344,7 +346,7 @@ namespace structured {
      * @param extents extent of the wrapped N-dimensional array (including buffer regions)
      * @return wrapped field*/
     template<typename Arch, int... Order, typename DomainIdType, typename T, typename Array>
-    structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
+    structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<DomainIdType,sizeof...(Order)>, Order...>
     wrap_field(DomainIdType dom_id, T* data, const Array& offsets, const Array& extents, typename arch_traits<Arch>::device_id_type device_id = 0)
     {
         return {dom_id, data, offsets, extents, device_id};     
@@ -352,5 +354,5 @@ namespace structured {
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_STRUCTURED_SIMPLE_FIELD_WRAPPER_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_REGULAR_FIELD_DESCRIPTOR_HPP */
 

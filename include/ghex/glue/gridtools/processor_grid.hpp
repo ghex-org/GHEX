@@ -14,7 +14,7 @@
 #include <mpi.h>
 #include <array>
 
-#include "../../structured/domain_descriptor.hpp"
+#include "../../structured/regular/domain_descriptor.hpp"
 #include "../../transport_layer/mpi/communicator.hpp"
 
 #include <numeric>
@@ -26,7 +26,7 @@ namespace gridtools {
         template<typename Context>
         struct gt_grid
         {
-            using domain_descriptor_type = structured::domain_descriptor<int,3>;
+            using domain_descriptor_type = structured::regular::domain_descriptor<int,3>;
             using domain_id_type         = typename domain_descriptor_type::domain_id_type;
             Context& m_context;
             //MPI_Comm m_setup_comm;
@@ -141,7 +141,7 @@ namespace gridtools {
                 local_extents[1]*(coords[Layout::template at<1>()]+1)-1,
                 local_extents[2]*(coords[Layout::template at<2>()]+1)-1};*/
 
-            structured::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
+            structured::regular::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
 
             //return {cart_comm, tl::communicator<tl::mpi_tag>{cart_comm}, {local_domain}, global_extents, periodic}; 
             return {context, {local_domain}, global_extents, periodic}; 
