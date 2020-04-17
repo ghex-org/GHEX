@@ -236,15 +236,12 @@ namespace gridtools {
 
                     // ========== SEND ==========
 
-                    std::vector<std::vector<int>> all_send_counts{}; // number of elements to be sent from each local domain to all ranks (int, since has to be used as elem counter)
-                    all_send_counts.resize(size);
+                    std::vector<std::vector<int>> all_send_counts(size); // number of elements to be sent from each local domain to all ranks (int, since has to be used as elem counter)
                     for (auto& scs : all_send_counts) {
                         scs.resize(d_range.size());
-                        std::fill(scs.begin(), scs.end(), 0);
                     }
 
-                    std::vector<std::vector<index_type>> all_send_indices{}; // elements to be sent from all local domains to all ranks (in terms of local indices)
-                    all_send_indices.resize(size);
+                    std::vector<std::vector<index_type>> all_send_indices(size); // elements to be sent from all local domains to all ranks (in terms of local indices)
 
                     for (std::size_t p = 0; p < my_patterns.size(); ++p) { // loop through local domains
 
@@ -290,23 +287,18 @@ namespace gridtools {
                     // setup all-to-all communications, send side (TO DO: all_to_all interface should be made similar to all_gather, this will avoid vector flattening)
                     // first communication variables setup
                     std::vector<int> all_flat_send_counts{}; // 1/6
-                    std::vector<int> all_my_num_domains{}; // 2/6
-                    all_my_num_domains.resize(static_cast<std::size_t>(size));
+                    std::vector<int> all_my_num_domains(size); // 2/6
                     std::fill(all_my_num_domains.begin(), all_my_num_domains.end(), num_domains);
-                    std::vector<int> all_my_num_domains_displs{}; // 3/6
-                    all_my_num_domains_displs.resize(static_cast<std::size_t>(size));
+                    std::vector<int> all_my_num_domains_displs(size); // 3/6
                     all_my_num_domains_displs[0] = 0;
                     // 4/6: recv side
                     // 5/6: all_num_domains
-                    std::vector<int> all_num_domains_displs{}; // 6/6
-                    all_num_domains_displs.resize(static_cast<std::size_t>(size));
+                    std::vector<int> all_num_domains_displs(size); // 6/6
                     all_num_domains_displs[0] = 0;
                     // second communication variables setup
                     std::vector<index_type> all_flat_send_indices; // 1/6
-                    std::vector<int> all_rank_send_counts; // 2/6
-                    all_rank_send_counts.resize(static_cast<std::size_t>(size));
-                    std::vector<int> all_rank_send_displs; // 3/6
-                    all_rank_send_displs.resize(static_cast<std::size_t>(size));
+                    std::vector<int> all_rank_send_counts(size); // 2/6
+                    std::vector<int> all_rank_send_displs(size); // 3/6
                     all_rank_send_displs[0] = 0;
                     // 4/6: recv side
                     // 5/6: recv side, obtained from previous communication
@@ -338,21 +330,17 @@ namespace gridtools {
 
                     // setup all-to-all communications, recv side
                     // first communication variables setup
-                    std::vector<int> all_flat_recv_counts{}; // 4/6
                     auto tot_num_domains = std::accumulate(all_num_domains.begin(), all_num_domains.end(), 0); // overall number of local domains
-                    all_flat_recv_counts.resize(static_cast<std::size_t>(tot_num_domains));
+                    std::vector<int> all_flat_recv_counts(tot_num_domains); // 4/6
                     // first communication
                     comm.all_to_allv(all_flat_send_counts, all_my_num_domains, all_my_num_domains_displs,
                                      all_flat_recv_counts, all_num_domains, all_num_domains_displs);
                     // second communication variables setup
-                    std::vector<index_type> all_flat_recv_indices{}; // 4/6
                     auto tot_recv_count = std::accumulate(all_flat_recv_counts.begin(), all_flat_recv_counts.end(), 0); // overall number of received indices
-                    all_flat_recv_indices.resize(static_cast<std::size_t>(tot_recv_count));
-                    std::vector<int> all_rank_recv_counts{}; // 5/6
-                    all_rank_recv_counts.resize(static_cast<std::size_t>(size));
+                    std::vector<index_type> all_flat_recv_indices(tot_recv_count); // 4/6
+                    std::vector<int> all_rank_recv_counts(size); // 5/6
                     std::fill(all_rank_recv_counts.begin(), all_rank_recv_counts.end(), 0);
-                    std::vector<int> all_rank_recv_displs{}; // 6/6
-                    all_rank_recv_displs.resize(static_cast<std::size_t>(size));
+                    std::vector<int> all_rank_recv_displs(size); // 6/6
                     all_rank_recv_displs[0] = 0;
                     // other setup
                     std::size_t all_flat_recv_counts_idx{0};
@@ -371,10 +359,8 @@ namespace gridtools {
                                      all_flat_recv_indices, all_rank_recv_counts, all_rank_recv_displs);
 
                     // back to multidimensional objects
-                    std::vector<std::vector<int>> all_recv_counts{}; // number of elements to be received from each local domain from all ranks (int, since will be derived from elem counter)
-                    all_recv_counts.resize(static_cast<std::size_t>(size));
-                    std::vector<std::vector<index_type>> all_recv_indices{};
-                    all_recv_indices.resize(static_cast<std::size_t>(size));
+                    std::vector<std::vector<int>> all_recv_counts(size); // number of elements to be received from each local domain from all ranks (int, since will be derived from elem counter)
+                    std::vector<std::vector<index_type>> all_recv_indices(size);
                     all_flat_recv_counts_idx = 0;
                     std::size_t all_flat_recv_indices_start_idx{0};
                     for (auto other_rank = 0; other_rank < size; ++other_rank) {

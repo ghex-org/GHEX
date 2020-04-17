@@ -64,8 +64,6 @@ using data_descriptor_cpu_int_type = gridtools::ghex::unstructured::data_descrip
  *              3  | [17, 6, 11, 10, 12, 9]   | [0, 3, 4]          |
  *
  * */
-
-
 map_type init_v_map(const domain_id_type domain_id) {
     switch (domain_id) {
         case 0: {

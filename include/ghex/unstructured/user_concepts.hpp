@@ -118,9 +118,6 @@ namespace gridtools {
                         os << "adjncy: [ ";
                         for (auto v : domain.adjncy()) { os << v << " "; }
                         os << "]\n";
-                        os << "halo vertices: [ ";
-                        for (auto v : domain.halo_vertices()) { os << v << " "; }
-                        os << "]\n";
                         return os;
                     }
 
