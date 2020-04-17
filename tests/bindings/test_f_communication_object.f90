@@ -1,8 +1,6 @@
 PROGRAM test_halo_exchange
   use omp_lib
   use ghex_mod
-  use ghex_structured_mod
-  use ghex_exchange_mod
 
   implicit none  
 
@@ -14,7 +12,7 @@ PROGRAM test_halo_exchange
   integer :: tmp, i
   integer :: gfirst(3), glast(3)       ! global index space
   integer :: gdim(3) = [2, 4, 2]       ! number of domains
-  integer :: ldim(3) = [64, 64, 64] ! dimensions of the local domains
+  integer :: ldim(3) = [64, 64, 64]    ! dimensions of the local domains
   integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
   integer :: halo(6)                   ! halo definition
   integer :: niters = 100
@@ -33,11 +31,11 @@ PROGRAM test_halo_exchange
   real(ghex_fp_kind), dimension(:,:,:), pointer :: data5, data6, data7, data8
 
   ! GHEX stuff
-  type(ghex_domain_descriptor), target, dimension(:) :: domain_desc(1), d1(1), d2(1), d3(1), d4(1), d5(1), d6(1), d7(1), d8(1)
-  type(ghex_field_descriptor)     :: field_desc
-  type(ghex_communication_object) :: co, co1, co2, co3, co4, co5, co6, co7, co8
-  type(ghex_exchange_descriptor)  :: ed, ed1, ed2, ed3, ed4, ed5, ed6, ed7, ed8
-  type(ghex_exchange_handle)      :: ex_handle
+  type(ghex_struct_domain), target, dimension(:) :: domain_desc(1), d1(1), d2(1), d3(1), d4(1), d5(1), d6(1), d7(1), d8(1)
+  type(ghex_struct_field)                :: field_desc
+  type(ghex_struct_communication_object) :: co, co1, co2, co3, co4, co5, co6, co7, co8
+  type(ghex_struct_exchange_descriptor)  :: ed, ed1, ed2, ed3, ed4, ed5, ed6, ed7, ed8
+  type(ghex_struct_exchange_handle)      :: eh
 
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
@@ -86,7 +84,7 @@ PROGRAM test_halo_exchange
   
   ! compute neighbor information
   call init_mpi_nbors(rank_coord)
-  
+
   ! define the local domain
   domain_desc(1)%id = rank
   domain_desc(1)%device_id = DeviceCPU
@@ -107,11 +105,11 @@ PROGRAM test_halo_exchange
 
   ! define local index ranges
   xsb = domain_desc(1)%first(1) - halo(1)
-  xeb = domain_desc(1)%last(1) + halo(2)
+  xeb = domain_desc(1)%last(1)  + halo(2)
   ysb = domain_desc(1)%first(2) - halo(3)
-  yeb = domain_desc(1)%last(2) + halo(4)
+  yeb = domain_desc(1)%last(2)  + halo(4)
   zsb = domain_desc(1)%first(3) - halo(5)
-  zeb = domain_desc(1)%last(3) + halo(6)
+  zeb = domain_desc(1)%last(3)  + halo(6)
 
   xs  = domain_desc(1)%first(1)
   xe  = domain_desc(1)%last(1) 
@@ -138,7 +136,7 @@ PROGRAM test_halo_exchange
   allocate(data8(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
 
   data1(xs:xe, ys:ye, zs:ze) = rank
- 
+
   ! initialize the field datastructure - COMPACT
   call ghex_field_init(field_desc, data1, halo, periodic=[1,1,1])
   call ghex_domain_add_field(domain_desc(1), field_desc)
@@ -201,16 +199,16 @@ PROGRAM test_halo_exchange
   ed8 = ghex_exchange_desc_new(d8)
 
   ! create communication object
-  co = ghex_struct_co_new()
+  call ghex_co_init(co)
 
   ! exchange halos - COMPACT
-  ex_handle = ghex_exchange(co, ed)
-  call ghex_wait(ex_handle)
+  eh = ghex_exchange(co, ed)
+  call ghex_wait(eh)
   call cpu_time(tic)
   i = 0
   do while (i < niters)
-    ex_handle = ghex_exchange(co, ed)
-    call ghex_wait(ex_handle)
+    eh = ghex_exchange(co, ed)
+    call ghex_wait(eh)
     i = i+1
   end do
   call cpu_time(toc)
@@ -218,36 +216,36 @@ PROGRAM test_halo_exchange
      print *, rank, " exchange compact:      ", (toc-tic)
   end if
 
-  co1 = ghex_struct_co_new()
-  co2 = ghex_struct_co_new()
-  co3 = ghex_struct_co_new()
-  co4 = ghex_struct_co_new()
-  co5 = ghex_struct_co_new()
-  co6 = ghex_struct_co_new()
-  co7 = ghex_struct_co_new()
-  co8 = ghex_struct_co_new()
+  call ghex_co_init(co1)
+  call ghex_co_init(co2)
+  call ghex_co_init(co3)
+  call ghex_co_init(co4)
+  call ghex_co_init(co5)
+  call ghex_co_init(co6)
+  call ghex_co_init(co7)
+  call ghex_co_init(co8)
 
   ! exchange halos - SEQUENCE
-  ex_handle = ghex_exchange(co1, ed1); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co2, ed2); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co3, ed3); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co4, ed4); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co5, ed5); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co6, ed6); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co7, ed7); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co8, ed8); call ghex_wait(ex_handle)
+  eh = ghex_exchange(co1, ed1); call ghex_wait(eh)
+  eh = ghex_exchange(co2, ed2); call ghex_wait(eh)
+  eh = ghex_exchange(co3, ed3); call ghex_wait(eh)
+  eh = ghex_exchange(co4, ed4); call ghex_wait(eh)
+  eh = ghex_exchange(co5, ed5); call ghex_wait(eh)
+  eh = ghex_exchange(co6, ed6); call ghex_wait(eh)
+  eh = ghex_exchange(co7, ed7); call ghex_wait(eh)
+  eh = ghex_exchange(co8, ed8); call ghex_wait(eh)
 
   call cpu_time(tic)
   i = 0
   do while (i < niters)
-    ex_handle = ghex_exchange(co1, ed1); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co2, ed2); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co3, ed3); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co4, ed4); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co5, ed5); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co6, ed6); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co7, ed7); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co8, ed8); call ghex_wait(ex_handle)
+    eh = ghex_exchange(co1, ed1); call ghex_wait(eh)
+    eh = ghex_exchange(co2, ed2); call ghex_wait(eh)
+    eh = ghex_exchange(co3, ed3); call ghex_wait(eh)
+    eh = ghex_exchange(co4, ed4); call ghex_wait(eh)
+    eh = ghex_exchange(co5, ed5); call ghex_wait(eh)
+    eh = ghex_exchange(co6, ed6); call ghex_wait(eh)
+    eh = ghex_exchange(co7, ed7); call ghex_wait(eh)
+    eh = ghex_exchange(co8, ed8); call ghex_wait(eh)
     i = i+1
   end do
   call cpu_time(toc)
@@ -256,26 +254,26 @@ PROGRAM test_halo_exchange
   end if
 
   ! exchange halos - SEQUENCE
-  ex_handle = ghex_exchange(co, ed1); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co, ed2); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co, ed3); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co, ed4); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co, ed5); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co, ed6); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co, ed7); call ghex_wait(ex_handle)
-  ex_handle = ghex_exchange(co, ed8); call ghex_wait(ex_handle)
+  eh = ghex_exchange(co, ed1); call ghex_wait(eh)
+  eh = ghex_exchange(co, ed2); call ghex_wait(eh)
+  eh = ghex_exchange(co, ed3); call ghex_wait(eh)
+  eh = ghex_exchange(co, ed4); call ghex_wait(eh)
+  eh = ghex_exchange(co, ed5); call ghex_wait(eh)
+  eh = ghex_exchange(co, ed6); call ghex_wait(eh)
+  eh = ghex_exchange(co, ed7); call ghex_wait(eh)
+  eh = ghex_exchange(co, ed8); call ghex_wait(eh)
 
   call cpu_time(tic)
   i = 0
   do while (i < niters)
-    ex_handle = ghex_exchange(co, ed1); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co, ed2); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co, ed3); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co, ed4); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co, ed5); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co, ed6); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co, ed7); call ghex_wait(ex_handle)
-    ex_handle = ghex_exchange(co, ed8); call ghex_wait(ex_handle)
+    eh = ghex_exchange(co, ed1); call ghex_wait(eh)
+    eh = ghex_exchange(co, ed2); call ghex_wait(eh)
+    eh = ghex_exchange(co, ed3); call ghex_wait(eh)
+    eh = ghex_exchange(co, ed4); call ghex_wait(eh)
+    eh = ghex_exchange(co, ed5); call ghex_wait(eh)
+    eh = ghex_exchange(co, ed6); call ghex_wait(eh)
+    eh = ghex_exchange(co, ed7); call ghex_wait(eh)
+    eh = ghex_exchange(co, ed8); call ghex_wait(eh)
     i = i+1
   end do
   call cpu_time(toc)
@@ -310,18 +308,36 @@ PROGRAM test_halo_exchange
      print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)  
   end if
 
+  call mpi_barrier(mpi_comm_world, mpi_err)
+
   ! cleanup
   call ghex_delete(ed)
   call ghex_delete(co)
+  call ghex_delete(co1)
+  call ghex_delete(co2)
+  call ghex_delete(co3)
+  call ghex_delete(co4)
+  call ghex_delete(co5)
+  call ghex_delete(co6)
+  call ghex_delete(co7)
+  call ghex_delete(co8)
   call ghex_delete(domain_desc(1))
+  call ghex_delete(d1(1))
+  call ghex_delete(d2(1))
+  call ghex_delete(d3(1))
+  call ghex_delete(d4(1))
+  call ghex_delete(d5(1))
+  call ghex_delete(d6(1))
+  call ghex_delete(d7(1))
+  call ghex_delete(d8(1))
   call ghex_finalize()
   call mpi_finalize(mpi_err)
 
 contains
 
   subroutine copy_domain(dst, src)
-    type(ghex_domain_descriptor), intent(inout) :: dst(1)
-    type(ghex_domain_descriptor), intent(in) :: src(1)
+    type(ghex_struct_domain), intent(inout) :: dst(1)
+    type(ghex_struct_domain), intent(in) :: src(1)
     dst(1)%id = rank
     dst(1)%device_id = DeviceCPU
     dst(1)%first(:)  = src(1)%first(:)

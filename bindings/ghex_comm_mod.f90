@@ -6,6 +6,10 @@ MODULE ghex_comm_mod
 
   implicit none
 
+
+  ! ---------------------
+  ! --- module types
+  ! ---------------------
   type, bind(c) :: ghex_communicator
      type(c_ptr) :: ptr = c_null_ptr
   end type ghex_communicator
@@ -16,6 +20,10 @@ MODULE ghex_comm_mod
      integer(c_int) :: num_cancels = 0
   end type ghex_progress_status
 
+
+  ! ---------------------
+  ! --- module C interfaces
+  ! ---------------------
   interface
 
      ! callback type
@@ -131,6 +139,18 @@ MODULE ghex_comm_mod
      end subroutine ghex_comm_resubmit_recv_wrapped
 
   end interface
+
+
+  ! ---------------------
+  ! --- generic ghex interfaces
+  ! ---------------------
+  interface ghex_delete
+     subroutine ghex_comm_delete(comm) bind(c, name="ghex_obj_delete")
+       use iso_c_binding
+       import ghex_communicator
+       type(ghex_communicator) :: comm
+     end subroutine ghex_comm_delete
+  end interface ghex_delete
 
 CONTAINS
 
