@@ -12,18 +12,18 @@ using arch_type                 = ghex::cpu;
 using domain_id_type            = ghex::structured::cubed_sphere::domain_id_t;
 using fp_type                   = float;
 
-struct field_descriptor {
+struct cubed_sphere_field_descriptor {
     fp_type *data;
     int   offset[3];
     int  extents[3];
     int     halo[4];
     int n_components;
-    int is_vector;
+    bool is_vector;
 };
 
-using field_vector_type = std::vector<field_descriptor>;
-struct domain_descriptor {
-    field_vector_type *fields;
+using field_vector_type = std::vector<cubed_sphere_field_descriptor>;
+struct cubed_sphere_domain_descriptor {
+    field_vector_type *fields = nullptr;
     int tile;
     int device_id;
     int   cube[2];  // local grid dimensions
@@ -33,7 +33,7 @@ struct domain_descriptor {
 
 // compare two fields to establish, if the same pattern can be used for both
 struct field_compare {
-    bool operator()( const field_descriptor& lhs, const field_descriptor& rhs ) const
+    bool operator()( const cubed_sphere_field_descriptor& lhs, const cubed_sphere_field_descriptor& rhs ) const
     {
         if(lhs.halo[0] < rhs.halo[0]) return true;
         if(lhs.halo[0] > rhs.halo[0]) return false;
@@ -56,7 +56,7 @@ using communication_obj_type    = ghex::communication_object<communicator_type, 
 using field_descriptor_type     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,0,3,2,1>;
 using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
 using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
-using pattern_map_type          = std::map<field_descriptor, pattern_type, field_compare>;
+using pattern_map_type          = std::map<cubed_sphere_field_descriptor, pattern_type, field_compare>;
 using exchange_handle_type      = communication_obj_type::handle_type;
 
 // ASYMETRY
@@ -74,26 +74,23 @@ void ghex_cubed_sphere_co_init(ghex::bindings::obj_wrapper **wrapper_ref)
 }
 
 extern "C"
-void ghex_cubed_sphere_domain_add_field(domain_descriptor &domain_desc, field_descriptor &field_desc)
+void ghex_cubed_sphere_domain_add_field(cubed_sphere_domain_descriptor *domain_desc, cubed_sphere_field_descriptor *field_desc)
 {
-    if(nullptr == domain_desc.fields){
-        domain_desc.fields = new field_vector_type();
-        printf("create field vector, size %li\n", domain_desc.fields->size());
+    if(nullptr == domain_desc->fields){
+        domain_desc->fields = new field_vector_type();
     }
-    printf("before added field %li\n", domain_desc.fields->size());
-    field_descriptor tmp;
-    domain_desc.fields->push_back(tmp);
-    printf("added field %li\n", domain_desc.fields->size());
+    domain_desc->fields->push_back(*field_desc);
 }
 
 extern "C"
-void ghex_cubed_sphere_domain_delete(domain_descriptor *domain_desc)
+void ghex_cubed_sphere_domain_delete(cubed_sphere_domain_descriptor *domain_desc)
 {
     delete domain_desc->fields;
+    domain_desc->fields = nullptr;
 }
 
 extern "C"
-void* ghex_cubed_sphere_exchange_desc_new(domain_descriptor *domains_desc, int n_domains)
+void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domains_desc, int n_domains)
 {
 
     if(0 == n_domains) return NULL;
@@ -108,32 +105,18 @@ void* ghex_cubed_sphere_exchange_desc_new(domain_descriptor *domains_desc, int n
     // switch from fortran 1-based numbering to C
     std::vector<domain_descriptor_type> local_domains;
     for(int i=0; i<n_domains; i++){
-
-        std::array<int, 3> first;
-        first[0] = domains_desc[i].first[0]-1;
-        first[1] = domains_desc[i].first[1]-1;
-        first[2] = domains_desc[i].first[2]-1;
-
-        std::array<int, 3> last;
-        last[0] = domains_desc[i].last[0]-1;
-        last[1] = domains_desc[i].last[1]-1;
-        last[2] = domains_desc[i].last[2]-1;
-
         ghex::structured::cubed_sphere::cube c = {domains_desc[i].cube[0], domains_desc[i].cube[1]};
         local_domains.emplace_back(c, domains_desc[i].tile, 
-            domains_desc[i].first[0], domains_desc[i].last[0],
-            domains_desc[i].first[1], domains_desc[i].last[1]);
+            domains_desc[i].first[0]-1, domains_desc[i].last[0]-1,
+            domains_desc[i].first[1]-1, domains_desc[i].last[1]-1);
     }
 
-    // a vector of `pattern(wrapped_field)` values
+    // a vector of `pattern(field)` objects
     pattern_field_vector_type pattern_fields;
 
     for(int i=0; i<n_domains; i++){
-        printf("domain %d\n", i);
         field_vector_type &fields = *(domains_desc[i].fields);
-        int ii=0;
         for(auto field: fields){
-            // printf("field %d\n", ii);
             auto pit = field_to_pattern.find(field);
             if (pit == field_to_pattern.end()) {
                 std::array<int, 4> &halo = *((std::array<int, 4>*)(field.halo));
@@ -147,11 +130,10 @@ void* ghex_cubed_sphere_exchange_desc_new(domain_descriptor *domains_desc, int n
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
             // ASYMETRY
             std::unique_ptr<field_descriptor_type> field_desc_uptr(
-                new field_descriptor_type(local_domains[i], field.data, offset, extents, field.n_components, false));
+                new field_descriptor_type(local_domains[i], field.data, offset, extents, field.n_components, field.is_vector));
             auto ptr = field_desc_uptr.get();
             pattern_fields.first.push_back(std::move(field_desc_uptr));
             pattern_fields.second.push_back(pattern(*ptr));
-            // printf("field %d done\n", ii++);
         }
     }
 

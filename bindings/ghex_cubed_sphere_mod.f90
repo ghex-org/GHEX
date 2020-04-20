@@ -15,7 +15,7 @@ MODULE ghex_cubed_sphere_mod
      integer(c_int) :: extents(3) = [-1]       ! by default - size of the local extents + halos
      integer(c_int) ::    halo(4) = [-1]       ! halo to be used for this field
      integer(c_int) :: n_components = 1        ! number of field components
-     logical(c_bool) :: is_vector = .false.    ! is this a vector field
+     logical(c_bool) :: is_vector = 0          ! is this a vector field
   end type ghex_cubed_sphere_field
 
   ! computational domain: defines the iteration space, and the fields with their halos
@@ -94,10 +94,11 @@ MODULE ghex_cubed_sphere_mod
 
   interface ghex_field_init
      procedure :: ghex_cubed_sphere_field_init
+     procedure :: ghex_cubed_sphere_field_init_comp
   end interface ghex_field_init
 
   interface ghex_co_init
-     subroutine ghex_cubed_sphere_co_init() bind(c)
+     subroutine ghex_cubed_sphere_co_init(co) bind(c)
        import ghex_cubed_sphere_communication_object
        type(ghex_cubed_sphere_communication_object) :: co
      end subroutine ghex_cubed_sphere_co_init
@@ -161,9 +162,42 @@ CONTAINS
     if (present(is_vector)) then
        field_desc%is_vector = is_vector
     else
-       field_desc%is_vector = .false.
+       field_desc%is_vector = 0
     endif
   end subroutine ghex_cubed_sphere_field_init
+
+  subroutine ghex_cubed_sphere_field_init_comp(field_desc, data, halo, offset, n_components, is_vector)
+    type(ghex_cubed_sphere_field) :: field_desc
+    real(ghex_fp_kind), dimension(:,:,:,:), target :: data
+    integer :: halo(4)
+    integer, optional :: offset(3)
+    integer, optional :: n_components
+    logical, optional :: is_vector
+    integer(4) :: extents(4)
+    
+    field_desc%data = c_loc(data)
+    field_desc%halo = halo
+    extents = shape(data, 4)
+    field_desc%extents = extents(1:3)
+
+    if (present(offset)) then
+       field_desc%offset = offset
+    else
+       field_desc%offset = [halo(1), halo(3), 0]
+    endif
+
+    if (present(n_components)) then
+       field_desc%n_components = n_components
+    else
+       field_desc%n_components = 1       
+    endif
+
+    if (present(is_vector)) then
+       field_desc%is_vector = is_vector
+    else
+       field_desc%is_vector = 0
+    endif
+  end subroutine ghex_cubed_sphere_field_init_comp
 
   ! generic interface, ghex_exchange_mod
   type(ghex_cubed_sphere_exchange_descriptor) function ghex_cubed_sphere_exchange_desc_new(domains_desc)

@@ -12,7 +12,7 @@ using arch_type                 = ghex::cpu;
 using domain_id_type            = int;
 using fp_type                   = float;
 
-struct field_descriptor {
+struct struct_field_descriptor {
     fp_type *data;
     int   offset[3];
     int  extents[3];
@@ -20,8 +20,8 @@ struct field_descriptor {
     int periodic[3];
 };
 
-using field_vector_type = std::vector<field_descriptor>;
-struct domain_descriptor {
+using field_vector_type = std::vector<struct_field_descriptor>;
+struct struct_domain_descriptor {
     field_vector_type *fields;
     int id;
     int device_id;
@@ -33,7 +33,7 @@ struct domain_descriptor {
 
 // compare two fields to establish, if the same pattern can be used for both
 struct field_compare {
-    bool operator()( const field_descriptor& lhs, const field_descriptor& rhs ) const
+    bool operator()( const struct_field_descriptor& lhs, const struct_field_descriptor& rhs ) const
     {
         if(lhs.halo[0] < rhs.halo[0]) return true; 
         if(lhs.halo[0] > rhs.halo[0]) return false;
@@ -67,7 +67,7 @@ using communication_obj_type    = ghex::communication_object<communicator_type, 
 using field_descriptor_type     = ghex::structured::simple_field_wrapper<fp_type, arch_type, domain_descriptor_type,2,1,0>;
 using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
 using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
-using pattern_map_type          = std::map<field_descriptor, pattern_type, field_compare>;
+using pattern_map_type          = std::map<struct_field_descriptor, pattern_type, field_compare>;
 using exchange_handle_type      = communication_obj_type::handle_type;
 
 // ASYMETRY
@@ -85,25 +85,23 @@ void ghex_struct_co_init(ghex::bindings::obj_wrapper **wrapper_ref)
 }
 
 extern "C"
-void ghex_struct_domain_add_field(domain_descriptor &domain_desc, field_descriptor &field_desc)
+void ghex_struct_domain_add_field(struct_domain_descriptor *domain_desc, struct_field_descriptor *field_desc)
 {
-    if(nullptr == domain_desc.fields){
-        domain_desc.fields = new field_vector_type();
-        printf("create field vector, size %li\n", domain_desc.fields->size());
+    if(nullptr == domain_desc->fields){
+        domain_desc->fields = new field_vector_type();
     }
-    printf("before added field %li\n", domain_desc.fields->size());
-    domain_desc.fields->push_back(field_desc);
-    printf("added field %li\n", domain_desc.fields->size());
+    domain_desc->fields->push_back(*field_desc);
 }
 
 extern "C"
-void ghex_struct_domain_delete(domain_descriptor *domain_desc)
+void ghex_struct_domain_delete(struct_domain_descriptor *domain_desc)
 {
     delete domain_desc->fields;
+    domain_desc->fields = nullptr;
 }
 
 extern "C"
-void* ghex_struct_exchange_desc_new(domain_descriptor *domains_desc, int n_domains)
+void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains)
 {
 
     if(0 == n_domains) return NULL;
@@ -142,7 +140,7 @@ void* ghex_struct_exchange_desc_new(domain_descriptor *domains_desc, int n_domai
         local_domains.emplace_back(domains_desc[i].id, first, last);
     }
 
-    // a vector of `pattern(wrapped_field)` values
+    // a vector of `pattern(field)` objects
     pattern_field_vector_type pattern_fields;
 
     for(int i=0; i<n_domains; i++){
