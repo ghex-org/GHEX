@@ -85,6 +85,8 @@ PROGRAM test_f_cubed_sphere
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
+
+  ! cleanups
   call ghex_free(domain_desc)
   call ghex_free(ed)
   
@@ -103,11 +105,10 @@ PROGRAM test_f_cubed_sphere
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh) 
+
+  ! cleanups
   call ghex_free(domain_desc)
   call ghex_free(ed)
-
-  call mpi_barrier(mpi_comm_world, mpi_err)
-
   call ghex_finalize()
   call mpi_finalize(mpi_err)
 
