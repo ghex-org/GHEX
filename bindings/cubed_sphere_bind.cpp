@@ -95,12 +95,11 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
 
     if(0 == n_domains) return NULL;
 
-    // For now, assume the global domains must be the same.
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors
-    //  2. identify unique <halo, periodic> pairs
-    //  3. make a pattern for each pair
-    //  4. for each field, compute the correct pattern(wrapped_field) value
+    //  2. identify fields with unique halos
+    //  3. make a pattern for each type of field
+    //  4. for each field, compute the correct pattern(field) object
 
     // switch from fortran 1-based numbering to C
     std::vector<domain_descriptor_type> local_domains;
@@ -143,14 +142,17 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
 extern "C"
 void *ghex_cubed_sphere_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
+    if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
     communication_obj_type    &co             = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
     pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_safe<pattern_field_vector_type>(ewrapper);
     return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.second.data(), pattern_fields.second.size()));
 }
 
 extern "C"
-void ghex_cubed_sphere_exchange_handle_wait(ghex::bindings::obj_wrapper *ehwrapper)
+void ghex_cubed_sphere_exchange_handle_wait(ghex::bindings::obj_wrapper **ehwrapper)
 {
-    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_safe<exchange_handle_type>(ehwrapper);
+    if(nullptr == *ehwrapper) return;
+    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_safe<exchange_handle_type>(*ehwrapper);
     hex.wait();
+    *ehwrapper = nullptr;
 }

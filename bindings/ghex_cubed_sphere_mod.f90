@@ -15,7 +15,7 @@ MODULE ghex_cubed_sphere_mod
      integer(c_int) :: extents(3) = [-1]       ! by default - size of the local extents + halos
      integer(c_int) ::    halo(4) = [-1]       ! halo to be used for this field
      integer(c_int) :: n_components = 1        ! number of field components
-     logical(c_bool) :: is_vector = 0          ! is this a vector field
+     logical(c_bool) :: is_vector = .false.    ! is this a vector field
   end type ghex_cubed_sphere_field
 
   ! computational domain: defines the iteration space, and the fields with their halos
@@ -87,11 +87,6 @@ MODULE ghex_cubed_sphere_mod
      end subroutine ghex_cubed_sphere_co_delete
   end interface ghex_delete
 
-  interface ghex_initialized
-     procedure :: ghex_cubed_sphere_initialized_exchange_desc
-     procedure :: ghex_cubed_sphere_initialized_communication_object     
-  end interface ghex_initialized
-
   interface ghex_field_init
      procedure :: ghex_cubed_sphere_field_init
      procedure :: ghex_cubed_sphere_field_init_comp
@@ -129,7 +124,7 @@ MODULE ghex_cubed_sphere_mod
      subroutine ghex_cubed_sphere_exchange_handle_wait(exchange_handle) bind(c)
        use iso_c_binding
        import ghex_cubed_sphere_exchange_handle
-       type(ghex_cubed_sphere_exchange_handle), value :: exchange_handle
+       type(ghex_cubed_sphere_exchange_handle) :: exchange_handle
      end subroutine ghex_cubed_sphere_exchange_handle_wait
   end interface ghex_wait
 
@@ -162,7 +157,7 @@ CONTAINS
     if (present(is_vector)) then
        field_desc%is_vector = is_vector
     else
-       field_desc%is_vector = 0
+       field_desc%is_vector = .false.
     endif
   end subroutine ghex_cubed_sphere_field_init
 
@@ -195,7 +190,7 @@ CONTAINS
     if (present(is_vector)) then
        field_desc%is_vector = is_vector
     else
-       field_desc%is_vector = 0
+       field_desc%is_vector = .false.
     endif
   end subroutine ghex_cubed_sphere_field_init_comp
 
@@ -204,25 +199,5 @@ CONTAINS
     type(ghex_cubed_sphere_domain), dimension(:), target :: domains_desc
     ghex_cubed_sphere_exchange_desc_new = ghex_cubed_sphere_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
   end function ghex_cubed_sphere_exchange_desc_new
-
-  function ghex_cubed_sphere_initialized_communication_object(obj)
-    type(ghex_cubed_sphere_communication_object) :: obj
-    logical :: ghex_cubed_sphere_initialized_communication_object
-    if (c_associated(obj%ptr)) then
-       ghex_cubed_sphere_initialized_communication_object = .true.
-    else
-       ghex_cubed_sphere_initialized_communication_object = .false.
-    end if
-  end function ghex_cubed_sphere_initialized_communication_object
-
-  function ghex_cubed_sphere_initialized_exchange_desc(obj)
-    type(ghex_cubed_sphere_exchange_descriptor) :: obj
-    logical :: ghex_cubed_sphere_initialized_exchange_desc
-    if (c_associated(obj%ptr)) then
-       ghex_cubed_sphere_initialized_exchange_desc = .true.
-    else
-       ghex_cubed_sphere_initialized_exchange_desc = .false.
-    end if
-  end function ghex_cubed_sphere_initialized_exchange_desc
 
 END MODULE ghex_cubed_sphere_mod

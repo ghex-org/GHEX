@@ -81,6 +81,7 @@ PROGRAM test_f_cubed_sphere
   
   call mpi_barrier(mpi_comm_world, mpi_err)
 
+  
   ! scalar field exchange
   call ghex_field_init(field_desc, data_scalar, halo)
   call ghex_domain_add_field(domain_desc(1), field_desc)
@@ -94,29 +95,20 @@ PROGRAM test_f_cubed_sphere
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
+  call ghex_delete(domain_desc(1))
+  call ghex_delete(ed)
   
-  ! call cpu_time(tic)
-  ! i = 0
-  ! do while (i < niters)
-  !   eh = ghex_exchange(co, ed)
-  !   call ghex_wait(eh)
-  !   i = i+1
-  ! end do
-  ! call cpu_time(toc)
-  ! if (rank == 0) then
-  !    print *, rank, " exchange compact:      ", (toc-tic)
+  ! if (rank==0) then
+  !   do i=1,blkx + sum(halo(1:2))
+  !     do j=1,blky + sum(halo(3:4))
+  !       write (*, fmt="(f3.0)", advance="no") data_scalar(j,i,5)
+  !     end do
+  !     write(*,*)
+  !   end do
   ! end if
 
-  if (rank==0) then
-    do i=1,blkx + sum(halo(1:2))
-      do j=1,blky + sum(halo(3:4))
-        write (*, fmt="(f3.0)", advance="no") data_scalar(j,i,5)
-      end do
-      write(*,*)
-    end do
-  end if
-  call ghex_delete(domain_desc(1))
 
+  
   ! vector field exchange
   call ghex_field_init(field_desc, data_vector, halo, n_components=n_components, is_vector=.true.)
   call ghex_domain_add_field(domain_desc(1), field_desc)
@@ -124,38 +116,34 @@ PROGRAM test_f_cubed_sphere
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
 
-  ! create communication object
-  call ghex_co_init(co)
-
   ! exchange halos
   eh = ghex_exchange(co, ed)
-  call ghex_wait(eh)
-
-  if (rank==1) then
-    do i=1,blkx + sum(halo(1:2))
-      do j=1,blky + sum(halo(3:4))
-        write (*, fmt="(f10.0)", advance="no") data_vector(j,i,1,1)
-      end do
-      write(*,*)
-    end do
-    do i=1,blkx + sum(halo(1:2))
-      do j=1,blky + sum(halo(3:4))
-        write (*, fmt="(f10.0)", advance="no") data_vector(j,i,1,2)
-      end do
-      write(*,*)
-    end do
-    do i=1,blkx + sum(halo(1:2))
-      do j=1,blky + sum(halo(3:4))
-        write (*, fmt="(f10.0)", advance="no") data_vector(j,i,1,3)
-      end do
-      write(*,*)
-    end do
-  end if
-
+  call ghex_wait(eh) 
   call ghex_delete(domain_desc(1))
+  call ghex_delete(ed)
+
+  ! if (rank==1) then
+  !   do i=1,blkx + sum(halo(1:2))
+  !     do j=1,blky + sum(halo(3:4))
+  !       write (*, fmt="(f10.0)", advance="no") data_vector(j,i,1,1)
+  !     end do
+  !     write(*,*)
+  !   end do
+  !   do i=1,blkx + sum(halo(1:2))
+  !     do j=1,blky + sum(halo(3:4))
+  !       write (*, fmt="(f10.0)", advance="no") data_vector(j,i,1,2)
+  !     end do
+  !     write(*,*)
+  !   end do
+  !   do i=1,blkx + sum(halo(1:2))
+  !     do j=1,blky + sum(halo(3:4))
+  !       write (*, fmt="(f10.0)", advance="no") data_vector(j,i,1,3)
+  !     end do
+  !     write(*,*)
+  !   end do
+  ! end if
   
   call mpi_barrier(mpi_comm_world, mpi_err)
-  call ghex_delete(ed)
   call ghex_finalize()
   call mpi_finalize(mpi_err)
 

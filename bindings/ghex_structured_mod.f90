@@ -88,11 +88,6 @@ MODULE ghex_structured_mod
      end subroutine ghex_struct_co_delete
   end interface ghex_delete
 
-  interface ghex_initialized
-     procedure :: ghex_struct_initialized_exchange_desc
-     procedure :: ghex_struct_initialized_communication_object     
-  end interface ghex_initialized
-
   interface ghex_field_init
      procedure :: ghex_struct_field_init
   end interface ghex_field_init
@@ -129,7 +124,7 @@ MODULE ghex_structured_mod
      subroutine ghex_struct_exchange_handle_wait(exchange_handle) bind(c)
        use iso_c_binding
        import ghex_struct_exchange_handle
-       type(ghex_struct_exchange_handle), value :: exchange_handle
+       type(ghex_struct_exchange_handle) :: exchange_handle
      end subroutine ghex_struct_exchange_handle_wait
   end interface ghex_wait
 
@@ -163,25 +158,5 @@ CONTAINS
     type(ghex_struct_domain), dimension(:), target :: domains_desc
     ghex_struct_exchange_desc_new = ghex_struct_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
   end function ghex_struct_exchange_desc_new
-
-  function ghex_struct_initialized_communication_object(obj)
-    type(ghex_struct_communication_object) :: obj
-    logical :: ghex_struct_initialized_communication_object
-    if (c_associated(obj%ptr)) then
-       ghex_struct_initialized_communication_object = .true.
-    else
-       ghex_struct_initialized_communication_object = .false.
-    end if
-  end function ghex_struct_initialized_communication_object
-
-  function ghex_struct_initialized_exchange_desc(obj)
-    type(ghex_struct_exchange_descriptor) :: obj
-    logical :: ghex_struct_initialized_exchange_desc
-    if (c_associated(obj%ptr)) then
-       ghex_struct_initialized_exchange_desc = .true.
-    else
-       ghex_struct_initialized_exchange_desc = .false.
-    end if
-  end function ghex_struct_initialized_exchange_desc
 
 END MODULE ghex_structured_mod
