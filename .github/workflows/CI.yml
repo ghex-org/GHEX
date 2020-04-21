@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: mrtravis/gridtools:gcc-9-mpi
+    container: mbianco/ghex:gcc-9
     strategy:
       build_type: [Debug]
 
