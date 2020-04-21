@@ -9,8 +9,9 @@ PROGRAM test_halo_exchange
   real    :: tic, toc
   integer :: ierr, mpi_err, mpi_threading
   integer :: nthreads = 1, rank, size, world_rank
-  integer :: tmp, i
+  integer :: tmp, i, it
   integer :: gfirst(3), glast(3)       ! global index space
+  integer :: first(3), last(3)
   integer :: gdim(3) = [2, 4, 2]       ! number of domains
   integer :: ldim(3) = [64, 64, 64]    ! dimensions of the local domains
   integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
@@ -26,15 +27,25 @@ PROGRAM test_halo_exchange
   integer(kind=4),dimension(MPI_STATUS_SIZE) :: status
   ! --------------   
 
+  type hptr
+     real(ghex_fp_kind), dimension(:,:,:), pointer :: ptr
+  end type hptr
+  
   ! exchange 8 data cubes
-  real(ghex_fp_kind), dimension(:,:,:), pointer :: data1, data2, data3, data4
-  real(ghex_fp_kind), dimension(:,:,:), pointer :: data5, data6, data7, data8
+  type(hptr) :: data_ptr(8)
 
   ! GHEX stuff
-  type(ghex_struct_domain), target, dimension(:) :: domain_desc(1), d1(1), d2(1), d3(1), d4(1), d5(1), d6(1), d7(1), d8(1)
   type(ghex_struct_field)                :: field_desc
-  type(ghex_struct_communication_object) :: co, co1, co2, co3, co4, co5, co6, co7, co8
-  type(ghex_struct_exchange_descriptor)  :: ed, ed1, ed2, ed3, ed4, ed5, ed6, ed7, ed8
+
+  ! single domain, multiple fields
+  type(ghex_struct_domain)               :: domain_desc
+  type(ghex_struct_communication_object) :: co
+  type(ghex_struct_exchange_descriptor)  :: ed
+
+  ! one field per domain, multiple domains
+  type(ghex_struct_domain),               dimension(:) :: domain_descs(8)
+  type(ghex_struct_communication_object), dimension(:) :: cos(8)
+  type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(8)
   type(ghex_struct_exchange_handle)      :: eh
 
   ! init mpi
@@ -86,37 +97,31 @@ PROGRAM test_halo_exchange
   call init_mpi_nbors(rank_coord)
 
   ! define the local domain
-  domain_desc(1)%id = rank
-  domain_desc(1)%device_id = DeviceCPU
-  domain_desc(1)%first = (rank_coord-1) * ldim + 1
-  domain_desc(1)%last  = domain_desc(1)%first + ldim - 1
-  domain_desc(1)%gfirst = gfirst
-  domain_desc(1)%glast  = glast
+  first = (rank_coord-1) * ldim + 1
+  last  = first + ldim - 1
+  call ghex_domain_init(domain_desc, rank, first, last, gfirst, glast)
 
   ! make individual copies for sequenced comm
-  call copy_domain(d1, domain_desc)
-  call copy_domain(d2, domain_desc)
-  call copy_domain(d3, domain_desc)
-  call copy_domain(d4, domain_desc)
-  call copy_domain(d5, domain_desc)
-  call copy_domain(d6, domain_desc)
-  call copy_domain(d7, domain_desc)
-  call copy_domain(d8, domain_desc)
+  i = 1
+  do while (i <= 8)
+    call ghex_domain_init(domain_descs(i), rank, first, last, gfirst, glast)
+    i = i+1
+  end do
 
   ! define local index ranges
-  xsb = domain_desc(1)%first(1) - halo(1)
-  xeb = domain_desc(1)%last(1)  + halo(2)
-  ysb = domain_desc(1)%first(2) - halo(3)
-  yeb = domain_desc(1)%last(2)  + halo(4)
-  zsb = domain_desc(1)%first(3) - halo(5)
-  zeb = domain_desc(1)%last(3)  + halo(6)
+  xsb = domain_desc%first(1) - halo(1)
+  xeb = domain_desc%last(1)  + halo(2)
+  ysb = domain_desc%first(2) - halo(3)
+  yeb = domain_desc%last(2)  + halo(4)
+  zsb = domain_desc%first(3) - halo(5)
+  zeb = domain_desc%last(3)  + halo(6)
 
-  xs  = domain_desc(1)%first(1)
-  xe  = domain_desc(1)%last(1) 
-  ys  = domain_desc(1)%first(2)
-  ye  = domain_desc(1)%last(2) 
-  zs  = domain_desc(1)%first(3)
-  ze  = domain_desc(1)%last(3)
+  xs  = domain_desc%first(1)
+  xe  = domain_desc%last(1) 
+  ys  = domain_desc%first(2)
+  ye  = domain_desc%last(2) 
+  zs  = domain_desc%first(3)
+  ze  = domain_desc%last(3)
 
   xr  = xe  - xs
   yr  = ye  - ys
@@ -125,183 +130,130 @@ PROGRAM test_halo_exchange
   yrb = yeb - ysb
   zrb = zeb - zsb
 
-  ! allocate and initialize field data
-  allocate(data1(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
-  allocate(data2(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
-  allocate(data3(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
-  allocate(data4(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
-  allocate(data5(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
-  allocate(data6(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
-  allocate(data7(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
-  allocate(data8(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
+  ! allocate and initialize data cubes
+  i = 1
+  do while (i <= 8)
+    allocate(data_ptr(i)%ptr(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0)
+    data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = rank
+    i = i+1
+  end do
 
-  data1(xs:xe, ys:ye, zs:ze) = rank
 
-  ! initialize the field datastructure - COMPACT
-  call ghex_field_init(field_desc, data1, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
-
-  call ghex_field_init(field_desc, data2, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
-
-  call ghex_field_init(field_desc, data3, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
-
-  call ghex_field_init(field_desc, data4, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
-
-  call ghex_field_init(field_desc, data5, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
-
-  call ghex_field_init(field_desc, data6, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
-
-  call ghex_field_init(field_desc, data7, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
-
-  call ghex_field_init(field_desc, data8, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(domain_desc(1), field_desc)
+  ! ---- COMPACT tests ----
+  ! initialize the field datastructure
+  i = 1
+  do while (i <= 8)
+    call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=[1,1,1])
+    call ghex_domain_add_field(domain_desc, field_desc)
+    i = i+1
+  end do
 
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
 
-  ! initialize the field datastructure - SEQUENCE  
-  call ghex_field_init(field_desc, data1, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d1(1), field_desc)
-  ed1 = ghex_exchange_desc_new(d1)
-
-  call ghex_field_init(field_desc, data2, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d2(1), field_desc)
-  ed2 = ghex_exchange_desc_new(d2)
-
-  call ghex_field_init(field_desc, data3, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d3(1), field_desc)
-  ed3 = ghex_exchange_desc_new(d3)
-
-  call ghex_field_init(field_desc, data4, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d4(1), field_desc)
-  ed4 = ghex_exchange_desc_new(d4)
-
-  call ghex_field_init(field_desc, data5, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d5(1), field_desc)
-  ed5 = ghex_exchange_desc_new(d5)
-
-  call ghex_field_init(field_desc, data6, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d6(1), field_desc)
-  ed6 = ghex_exchange_desc_new(d6)
-
-  call ghex_field_init(field_desc, data7, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d7(1), field_desc)
-  ed7 = ghex_exchange_desc_new(d7)
-
-  call ghex_field_init(field_desc, data8, halo, periodic=[1,1,1])
-  call ghex_domain_add_field(d8(1), field_desc)
-  ed8 = ghex_exchange_desc_new(d8)
-
   ! create communication object
   call ghex_co_init(co)
 
-  ! exchange halos - COMPACT
+  ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
   call cpu_time(tic)
-  i = 0
-  do while (i < niters)
+  it = 0
+  do while (it < niters)
     eh = ghex_exchange(co, ed)
     call ghex_wait(eh)
-    i = i+1
+    it = it+1
   end do
   call cpu_time(toc)
   if (rank == 0) then 
      print *, rank, " exchange compact:      ", (toc-tic)
   end if
 
-  call ghex_co_init(co1)
-  call ghex_co_init(co2)
-  call ghex_co_init(co3)
-  call ghex_co_init(co4)
-  call ghex_co_init(co5)
-  call ghex_co_init(co6)
-  call ghex_co_init(co7)
-  call ghex_co_init(co8)
+  call ghex_free(ed)
+  call ghex_free(domain_desc)
 
-  ! exchange halos - SEQUENCE
-  eh = ghex_exchange(co1, ed1); call ghex_wait(eh)
-  eh = ghex_exchange(co2, ed2); call ghex_wait(eh)
-  eh = ghex_exchange(co3, ed3); call ghex_wait(eh)
-  eh = ghex_exchange(co4, ed4); call ghex_wait(eh)
-  eh = ghex_exchange(co5, ed5); call ghex_wait(eh)
-  eh = ghex_exchange(co6, ed6); call ghex_wait(eh)
-  eh = ghex_exchange(co7, ed7); call ghex_wait(eh)
-  eh = ghex_exchange(co8, ed8); call ghex_wait(eh)
+  
+  ! ---- SEQUENCE tests ----
+  ! initialize the field datastructure
+  ! compute the halo information for all domains and fields
+  i = 1
+  do while (i <= 8)
+    call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=[1,1,1])
+    call ghex_domain_add_field(domain_descs(i), field_desc)
+    eds(i) = ghex_exchange_desc_new(domain_descs(i))
+    i = i+1
+  end do
+  
+  ! create communication objects
+  i = 1
+  do while (i <= 8)
+    call ghex_co_init(cos(i))
+    i = i+1
+  end do
+
+  ! exchange halos
+  i = 1
+  do while (i <= 8)
+    eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
+    i = i+1
+  end do
 
   call cpu_time(tic)
-  i = 0
-  do while (i < niters)
-    eh = ghex_exchange(co1, ed1); call ghex_wait(eh)
-    eh = ghex_exchange(co2, ed2); call ghex_wait(eh)
-    eh = ghex_exchange(co3, ed3); call ghex_wait(eh)
-    eh = ghex_exchange(co4, ed4); call ghex_wait(eh)
-    eh = ghex_exchange(co5, ed5); call ghex_wait(eh)
-    eh = ghex_exchange(co6, ed6); call ghex_wait(eh)
-    eh = ghex_exchange(co7, ed7); call ghex_wait(eh)
-    eh = ghex_exchange(co8, ed8); call ghex_wait(eh)
-    i = i+1
+  it = 0
+  do while (it < niters)
+    i = 1
+    do while (i <= 8)
+      eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
+      i = i+1
+    end do
+    it = it+1
   end do
   call cpu_time(toc)
   if (rank == 0) then 
      print *, rank, " exchange sequenced (multiple COs):      ", (toc-tic); 
   end if
 
+
+  ! ---- SEQUENCE tests, single CO ----
   ! exchange halos - SEQUENCE
-  eh = ghex_exchange(co, ed1); call ghex_wait(eh)
-  eh = ghex_exchange(co, ed2); call ghex_wait(eh)
-  eh = ghex_exchange(co, ed3); call ghex_wait(eh)
-  eh = ghex_exchange(co, ed4); call ghex_wait(eh)
-  eh = ghex_exchange(co, ed5); call ghex_wait(eh)
-  eh = ghex_exchange(co, ed6); call ghex_wait(eh)
-  eh = ghex_exchange(co, ed7); call ghex_wait(eh)
-  eh = ghex_exchange(co, ed8); call ghex_wait(eh)
+  i = 1
+  do while (i <= 8)
+    eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
+    i = i+1
+  end do
 
   call cpu_time(tic)
-  i = 0
-  do while (i < niters)
-    eh = ghex_exchange(co, ed1); call ghex_wait(eh)
-    eh = ghex_exchange(co, ed2); call ghex_wait(eh)
-    eh = ghex_exchange(co, ed3); call ghex_wait(eh)
-    eh = ghex_exchange(co, ed4); call ghex_wait(eh)
-    eh = ghex_exchange(co, ed5); call ghex_wait(eh)
-    eh = ghex_exchange(co, ed6); call ghex_wait(eh)
-    eh = ghex_exchange(co, ed7); call ghex_wait(eh)
-    eh = ghex_exchange(co, ed8); call ghex_wait(eh)
-    i = i+1
+  it = 0
+  do while (it < niters)
+    i = 1
+    do while (i <= 8)
+      eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
+      i = i+1
+    end do
+    it = it+1
   end do
   call cpu_time(toc)
   if (rank == 0) then 
      print *, rank, " exchange sequenced (single CO):      ", (toc-tic); 
   end if
 
-  call update_sendrecv(data1)
-  call update_sendrecv(data2)
-  call update_sendrecv(data3)
-  call update_sendrecv(data4)
-  call update_sendrecv(data5)
-  call update_sendrecv(data6)
-  call update_sendrecv(data7)
-  call update_sendrecv(data8)
+
+  ! ---- BIFROST-like comm ----
+  i = 1
+  do while (i <= 8)
+    call update_sendrecv(data_ptr(i)%ptr)
+    i = i+1
+  end do
 
   call cpu_time(tic)
-  i = 0
-  do while (i < niters)
-    call update_sendrecv(data1)
-    call update_sendrecv(data2)
-    call update_sendrecv(data3)
-    call update_sendrecv(data4)
-    call update_sendrecv(data5)
-    call update_sendrecv(data6)
-    call update_sendrecv(data7)
-    call update_sendrecv(data8)
-    i = i + 1
+  it = 0
+  do while (it < niters)
+    i = 1
+    do while (i <= 8)
+      call update_sendrecv(data_ptr(i)%ptr)
+      i = i+1
+    end do
+    it = it+1
   end do
   call cpu_time(toc)
   if (rank == 0) then 
@@ -310,42 +262,21 @@ PROGRAM test_halo_exchange
 
   call mpi_barrier(mpi_comm_world, mpi_err)
 
-  ! cleanup
-  call ghex_free(ed)
+  ! cleanup 
   call ghex_free(co)
-  call ghex_free(co1)
-  call ghex_free(co2)
-  call ghex_free(co3)
-  call ghex_free(co4)
-  call ghex_free(co5)
-  call ghex_free(co6)
-  call ghex_free(co7)
-  call ghex_free(co8)
-  call ghex_free(domain_desc(1))
-  call ghex_free(d1(1))
-  call ghex_free(d2(1))
-  call ghex_free(d3(1))
-  call ghex_free(d4(1))
-  call ghex_free(d5(1))
-  call ghex_free(d6(1))
-  call ghex_free(d7(1))
-  call ghex_free(d8(1))
+  i = 1
+  do while (i <= 8)
+    call ghex_free(domain_descs(i))
+    call ghex_free(cos(i))
+    call ghex_free(eds(i))
+    deallocate(data_ptr(i)%ptr)
+    i = i+1
+  end do
+  
   call ghex_finalize()
   call mpi_finalize(mpi_err)
 
 contains
-
-  subroutine copy_domain(dst, src)
-    type(ghex_struct_domain), intent(inout) :: dst(1)
-    type(ghex_struct_domain), intent(in) :: src(1)
-    dst(1)%id = rank
-    dst(1)%device_id = DeviceCPU
-    dst(1)%first(:)  = src(1)%first(:)
-    dst(1)%last(:)   = src(1)%last(:)
-    dst(1)%gfirst(:) = src(1)%gfirst(:)
-    dst(1)%glast(:)  = src(1)%glast(:)
-  end subroutine copy_domain
-
   
   ! -------------------------------------------------------------
   ! cartesian coordinates computations

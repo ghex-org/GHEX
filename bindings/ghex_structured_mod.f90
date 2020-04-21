@@ -88,6 +88,10 @@ MODULE ghex_structured_mod
      end subroutine ghex_struct_co_free
   end interface ghex_free
 
+  interface ghex_domain_init
+     procedure :: ghex_struct_domain_init
+  end interface ghex_domain_init
+
   interface ghex_field_init
      procedure :: ghex_struct_field_init
   end interface ghex_field_init
@@ -109,6 +113,7 @@ MODULE ghex_structured_mod
   end interface ghex_domain_add_field
 
   interface ghex_exchange_desc_new
+     procedure :: ghex_struct_exchange_desc_array_new
      procedure :: ghex_struct_exchange_desc_new
   end interface ghex_exchange_desc_new
 
@@ -130,7 +135,28 @@ MODULE ghex_structured_mod
 
 CONTAINS
 
-  ! generic interface, ghex_field_mod
+  subroutine ghex_struct_domain_init(domain_desc, id, first, last, gfirst, glast, device_id)
+    type(ghex_struct_domain) :: domain_desc
+    integer :: id
+    integer :: first(3)
+    integer :: last(3)
+    integer :: gfirst(3)
+    integer :: glast(3)
+    integer, optional :: device_id
+
+    if (present(device_id)) then
+      domain_desc%device_id = device_id
+    else
+      domain_desc%device_id = DeviceCPU
+    end if
+
+    domain_desc%id = id
+    domain_desc%first = first
+    domain_desc%last = last
+    domain_desc%gfirst = gfirst
+    domain_desc%glast = glast
+  end subroutine ghex_struct_domain_init
+  
   subroutine ghex_struct_field_init(field_desc, data, halo, offset, periodic)
     type(ghex_struct_field) :: field_desc
     real(ghex_fp_kind), dimension(:,:,:), target :: data
@@ -154,9 +180,14 @@ CONTAINS
 
   end subroutine ghex_struct_field_init
 
-  type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_new(domains_desc)
+  type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_array_new(domains_desc)
     type(ghex_struct_domain), dimension(:), target :: domains_desc
-    ghex_struct_exchange_desc_new = ghex_struct_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
+    ghex_struct_exchange_desc_array_new = ghex_struct_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
+  end function ghex_struct_exchange_desc_array_new
+
+  type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_new(domains_desc)
+    type(ghex_struct_domain), target :: domains_desc
+    ghex_struct_exchange_desc_new = ghex_struct_exchange_desc_new_wrapped(c_loc(domains_desc), 1);
   end function ghex_struct_exchange_desc_new
 
 END MODULE ghex_structured_mod

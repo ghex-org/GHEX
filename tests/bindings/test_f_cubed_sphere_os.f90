@@ -15,7 +15,7 @@ PROGRAM test_f_cubed_sphere
   integer :: cube(2) = [10, 6]             ! dimensions of the tile domains, (nx*nx*ndepth)
   integer :: blkx, blky
   integer :: halo(4), mb                   ! halo definition
-  integer :: niters = 100
+  integer :: first(2), last(2)
 
   type hptr
      real(ghex_fp_kind), dimension(:,:,:), pointer :: ptr
@@ -79,13 +79,10 @@ PROGRAM test_f_cubed_sphere
         call exit(1)
       end if
 
-      ! define the local domain
-      domain_desc(did)%tile  = tile
-      domain_desc(did)%device_id = DeviceCPU
-      domain_desc(did)%cube  = cube
-      domain_desc(did)%first = [(tile_coord(1)-1)*blkx+1, (tile_coord(2)-1)*blky+1]
-      domain_desc(did)%last  = domain_desc(did)%first + [blkx, blky] - 1
-      print *, "rank ", rank, " tile ", tile, " first ", domain_desc(did)%first, " last ", domain_desc(did)%last
+      first = [(tile_coord(1)-1)*blkx+1, (tile_coord(2)-1)*blky+1]
+      last  = first + [blkx, blky] - 1
+      print *, "rank ", rank, " tile ", tile, " first ", first, " last ", last
+      call ghex_cubed_sphere_domain_init(domain_desc(did), tile, cube, first, last)  
 
       allocate(data_scalar(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2)), source=-1.0)
       data_scalar(:, :, :) = rank*ntiles+did
@@ -111,7 +108,11 @@ PROGRAM test_f_cubed_sphere
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
-  call ghex_free(domain_desc(1))
+  i = 1
+  do while (i < product(tile_dims))
+    call ghex_free(domain_desc(i))
+    i = i+1
+  end do
   call ghex_free(ed)
 
   call mpi_barrier(mpi_comm_world, mpi_err)

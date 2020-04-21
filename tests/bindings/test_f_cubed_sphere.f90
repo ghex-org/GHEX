@@ -15,7 +15,7 @@ PROGRAM test_f_cubed_sphere
   integer :: cube(2) = [10, 6]             ! dimensions of the tile domains, (nx*nx*ndepth)
   integer :: blkx, blky
   integer :: halo(4), mb                   ! halo definition
-  integer :: niters = 100
+  integer :: first(2), last(2)
 
   ! exchange 8 data cubes
   real(ghex_fp_kind), dimension(:,:,:), pointer :: data_scalar
@@ -23,8 +23,8 @@ PROGRAM test_f_cubed_sphere
   integer :: n_components = 3
 
   ! GHEX stuff
-  type(ghex_cubed_sphere_domain), target, dimension(:) :: domain_desc(1)
-  type(ghex_cubed_sphere_field)     :: field_desc
+  type(ghex_cubed_sphere_domain)               :: domain_desc
+  type(ghex_cubed_sphere_field)                :: field_desc
   type(ghex_cubed_sphere_communication_object) :: co
   type(ghex_cubed_sphere_exchange_descriptor)  :: ed
   type(ghex_cubed_sphere_exchange_handle)      :: eh
@@ -64,27 +64,16 @@ PROGRAM test_f_cubed_sphere
   end if
 
   ! define the local domain
-  domain_desc(1)%tile  = tile
-  domain_desc(1)%device_id = DeviceCPU
-  domain_desc(1)%cube  = cube
-  domain_desc(1)%first = [(tile_coord(1)-1)*blkx+1, (tile_coord(2)-1)*blky+1]
-  domain_desc(1)%last  = domain_desc(1)%first + [blkx, blky] - 1
-  print *, "rank ", rank, " tile ", tile, " first ", domain_desc(1)%first, " last ", domain_desc(1)%last
-
+  first = [(tile_coord(1)-1)*blkx+1, (tile_coord(2)-1)*blky+1]
+  last  = first + [blkx, blky] - 1
+  print *, "rank ", rank, " tile ", tile, " first ", first, " last ", last
+  call ghex_cubed_sphere_domain_init(domain_desc, tile, cube, first, last)  
+   
+  ! scalar field exchange
   allocate(data_scalar(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2)), source=-1.0)
   data_scalar(:, :, :) = rank
-  
-  allocate(data_vector(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2), n_components), source=-1.0)
-  data_vector(:, :, :, 1) = 10*rank
-  data_vector(:, :, :, 2) = 100*rank
-  data_vector(:, :, :, 3) = 1000*rank
-  
-  call mpi_barrier(mpi_comm_world, mpi_err)
-
-  
-  ! scalar field exchange
   call ghex_field_init(field_desc, data_scalar, halo)
-  call ghex_domain_add_field(domain_desc(1), field_desc)
+  call ghex_domain_add_field(domain_desc, field_desc)
 
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
@@ -95,12 +84,16 @@ PROGRAM test_f_cubed_sphere
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
-  call ghex_free(domain_desc(1))
+  call ghex_free(domain_desc)
   call ghex_free(ed)
   
   ! vector field exchange
+  allocate(data_vector(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2), n_components), source=-1.0)
+  data_vector(:, :, :, 1) = 10*rank
+  data_vector(:, :, :, 2) = 100*rank
+  data_vector(:, :, :, 3) = 1000*rank
   call ghex_field_init(field_desc, data_vector, halo, n_components=n_components, is_vector=.true.)
-  call ghex_domain_add_field(domain_desc(1), field_desc)
+  call ghex_domain_add_field(domain_desc, field_desc)
 
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
@@ -108,7 +101,7 @@ PROGRAM test_f_cubed_sphere
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh) 
-  call ghex_free(domain_desc(1))
+  call ghex_free(domain_desc)
   call ghex_free(ed)
 
   call mpi_barrier(mpi_comm_world, mpi_err)

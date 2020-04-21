@@ -87,6 +87,10 @@ MODULE ghex_cubed_sphere_mod
      end subroutine ghex_cubed_sphere_co_free
   end interface ghex_free
 
+  interface ghex_domain_init
+     procedure :: ghex_cubed_sphere_domain_init
+  end interface ghex_domain_init
+
   interface ghex_field_init
      procedure :: ghex_cubed_sphere_field_init
      procedure :: ghex_cubed_sphere_field_init_comp
@@ -110,6 +114,7 @@ MODULE ghex_cubed_sphere_mod
 
   interface ghex_exchange_desc_new
      procedure :: ghex_cubed_sphere_exchange_desc_new
+     procedure :: ghex_cubed_sphere_exchange_desc_array_new
   end interface ghex_exchange_desc_new
 
   interface ghex_exchange
@@ -130,6 +135,23 @@ MODULE ghex_cubed_sphere_mod
 
 CONTAINS
 
+  subroutine ghex_cubed_sphere_domain_init(domain_desc, tile, dims, first, last, device_id)
+    type(ghex_cubed_sphere_domain) :: domain_desc
+    integer :: tile, dims(2), first(2), last(2)
+    integer, optional :: device_id
+
+    if (present(device_id)) then
+      domain_desc%device_id = device_id
+    else
+      domain_desc%device_id = DeviceCPU
+    end if
+    
+    domain_desc%tile  = tile
+    domain_desc%cube  = dims
+    domain_desc%first = first
+    domain_desc%last  = last
+  end subroutine ghex_cubed_sphere_domain_init
+  
   subroutine ghex_cubed_sphere_field_init(field_desc, data, halo, offset, n_components, is_vector)
     type(ghex_cubed_sphere_field) :: field_desc
     real(ghex_fp_kind), dimension(:,:,:), target :: data
@@ -194,10 +216,14 @@ CONTAINS
     endif
   end subroutine ghex_cubed_sphere_field_init_comp
 
-  ! generic interface, ghex_exchange_mod
-  type(ghex_cubed_sphere_exchange_descriptor) function ghex_cubed_sphere_exchange_desc_new(domains_desc)
+  type(ghex_cubed_sphere_exchange_descriptor) function ghex_cubed_sphere_exchange_desc_array_new(domains_desc)
     type(ghex_cubed_sphere_domain), dimension(:), target :: domains_desc
-    ghex_cubed_sphere_exchange_desc_new = ghex_cubed_sphere_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
+    ghex_cubed_sphere_exchange_desc_array_new = ghex_cubed_sphere_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));
+  end function ghex_cubed_sphere_exchange_desc_array_new
+
+  type(ghex_cubed_sphere_exchange_descriptor) function ghex_cubed_sphere_exchange_desc_new(domains_desc)
+    type(ghex_cubed_sphere_domain), target :: domains_desc
+    ghex_cubed_sphere_exchange_desc_new = ghex_cubed_sphere_exchange_desc_new_wrapped(c_loc(domains_desc), 1);
   end function ghex_cubed_sphere_exchange_desc_new
 
 END MODULE ghex_cubed_sphere_mod
