@@ -38,7 +38,7 @@ auto thread_func(Context&& context, int nthreads) {
         auto token = context.get_token();
         auto comm = context.get_communicator(token);
 
-        for(int i=0; i<50; i++)  {
+        for(int i=0; i<10; i++)  {
             barrier_count++;
             comm.barrier();
             EXPECT_EQ(barrier_count, (i+1)*nthreads);

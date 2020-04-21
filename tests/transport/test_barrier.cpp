@@ -34,8 +34,8 @@ TEST(transport, barrier) {
     gridtools::ghex::timer timer;
 
     timer.tic();
-    for(int i=0; i<100000; i++)  {
-        comm.barrier();
+    for(int i=0; i<100; i++)  {
+      comm.barrier();
     }
     const auto t = timer.stoc();
     if(rank==0)
