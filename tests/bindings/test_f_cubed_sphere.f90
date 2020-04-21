@@ -74,6 +74,7 @@ PROGRAM test_f_cubed_sphere
   data_scalar(:, :, :) = rank
   call ghex_field_init(field_desc, data_scalar, halo)
   call ghex_domain_add_field(domain_desc, field_desc)
+  call ghex_free(field_desc)
 
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
@@ -94,6 +95,7 @@ PROGRAM test_f_cubed_sphere
   data_vector(:, :, :, 3) = 1000*rank
   call ghex_field_init(field_desc, data_vector, halo, n_components=n_components, is_vector=.true.)
   call ghex_domain_add_field(domain_desc, field_desc)
+  call ghex_free(field_desc)
 
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)

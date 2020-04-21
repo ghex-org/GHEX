@@ -86,6 +86,8 @@ MODULE ghex_structured_mod
        ! reference, not a value - fortran variable is reset to null
        type(ghex_struct_communication_object) :: co
      end subroutine ghex_struct_co_free
+
+     procedure :: ghex_struct_field_free
   end interface ghex_free
 
   interface ghex_domain_init
@@ -180,6 +182,15 @@ CONTAINS
 
   end subroutine ghex_struct_field_init
 
+  subroutine ghex_struct_field_free(field_desc)
+    type(ghex_struct_field) :: field_desc
+    field_desc%data         = c_null_ptr
+    field_desc%offset(:)    = -1
+    field_desc%extents(:)   = -1
+    field_desc%halo(:)      = -1
+    field_desc%periodic(:)  = 0
+  end subroutine ghex_struct_field_free
+  
   type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_array_new(domains_desc)
     type(ghex_struct_domain), dimension(:), target :: domains_desc
     ghex_struct_exchange_desc_array_new = ghex_struct_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));

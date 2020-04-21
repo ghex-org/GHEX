@@ -87,6 +87,8 @@ void ghex_cubed_sphere_domain_free(cubed_sphere_domain_descriptor *domain_desc)
 {
     delete domain_desc->fields;
     domain_desc->fields = nullptr;
+    domain_desc->tile = -1;
+    domain_desc->device_id = -1;
 }
 
 extern "C"

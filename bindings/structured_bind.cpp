@@ -98,6 +98,8 @@ void ghex_struct_domain_free(struct_domain_descriptor *domain_desc)
 {
     delete domain_desc->fields;
     domain_desc->fields = nullptr;
+    domain_desc->id = -1;
+    domain_desc->device_id = -1;
 }
 
 extern "C"

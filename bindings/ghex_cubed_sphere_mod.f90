@@ -85,6 +85,8 @@ MODULE ghex_cubed_sphere_mod
        ! reference, not a value - fortran variable is reset to null
        type(ghex_cubed_sphere_communication_object) :: co
      end subroutine ghex_cubed_sphere_co_free
+
+     procedure :: ghex_cubed_sphere_field_free
   end interface ghex_free
 
   interface ghex_domain_init
@@ -216,6 +218,16 @@ CONTAINS
     endif
   end subroutine ghex_cubed_sphere_field_init_comp
 
+  subroutine ghex_cubed_sphere_field_free(field_desc)
+    type(ghex_cubed_sphere_field) :: field_desc
+    field_desc%data         = c_null_ptr
+    field_desc%offset(:)    = -1
+    field_desc%extents(:)   = -1
+    field_desc%halo(:)      = -1
+    field_desc%n_components = 1 
+    field_desc%is_vector    = .false.
+  end subroutine ghex_cubed_sphere_field_free
+  
   type(ghex_cubed_sphere_exchange_descriptor) function ghex_cubed_sphere_exchange_desc_array_new(domains_desc)
     type(ghex_cubed_sphere_domain), dimension(:), target :: domains_desc
     ghex_cubed_sphere_exchange_desc_array_new = ghex_cubed_sphere_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));

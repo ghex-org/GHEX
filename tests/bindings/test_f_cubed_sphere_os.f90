@@ -90,6 +90,7 @@ PROGRAM test_f_cubed_sphere
 
       call ghex_field_init(field_desc, data_ptr(did)%ptr, halo)
       call ghex_domain_add_field(domain_desc(did), field_desc)
+      call ghex_free(field_desc)
 
       did = did + 1
       j = j + 1

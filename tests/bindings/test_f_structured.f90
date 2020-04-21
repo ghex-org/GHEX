@@ -145,6 +145,7 @@ PROGRAM test_halo_exchange
   do while (i <= 8)
     call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=[1,1,1])
     call ghex_domain_add_field(domain_desc, field_desc)
+    call ghex_free(field_desc)
     i = i+1
   end do
 
@@ -180,6 +181,7 @@ PROGRAM test_halo_exchange
   do while (i <= 8)
     call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=[1,1,1])
     call ghex_domain_add_field(domain_descs(i), field_desc)
+    call ghex_free(field_desc)
     eds(i) = ghex_exchange_desc_new(domain_descs(i))
     i = i+1
   end do
