@@ -144,13 +144,13 @@ MODULE ghex_comm_mod
   ! ---------------------
   ! --- generic ghex interfaces
   ! ---------------------
-  interface ghex_delete
-     subroutine ghex_comm_delete(comm) bind(c, name="ghex_obj_delete")
+  interface ghex_free
+     subroutine ghex_comm_free(comm) bind(c, name="ghex_obj_free")
        use iso_c_binding
        import ghex_communicator
        type(ghex_communicator) :: comm
-     end subroutine ghex_comm_delete
-  end interface ghex_delete
+     end subroutine ghex_comm_free
+  end interface ghex_free
 
 CONTAINS
 

@@ -88,9 +88,9 @@ PROGRAM test_send_recv_ft
   print *, mpi_rank, ": ", thrid, ": ", msg_data
 
   ! cleanup per-thread
-  call ghex_delete(rmsg)
-  call ghex_delete(smsg)
-  call ghex_delete(communicators(thrid))
+  call ghex_free(rmsg)
+  call ghex_free(smsg)
+  call ghex_free(communicators(thrid))
 
   ! cleanup shared
   !$omp barrier

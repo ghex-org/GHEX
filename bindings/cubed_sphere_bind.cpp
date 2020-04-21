@@ -83,7 +83,7 @@ void ghex_cubed_sphere_domain_add_field(cubed_sphere_domain_descriptor *domain_d
 }
 
 extern "C"
-void ghex_cubed_sphere_domain_delete(cubed_sphere_domain_descriptor *domain_desc)
+void ghex_cubed_sphere_domain_free(cubed_sphere_domain_descriptor *domain_desc)
 {
     delete domain_desc->fields;
     domain_desc->fields = nullptr;

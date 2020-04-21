@@ -61,32 +61,32 @@ MODULE ghex_structured_mod
   ! ---------------------
   ! --- generic ghex interfaces
   ! ---------------------
-  interface ghex_delete
-     subroutine ghex_struct_exchange_desc_delete(exchange_desc) bind(c, name="ghex_obj_delete")
+  interface ghex_free
+     subroutine ghex_struct_exchange_desc_free(exchange_desc) bind(c, name="ghex_obj_free")
        use iso_c_binding
        import ghex_struct_exchange_descriptor
        type(ghex_struct_exchange_descriptor) :: exchange_desc
-     end subroutine ghex_struct_exchange_desc_delete
+     end subroutine ghex_struct_exchange_desc_free
 
-     subroutine ghex_struct_exchange_handle_delete(exchange_handle) bind(c, name="ghex_obj_delete")
+     subroutine ghex_struct_exchange_handle_free(exchange_handle) bind(c, name="ghex_obj_free")
        use iso_c_binding
        import ghex_struct_exchange_handle
        type(ghex_struct_exchange_handle) :: exchange_handle
-     end subroutine ghex_struct_exchange_handle_delete
+     end subroutine ghex_struct_exchange_handle_free
 
-     subroutine ghex_struct_domain_delete(domains_desc) bind(c)
+     subroutine ghex_struct_domain_free(domains_desc) bind(c)
        use iso_c_binding
        import ghex_struct_domain
        type(ghex_struct_domain) :: domains_desc
-     end subroutine ghex_struct_domain_delete
+     end subroutine ghex_struct_domain_free
 
-     subroutine ghex_struct_co_delete(co) bind(c, name="ghex_obj_delete")
+     subroutine ghex_struct_co_free(co) bind(c, name="ghex_obj_free")
        use iso_c_binding
        import ghex_struct_communication_object
        ! reference, not a value - fortran variable is reset to null
        type(ghex_struct_communication_object) :: co
-     end subroutine ghex_struct_co_delete
-  end interface ghex_delete
+     end subroutine ghex_struct_co_free
+  end interface ghex_free
 
   interface ghex_field_init
      procedure :: ghex_struct_field_init

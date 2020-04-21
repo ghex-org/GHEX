@@ -90,7 +90,7 @@ PROGRAM test_send_recv_cb
   end do
   
   ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
-  call ghex_delete(communicators(thrid))
+  call ghex_free(communicators(thrid))
 
   !$omp end parallel
 

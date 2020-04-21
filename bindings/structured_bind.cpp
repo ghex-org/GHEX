@@ -94,7 +94,7 @@ void ghex_struct_domain_add_field(struct_domain_descriptor *domain_desc, struct_
 }
 
 extern "C"
-void ghex_struct_domain_delete(struct_domain_descriptor *domain_desc)
+void ghex_struct_domain_free(struct_domain_descriptor *domain_desc)
 {
     delete domain_desc->fields;
     domain_desc->fields = nullptr;

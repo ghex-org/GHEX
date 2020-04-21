@@ -111,19 +111,11 @@ PROGRAM test_f_cubed_sphere
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
-  call ghex_delete(domain_desc(1))
-  call ghex_delete(ed)
-  
-  ! if (rank==0) then
-  !   do i=1,blkx + sum(halo(1:2))
-  !     do j=1,blky + sum(halo(3:4))
-  !       write (*, fmt="(f3.0)", advance="no") data_ptr(4)%ptr(j,i,1)
-  !     end do
-  !     write(*,*)
-  !   end do
-  ! end if
+  call ghex_free(domain_desc(1))
+  call ghex_free(ed)
 
   call mpi_barrier(mpi_comm_world, mpi_err)
+  
   call ghex_finalize()
   call mpi_finalize(mpi_err)
 

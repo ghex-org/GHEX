@@ -18,6 +18,6 @@ PROGRAM test_message
   print *, "values:    ", msg_data
 
   ! cleanup
-  call ghex_delete(msg)
+  call ghex_free(msg)
 
 END PROGRAM test_message

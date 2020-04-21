@@ -47,14 +47,14 @@ MODULE ghex_message_mod
   ! ---------------------
   ! --- generic ghex interfaces
   ! ---------------------
-  interface ghex_delete
-     subroutine ghex_message_delete(message) bind(c)
+  interface ghex_free
+     subroutine ghex_message_free(message) bind(c)
        use iso_c_binding
        import ghex_message
        ! reference, not a value - fortran variable is reset to null 
        type(ghex_message) :: message
-     end subroutine ghex_message_delete
-  end interface ghex_delete
+     end subroutine ghex_message_free
+  end interface ghex_free
 
 CONTAINS
 

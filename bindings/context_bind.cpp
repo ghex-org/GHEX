@@ -19,7 +19,7 @@ void ghex_finalize()
 }
 
 extern "C"
-void ghex_obj_delete(ghex::bindings::obj_wrapper **wrapper_ref)
+void ghex_obj_free(ghex::bindings::obj_wrapper **wrapper_ref)
 {
     ghex::bindings::obj_wrapper *wrapper = *wrapper_ref;
 
