@@ -314,6 +314,73 @@ namespace gridtools {
                 return exchange(first, length);
             }
 
+        private:
+            template<typename Tuple, typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange(std::pair<Iterators,Iterators>... iter_pairs)
+            {
+                using pattern_container_types =
+                    std::tuple<typename std::remove_reference<decltype(*(iter_pairs.first))>::type::
+                        pattern_container_type...>;
+                static_assert(std::is_same<Tuple,pattern_container_types>::value,
+                    "patterns are incompatible with this communication object" );
+
+                const std::tuple<std::pair<Iterators,Iterators>...> iter_pairs_t{iter_pairs...};
+
+                if (m_valid)
+                    throw std::runtime_error("earlier exchange operation was not finished");
+                m_valid = true;
+
+                // build a tag map
+                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
+                std::map<const test_t*,int> pat_ptr_map;
+                int max_tag = 0;
+                detail::for_each(iter_pairs_t, [&pat_ptr_map,&max_tag](auto iter_pair) {
+                    for (auto it=iter_pair.first; it!=iter_pair.second; ++it) {
+                        auto ptr = &(it->get_pattern_container());
+                        auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptr, max_tag) );
+                        if (p_it_bool.second == true)
+                            max_tag += ptr->max_tag()+1;
+                    }
+                });
+                detail::for_each(iter_pairs_t, [this,&pat_ptr_map](auto iter_pair) {
+                    using buffer_info_t = typename std::remove_reference_t<decltype(iter_pair.first)>::type;
+                    using arch_t = typename buffer_info_t::arch_type;
+                    using value_t = typename buffer_info_t::value_type;
+                    auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
+                    for (auto it=iter_pair.first; it!=iter_pair.second; ++it) {
+                        auto field_ptr = &(it->get_field());
+                        auto tag_offset = pat_ptr_map[ &(it->get_pattern_container()) ];
+                        const auto my_dom_id = it->get_field().domain_id();
+                        allocate<arch_t,value_t>(mem, it->get_pattern(), field_ptr, my_dom_id,
+                            it->device_id(), tag_offset);
+                    }
+                });
+
+                post_recvs();
+                pack();
+                return handle_type(m_comm, [this](){this->wait();});
+            }
+            
+            template<std::size_t... Is, typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange(std::index_sequence<Is...>, Iterators... iters)
+            {
+                const std::tuple<Iterators...> iter_t{iters...};
+                using test_t = std::tuple<pattern_container<communicator_type,grid_type,domain_id_type>>;
+                using test_t_n = std::tuple< typename std::tuple_element<Is*0, test_t>::type... >;
+                return exchange<test_t_n>(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
+            }
+
+        public:
+            template<typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange(Iterators... iters)
+            {
+                static_assert(sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
+                return exchange(std::make_index_sequence<sizeof...(iters)/2>(), iters...); 
+            }
+
         private: // implementation
 
             template<typename Arch, typename Field>
