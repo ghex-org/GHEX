@@ -16,6 +16,7 @@
 #include <sched.h>
 
 #ifdef _MACOS_GHEX_
+// This code was cut&pasted from stackoverflow - copyright of the person posting it
 typedef int pthread_spinlock_t;
 
 int pthread_spin_init(pthread_spinlock_t *lock, int pshared) {
@@ -101,4 +102,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_THREADS_MUTEX_PTHREAD_SPIN_HPP */
-
