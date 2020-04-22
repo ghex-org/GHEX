@@ -63,9 +63,9 @@ PROGRAM test_f_cubed_sphere
   first = [(tile_coord(1)-1)*blkx+1, (tile_coord(2)-1)*blky+1]
   last  = first + [blkx, blky] - 1
   print *, "rank ", rank, " tile ", tile, " first ", first, " last ", last
-  call ghex_cubed_sphere_domain_init(domain_desc, tile, cube, first, last)  
    
   ! scalar field exchange
+  call ghex_cubed_sphere_domain_init(domain_desc, tile, cube, first, last)  
   allocate(data_scalar(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2)), source=-1.0)
   data_scalar(:, :, :) = rank
   call ghex_field_init(field_desc, data_scalar, halo)
@@ -87,6 +87,7 @@ PROGRAM test_f_cubed_sphere
   call ghex_free(ed)
   
   ! vector field exchange
+  call ghex_cubed_sphere_domain_init(domain_desc, tile, cube, first, last)  
   allocate(data_vector(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2), n_components), source=-1.0)
   data_vector(:, :, :, 1) = 10*rank
   data_vector(:, :, :, 2) = 100*rank
