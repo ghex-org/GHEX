@@ -13,8 +13,33 @@
 
 #include <gridtools/common/host_device.hpp>
 #include <cstddef> 
+#include <gridtools/common/array.hpp>
 
 namespace gridtools {
+
+    template <typename T, size_t D>
+    GT_FUNCTION
+    array<T,D> operator+(array<T,D> a, const array<T,D>& b)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] += b[i];
+        return a;
+    }
+    template <typename T, size_t D>
+    GT_FUNCTION
+    array<T,D> operator-(array<T,D> a, const array<T,D>& b)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] -= b[i];
+        return a;
+    }
+    template <typename T, typename U, size_t D>
+    GT_FUNCTION
+    typename std::common_type<T, U>::type dot(const array<T,D>& a, const array<U,D>& b)
+    {
+        typename std::common_type<T, U>::type res = a[0]*b[0];
+        for (std::size_t i=1u; i<D; ++i) res+=a[i]*b[i];
+        return res;
+    }
+
     namespace ghex {
     namespace structured {
 

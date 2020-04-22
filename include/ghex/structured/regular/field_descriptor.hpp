@@ -11,83 +11,20 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_REGULAR_FIELD_DESCRIPTOR_HPP
 #define INCLUDED_GHEX_STRUCTURED_REGULAR_FIELD_DESCRIPTOR_HPP
 
+#include "../field_descriptor.hpp"
 #include "../field_utils.hpp"
 #include "./domain_descriptor.hpp"
 #include <cstring>
 #include <cstdint>
-#include <gridtools/common/array.hpp>
 #include "../../arch_traits.hpp"
 
 
 #define NCTIS 128
 
 namespace gridtools {
-
-    template <typename T, size_t D>
-    GT_FUNCTION
-    array<T,D> operator+(array<T,D> a, const array<T,D>& b)
-    {
-        for (std::size_t i=0u; i<D; ++i) a[i] += b[i];
-        return a;
-    }
-    template <typename T, size_t D>
-    GT_FUNCTION
-    array<T,D> operator-(array<T,D> a, const array<T,D>& b)
-    {
-        for (std::size_t i=0u; i<D; ++i) a[i] -= b[i];
-        return a;
-    }
-    template <typename T, typename U, size_t D>
-    GT_FUNCTION
-    typename std::common_type<T, U>::type dot(const array<T,D>& a, const array<U,D>& b)
-    {
-        typename std::common_type<T, U>::type res = a[0]*b[0];
-        for (std::size_t i=1u; i<D; ++i) res+=a[i]*b[i];
-        return res;
-    }
-
 namespace ghex {
 namespace structured {    
 namespace regular {
-#ifdef __CUDACC__
-    template<typename Layout, typename T, std::size_t D, typename I, typename S>
-    __global__ void pack_kernel(int size, const T* data, T* buffer, 
-                                array<I,D> local_first, array<I,D> local_strides,
-                                array<S,D> byte_strides, array<I,D> offsets)
-    {
-        const auto index = blockIdx.x*blockDim.x + threadIdx.x;
-        if (index < size)
-        {
-            // compute local coordinate
-            array<I,D> local_coordinate;
-            detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
-            // add offset
-            const auto memory_coordinate = local_coordinate + local_first + offsets;
-            // multiply with memory strides
-            const auto idx = dot(memory_coordinate, byte_strides);
-            buffer[index] = *reinterpret_cast<const T*>((const char*)data + idx);
-        }
-    }
-
-    template<typename Layout, typename T, std::size_t D, typename I, typename S>
-    __global__ void unpack_kernel(int size, T* data, const T* buffer, 
-                                array<I,D> local_first, array<I,D> local_strides,
-                                array<S,D> byte_strides, array<I,D> offsets)
-    {
-        const auto index = blockIdx.x*blockDim.x + threadIdx.x;
-        if (index < size)
-        {
-            // compute local coordinate
-            array<I,D> local_coordinate;
-            detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
-            // add offset
-            const auto memory_coordinate = local_coordinate + local_first + offsets;
-            // multiply with memory strides
-            const auto idx = dot(memory_coordinate, byte_strides);
-            *reinterpret_cast<T*>((char*)data + idx) = buffer[index];
-        }
-    }
-#endif
 
     template<typename Arch, typename Dimension, typename Layout>
     struct serialization
@@ -137,8 +74,45 @@ namespace regular {
         }
     };
 
-
 #ifdef __CUDACC__
+    template<typename Layout, typename T, std::size_t D, typename I, typename S>
+    __global__ void pack_kernel(int size, const T* data, T* buffer, 
+                                array<I,D> local_first, array<I,D> local_strides,
+                                array<S,D> byte_strides, array<I,D> offsets)
+    {
+        const auto index = blockIdx.x*blockDim.x + threadIdx.x;
+        if (index < size)
+        {
+            // compute local coordinate
+            array<I,D> local_coordinate;
+            detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
+            // add offset
+            const auto memory_coordinate = local_coordinate + local_first + offsets;
+            // multiply with memory strides
+            const auto idx = dot(memory_coordinate, byte_strides);
+            buffer[index] = *reinterpret_cast<const T*>((const char*)data + idx);
+        }
+    }
+
+    template<typename Layout, typename T, std::size_t D, typename I, typename S>
+    __global__ void unpack_kernel(int size, T* data, const T* buffer, 
+                                array<I,D> local_first, array<I,D> local_strides,
+                                array<S,D> byte_strides, array<I,D> offsets)
+    {
+        const auto index = blockIdx.x*blockDim.x + threadIdx.x;
+        if (index < size)
+        {
+            // compute local coordinate
+            array<I,D> local_coordinate;
+            detail::compute_coordinate<D>::template apply<Layout>(local_strides,local_coordinate,index);
+            // add offset
+            const auto memory_coordinate = local_coordinate + local_first + offsets;
+            // multiply with memory strides
+            const auto idx = dot(memory_coordinate, byte_strides);
+            *reinterpret_cast<T*>((char*)data + idx) = buffer[index];
+        }
+    }
+
     template<typename Dimension, typename Layout>
     struct serialization<gpu, Dimension, Layout>
     {
