@@ -17,7 +17,7 @@ PROGRAM test_f_cubed_sphere
   integer :: halo(4), mb                   ! halo definition
   integer :: first(2), last(2)
 
-  ! exchange 8 data cubes
+  ! exchange scalar and vector fields
   real(ghex_fp_kind), dimension(:,:,:), pointer :: data_scalar
   real(ghex_fp_kind), dimension(:,:,:,:), pointer :: data_vector
   integer :: n_components = 3
@@ -33,16 +33,12 @@ PROGRAM test_f_cubed_sphere
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
   call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
   call mpi_comm_size(mpi_comm_world, size, mpi_err)
-
   call mpi_comm_rank(mpi_comm_world, rank, mpi_err)
 
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world)
 
   ! halo width
-  mb = 1
-
-  ! halo information
   halo(:) = mb
 
   ! check if we have the right number of ranks
