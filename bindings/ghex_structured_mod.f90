@@ -15,6 +15,7 @@ MODULE ghex_structured_mod
      integer(c_int) :: extents(3) = [-1]       ! by default - size of the local extents + halos
      integer(c_int) ::    halo(6) = [-1]       ! halo to be used for this field
      integer(c_int) :: periodic(3) = [0]
+     integer(c_int) :: n_components = 1        ! number of field components
      integer(c_int) ::     layout = LayoutFieldLast
   end type ghex_struct_field
 
@@ -50,7 +51,7 @@ MODULE ghex_structured_mod
   ! ---------------------
   interface
      type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_new_wrapped(domains_desc, n_domains) &
-          bind(c, name="ghex_struct_exchange_desc_new")
+       bind(c, name="ghex_struct_exchange_desc_new")
        use iso_c_binding
        import ghex_struct_domain, ghex_struct_exchange_descriptor
        type(c_ptr), value :: domains_desc
@@ -97,6 +98,7 @@ MODULE ghex_structured_mod
 
   interface ghex_field_init
      procedure :: ghex_struct_field_init
+     procedure :: ghex_struct_field_init_comp
   end interface ghex_field_init
 
   interface ghex_co_init
@@ -159,27 +161,51 @@ CONTAINS
     domain_desc%gfirst = gfirst
     domain_desc%glast = glast
   end subroutine ghex_struct_domain_init
-  
-  subroutine ghex_struct_field_init(field_desc, data, halo, offset, periodic, layout)
+
+  subroutine ghex_struct_field_init(field_desc, data, halo, offset, periodic)
     type(ghex_struct_field) :: field_desc
     real(ghex_fp_kind), dimension(:,:,:), target :: data
     integer :: halo(6)
     integer, optional :: offset(3)
     integer, optional :: periodic(3)
-    integer, optional :: layout
 
     field_desc%data = c_loc(data)
     field_desc%halo = halo
     field_desc%extents = shape(data, 4)
+    field_desc%n_components = 1
+    field_desc%layout = LayoutFieldLast
 
     if (present(offset)) then
-       field_desc%offset = offset
+      field_desc%offset = offset
     else
-       field_desc%offset = [halo(1), halo(3), halo(5)]
+      field_desc%offset = [halo(1), halo(3), halo(5)]
     endif
 
     if (present(periodic)) then
-       field_desc%periodic = periodic
+      field_desc%periodic = periodic
+    endif
+  end subroutine ghex_struct_field_init
+
+  subroutine ghex_struct_field_init_comp(field_desc, data, halo, offset, periodic, layout)
+    type(ghex_struct_field) :: field_desc
+    real(ghex_fp_kind), dimension(:,:,:,:), target :: data
+    integer :: halo(6)
+    integer, optional :: offset(3)
+    integer, optional :: periodic(3)
+    integer, optional :: layout
+    integer(4) :: extents(4)
+
+    field_desc%data = c_loc(data)
+    field_desc%halo = halo
+
+    if (present(offset)) then
+      field_desc%offset = offset
+    else
+      field_desc%offset = [halo(1), halo(3), halo(5)]
+    endif
+
+    if (present(periodic)) then
+      field_desc%periodic = periodic
     endif
 
     if (present(layout)) then
@@ -187,7 +213,16 @@ CONTAINS
     else
       field_desc%layout = LayoutFieldLast
     endif
-  end subroutine ghex_struct_field_init
+
+    extents = shape(data, 4)
+    if (field_desc%layout == LayoutFieldLast) then
+      field_desc%extents = extents(1:3)
+      field_desc%n_components = size(data, 4)
+    else
+      field_desc%extents = extents(2:4)
+      field_desc%n_components = size(data, 1)
+    end if
+  end subroutine ghex_struct_field_init_comp
 
   subroutine ghex_struct_field_free(field_desc)
     type(ghex_struct_field) :: field_desc
@@ -198,7 +233,7 @@ CONTAINS
     field_desc%periodic(:)  = 0
     field_desc%layout       = LayoutFieldLast
   end subroutine ghex_struct_field_free
-  
+
   type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_array_new(domains_desc)
     type(ghex_struct_domain), dimension(:), target :: domains_desc
     ghex_struct_exchange_desc_array_new = ghex_struct_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));

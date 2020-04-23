@@ -17,6 +17,7 @@ struct struct_field_descriptor {
     int  extents[3];
     int     halo[6];
     int periodic[3];
+    int n_components;
     int layout;
 };
 

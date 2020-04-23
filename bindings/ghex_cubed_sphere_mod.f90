@@ -164,16 +164,15 @@ CONTAINS
     field_desc%data = c_loc(data)
     field_desc%halo = halo
     field_desc%extents = shape(data, 4)
+    field_desc%n_components = 1
+    field_desc%is_vector = .false.
+    field_desc%layout = LayoutFieldLast
 
     if (present(offset)) then
        field_desc%offset = offset
     else
        field_desc%offset = [halo(1), halo(3), 0]
     endif
-
-    field_desc%n_components = 1
-    field_desc%is_vector = .false.
-    field_desc%layout = LayoutFieldLast
   end subroutine ghex_cubed_sphere_field_init
 
   subroutine ghex_cubed_sphere_field_init_comp(field_desc, data, halo, offset, layout, is_vector)
