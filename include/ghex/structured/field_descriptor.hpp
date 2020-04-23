@@ -40,25 +40,19 @@ public: // member types
     using size_type              = unsigned int;
     using strides_type           = ::gridtools::array<size_type, dimension::value>;
 
-    // holds buffer information (read-write access)
+    // holds buffer information
+    template<typename Pointer>
     struct buffer_descriptor {
-        T* m_ptr;
+        Pointer m_ptr;
         const coordinate_type m_first;
         const strides_type m_strides;
         const size_type m_size;
     };
     
-    // holds buffer information (read only access)
-    struct const_buffer_descriptor {
-        const T* m_ptr;
-        const coordinate_type m_first;
-        const strides_type m_strides;
-        const size_type m_size;
-    };
-    
-    // holds halo iteration space information (read-write access)
+    // holds halo iteration space information
+    template<typename Pointer>
     struct basic_iteration_space {
-        T* m_ptr;
+        Pointer m_ptr;
         const coordinate_type m_domain_first;
         const coordinate_type m_offset;
         const coordinate_type m_first;
@@ -67,15 +61,18 @@ public: // member types
         const strides_type m_local_strides;
     };
 
-    // holds halo iteration space information (read only access)
-    struct const_basic_iteration_space {
-        const T* m_ptr;
-        const coordinate_type m_domain_first;
-        const coordinate_type m_offset;
-        const coordinate_type m_first;
-        const coordinate_type m_last;
-        const strides_type m_strides;
-        const strides_type m_local_strides;
+    struct pack_iteration_space {
+        using value_t = T;
+        using coordinate_t = coordinate_type;
+        const buffer_descriptor<T*> m_buffer_desc;
+        const basic_iteration_space<const T*> m_data_is;
+    };
+
+    struct unpack_iteration_space {
+        using value_t = T;
+        using coordinate_t = coordinate_type;
+        const buffer_descriptor<const T*> m_buffer_desc;
+        const basic_iteration_space<T*> m_data_is;
     };
 
 protected: // members
@@ -118,7 +115,7 @@ public: // ctors
         // extents of the field including buffers
         std::copy(extents_.begin(), extents_.end(), m_extents.begin());
         // check extents
-        for (size_type d=0u; d<dimension::size-1; ++d) {
+        for (size_type d=0u; d<dimension::value-1; ++d) {
             const scalar_coordinate_type D = m_dom.last()[d] - m_dom.first()[d] + 1 + m_offsets[d];
             if (m_extents[d] < D)
                 throw std::runtime_error("extents too small");
@@ -163,6 +160,7 @@ public: // member functions
     int num_components() const noexcept { return m_num_components; }
     /** @brief returns true if this field describes a vector field */
     bool is_vector_field() const noexcept { return m_is_vector_field; }
+    bool is_vector() const noexcept { return m_is_vector_field; }
 };
 
 } // namespace structured

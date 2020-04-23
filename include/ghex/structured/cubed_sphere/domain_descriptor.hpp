@@ -62,8 +62,8 @@ namespace gridtools {
                 public: // member types
                     using domain_id_type      = domain_id_t;
                     // 4-dimensional: tile, x, y, z
-                    using dimension           = std::integral_constant<int,4>;
-                    using coordinate_type     = coordinate<std::array<int,dimension::value>>;
+                    using dimension           = std::integral_constant<int,3>;
+                    using coordinate_type     = coordinate<std::array<int,4>>;
 
                 private: // members
                     cube m_c;
