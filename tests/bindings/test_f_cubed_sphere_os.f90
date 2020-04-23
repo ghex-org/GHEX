@@ -14,7 +14,7 @@ PROGRAM test_f_cubed_sphere
   integer :: tile = -1, tile_coord(2)      ! which tile do we belong to, and what are our tile coordinates
   integer :: cube(2) = [10, 6]             ! dimensions of the tile domains, (nx*nx*ndepth)
   integer :: blkx, blky
-  integer :: halo(4), mb                   ! halo definition
+  integer :: halo(4)                       ! halo definition
   integer :: first(2), last(2)
 
   type hptr
@@ -44,8 +44,7 @@ PROGRAM test_f_cubed_sphere
   call ghex_init(nthreads, mpi_comm_world)
 
   ! halo width
-  mb = 1
-  halo(:) = mb
+  halo(:) = 1
 
   ! check if we have the right number of ranks
   if (size /= ntiles) then

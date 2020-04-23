@@ -15,6 +15,7 @@ MODULE ghex_structured_mod
      integer(c_int) :: extents(3) = [-1]       ! by default - size of the local extents + halos
      integer(c_int) ::    halo(6) = [-1]       ! halo to be used for this field
      integer(c_int) :: periodic(3) = [0]
+     integer(c_int) ::     layout = LayoutFieldLast
   end type ghex_struct_field
 
   ! computational domain: defines the iteration space, and the fields with their halos
@@ -159,12 +160,13 @@ CONTAINS
     domain_desc%glast = glast
   end subroutine ghex_struct_domain_init
   
-  subroutine ghex_struct_field_init(field_desc, data, halo, offset, periodic)
+  subroutine ghex_struct_field_init(field_desc, data, halo, offset, periodic, layout)
     type(ghex_struct_field) :: field_desc
     real(ghex_fp_kind), dimension(:,:,:), target :: data
     integer :: halo(6)
     integer, optional :: offset(3)
     integer, optional :: periodic(3)
+    integer, optional :: layout
 
     field_desc%data = c_loc(data)
     field_desc%halo = halo
@@ -180,6 +182,11 @@ CONTAINS
        field_desc%periodic = periodic
     endif
 
+    if (present(layout)) then
+      field_desc%layout = layout
+    else
+      field_desc%layout = LayoutFieldLast
+    endif
   end subroutine ghex_struct_field_init
 
   subroutine ghex_struct_field_free(field_desc)
@@ -189,6 +196,7 @@ CONTAINS
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
     field_desc%periodic(:)  = 0
+    field_desc%layout       = LayoutFieldLast
   end subroutine ghex_struct_field_free
   
   type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_array_new(domains_desc)

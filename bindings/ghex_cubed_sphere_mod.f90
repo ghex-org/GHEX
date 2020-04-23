@@ -15,6 +15,7 @@ MODULE ghex_cubed_sphere_mod
      integer(c_int) :: extents(3) = [-1]       ! by default - size of the local extents + halos
      integer(c_int) ::    halo(4) = [-1]       ! halo to be used for this field
      integer(c_int) :: n_components = 1        ! number of field components
+     integer(c_int) ::     layout = LayoutFieldLast
      logical(c_bool) :: is_vector = .false.    ! is this a vector field
   end type ghex_cubed_sphere_field
 
@@ -147,20 +148,18 @@ CONTAINS
     else
       domain_desc%device_id = DeviceCPU
     end if
-    
+
     domain_desc%tile  = tile
     domain_desc%cube  = dims
     domain_desc%first = first
     domain_desc%last  = last
   end subroutine ghex_cubed_sphere_domain_init
-  
-  subroutine ghex_cubed_sphere_field_init(field_desc, data, halo, offset, n_components, is_vector)
+
+  subroutine ghex_cubed_sphere_field_init(field_desc, data, halo, offset)
     type(ghex_cubed_sphere_field) :: field_desc
     real(ghex_fp_kind), dimension(:,:,:), target :: data
     integer :: halo(4)
     integer, optional :: offset(3)
-    integer, optional :: n_components
-    logical, optional :: is_vector
 
     field_desc%data = c_loc(data)
     field_desc%halo = halo
@@ -172,32 +171,22 @@ CONTAINS
        field_desc%offset = [halo(1), halo(3), 0]
     endif
 
-    if (present(n_components)) then
-       field_desc%n_components = n_components
-    else
-       field_desc%n_components = 1       
-    endif
-
-    if (present(is_vector)) then
-       field_desc%is_vector = is_vector
-    else
-       field_desc%is_vector = .false.
-    endif
+    field_desc%n_components = 1
+    field_desc%is_vector = .false.
+    field_desc%layout = LayoutFieldLast
   end subroutine ghex_cubed_sphere_field_init
 
-  subroutine ghex_cubed_sphere_field_init_comp(field_desc, data, halo, offset, n_components, is_vector)
+  subroutine ghex_cubed_sphere_field_init_comp(field_desc, data, halo, offset, layout, is_vector)
     type(ghex_cubed_sphere_field) :: field_desc
     real(ghex_fp_kind), dimension(:,:,:,:), target :: data
     integer :: halo(4)
     integer, optional :: offset(3)
-    integer, optional :: n_components
+    integer, optional :: layout
     logical, optional :: is_vector
     integer(4) :: extents(4)
-    
+
     field_desc%data = c_loc(data)
     field_desc%halo = halo
-    extents = shape(data, 4)
-    field_desc%extents = extents(1:3)
 
     if (present(offset)) then
        field_desc%offset = offset
@@ -205,12 +194,21 @@ CONTAINS
        field_desc%offset = [halo(1), halo(3), 0]
     endif
 
-    if (present(n_components)) then
-       field_desc%n_components = n_components
+    if (present(layout)) then
+       field_desc%layout = layout
     else
-       field_desc%n_components = 1       
+       field_desc%layout = LayoutFieldLast
     endif
 
+    extents = shape(data, 4)
+    if (field_desc%layout == LayoutFieldLast) then
+      field_desc%extents = extents(1:3)
+      field_desc%n_components = size(data, 4)
+    else
+      field_desc%extents = extents(2:4)
+      field_desc%n_components = size(data, 1)
+    end if
+    
     if (present(is_vector)) then
        field_desc%is_vector = is_vector
     else
@@ -224,10 +222,11 @@ CONTAINS
     field_desc%offset(:)    = -1
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
-    field_desc%n_components = 1 
+    field_desc%n_components = 1
+    field_desc%layout       = LayoutFieldLast
     field_desc%is_vector    = .false.
   end subroutine ghex_cubed_sphere_field_free
-  
+
   type(ghex_cubed_sphere_exchange_descriptor) function ghex_cubed_sphere_exchange_desc_array_new(domains_desc)
     type(ghex_cubed_sphere_domain), dimension(:), target :: domains_desc
     ghex_cubed_sphere_exchange_desc_array_new = ghex_cubed_sphere_exchange_desc_new_wrapped(c_loc(domains_desc), size(domains_desc, 1));

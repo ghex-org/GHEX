@@ -7,10 +7,9 @@
 #include <ghex/communication_object_2.hpp>
 
 // those are configurable at compile time
-#define GHEX_DIMS                 3
+#include "ghex_defs.hpp"
 using arch_type                 = ghex::cpu;
 using domain_id_type            = ghex::structured::cubed_sphere::domain_id_t;
-using fp_type                   = float;
 
 struct cubed_sphere_field_descriptor {
     fp_type *data;
@@ -18,6 +17,7 @@ struct cubed_sphere_field_descriptor {
     int  extents[3];
     int     halo[4];
     int n_components;
+    int layout;
     bool is_vector;
 };
 
@@ -53,14 +53,24 @@ using grid_detail_type          = ghex::structured::detail::grid<ghex::coordinat
 using domain_descriptor_type    = ghex::structured::cubed_sphere::domain_descriptor;
 using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
 using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
-using field_descriptor_type     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,0,3,2,1>;
-using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
-using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
 using pattern_map_type          = std::map<cubed_sphere_field_descriptor, pattern_type, field_compare>;
 using exchange_handle_type      = communication_obj_type::handle_type;
-
-// ASYMETRY
 using halo_generator_type       = ghex::structured::cubed_sphere::halo_generator;
+
+// row-major storage
+using field_descriptor_type_1     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,0,3,2,1>;
+using pattern_field_type_1        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_1>;
+using pattern_field_vector_type_1 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_1>>, std::vector<pattern_field_type_1>>;
+
+// field-major storage
+using field_descriptor_type_2     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,3,2,1,0>;
+using pattern_field_type_2        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_2>;
+using pattern_field_vector_type_2 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_2>>, std::vector<pattern_field_type_2>>;
+
+struct pattern_field_data {
+    pattern_field_vector_type_1 row_major;
+    pattern_field_vector_type_2 field_major;
+};
 
 // a map of field descriptors to patterns
 static pattern_map_type field_to_pattern;
@@ -113,7 +123,7 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
     }
 
     // a vector of `pattern(field)` objects
-    pattern_field_vector_type pattern_fields;
+    pattern_field_data pattern_fields;
 
     for(int i=0; i<n_domains; i++){
         field_vector_type &fields = *(domains_desc[i].fields);
@@ -130,11 +140,18 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
             // ASYMETRY
-            std::unique_ptr<field_descriptor_type> field_desc_uptr(
-                new field_descriptor_type(local_domains[i], field.data, offset, extents, field.n_components, field.is_vector));
-            auto ptr = field_desc_uptr.get();
-            pattern_fields.first.push_back(std::move(field_desc_uptr));
-            pattern_fields.second.push_back(pattern(*ptr));
+
+	    if(LayoutFieldLast == field.layout){
+		std::unique_ptr<field_descriptor_type_1> field_desc_uptr(new field_descriptor_type_1(local_domains[i], field.data, offset, extents, field.n_components, field.is_vector));
+		auto ptr = field_desc_uptr.get();
+		pattern_fields.row_major.first.push_back(std::move(field_desc_uptr));
+		pattern_fields.row_major.second.push_back(pattern(*ptr));
+	    } else {
+		std::unique_ptr<field_descriptor_type_2> field_desc_uptr(new field_descriptor_type_2(local_domains[i], field.data, offset, extents, field.n_components, field.is_vector));
+		auto ptr = field_desc_uptr.get();
+		pattern_fields.field_major.first.push_back(std::move(field_desc_uptr));
+		pattern_fields.field_major.second.push_back(pattern(*ptr));
+	    }
         }
     }
 
@@ -145,9 +162,12 @@ extern "C"
 void *ghex_cubed_sphere_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
     if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
-    communication_obj_type    &co             = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
-    pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_safe<pattern_field_vector_type>(ewrapper);
-    return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.second.data(), pattern_fields.second.size()));
+    communication_obj_type    &co      = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
+    pattern_field_data &pattern_fields = *ghex::bindings::get_object_ptr_safe<pattern_field_data>(ewrapper);
+    return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.row_major.second.begin(),
+						       pattern_fields.row_major.second.end(),
+						       pattern_fields.field_major.second.begin(),
+						       pattern_fields.field_major.second.end()));
 }
 
 extern "C"

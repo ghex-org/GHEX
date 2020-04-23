@@ -7,10 +7,9 @@
 #include <ghex/communication_object_2.hpp>
 
 // those are configurable at compile time
-#define GHEX_DIMS                 3
+#include "ghex_defs.hpp"
 using arch_type                 = ghex::cpu;
 using domain_id_type            = int;
-using fp_type                   = float;
 
 struct struct_field_descriptor {
     fp_type *data;
@@ -18,6 +17,7 @@ struct struct_field_descriptor {
     int  extents[3];
     int     halo[6];
     int periodic[3];
+    int layout;
 };
 
 using field_vector_type = std::vector<struct_field_descriptor>;

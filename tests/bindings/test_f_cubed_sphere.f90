@@ -6,20 +6,21 @@ PROGRAM test_f_cubed_sphere
   include 'mpif.h'
 
   real    :: tic, toc
-  integer :: ierr, mpi_err, mpi_threading
+  integer :: mpi_err, mpi_threading
   integer :: nthreads = 1, rank, size, world_rank
-  integer :: tmp, i, j
+  integer :: tmp, i, j, f
   integer :: ntiles = 6
   integer :: tile_dims(2) = [2, 2]         ! each tile is split into tile_dims ranks, in X and Y dimensions
   integer :: tile = -1, tile_coord(2)      ! which tile do we belong to, and what are our tile coordinates
   integer :: cube(2) = [10, 6]             ! dimensions of the tile domains, (nx*nx*ndepth)
   integer :: blkx, blky
-  integer :: halo(4), mb                   ! halo definition
+  integer :: halo(4)                       ! halo definition
   integer :: first(2), last(2)
+  integer :: extents4(4)
 
   ! exchange scalar and vector fields
   real(ghex_fp_kind), dimension(:,:,:), pointer :: data_scalar
-  real(ghex_fp_kind), dimension(:,:,:,:), pointer :: data_vector
+  real(ghex_fp_kind), dimension(:,:,:,:), pointer :: data_vector1, data_vector2
   integer :: n_components = 3
 
   ! GHEX stuff
@@ -39,7 +40,7 @@ PROGRAM test_f_cubed_sphere
   call ghex_init(nthreads, mpi_comm_world)
 
   ! halo width
-  halo(:) = mb
+  halo(:) = 1
 
   ! check if we have the right number of ranks
   if (size /= product(tile_dims)*ntiles) then
@@ -59,6 +60,9 @@ PROGRAM test_f_cubed_sphere
     call exit(1)
   end if
 
+  ! create communication object
+  call ghex_co_init(co)
+
   ! define the local domain
   first = [(tile_coord(1)-1)*blkx+1, (tile_coord(2)-1)*blky+1]
   last  = first + [blkx, blky] - 1
@@ -75,9 +79,6 @@ PROGRAM test_f_cubed_sphere
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
 
-  ! create communication object
-  call ghex_co_init(co)
-
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
@@ -86,22 +87,60 @@ PROGRAM test_f_cubed_sphere
   call ghex_free(domain_desc)
   call ghex_free(ed)
   
-  ! vector field exchange
+  ! vector field exchange: try both layouts at the same time
   call ghex_cubed_sphere_domain_init(domain_desc, tile, cube, first, last)  
-  allocate(data_vector(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2), n_components), source=-1.0)
-  data_vector(:, :, :, 1) = 10*rank
-  data_vector(:, :, :, 2) = 100*rank
-  data_vector(:, :, :, 3) = 1000*rank
-  call ghex_field_init(field_desc, data_vector, halo, n_components=n_components, is_vector=.true.)
+
+  allocate(data_vector1(blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2), n_components), source=-1.0)
+  data_vector1(:, :, :, 1) = 10*rank
+  data_vector1(:, :, :, 2) = 100*rank
+  data_vector1(:, :, :, 3) = 1000*rank
+  call ghex_field_init(field_desc, data_vector1, halo, is_vector=.true.)
   call ghex_domain_add_field(domain_desc, field_desc)
   call ghex_free(field_desc)
 
+  allocate(data_vector2(n_components, blkx+sum(halo(1:2)), blky+sum(halo(3:4)), cube(2)), source=-1.0)
+  data_vector2(1, :, :, :) = 10*rank
+  data_vector2(2, :, :, :) = 100*rank
+  data_vector2(3, :, :, :) = 1000*rank
+  call ghex_field_init(field_desc, data_vector2, halo, is_vector=.true., layout=LayoutFieldFirst)
+  call ghex_domain_add_field(domain_desc, field_desc)
+  call ghex_free(field_desc)
+  
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
 
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh) 
+
+  ! cleanups
+  call ghex_free(domain_desc)
+  call ghex_free(ed)
+
+  if (rank == 1) then
+    extents4 = shape(data_vector1, 4)
+    do f=1,extents4(4)
+      do i=1,extents4(1)
+        do j=1,extents4(2)
+          write (*, fmt="(f7.0)", advance="no") data_vector1(j,i,1,f)
+        end do
+        write(*,*)
+      end do
+      write(*,*)
+    end do
+
+    extents4 = shape(data_vector2, 4)
+    do f=1,extents4(1)
+      do i=1,extents4(2)
+        do j=1,extents4(3)
+          write (*, fmt="(f7.0)", advance="no") data_vector2(f,j,i,1)
+        end do
+        write(*,*)
+      end do
+      write(*,*)
+    end do
+  end if
+  call mpi_barrier(mpi_comm_world, mpi_err)
 
   ! cleanups
   call ghex_free(domain_desc)
