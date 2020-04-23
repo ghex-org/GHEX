@@ -84,9 +84,9 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 // helper macro for checks
 #define GHEX_CS_CHECK_HEADER                      \
-    const auto x_dom_min = field.offsets()[1];    \
+    const auto x_dom_min = field.offsets()[0];    \
     const auto x_min     = x_dom_min-halo;        \
-    const auto y_dom_min = field.offsets()[2];    \
+    const auto y_dom_min = field.offsets()[1];    \
     const auto y_min     = y_dom_min-halo;        \
     const auto x_dom_max = x_dom_min + n;         \
     const auto x_max     = x_dom_max+halo;        \
@@ -97,7 +97,7 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 // helper macro for checks
 #define GHEX_CS_CHECK_VALUE                                                                \
-    const auto memory_location = strides[0]*c + strides[1]*x + strides[2]*y+ strides[3]*z; \
+    const auto memory_location = strides[3]*c + strides[0]*x + strides[1]*y+ strides[2]*z; \
     const value_type value = *reinterpret_cast<const value_type*>(                         \
         reinterpret_cast<const char*>(field.data())+memory_location);
 
@@ -118,7 +118,7 @@ void check_even_0(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect empty
                 for (int x=x_min; x<x_dom_min; ++x) {
@@ -131,8 +131,8 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom right  - expect from neighbor tile -y id 3
@@ -140,8 +140,8 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -151,8 +151,8 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2])-1) +
-                        10*(n+x-field.offsets()[1]);
+                        100*(n-(y-field.offsets()[1])-1) +
+                        10*(n+x-field.offsets()[0]);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -161,8 +161,8 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -172,8 +172,8 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*2 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2]-n)-1) +
-                        10*(n+x-field.offsets()[1]);
+                        100*(n-(y-field.offsets()[1]-n)-1) +
+                        10*(n+x-field.offsets()[0]);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -182,8 +182,8 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]) + 
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top right     - expect from same tile id 3
@@ -191,8 +191,8 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -205,15 +205,15 @@ void check_even_1(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect from neighbor tile -y id 2
                 for (int x=x_min; x<x_dom_min; ++x) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*2 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom middle - expect from neighbor tile -y id 3
@@ -221,8 +221,8 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom right  - expect empty
@@ -238,8 +238,8 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check right         - expect from neighbor tile +x id 0
@@ -247,8 +247,8 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -258,8 +258,8 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]-n);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top middle    - expect from same tile id 3
@@ -267,8 +267,8 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]) + 
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top right     - expect from neighbor tile +x id 2
@@ -276,8 +276,8 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -290,15 +290,15 @@ void check_even_2(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect from neighbor tile -x id 3
                 for (int x=x_min; x<x_dom_min; ++x) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2]+n)-1) +
-                        10*(n+x-field.offsets()[1]);
+                        100*(n-(y-field.offsets()[1]+n)-1) +
+                        10*(n+x-field.offsets()[0]);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -307,8 +307,8 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom right  - expect from same tile id 1
@@ -316,8 +316,8 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -327,8 +327,8 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*2 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2])-1) +
-                        10*(n+x-field.offsets()[1]);
+                        100*(n-(y-field.offsets()[1])-1) +
+                        10*(n+x-field.offsets()[0]);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -337,8 +337,8 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -354,8 +354,8 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*2 + 1000*c + z +
-                        100*(y-field.offsets()[2]-n) +
-                        10*(n-(x-field.offsets()[1])-1);
+                        100*(y-field.offsets()[1]-n) +
+                        10*(n-(x-field.offsets()[0])-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -364,8 +364,8 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
-                        100*(y-field.offsets()[2]-n) +
-                        10*(n-(x-field.offsets()[1]-n)-1);
+                        100*(y-field.offsets()[1]-n) +
+                        10*(n-(x-field.offsets()[0]-n)-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -379,15 +379,15 @@ void check_even_3(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect same tile id 0
                 for (int x=x_min; x<x_dom_min; ++x) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom middle - expect from same tile id 1
@@ -395,8 +395,8 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom right  - expect neighbor tile +x id 0
@@ -404,8 +404,8 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -415,8 +415,8 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check right         - expect from neighbor tile +x id 2
@@ -424,8 +424,8 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -435,8 +435,8 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*2 + 1000*c + z +
-                        100*(y-field.offsets()[2]-n) +
-                        10*(n-(n+x-field.offsets()[1])-1);
+                        100*(y-field.offsets()[1]-n) +
+                        10*(n-(n+x-field.offsets()[0])-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -445,8 +445,8 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
-                        100*(y-field.offsets()[2]-n) +
-                        10*(n-(x-field.offsets()[1])-1);
+                        100*(y-field.offsets()[1]-n) +
+                        10*(n-(x-field.offsets()[0])-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -469,7 +469,7 @@ void check_odd_0(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect empty
                 for (int x=x_min; x<x_dom_min; ++x) {
@@ -482,8 +482,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(n+y-field.offsets()[2]) + 
-                        10*(n-(x-field.offsets()[1])-1);
+                        100*(n+y-field.offsets()[1]) + 
+                        10*(n-(x-field.offsets()[0])-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -492,8 +492,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
-                        100*(n+y-field.offsets()[2]) + 
-                        10*(n-(x-field.offsets()[1]-n)-1);
+                        100*(n+y-field.offsets()[1]) + 
+                        10*(n-(x-field.offsets()[0]-n)-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -504,8 +504,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*1 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check right         - expect from same tile id 1
@@ -513,8 +513,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -524,8 +524,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]-n);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top middle    - expect from same tile id 2
@@ -533,8 +533,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]) + 
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top right     - expect from same tile id 3
@@ -542,8 +542,8 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -556,15 +556,15 @@ void check_odd_1(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect from neighbor tile -y id 3
                 for (int x=x_min; x<x_dom_min; ++x) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(n+y-field.offsets()[2]) + 
-                        10*(n-(x-field.offsets()[1]+n)-1);
+                        100*(n+y-field.offsets()[1]) + 
+                        10*(n-(x-field.offsets()[0]+n)-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -573,8 +573,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
-                        100*(n+y-field.offsets()[2]) + 
-                        10*(n-(x-field.offsets()[1])-1);
+                        100*(n+y-field.offsets()[1]) + 
+                        10*(n-(x-field.offsets()[0])-1);
                     const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -591,8 +591,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check right         - expect from neighbor tile +x id 1
@@ -600,8 +600,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2])-1) + 
-                        10*(x-field.offsets()[1]-n);
+                        100*(n-(y-field.offsets()[1])-1) + 
+                        10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -612,8 +612,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]-n);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top middle    - expect from same tile id 3
@@ -621,8 +621,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]) + 
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top right     - expect from neighbor tile +x id 0
@@ -630,8 +630,8 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2]-n)-1) + 
-                        10*(x-field.offsets()[1]-n);
+                        100*(n-(y-field.offsets()[1]-n)-1) + 
+                        10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -645,15 +645,15 @@ void check_odd_2(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect from neighbor tile -x id 1
                 for (int x=x_min; x<x_dom_min; ++x) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*1 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(n+y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom middle - expect from same tile id 0
@@ -661,8 +661,8 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom right  - expect from same tile id 1
@@ -670,8 +670,8 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -681,8 +681,8 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check right         - expect from same tile id 3
@@ -690,8 +690,8 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) + 
-                        10*(y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]-n) + 
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -707,8 +707,8 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top right     - expect from neighbor tile +y id 1
@@ -716,8 +716,8 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]-n) +
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]-n) +
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
             }
@@ -730,15 +730,15 @@ void check_odd_3(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
     using namespace gridtools::ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
-        for (int z=0; z<field.extents()[3]; ++z) {
+        for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
                 // check bottom left   - expect same tile id 0
                 for (int x=x_min; x<x_dom_min; ++x) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom middle - expect from same tile id 1
@@ -746,8 +746,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]) + 
-                        10*(n+y-field.offsets()[2]);
+                        100*(x-field.offsets()[0]) + 
+                        10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check bottom right  - expect neighbor tile +x id 1
@@ -755,8 +755,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2]+n)-1) + 
-                        10*(x-field.offsets()[1]-n);
+                        100*(n-(y-field.offsets()[1]+n)-1) + 
+                        10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -767,8 +767,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
                 // check right         - expect from neighbor tile +x id 0
@@ -776,8 +776,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(n-(y-field.offsets()[2])-1) + 
-                        10*(x-field.offsets()[1]-n);
+                        100*(n-(y-field.offsets()[1])-1) + 
+                        10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
@@ -788,8 +788,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
-                        100*(n+x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]-n);
+                        100*(n+x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top middle    - expect from neighbor tile +y id 1
@@ -797,8 +797,8 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[1]) +
-                        10*(y-field.offsets()[2]-n);
+                        100*(x-field.offsets()[0]) +
+                        10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
                 // check top right     - expect empty

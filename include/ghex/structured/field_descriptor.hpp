@@ -87,12 +87,13 @@ protected: // members
     strides_type           m_byte_strides;    ///< memory strides in bytes
 
 public: // ctors
-    template<typename Array>
+    template<typename DomainArray, typename FieldArray>
     field_descriptor(
         const domain_descriptor_type& dom_,
+        const DomainArray& dom_first_,
         value_type* data_,
-        const Array& offsets_,
-        const Array& extents_,
+        const FieldArray& offsets_,
+        const FieldArray& extents_,
         unsigned int num_components_ = 1u,
         bool is_vector_field_ = false,
         device_id_type d_id_ = 0)
@@ -108,7 +109,7 @@ public: // ctors
         if (!has_components::value && m_num_components > 1u)
             throw std::runtime_error("this field cannot have more than 1 components");
         // global coordinate of the first physical node
-        std::copy(m_dom.first().begin(), m_dom.first().end(), m_dom_first.begin());
+        std::copy(dom_first_.begin(), dom_first_.end(), m_dom_first.begin());
         if (has_components::value) m_dom_first[dimension::value-1] = 0;
         // offsets from beginning of data to the first physical (local) node
         std::copy(offsets_.begin(), offsets_.end(), m_offsets.begin());
@@ -122,7 +123,7 @@ public: // ctors
         }
         // check last dimension: discriminate based on whether this field has components
         if (has_components::value) {
-            if (m_extents[dimension::value-1] < (m_num_components + m_offsets[dimension::value-1]))
+            if (m_extents[dimension::value-1] < ((int)m_num_components + m_offsets[dimension::value-1]))
                 throw std::runtime_error("extents too small");
         }
         else {
