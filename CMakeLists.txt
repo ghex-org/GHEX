@@ -4,7 +4,7 @@ project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 14)
-    set(CMAKE_CUDA_EXTENSIONS OFF)    
+    set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
 
 cmake_policy(SET CMP0048 NEW)
@@ -29,8 +29,24 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
-find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
-list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
+
+# GridTools uses BUILD_TESTING, cache it and reset after (not required with GT 2.0)
+set(build_testing ${BUILD_TESTING})
+set(install_tools ${INSTALL_TOOLS})
+set(BUILD_TESTING OFF)
+set(INSTALL_TOOLS OFF)
+set(GT_INSTALL_EXAMPLES OFF)
+include(FetchContent)
+FetchContent_Declare(GridTools
+    URL https://github.com/GridTools/gridtools/archive/v1.1.3.tar.gz
+)
+FetchContent_GetProperties(GridTools)
+if(NOT GridTools_POPULATED)
+    FetchContent_Populate(GridTools)
+    add_subdirectory(${gridtools_SOURCE_DIR} ${gridtools_BINARY_DIR})
+endif()
+set(BUILD_TESTING ${build_testing})
+set(INSTALL_TOOLS ${install_tools})
 
 set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
 if (GHEX_USE_UCP)
@@ -78,7 +94,11 @@ if (GHEX_ENABLE_ATLAS_BINDINGS)
 endif()
 target_compile_features(ghexlib INTERFACE cxx_std_14)
 
+# Enable adding of tests etc
 enable_testing()
+
+# Enable CDash dashboard testing integration
+include(CTest)
 
 if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     include(FetchContent)
@@ -98,7 +118,7 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     if (GHEX_BUILD_TESTS)
         add_library(gtest_main_mt ./utils/gtest_main.cpp)
         target_link_libraries(gtest_main_mt GTest::gtest ghexlib)
-    
+
         if (GHEX_USE_UCP)
             add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp)
             target_link_libraries(gtest_main_ucx GTest::gtest ghexlib)
@@ -106,11 +126,11 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
 
         add_subdirectory(tests)
     endif()
-  
+
     if (GHEX_BUILD_BENCHMARKS)
         add_library(gtest_main_bench ./utils/gtest_main_bench.cpp)
         target_link_libraries(gtest_main_bench GTest::gtest ghexlib)
- 
+
         add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp)
         target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
         target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
