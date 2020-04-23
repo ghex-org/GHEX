@@ -741,14 +741,27 @@ TEST(communication_object_2, exchange)
 #ifdef GHEX_TEST_SERIAL
     // blocking variant
     auto co = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
-    co.bexchange(
+    using bi1_t = typename std::remove_reference<decltype(pattern1(field_1a))>::type;
+    using bi2_t = typename std::remove_reference<decltype(pattern1(field_2a))>::type;
+    using bi3_t = typename std::remove_reference<decltype(pattern1(field_3a))>::type;
+    std::vector<bi1_t> xx1;
+        xx1.push_back(pattern1(field_1a));
+        xx1.push_back(pattern1(field_1b));
+    std::vector<bi2_t> xx2;
+        xx2.push_back(pattern2(field_2a));
+        xx2.push_back(pattern2(field_2b));
+    std::vector<bi3_t> xx3;
+        xx3.push_back(pattern1(field_3a));
+        xx3.push_back(pattern1(field_3b));
+    co.exchange(xx1.begin(), xx1.end(), xx2.begin(), xx2.end(), xx3.begin(),xx3.end()).wait();
+    /*co.bexchange(
         pattern1(field_1a),
         pattern1(field_1b),
         pattern2(field_2a),
         pattern2(field_2b),
         pattern1(field_3a),
         pattern1(field_3b)
-    );
+    );*/
 #endif
 #ifdef GHEX_TEST_SERIAL_VECTOR
     auto co = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));

@@ -344,7 +344,7 @@ namespace gridtools {
                     }
                 });
                 detail::for_each(iter_pairs_t, [this,&pat_ptr_map](auto iter_pair) {
-                    using buffer_info_t = typename std::remove_reference_t<decltype(iter_pair.first)>::type;
+                    using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
                     using arch_t = typename buffer_info_t::arch_type;
                     using value_t = typename buffer_info_t::value_type;
                     auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
