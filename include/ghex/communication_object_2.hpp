@@ -314,7 +314,15 @@ namespace gridtools {
                 return exchange(first, length);
             }
 
-        private:
+            template<typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange(Iterators... iters)
+            {
+                static_assert(sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
+                return exchange(std::make_index_sequence<sizeof...(iters)/2>(), iters...); 
+            }
+
+        private: // implementation
             template<typename Tuple, typename... Iterators>
             [[nodiscard]]
             handle_type exchange(std::pair<Iterators,Iterators>... iter_pairs)
@@ -372,16 +380,6 @@ namespace gridtools {
                 return exchange<test_t_n>(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
             }
 
-        public:
-            template<typename... Iterators>
-            [[nodiscard]]
-            handle_type exchange(Iterators... iters)
-            {
-                static_assert(sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
-                return exchange(std::make_index_sequence<sizeof...(iters)/2>(), iters...); 
-            }
-
-        private: // implementation
 
             template<typename Arch, typename Field>
             [[nodiscard]] handle_type exchange_impl(buffer_info_type<Arch,Field>* first, std::size_t length)
