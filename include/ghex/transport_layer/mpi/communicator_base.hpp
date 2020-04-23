@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -11,9 +11,8 @@
 #ifndef INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP
 #define INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP
 
+#include "./error.hpp"
 #include <memory>
-#include "./request.hpp"
-#include "./status.hpp"
 
 namespace gridtools{
     namespace ghex {
@@ -63,7 +62,13 @@ namespace gridtools{
                     /** @return size of communicator group*/
                     inline size_type size() const noexcept { return m_size; }
 
-                    void barrier() const { MPI_Barrier(*m_comm); }
+                    static void initialize() {}
+		      static void finalize() {}
+
+                    void barrier()
+                    {
+                        MPI_Barrier(*m_comm);
+                    }
 
                     operator       MPI_Comm&()       noexcept { return *m_comm; }
                     operator const MPI_Comm&() const noexcept { return *m_comm; }
@@ -77,4 +82,3 @@ namespace gridtools{
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_MPI_COMMUNICATOR_BASE_HPP */
-

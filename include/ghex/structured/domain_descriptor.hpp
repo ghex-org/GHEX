@@ -1,7 +1,7 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -16,6 +16,7 @@
 #include <array>
 #include <vector>
 #include <algorithm>
+#include <iterator>
 
 #include "../common/utils.hpp"
 #include "./grid.hpp"
@@ -50,8 +51,8 @@ namespace gridtools {
         domain_descriptor(domain_id_type id, const Array& first, const Array& last)
         : m_id{id}
         {
-            std::copy(first.begin(), first.end(), m_first.begin());
-            std::copy(last.begin(), last.end(), m_last.begin());
+            std::copy(std::begin(first), std::end(first), m_first.begin());
+            std::copy(std::begin(last), std::end(last), m_last.begin());
         }
 
     public: // member functions
@@ -109,8 +110,8 @@ namespace gridtools {
         template<typename Array, typename RangeHalos, typename RangePeriodic>
         halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic)
         {
-            std::copy(g_first.begin(), g_first.end(), m_first.begin());
-            std::copy(g_last.begin(), g_last.end(), m_last.begin());
+            std::copy(std::begin(g_first), std::end(g_first), m_first.begin());
+            std::copy(std::begin(g_last), std::end(g_last), m_last.begin());
             m_halos.fill(0);
             m_periodic.fill(true);
             std::copy(halos.begin(), halos.end(), m_halos.begin());

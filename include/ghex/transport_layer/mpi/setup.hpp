@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -12,8 +12,10 @@
 #define INCLUDED_GHEX_TL_MPI_SETUP_HPP
 
 #include "./communicator_base.hpp"
+#include "./status.hpp"
 #include "./future.hpp"
 #include <vector>
+#include <cassert>
 
 namespace gridtools{
     namespace ghex {
@@ -26,10 +28,11 @@ namespace gridtools{
             {
             public:
                 using base_type    = communicator_base;
-                using handle_type  = request;
+                using handle_type  = request_t;
                 using address_type = base_type::rank_type;
+                using status       = status_t;
                 template<typename T>
-                using future = future<T>;
+                using future = future_t<T>;
 
             public:
                 setup_communicator(const MPI_Comm& comm) : base_type{comm} {}
@@ -135,8 +138,41 @@ namespace gridtools{
                         *this,
                         &h.get()));
                     return {std::move(res), std::move(h)};
-                } 
-
+                }
+                
+                /** @brief just a helper function using custom types to be used when send/recv counts can be deduced*/
+                template<typename T>
+                void all_to_all(const std::vector<T>& send_buf, std::vector<T>& recv_buf) const
+                {
+                    int comm_size = this->size();
+                    assert(send_buf.size() % comm_size == 0);
+                    assert(recv_buf.size() % comm_size == 0);
+                    int send_count = send_buf.size() / comm_size * sizeof(T);
+                    int recv_count = recv_buf.size() / comm_size * sizeof(T);
+                    GHEX_CHECK_MPI_RESULT(
+                            MPI_Alltoall
+                            (reinterpret_cast<const void*>(send_buf.data()), send_count, MPI_BYTE,
+                             reinterpret_cast<void*>(recv_buf.data()), recv_count, MPI_BYTE, *this));
+                }
+                
+                /** @brief just a wrapper using custom types*/
+                template<typename T>
+                void all_to_allv(const std::vector<T>& send_buf, const std::vector<int>& send_counts, const std::vector<int>& send_displs,
+                        std::vector<T>& recv_buf, const std::vector<int>& recv_counts, const std::vector<int>& recv_displs) const
+                {
+                    int comm_size = this->size();
+                    std::vector<int> send_counts_b(comm_size), send_displs_b(comm_size), recv_counts_b(comm_size), recv_displs_b(comm_size);
+                    for (auto i=0; i<comm_size; ++i) send_counts_b[i] = send_counts[i] * sizeof(T);
+                    for (auto i=0; i<comm_size; ++i) send_displs_b[i] = send_displs[i] * sizeof(T);
+                    for (auto i=0; i<comm_size; ++i) recv_counts_b[i] = recv_counts[i] * sizeof(T);
+                    for (auto i=0; i<comm_size; ++i) recv_displs_b[i] = recv_displs[i] * sizeof(T);
+                    GHEX_CHECK_MPI_RESULT(
+                            MPI_Alltoallv
+                            (reinterpret_cast<const void*>(send_buf.data()), &send_counts_b[0], &send_displs_b[0], MPI_BYTE,
+                             reinterpret_cast<void*>(recv_buf.data()), &recv_counts_b[0], &recv_displs_b[0], MPI_BYTE,
+                             *this));
+                }
+            
             };
 
             } // namespace mpi

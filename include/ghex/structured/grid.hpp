@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -26,6 +26,15 @@ namespace gridtools {
             using coordinate_type         = coordinate<coordinate_base_type>;
             using coordinate_element_type = typename coordinate_type::element_type;
             using dimension               = typename coordinate_type::dimension;    
+        };
+
+        template<typename A>
+        struct grid<coordinate<A>>
+        {
+            using coordinate_base_type    = A;
+            using coordinate_type         = coordinate<A>;
+            using coordinate_element_type = typename coordinate_type::element_type;
+            using dimension               = typename coordinate_type::dimension;
         };
 
     } // namespace detail

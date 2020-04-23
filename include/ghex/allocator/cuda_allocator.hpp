@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -42,10 +42,11 @@ namespace gridtools {
                         return ptr;
                     }
 
+                    // WARN: temporarily leaking memory due to MPICH bug
                     void deallocate(T* ptr, size_type n)
                     {
                         // not freeing because of CRAY-BUG
-                        GHEX_CHECK_CUDA_RESULT(cudaFree(ptr));
+                        // GHEX_CHECK_CUDA_RESULT(cudaFree(ptr));
                     }
 
                     void swap(const allocator&) {}

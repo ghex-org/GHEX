@@ -1,13 +1,13 @@
-﻿/*
+﻿/* 
  * GridTools
- *
- * Copyright (c) 2019, ETH Zurich
+ * 
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- *
+ * 
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
+ * 
  */
-
 #include <gtest/gtest.h>
 #include <vector>
 #include <array>
@@ -20,9 +20,13 @@
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/domain_descriptor.hpp>
-#include <ghex/transport_layer/communicator.hpp>
-#include <ghex/transport_layer/mpi/communicator.hpp>
+#include <ghex/transport_layer/mpi/context.hpp>
+#include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"
+
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
+using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 
 /* CPU data descriptor */
@@ -97,8 +101,8 @@ TEST(communication_object, constructor) {
     using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured::halo_generator<domain_id_t, 3>;
 
-    gridtools::ghex::tl::mpi::communicator_base world;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
     const int d1 = 2;
@@ -121,22 +125,23 @@ TEST(communication_object, constructor) {
     std::vector<domain_descriptor_t> local_domains;
 
     domain_descriptor_t my_domain_1{
-        comm.rank(),
-        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
-        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank(),
+        coordinate_t{(context.world().rank() % d1    ) * DIM1    , (context.world().rank() / d1)     * DIM2    , 0},
+        coordinate_t{(context.world().rank() % d1 + 1) * DIM1 - 1, (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains);
 
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
         EXPECT_NO_THROW(
-        cos.push_back(communication_object_t{p});
+        cos.push_back(communication_object_t{p,comm});
         );
     }
 
@@ -150,8 +155,8 @@ TEST(communication_object, exchange) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::tl::mpi::communicator_base world;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
     const int d1 = 2;
@@ -170,26 +175,27 @@ TEST(communication_object, exchange) {
     const std::array<int, 3> g_last{d1*DIM1-1, d2*DIM2-1, d3*DIM3-1};
     const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
-    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+    int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
     std::vector<domain_descriptor_t> local_domains;
 
     domain_descriptor_t my_domain_1{
-        comm.rank(),
-        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
-        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank(),
+        coordinate_t{(context.world().rank() % d1    ) * DIM1    , (context.world().rank() / d1)     * DIM2    , 0},
+        coordinate_t{(context.world().rank() % d1 + 1) * DIM1 - 1, (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains);
 
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p});
+        cos.push_back(communication_object_t{p,comm});
     }
 
     triple_t<USE_DOUBLE, double>* _values_1 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
@@ -255,8 +261,8 @@ TEST(communication_object, exchange_asymmetric_halos) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::tl::mpi::communicator_base world;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
     const int d1 = 2;
@@ -275,26 +281,27 @@ TEST(communication_object, exchange_asymmetric_halos) {
     const std::array<int, 3> g_last{d1*DIM1-1, d2*DIM2-1, d3*DIM3-1};
     const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
-    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+    int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
     std::vector<domain_descriptor_t> local_domains;
 
     domain_descriptor_t my_domain_1{
-        comm.rank(),
-        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
-        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank(),
+        coordinate_t{(context.world().rank() % d1    ) * DIM1    , (context.world().rank() / d1)     * DIM2    , 0},
+        coordinate_t{(context.world().rank() % d1 + 1) * DIM1 - 1, (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains);
 
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p});
+        cos.push_back(communication_object_t{p,comm});
     }
 
     triple_t<USE_DOUBLE, double>* _values_1 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
@@ -360,8 +367,8 @@ TEST(communication_object, exchange_multiple_fields) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::tl::mpi::communicator_base world;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
     const int d1 = 2;
@@ -381,26 +388,27 @@ TEST(communication_object, exchange_multiple_fields) {
     const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
     const int add = 1;
-    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+    int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
     std::vector<domain_descriptor_t> local_domains;
 
     domain_descriptor_t my_domain_1{
-        comm.rank(),
-        coordinate_t{(comm.rank() % d1    ) * DIM1    , (comm.rank() / d1)     * DIM2    , 0},
-        coordinate_t{(comm.rank() % d1 + 1) * DIM1 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank(),
+        coordinate_t{(context.world().rank() % d1    ) * DIM1    , (context.world().rank() / d1)     * DIM2    , 0},
+        coordinate_t{(context.world().rank() % d1 + 1) * DIM1 - 1, (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains);
 
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
+    auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p});
+        cos.push_back(communication_object_t{p,comm});
     }
 
     triple_t<USE_DOUBLE, int>* _values_1 = new triple_t<USE_DOUBLE, int>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
@@ -496,8 +504,8 @@ TEST(communication_object, multithreading) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::tl::mpi::communicator_base world;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(2, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
     const int d1 = 2;
@@ -516,33 +524,35 @@ TEST(communication_object, multithreading) {
     const std::array<int, 3> g_last{d1 * DIM1 * 2 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
     const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
-    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+    int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
     std::vector<domain_descriptor_t> local_domains;
 
     domain_descriptor_t my_domain_1{
-        comm.rank() * 2,
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2               , (comm.rank() / d1    ) * DIM2    , 0     },
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2 + DIM1 - 1    , (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank() * 2,
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2               , (context.world().rank() / d1    ) * DIM2    , 0     },
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2 + DIM1 - 1    , (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
     domain_descriptor_t my_domain_2{
-        comm.rank() * 2 + 1,
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2 + DIM1        , (comm.rank() / d1    ) * DIM2    , 0     },
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2 + DIM1 * 2 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank() * 2 + 1,
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2 + DIM1        , (context.world().rank() / d1    ) * DIM2    , 0     },
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2 + DIM1 * 2 - 1, (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_2);
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains);
 
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
+    //auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p});
+        //cos.push_back(communication_object_t{p,comm});
+        cos.push_back(communication_object_t{p,context.get_communicator(context.get_token())});
     }
 
     triple_t<USE_DOUBLE, double>* _values_1 = new triple_t<USE_DOUBLE, double>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];
@@ -652,8 +662,8 @@ TEST(communication_object, multithreading_multiple_fileds) {
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
     using layout_map_type = gridtools::layout_map<2, 1, 0>;
 
-    gridtools::ghex::tl::mpi::communicator_base world;
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{world};
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(2, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
 
     /* Problem sizes */
     const int d1 = 2;
@@ -672,33 +682,35 @@ TEST(communication_object, multithreading_multiple_fileds) {
     const std::array<int, 3> g_last{d1 * DIM1 * 2 - 1, d2 * DIM2 - 1, d3 * DIM3 - 1};
     const std::array<int, 6> halos{H1m, H1p, H2m, H2p, H3m, H3p};
     const std::array<bool, 3> periodic{true, true, true};
-    int coords[3]{comm.rank() % d1, comm.rank() / d1, 0}; // rank in cartesian coordinates
+    int coords[3]{context.world().rank() % d1, context.world().rank() / d1, 0}; // rank in cartesian coordinates
 
     std::vector<domain_descriptor_t> local_domains;
 
     domain_descriptor_t my_domain_1{
-        comm.rank() * 2,
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2               , (comm.rank() / d1    ) * DIM2    , 0     },
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2 + DIM1 - 1    , (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank() * 2,
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2               , (context.world().rank() / d1    ) * DIM2    , 0     },
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2 + DIM1 - 1    , (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_1);
 
     domain_descriptor_t my_domain_2{
-        comm.rank() * 2 + 1,
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2 + DIM1        , (comm.rank() / d1    ) * DIM2    , 0     },
-        coordinate_t{(comm.rank() % d1) * DIM1 * 2 + DIM1 * 2 - 1, (comm.rank() / d1 + 1) * DIM2 - 1, DIM3-1}
+        context.world().rank() * 2 + 1,
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2 + DIM1        , (context.world().rank() / d1    ) * DIM2    , 0     },
+        coordinate_t{(context.world().rank() % d1) * DIM1 * 2 + DIM1 * 2 - 1, (context.world().rank() / d1 + 1) * DIM2 - 1, DIM3-1}
     };
     local_domains.push_back(my_domain_2);
 
     auto halo_gen = halo_generator_t{g_first, g_last, halos, periodic};
 
-    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(world, halo_gen, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains);
 
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
 
+    //auto comm = context.get_communicator(context.get_token());
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p});
+        //cos.push_back(communication_object_t{p,comm});
+        cos.push_back(communication_object_t{p,context.get_communicator(context.get_token())});
     }
 
     triple_t<USE_DOUBLE, int>* _values_1_1 = new triple_t<USE_DOUBLE, int>[(DIM1 + H1m + H1p) * (DIM2 + H2m + H2p) * (DIM3 + H3m + H3p)];

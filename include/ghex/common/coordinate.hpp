@@ -1,7 +1,7 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -28,6 +28,7 @@ namespace gridtools {
             using const_iterator = typename array_type::const_iterator;
             using dimension      = std::tuple_size<array_type>;
             using element_type   = typename array_type::value_type;
+            using value_type     = element_type;
 
         public: // static members
             static constexpr int size() noexcept { return dimension::value; }

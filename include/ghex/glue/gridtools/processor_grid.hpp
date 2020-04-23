@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -15,7 +15,6 @@
 #include <array>
 
 #include "../../structured/domain_descriptor.hpp"
-#include "../../transport_layer/communicator.hpp"
 #include "../../transport_layer/mpi/communicator.hpp"
 
 #include <numeric>
@@ -24,28 +23,29 @@ namespace gridtools {
 
     namespace ghex {
 
-        template<typename Transport>
+        template<typename Context>
         struct gt_grid
         {
             using domain_descriptor_type = structured::domain_descriptor<int,3>;
             using domain_id_type         = typename domain_descriptor_type::domain_id_type;
-            MPI_Comm m_setup_comm;
-            tl::communicator<Transport> m_comm;
+            Context& m_context;
+            //MPI_Comm m_setup_comm;
+            //tl::communicator<Transport> m_comm;
             std::vector<domain_descriptor_type> m_domains;
             std::array<int, 3> m_global_extents;
             std::array<bool, 3> m_periodic;
         };
         
-        template<typename Layout = ::gridtools::layout_map<0,1,2>, typename Array0, typename Array1>
-        gt_grid<tl::mpi_tag>
-        make_gt_processor_grid(const Array0& local_extents, const Array1& periodicity, MPI_Comm cart_comm)
+        template<typename Layout = ::gridtools::layout_map<0,1,2>, typename Context, typename Array0, typename Array1>
+        gt_grid<Context>
+        make_gt_processor_grid(Context& context, const Array0& local_extents, const Array1& periodicity)
         {
             int dims[3];
             int periods[3];
             int coords[3];
-            MPI_Cart_get(cart_comm, 3, dims, periods, coords);
+            MPI_Cart_get(context.mpi_comm(), 3, dims, periods, coords);
             int rank;
-            MPI_Cart_rank(cart_comm, coords, &rank);
+            MPI_Cart_rank(context.mpi_comm(), coords, &rank);
 
             std::array<bool, 3> periodic;
             std::copy(periodicity.begin(), periodicity.end(), periodic.begin());
@@ -56,18 +56,18 @@ namespace gridtools {
             {
                 int coords_i[3] = {i,0,0};
                 int rank_i;
-                MPI_Cart_rank(cart_comm, coords_i, &rank_i);
+                MPI_Cart_rank(context.mpi_comm(), coords_i, &rank_i);
                 if (coords[0]==i && coords[1]==0 && coords[2]==0)
                 {
                     // broadcast
                     int lext = local_extents[0];
                     extents_x[i] = lext;
-                    MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, cart_comm);
+                    MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.mpi_comm());
                 }
                 else
                 {
                     // recv
-                    MPI_Bcast(&extents_x[i], sizeof(int), MPI_BYTE, rank_i, cart_comm);
+                    MPI_Bcast(&extents_x[i], sizeof(int), MPI_BYTE, rank_i, context.mpi_comm());
                 }
             }
             std::partial_sum(extents_x.begin(), extents_x.end(), extents_x.begin());
@@ -77,18 +77,18 @@ namespace gridtools {
             {
                 int coords_i[3] = {0,i,0};
                 int rank_i;
-                MPI_Cart_rank(cart_comm, coords_i, &rank_i);
+                MPI_Cart_rank(context.mpi_comm(), coords_i, &rank_i);
                 if (coords[1]==i && coords[0]==0 && coords[2]==0)
                 {
                     // broadcast
                     int lext = local_extents[1];
                     extents_y[i] = lext;
-                    MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, cart_comm);
+                    MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.mpi_comm());
                 }
                 else
                 {
                     // recv
-                    MPI_Bcast(&extents_y[i], sizeof(int), MPI_BYTE, rank_i, cart_comm);
+                    MPI_Bcast(&extents_y[i], sizeof(int), MPI_BYTE, rank_i, context.mpi_comm());
                 }
             }
             std::partial_sum(extents_y.begin(), extents_y.end(), extents_y.begin());
@@ -98,18 +98,18 @@ namespace gridtools {
             {
                 int coords_i[3] = {0,0,i};
                 int rank_i;
-                MPI_Cart_rank(cart_comm, coords_i, &rank_i);
+                MPI_Cart_rank(context.mpi_comm(), coords_i, &rank_i);
                 if (coords[2]==i && coords[0]==0 && coords[1]==0)
                 {
                     // broadcast
                     int lext = local_extents[2];
                     extents_z[i] = lext;
-                    MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, cart_comm);
+                    MPI_Bcast(&lext, sizeof(int), MPI_BYTE, rank_i, context.mpi_comm());
                 }
                 else
                 {
                     // recv
-                    MPI_Bcast(&extents_z[i], sizeof(int), MPI_BYTE, rank_i, cart_comm);
+                    MPI_Bcast(&extents_z[i], sizeof(int), MPI_BYTE, rank_i, context.mpi_comm());
                 }
             }
             std::partial_sum(extents_z.begin(), extents_z.end(), extents_z.begin());
@@ -143,7 +143,8 @@ namespace gridtools {
 
             structured::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
 
-            return {cart_comm, tl::communicator<tl::mpi_tag>{cart_comm}, {local_domain}, global_extents, periodic}; 
+            //return {cart_comm, tl::communicator<tl::mpi_tag>{cart_comm}, {local_domain}, global_extents, periodic}; 
+            return {context, {local_domain}, global_extents, periodic}; 
 
         }
 

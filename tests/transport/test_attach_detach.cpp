@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -10,14 +10,18 @@
  */
 
 #include <ghex/transport_layer/callback_communicator.hpp>
-#include <ghex/transport_layer/mpi/communicator.hpp>
+#include <ghex/transport_layer/mpi/context.hpp>
+#include <ghex/threads/atomic/primitives.hpp>
 #include <iostream>
 #include <iomanip>
 #include <gtest/gtest.h>
 
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::atomic::primitives;
+using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 using allocator_type     = std::allocator<unsigned char>;
-using comm_type          = gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag>;
+using comm_type          = context_type::communicator_type;
 using callback_comm_type = gridtools::ghex::tl::callback_communicator<comm_type,allocator_type>;
 //using callback_comm_type = gridtools::ghex::tl::callback_communicator_ts<comm_type,allocator_type>;
 using message_type       = typename callback_comm_type::message_type;
@@ -27,7 +31,10 @@ const unsigned int SIZE = 1<<12;
 TEST(attach, attach_progress)
 {
     bool ok = true;
-    comm_type     comm;
+    
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
@@ -66,7 +73,9 @@ TEST(attach, attach_progress)
 TEST(detach, detach_wait)
 {
     bool ok = true;
-    comm_type     comm;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
@@ -111,7 +120,9 @@ TEST(detach, detach_wait)
 TEST(detach, detach_cancel_unexpected) 
 {
     bool ok = true;
-    comm_type     comm;
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    auto comm = context.get_communicator(context.get_token());
     callback_comm_type cb_comm(comm);
 
     message_type send_msg{SIZE};

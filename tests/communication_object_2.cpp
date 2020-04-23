@@ -1,34 +1,30 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-//#define STANDALONE
-
-//#define SERIAL_SPLIT
-//#define MULTI_THREADED_EXCHANGE
-//#define MULTI_THREADED_EXCHANGE_THREADS
-//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC
-//#define MULTI_THREADED_EXCHANGE_ASYNC_DEFERRED
-//#define MULTI_THREADED_EXCHANGE_ASYNC_ASYNC_WAIT
 
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object_2.hpp>
-#include <ghex/transport_layer/mpi/communicator.hpp>
+#ifndef GHEX_TEST_USE_UCX
+#include <ghex/transport_layer/mpi/context.hpp>
+#else
+#include <ghex/transport_layer/ucx/context.hpp>
+#endif
+#include <ghex/threads/atomic/primitives.hpp>
+#include <ghex/threads/std_thread/primitives.hpp>
 #include <array>
 #include <iomanip>
 
 #include <thread>
 #include <future>
 
-#ifndef STANDALONE
 #include <gtest/gtest.h>
-#endif
 
 #include <gridtools/common/array.hpp>
 #ifdef __CUDACC__
@@ -43,6 +39,17 @@ __global__ void print_kernel() {
     printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
 }
 #endif
+
+#ifndef GHEX_TEST_USE_UCX
+using transport = gridtools::ghex::tl::mpi_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+//using threading = gridtools::ghex::threads::atomic::primitives;
+#else
+using transport = gridtools::ghex::tl::ucx_tag;
+using threading = gridtools::ghex::threads::std_thread::primitives;
+//using threading = gridtools::ghex::threads::atomic::primitives;
+#endif
+using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 template<typename T, std::size_t N>
 using array_type = gridtools::array<T,N>;
@@ -91,21 +98,24 @@ void fill_values(const Domain& d, Field& f)
 
 template<typename T, typename Domain, typename Halos, typename Periodic, typename Global, typename Field, typename Communicator>
 bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, const Global& g_first, const Global& g_last,
-        const Field& f, Communicator& comm)
+        const Field& f, Communicator comm)
 {
     bool passed = true;
     const int i = d.domain_id()%2;
+    int rank, size;
+    MPI_Comm_rank(comm,&rank);
+    MPI_Comm_size(comm,&size);
 
     int xl = -halos[0];
     int hxl = halos[0];
     int hxr = halos[1];
     // hack begin: make it work with 1 rank (works with even number of ranks otherwise)
-    if (i==0 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
+    if (i==0 && size==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
     {
         xl = 0;
         hxl = 0;
     }
-    if (i==1 && comm.size()==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
+    if (i==1 && size==1)//comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
     {
         hxr = 0;
     }
@@ -118,8 +128,8 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
         int yl = -halos[2];
         for (int y=d.first()[1]-halos[2]; y<=d.last()[1]+halos[3]; ++y, ++yl)
         {
-            if (d.domain_id()<2 &&             y<d.first()[1] && !periodic[1]) continue;
-            if (d.domain_id()>comm.size()-3 && y>d.last()[1]  && !periodic[1]) continue;
+            if (d.domain_id()<2 &&      y<d.first()[1] && !periodic[1]) continue;
+            if (d.domain_id()>size-3 && y>d.last()[1]  && !periodic[1]) continue;
             T y_wrapped = (((y-g_first[1])+(g_last[1]-g_first[1]+1))%(g_last[1]-g_first[1]+1) + g_first[1]);
             int zl = -halos[4];
             for (int z=d.first()[2]-halos[4]; z<=d.last()[2]+halos[5]; ++z, ++zl)
@@ -136,7 +146,7 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
                     << "(" << xl << ", " << yl << ", " << zl << ") values found != expected: "
                     << "(" << value[0] << ", " << value[1] << ", " << value[2] << ") != "
                     << "(" << x_wrapped << ", " << y_wrapped << ", " << z_wrapped << ") " //<< std::endl;
-                    << i << "  " << comm.rank() << std::endl;
+                    << i << "  " << rank << std::endl;
                 }
             }
         }
@@ -145,25 +155,27 @@ bool test_values(const Domain& d, const Halos& halos, const Periodic& periodic, 
 }
 
 
-#ifndef STANDALONE
 TEST(communication_object_2, exchange)
-#else
-bool test0()
-#endif
 {
-    //gridtools::ghex::mpi::mpi_comm mpi_comm;
-    gridtools::ghex::tl::mpi::communicator_base mpi_comm;
+
+#if defined(GHEX_TEST_SERIAL) || defined(GHEX_TEST_SERIAL_VECTOR) || defined(GHEX_TEST_SERIAL_SPLIT) || \
+    defined(GHEX_TEST_SERIAL_SPLIT_VECTOR)
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+#else
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(2, MPI_COMM_WORLD);
+#endif
+    auto& context = *context_ptr;
 
 #ifdef __CUDACC__
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
-    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
+    MPI_Comm_split_type(context.mpi_comm(), MPI_COMM_TYPE_SHARED, context.rank(), MPI_INFO_NULL, &raw_local_comm);
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
-        << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+        std::cout << "I am rank " << context.rank() << " and I own GPU "
+        << (context.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
         GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
         print_kernel<<<1, 1>>>();
         cudaDeviceSynchronize();
@@ -172,18 +184,15 @@ bool test0()
 #ifdef GHEX_EMULATE_GPU
     int num_devices_per_node = 1;
     MPI_Comm raw_local_comm;
-    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, mpi_comm.rank(), MPI_INFO_NULL, &raw_local_comm);
+    MPI_Comm_split_type(context.mpi_comm(), MPI_COMM_TYPE_SHARED, context.rank(), MPI_INFO_NULL, &raw_local_comm);
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << mpi_comm.rank() << " and I own emulated GPU " 
-        << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
+        std::cout << "I am rank " << context.rank() << " and I own emulated GPU "
+        << (context.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
     }
 #endif
 #endif
-
-    // need communicator to decompose domain
-    gridtools::ghex::tl::communicator<gridtools::ghex::tl::mpi_tag> comm{mpi_comm};
 
     // local portion per domain
     const std::array<int,3> local_ext{10,15,20};
@@ -213,7 +222,7 @@ bool test0()
 
     // compute total domain
     const std::array<int,3> g_first{               0,                                    0,              0};
-    const std::array<int,3> g_last {local_ext[0]*4-1, ((comm.size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1};
+    const std::array<int,3> g_last {local_ext[0]*4-1, ((context.size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1};
     // maximum halo
     const std::array<int,3> offset{3,3,3};
     // local size including potential halos
@@ -249,13 +258,13 @@ bool test0()
     // add local domains
     std::vector<domain_descriptor_type> local_domains;
     local_domains.push_back( domain_descriptor_type{
-        comm.rank()*2,
-        std::array<int,3>{ ((comm.rank()%2)*2  )*local_ext[0],   (comm.rank()/2  )*local_ext[1],                0},
-        std::array<int,3>{ ((comm.rank()%2)*2+1)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
+        context.rank()*2,
+        std::array<int,3>{ ((context.rank()%2)*2  )*local_ext[0],   (context.rank()/2  )*local_ext[1],                0},
+        std::array<int,3>{ ((context.rank()%2)*2+1)*local_ext[0]-1, (context.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
     local_domains.push_back( domain_descriptor_type{
-        comm.rank()*2+1,
-        std::array<int,3>{ ((comm.rank()%2)*2+1)*local_ext[0],   (comm.rank()/2  )*local_ext[1],             0},
-        std::array<int,3>{ ((comm.rank()%2)*2+2)*local_ext[0]-1, (comm.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
+        context.rank()*2+1,
+        std::array<int,3>{ ((context.rank()%2)*2+1)*local_ext[0],   (context.rank()/2  )*local_ext[1],             0},
+        std::array<int,3>{ ((context.rank()%2)*2+2)*local_ext[0]-1, (context.rank()/2+1)*local_ext[1]-1, local_ext[2]-1}});
 
     // halo generators
     std::array<int,6> halos1{0,0,1,0,1,2};
@@ -264,13 +273,10 @@ bool test0()
     auto halo_gen2 = domain_descriptor_type::halo_generator_type(g_first, g_last, halos2, periodic);
 
     // make patterns
-    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(comm, halo_gen1, local_domains);
-    auto pattern2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(comm, halo_gen2, local_domains);
-
-    // communication object
-    auto co   = gridtools::ghex::make_communication_object<decltype(pattern1)>();
-    auto co_1 = gridtools::ghex::make_communication_object<decltype(pattern1)>();
-    auto co_2 = gridtools::ghex::make_communication_object<decltype(pattern1)>();
+    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen1, local_domains);
+    auto pattern2 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen2, local_domains);
+    
+    using pattern_type = decltype(pattern1);
 
     // wrap raw fields
     auto field_1a = gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0].domain_id(), field_1a_raw.data(), offset, local_ext_buffer);
@@ -288,41 +294,6 @@ bool test0()
     fill_values<T3>(local_domains[0], field_3a);
     fill_values<T3>(local_domains[1], field_3b);
 
-    //// print arrays
-    //std::cout.flush();
-    //comm.barrier();
-    //for (int r=0; r<comm.size(); ++r)
-    //{
-    //    if (r!=comm.rank())
-    //    {
-    //        std::cout.flush();
-    //        comm.barrier();
-    //        continue;
-    //    }
-    //    std::cout << "rank " << r << std::endl;
-    //    std::cout << std::endl;
-    //    for (int z=-1; z<local_ext[2]+1; ++z)
-    //    {
-    //        std::cout << "z = " << z << std::endl;
-    //        std::cout << std::endl;
-    //        for (int y=-1; y<local_ext[1]+1; ++y)
-    //        {
-    //            for (int x=-1; x<local_ext[0]+1; ++x)
-    //            {
-    //                std::cout << field_3a(x,y,z) << " ";
-    //            }
-    //            std::cout << "      ";
-    //            for (int x=-1; x<local_ext[0]+1; ++x)
-    //            {
-    //                std::cout << field_3b(x,y,z) << " ";
-    //            }
-    //            std::cout << std::endl;
-    //        }
-    //        std::cout << std::endl;
-    //    }
-    //    std::cout.flush();
-    //    comm.barrier();
-    //}
 
 #ifndef GHEX_TEST_SERIAL
 #ifndef GHEX_TEST_SERIAL_VECTOR
@@ -419,11 +390,12 @@ bool test0()
         std::memcpy(field_3b_gpu.data(), field_3b.data(), max_memory*sizeof(TT3));
 #endif
 #endif
-        
+
         // exchange
 #ifdef GHEX_TEST_SERIAL
     // blocking variant
 #ifdef GHEX_HYBRID_TESTS
+    auto co = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
     co.bexchange(
         pattern1(field_1a_gpu),
         pattern1(field_1b),
@@ -433,6 +405,7 @@ bool test0()
         pattern1(field_3b)
     );
 #else
+    auto co = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
     co.bexchange(
         pattern1(field_1a_gpu),
         pattern1(field_1b_gpu),
@@ -444,6 +417,7 @@ bool test0()
 #endif
 #endif
 #ifdef GHEX_TEST_SERIAL_VECTOR
+    auto co = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
     std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec{
         pattern1(field_1a_gpu),
         pattern1(field_1b_gpu),
@@ -455,11 +429,15 @@ bool test0()
 #endif
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     // non-blocking variant
     auto h1 = co_1.exchange(pattern1(field_1a_gpu), pattern2(field_2a_gpu), pattern1(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
 #else
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     auto h2 = co_2.exchange(pattern1(field_1b_gpu), pattern2(field_2b_gpu), pattern1(field_3b_gpu));
 #endif
     // ... overlap communication (packing, posting) with computation here
@@ -468,6 +446,9 @@ bool test0()
     h2.wait();
 #endif
 #ifdef GHEX_TEST_SERIAL_SPLIT_VECTOR
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>> field_vec_a{
         pattern1(field_1a_gpu),
         pattern2(field_2a_gpu),
@@ -485,24 +466,25 @@ bool test0()
 #endif
 
 #ifdef GHEX_TEST_THREADS
-    auto func = [](decltype(co)& co_, auto... bis)
+    auto func = [&context](auto... bis)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.bexchange(bis...);
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
-    threads.push_back(std::thread{func, std::ref(co_1),
+    threads.push_back(std::thread{func,
         pattern1(field_1a_gpu),
         pattern2(field_2a_gpu),
         pattern1(field_3a_gpu)});
 #ifdef GHEX_HYBRID_TESTS
-    threads.push_back(std::thread{func, std::ref(co_2),
+    threads.push_back(std::thread{func,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b)});
 #else
-    threads.push_back(std::thread{func, std::ref(co_2),
+    threads.push_back(std::thread{func,
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu)});
@@ -512,8 +494,9 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_THREADS_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    auto func = [&context](field_vec_type& vec)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.exchange(vec.data(), vec.size()).wait();
     };
     // packing and posting may be done concurrently
@@ -527,31 +510,32 @@ bool test0()
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu)};
-    threads.push_back(std::thread{func, std::ref(co_1), std::ref(field_vec_a)});
-    threads.push_back(std::thread{func, std::ref(co_2), std::ref(field_vec_b)});
+    threads.push_back(std::thread{func, std::ref(field_vec_a)});
+    threads.push_back(std::thread{func, std::ref(field_vec_b)});
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #endif
 
 #ifdef GHEX_TEST_ASYNC_ASYNC
-    auto func = [](decltype(co)& co_, auto... bis)
+    auto func = [&context](auto... bis)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.bexchange(bis...);
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
-    auto future_1 = std::async(policy, func, std::ref(co_1),
+    auto future_1 = std::async(policy, func,
         pattern1(field_1a_gpu),
         pattern2(field_2a_gpu),
         pattern1(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
-    auto future_2 = std::async(policy, func, std::ref(co_2),
+    auto future_2 = std::async(policy, func,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
 #else
-    auto future_2 = std::async(policy, func, std::ref(co_2),
+    auto future_2 = std::async(policy, func,
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu));
@@ -562,8 +546,9 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    auto func = [&context](field_vec_type& vec)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.exchange(vec.data(), vec.size()).wait();
     };
     // packing and posting may be done concurrently
@@ -577,32 +562,35 @@ bool test0()
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu)};
-    auto future_1 = std::async(policy, func, std::ref(co_1), std::ref(field_vec_a));
-    auto future_2 = std::async(policy, func, std::ref(co_2), std::ref(field_vec_b));
+    auto future_1 = std::async(policy, func, std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func, std::ref(field_vec_b));
     // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
 #endif
 
 #ifdef GHEX_TEST_ASYNC_DEFERRED
-    auto func_h = [](decltype(co)& co_, auto... bis)
+    auto func_h = [](auto co_, auto... bis)
     {
-        return co_.exchange(bis...);
+        return co_->exchange(bis...);
     };
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     // packing and posting serially on current thread
     // waiting and unpacking serially on current thread
     auto policy = std::launch::deferred;
-    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+    auto future_1 = std::async(policy, func_h, &co_1,
         pattern1(field_1a_gpu),
         pattern2(field_2a_gpu),
         pattern1(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
-    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+    auto future_2 = std::async(policy, func_h, &co_2,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
 #else
-    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+    auto future_2 = std::async(policy, func_h, &co_2,
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu));
@@ -617,10 +605,13 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_ASYNC_DEFERRED_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    auto func_h = [](auto co_, field_vec_type& vec)
     {
-        return co_.exchange(vec.data(), vec.size());
+        return co_->exchange(vec.data(), vec.size());
     };
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::deferred;
@@ -632,8 +623,8 @@ bool test0()
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu)};
-    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
-    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
+    auto future_1 = std::async(policy, func_h, &co_1, std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, &co_2, std::ref(field_vec_b));
     // deferred policy: essentially serial on current thread
     auto h1 = future_1.get();
     auto h2 = future_2.get();
@@ -643,25 +634,27 @@ bool test0()
     h2.wait();
 #endif
 
-#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
-    auto func_h = [](decltype(co)& co_, auto... bis)
+/*#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
+    auto func_h = [](auto co_, auto... bis)
     {
-        return co_.exchange(bis...);
+        return co_->exchange(bis...);
     };
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
     // packing and posting may be done concurrently
     // waiting and unpacking serially
     auto policy = std::launch::async;
-    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+    auto future_1 = std::async(policy, func_h, &co_1,
         pattern1(field_1a_gpu),
         pattern2(field_2a_gpu),
         pattern1(field_3a_gpu));
 #ifdef GHEX_HYBRID_TESTS
-    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+    auto future_2 = std::async(policy, func_h, &co_2,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
 #else
-    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+    auto future_2 = std::async(policy, func_h, &co_2,
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu));
@@ -673,10 +666,12 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    auto func_h = [](auto co_, field_vec_type& vec)
     {
-        return co_.exchange(vec.data(), vec.size());
+        return co_->exchange(vec.data(), vec.size());
     };
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
@@ -688,13 +683,13 @@ bool test0()
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu)};
-    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
-    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
+    auto future_1 = std::async(policy, func_h, &co_1, std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, &co_2, std::ref(field_vec_b));
     // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
     future_1.get().wait();
     future_2.get().wait();
-#endif
+#endif*/
 
 #ifdef __CUDACC__
         // copy back
@@ -745,6 +740,7 @@ bool test0()
     // exchange
 #ifdef GHEX_TEST_SERIAL
     // blocking variant
+    auto co = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
     co.bexchange(
         pattern1(field_1a),
         pattern1(field_1b),
@@ -755,6 +751,7 @@ bool test0()
     );
 #endif
 #ifdef GHEX_TEST_SERIAL_VECTOR
+    auto co = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
     std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec{
         pattern1(field_1a),
         pattern1(field_1b),
@@ -767,6 +764,9 @@ bool test0()
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
     // non-blocking variant
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     auto h1 = co_1.exchange(pattern1(field_1a), pattern2(field_2a), pattern1(field_3a));
     auto h2 = co_2.exchange(pattern1(field_1b), pattern2(field_2b), pattern1(field_3b));
     // ... overlap communication (packing, posting) with computation here
@@ -775,6 +775,9 @@ bool test0()
     h2.wait();
 #endif
 #ifdef GHEX_TEST_SERIAL_SPLIT_VECTOR
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>> field_vec_a{
         pattern1(field_1a),
         pattern2(field_2a),
@@ -792,18 +795,19 @@ bool test0()
 #endif
 
 #ifdef GHEX_TEST_THREADS
-    auto func = [](decltype(co)& co_, auto... bis)
+    auto func = [&context](auto... bis)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.bexchange(bis...);
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     std::vector<std::thread> threads;
-    threads.push_back(std::thread{func, std::ref(co_1),
+    threads.push_back(std::thread{func,
         pattern1(field_1a),
         pattern2(field_2a),
         pattern1(field_3a)});
-    threads.push_back(std::thread{func, std::ref(co_2),
+    threads.push_back(std::thread{func,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b)});
@@ -812,8 +816,9 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_THREADS_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
-    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    auto func = [&context](field_vec_type& vec)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.exchange(vec.data(), vec.size()).wait();
     };
     // packing and posting may be done concurrently
@@ -827,25 +832,26 @@ bool test0()
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b)};
-    threads.push_back(std::thread{func, std::ref(co_1), std::ref(field_vec_a)});
-    threads.push_back(std::thread{func, std::ref(co_2), std::ref(field_vec_b)});
+    threads.push_back(std::thread{func, std::ref(field_vec_a)});
+    threads.push_back(std::thread{func, std::ref(field_vec_b)});
     // ... overlap communication with computation here
     for (auto& t : threads) t.join();
 #endif
 
 #ifdef GHEX_TEST_ASYNC_ASYNC
-    auto func = [](decltype(co)& co_, auto... bis)
+    auto func = [&context](auto... bis)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.bexchange(bis...);
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
-    auto future_1 = std::async(policy, func, std::ref(co_1),
+    auto future_1 = std::async(policy, func,
         pattern1(field_1a),
         pattern2(field_2a),
         pattern1(field_3a));
-    auto future_2 = std::async(policy, func, std::ref(co_2),
+    auto future_2 = std::async(policy, func,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
@@ -855,8 +861,9 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
-    auto func = [](decltype(co)& co_, field_vec_type& vec)
+    auto func = [&context](field_vec_type& vec)
     {
+        auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
         co_.exchange(vec.data(), vec.size()).wait();
     };
     // packing and posting may be done concurrently
@@ -870,26 +877,29 @@ bool test0()
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b)};
-    auto future_1 = std::async(policy, func, std::ref(co_1), std::ref(field_vec_a));
-    auto future_2 = std::async(policy, func, std::ref(co_2), std::ref(field_vec_b));
+    auto future_1 = std::async(policy, func, std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func, std::ref(field_vec_b));
     // ... overlap communication with computation here
     future_1.wait();
     future_2.wait();
 #endif
 
 #ifdef GHEX_TEST_ASYNC_DEFERRED
-    auto func_h = [](decltype(co)& co_, auto... bis)
+    auto func_h = [](auto co_, auto... bis)
     {
-        return co_.exchange(bis...);
+        return co_->exchange(bis...);
     };
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     // packing and posting serially on current thread
     // waiting and unpacking serially on current thread
     auto policy = std::launch::deferred;
-    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+    auto future_1 = std::async(policy, func_h, &co_1,
         pattern1(field_1a),
         pattern2(field_2a),
         pattern1(field_3a));
-    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+    auto future_2 = std::async(policy, func_h, &co_2,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
@@ -903,10 +913,13 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_ASYNC_DEFERRED_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
-    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    auto func_h = [](auto co_, field_vec_type& vec)
     {
-        return co_.exchange(vec.data(), vec.size());
+        return co_->exchange(vec.data(), vec.size());
     };
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::deferred;
@@ -918,8 +931,8 @@ bool test0()
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b)};
-    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
-    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
+    auto future_1 = std::async(policy, func_h, &co_1, std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, &co_2, std::ref(field_vec_b));
     // deferred policy: essentially serial on current thread
     auto h1 = future_1.get();
     auto h2 = future_2.get();
@@ -929,19 +942,22 @@ bool test0()
     h2.wait();
 #endif
 
-#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
-    auto func_h = [](decltype(co)& co_, auto... bis)
+/*#ifdef GHEX_TEST_ASYNC_ASYNC_WAIT
+    auto func_h = [](auto co_, auto... bis)
     {
-        return co_.exchange(bis...);
+        return co_->exchange(bis...);
     };
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     // packing and posting may be done concurrently
     // waiting and unpacking serially
     auto policy = std::launch::async;
-    auto future_1 = std::async(policy, func_h, std::ref(co_1),
+    auto future_1 = std::async(policy, func_h, &co_1,
         pattern1(field_1a),
         pattern2(field_2a),
         pattern1(field_3a));
-    auto future_2 = std::async(policy, func_h, std::ref(co_2),
+    auto future_2 = std::async(policy, func_h, &co_2,
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b));
@@ -952,10 +968,13 @@ bool test0()
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_WAIT_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
-    auto func_h = [](decltype(co)& co_, field_vec_type& vec)
+    auto func_h = [](auto co_, field_vec_type& vec)
     {
-        return co_.exchange(vec.data(), vec.size());
+        return co_->exchange(vec.data(), vec.size());
     };
+    auto token = context.get_token();
+    auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
+    auto co_2 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
     auto policy = std::launch::async;
@@ -967,59 +986,23 @@ bool test0()
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b)};
-    auto future_1 = std::async(policy, func_h, std::ref(co_1), std::ref(field_vec_a));
-    auto future_2 = std::async(policy, func_h, std::ref(co_2), std::ref(field_vec_b));
+    auto future_1 = std::async(policy, func_h, &co_1, std::ref(field_vec_a));
+    auto future_2 = std::async(policy, func_h, &co_2, std::ref(field_vec_b));
     // ... overlap communication (packing, posting) with computation here
     // waiting and unpacking is serial here
     future_1.get().wait();
     future_2.get().wait();
-#endif
+#endif*/
 
     }
 
-    //// print arrays
-    //std::cout.flush();
-    //comm.barrier();
-    //for (int r=0; r<comm.size(); ++r)
-    //{
-    //    if (r!=comm.rank())
-    //    {
-    //        std::cout.flush();
-    //        comm.barrier();
-    //        continue;
-    //    }
-    //    std::cout << "rank " << r << std::endl;
-    //    std::cout << std::endl;
-    //    for (int z=-1; z<local_ext[2]+1; ++z)
-    //    {
-    //        std::cout << "z = " << z << std::endl;
-    //        std::cout << std::endl;
-    //        for (int y=-1; y<local_ext[1]+1; ++y)
-    //        {
-    //            for (int x=-1; x<local_ext[0]+1; ++x)
-    //            {
-    //                std::cout << field_3a(x,y,z) << " ";
-    //            }
-    //            std::cout << "      ";
-    //            for (int x=-1; x<local_ext[0]+1; ++x)
-    //            {
-    //                std::cout << field_3b(x,y,z) << " ";
-    //            }
-    //            std::cout << std::endl;
-    //        }
-    //        std::cout << std::endl;
-    //    }
-    //    std::cout.flush();
-    //    comm.barrier();
-    //}
-
     bool passed =true;
-    passed = passed && test_values<T1>(local_domains[0], halos1, periodic, g_first, g_last, field_1a, comm);
-    passed = passed && test_values<T1>(local_domains[1], halos1, periodic, g_first, g_last, field_1b, comm);
-    passed = passed && test_values<T2>(local_domains[0], halos2, periodic, g_first, g_last, field_2a, comm);
-    passed = passed && test_values<T2>(local_domains[1], halos2, periodic, g_first, g_last, field_2b, comm);
-    passed = passed && test_values<T3>(local_domains[0], halos1, periodic, g_first, g_last, field_3a, comm);
-    passed = passed && test_values<T3>(local_domains[1], halos1, periodic, g_first, g_last, field_3b, comm);
+    passed = passed && test_values<T1>(local_domains[0], halos1, periodic, g_first, g_last, field_1a, context.mpi_comm());
+    passed = passed && test_values<T1>(local_domains[1], halos1, periodic, g_first, g_last, field_1b, context.mpi_comm());
+    passed = passed && test_values<T2>(local_domains[0], halos2, periodic, g_first, g_last, field_2a, context.mpi_comm());
+    passed = passed && test_values<T2>(local_domains[1], halos2, periodic, g_first, g_last, field_2b, context.mpi_comm());
+    passed = passed && test_values<T3>(local_domains[0], halos1, periodic, g_first, g_last, field_3a, context.mpi_comm());
+    passed = passed && test_values<T3>(local_domains[1], halos1, periodic, g_first, g_last, field_3b, context.mpi_comm());
 
 #ifdef STANDALONE
     if (passed)
@@ -1031,33 +1014,3 @@ bool test0()
     EXPECT_TRUE(passed);
 #endif
 }
-
-#ifdef STANDALONE
-#include <boost/mpi/environment.hpp>
-int main(int argc, char* argv[])
-{
-    //MPI_Init(&argc,&argv);
-#ifdef MULTI_THREADED_EXCHANGE
-    int provided;
-    int res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
-    if (res == MPI_ERR_OTHER)
-    {
-        throw std::runtime_error("MPI init failed");
-    }
-    if (provided < MPI_THREAD_MULTIPLE)
-    {
-        throw std::runtime_error("MPI does not support threading");
-    }
-#else
-    boost::mpi::environment env(argc, argv);
-#endif
-
-    auto passed = test0();
-
-#ifdef MULTI_THREADED_EXCHANGE
-    MPI_Finalize();
-#endif
-    return 0;
-}
-#endif
-

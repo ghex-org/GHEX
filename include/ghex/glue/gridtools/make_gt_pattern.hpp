@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -26,7 +26,7 @@ namespace gridtools {
             using halo_gen_type = typename Grid::domain_descriptor_type::halo_generator_type;
             auto halo_gen = halo_gen_type(first,last, std::forward<Halos>(halos), grid.m_periodic);
 
-            return make_pattern<structured::grid>(grid.m_setup_comm, grid.m_comm, halo_gen, grid.m_domains);
+            return make_pattern<structured::grid>(grid.m_context, halo_gen, grid.m_domains);
         }
 
     } // namespace ghex

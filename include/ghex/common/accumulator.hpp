@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2019, ETH Zurich
+ * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -158,8 +158,7 @@ namespace gridtools {
                     acc_all(x);
                 }
             }
-            MPI_Scatter(reinterpret_cast<const void*>(&acc_all), sizeof(accumulator), MPI_BYTE,
-                        reinterpret_cast<void*>(&acc_all),       sizeof(accumulator), MPI_BYTE, 0, comm);
+            MPI_Bcast(reinterpret_cast<void*>(&acc_all), sizeof(accumulator), MPI_BYTE, 0, comm);
             return acc_all;
         }
 
