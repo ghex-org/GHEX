@@ -17,6 +17,7 @@
 #include <cassert>
 #include <vector>
 #include <boost/callable_traits.hpp>
+#include <mutex>
 
 namespace gridtools {
     namespace ghex {
