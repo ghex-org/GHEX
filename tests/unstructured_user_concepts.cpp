@@ -14,6 +14,7 @@
 #include <map>
 #include <utility>
 #include <cassert>
+#include <algorithm>
 
 #include <gtest/gtest.h>
 
@@ -173,6 +174,9 @@ void check_halo_generator(const domain_descriptor_type& d, const halo_generator_
             break;
         }
     }
+    for (std::size_t i = 0; i < h.size(); ++i) {
+        EXPECT_TRUE(d.vertices()[h.local_indices()[i]] == h.vertices()[i]);
+    }
 }
 
 
@@ -305,6 +309,98 @@ void check_exchanged_data(const domain_descriptor_type& d, const Container& fiel
 }
 
 
+/** @brief Helper functor type, used as default template argument below*/
+struct domain_to_rank_identity {
+        int operator()(const domain_id_type d_id) const {
+            return static_cast<int>(d_id);
+        }
+};
+
+
+/** @brief Ad hoc receive domain ids generator, valid only for this specific test case.
+ * Even if the concept is general, the implementation of the operator() is appplication-specific.
+ * TO DO: the structured can be moved to the `user_concepts.hpp` header file, though,
+ * and only the implementation should be here.*/
+template <typename DomainToRankFunc = domain_to_rank_identity>
+class recv_domain_ids_gen {
+
+    public:
+
+        class halo {
+
+            private:
+
+                std::vector<domain_id_type> m_domain_ids;
+                local_indices_type m_remote_indices;
+                std::vector<int> m_ranks;
+
+            public:
+
+                halo() noexcept = default;
+                halo(const std::vector<domain_id_type>& domain_ids,
+                     const local_indices_type& remote_indices,
+                     const std::vector<int>& ranks) :
+                    m_domain_ids{domain_ids},
+                    m_remote_indices{remote_indices},
+                    m_ranks{ranks} {}
+                const std::vector<domain_id_type>& domain_ids() const noexcept { return m_domain_ids; }
+                const local_indices_type& remote_indices() const noexcept { return m_remote_indices; }
+                const std::vector<int>& ranks() const noexcept { return m_ranks; }
+
+        };
+
+    private:
+
+        const DomainToRankFunc& m_func;
+
+    public:
+
+        recv_domain_ids_gen(const DomainToRankFunc& func = domain_to_rank_identity{}) : m_func{func} {}
+
+        // member functions (operator ())
+        /* Domains
+         *
+         *             id  |          inner           |        halo        |  recv_domain_ids  |  remote_indices  |
+         *             --------------------------------------------------------------------------------------------
+         *              0  | [0, 13, 5, 2]            | [1, 3, 7, 11, 20]  | [1, 2, 1, 3, 1]   | [0, 0, 4, 2, 2]  |
+         *              1  | [1, 19, 20, 4, 7, 15, 8] | [0, 9, 13, 16]     | [0, 3, 0, 2]      | [0, 5, 1, 1]     |
+         *              2  | [3, 16, 18]              | [1, 5, 6]          | [1, 0, 3]         | [0, 2, 1]        |
+         *              3  | [17, 6, 11, 10, 12, 9]   | [0, 3, 4]          | [0, 2, 1]         | [0, 0, 3]        |
+         *
+         * */
+        halo operator()(const domain_descriptor_type& domain) const {
+            std::vector<domain_id_type> domain_ids{};
+            local_indices_type remote_indices{};
+            switch (domain.domain_id()) {
+                case 0: {
+                    domain_ids.insert(domain_ids.end(), {1, 2, 1, 3, 1});
+                    remote_indices.insert(remote_indices.end(), {0, 0, 4, 2, 2});
+                    break;
+                }
+                case 1: {
+                    domain_ids.insert(domain_ids.end(), {0, 3, 0, 2});
+                    remote_indices.insert(remote_indices.end(), {0, 5, 1, 1});
+                    break;
+                }
+                case 2: {
+                    domain_ids.insert(domain_ids.end(), {1, 0, 3});
+                    remote_indices.insert(remote_indices.end(), {0, 2, 1});
+                    break;
+                }
+                case 3: {
+                    domain_ids.insert(domain_ids.end(), {0, 2, 1});
+                    remote_indices.insert(remote_indices.end(), {0, 0, 3});
+                    break;
+                }
+            }
+            std::vector<int> ranks(domain_ids.size());
+            std::transform(domain_ids.begin(), domain_ids.end(), ranks.begin(), m_func);
+            return {domain_ids, remote_indices, ranks};
+        }
+
+};
+
+
 #ifndef GHEX_TEST_UNSTRUCTURED_OVERSUBSCRIPTION
 
 /** @brief Test domain descriptor and halo generator concepts */
@@ -345,6 +441,14 @@ TEST(unstructured_user_concepts, pattern_setup) {
     // check halos
     check_send_halos_indices(patterns[0]);
     check_recv_halos_indices(patterns[0]);
+
+    // setup patterns using recv_domain_ids_gen
+    recv_domain_ids_gen<> rdig{};
+    auto patterns_d_ids = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
+
+    // check halos
+    check_send_halos_indices(patterns_d_ids[0]);
+    check_recv_halos_indices(patterns_d_ids[0]);
 
 }
 
@@ -409,6 +513,11 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe) {
     check_send_halos_indices(patterns[1]);
     check_recv_halos_indices(patterns[1]);
 
+    // setup patterns using recv_domain_ids_gen
+    auto domain_to_rank = [](const domain_id_type d_id){ return static_cast<int>(d_id / 2); };
+    recv_domain_ids_gen<decltype(domain_to_rank)> rdig{domain_to_rank};
+    auto patterns_d_ids = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
+
 }
 
 /** @brief Test pattern setup with multiple domains per rank, oddly distributed */
@@ -417,6 +526,10 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
+
+    halo_generator_type hg{};
+    auto domain_to_rank = [](const domain_id_type d_id){ return (d_id != 3) ? int{0} : int{1}; };
+    recv_domain_ids_gen<decltype(domain_to_rank)> rdig{domain_to_rank};
 
     switch (rank) {
 
@@ -432,7 +545,6 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
             domain_descriptor_type d_2{domain_id_2, v_map_2};
             domain_descriptor_type d_3{domain_id_3, v_map_3};
             std::vector<domain_descriptor_type> local_domains{d_1, d_2, d_3};
-            halo_generator_type hg{};
 
             // setup patterns
             auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
@@ -445,6 +557,17 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
             check_send_halos_indices(patterns[2]);
             check_recv_halos_indices(patterns[2]);
 
+            // setup patterns using recv_domain_ids_gen
+            auto patterns_d_ids = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
+
+            // check halos
+            check_send_halos_indices(patterns_d_ids[0]);
+            check_recv_halos_indices(patterns_d_ids[0]);
+            check_send_halos_indices(patterns_d_ids[1]);
+            check_recv_halos_indices(patterns_d_ids[1]);
+            check_send_halos_indices(patterns_d_ids[2]);
+            check_recv_halos_indices(patterns_d_ids[2]);
+
             break;
 
         }
@@ -455,7 +578,6 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
             auto v_map_1 = init_v_map(domain_id_1);
             domain_descriptor_type d_1{domain_id_1, v_map_1};
             std::vector<domain_descriptor_type> local_domains{d_1};
-            halo_generator_type hg{};
 
             // setup patterns
             auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
@@ -463,6 +585,13 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
             // check halos
             check_send_halos_indices(patterns[0]);
             check_recv_halos_indices(patterns[0]);
+
+            // setup patterns using recv_domain_ids_gen
+            auto patterns_d_ids = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
+
+            // check halos
+            check_send_halos_indices(patterns_d_ids[0]);
+            check_recv_halos_indices(patterns_d_ids[0]);
 
             break;
 
@@ -488,7 +617,9 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe) {
     std::vector<domain_descriptor_type> local_domains{d_1, d_2};
     halo_generator_type hg{};
 
-    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+    auto domain_to_rank = [](const domain_id_type d_id){ return static_cast<int>(d_id / 2); };
+    recv_domain_ids_gen<decltype(domain_to_rank)> rdig{domain_to_rank};
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
 
     // communication object
     using pattern_container_type = decltype(patterns);

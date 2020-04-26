@@ -205,7 +205,7 @@ namespace gridtools {
                         my_patterns.push_back(p);
                     }
 
-                    // gather halos from all local domains on all ranks
+                    // gather halos from all local domains on all ranks. TO DO: from here to the end of the function, are all casts actually needed?
                     int num_domains = static_cast<int>(d_range.size()); // number of local domains (int, since has to be used as elem counter)
                     auto all_num_domains = comm.all_gather(num_domains).get(); // numbers of local domains on all ranks
                     std::vector<domain_id_type> domain_ids{}; // domain id for each local domain
@@ -417,6 +417,184 @@ namespace gridtools {
                         }
 
                         rank_local_start_index += halo_size;
+                    }
+
+                    return pattern_container<communicator_type, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);
+
+                }
+
+                template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+                static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range) {
+
+                    // typedefs
+                    using grid_type = unstructured::detail::grid<Index>;
+                    using context_type = tl::context<Transport, ThreadPrimitives>;
+                    using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
+                    using communicator_type = typename context_type::communicator_type;
+                    using domain_id_type = typename domain_type::domain_id_type;
+                    using pattern_type = pattern<communicator_type, grid_type, domain_id_type>;
+                    using index_type = typename pattern_type::index_type;
+                    using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
+                    using iteration_space_type = typename pattern_type::iteration_space;
+                    using index_container_type = typename pattern_type::index_container_type;
+
+                    using all_recv_counts_type = std::vector<std::map<domain_id_type, std::vector<int>>>;
+                    using all_send_counts_type = std::vector<std::map<domain_id_type, std::vector<int>>>;
+                    using all_recv_indices_type = std::vector<std::map<domain_id_type, std::vector<index_type>>>;
+
+                    // get setup comm and new comm, and then this rank, this address and size from new comm
+                    auto comm = context.get_setup_communicator();
+                    auto new_comm = context.get_serial_communicator();
+                    auto my_rank = new_comm.rank();
+                    auto my_address = new_comm.address();
+                    auto size = new_comm.size();
+
+                    // gather domain ids and addresses for all ranks
+                    int num_domains = static_cast<int>(d_range.size()); // number of local domains (int, since has to be used as elem counter)
+                    auto all_num_domains = comm.all_gather(num_domains).get(); // numbers of local domains on all ranks
+                    std::map<domain_id_type, std::size_t> local_domain_ids_map{}; // map between local domain ids and indices in d_range
+                    for (std::size_t idx = 0; idx < d_range.size(); ++idx) {
+                        local_domain_ids_map.insert({d_range[idx].domain_id(), idx});
+                    }
+                    std::vector<domain_id_type> domain_ids(d_range.size()); // domain id for each local domain (ordered)
+                    std::transform(local_domain_ids_map.begin(), local_domain_ids_map.end(), domain_ids.begin(), [](auto p){return p.first;});
+                    auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains).get(); // domain id for each local domain on all ranks
+                    auto all_addresses = comm.all_gather(my_address).get(); // addresses of all ranks
+
+                    // set max tag
+                    auto max_domain_id = comm.max_element(domain_ids).get();
+                    int m_max_tag = (max_domain_id << 7) + max_domain_id; // max tag TO DO: maximum shift should not be hard-coded. TO DO: should add 1?
+
+                    // helpers
+                    std::map<domain_id_type, int> domain_id_to_rank; // helper domain_id to rank map (will be filled only with needed domain ids)
+
+                    // recv side setup
+                    all_recv_counts_type all_recv_counts(size);
+                    for (auto other_rank = 0; other_rank < size; ++other_rank) {
+                        for (auto id : all_domain_ids[other_rank]) {
+                            all_recv_counts[other_rank].insert({id, std::vector<int>(d_range.size(), 0)});
+                        }
+                    }
+                    all_recv_indices_type all_recv_indices(size);
+
+                    // setup patterns, with only recv halos for now
+                    std::vector<pattern_type> my_patterns;
+                    std::size_t d_reidx{0};
+                    for (const auto& d_id_idx : local_domain_ids_map) { // sorted by domain id
+                        const auto& d = d_range[d_id_idx.second];
+                        pattern_type p{{d.domain_id(), my_rank, my_address, 0}}; // construct pattern
+                        std::map<domain_id_type, iteration_space_type> tmp_is_map;// local helper for filling iteration spaces
+                        auto h = hgen(d);
+                        auto r_ids = recv_domain_ids_gen(d);
+                        for (std::size_t h_idx = 0; h_idx < h.size(); ++h_idx) {
+                            domain_id_to_rank.insert({r_ids.domain_ids()[h_idx], r_ids.ranks()[h_idx]});
+                            tmp_is_map[r_ids.domain_ids()[h_idx]].push_back(h.local_indices()[h_idx]);
+                            all_recv_counts[r_ids.ranks()[h_idx]].at(r_ids.domain_ids()[h_idx])[d_reidx] += 1; // OK
+                            all_recv_indices[r_ids.ranks()[h_idx]][r_ids.domain_ids()[h_idx]].push_back(r_ids.remote_indices()[h_idx]); // OK
+                        }
+                        for (const auto& d_id_is : tmp_is_map) {
+                            auto other_id = d_id_is.first;
+                            auto other_rank = domain_id_to_rank.at(other_id);
+                            auto other_address = all_addresses[other_rank];
+                            int tag = (static_cast<int>(other_id) << 7) + static_cast<int>(d.domain_id()); // TO DO: maximum shift should not be hard-coded
+                            extended_domain_id_type id{other_id, other_rank, other_address, tag};
+                            auto is = d_id_is.second;
+                            index_container_type ic{is};
+                            p.recv_halos().insert({id, ic});
+                        }
+                        my_patterns.push_back(p);
+                        ++d_reidx;
+                    }
+
+                    // Setup first all-to-all (1-6): recv / send counts
+                    std::vector<int> all_flat_recv_counts{}; // 1/6
+                    for (const auto& rc_map : all_recv_counts) {
+                        for (const auto& rc_pair : rc_map) {
+                            all_flat_recv_counts.insert(all_flat_recv_counts.end(), rc_pair.second.begin(), rc_pair.second.end());
+                        }
+                    }
+                    std::vector<int> all_num_counts(size); // same for send and recv // 2/6
+                    std::transform(all_num_domains.begin(), all_num_domains.end(), all_num_counts.begin(), [num_domains](int n){
+                        return n * num_domains;
+                    });
+                    std::vector<int> all_num_counts_displs(size); // 3/6
+                    for (std::size_t r_idx = 1; r_idx < all_num_counts_displs.size(); ++r_idx) {
+                        all_num_counts_displs[r_idx] = all_num_counts_displs[r_idx - 1] + all_num_counts[r_idx - 1];
+                    }
+                    std::vector<int> all_flat_send_counts(all_flat_recv_counts.size()); // 4/6 (output)
+                    // all_num_counts // 5/6
+                    // all_num_counts_displs // 6/6
+
+                    // First all-to-all
+                    comm.all_to_allv(all_flat_recv_counts, all_num_counts, all_num_counts_displs,
+                                     all_flat_send_counts, all_num_counts, all_num_counts_displs);
+
+                    // Setup second all-to-all (1-6): recv / send indices
+                    std::vector<index_type> all_flat_recv_indices{}; // 1/6
+                    for (const auto& ri_map : all_recv_indices) {
+                        for (const auto& ri_pair : ri_map) {
+                            all_flat_recv_indices.insert(all_flat_recv_indices.end(), ri_pair.second.begin(), ri_pair.second.end());
+                        }
+                    }
+                    std::vector<int> all_num_recv_indices(size); // 2/6
+                    for (std::size_t r_idx = 0; r_idx < all_recv_indices.size(); ++r_idx) {
+                        for (const auto& ri_pair : all_recv_indices[r_idx]) {
+                            all_num_recv_indices[r_idx] += ri_pair.second.size();
+                        }
+                    }
+                    std::vector<int> all_num_recv_indices_displs(size); // 3/6
+                    for (std::size_t r_idx = 1; r_idx < all_num_recv_indices_displs.size(); ++r_idx) {
+                        all_num_recv_indices_displs[r_idx] = all_num_recv_indices_displs[r_idx - 1] + all_num_recv_indices[r_idx - 1];
+                    }
+                    std::size_t tot_send_counts = static_cast<std::size_t>(std::accumulate(all_flat_send_counts.begin(), all_flat_send_counts.end(), 0));
+                    std::vector<index_type> all_flat_send_indices(tot_send_counts); // 4/6 (output)
+                    std::vector<int> all_rank_send_counts(size); // 5/6
+                    auto all_flat_send_counts_it = all_flat_send_counts.begin();
+                    for (std::size_t r_idx = 0; r_idx < all_rank_send_counts.size(); ++r_idx) {
+                        auto num_counts = all_num_domains[r_idx] * d_range.size();
+                        all_rank_send_counts[r_idx] = std::accumulate(all_flat_send_counts_it, all_flat_send_counts_it + num_counts, 0); // TO DO: static cast of num_counts?
+                        all_flat_send_counts_it += num_counts;
+                    }
+                    std::vector<int> all_rank_send_counts_displs(size); // 6/6
+                    for (std::size_t r_idx = 1; r_idx < all_rank_send_counts_displs.size(); ++r_idx) {
+                        all_rank_send_counts_displs[r_idx] = all_rank_send_counts_displs[r_idx - 1] + all_rank_send_counts[r_idx - 1];
+                    }
+
+                    // Second all-to-all
+                    comm.all_to_allv(all_flat_recv_indices, all_num_recv_indices, all_num_recv_indices_displs,
+                                     all_flat_send_indices, all_rank_send_counts, all_rank_send_counts_displs);
+
+                    // Reconstruct multidimensional objects
+                    all_send_counts_type all_send_counts(size);
+                    all_flat_send_counts_it = all_flat_send_counts.begin();
+                    for (std::size_t r_idx = 0; r_idx < all_send_counts.size(); ++r_idx) {
+                        for (auto d_id : domain_ids) {
+                            for (int other_d_idx = 0; other_d_idx < all_num_domains[r_idx]; ++other_d_idx) {
+                                all_send_counts[r_idx][d_id].push_back(*all_flat_send_counts_it++);
+                            }
+                        }
+                    }
+
+                    // Setup send halos
+                    auto all_flat_send_indices_it = all_flat_send_indices.begin();
+                    for (std::size_t r_idx = 0; r_idx < all_send_counts.size(); ++r_idx) {
+                        for (std::size_t d_idx = 0; d_idx < domain_ids.size(); ++ d_idx) {
+                            auto d_id = domain_ids[d_idx];
+                            auto send_counts = all_send_counts[r_idx].at(d_id);
+                            for (std::size_t other_d_idx = 0; other_d_idx < send_counts.size(); ++other_d_idx) {
+                                if (send_counts[other_d_idx]) {
+                                    auto other_id = all_domain_ids[r_idx][other_d_idx];
+                                    int other_rank = static_cast<int>(r_idx);
+                                    auto other_address = all_addresses[r_idx];
+                                    int tag = (static_cast<int>(d_id) << 7) + static_cast<int>(other_id); // TO DO: maximum shift should not be hard-coded
+                                    extended_domain_id_type id{other_id, other_rank, other_address, tag};
+                                    iteration_space_type is{{all_flat_send_indices_it, all_flat_send_indices_it + send_counts[other_d_idx]}}; // TO DO: static cast of send_counts[other_d_idx]?
+                                    index_container_type ic{is};
+                                    my_patterns[d_idx].send_halos().insert({id, ic});
+                                    all_flat_send_indices_it += send_counts[other_d_idx]; // TO DO: static cast of send_counts[other_d_idx]?
+                                }
+                            }
+                        }
                     }
 
                     return pattern_container<communicator_type, grid_type, domain_id_type>(std::move(my_patterns), m_max_tag);

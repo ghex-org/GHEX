@@ -572,8 +572,8 @@ namespace gridtools {
                 return pattern_container<communicator_type,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
             }
 
-            template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainsGenerator, typename DomainRange>
-            static auto apply(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainsGenerator&&, DomainRange&& d_range)
+            template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+            static auto apply(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&&, DomainRange&& d_range)
             {
                 return apply(context, hgen, d_range);
             }

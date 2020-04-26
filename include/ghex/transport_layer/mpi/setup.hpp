@@ -16,6 +16,7 @@
 #include "./future.hpp"
 #include <vector>
 #include <cassert>
+#include <algorithm>
 
 namespace gridtools{
     namespace ghex {
@@ -140,6 +141,17 @@ namespace gridtools{
                     return {std::move(res), std::move(h)};
                 }
                 
+                /** @brief computes the max element of a vector<T> among all ranks */
+                template<typename T>
+                future<T> max_element(const std::vector<T>& elems) const {
+                    T res;
+                    handle_type h;
+                    T local_max{*(std::max_element(elems.begin(), elems.end()))};
+                    GHEX_CHECK_MPI_RESULT(MPI_Iallreduce(reinterpret_cast<const void*>(&local_max), reinterpret_cast<void*>(&res),
+                                                         sizeof(T), MPI_BYTE, MPI_MAX, *this, &h.get()));
+                    return {std::move(res), std::move(h)};
+                }
+
                 /** @brief just a helper function using custom types to be used when send/recv counts can be deduced*/
                 template<typename T>
                 void all_to_all(const std::vector<T>& send_buf, std::vector<T>& recv_buf) const

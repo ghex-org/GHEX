@@ -135,6 +135,8 @@ namespace gridtools {
                     using domain_type = domain_descriptor<DomainId, Idx>;
                     using global_index_type = typename domain_type::global_index_type;
                     using vertices_type = typename domain_type::vertices_type; // mandatory: inferred from the domain
+                    using local_index_type = std::size_t; // TO DO: should be inferred from iteration space
+                    using local_indices_type = std::vector<local_index_type>;
                     using it_diff_type = typename vertices_type::iterator::difference_type;
 
                     /** @brief Halo concept for unstructured grids
@@ -146,6 +148,7 @@ namespace gridtools {
                         private:
 
                             vertices_type m_vertices;
+                            local_indices_type m_local_indices;
 
                         public:
 
@@ -153,13 +156,19 @@ namespace gridtools {
                             halo() noexcept = default;
                             /** WARN: following one not strictly needed,
                              * but it will if this class is used as iteration_space class*/
-                            halo(const vertices_type& vertices) : m_vertices{vertices} {}
+                            halo(const vertices_type& vertices, const local_indices_type& local_indices) :
+                                m_vertices{vertices},
+                                m_local_indices{local_indices} {}
 
                             // member functions
                             /** @brief size of the halo */
                             std::size_t size() const noexcept { return m_vertices.size(); }
                             const vertices_type& vertices() const noexcept { return m_vertices; }
-                            void push_back(const global_index_type v) { m_vertices.push_back(v); }
+                            const local_indices_type& local_indices() const noexcept { return m_local_indices; }
+                            void push_back(const global_index_type v, const local_index_type idx) {
+                                m_vertices.push_back(v);
+                                m_local_indices.push_back(idx);
+                            }
 
                             // print
                             /** @brief print */
@@ -168,6 +177,9 @@ namespace gridtools {
                                 os << "size = " << h.size() << ";\n"
                                    << "vertices: [ ";
                                 for (auto v : h.vertices()) { os << v << " "; }
+                                os << "]\n"
+                                   << "local indices: [ ";
+                                for (auto idx : h.local_indices()) { os << idx << " "; }
                                 os << "]\n";
                                 return os;
                             }
@@ -179,7 +191,12 @@ namespace gridtools {
                      * @param domain local domain instance
                      * @return receive halo*/
                     halo operator()(const domain_type& domain) const {
-                        return {{domain.vertices().begin() + static_cast<it_diff_type>(domain.inner_size()), domain.vertices().end()}};
+                        local_indices_type local_indices(domain.size() - domain.inner_size());
+                        for (size_t i = 0; i < (domain.size() - domain.inner_size()); ++i) {
+                            local_indices[i] = i + domain.inner_size();
+                        }
+                        vertices_type vertices {domain.vertices().begin() + static_cast<it_diff_type>(domain.inner_size()), domain.vertices().end()};
+                        return {vertices, local_indices};
                     }
 
             };

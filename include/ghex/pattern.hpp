@@ -116,13 +116,13 @@ namespace gridtools {
          * @param d_range range of local domains
          * @return iterable of patterns (one per domain)
          */
-        template<typename GridType, typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainsGenerator, typename DomainRange>
-        auto make_pattern(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainsGenerator&& recv_domains_gen, DomainRange&& d_range)
+        template<typename GridType, typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+        auto make_pattern(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range)
         {
             using grid_type = typename GridType::template type<typename std::remove_reference_t<DomainRange>::value_type>;
             return detail::make_pattern_impl<grid_type>::apply(context,
                                                                std::forward<HaloGenerator>(hgen),
-                                                               std::forward<RecvDomainsGenerator>(recv_domains_gen),
+                                                               std::forward<RecvDomainIdsGen>(recv_domain_ids_gen),
                                                                std::forward<DomainRange>(d_range));
 
         }
