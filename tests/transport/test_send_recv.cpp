@@ -29,7 +29,7 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 using communicator_type = typename context_type::communicator_type;
 using msg_type = typename communicator_type::message_type;
 
-#define NITERS 100000
+#define NITERS 100
 
 template<typename Message>
 struct message_factory {
