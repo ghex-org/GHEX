@@ -45,13 +45,13 @@ namespace gridtools{
                 address_type address() const { return rank(); }
 
                 template<typename T>
-                void send(int dest, int tag, const T & value)
+                void send(int dest, int tag, const T & value) const
                 {
                     GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(&value), sizeof(T), MPI_BYTE, dest, tag, *this));
                 }
 
                 template<typename T>
-                status recv(int source, int tag, T & value)
+                status recv(int source, int tag, T & value) const
                 {
                     MPI_Status status;
                     GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(&value), sizeof(T), MPI_BYTE, source, tag, *this, &status));
@@ -59,13 +59,13 @@ namespace gridtools{
                 }
 
                 template<typename T>
-                void send(int dest, int tag, const T* values, int n)
+                void send(int dest, int tag, const T* values, int n) const
                 {
                     GHEX_CHECK_MPI_RESULT(MPI_Send(reinterpret_cast<const void*>(values), sizeof(T)*n, MPI_BYTE, dest, tag, *this));
                 }
 
                 template<typename T>
-                status recv(int source, int tag, T* values, int n)
+                status recv(int source, int tag, T* values, int n) const
                 {
                     MPI_Status status;
                     GHEX_CHECK_MPI_RESULT(MPI_Recv(reinterpret_cast<void*>(values), sizeof(T)*n, MPI_BYTE, source, tag, *this, &status));
@@ -73,19 +73,19 @@ namespace gridtools{
                 }
 
                 template<typename T> 
-                void broadcast(T& value, int root)
+                void broadcast(T& value, int root) const
                 {
                     GHEX_CHECK_MPI_RESULT(MPI_Bcast(&value, sizeof(T), MPI_BYTE, root, *this));
                 }
 
                 template<typename T> 
-                void broadcast(T * values, int n, int root)
+                void broadcast(T * values, int n, int root) const
                 {
                     GHEX_CHECK_MPI_RESULT(MPI_Bcast(values, sizeof(T)*n, MPI_BYTE, root, *this));
                 }
 
                 template<typename T>
-                future< std::vector<std::vector<T>> > all_gather(const std::vector<T>& payload, const std::vector<int>& sizes)
+                future< std::vector<std::vector<T>> > all_gather(const std::vector<T>& payload, const std::vector<int>& sizes) const
                 {
                     std::vector<std::vector<T>> res(size());
                     for (int neigh=0; neigh<size(); ++neigh)
@@ -128,7 +128,7 @@ namespace gridtools{
                 }
 
                 template<typename T>
-                future< std::vector<T> > all_gather(const T& payload)
+                future< std::vector<T> > all_gather(const T& payload) const
                 {
                     std::vector<T> res(size());
                     handle_type h;
@@ -143,13 +143,10 @@ namespace gridtools{
                 
                 /** @brief computes the max element of a vector<T> among all ranks */
                 template<typename T>
-                future<T> max_element(const std::vector<T>& elems) const {
-                    T res;
-                    handle_type h;
+                T max_element(const std::vector<T>& elems) const {
                     T local_max{*(std::max_element(elems.begin(), elems.end()))};
-                    GHEX_CHECK_MPI_RESULT(MPI_Iallreduce(reinterpret_cast<const void*>(&local_max), reinterpret_cast<void*>(&res),
-                                                         sizeof(T), MPI_BYTE, MPI_MAX, *this, &h.get()));
-                    return {std::move(res), std::move(h)};
+                    auto all_max = all_gather(local_max).get();
+                    return *(std::max_element(all_max.begin(), all_max.end()));
                 }
 
                 /** @brief just a helper function using custom types to be used when send/recv counts can be deduced*/

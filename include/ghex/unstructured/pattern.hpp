@@ -462,7 +462,7 @@ namespace gridtools {
                     auto all_addresses = comm.all_gather(my_address).get(); // addresses of all ranks
 
                     // set max tag
-                    auto max_domain_id = comm.max_element(domain_ids).get();
+                    auto max_domain_id = comm.max_element(domain_ids);
                     int m_max_tag = (max_domain_id << 7) + max_domain_id; // max tag TO DO: maximum shift should not be hard-coded. TO DO: should add 1?
 
                     // helpers
