@@ -28,6 +28,9 @@ void test_std_alloc(int n)
     aligned_alloc_t aligned_alloc(std::move(aligned_alloc_other));
     
     auto ptr = aligned_alloc.allocate(n);
+    EXPECT_TRUE( aligned_alloc_t::offset == ((Alignment<=alignof(std::max_align_t))
+                                             ? 0u 
+                                             : (alignof(std::max_align_t) + (Alignment-alignof(std::max_align_t)))));
     
     aligned_alloc.construct(ptr, Alignment);
     
@@ -43,7 +46,6 @@ void test_std_alloc(int n)
     std::vector<T, aligned_alloc_t> vec(n, Alignment, aligned_alloc);
 
     EXPECT_TRUE(vec[0] == Alignment);
-    std::cout << ((reinterpret_cast<std::uintptr_t>(&vec[0]) & std::uintptr_t(Alignment-1u))) << std::endl;
     EXPECT_TRUE((reinterpret_cast<std::uintptr_t>(&vec[0]) & std::uintptr_t(Alignment-1u)) == 0u);
 }
 
