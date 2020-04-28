@@ -63,15 +63,20 @@ namespace gridtools {
                     private:
 
                         local_indices_type m_local_indices;
+                        std::size_t m_levels;
 
                     public:
 
                         // ctors
-                        iteration_space() noexcept = default;
-                        iteration_space(const local_indices_type& local_indices) : m_local_indices{local_indices} {}
+                        iteration_space(const std::size_t levels = 1) noexcept : m_levels{levels} {}
+                        iteration_space(const local_indices_type& local_indices,
+                                        const std::size_t levels = 1) :
+                            m_local_indices{local_indices},
+                            m_levels{levels} {}
 
                         // member functions
                         std::size_t size() const noexcept { return m_local_indices.size(); }
+                        std::size_t levels() const noexcept { return m_levels; }
                         const local_indices_type& local_indices() const noexcept { return m_local_indices; }
                         void push_back(const index_type idx) { m_local_indices.push_back(idx); }
 
@@ -80,6 +85,7 @@ namespace gridtools {
                         template <typename CharT, typename Traits>
                         friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const iteration_space& is) {
                             os << "size = " << is.size() << ";\n"
+                               << "levels = " << is.levels() << ";\n"
                                << "local indices: [ ";
                             for (auto idx : is.local_indices()) { os << idx << " "; }
                             os << "]\n";
@@ -124,7 +130,7 @@ namespace gridtools {
                 /** @brief compute number of elements in an object of type index_container_type*/
                 static std::size_t num_elements(const index_container_type& c) noexcept {
                     std::size_t s{0};
-                    for (const auto& is : c) s += is.size();
+                    for (const auto& is : c) s += (is.size() * is.levels());
                     return s;
                 }
 
@@ -210,11 +216,13 @@ namespace gridtools {
                     auto all_num_domains = comm.all_gather(num_domains).get(); // numbers of local domains on all ranks
                     std::vector<domain_id_type> domain_ids{}; // domain id for each local domain
                     std::vector<std::size_t> halo_sizes{}; // halo size for each local domain
+                    std::vector<std::size_t> num_levels{}; // halo levels for each local domain
                     vertices_type reduced_halo{}; // single reduced halo with halo vertices of all local domains
                     for (const auto& d : d_range) {
                         domain_ids.push_back(d.domain_id());
                         auto h = hgen(d);
                         halo_sizes.push_back(h.size());
+                        num_levels.push_back(h.levels());
                         reduced_halo.insert(reduced_halo.end(), h.vertices().begin(), h.vertices().end());
                     }
                     auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains).get(); // domain id for each local domain on all ranks
@@ -262,7 +270,7 @@ namespace gridtools {
                                     auto other_id = all_domain_ids[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)];
                                     int tag = (static_cast<int>(my_id) << 7) + static_cast<int>(other_id); // TO DO: maximum shift should not be hard-coded
                                     extended_domain_id_type id{other_id, other_rank, other_address, tag};
-                                    iteration_space_type is{};
+                                    iteration_space_type is{num_levels[p]};
                                     for (auto reduced_halo_idx = reduced_halo_start_idx;
                                          reduced_halo_idx < reduced_halo_start_idx + other_halo_size;
                                          ++reduced_halo_idx, ++rank_local_idx) { // loop through halo vertices
@@ -392,7 +400,7 @@ namespace gridtools {
                                     auto other_id = all_domain_ids[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)];
                                     int tag = (static_cast<int>(other_id) << 7) + static_cast<int>(my_id); // TO DO: maximum shift should not be hard-coded
                                     extended_domain_id_type id{other_id, other_rank, other_address, tag};
-                                    iteration_space_type is{};
+                                    iteration_space_type is{num_levels[p]};
                                     for (auto recv_indices_idx = recv_indices_start_idx;
                                          recv_indices_idx < recv_indices_start_idx +
                                          static_cast<std::size_t>(all_recv_counts[static_cast<std::size_t>(other_rank)][static_cast<std::size_t>(other_domain_idx)]);
@@ -483,7 +491,7 @@ namespace gridtools {
                     for (const auto& d_id_idx : local_domain_ids_map) { // sorted by domain id
                         const auto& d = d_range[d_id_idx.second];
                         pattern_type p{{d.domain_id(), my_rank, my_address, 0}}; // construct pattern
-                        std::map<domain_id_type, iteration_space_type> tmp_is_map;// local helper for filling iteration spaces
+                        std::map<domain_id_type, iteration_space_type> tmp_is_map{};// local helper for filling iteration spaces
                         auto h = hgen(d);
                         auto r_ids = recv_domain_ids_gen(d);
                         for (std::size_t h_idx = 0; h_idx < h.size(); ++h_idx) {
@@ -498,7 +506,7 @@ namespace gridtools {
                             auto other_address = all_addresses[other_rank];
                             int tag = (static_cast<int>(other_id) << 7) + static_cast<int>(d.domain_id()); // TO DO: maximum shift should not be hard-coded
                             extended_domain_id_type id{other_id, other_rank, other_address, tag};
-                            auto is = d_id_is.second;
+                            iteration_space_type is{d_id_is.second.local_indices(), h.levels()};
                             index_container_type ic{is};
                             p.recv_halos().insert({id, ic});
                         }
@@ -580,6 +588,7 @@ namespace gridtools {
                     for (std::size_t r_idx = 0; r_idx < all_send_counts.size(); ++r_idx) {
                         for (std::size_t d_idx = 0; d_idx < domain_ids.size(); ++ d_idx) {
                             auto d_id = domain_ids[d_idx];
+                            auto levels = hgen(d_range[local_domain_ids_map.at(d_id)]).levels();
                             auto send_counts = all_send_counts[r_idx].at(d_id);
                             for (std::size_t other_d_idx = 0; other_d_idx < send_counts.size(); ++other_d_idx) {
                                 if (send_counts[other_d_idx]) {
@@ -588,7 +597,7 @@ namespace gridtools {
                                     auto other_address = all_addresses[r_idx];
                                     int tag = (static_cast<int>(d_id) << 7) + static_cast<int>(other_id); // TO DO: maximum shift should not be hard-coded
                                     extended_domain_id_type id{other_id, other_rank, other_address, tag};
-                                    iteration_space_type is{{all_flat_send_indices_it, all_flat_send_indices_it + send_counts[other_d_idx]}}; // TO DO: static cast of send_counts[other_d_idx]?
+                                    iteration_space_type is{{all_flat_send_indices_it, all_flat_send_indices_it + send_counts[other_d_idx]}, levels}; // TO DO: static cast of send_counts[other_d_idx]?
                                     index_container_type ic{is};
                                     my_patterns[d_idx].send_halos().insert({id, ic});
                                     all_flat_send_indices_it += send_counts[other_d_idx]; // TO DO: static cast of send_counts[other_d_idx]?

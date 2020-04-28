@@ -113,10 +113,10 @@ namespace gridtools {
                            << "inner size = " << domain.inner_size() << ";\n"
                            << "size = " << domain.size() << ";\n"
                            << "vertices: [ ";
-                        for (auto v : domain.vertices()) { os << v << " "; }
+                        for (const auto v : domain.vertices()) { os << v << " "; }
                         os << "]\n";
                         os << "adjncy: [ ";
-                        for (auto v : domain.adjncy()) { os << v << " "; }
+                        for (const auto v : domain.adjncy()) { os << v << " "; }
                         os << "]\n";
                         return os;
                     }
@@ -176,10 +176,10 @@ namespace gridtools {
                             friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const halo& h) {
                                 os << "size = " << h.size() << ";\n"
                                    << "vertices: [ ";
-                                for (auto v : h.vertices()) { os << v << " "; }
+                                for (const auto v : h.vertices()) { os << v << " "; }
                                 os << "]\n"
                                    << "local indices: [ ";
-                                for (auto idx : h.local_indices()) { os << idx << " "; }
+                                for (const auto idx : h.local_indices()) { os << idx << " "; }
                                 os << "]\n";
                                 return os;
                             }
