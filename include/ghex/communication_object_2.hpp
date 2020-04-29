@@ -17,7 +17,6 @@
 #include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
 #include "./transport_layer/tags.hpp"
-//#include "./structured/regular/field_descriptor.hpp"
 #include "./arch_traits.hpp"
 #include <map>
 #include <stdio.h>
@@ -267,23 +266,6 @@ namespace gridtools {
                 return h; 
             }
 
-//        public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
-//
-//            /** @brief non-blocking exchange of data, vector interface
-//              * @tparam Arch device type
-//              * @tparam Field field type
-//              * @param first pointer to first buffer_info object
-//              * @param length number of buffer_infos
-//              * @return handle to await exchange */
-//            template<typename Arch, typename Field>
-//            [[nodiscard]] handle_type exchange(buffer_info_type<Arch,Field>* first, std::size_t length)
-//            {
-//                auto h = exchange_impl(first, length);
-//                post_recvs();
-//                pack();
-//                return h;
-//            }
-//
 //        public: // exchange a number of buffer_infos with Field = field_descriptor (optimization for gpu below)
 //
 //#ifdef __CUDACC__
@@ -304,15 +286,6 @@ namespace gridtools {
 //                return h;
 //            }
 //#endif
-//
-//            template<typename Arch, typename T, int... Order>
-//            [[nodiscard]] std::enable_if_t<std::is_same<Arch,cpu>::value, handle_type>
-//            exchange_u(
-//                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
-//                std::size_t length)
-//            {
-//                return exchange(first, length);
-//            }
 
             template<typename... Iterators>
             [[nodiscard]]
@@ -378,42 +351,6 @@ namespace gridtools {
                 using test_t = std::tuple<pattern_container<communicator_type,grid_type,domain_id_type>>;
                 using test_t_n = std::tuple< typename std::tuple_element<Is*0, test_t>::type... >;
                 return exchange<test_t_n>(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
-            }
-
-
-            template<typename Arch, typename Field>
-            [[nodiscard]] handle_type exchange_impl(buffer_info_type<Arch,Field>* first, std::size_t length)
-            {
-                // check that arguments are compatible
-                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
-                static_assert(std::is_same<test_t, typename buffer_info_type<Arch,Field>::pattern_container_type>::value,
-                        "patterns are not compatible with this communication object");
-                if (m_valid)
-                    throw std::runtime_error("earlier exchange operation was not finished");
-                m_valid = true;
-
-                // build a tag map
-                std::map<const test_t*,int> pat_ptr_map;
-                int max_tag = 0;
-                for (unsigned int k=0; k<length; ++k)
-                {
-                    const test_t* ptr = &((first+k)->get_pattern_container());
-                    auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptr, max_tag) );
-                    if (p_it_bool.second == true)
-                        max_tag += ptr->max_tag()+1;
-                }
-                // loop over buffer_infos/memory and compute required space
-                using memory_t               = buffer_memory<Arch>*;
-                using value_type             = typename buffer_info_type<Arch,Field>::value_type;
-                memory_t mem{&(std::get<buffer_memory<Arch>>(m_mem))};
-                for (std::size_t k=0; k<length; ++k)
-                {
-                    auto field_ptr = &((first+k)->get_field());
-                    auto tag_offset = pat_ptr_map[&((first+k)->get_pattern_container())];
-                    const auto my_dom_id  =(first+k)->get_field().domain_id();
-                    allocate<Arch,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offset);
-                }
-                return handle_type(m_comm, [this](){this->wait();});
             }
 
             void post_recvs()

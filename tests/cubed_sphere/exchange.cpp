@@ -153,7 +153,7 @@ void check_even_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
                         100*(n-(y-field.offsets()[1])-1) +
                         10*(n+x-field.offsets()[0]);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check right         - expect from same tile id 1
@@ -174,7 +174,7 @@ void check_even_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*2 + 1000*c + z +
                         100*(n-(y-field.offsets()[1]-n)-1) +
                         10*(n+x-field.offsets()[0]);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top middle    - expect from same tile id 2
@@ -299,7 +299,7 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*3 + 1000*c + z +
                         100*(n-(y-field.offsets()[1]+n)-1) +
                         10*(n+x-field.offsets()[0]);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom middle - expect from same tile id 0
@@ -329,7 +329,7 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][0]+1) + 10000*2 + 1000*c + z +
                         100*(n-(y-field.offsets()[1])-1) +
                         10*(n+x-field.offsets()[0]);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check right         - expect from same tile id 3
@@ -356,7 +356,7 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*2 + 1000*c + z +
                         100*(y-field.offsets()[1]-n) +
                         10*(n-(x-field.offsets()[0])-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top right     - expect from neighbor tile +y id 0
@@ -366,7 +366,7 @@ void check_even_2(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
                         100*(y-field.offsets()[1]-n) +
                         10*(n-(x-field.offsets()[0]-n)-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
             }
@@ -437,7 +437,7 @@ void check_even_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*2 + 1000*c + z +
                         100*(y-field.offsets()[1]-n) +
                         10*(n-(n+x-field.offsets()[0])-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top middle    - expect from neighbor tile +y id 0
@@ -447,7 +447,7 @@ void check_even_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][3]+1) + 10000*0 + 1000*c + z +
                         100*(y-field.offsets()[1]-n) +
                         10*(n-(x-field.offsets()[0])-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check top right     - expect empty
@@ -484,7 +484,7 @@ void check_odd_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
                         100*(n+y-field.offsets()[1]) + 
                         10*(n-(x-field.offsets()[0])-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom right  - expect from neighbor tile -y id 1
@@ -494,7 +494,7 @@ void check_odd_0(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
                         100*(n+y-field.offsets()[1]) + 
                         10*(n-(x-field.offsets()[0]-n)-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
             }
@@ -565,7 +565,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
                         100*(n+y-field.offsets()[1]) + 
                         10*(n-(x-field.offsets()[0]+n)-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom middle - expect from neighbor tile -y id 1
@@ -575,7 +575,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
                         100*(n+y-field.offsets()[1]) + 
                         10*(n-(x-field.offsets()[0])-1);
-                    const value_type v_factor = (field.is_vector() && c==0) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
                 // check bottom right  - expect empty
@@ -602,7 +602,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
                         100*(n-(y-field.offsets()[1])-1) + 
                         10*(x-field.offsets()[0]-n);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
             }
@@ -632,7 +632,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
                         100*(n-(y-field.offsets()[1]-n)-1) + 
                         10*(x-field.offsets()[0]-n);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
             }
@@ -757,7 +757,7 @@ void check_odd_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
                         100*(n-(y-field.offsets()[1]+n)-1) + 
                         10*(x-field.offsets()[0]-n);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
             }
@@ -778,7 +778,7 @@ void check_odd_3(const Field& field, int halo, int n) {
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
                         100*(n-(y-field.offsets()[1])-1) + 
                         10*(x-field.offsets()[0]-n);
-                    const value_type v_factor = (field.is_vector() && c==1) ? -1 : 1;
+                    const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
                 }
             }

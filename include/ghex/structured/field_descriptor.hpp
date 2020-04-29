@@ -218,7 +218,6 @@ public: // member functions
     int num_components() const noexcept { return m_num_components; }
     /** @brief returns true if this field describes a vector field */
     bool is_vector_field() const noexcept { return m_is_vector_field; }
-    bool is_vector() const noexcept { return m_is_vector_field; }
         
     /** @brief access operator
      * @param x coordinate vector with respect to offset specified in constructor
