@@ -89,7 +89,7 @@ namespace gridtools {
 
                 std::size_t size{0};
                 for (const auto& is : iteration_spaces) {
-                    size += is.size() + is.levels();
+                    size += is.size() * is.levels();
                 }
 
                 return size;
