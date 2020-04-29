@@ -58,22 +58,26 @@ namespace gridtools {
                     adjncy_type m_adjncy; // named after ParMetis CSR arrays; TO DO: needed mostly for debugging, can be removed
                     std::size_t m_inner_size;
                     std::size_t m_size;
+                    std::size_t m_levels;
 
                 public:
 
                     // constructors
-                    domain_descriptor() = default;
                     domain_descriptor(const domain_id_type id,
                                       const vertices_type& vertices,
-                                      const adjncy_type& adjncy) :
+                                      const adjncy_type& adjncy,
+                                      const std::size_t levels = 1) :
                         m_id{id},
                         m_vertices{vertices},
-                        m_adjncy{adjncy} { set_halo_vertices(); }
+                        m_adjncy{adjncy},
+                        m_levels {levels} { set_halo_vertices(); }
                     domain_descriptor(const domain_id_type id,
-                                      const map_type& v_map) :
+                                      const map_type& v_map,
+                                      const std::size_t levels = 1) :
                         m_id{id},
                         m_vertices{},
-                        m_adjncy{} {
+                        m_adjncy{},
+                        m_levels{levels} {
                         for (const auto& v_elem : v_map) {
                             m_vertices.push_back(v_elem.first);
                             m_adjncy.insert(m_adjncy.end(), v_elem.second.begin(), v_elem.second.end());
@@ -102,6 +106,7 @@ namespace gridtools {
                     domain_id_type domain_id() const noexcept { return m_id; }
                     std::size_t inner_size() const noexcept { return m_inner_size; }
                     std::size_t size() const noexcept { return m_size; }
+                    std::size_t levels() const noexcept { return m_levels; }
                     const vertices_type& vertices() const noexcept { return m_vertices; }
                     const adjncy_type& adjncy() const noexcept { return m_adjncy; }
 
@@ -112,6 +117,7 @@ namespace gridtools {
                         os << "domain id = " << domain.domain_id() << ";\n"
                            << "inner size = " << domain.inner_size() << ";\n"
                            << "size = " << domain.size() << ";\n"
+                           << "levels = " << domain.levels() << ";\n"
                            << "vertices: [ ";
                         for (const auto v : domain.vertices()) { os << v << " "; }
                         os << "]\n";
@@ -149,20 +155,25 @@ namespace gridtools {
 
                             vertices_type m_vertices;
                             local_indices_type m_local_indices;
+                            std::size_t m_levels;
 
                         public:
 
                             // ctors
-                            halo() noexcept = default;
+                            halo(const std::size_t levels) noexcept : m_levels{levels} {}
                             /** WARN: following one not strictly needed,
                              * but it will if this class is used as iteration_space class*/
-                            halo(const vertices_type& vertices, const local_indices_type& local_indices) :
+                            halo(const vertices_type& vertices,
+                                 const local_indices_type& local_indices,
+                                 const std::size_t levels) :
                                 m_vertices{vertices},
-                                m_local_indices{local_indices} {}
+                                m_local_indices{local_indices},
+                                m_levels{levels} {}
 
                             // member functions
                             /** @brief size of the halo */
                             std::size_t size() const noexcept { return m_vertices.size(); }
+                            std::size_t levels() const noexcept { return m_levels; }
                             const vertices_type& vertices() const noexcept { return m_vertices; }
                             const local_indices_type& local_indices() const noexcept { return m_local_indices; }
                             void push_back(const global_index_type v, const local_index_type idx) {
@@ -175,6 +186,7 @@ namespace gridtools {
                             template<typename CharT, typename Traits>
                             friend std::basic_ostream<CharT, Traits>& operator << (std::basic_ostream<CharT, Traits>& os, const halo& h) {
                                 os << "size = " << h.size() << ";\n"
+                                   << "levels = " << h.levels() << ";\n"
                                    << "vertices: [ ";
                                 for (const auto v : h.vertices()) { os << v << " "; }
                                 os << "]\n"
@@ -196,7 +208,7 @@ namespace gridtools {
                             local_indices[i] = i + domain.inner_size();
                         }
                         vertices_type vertices {domain.vertices().begin() + static_cast<it_diff_type>(domain.inner_size()), domain.vertices().end()};
-                        return {vertices, local_indices};
+                        return {vertices, local_indices, domain.levels()};
                     }
 
             };
@@ -228,7 +240,7 @@ namespace gridtools {
 
                     domain_id_type m_domain_id;
                     std::size_t m_domain_size;
-                    std::size_t m_levels; // TO DO: make it more abstract, should be one for each structured dimension
+                    std::size_t m_levels;
                     value_type* m_values;
 
                 public:
@@ -237,17 +249,15 @@ namespace gridtools {
                     /** @brief constructs a CPU data descriptor
                      * @tparam Container templated container type for the field to be wrapped; data are assumed to be contiguous in memory
                      * @param domain local domain instance
-                     * @param field field to be wrapped
-                     * @param levels number of vertical layers for semi-structured grids*/
+                     * @param field field to be wrapped*/
                     template <template <typename, typename> class Container>
                     data_descriptor(const domain_descriptor_type& domain,
-                                    Container<value_type, allocator_type>& field,
-                                    const std::size_t levels = 1) :
+                                    Container<value_type, allocator_type>& field) :
                         m_domain_id{domain.domain_id()},
                         m_domain_size{domain.size()},
-                        m_levels{levels},
+                        m_levels{domain.levels()},
                         m_values{&(field[0])} {
-                        assert(field.size() == (domain.size() * levels));
+                        assert(field.size() == (domain.size() * domain.levels()));
                     }
 
                     // member functions
@@ -274,7 +284,7 @@ namespace gridtools {
                     template <typename IterationSpace>
                     void set(const IterationSpace& is, const byte_t* buffer) {
                         for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */ {
-                            for (std::size_t level = 0; level < m_levels; ++level) {
+                            for (std::size_t level = 0; level < is.levels(); ++level) {
                                 std::memcpy(&((*this)(local_v, level)), buffer, sizeof(value_type));
                                 buffer += sizeof(value_type);
                             }
@@ -288,7 +298,7 @@ namespace gridtools {
                     template <typename IterationSpace>
                     void get(const IterationSpace& is, byte_t* buffer) const {
                         for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */ {
-                            for (std::size_t level = 0; level < m_levels; ++level) {
+                            for (std::size_t level = 0; level < is.levels(); ++level) {
                                 std::memcpy(buffer, &((*this)(local_v, level)), sizeof(value_type));
                                 buffer += sizeof(value_type);
                             }
