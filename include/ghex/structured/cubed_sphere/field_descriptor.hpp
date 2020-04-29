@@ -186,8 +186,8 @@ public: // member types
         dom_,
         std::array<int,3>{dom_.first()[1],dom_.first()[2],dom_.first()[3]},
         data_,
-        coordinate_type{offsets_[0], offsets_[1], offsets_[2], 0},
-        coordinate_type{extents_[0], extents_[1], extents_[2], (int)num_components_},
+        offsets_,
+        extents_,
         num_components_,
         is_vector_field_,
         d_id_)

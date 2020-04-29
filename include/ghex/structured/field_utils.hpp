@@ -24,6 +24,20 @@ namespace gridtools {
         for (std::size_t i=0u; i<D; ++i) a[i] += b[i];
         return a;
     }
+    template <typename T, size_t D, typename U>
+    GT_FUNCTION
+    array<T,D> operator+(array<T,D> a, const U& scalar)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] += scalar;
+        return a;
+    }
+    template <typename T, size_t D, typename U>
+    GT_FUNCTION
+    array<T,D> operator+(const U& scalar, array<T,D> a)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] += scalar;
+        return a;
+    }
     template <typename T, size_t D>
     GT_FUNCTION
     array<T,D> operator-(array<T,D> a, const array<T,D>& b)
@@ -39,6 +53,14 @@ namespace gridtools {
         for (std::size_t i=1u; i<D; ++i) res+=a[i]*b[i];
         return res;
     }
+    template<template<typename, typename> class OutputStream, class CharT, class Traits, typename T, size_t D>
+    OutputStream<CharT, Traits>& operator<<(OutputStream<CharT, Traits>& os, const array<T,D>& a)
+    {
+        os << "{" << a[0];
+        for (size_t i = 1; i < D; ++i) os << ", " << a[i];
+        os << "}";
+        return os;
+    }    
 
     namespace ghex {
     namespace structured {

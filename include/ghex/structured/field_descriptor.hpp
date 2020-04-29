@@ -66,6 +66,33 @@ public: // member types
         using coordinate_t = coordinate_type;
         const buffer_descriptor<T*> m_buffer_desc;
         const basic_iteration_space<const T*> m_data_is;
+
+        /** @brief accesses buffer at specified local coordinate
+          * @param coord in local coordinate system
+          * @return reference to the value in the buffer */
+        GT_FUNCTION
+        T& buffer(const coordinate_type& coord) const noexcept {
+            // compute buffer coordinates, relative to the buffer origin
+            const coordinate_type buffer_coord = coord - m_data_is.m_first;
+            // dot product with strides to compute address
+            const auto memory_location = dot(m_buffer_desc.m_strides, buffer_coord);
+            return *reinterpret_cast<T*>(
+                reinterpret_cast<char*>(m_buffer_desc.m_ptr) + memory_location);
+        }
+
+        /** @brief accesses field at specified local coordinate
+          * @param coord in local coordinate system
+          * @return const reference to the value in the field */
+        GT_FUNCTION
+        const T& data(const coordinate_type& coord) const noexcept {
+            // make data memory coordinates from local coordinates
+            const coordinate_type data_coord = coord + m_data_is.m_offset;
+            // dot product with strides to compute address
+            const auto memory_location = dot(m_data_is.m_strides, data_coord);
+            return *reinterpret_cast<const T*>(
+                reinterpret_cast<const char*>(m_data_is.m_ptr) + memory_location);
+        }
+
     };
 
     struct unpack_iteration_space {
@@ -73,6 +100,32 @@ public: // member types
         using coordinate_t = coordinate_type;
         const buffer_descriptor<const T*> m_buffer_desc;
         const basic_iteration_space<T*> m_data_is;
+
+        /** @brief accesses buffer at specified local coordinate
+          * @param coord in local coordinate system
+          * @return value in the buffer */
+        GT_FUNCTION
+        T buffer(const coordinate_type& coord) const noexcept {
+            // compute buffer coordinates, relative to the buffer origin
+            const coordinate_type buffer_coord = coord - m_data_is.m_first;
+            // dot product with strides to compute address
+            const auto memory_location = dot(m_buffer_desc.m_strides, buffer_coord);
+            return *reinterpret_cast<const T*>(
+                reinterpret_cast<const char*>(m_buffer_desc.m_ptr) + memory_location);
+        }
+
+        /** @brief accesses field at specified local coordinate
+          * @param local coordinate system
+          * @return reference to the value in the field */
+        GT_FUNCTION
+        T& data(const coordinate_type& coord) const noexcept {
+            // make data memory coordinates from local coordinates
+            const coordinate_type data_coord = coord + m_data_is.m_offset;
+            // dot product with strides to compute address
+            const auto memory_location = dot(m_data_is.m_strides, data_coord);
+            return *reinterpret_cast<T*>(
+                reinterpret_cast<char*>(m_data_is.m_ptr) + memory_location);
+        }
     };
 
 protected: // members
@@ -110,28 +163,35 @@ public: // ctors
             throw std::runtime_error("this field cannot have more than 1 components");
         // global coordinate of the first physical node
         std::copy(dom_first_.begin(), dom_first_.end(), m_dom_first.begin());
-        if (has_components::value) m_dom_first[dimension::value-1] = 0;
+        //if (has_components::value) m_dom_first[dimension::value-1] = 0;
         // offsets from beginning of data to the first physical (local) node
         std::copy(offsets_.begin(), offsets_.end(), m_offsets.begin());
         // extents of the field including buffers
         std::copy(extents_.begin(), extents_.end(), m_extents.begin());
-        // check extents
-        for (size_type d=0u; d<dimension::value-1; ++d) {
-            const scalar_coordinate_type D = m_dom.last()[d] - m_dom.first()[d] + 1 + m_offsets[d];
-            if (m_extents[d] < D)
-                throw std::runtime_error("extents too small");
-        }
-        // check last dimension: discriminate based on whether this field has components
+
         if (has_components::value) {
-            if (m_extents[dimension::value-1] < ((int)m_num_components + m_offsets[dimension::value-1]))
-                throw std::runtime_error("extents too small");
+            m_dom_first[dimension::value-1] = 0;
+            m_offsets[dimension::value-1] = 0;
+            m_extents[dimension::value-1] = num_components_;
         }
-        else {
-            const auto d = dimension::value-1;
-            const scalar_coordinate_type D = m_dom.last()[d] - m_dom.first()[d] + 1 + m_offsets[d];
-            if (m_extents[d] < D)
-                throw std::runtime_error("extents too small");
-        }
+        //// check extents
+        //for (size_type d=0u; d<dimension::value-1; ++d) {
+        //    const scalar_coordinate_type D = m_dom.last()[d] - m_dom.first()[d] + 1 + m_offsets[d];
+        //    if (m_extents[d] < D)
+        //        throw std::runtime_error("extents too small");
+        //}
+        //// check last dimension: discriminate based on whether this field has components
+        ////if (has_components::value) {
+        ////    if (m_extents[dimension::value-1] < ((int)m_num_components + m_offsets[dimension::value-1]))
+        ////        throw std::runtime_error("extents too small");
+        ////}
+        ////else {
+        //if (!has_components::value) {
+        //    const auto d = dimension::value-1;
+        //    const scalar_coordinate_type D = m_dom.last()[d] - m_dom.first()[d] + 1 + m_offsets[d];
+        //    if (m_extents[d] < D)
+        //        throw std::runtime_error("extents too small");
+        //}
         // compute strides in bytes
         detail::compute_strides<dimension::value>::template
             apply<layout_map,value_type>(m_extents,m_byte_strides,0u);
@@ -162,6 +222,33 @@ public: // member functions
     /** @brief returns true if this field describes a vector field */
     bool is_vector_field() const noexcept { return m_is_vector_field; }
     bool is_vector() const noexcept { return m_is_vector_field; }
+        
+    /** @brief access operator
+     * @param x coordinate vector with respect to offset specified in constructor
+     * @return reference to value */
+    GT_FUNCTION
+    value_type& operator()(const coordinate_type& x) {
+        return *reinterpret_cast<T*>((char*)m_data +dot(x,m_byte_strides));
+    }
+    GT_FUNCTION
+    const value_type& operator()(const coordinate_type& x) const {
+        return *reinterpret_cast<const T*>((const char*)m_data +dot(x,m_byte_strides));
+    }
+
+    /** @brief access operator
+     * @param is coordinates with respect to offset specified in constructor
+     * @return reference to value */
+    template<typename... Is>
+    GT_FUNCTION
+    value_type& operator()(Is&&... is) {
+        return *reinterpret_cast<T*>((char*)m_data+dot(coordinate_type{is...}+m_offsets,m_byte_strides));
+    }
+    template<typename... Is>
+    GT_FUNCTION
+    const value_type& operator()(Is&&... is) const {
+        return *reinterpret_cast<const T*>((const char*)m_data+dot(coordinate_type{is...}+
+            m_offsets,m_byte_strides));
+    }
 };
 
 } // namespace structured

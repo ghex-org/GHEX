@@ -27,9 +27,11 @@ struct serialization {
     template<typename PackIterationSpace>
     static void pack(PackIterationSpace&& pack_is, void*) {
         using coordinate_type = typename PackIterationSpace::coordinate_t;
-        ::gridtools::ghex::detail::for_loop<4,4,LayoutMap>::template apply(
-            [&pack_is](int x, int y, int z, int c) {
-                pack_is.buffer(coordinate_type{x,y,z,c}) = pack_is.data(coordinate_type{x,y,z,c});},
+        static constexpr auto D = coordinate_type::size();
+        ::gridtools::ghex::detail::for_loop<D,D,LayoutMap>::template apply(
+            [&pack_is](auto... xs) {
+                pack_is.buffer(coordinate_type{xs...}) = pack_is.data(coordinate_type{xs...});
+                },
             pack_is.m_data_is.m_first,
             pack_is.m_data_is.m_last);
     }
@@ -37,9 +39,10 @@ struct serialization {
     template<typename UnPackIterationSpace>
     static void unpack(UnPackIterationSpace&& unpack_is, void*) {
         using coordinate_type = typename UnPackIterationSpace::coordinate_t;
-        ::gridtools::ghex::detail::for_loop<4,4,LayoutMap>::template apply(
-            [&unpack_is](int x, int y, int z, int c) {
-                unpack_is.data(coordinate_type{x,y,z,c}) = unpack_is.buffer(coordinate_type{x,y,z,c});
+        static constexpr auto D = coordinate_type::size();
+        ::gridtools::ghex::detail::for_loop<D,D,LayoutMap>::template apply(
+            [&unpack_is](auto... xs) {
+                unpack_is.data(coordinate_type{xs...}) = unpack_is.buffer(coordinate_type{xs...});
             },
             unpack_is.m_data_is.m_first,
             unpack_is.m_data_is.m_last);
@@ -51,12 +54,13 @@ template<typename Layout, typename PackIterationSpace>
 __global__ void pack_kernel(PackIterationSpace pack_is, unsigned int num_elements) {
     using value_type = typename PackIterationSpace::value_t;
     using coordinate_type = typename PackIterationSpace::coordinate_t;
+    static constexpr auto D = coordinate_type::size();
     const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
     for (unsigned int i=0; i<num_elements; ++i) {
         if (index*num_elements+i < pack_is.m_buffer_desc.m_size) {
             // compute local coordinate
             coordinate_type local_coordinate;
-            ::gridtools::ghex::structured::detail::compute_coordinate<4>::template apply<Layout>(
+            ::gridtools::ghex::structured::detail::compute_coordinate<D>::template apply<Layout>(
                 pack_is.m_data_is.m_local_strides, local_coordinate, index*num_elements+i);
             // add offset
             const coordinate_type x = local_coordinate + pack_is.m_data_is.m_first;
@@ -70,12 +74,13 @@ template<typename Layout, typename UnPackIterationSpace>
 __global__ void unpack_kernel(UnPackIterationSpace unpack_is, unsigned int num_elements) {
     using value_type = typename UnPackIterationSpace::value_t;
     using coordinate_type = typename UnPackIterationSpace::coordinate_t;
+    static constexpr auto D = coordinate_type::size();
     const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
     for (unsigned int i=0; i<num_elements; ++i) {
         if (index*num_elements+i < unpack_is.m_buffer_desc.m_size) {
             // compute local coordinate
             coordinate_type local_coordinate;
-            ::gridtools::ghex::structured::detail::compute_coordinate<4>::template apply<Layout>(
+            ::gridtools::ghex::structured::detail::compute_coordinate<D>::template apply<Layout>(
                 unpack_is.m_data_is.m_local_strides, local_coordinate, index*num_elements+i);
             // add offset
             const coordinate_type x = local_coordinate + unpack_is.m_data_is.m_first;
