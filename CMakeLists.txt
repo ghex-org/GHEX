@@ -95,7 +95,11 @@ if (GHEX_ENABLE_ATLAS_BINDINGS)
 endif()
 target_compile_features(ghexlib INTERFACE cxx_std_14)
 
+# Enable adding of tests etc
 enable_testing()
+
+# Enable CDash dashboard testing integration
+include(CTest)
 
 if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     include(FetchContent)
