@@ -81,10 +81,10 @@ namespace gridtools {
         template<typename Storage>
         using arch_from_storage = typename _impl::get_arch<Storage>::type;
 
-        template <typename DomainIdType, typename Storage, typename StorageInfo>
-        auto wrap_gt_field(DomainIdType dom_id, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename arch_traits<arch_from_storage<Storage>>::device_id_type device_id = 0)
+        template <typename DomainDescriptor, typename Storage, typename StorageInfo>
+        auto wrap_gt_field(const DomainDescriptor& dom, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename arch_traits<arch_from_storage<Storage>>::device_id_type device_id = 0)
         {
-            using domain_id_type    = DomainIdType;
+            //using domain_id_type    = DomainIdType;
             using data_store_t      = ::gridtools::data_store<Storage,StorageInfo>;
             using arch_t            = typename _impl::get_arch<Storage>::type;
             using value_t           = typename data_store_t::data_t;
@@ -93,31 +93,31 @@ namespace gridtools {
             using uint_t            = decltype(layout_t::masked_length);
             using dimension         = std::integral_constant<uint_t, layout_t::masked_length>;
             using halo_t            = typename StorageInfo::halo_t;
-
-            using sfw_t             = typename _impl::get_field_descriptor_type<
-                                          value_t,
-                                          arch_t,
-                                          structured::regular::domain_descriptor<domain_id_type, dimension::value>,
-                                          integer_seq>::type;
+            using field_desc_t      = typename _impl::get_field_descriptor_type<
+                value_t, arch_t, DomainDescriptor, integer_seq>::type;
+            using coordinate_t      = typename field_desc_t::coordinate_type;
+            using strides_t         = typename field_desc_t::strides_type;
 
             value_t* ptr        = ds.get_storage_ptr()->get_target_ptr();
             const auto& info    = ds.info();
             const auto& extents = info.total_lengths();
             const auto& origin  = _impl::get_begin<halo_t, uint_t>(std::make_index_sequence<dimension::value>());
             auto strides        = info.strides();
-
+            coordinate_t extents2, origin2;
             for (unsigned int i=0u; i<dimension::value; ++i)
             {
                 strides[i] *= sizeof(value_t);
+                extents2[i] = extents[i];
+                origin2[i] = origin[i];
             }
 
-            return sfw_t(dom_id, ptr, origin, extents, strides, device_id);
+            return field_desc_t(dom, ptr, origin2, extents2, strides, 1, false, device_id);
         }
 
         template <typename Transport, typename Storage, typename StorageInfo>
         auto wrap_gt_field(const gt_grid<Transport>& grid, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename arch_traits<arch_from_storage<Storage>>::device_id_type device_id = 0)
         {
-            return wrap_gt_field(grid.m_domains[0].domain_id(), ds, device_id);
+            return wrap_gt_field(grid.m_domains[0], ds, device_id);
         }
 
     } // namespace ghex

@@ -429,7 +429,7 @@ TEST(communication_object_2, exchange)
         pattern2(field_2b_gpu),
         pattern1(field_3a_gpu),
         pattern1(field_3b_gpu)};
-    co.exchange(field_vec.data(), field_vec.size()).wait();
+    co.exchange(field_vec.begin(), field_vec.end()).wait();
 #endif
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
@@ -461,8 +461,8 @@ TEST(communication_object_2, exchange)
         pattern1(field_1b_gpu),
         pattern2(field_2b_gpu),
         pattern1(field_3b_gpu)};
-    auto h1 = co_1.exchange(field_vec_a.data(), field_vec_a.size());
-    auto h2 = co_2.exchange(field_vec_b.data(), field_vec_b.size());
+    auto h1 = co_1.exchange(field_vec_a.begin(), field_vec_a.end());
+    auto h2 = co_2.exchange(field_vec_b.begin(), field_vec_b.end());
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
     h1.wait();
@@ -501,7 +501,7 @@ TEST(communication_object_2, exchange)
     auto func = [&context](field_vec_type& vec)
     {
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
-        co_.exchange(vec.data(), vec.size()).wait();
+        co_.exchange(vec.begin(), vec.end()).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
@@ -553,7 +553,7 @@ TEST(communication_object_2, exchange)
     auto func = [&context](field_vec_type& vec)
     {
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
-        co_.exchange(vec.data(), vec.size()).wait();
+        co_.exchange(vec.begin(), vec.end()).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
@@ -611,7 +611,7 @@ TEST(communication_object_2, exchange)
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
     auto func_h = [](auto co_, field_vec_type& vec)
     {
-        return co_->exchange(vec.data(), vec.size());
+        return co_->exchange(vec.begin(), vec.end());
     };
     auto token = context.get_token();
     auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));
@@ -776,7 +776,7 @@ TEST(communication_object_2, exchange)
         pattern2(field_2b),
         pattern1(field_3a),
         pattern1(field_3b)};
-    co.exchange(field_vec.data(), field_vec.size()).wait();
+    co.exchange(field_vec.begin(), field_vec.end()).wait();
 #endif
 
 #ifdef GHEX_TEST_SERIAL_SPLIT
@@ -803,8 +803,8 @@ TEST(communication_object_2, exchange)
         pattern1(field_1b),
         pattern2(field_2b),
         pattern1(field_3b)};
-    auto h1 = co_1.exchange(field_vec_a.data(), field_vec_a.size());
-    auto h2 = co_2.exchange(field_vec_b.data(), field_vec_b.size());
+    auto h1 = co_1.exchange(field_vec_a.begin(), field_vec_a.end());
+    auto h2 = co_2.exchange(field_vec_b.begin(), field_vec_b.end());
     // ... overlap communication (packing, posting) with computation here
     // wait and upack:
     h1.wait();
@@ -836,7 +836,7 @@ TEST(communication_object_2, exchange)
     auto func = [&context](field_vec_type& vec)
     {
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
-        co_.exchange(vec.data(), vec.size()).wait();
+        co_.exchange(vec.begin(), vec.end()).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
@@ -881,7 +881,7 @@ TEST(communication_object_2, exchange)
     auto func = [&context](field_vec_type& vec)
     {
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(context.get_token()));
-        co_.exchange(vec.data(), vec.size()).wait();
+        co_.exchange(vec.begin(), vec.end()).wait();
     };
     // packing and posting may be done concurrently
     // waiting and unpacking may be done concurrently
@@ -932,7 +932,7 @@ TEST(communication_object_2, exchange)
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a))>>;
     auto func_h = [](auto co_, field_vec_type& vec)
     {
-        return co_->exchange(vec.data(), vec.size());
+        return co_->exchange(vec.begin(), vec.end());
     };
     auto token = context.get_token();
     auto co_1 = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator(token));

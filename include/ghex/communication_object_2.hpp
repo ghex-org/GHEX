@@ -17,7 +17,7 @@
 #include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
 #include "./transport_layer/tags.hpp"
-#include "./structured/regular/field_descriptor.hpp"
+//#include "./structured/regular/field_descriptor.hpp"
 #include "./arch_traits.hpp"
 #include <map>
 #include <stdio.h>
@@ -267,52 +267,52 @@ namespace gridtools {
                 return h; 
             }
 
-        public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
-
-            /** @brief non-blocking exchange of data, vector interface
-              * @tparam Arch device type
-              * @tparam Field field type
-              * @param first pointer to first buffer_info object
-              * @param length number of buffer_infos
-              * @return handle to await exchange */
-            template<typename Arch, typename Field>
-            [[nodiscard]] handle_type exchange(buffer_info_type<Arch,Field>* first, std::size_t length)
-            {
-                auto h = exchange_impl(first, length);
-                post_recvs();
-                pack();
-                return h;
-            }
-
-        public: // exchange a number of buffer_infos with Field = field_descriptor (optimization for gpu below)
-
-#ifdef __CUDACC__
-            template<typename Arch, typename T, int... Order>
-            [[nodiscard]] std::enable_if_t<std::is_same<Arch,gpu>::value, handle_type>
-            exchange_u(
-                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
-                std::size_t length)
-            {
-                using memory_t   = buffer_memory<gpu>;
-                using field_type = std::remove_reference_t<decltype(first->get_field())>;
-                using value_type = typename field_type::value_type;
-                auto h = exchange_impl(first, length);
-                post_recvs();
-                h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
-                memory_t& mem = std::get<memory_t>(m_mem);
-                packer<gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, m_comm);
-                return h;
-            }
-#endif
-
-            template<typename Arch, typename T, int... Order>
-            [[nodiscard]] std::enable_if_t<std::is_same<Arch,cpu>::value, handle_type>
-            exchange_u(
-                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
-                std::size_t length)
-            {
-                return exchange(first, length);
-            }
+//        public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
+//
+//            /** @brief non-blocking exchange of data, vector interface
+//              * @tparam Arch device type
+//              * @tparam Field field type
+//              * @param first pointer to first buffer_info object
+//              * @param length number of buffer_infos
+//              * @return handle to await exchange */
+//            template<typename Arch, typename Field>
+//            [[nodiscard]] handle_type exchange(buffer_info_type<Arch,Field>* first, std::size_t length)
+//            {
+//                auto h = exchange_impl(first, length);
+//                post_recvs();
+//                pack();
+//                return h;
+//            }
+//
+//        public: // exchange a number of buffer_infos with Field = field_descriptor (optimization for gpu below)
+//
+//#ifdef __CUDACC__
+//            template<typename Arch, typename T, int... Order>
+//            [[nodiscard]] std::enable_if_t<std::is_same<Arch,gpu>::value, handle_type>
+//            exchange_u(
+//                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+//                std::size_t length)
+//            {
+//                using memory_t   = buffer_memory<gpu>;
+//                using field_type = std::remove_reference_t<decltype(first->get_field())>;
+//                using value_type = typename field_type::value_type;
+//                auto h = exchange_impl(first, length);
+//                post_recvs();
+//                h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
+//                memory_t& mem = std::get<memory_t>(m_mem);
+//                packer<gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, m_comm);
+//                return h;
+//            }
+//#endif
+//
+//            template<typename Arch, typename T, int... Order>
+//            [[nodiscard]] std::enable_if_t<std::is_same<Arch,cpu>::value, handle_type>
+//            exchange_u(
+//                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
+//                std::size_t length)
+//            {
+//                return exchange(first, length);
+//            }
 
             template<typename... Iterators>
             [[nodiscard]]

@@ -73,7 +73,7 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
     template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-    void printbuff(std::ostream& file, const gridtools::ghex::structured::regular::field_descriptor2<T,Arch,DomainDescriptor, Order...>& field)
+    void printbuff(std::ostream& file, const gridtools::ghex::structured::regular::field_descriptor<T,Arch,DomainDescriptor, Order...>& field)
     {
         if (field.extents()[0] <= 10 && field.extents()[1] <= 10 && field.extents()[2] <= 6)
         {

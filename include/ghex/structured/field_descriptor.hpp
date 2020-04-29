@@ -140,13 +140,13 @@ protected: // members
     strides_type           m_byte_strides;    ///< memory strides in bytes
 
 public: // ctors
-    template<typename DomainArray, typename FieldArray>
+    template<typename DomainArray, typename OffsetArray, typename ExtentArray>
     field_descriptor(
         const domain_descriptor_type& dom_,
         const DomainArray& dom_first_,
         value_type* data_,
-        const FieldArray& offsets_,
-        const FieldArray& extents_,
+        const OffsetArray& offsets_,
+        const ExtentArray& extents_,
         unsigned int num_components_ = 1u,
         bool is_vector_field_ = false,
         device_id_type d_id_ = 0)
@@ -168,33 +168,30 @@ public: // ctors
         std::copy(offsets_.begin(), offsets_.end(), m_offsets.begin());
         // extents of the field including buffers
         std::copy(extents_.begin(), extents_.end(), m_extents.begin());
-
         if (has_components::value) {
             m_dom_first[dimension::value-1] = 0;
             m_offsets[dimension::value-1] = 0;
             m_extents[dimension::value-1] = num_components_;
         }
-        //// check extents
-        //for (size_type d=0u; d<dimension::value-1; ++d) {
-        //    const scalar_coordinate_type D = m_dom.last()[d] - m_dom.first()[d] + 1 + m_offsets[d];
-        //    if (m_extents[d] < D)
-        //        throw std::runtime_error("extents too small");
-        //}
-        //// check last dimension: discriminate based on whether this field has components
-        ////if (has_components::value) {
-        ////    if (m_extents[dimension::value-1] < ((int)m_num_components + m_offsets[dimension::value-1]))
-        ////        throw std::runtime_error("extents too small");
-        ////}
-        ////else {
-        //if (!has_components::value) {
-        //    const auto d = dimension::value-1;
-        //    const scalar_coordinate_type D = m_dom.last()[d] - m_dom.first()[d] + 1 + m_offsets[d];
-        //    if (m_extents[d] < D)
-        //        throw std::runtime_error("extents too small");
-        //}
         // compute strides in bytes
         detail::compute_strides<dimension::value>::template
             apply<layout_map,value_type>(m_extents,m_byte_strides,0u);
+    }
+    template<typename DomainArray, typename OffsetArray, typename ExtentArray, typename Strides>
+    field_descriptor(
+        const domain_descriptor_type& dom_,
+        const DomainArray& dom_first_,
+        value_type* data_,
+        const OffsetArray& offsets_,
+        const ExtentArray& extents_,
+        const Strides& strides_,
+        unsigned int num_components_ = 1u,
+        bool is_vector_field_ = false,
+        device_id_type d_id_ = 0)
+    : field_descriptor(dom_, dom_first_, data_, offsets_, extents_, num_components_, is_vector_field_, d_id_)
+    {
+        for (unsigned int i=0u; i<dimension::value; ++i)
+            m_byte_strides[i] = strides_[i];
     }
 
     field_descriptor(field_descriptor&&) noexcept = default;

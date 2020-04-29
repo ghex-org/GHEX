@@ -16,6 +16,7 @@
 #include <gridtools/common/array.hpp>
 #include <gridtools/common/layout_map.hpp>
 #include "../pack_kernels.hpp"
+#include "../field_descriptor.hpp"
 #include "./halo_generator.hpp"
 
 namespace gridtools {
@@ -43,63 +44,9 @@ public: // member types
     using coordinate_type          = typename base::coordinate_type;
     using size_type                = typename base::size_type;
     using strides_type             = typename base::strides_type;
+    using serialization_type       = serialization<arch_type,layout_map>;
+    using pack_iteration_space     = typename base::pack_iteration_space;
     
-    using serialization_type     = serialization<arch_type,layout_map>;
-    
-    struct pack_iteration_space : public base::pack_iteration_space {
-        using base_is = typename base::pack_iteration_space;
-        
-        template<typename BufferDesc, typename IS>
-        pack_iteration_space(BufferDesc&& bd, IS&& is)
-        : base_is{std::forward<BufferDesc>(bd), std::forward<IS>(is)}
-        {}
-
-        pack_iteration_space(pack_iteration_space&&) noexcept = default;
-        pack_iteration_space(const pack_iteration_space&) noexcept = default;
-        pack_iteration_space& operator=(pack_iteration_space&&) noexcept = default;
-        pack_iteration_space& operator=(const pack_iteration_space&) noexcept = default;
-
-        /** @brief accesses buffer at specified local coordinate
-          * @param coord 4-dimensional array (x, y, z, component) in local coordinate system
-          * @return reference to the value in the buffer */
-        GT_FUNCTION
-        T& buffer(const coordinate_type& coord) const noexcept {
-            // make global coordinates
-            const coordinate_type global_coord{
-                coord[0] + base_is::m_data_is.m_domain_first[0],
-                coord[1] + base_is::m_data_is.m_domain_first[1],
-                coord[2] + base_is::m_data_is.m_domain_first[2],
-                coord[3]};
-            // compute buffer coordinates, relative to the buffer origin
-            const coordinate_type buffer_coord = global_coord - base_is::m_buffer_desc.m_first;
-            // dot product with strides to compute address
-            const auto memory_location =
-                base_is::m_buffer_desc.m_strides[0]*buffer_coord[0] +
-                base_is::m_buffer_desc.m_strides[1]*buffer_coord[1] +
-                base_is::m_buffer_desc.m_strides[2]*buffer_coord[2] +
-                base_is::m_buffer_desc.m_strides[3]*buffer_coord[3];
-            return *reinterpret_cast<T*>(
-                reinterpret_cast<char*>(base_is::m_buffer_desc.m_ptr) + memory_location);
-        }
-
-        /** @brief accesses field at specified local coordinate
-          * @param coord 4-dimensional array (x, y, z, component) in local coordinate system
-          * @return const reference to the value in the field */
-        GT_FUNCTION
-        const T& data(const coordinate_type& coord) const noexcept {
-            // make data memory coordinates from local coordinates
-            const coordinate_type data_coord = coord + base_is::m_data_is.m_offset;
-            // dot product with strides to compute address
-            const auto memory_location =
-                base_is::m_data_is.m_strides[0]*data_coord[0] +
-                base_is::m_data_is.m_strides[1]*data_coord[1] +
-                base_is::m_data_is.m_strides[2]*data_coord[2] +
-                base_is::m_data_is.m_strides[3]*data_coord[3];
-            return *reinterpret_cast<const T*>(
-                reinterpret_cast<const char*>(base_is::m_data_is.m_ptr) + memory_location);
-        }
-    };
-
     struct unpack_iteration_space : public base::unpack_iteration_space {
         using base_is = typename base::unpack_iteration_space;
 
@@ -152,23 +99,6 @@ public: // member types
                 return *reinterpret_cast<const T*>(reinterpret_cast<const char*>(
                     base_is::m_buffer_desc.m_ptr) + memory_location);
         }
-
-        /** @brief accesses field at specified local coordinate
-          * @param coord 4-dimensional array (component, x, y, z) in local coordinate system
-          * @return reference to the value in the field */
-        GT_FUNCTION
-        T& data(const coordinate_type& coord) const noexcept {
-            // make data memory coordinates from local coordinates
-            const coordinate_type data_coord = coord + base_is::m_data_is.m_offset;
-            // dot product with strides to compute address
-            const auto memory_location =
-                base_is::m_data_is.m_strides[0]*data_coord[0] +
-                base_is::m_data_is.m_strides[1]*data_coord[1] +
-                base_is::m_data_is.m_strides[2]*data_coord[2] +
-                base_is::m_data_is.m_strides[3]*data_coord[3];
-            return *reinterpret_cast<T*>(
-                reinterpret_cast<char*>(base_is::m_data_is.m_ptr) + memory_location);
-        }
     };
 
     int             m_c;             /// cube size
@@ -205,54 +135,8 @@ public: // member types
     void pack(T* buffer, const IndexContainer& c, void* arg) {
         // loop over pattern's iteration spaces
         for (const auto& is : c) {
-            // 4-D description of the halo in the buffer
-            const coordinate_type buffer_offset {
-                is.global().first()[1],
-                is.global().first()[2],
-                is.global().first()[3],
-                0};
-            const coordinate_type buffer_extents {
-                is.global().last()[1]-is.global().first()[1]+1,
-                is.global().last()[2]-is.global().first()[2]+1,
-                is.global().last()[3]-is.global().first()[3]+1,
-                (int)base::m_num_components};
-            strides_type buffer_strides;
-            ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
-                apply<layout_map,value_type>(buffer_extents,buffer_strides,0u);
-            // 4-D description of the halo in the local domain
-            coordinate_type data_first;
-            coordinate_type data_last;
-            data_first[3] = 0;
-            data_last[3] = base::m_num_components-1;
-            std::copy(is.local().first().begin()+1, is.local().first().end(), data_first.begin());
-            std::copy(is.local().last().begin()+1, is.local().last().end(), data_last.begin());
-            const coordinate_type local_extents{
-                data_last[0]-data_first[0]+1,
-                data_last[1]-data_first[1]+1,
-                data_last[2]-data_first[2]+1,
-                data_last[3]-data_first[3]+1};
-            strides_type local_strides;
-            ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
-                apply<layout_map>(local_extents,local_strides);
-            // number of values to pack
             const size_type size = is.size()*base::num_components();
-            // dispatch to specialized packer
-            serialization_type::pack(
-                pack_iteration_space{
-                    typename base::template buffer_descriptor<T*>{
-                        buffer,
-                        buffer_offset,
-                        buffer_strides,
-                        size},
-                    typename base::template basic_iteration_space<const T*>{
-                        base::m_data,
-                        base::m_dom_first,
-                        base::m_offsets,
-                        data_first,
-                        data_last,
-                        base::m_byte_strides,
-                        local_strides}},
-                arg);
+            serialization_type::pack ( make_pack_is(is, buffer, size), arg );
             buffer += size;
         }
     }
@@ -275,59 +159,62 @@ public: // member types
             }
             else
                 t = &identity_transform;
-            // 4-D description of the halo in the buffer
-            const coordinate_type buffer_offset {
-                is.global().first()[1],
-                is.global().first()[2],
-                is.global().first()[3],
-                0};
-            const coordinate_type buffer_extents {
-                is.global().last()[1]-is.global().first()[1]+1,
-                is.global().last()[2]-is.global().first()[2]+1,
-                is.global().last()[3]-is.global().first()[3]+1,
-                (int)base::m_num_components};
-            strides_type buffer_strides;
-            ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
-                apply<layout_map,value_type>(buffer_extents,buffer_strides,0u);
-            // 4-D description of the halo in the local domain
-            coordinate_type data_first;
-            coordinate_type data_last;
-            data_first[3] = 0;
-            data_last[3] = base::m_num_components-1;
-            std::copy(is.local().first().begin()+1, is.local().first().end(), data_first.begin());
-            std::copy(is.local().last().begin()+1, is.local().last().end(), data_last.begin());
-            const coordinate_type local_extents{
-                data_last[0]-data_first[0]+1,
-                data_last[1]-data_first[1]+1,
-                data_last[2]-data_first[2]+1,
-                data_last[3]-data_first[3]+1};
-            strides_type local_strides;
-            ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
-                apply<layout_map>(local_extents,local_strides);
             // number of values to unpack
             const size_type size = is.size()*base::num_components();
-            // dispatch to specialized unpacker
-            serialization_type::unpack(
-                unpack_iteration_space{
-                    typename base::template buffer_descriptor<const T*>{
-                        buffer,
-                        buffer_offset,
-                        buffer_strides,
-                        size},
-                    typename base::template basic_iteration_space<T*>{
-                        base::m_data,
-                        base::m_dom_first,
-                        base::m_offsets,
-                        data_first,
-                        data_last,
-                        base::m_byte_strides,
-                        local_strides},
-                    *t,
-                    m_c,
-                    base::m_is_vector_field},
-                arg);
+            serialization_type::unpack ( make_unpack_is(is, buffer, size, *t), arg );
             buffer += size;
         }
+    }
+private: // implementation
+    template<typename IterationSpace>
+    pack_iteration_space make_pack_is(const IterationSpace& is, T* buffer, size_type size) {
+        return {make_buffer_desc<typename base::template buffer_descriptor<T*>>(is,buffer,size),
+                make_is<typename base::template basic_iteration_space<const T*>>(is)};
+    }
+
+    template<typename IterationSpace>
+    unpack_iteration_space make_unpack_is(const IterationSpace& is, const T* buffer, size_type size, 
+        const transform& t) {
+        return {make_buffer_desc<typename base::template buffer_descriptor<const T*>>(is,buffer,size),
+                make_is<typename base::template basic_iteration_space<T*>>(is),
+                t, m_c, base::m_is_vector_field};
+    }
+
+    template<typename BufferDesc, typename IterationSpace, typename Buffer>
+    BufferDesc make_buffer_desc(const IterationSpace& is, Buffer buffer, size_type size) {
+        // description of the halo in the buffer
+        coordinate_type buffer_offset;
+        std::copy(is.global().first().begin()+1, is.global().first().end(), buffer_offset.begin()); 
+        if (has_components::value)
+            buffer_offset[dimension::value-1] = 0;
+        coordinate_type buffer_extents;
+        std::copy(is.global().last().begin()+1, is.global().last().end(), buffer_extents.begin()); 
+        if (has_components::value)
+            buffer_extents[dimension::value-1] = base::m_num_components;
+        buffer_extents = buffer_extents - buffer_offset+1;
+        strides_type buffer_strides;
+        ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
+            apply<layout_map,value_type>(buffer_extents,buffer_strides,0u);
+        return {buffer, buffer_offset, buffer_strides, size};
+    }
+
+    template<typename IS, typename IterationSpace>
+    IS make_is(const IterationSpace& is) {
+        // description of the halo in the local domain
+        coordinate_type data_first;
+        coordinate_type data_last;
+        std::copy(is.local().first().begin()+1, is.local().first().end(), data_first.begin());
+        std::copy(is.local().last().begin()+1, is.local().last().end(), data_last.begin());
+        if (has_components::value) {
+            data_first[dimension::value-1] = 0;
+            data_last[dimension::value-1] = base::m_num_components-1;
+        }
+        const coordinate_type local_extents = data_last-data_first+1;
+        strides_type local_strides;
+        ::gridtools::ghex::structured::detail::compute_strides<dimension::value>::template
+            apply<layout_map>(local_extents,local_strides);
+        return {base::m_data, base::m_dom_first, base::m_offsets,
+                data_first, data_last, base::m_byte_strides, local_strides};
     }
 };
 
