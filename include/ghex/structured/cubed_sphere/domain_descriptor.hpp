@@ -20,7 +20,10 @@ namespace gridtools {
         namespace structured {
             namespace cubed_sphere {
 
-                /** @brief cube dimensions */
+                /** @brief cube dimensions
+                  * This struct describes the cube which is projected onto the sphere. The first
+                  * member @p x describes the number of cells along one edge of the cube. The second
+                  * member @p levels describes the number of levels/cells in z/altitude direction */
                 struct cube {
                     int x;
                     int levels;
