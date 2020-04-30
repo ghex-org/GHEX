@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_PACK_KERNELS_HPP
 #define INCLUDED_GHEX_STRUCTURED_PACK_KERNELS_HPP
 
+#include <cstring>
 #include "./field_utils.hpp"
 #include "../common/utils.hpp"
 #include "../arch_traits.hpp"
@@ -18,6 +19,13 @@
 namespace gridtools {
 namespace ghex {
 namespace structured {
+
+template<std::size_t Idx, typename Seq, typename LMap>
+struct reduced_layout_map;
+template<std::size_t Idx, std::size_t... Ms, typename LMap>
+struct reduced_layout_map<Idx, std::index_sequence<Ms...>, LMap>{
+    using type = gridtools::layout_map<LMap::at(Ms<Idx ? Ms : Ms+1)...>;
+};
 
 /** @brief Helper class to dispatch to CPU/GPU implementations of pack/unpack kernels
   * @tparam Arch Architecture type
@@ -31,7 +39,7 @@ struct serialization {
         ::gridtools::ghex::detail::for_loop<D,D,LayoutMap>::template apply(
             [&pack_is](auto... xs) {
                 pack_is.buffer(coordinate_type{xs...}) = pack_is.data(coordinate_type{xs...});
-                },
+            },
             pack_is.m_data_is.m_first,
             pack_is.m_data_is.m_last);
     }
@@ -46,6 +54,74 @@ struct serialization {
             },
             unpack_is.m_data_is.m_first,
             unpack_is.m_data_is.m_last);
+    }
+
+    template<typename PackIterationSpace>
+    static void pack_batch(PackIterationSpace&& pack_is, void*) {
+        using coordinate_type = typename PackIterationSpace::coordinate_t;
+        using value_type = typename PackIterationSpace::value_t;
+        constexpr auto D = coordinate_type::size();
+        constexpr auto cont_idx = LayoutMap::template find<D-1>();
+        const auto x_first = pack_is.m_data_is.m_first[cont_idx];
+        const auto x_last = pack_is.m_data_is.m_last[cont_idx];
+        using LayoutMap2 = typename reduced_layout_map<cont_idx,std::make_index_sequence<D-1>,LayoutMap>::type;
+        using scalar_coord_type = typename std::remove_cv<decltype(x_first)>::type;
+        using cont_coord_type = gridtools::array<scalar_coord_type,D-1>;
+        cont_coord_type first,last;
+        for (std::size_t j=0, i=0; i<D; ++i) {
+            if (i==cont_idx) continue;
+            first[j] = pack_is.m_data_is.m_first[i];
+            last[j++] = pack_is.m_data_is.m_last[i];
+        }
+        ::gridtools::ghex::detail::for_loop<D-1,D-1,LayoutMap2>::template apply(
+            [&pack_is,&x_first,&x_last](auto... xs) {
+                const cont_coord_type x0{xs...};
+                coordinate_type x1;
+                x1[cont_idx] = x_first;
+                for (std::size_t j=0, i=0; i<D; ++i) {
+                    if (i==cont_idx) continue;
+                    x1[i] = x0[j++];
+                }
+                value_type* buffer = &(pack_is.buffer(x1));
+                value_type const * field = &(pack_is.data(x1));
+                std::memcpy(buffer, field, (x_last-x_first+1)*sizeof(value_type));
+            },
+            first,
+            last);
+    }
+
+    template<typename UnPackIterationSpace>
+    static void unpack_batch(UnPackIterationSpace&& unpack_is, void*) {
+        using coordinate_type = typename UnPackIterationSpace::coordinate_t;
+        using value_type = typename UnPackIterationSpace::value_t;
+        constexpr auto D = coordinate_type::size();
+        constexpr auto cont_idx = LayoutMap::template find<D-1>();
+        const auto x_first = unpack_is.m_data_is.m_first[cont_idx];
+        const auto x_last = unpack_is.m_data_is.m_last[cont_idx];
+        using LayoutMap2 = typename reduced_layout_map<cont_idx,std::make_index_sequence<D-1>,LayoutMap>::type;
+        using scalar_coord_type = typename std::remove_cv<decltype(x_first)>::type;
+        using cont_coord_type = gridtools::array<scalar_coord_type,D-1>;
+        cont_coord_type first,last;
+        for (std::size_t j=0, i=0; i<D; ++i) {
+            if (i==cont_idx) continue;
+            first[j] = unpack_is.m_data_is.m_first[i];
+            last[j++] = unpack_is.m_data_is.m_last[i];
+        }
+        ::gridtools::ghex::detail::for_loop<D-1,D-1,LayoutMap2>::template apply(
+            [&unpack_is,&x_first,&x_last](auto... xs) {
+                const cont_coord_type x0{xs...};
+                coordinate_type x1;
+                x1[cont_idx] = x_first;
+                for (std::size_t j=0, i=0; i<D; ++i) {
+                    if (i==cont_idx) continue;
+                    x1[i] = x0[j++];
+                }
+                value_type const * buffer = &(unpack_is.buffer(x1));
+                value_type * field = &(unpack_is.data(x1));
+                std::memcpy(field, buffer, (x_last-x_first+1)*sizeof(value_type));
+            },
+            first,
+            last);
     }
 };
 
@@ -115,6 +191,16 @@ struct serialization<::gridtools::ghex::gpu,LMap> {
             /elements_per_thread;
         const std::size_t num_blocks = (num_threads+block_dim-1)/block_dim;
         unpack_kernel<LMap><<<num_blocks,block_dim,0,*stream_ptr>>>(unpack_is, elements_per_thread);
+    }
+    
+    template<typename PackIterationSpace>
+    static void pack_batch(PackIterationSpace&& pack_is, void* arg) {
+        pack(std::forward<PackIterationSpace>(pack_is), arg);
+    }
+
+    template<typename UnPackIterationSpace>
+    static void unpack_batch(UnPackIterationSpace&& unpack_is, void* arg) {
+        pack(std::forward<UNPackIterationSpace>(unpack_is), arg);
     }
 };
 #endif

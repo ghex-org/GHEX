@@ -96,7 +96,6 @@ namespace gridtools {
             using field_desc_t      = typename _impl::get_field_descriptor_type<
                 value_t, arch_t, DomainDescriptor, integer_seq>::type;
             using coordinate_t      = typename field_desc_t::coordinate_type;
-            using strides_t         = typename field_desc_t::strides_type;
 
             value_t* ptr        = ds.get_storage_ptr()->get_target_ptr();
             const auto& info    = ds.info();
