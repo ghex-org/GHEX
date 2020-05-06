@@ -46,11 +46,12 @@ using domain_descriptor_type = gridtools::ghex::unstructured::domain_descriptor<
 using halo_generator_type = gridtools::ghex::unstructured::halo_generator<domain_id_type, global_index_type>;
 using grid_type = gridtools::ghex::unstructured::grid;
 using pattern_type = gridtools::ghex::pattern<communicator_type, grid_type::type<domain_descriptor_type>, domain_id_type>;
-using local_indices_type = pattern_type::iteration_space::local_indices_type;
 using vertices_type = domain_descriptor_type::vertices_type;
 using vertices_set_type = domain_descriptor_type::vertices_set_type;
 using adjncy_type = domain_descriptor_type::adjncy_type;
 using map_type = domain_descriptor_type::map_type;
+using local_index_type = domain_descriptor_type::local_index_type;
+using local_indices_type = std::vector<local_index_type>;
 using it_diff_type = vertices_type::iterator::difference_type;
 using data_descriptor_cpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, int>;
 
@@ -226,7 +227,10 @@ void check_send_halos_indices(const pattern_type& p) {
         auto res = res_ids.insert(sh.first.id);
         EXPECT_TRUE(res.second); // ids are unique
         EXPECT_NO_THROW(ref_map.at(sh.first.id)); // ids are correct
-        EXPECT_TRUE(sh.second.front().local_indices() == ref_map.at(sh.first.id)); // indices are correct
+        EXPECT_TRUE(sh.second.front().local_indices().size() == ref_map.at(sh.first.id).size()); // indices size is correct
+        for (std::size_t idx = 0; idx < ref_map.at(sh.first.id).size(); ++idx) {
+            EXPECT_TRUE(sh.second.front().local_indices()[idx] == ref_map.at(sh.first.id)[idx]); // indices are correct
+        }
     }
 }
 
@@ -277,7 +281,10 @@ void check_recv_halos_indices(const pattern_type& p) {
         auto res = res_ids.insert(rh.first.id);
         EXPECT_TRUE(res.second); // ids are unique
         EXPECT_NO_THROW(ref_map.at(rh.first.id)); // ids are correct
-        EXPECT_TRUE(rh.second.front().local_indices() == ref_map.at(rh.first.id)); // indices are correct
+        EXPECT_TRUE(rh.second.front().local_indices().size() == ref_map.at(rh.first.id).size()); // indices size is correct
+        for (std::size_t idx = 0; idx < ref_map.at(rh.first.id).size(); ++idx) {
+            EXPECT_TRUE(rh.second.front().local_indices()[idx] == ref_map.at(rh.first.id)[idx]); // indices are correct
+        }
     }
 }
 

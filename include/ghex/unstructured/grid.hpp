@@ -27,7 +27,7 @@ namespace gridtools {
             /** @brief type to indicate unstructured grids */
             struct grid {
                 template<typename Domain>
-                using type = detail::grid<typename Domain::global_index_type>;
+                using type = detail::grid<typename Domain::local_index_type>;
             };
 
         } // namespace unstructured

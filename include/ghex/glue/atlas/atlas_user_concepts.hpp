@@ -48,8 +48,7 @@ namespace gridtools {
 
                 // member types
                 using domain_id_type = DomainId;
-                using index_t = atlas::idx_t;
-                using global_index_type = atlas::gidx_t;
+                using local_index_type = atlas::idx_t;
 
             private:
 
@@ -57,7 +56,7 @@ namespace gridtools {
                 domain_id_type m_id;
                 atlas::Field m_partition;
                 atlas::Field m_remote_index;
-                index_t m_size;
+                local_index_type m_size;
                 std::size_t m_levels;
 
             public:
@@ -87,7 +86,7 @@ namespace gridtools {
                 domain_id_type domain_id() const noexcept { return m_id; }
                 const atlas::Field& partition() const noexcept { return m_partition; }
                 const atlas::Field& remote_index() const noexcept { return m_remote_index; }
-                index_t size() const noexcept { return m_size; }
+                local_index_type size() const noexcept { return m_size; }
                 std::size_t levels() const noexcept { return m_levels; }
 
                 // print
@@ -115,7 +114,7 @@ namespace gridtools {
 
                 // member types
                 using domain_type = atlas_domain_descriptor<DomainId>;
-                using index_t = typename domain_type::index_t;
+                using local_index_type = typename domain_type::local_index_type;
 
                 /** @brief Halo class for Atlas
                   * Provides list of local indices of neighboring elements.*/
@@ -123,7 +122,7 @@ namespace gridtools {
 
                     private:
 
-                        std::vector<index_t> m_local_indices;
+                        std::vector<local_index_type> m_local_indices;
                         std::size_t m_levels;
 
                     public:
@@ -134,8 +133,8 @@ namespace gridtools {
                         // member functions
                         std::size_t size() const noexcept { return m_local_indices.size(); }
                         std::size_t levels() const noexcept { return m_levels; }
-                        std::vector<index_t>& local_indices() noexcept { return m_local_indices; }
-                        const std::vector<index_t>& local_indices() const noexcept { return m_local_indices; }
+                        std::vector<local_index_type>& local_indices() noexcept { return m_local_indices; }
+                        const std::vector<local_index_type>& local_indices() const noexcept { return m_local_indices; }
 
                         // print
                         /** @brief print */
@@ -160,13 +159,13 @@ namespace gridtools {
                 halo operator()(const domain_type& domain) const {
 
                     auto partition = atlas::array::make_view<int, 1>(domain.partition());
-                    auto remote_index = atlas::array::make_view<index_t, 1>(domain.remote_index());
+                    auto remote_index = atlas::array::make_view<local_index_type, 1>(domain.remote_index());
 
                     halo h{domain.levels()};
 
                     // if the index refers to another domain, or even to the same but as a halo point,
                     // the halo is updated
-                    for (index_t d_idx = 0; d_idx < domain.size(); ++d_idx) {
+                    for (local_index_type d_idx = 0; d_idx < domain.size(); ++d_idx) {
                         if ((partition(d_idx) != domain.domain_id()) || (remote_index(d_idx) != d_idx)) {
                             h.local_indices().push_back(d_idx);
                         }
@@ -191,7 +190,7 @@ namespace gridtools {
                 // member types
                 using domain_id_type = DomainId;
                 using domain_type = atlas_domain_descriptor<domain_id_type>;
-                using index_t = typename domain_type::index_t;
+                using local_index_type = typename domain_type::local_index_type;
 
                 /** @brief Halo class for Atlas recv domain ids generator
                   * Provides following lists, each of which corresponds to the list of halo points:
@@ -203,7 +202,7 @@ namespace gridtools {
                     private:
 
                         std::vector<domain_id_type> m_domain_ids;
-                        std::vector<index_t> m_remote_indices;
+                        std::vector<local_index_type> m_remote_indices;
                         std::vector<int> m_ranks;
 
                     public:
@@ -211,8 +210,8 @@ namespace gridtools {
                         // member functions
                         std::vector<domain_id_type>& domain_ids() noexcept { return m_domain_ids; }
                         const std::vector<domain_id_type>& domain_ids() const noexcept { return m_domain_ids; }
-                        std::vector<index_t>& remote_indices() noexcept { return m_remote_indices; }
-                        const std::vector<index_t>& remote_indices() const noexcept { return m_remote_indices; }
+                        std::vector<local_index_type>& remote_indices() noexcept { return m_remote_indices; }
+                        const std::vector<local_index_type>& remote_indices() const noexcept { return m_remote_indices; }
                         std::vector<int>& ranks() noexcept { return m_ranks; }
                         const std::vector<int>& ranks() const noexcept { return m_ranks; }
 
@@ -243,13 +242,13 @@ namespace gridtools {
                 halo operator()(const domain_type& domain) const {
 
                     auto partition = atlas::array::make_view<int, 1>(domain.partition());
-                    auto remote_index = atlas::array::make_view<index_t, 1>(domain.remote_index());
+                    auto remote_index = atlas::array::make_view<local_index_type, 1>(domain.remote_index());
 
                     halo h{};
 
                     // if the index refers to another domain, or even to the same but as a halo point,
                     // the halo is updated
-                    for (index_t d_idx = 0; d_idx < domain.size(); ++d_idx) {
+                    for (local_index_type d_idx = 0; d_idx < domain.size(); ++d_idx) {
                         if ((partition(d_idx) != domain.domain_id()) || (remote_index(d_idx) != d_idx)) {
                             h.domain_ids().push_back(partition(d_idx));
                             h.remote_indices().push_back(remote_index(d_idx));
@@ -280,7 +279,7 @@ namespace gridtools {
                 using domain_id_type = DomainId;
                 using value_type = T;
                 using domain_descriptor_type = atlas_domain_descriptor<domain_id_type>;
-                using index_t = typename domain_descriptor_type::index_t;
+                using local_index_type = typename domain_descriptor_type::local_index_type;
                 using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
                 using byte_t = unsigned char;
 
@@ -304,12 +303,12 @@ namespace gridtools {
                 device_id_type device_id() const { return 0; }
 
                 /** @brief single access operator, used by multiple access set function*/
-                value_type& operator()(const index_t idx, const index_t level) {
+                value_type& operator()(const local_index_type idx, const local_index_type level) {
                     return m_values(idx, level);
                 }
 
                 /** @brief single access operator (const version), used by multiple access get function*/
-                const value_type& operator()(const index_t idx, const index_t level) const {
+                const value_type& operator()(const local_index_type idx, const local_index_type level) const {
                     return m_values(idx, level);
                 }
 
@@ -319,9 +318,9 @@ namespace gridtools {
                  * @param buffer buffer with the data to be set back*/
                 template <typename IterationSpace>
                 void set(const IterationSpace& is, const byte_t* buffer) {
-                    for (index_t idx : is.local_indices()) {
+                    for (local_index_type idx : is.local_indices()) {
                         for (std::size_t level = 0; level < is.levels(); ++level) {
-                            std::memcpy(&((*this)(idx, level)), buffer, sizeof(value_type));
+                            std::memcpy(&((*this)(idx, level)), buffer, sizeof(value_type)); // level: implicit cast to local_index_type
                             buffer += sizeof(value_type);
                         }
                     }
@@ -333,9 +332,9 @@ namespace gridtools {
                  * @param buffer buffer to be filled*/
                 template <typename IterationSpace>
                 void get(const IterationSpace& is, byte_t* buffer) const {
-                    for (index_t idx : is.local_indices()) {
+                    for (local_index_type idx : is.local_indices()) {
                         for (std::size_t level = 0; level < is.levels(); ++level) {
-                            std::memcpy(buffer, &((*this)(idx, level)), sizeof(value_type));
+                            std::memcpy(buffer, &((*this)(idx, level)), sizeof(value_type)); // level: implicit cast to local_index_type
                             buffer += sizeof(value_type);
                         }
                     }
@@ -361,13 +360,12 @@ namespace gridtools {
 
 #define GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK 32
 
-        template <typename T, typename index_t>
+        template <typename T, typename local_index_type>
         __global__ void pack_kernel(
                 const atlas::array::ArrayView<T, 2> values,
                 const std::size_t local_indices_size,
-                const index_t* local_indices,
+                const local_index_type* local_indices,
                 const std::size_t levels,
-                const std::size_t buffer_size,
                 T* buffer) {
             auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
             if (idx < local_indices_size) {
@@ -377,12 +375,11 @@ namespace gridtools {
             }
         }
 
-        template <typename T, typename index_t>
+        template <typename T, typename local_index_type>
         __global__ void unpack_kernel(
-                const std::size_t buffer_size,
                 const T* buffer,
                 const std::size_t local_indices_size,
-                const index_t* local_indices,
+                const local_index_type* local_indices,
                 const std::size_t levels,
                 atlas::array::ArrayView<T, 2> values) {
             auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -403,7 +400,7 @@ namespace gridtools {
                 using domain_id_type = DomainId;
                 using value_type = T;
                 using domain_descriptor_type = atlas_domain_descriptor<domain_id_type>;
-                using index_t = typename domain_descriptor_type::index_t;
+                using local_index_type = typename domain_descriptor_type::local_index_type;
                 using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
 
             private:
@@ -439,12 +436,11 @@ namespace gridtools {
                 void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) / GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
-                        pack_kernel<value_type, index_t><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
+                        pack_kernel<value_type, local_index_type><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
                                 m_values,
                                 is.local_indices().size(),
                                 &(is.local_indices()[0]),
                                 is.levels(),
-                                is.size(),
                                 buffer);
                     }
                 }
@@ -453,8 +449,7 @@ namespace gridtools {
                 void unpack(const value_type* buffer, const IndexContainer& c, void* stream_ptr) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) / GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
-                        unpack_kernel<value_type, index_t><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
-                                is.size(),
+                        unpack_kernel<value_type, local_index_type><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
                                 buffer,
                                 is.local_indices().size(),
                                 &(is.local_indices()[0]),

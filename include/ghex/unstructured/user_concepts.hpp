@@ -49,6 +49,7 @@ namespace gridtools {
                     using vertices_set_type = std::set<global_index_type>;
                     using adjncy_type = std::vector<global_index_type>; // named after ParMetis CSR arrays
                     using map_type = std::vector<std::pair<global_index_type, adjncy_type>>;
+                    using local_index_type = std::size_t; // local index, deduced from here, and not used at the application level. Will be cast to std::size_t in data_decriptor.
 
                 private:
 
@@ -141,7 +142,7 @@ namespace gridtools {
                     using domain_type = domain_descriptor<DomainId, Idx>;
                     using global_index_type = typename domain_type::global_index_type;
                     using vertices_type = typename domain_type::vertices_type; // mandatory: inferred from the domain
-                    using local_index_type = std::size_t; // TO DO: should be inferred from iteration space
+                    using local_index_type = typename domain_type::local_index_type;
                     using local_indices_type = std::vector<local_index_type>;
                     using it_diff_type = typename vertices_type::iterator::difference_type;
 
