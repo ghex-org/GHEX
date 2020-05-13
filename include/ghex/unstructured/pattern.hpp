@@ -179,6 +179,15 @@ namespace gridtools {
             template<typename Index>
             struct make_pattern_impl<unstructured::detail::grid<Index>> {
 
+                /** @brief specialization used when no hints on neighbor domains are provided
+                 * The workflow is as follows:
+                 * - all gather communications to retrive receive halos from all domains, plus some metadata;
+                 * - for each local domain, loop through all receive halos to fetch items to be sent to each other domian,
+                 *   and set up send halos in pattern, as well as vector of local indices to be sent to other domains;
+                 * - all to all communication to inform each other domain of the indices which will be sent,
+                 *   which becomes receive indices on the receive side (2 all to all communications in total,
+                 *   one for the send / recv elements counters and one for the send / recv indices);
+                 * - reconstruct recv halos on the receive side and set up receive halos in pattern.*/
                 template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
                 static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
 
@@ -431,6 +440,15 @@ namespace gridtools {
 
                 }
 
+                /** @brief specialization used when receive domain ids generator is provided
+                 * The workflow is as follows:
+                 * - all gather communications to retrive some metadata;
+                 * - set up receive halos in pattern, as well as vector of local indices to be received from other domains.
+                 *   Note: recv halos are set using the information provided by the user on the receive domain ids;
+                 * - all to all communication to inform each other domain of the indices which will be received,
+                 *   which becomes send indices on the send side (2 all to all communications in total,
+                 *   one for the recv / send elements counters and one for the recv / send indices);
+                 * - reconstruct send halos on the send side and set up send halos in pattern.*/
                 template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
                 static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range) {
 
