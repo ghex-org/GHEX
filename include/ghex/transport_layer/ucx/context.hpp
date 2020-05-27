@@ -26,12 +26,11 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
-            template<typename ThreadPrimitives>
-            struct transport_context<ucx_tag, ThreadPrimitives>
+            struct transport_context<ucx_tag>
             {
             public: // member types
                 using rank_type         = ucx::endpoint_t::rank_type;
-                using worker_type       = ucx::worker_t<ThreadPrimitives>;
+                using worker_type       = ucx::worker_t;
                 using communicator_type = communicator<ucx::communicator<ThreadPrimitives>>;
 
             private: // member types
@@ -85,7 +84,7 @@ namespace gridtools {
                 using worker_vector         = std::vector<std::unique_ptr<worker_type>>;
 
             private: // members
-                
+
                 thread_primitives_type&    m_thread_primitives;
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
@@ -167,11 +166,11 @@ namespace gridtools {
                     // use single-threaded UCX mode, as per developer advice
                     // https://github.com/openucx/ucx/issues/4609
                     m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SINGLE);
-                    
+
                     // intialize database
                     m_db.init(m_worker.address());
                 }
-                
+
                 communicator_type get_serial_communicator()
                 {
                     return {&m_worker,&m_worker};
@@ -233,10 +232,9 @@ namespace gridtools {
 
             } // namespace ucx
 
-            template<class ThreadPrimitives>
-            struct context_factory<ucx_tag, ThreadPrimitives>
+            struct context_factory<ucx_tag>
             {
-                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm comm)
+                static std::unique_ptr<context<ucx_tag>> create(int num_threads, MPI_Comm comm)
                 {
                     auto new_comm = detail::clone_mpi_comm(comm);
 #if defined GHEX_USE_PMI
@@ -244,11 +242,11 @@ namespace gridtools {
 #else
                     ucx::address_db_mpi addr_db{new_comm};
 #endif
-                    return std::unique_ptr<context<ucx_tag, ThreadPrimitives>>{
-                        new context<ucx_tag,ThreadPrimitives>{num_threads, new_comm, std::move(addr_db)}};
+                    return std::unique_ptr<context<ucx_tag>>{
+                        new context<ucx_tag>{num_threads, new_comm, std::move(addr_db)}};
                 }
             };
-            
+
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools
