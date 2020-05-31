@@ -20,6 +20,10 @@ find_library(UCP_LIBRARY HINT ${UCP_DIR} NAMES ucp
 set(UCP_LIBRARIES    ${UCP_LIBRARY} CACHE INTERNAL "")
 set(UCP_INCLUDE_DIRS ${UCP_INCLUDE_DIR} CACHE INTERNAL "")
 
+message("CIAODIR ${UCX_DIR}")
+message("CIAO ${UCP_LIBRARY}")
+message("CIAO2 ${UCP_INCLUDE_DIR}")
+
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(UCP DEFAULT_MSG UCP_LIBRARY UCP_INCLUDE_DIR)
 
