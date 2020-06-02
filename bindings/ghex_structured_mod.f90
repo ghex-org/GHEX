@@ -11,10 +11,10 @@ MODULE ghex_structured_mod
   ! field descriptor - always associated with a domain
   type, bind(c) :: ghex_struct_field
      type(c_ptr)    :: data = c_null_ptr
-     integer(c_int) ::  offset(3) = [-1]       ! by default - values from the halo
-     integer(c_int) :: extents(3) = [-1]       ! by default - size of the local extents + halos
-     integer(c_int) ::    halo(6) = [-1]       ! halo to be used for this field
-     integer(c_int) :: periodic(3) = [0]
+     integer(c_int) ::  offset(3) = -1         ! by default - values from the halo
+     integer(c_int) :: extents(3) = -1         ! by default - size of the local extents + halos
+     integer(c_int) ::    halo(6) = -1         ! halo to be used for this field
+     integer(c_int) :: periodic(3) = 0
      integer(c_int) :: n_components = 1        ! number of field components
      integer(c_int) ::     layout = LayoutFieldLast
   end type ghex_struct_field

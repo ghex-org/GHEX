@@ -6,7 +6,7 @@ MODULE ghex_future_mod
   implicit none
 
   type, bind(c) :: ghex_future
-     integer(c_int8_t) :: data(GHEX_FUTURE_SIZE) = [0]
+     integer(c_int8_t) :: data(GHEX_FUTURE_SIZE) = 0
   end type ghex_future
   
   interface
