@@ -111,6 +111,7 @@ namespace gridtools {
 
                 // member functions
                 domain_id_type domain_id() const noexcept { return m_id; }
+                int num_components() const noexcept { return 1; }
                 int rank() const noexcept { return m_rank; }
                 const atlas::Field& partition() const noexcept { return m_partition; }
                 const atlas::Field& remote_index() const noexcept { return m_remote_index; }
