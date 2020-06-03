@@ -13,8 +13,55 @@
 
 #include <gridtools/common/host_device.hpp>
 #include <cstddef> 
+#include <gridtools/common/array.hpp>
 
 namespace gridtools {
+
+    template <typename T, size_t D>
+    GT_FUNCTION
+    array<T,D> operator+(array<T,D> a, const array<T,D>& b)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] += b[i];
+        return a;
+    }
+    template <typename T, size_t D, typename U>
+    GT_FUNCTION
+    array<T,D> operator+(array<T,D> a, const U& scalar)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] += scalar;
+        return a;
+    }
+    template <typename T, size_t D, typename U>
+    GT_FUNCTION
+    array<T,D> operator+(const U& scalar, array<T,D> a)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] += scalar;
+        return a;
+    }
+    template <typename T, size_t D>
+    GT_FUNCTION
+    array<T,D> operator-(array<T,D> a, const array<T,D>& b)
+    {
+        for (std::size_t i=0u; i<D; ++i) a[i] -= b[i];
+        return a;
+    }
+    template <typename T, typename U, size_t D>
+    GT_FUNCTION
+    typename std::common_type<T, U>::type dot(const array<T,D>& a, const array<U,D>& b)
+    {
+        typename std::common_type<T, U>::type res = a[0]*b[0];
+        for (std::size_t i=1u; i<D; ++i) res+=a[i]*b[i];
+        return res;
+    }
+    template<template<typename, typename> class OutputStream, class CharT, class Traits, typename T, size_t D>
+    OutputStream<CharT, Traits>& operator<<(OutputStream<CharT, Traits>& os, const array<T,D>& a)
+    {
+        os << "{" << a[0];
+        for (size_t i = 1; i < D; ++i) os << ", " << a[i];
+        os << "}";
+        return os;
+    }    
+
     namespace ghex {
     namespace structured {
 
@@ -45,9 +92,9 @@ namespace gridtools {
         template<int D>
         struct compute_strides
         {
-            template<typename Layout, typename Coordinate>
+            template<typename Layout, typename Coordinate, typename Strides>
             GT_FUNCTION
-            static void apply(const Coordinate& extents, Coordinate& strides)
+            static void apply(const Coordinate& extents, Strides& strides)
             {
                 const auto idx      = Layout::template find<D-1>();
                 strides[idx]        = 1;
@@ -67,9 +114,9 @@ namespace gridtools {
         template<>
         struct compute_strides<1>
         {
-            template<typename Layout, typename Coordinate>
+            template<typename Layout, typename Coordinate, typename Strides>
             GT_FUNCTION
-            static void apply(const Coordinate&, Coordinate& strides)
+            static void apply(const Coordinate&, Strides& strides)
             {
                 strides[0]        = 1;
             }
@@ -84,9 +131,9 @@ namespace gridtools {
         template<int D, int K>
         struct compute_coordinate_impl
         {
-            template<typename Layout, typename Coordinate, typename I>
+            template<typename Layout, typename Strides, typename Coordinate, typename I>
             GT_FUNCTION
-            static void apply(const Coordinate& strides, Coordinate& coord, I i)
+            static void apply(const Strides& strides, Coordinate& coord, I i)
             {
                 const auto idx = Layout::template find<D-(K)>();
                 coord[idx]     = i/strides[idx];
@@ -96,18 +143,18 @@ namespace gridtools {
         template<int D>
         struct compute_coordinate_impl<D,0>
         {
-            template<typename Layout, typename Coordinate, typename I>
+            template<typename Layout, typename Strides, typename Coordinate, typename I>
             GT_FUNCTION
-            static void apply(const Coordinate&, Coordinate&, I)
+            static void apply(const Strides&, Coordinate&, I)
             {
             }
         };
         template<int D>
         struct compute_coordinate
         {
-            template<typename Layout, typename Coordinate, typename I>
+            template<typename Layout, typename Strides, typename Coordinate, typename I>
             GT_FUNCTION
-            static void apply(const Coordinate& strides, Coordinate& coord, I i)
+            static void apply(const Strides& strides, Coordinate& coord, I i)
             {
                 const auto idx = Layout::template find<0>();
                 coord[idx]     = i/strides[idx];
