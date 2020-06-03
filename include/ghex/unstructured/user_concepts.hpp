@@ -267,7 +267,7 @@ namespace gridtools {
                     domain_id_type domain_id() const noexcept { return m_domain_id; }
                     std::size_t domain_size() const noexcept { return m_domain_size; }
                     std::size_t levels() const noexcept { return m_levels; }
-int num_components() const noexcept { return 1; }
+                    int num_components() const noexcept { return 1; }
 
                     /** @brief single access operator, used by multiple access set function*/
                     value_type& operator()(const std::size_t local_v, const std::size_t level) {
