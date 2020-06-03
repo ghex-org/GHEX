@@ -14,6 +14,7 @@
 #include <map>
 #include <deque>
 #include <unordered_map>
+#include <mutex>
 #include "../../common/moved_bit.hpp"
 #include "./error.hpp"
 #include "./endpoint.hpp"
@@ -24,12 +25,11 @@ namespace gridtools {
         namespace tl {
 
             // forward declaration
-            template<typename ThreadPrimitives>
-            struct transport_context<ucx_tag, ThreadPrimitives>;
+            template<>
+            struct transport_context<ucx_tag>;
 
             namespace ucx {
 
-                template<typename ThreadPrimitives>
                 struct worker_t
                 {
                     using rank_type = typename endpoint_t::rank_type;
@@ -70,24 +70,25 @@ namespace gridtools {
                     };
 
                     using cache_type             = std::unordered_map<rank_type, endpoint_t>;
-                    using thread_primitives_type = ThreadPrimitives;
-                    using thread_token           = typename thread_primitives_type::token;
-                    using transport_context_type = transport_context<ucx_tag, ThreadPrimitives>;
+                    //using thread_primitives_type = ThreadPrimitives;
+                    //using thread_token           = typename thread_primitives_type::token;
+                    using transport_context_type = transport_context<ucx_tag>;//, ThreadPrimitives>;
 
-                    transport_context_type* m_context;
-                    thread_primitives_type* m_thread_primitives;
-                    thread_token*           m_token_ptr;
+                    transport_context_type* m_context =  nullptr;
+                    //thread_primitives_type* m_thread_primitives;
+                    //thread_token*           m_token_ptr;
                     rank_type               m_rank;
                     rank_type               m_size;
                     ucp_worker_handle       m_worker;
                     address_t               m_address;
                     cache_type              m_endpoint_cache;
                     int                     m_progressed_sends = 0;
+                    std::mutex* m_mutex;
                     volatile int            m_progressed_recvs = 0;
                     volatile int            m_progressed_cancels = 0;
 
                     worker_t() = default;
-                    worker_t(transport_context_type* c, thread_primitives_type* tp, thread_token* t, ucs_thread_mode_t mode);
+                    worker_t(transport_context_type* c, std::mutex &mm, ucs_thread_mode_t mode);
                     worker_t(const worker_t&) = delete;
                     worker_t(worker_t&& other) noexcept = default;
                     worker_t& operator=(const worker_t&) = delete;
@@ -98,6 +99,7 @@ namespace gridtools {
                     inline ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
+                    std::mutex& mutex() { return *m_mutex; }
                 };
 
             } // namespace ucx
@@ -106,4 +108,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_UCX_WORKER_HPP */
-

@@ -26,12 +26,13 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
+            template <>
             struct transport_context<ucx_tag>
             {
             public: // member types
                 using rank_type         = ucx::endpoint_t::rank_type;
                 using worker_type       = ucx::worker_t;
-                using communicator_type = communicator<ucx::communicator<ThreadPrimitives>>;
+                using communicator_type = communicator<ucx::communicator/*<ThreadPrimitives>*/>;
 
             private: // member types
 
@@ -79,21 +80,22 @@ namespace gridtools {
                     ~ucp_context_h_holder() { ucp_cleanup(m_context); }
                 };
 
-                using thread_primitives_type = ThreadPrimitives;
-                using thread_token          = typename thread_primitives_type::token;
+                //using thread_primitives_type = ThreadPrimitives;
+                //using thread_token          = typename thread_primitives_type::token;
                 using worker_vector         = std::vector<std::unique_ptr<worker_type>>;
 
             private: // members
 
-                thread_primitives_type&    m_thread_primitives;
+                //thread_primitives_type&    m_thread_primitives;
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
                 std::size_t                m_req_size;
                 worker_type                m_worker;  // shared, serialized - per rank
                 worker_vector              m_workers; // per thread
-                std::vector<thread_token>  m_tokens;
+                std::mutex                 m_mutex;
+                //std::vector<thread_token>  m_tokens;
 
-                friend class ucx::worker_t<ThreadPrimitives>;
+                friend class ucx::worker_t/*<ThreadPrimitives>*/;
 
             public: // static member functions
 
@@ -101,11 +103,10 @@ namespace gridtools {
 
             public: // ctors
                 template<typename DB, typename... Args>
-                transport_context(ThreadPrimitives& tp, DB&& db, Args&&...)
-                    : m_thread_primitives(tp)
-                    , m_db{std::forward<DB>(db)}
-                    , m_workers(m_thread_primitives.size())
-                    , m_tokens(m_thread_primitives.size())
+                transport_context(/*ThreadPrimitives& tp, */DB&& db, Args&&...)
+                    //: m_thread_primitives(tp)
+                    : m_db{std::forward<DB>(db)}
+                    , m_workers()
                 {
                     // read run-time context
                     ucp_config_t* config_ptr;
@@ -165,7 +166,7 @@ namespace gridtools {
                     // make shared worker
                     // use single-threaded UCX mode, as per developer advice
                     // https://github.com/openucx/ucx/issues/4609
-                    m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SINGLE);
+                    m_worker = worker_type{this, m_mutex, /*nullptr,*/ UCS_THREAD_MODE_SINGLE};
 
                     // intialize database
                     m_db.init(m_worker.address());
@@ -176,14 +177,10 @@ namespace gridtools {
                     return {&m_worker,&m_worker};
                 }
 
-                communicator_type get_communicator(const thread_token& t)
+                communicator_type get_communicator(/*const thread_token& t*/)
                 {
-                    if (!m_workers[t.id()])
-                    {
-                        m_tokens[t.id()] = t;
-                        m_workers[t.id()] = std::make_unique<worker_type>(this, &m_thread_primitives, &m_tokens[t.id()], UCS_THREAD_MODE_SINGLE);
-                    }
-                    return {&m_worker, m_workers[t.id()].get()};
+                    m_workers.push_back(std::make_unique<worker_type>(this, m_mutex,/*&m_thread_primitives, &m_tokens[t.id()],*/ UCS_THREAD_MODE_SINGLE));
+                return {&m_worker, m_workers[m_workers.size()-1].get()};
                 }
 
                 rank_type rank() const { return m_db.rank(); }
@@ -193,13 +190,14 @@ namespace gridtools {
 
             namespace ucx {
 
-                template<typename ThreadPrimitives>
-                worker_t<ThreadPrimitives>::worker_t(transport_context_type* c, ThreadPrimitives *tp, thread_token* t, ucs_thread_mode_t mode)
+                /*template<typename ThreadPrimitives>*/
+                worker_t/*<ThreadPrimitives>*/::worker_t(transport_context_type* c, std::mutex& mm, /* ThreadPrimitives *tp, thread_token* t,*/ ucs_thread_mode_t mode)
                     : m_context{c}
-                    , m_thread_primitives{tp}
-                    , m_token_ptr{t}
+                      //, m_thread_primitives{tp}
+                      //, m_token_ptr{t}
                     , m_rank(c->rank())
                     , m_size(c->size())
+                    , m_mutex{&mm}
                     {
                         ucp_worker_params_t params;
                         params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
@@ -219,8 +217,8 @@ namespace gridtools {
                         m_worker.m_moved = false;
                     }
 
-                template<typename ThreadPrimitives>
-                const endpoint_t& worker_t<ThreadPrimitives>::connect(rank_type rank)
+                //template<typename ThreadPrimitives>
+                const endpoint_t& worker_t/*<ThreadPrimitives>*/::connect(rank_type rank)
                 {
                     auto it = m_endpoint_cache.find(rank);
                     if (it != m_endpoint_cache.end())
@@ -232,6 +230,7 @@ namespace gridtools {
 
             } // namespace ucx
 
+            template<>
             struct context_factory<ucx_tag>
             {
                 static std::unique_ptr<context<ucx_tag>> create(int num_threads, MPI_Comm comm)
