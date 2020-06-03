@@ -22,21 +22,21 @@ namespace gridtools {
 
                 /** @brief cube dimensions
                   * This struct describes the cube which is projected onto the sphere. The first
-                  * member @p x describes the number of cells along one edge of the cube. The second
+                  * member @p edge_size describes the number of cells along one edge of the cube. The second
                   * member @p levels describes the number of levels/cells in z/altitude direction */
                 struct cube {
-                    int x;
+                    int edge_size;
                     int levels;
                 };
         
                 /** @brief domain id type comprised of tile id and tile-local id */
-                struct domain_id_t {
+                struct domain_id_type {
                     int tile;
                     coordinate<std::array<int,2>> id;
                 };
 
                 // strict ordering of domain_id objects
-                static inline bool operator>(const domain_id_t& a, const domain_id_t& b) noexcept {
+                static inline bool operator>(const domain_id_type& a, const domain_id_type& b) noexcept {
                     if (a.tile > b.tile) return true;
                     if (b.tile > a.tile) return false;
                     if (a.id[1] > b.id[1]) return true;
@@ -45,7 +45,7 @@ namespace gridtools {
                     if (a.id[0] < b.id[0]) return false;
                     return false;
                 }
-                static inline bool operator<(const domain_id_t& a, const domain_id_t& b) noexcept {
+                static inline bool operator<(const domain_id_type& a, const domain_id_type& b) noexcept {
                     if (a.tile < b.tile) return true;
                     if (b.tile < a.tile) return false;
                     if (a.id[1] < b.id[1]) return true;
@@ -55,7 +55,7 @@ namespace gridtools {
                     return false;
                 }
                 
-                static inline bool operator==(const domain_id_t& a, const domain_id_t& b) noexcept {
+                static inline bool operator==(const domain_id_type& a, const domain_id_type& b) noexcept {
                     return a.tile==b.tile && a.id==b.id;
                 }
 
@@ -63,7 +63,7 @@ namespace gridtools {
                 class domain_descriptor
                 {
                 public: // member types
-                    using domain_id_type      = domain_id_t;
+                    using domain_id_type      = ::gridtools::ghex::structured::cubed_sphere::domain_id_type;
                     // 4-dimensional: tile, x, y, z
                     using dimension           = std::integral_constant<int,3>;
                     using coordinate_type     = coordinate<std::array<int,4>>;
@@ -96,7 +96,7 @@ namespace gridtools {
                     }
 
                 public: // member functions
-                    int x() const noexcept { return m_c.x; }
+                    int edge_size() const noexcept { return m_c.edge_size; }
                     const domain_id_type& domain_id() const noexcept { return m_id; }
                     const coordinate_type& first() const { return m_first; }
                     const coordinate_type& last() const { return m_last; }

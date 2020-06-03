@@ -101,7 +101,7 @@ public: // member types
         }
     };
 
-    int             m_c;             /// cube size
+    int             m_edge_size;             /// cube size
 
     template<typename Array>
     field_descriptor(
@@ -121,7 +121,7 @@ public: // member types
         num_components_,
         is_vector_field_,
         d_id_)
-    , m_c{dom_.x()}
+    , m_edge_size{dom_.edge_size()}
     {}
     field_descriptor(field_descriptor&&) noexcept = default;
     field_descriptor(const field_descriptor&) noexcept = default;
@@ -129,7 +129,7 @@ public: // member types
     field_descriptor& operator=(const field_descriptor&) noexcept = default;
     
     /** @brief returns the size of the cube (number of cells along an edge) */
-    int x() const noexcept { return m_c; }
+    int edge_size() const noexcept { return m_edge_size; }
 
     template<typename IndexContainer>
     void pack(T* buffer, const IndexContainer& c, void* arg) {
@@ -177,7 +177,7 @@ private: // implementation
         const transform& t) {
         return {make_buffer_desc<typename base::template buffer_descriptor<const T*>>(is,buffer,size),
                 make_is<typename base::template basic_iteration_space<T*>>(is),
-                t, m_c, base::m_is_vector_field};
+                t, m_edge_size, base::m_is_vector_field};
     }
 
     template<typename BufferDesc, typename IterationSpace, typename Buffer>

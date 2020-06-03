@@ -20,6 +20,8 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 
+// this is to exclude index Idx from a layout map
+// and return a reduced layout map
 template<std::size_t Idx, typename Seq, typename LMap>
 struct reduced_layout_map;
 template<std::size_t Idx, std::size_t... Ms, typename LMap>
