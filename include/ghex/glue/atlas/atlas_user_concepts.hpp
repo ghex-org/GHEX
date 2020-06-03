@@ -111,7 +111,6 @@ namespace gridtools {
 
                 // member functions
                 domain_id_type domain_id() const noexcept { return m_id; }
-                int num_components() const noexcept { return 1; }
                 int rank() const noexcept { return m_rank; }
                 const atlas::Field& partition() const noexcept { return m_partition; }
                 const atlas::Field& remote_index() const noexcept { return m_remote_index; }
@@ -303,6 +302,8 @@ namespace gridtools {
                 domain_id_type domain_id() const { return m_domain_id; }
 
                 device_id_type device_id() const { return 0; }
+
+                int num_components() const noexcept { return 1; }
 
                 /** @brief single access operator, used by multiple access set function*/
                 value_type& operator()(const index_t idx, const std::size_t level) {
