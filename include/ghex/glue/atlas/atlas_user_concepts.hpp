@@ -303,6 +303,8 @@ namespace gridtools {
 
                 device_id_type device_id() const { return 0; }
 
+                int num_components() const noexcept { return 1; }
+
                 /** @brief single access operator, used by multiple access set function*/
                 value_type& operator()(const index_t idx, const std::size_t level) {
                     return m_values(static_cast<std::size_t>(idx), level); // WARN: why std::size_t cast is needed here?

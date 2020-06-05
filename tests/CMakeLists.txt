@@ -33,7 +33,6 @@ foreach (_t ${_tests})
     )
 endforeach()
 
-
 if (GHEX_USE_UCP)
     set(_variants_ucx serial serial_split threads async_async async_deferred)
 
@@ -175,3 +174,4 @@ if (USE_GPU)
 endif()
 
 add_subdirectory(transport)
+add_subdirectory(cubed_sphere)
