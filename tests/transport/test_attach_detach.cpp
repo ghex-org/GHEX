@@ -1,23 +1,22 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 
 #include <ghex/transport_layer/callback_communicator.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
-#include <ghex/threads/atomic/primitives.hpp>
 #include <iostream>
 #include <iomanip>
 #include <gtest/gtest.h>
 
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::atomic::primitives;
+
 using context_type = gridtools::ghex::tl::context<transport, threading>;
 
 using allocator_type     = std::allocator<unsigned char>;
@@ -31,10 +30,10 @@ const unsigned int SIZE = 1<<12;
 TEST(attach, attach_progress)
 {
     bool ok = true;
-    
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
-    auto comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator();
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
@@ -67,15 +66,15 @@ TEST(attach, attach_progress)
 
     EXPECT_TRUE(ok);
 
-    MPI_Barrier(comm); 
+    MPI_Barrier(comm);
 }
 
 TEST(detach, detach_wait)
 {
     bool ok = true;
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
-    auto comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator();
     callback_comm_type cb_comm(comm);
 
     int cb_count = 0;
@@ -114,15 +113,15 @@ TEST(detach, detach_wait)
 
     EXPECT_TRUE(ok);
 
-    MPI_Barrier(comm); 
-} 
+    MPI_Barrier(comm);
+}
 
-TEST(detach, detach_cancel_unexpected) 
+TEST(detach, detach_cancel_unexpected)
 {
     bool ok = true;
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
-    auto comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator();
     callback_comm_type cb_comm(comm);
 
     message_type send_msg{SIZE};
@@ -145,23 +144,23 @@ TEST(detach, detach_cancel_unexpected)
         if (!(o->first.ready()))
             ok = ok && o->first.cancel();
     }
-    else 
+    else
         ok = false;
     if (auto o = cb_comm.detach_recv(src,1))
     {
         if (!(o->first.ready()))
             ok = ok && o->first.cancel();
     }
-    else 
+    else
         ok = false;
 
     ok = ok && !cb_comm.progress();
     while(cb_comm.progress()) {}
 
-    MPI_Barrier(comm); 
+    MPI_Barrier(comm);
 
-    ok = ok && !cb_comm.progress([&unexpected_msg](const message_type& x,int,int){ 
-        std::cout << "received unexpected message!\n"; 
+    ok = ok && !cb_comm.progress([&unexpected_msg](const message_type& x,int,int){
+        std::cout << "received unexpected message!\n";
         unexpected_msg = x; });
     if (unexpected_msg.size())
     {
@@ -174,6 +173,5 @@ TEST(detach, detach_cancel_unexpected)
 
     EXPECT_TRUE(ok);
 
-    MPI_Barrier(comm); 
+    MPI_Barrier(comm);
 }
-
