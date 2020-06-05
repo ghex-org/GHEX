@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
 #define INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
@@ -54,7 +54,7 @@ namespace gridtools {
             const coordinate_type& last()  const noexcept { return _max; }
 
             // number of elements in hypercube
-            int size() const noexcept 
+            int size() const noexcept
             {
                 int s = _max[0]-_min[0]+1;
                 for (int i=1; i<coordinate_type::size(); ++i) s *= _max[i]-_min[i]+1;
@@ -62,7 +62,7 @@ namespace gridtools {
             }
 
         public: // members
-            coordinate_type _min; 
+            coordinate_type _min;
             coordinate_type _max;
 
         public: // ctors
@@ -93,7 +93,7 @@ namespace gridtools {
         struct iteration_space_pair
         {
         public: // member types
-            using pattern_type = pattern; 
+            using pattern_type = pattern;
             using dimension = typename this_type::dimension;
 
         public: // member functions
@@ -101,7 +101,7 @@ namespace gridtools {
             const iteration_space& local() const noexcept { return m_local; }
             iteration_space& global() noexcept { return m_global; }
             const iteration_space& global() const noexcept { return m_global; }
-            int size() const noexcept { return m_local.size(); } 
+            int size() const noexcept { return m_local.size(); }
 
         public: // members
             iteration_space m_local;
@@ -128,8 +128,8 @@ namespace gridtools {
 
         public: // member functions
             // unique ordering given by id and tag
-            bool operator<(const extended_domain_id_type& other) const noexcept 
-            { 
+            bool operator<(const extended_domain_id_type& other) const noexcept
+            {
                 return (id < other.id ? true : (id == other.id ? (tag < other.tag) : false));
             }
 
@@ -204,11 +204,11 @@ namespace gridtools {
         template<typename CoordinateArrayType>
         struct make_pattern_impl<::gridtools::ghex::structured::detail::grid<CoordinateArrayType>>
         {
-            template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
-            static auto apply(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range)
+            template<typename Transport, typename HaloGenerator, typename DomainRange>
+            static auto apply(tl::context<Transport>& context, HaloGenerator&& hgen, DomainRange&& d_range)
             {
                 // typedefs
-                using context_type              = tl::context<Transport,ThreadPrimitives>;
+                using context_type              = tl::context<Transport>;
                 using domain_type               = typename std::remove_reference_t<DomainRange>::value_type;
                 using domain_id_type            = typename domain_type::domain_id_type;
                 using grid_type                 = ::gridtools::ghex::structured::detail::grid<CoordinateArrayType>;
@@ -223,7 +223,7 @@ namespace gridtools {
                 auto comm = context.get_setup_communicator();
                 auto new_comm = context.get_serial_communicator();
                 auto my_address = new_comm.address();
-                
+
                 // set up domain ids, extents and recv halos
                 std::vector<iteration_space_pair>              my_domain_extents;
                 std::vector<extended_domain_id_type>           my_domain_ids;
@@ -238,9 +238,9 @@ namespace gridtools {
                 {
                     // fill data structures with domain related info
                     my_domain_ids.push_back( extended_domain_id_type{d.domain_id(), comm.rank(), my_address, 0} );
-                    my_domain_extents.push_back( 
+                    my_domain_extents.push_back(
                         iteration_space_pair{
-                            iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()}, 
+                            iteration_space{coordinate_type{d.first()}-coordinate_type{d.first()},
                                             coordinate_type{d.last()} -coordinate_type{d.first()}},
                             iteration_space{coordinate_type{d.first()}, coordinate_type{d.last()}}} );
                     my_patterns.emplace_back( /*new_comm,*/ my_domain_extents.back(), my_domain_ids.back() );
@@ -283,7 +283,7 @@ namespace gridtools {
                     pat.global_first() = global_min;
                     pat.global_last()  = global_max;
                 }
-                
+
                 // check my receive halos against all existing domains (i.e. intersection check)
                 // in order to decide from which domain I shall be receiving from.
                 // loop over patterns/domains
@@ -357,13 +357,13 @@ namespace gridtools {
                     }
                 }
 
-                // communicate max tag to be used for thread safety in communication object 
+                // communicate max tag to be used for thread safety in communication object
                 // use all_gather
                 auto max_tags  = comm.all_gather(m_max_tag).get();
                 // compute maximum tag and store in m_max_tag
                 for (auto x : max_tags)
                     m_max_tag = std::max(x,m_max_tag);
-                
+
                 // translate my receive halos to (remote) send halos
                 // by a detour over the following nested map
                 std::map<int,
@@ -378,7 +378,7 @@ namespace gridtools {
                     {
                         // get my domain's default extended domain id (tag = 0)
                         auto d_id = p.extended_domain_id();
-                        // change tag to the tag which was assigned before (tag = receive halo's tag) 
+                        // change tag to the tag which was assigned before (tag = receive halo's tag)
                         d_id.tag = id_is_pair.first.tag;
                         // create map entry if it does not exist
                         auto& is_vec = send_halos_map[id_is_pair.first.mpi_rank][id_is_pair.first.id][d_id];
@@ -392,7 +392,7 @@ namespace gridtools {
                             const auto& extents_vec = domain_extents[id_is_pair.first.mpi_rank];
                             const auto& domains_vec = domain_ids[id_is_pair.first.mpi_rank];
                             // find domain id
-                            unsigned int ll=0; 
+                            unsigned int ll=0;
                             for (const auto& dd : domains_vec)
                             {
                                 if (dd.id == id_is_pair.first.id) break;
@@ -446,7 +446,7 @@ namespace gridtools {
                             // broadcast ranks
                             std::vector<int> ranks;
                             ranks.reserve(num_ranks);
-                            for (const auto& p : send_halos_map) 
+                            for (const auto& p : send_halos_map)
                                 ranks.push_back(p.first);
                             comm.broadcast(&ranks[0],num_ranks,rank);
 
@@ -497,7 +497,7 @@ namespace gridtools {
                                 }
                                 ++j;
                             }
-                        } 
+                        }
                     }
                     else
                     {
@@ -579,4 +579,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_STRUCTURED_PATTERN_HPP */
-

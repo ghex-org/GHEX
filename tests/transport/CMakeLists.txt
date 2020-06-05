@@ -1,5 +1,5 @@
 
-set(_tests test_low_level test_send_multi test_barrier test_barrier_mt test_cancel test_context test_send_recv)
+set(_tests test_low_level test_send_multi test_cancel test_context test_send_recv)
 
 foreach(t_ ${_tests})
     add_executable( ${t_} ./${t_}.cpp )

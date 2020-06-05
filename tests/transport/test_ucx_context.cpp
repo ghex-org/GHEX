@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #include <iostream>
 #include <ghex/transport_layer/ucx/address_db_mpi.hpp>
@@ -22,22 +22,20 @@ namespace ghex = gridtools::ghex;
 
 using db_type      = ghex::tl::ucx::address_db_mpi;
 using transport    = ghex::tl::ucx_tag;
-using threading    = ghex::threads::atomic::primitives;
-using context_type = ghex::tl::context<transport, threading>;
+using context_type = ghex::tl::context<transport>;
 
 
 TEST(transport_layer, ucx_context)
 {
     int num_threads = 4;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(num_threads, MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
-    auto func = [&context]()
+    auto func = [&context](int id)
     {
-        auto token = context.get_token();
 
-        auto comm = context.get_communicator(token);
+        auto comm = context.get_communicator();
 
         std::vector<int> payload{1,2,3,4};
 
@@ -45,25 +43,25 @@ TEST(transport_layer, ucx_context)
         {
             for (int i=1; i<comm.size(); ++i)
             {
-                comm.recv(payload, i, token.id()).wait();
-                EXPECT_EQ(payload[0], token.id());
+                comm.recv(payload, i, id).wait();
+                EXPECT_EQ(payload[0], id);
                 EXPECT_EQ(payload[1], i);
             }
         }
         else
         {
-            payload[0] = token.id();
+            payload[0] = id;
             payload[1] = comm.rank();
-            comm.send(payload, 0, token.id()).wait();
+            comm.send(payload, 0, id).wait();
         }
 
-        comm.barrier();
+        //comm.barrier();
     };
 
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
     for (int i=0; i<num_threads; ++i)
-        threads.push_back(std::thread(func));
+        threads.push_back(std::thread(func, i));
 
     for (auto& t : threads)
         t.join();

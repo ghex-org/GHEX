@@ -1,14 +1,13 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
-#include <ghex/threads/none/primitives.hpp>
 #include <iostream>
 #include <iomanip>
 
@@ -22,8 +21,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using transport = gridtools::ghex::tl::mpi_tag;
 #endif
 
-using threading = gridtools::ghex::threads::none::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = gridtools::ghex::tl::context<transport>;
 
 //#define GHEX_TEST_COUNT_ITERATIONS
 //
@@ -80,12 +78,11 @@ TEST(transport, send_multi) {
         EXPECT_EQ(size, 4);
     }
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
-    auto token = context.get_token();
-    auto comm = context.get_communicator(token);
-    comm.barrier();
+    auto comm = context.get_communicator();
+    //comm.barrier();
 
     rank = context.rank();
 
@@ -122,12 +119,11 @@ TEST(transport, send_multi_cb) {
         EXPECT_EQ(size, 4);
     }
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
-    auto token = context.get_token();
-    auto comm = context.get_communicator(token);
-    comm.barrier();
+    auto comm = context.get_communicator();
+    // comm.barrier();
 
     rank = context.rank();
 
@@ -188,12 +184,11 @@ TEST(transport, send_multi_cb_move) {
         EXPECT_EQ(size, 4);
     }
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
-    auto token = context.get_token();
-    auto comm = context.get_communicator(token);
-    comm.barrier();
+    auto comm = context.get_communicator();
+    // comm.barrier();
 
     rank = context.rank();
 
