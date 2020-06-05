@@ -11,7 +11,6 @@
 #include <iostream>
 #include <ghex/transport_layer/ucx/address_db_mpi.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
-#include <ghex/threads/atomic/primitives.hpp>
 
 #include <gtest/gtest.h>
 

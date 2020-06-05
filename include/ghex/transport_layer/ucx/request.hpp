@@ -16,7 +16,6 @@
 #include "../context.hpp"
 #include "./worker.hpp"
 #include "../callback_utils.hpp"
-#include "../../threads/atomic/primitives.hpp"
 
 namespace gridtools{
     namespace ghex {
