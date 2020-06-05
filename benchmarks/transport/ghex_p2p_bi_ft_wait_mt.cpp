@@ -11,6 +11,9 @@
 #include <iostream>
 #include <vector>
 #include <atomic>
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
 
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
@@ -89,7 +92,6 @@ int main(int argc, char *argv[])
             const auto rank        = comm.rank();
             const auto size        = comm.size();
             const auto thread_id   = THREADID;
-            const auto num_threads = context.thread_primitives().size();
             const auto peer_rank   = (rank+1)%2;
 
             bool using_mt = false;
@@ -114,6 +116,9 @@ int main(int argc, char *argv[])
                 make_zero(rmsgs[j]);
             }
 
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
             MPI_Barrier(MPI_COMM_WORLD);
             //            comm.barrier();
 
@@ -158,6 +163,9 @@ int main(int argc, char *argv[])
                 }
             }
 
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
             MPI_Barrier(MPI_COMM_WORLD);
             if(thread_id == 0 && rank == 0){
                 const auto t = ttimer.toc();

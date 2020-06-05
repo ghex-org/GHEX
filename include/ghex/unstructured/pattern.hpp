@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
 #define INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
@@ -197,11 +197,11 @@ namespace gridtools {
             template<typename Index>
             struct make_pattern_impl<unstructured::detail::grid<Index>> {
 
-                template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
-                static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
+                template<typename Transport, typename HaloGenerator, typename DomainRange>
+                static auto apply(tl::context<Transport>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
 
                     // typedefs
-                    using context_type = tl::context<Transport, ThreadPrimitives>;
+                    using context_type = tl::context<Transport>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
                     using domain_id_type = typename domain_type::domain_id_type;
                     using grid_type = unstructured::detail::grid<Index>;

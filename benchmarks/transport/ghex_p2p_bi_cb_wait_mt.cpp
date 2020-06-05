@@ -1,29 +1,24 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #include <iostream>
 #include <vector>
 #include <atomic>
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
 
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
 namespace ghex = gridtools::ghex;
-
-#ifdef USE_OPENMP
-#include <ghex/threads/omp/primitives.hpp>
-using threading    = ghex::threads::omp::primitives;
-#else
-#include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
-#endif
 
 #ifdef USE_UCP
 // UCX backend
@@ -36,7 +31,7 @@ using transport    = ghex::tl::mpi_tag;
 #endif
 
 #include <ghex/transport_layer/shared_message_buffer.hpp>
-using context_type = ghex::tl::context<transport, threading>;
+using context_type = ghex::tl::context<transport>;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::request_cb_type;
 
@@ -49,6 +44,12 @@ std::atomic<int> received(0);
 #else
 int sent;
 int received;
+#endif
+
+#ifdef USE_OPENMP
+#define THREADID omp_get_thread_num()
+#else
+#define THREADID 0
 #endif
 
 int main(int argc, char *argv[])
@@ -93,19 +94,17 @@ int main(int argc, char *argv[])
 #endif
 
     {
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+        auto context_ptr = ghex::tl::context_factory<transport>::create(num_threads, MPI_COMM_WORLD);
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
 #pragma omp parallel
 #endif
         {
-            auto token             = context.get_token();
-            auto comm              = context.get_communicator(token);
+            auto comm              = context.get_communicator();
             const auto rank        = comm.rank();
             const auto size        = comm.size();
-            const auto thread_id   = token.id();
-            const auto num_threads = context.thread_primitives().size();
+            const auto thread_id   = THREADID;
             const auto peer_rank   = (rank+1)%2;
 
             bool using_mt = false;
@@ -152,7 +151,10 @@ int main(int argc, char *argv[])
             sreqs.resize(inflight);
             rreqs.resize(inflight);
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
+            MPI_Barrier(MPI_COMM_WORLD);
 
             if (thread_id == 0)
             {
@@ -199,7 +201,7 @@ int main(int argc, char *argv[])
                 received = 0;
             }
 
-            comm.barrier();
+            MPI_Barrier(MPI_COMM_WORLD);
             if(thread_id==0 && rank == 0)
             {
                 const auto t = ttimer.stoc();
@@ -208,14 +210,19 @@ int main(int argc, char *argv[])
             }
 
             // stop here to help produce a nice std output
-            comm.barrier();
-            context.thread_primitives().critical(
-                [&]()
-                {
-                    std::cout
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
+            MPI_Barrier(MPI_COMM_WORLD);
+
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
+            {
+                std::cout
                     << "rank " << rank << " thread " << thread_id << " serviced " << comm_cnt
                     << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
-                });
+            }
 
             // tail loops - not needed in wait benchmarks
         }
