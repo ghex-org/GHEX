@@ -14,11 +14,11 @@
 #include <map>
 #include <deque>
 #include <unordered_map>
-#include <mutex>
 #include "../../common/moved_bit.hpp"
 #include "./error.hpp"
 #include "./endpoint.hpp"
 #include "../context.hpp"
+#include "../pthread_spin_mutex.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -83,12 +83,12 @@ namespace gridtools {
                     address_t               m_address;
                     cache_type              m_endpoint_cache;
                     int                     m_progressed_sends = 0;
-                    std::mutex* m_mutex;
+                    pthread_spin::mutex*    m_mutex;
                     volatile int            m_progressed_recvs = 0;
                     volatile int            m_progressed_cancels = 0;
 
                     worker_t() = default;
-                    worker_t(transport_context_type* c, std::mutex &mm, ucs_thread_mode_t mode);
+                    worker_t(transport_context_type* c,pthread_spin::mutex &mm, ucs_thread_mode_t mode);
                     worker_t(const worker_t&) = delete;
                     worker_t(worker_t&& other) noexcept = default;
                     worker_t& operator=(const worker_t&) = delete;
@@ -99,7 +99,7 @@ namespace gridtools {
                     inline ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
-                    std::mutex& mutex() { return *m_mutex; }
+                    pthread_spin::mutex& mutex() { return *m_mutex; }
                 };
 
             } // namespace ucx

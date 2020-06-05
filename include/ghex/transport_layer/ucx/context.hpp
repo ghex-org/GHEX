@@ -11,8 +11,11 @@
 #ifndef INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 #define INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 
+#include <mutex>
+
 #include "./communicator.hpp"
 #include "../communicator.hpp"
+#include "../pthread_spin_mutex.hpp"
 
 #ifdef GHEX_USE_PMI
 // use the PMI interface ...
@@ -92,7 +95,7 @@ namespace gridtools {
                 std::size_t                m_req_size;
                 worker_type                m_worker;  // shared, serialized - per rank
                 worker_vector              m_workers; // per thread
-                std::mutex                 m_mutex;
+                pthread_spin::mutex        m_mutex;
                 //std::vector<thread_token>  m_tokens;
 
                 friend class ucx::worker_t/*<ThreadPrimitives>*/;
@@ -191,7 +194,7 @@ namespace gridtools {
             namespace ucx {
 
                 /*template<typename ThreadPrimitives>*/
-                worker_t/*<ThreadPrimitives>*/::worker_t(transport_context_type* c, std::mutex& mm, /* ThreadPrimitives *tp, thread_token* t,*/ ucs_thread_mode_t mode)
+                worker_t/*<ThreadPrimitives>*/::worker_t(transport_context_type* c, pthread_spin::mutex& mm, /* ThreadPrimitives *tp, thread_token* t,*/ ucs_thread_mode_t mode)
                     : m_context{c}
                       //, m_thread_primitives{tp}
                       //, m_token_ptr{t}
