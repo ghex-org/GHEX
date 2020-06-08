@@ -56,7 +56,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     const int n_iter = 50;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
     int size = context.size();

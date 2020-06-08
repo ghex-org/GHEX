@@ -62,7 +62,7 @@ TEST(atlas_integration, dependencies) {
 
 TEST(atlas_integration, domain_descriptor) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
     int size = context.size();
@@ -111,7 +111,7 @@ TEST(atlas_integration, domain_descriptor) {
 
 TEST(atlas_integration, halo_generator) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
     int size = context.size();
@@ -154,7 +154,7 @@ TEST(atlas_integration, make_pattern) {
 
     using grid_type = gridtools::ghex::unstructured::grid;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
     int size = context.size();
@@ -203,7 +203,7 @@ TEST(atlas_integration, halo_exchange) {
     using grid_type = gridtools::ghex::unstructured::grid;
     using data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
     int size = context.size();

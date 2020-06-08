@@ -85,7 +85,6 @@ namespace gridtools {
          * @brief construct a pattern for each domain and establish neighbor relationships
          * @tparam GridType indicates structured/unstructured grids
          * @tparam Transport transport protocol
-         * @tparam ThreadPrimitives threading primitivs (locks etc.)
          * @tparam HaloGenerator function object which takes a domain as argument
          * @tparam DomainRange a range type holding domains
          * @param context transport layer context

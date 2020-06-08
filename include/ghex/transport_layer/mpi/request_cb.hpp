@@ -22,7 +22,7 @@ namespace gridtools{
             namespace mpi {
 
                 /** @brief completion handle returned from callback based communications
-                  * @tparam ThreadPrimitives The thread primitives type */
+                 */
                 struct request_cb
                 {
                     using shared_state_type = shared_communicator_state;
@@ -66,4 +66,3 @@ namespace gridtools{
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_MPI_REQUEST_CB_HPP */
-

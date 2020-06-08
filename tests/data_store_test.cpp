@@ -41,7 +41,7 @@ TEST(data_store, make)
     MPI_Cart_create(MPI_COMM_WORLD, 3, &dimensions[0], period, false, &CartComm);
     const std::array<int, 3>  extents{Nx0,Ny0,Nz0};
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, CartComm);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(CartComm);
     auto& context = *context_ptr;
 
     auto grid     = gridtools::ghex::make_gt_processor_grid(context, extents, periodicity);

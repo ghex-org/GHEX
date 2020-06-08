@@ -78,7 +78,7 @@ TEST(transport, send_multi) {
         EXPECT_EQ(size, 4);
     }
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     auto comm = context.get_communicator();
@@ -119,7 +119,7 @@ TEST(transport, send_multi_cb) {
         EXPECT_EQ(size, 4);
     }
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     auto comm = context.get_communicator();
@@ -184,7 +184,7 @@ TEST(transport, send_multi_cb_move) {
         EXPECT_EQ(size, 4);
     }
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     auto comm = context.get_communicator();

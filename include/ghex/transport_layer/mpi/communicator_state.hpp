@@ -24,7 +24,7 @@ namespace gridtools {
             namespace mpi {
 
                 /** @brief common data which is shared by all communicators. This class is thread safe.
-                  * @tparam ThreadPrimitives The thread primitives type */
+                 */
                 struct shared_communicator_state {
                     using transport_context_type = transport_context<mpi_tag>;
                     using rank_type = int;
@@ -47,7 +47,7 @@ namespace gridtools {
                 };
 
                 /** @brief communicator per-thread data.
-                  * @tparam ThreadPrimitives The thread primitives type */
+                 */
                 struct communicator_state {
                     using shared_state_type = shared_communicator_state;
                     using rank_type = typename shared_state_type::rank_type;

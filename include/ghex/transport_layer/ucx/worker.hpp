@@ -70,14 +70,10 @@ namespace gridtools {
                     };
 
                     using cache_type             = std::unordered_map<rank_type, endpoint_t>;
-                    //using thread_primitives_type = ThreadPrimitives;
-                    //using thread_token           = typename thread_primitives_type::token;
-                    using transport_context_type = transport_context<ucx_tag>;//, ThreadPrimitives>;
+                    using transport_context_type = transport_context<ucx_tag>;
                     using mutex_t = std::recursive_mutex;
 
                     transport_context_type* m_context =  nullptr;
-                    //thread_primitives_type* m_thread_primitives;
-                    //thread_token*           m_token_ptr;
                     rank_type               m_rank;
                     rank_type               m_size;
                     ucp_worker_handle       m_worker;

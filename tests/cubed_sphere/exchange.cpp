@@ -853,7 +853,7 @@ TEST(cubed_sphere, domain)
     using namespace gridtools::ghex::structured::cubed_sphere;
 
     // create context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     // halo generator with 2 halo lines in x and y dimensions (on both sides)
@@ -1009,7 +1009,7 @@ TEST(cubed_sphere, domain_vector)
     using namespace gridtools::ghex::structured::cubed_sphere;
 
     // create context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     // halo generator with 2 halo lines in x and y dimensions (on both sides)

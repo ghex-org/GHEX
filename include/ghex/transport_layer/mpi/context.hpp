@@ -37,8 +37,6 @@ namespace gridtools {
                 transport_context(MPI_Comm mpi_comm, Args&&...)
                 : m_comm{mpi_comm}
                 , m_shared_state(mpi_comm, this)
-                //, m_state()
-                //, m_states()
                 {}
 
                 communicator_type get_serial_communicator()
@@ -46,12 +44,9 @@ namespace gridtools {
                     return {&m_shared_state, &m_state};
                 }
 
-                communicator_type get_communicator(/*const thread_token& t*/)
+                communicator_type get_communicator()
                 {
-                    // if (!m_states[t.id()])
-                    // {
                     m_states.push_back(std::make_unique<state_type>());
-                    // }
                     return {&m_shared_state, m_states[m_states.size()-1].get()};
                 }
 
@@ -60,11 +55,11 @@ namespace gridtools {
             template<>
             struct context_factory<mpi_tag>
             {
-                static std::unique_ptr<context<mpi_tag>> create(int num_threads, MPI_Comm mpi_comm)
+                static std::unique_ptr<context<mpi_tag>> create(MPI_Comm mpi_comm)
                 {
                     auto new_comm = detail::clone_mpi_comm(mpi_comm);
                     return std::unique_ptr<context<mpi_tag>>{
-                        new context<mpi_tag>{num_threads, new_comm, new_comm}};
+                        new context<mpi_tag>{new_comm, new_comm}};
                 }
             };
 
@@ -73,5 +68,3 @@ namespace gridtools {
 }
 
 #endif /* INCLUDED_TL_MPI_CONTEXT_HPP */
-
-

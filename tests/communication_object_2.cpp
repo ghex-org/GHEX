@@ -160,9 +160,9 @@ TEST(communication_object_2, exchange)
 
 #if defined(GHEX_TEST_SERIAL) || defined(GHEX_TEST_SERIAL_VECTOR) || defined(GHEX_TEST_SERIAL_SPLIT) || \
     defined(GHEX_TEST_SERIAL_SPLIT_VECTOR)
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
 #else
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(2, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
 #endif
     auto& context = *context_ptr;
 

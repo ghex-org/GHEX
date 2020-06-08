@@ -50,7 +50,7 @@ bool test_1(Context& context, unsigned int size) {
 }
 
 TEST(cancel, future) {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     EXPECT_TRUE(test_1<std::vector<unsigned char>>(context,1));
@@ -94,7 +94,7 @@ bool test_2(Context& context, unsigned int size) {
 }
 
 TEST(cancel, callbacks) {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     EXPECT_TRUE(test_2<std::vector<unsigned char>>(context,1));

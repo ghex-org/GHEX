@@ -28,7 +28,7 @@ TEST(transport_layer, ucx_context)
 {
     int num_threads = 4;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(num_threads, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     auto func = [&context](int id)

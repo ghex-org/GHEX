@@ -26,9 +26,9 @@ const std::size_t size = 1024;
 
 TEST(context, multi) {
     const int num_threads = 4;
-    auto context_ptr_1 = gridtools::ghex::tl::context_factory<transport>::create(num_threads, MPI_COMM_WORLD);
+    auto context_ptr_1 = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context_1 = *context_ptr_1;
-    auto context_ptr_2 = gridtools::ghex::tl::context_factory<transport>::create(num_threads, MPI_COMM_WORLD);
+    auto context_ptr_2 = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context_2 = *context_ptr_2;
 
     using context_type = std::remove_reference_t<decltype(context_1)>;
@@ -112,7 +112,7 @@ TEST(context, multi) {
 
 TEST(context, multi_ordered) {
     const int num_threads = 4;
-    auto context_ptr_1 = gridtools::ghex::tl::context_factory<transport>::create(num_threads, MPI_COMM_WORLD);
+    auto context_ptr_1 = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context_1 = *context_ptr_1;
 
     using context_type = std::remove_reference_t<decltype(context_1)>;

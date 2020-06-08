@@ -19,11 +19,11 @@ namespace gridtools{
             namespace ucx {
 
                 /** @brief future template for non-blocking communication */
-                template<typename T>//, typename ThreadPrimitives>
+                template<typename T>
                 struct future_t
                 {
                     using value_type  = T;
-                    using handle_type = request_ft/*<ThreadPrimitives>*/;
+                    using handle_type = request_ft;
 
                     value_type m_data;
                     handle_type m_handle;
@@ -66,10 +66,10 @@ namespace gridtools{
                     }
                 };
 
-                template<>//typename ThreadPrimitives>
-                struct future_t<void>//, ThreadPrimitives>
+                template<>
+                struct future_t<void>
                 {
-                    using handle_type = request_ft/*<ThreadPrimitives>*/;
+                    using handle_type = request_ft;
 
                     handle_type m_handle;
 

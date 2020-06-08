@@ -515,7 +515,7 @@ namespace halo_exchange_3D_generic_full {
 
         MPI_Cart_get(CartComm, 3, dims, period, coords);
 
-        auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, CartComm);
+        auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(CartComm);
         auto& context = *context_ptr;
         auto comm = context.get_communicator();
 

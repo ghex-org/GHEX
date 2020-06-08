@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 
     {
 
-        auto context_ptr = ghex::tl::context_factory<transport>::create(num_threads, MPI_COMM_WORLD);
+        auto context_ptr = ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP

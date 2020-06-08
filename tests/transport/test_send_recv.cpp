@@ -76,7 +76,7 @@ auto test_ring_send_recv_ft(CommType& comm, std::size_t buffer_size)
 
 TEST(transport, ring_send_recv_ft)
 {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     //auto& context = *context_ptr;
     auto comm = context_ptr->get_communicator();
 
@@ -136,7 +136,7 @@ auto test_ring_send_recv_cb(CommType& comm, std::size_t buffer_size)
 
 TEST(transport, ring_send_recv_cb)
 {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto comm = context.get_communicator();
 
@@ -190,7 +190,7 @@ auto test_ring_send_recv_cb_disown(CommType& comm, std::size_t buffer_size)
 
 TEST(transport, ring_send_recv_cb_disown)
 {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto comm = context.get_communicator();
 
@@ -272,7 +272,7 @@ auto test_ring_send_recv_cb_resubmit(CommType& comm, std::size_t buffer_size)
 
 TEST(transport, ring_send_recv_cb_resubmit)
 {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto comm = context.get_communicator();
 
@@ -331,7 +331,7 @@ auto test_ring_send_recv_cb_resubmit_disown(CommType& comm, std::size_t buffer_s
 
 TEST(transport, ring_send_recv_cb_resubmit_disown)
 {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     auto comm = context.get_communicator();
 

@@ -43,7 +43,7 @@ namespace gridtools {
             /** @brief class providing access to the transport backend. Note, that this class can only be created using
               * the factory class `context_factory`.
               * @tparam TransportTag the transport tag (mpi_tag, ucx_tag, ...)
-              * @tparam ThreadPrimitives type for thread managment */
+              */
             template<class TransportTag>
             class context
             {
@@ -62,7 +62,7 @@ namespace gridtools {
 
             private: // private ctor
                 template<typename...Args>
-                context(int /*num_threads*/, MPI_Comm comm, Args&&... args)
+                context(MPI_Comm comm, Args&&... args)
                     : m_mpi_comm{comm}
                     , m_transport_context{std::forward<Args>(args)...}
                     , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) }
