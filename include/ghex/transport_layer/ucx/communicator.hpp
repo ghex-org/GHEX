@@ -117,7 +117,7 @@ namespace gridtools {
                     {
                         const auto rtag = ((std::uint_fast64_t)tag << 32) |
                                            (std::uint_fast64_t)(src);
-                        std::lock_guard<pthread_spin::mutex> lock(m_send_worker->mutex());
+                        std::lock_guard<decltype(m_send_worker->mutex())> lock(m_send_worker->mutex());
                         //return m_send_worker->m_thread_primitives->critical(
                         //    [this,rtag,&msg,src,tag]()
                         //{
@@ -166,7 +166,7 @@ namespace gridtools {
                         p+= ucp_worker_progress(m_ucp_sw);
                         p+= ucp_worker_progress(m_ucp_sw);
                         status.m_num_sends = std::exchange(m_send_worker->m_progressed_sends, 0);
-                        std::lock_guard<pthread_spin::mutex> lock(m_send_worker->mutex());
+                        std::lock_guard<decltype(m_send_worker->mutex())> lock(m_send_worker->mutex());
                         //                        m_send_worker->m_thread_primitives->critical(
                         //  [this,&p,&status]()
                         //  {
@@ -246,7 +246,7 @@ namespace gridtools {
                     {
                         const auto rtag = ((std::uint_fast64_t)tag << 32) |
                                            (std::uint_fast64_t)(src);
-                        std::lock_guard<pthread_spin::mutex> lock(m_send_worker->mutex());
+                        std::lock_guard<decltype(m_send_worker->mutex())> lock(m_send_worker->mutex());
                         // return m_send_worker->m_thread_primitives->critical(
                         //  [this,rtag,&msg,src,tag,&callback]()
                         //{

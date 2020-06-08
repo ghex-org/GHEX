@@ -73,6 +73,7 @@ namespace gridtools {
                     //using thread_primitives_type = ThreadPrimitives;
                     //using thread_token           = typename thread_primitives_type::token;
                     using transport_context_type = transport_context<ucx_tag>;//, ThreadPrimitives>;
+                    using mutex_t = std::recursive_mutex;
 
                     transport_context_type* m_context =  nullptr;
                     //thread_primitives_type* m_thread_primitives;
@@ -83,12 +84,12 @@ namespace gridtools {
                     address_t               m_address;
                     cache_type              m_endpoint_cache;
                     int                     m_progressed_sends = 0;
-                    pthread_spin::mutex*    m_mutex;
+                    mutex_t*                m_mutex_ptr;
                     volatile int            m_progressed_recvs = 0;
                     volatile int            m_progressed_cancels = 0;
 
                     worker_t() = default;
-                    worker_t(transport_context_type* c,pthread_spin::mutex &mm, ucs_thread_mode_t mode);
+                    worker_t(transport_context_type* c, mutex_t& mm, ucs_thread_mode_t mode);
                     worker_t(const worker_t&) = delete;
                     worker_t(worker_t&& other) noexcept = default;
                     worker_t& operator=(const worker_t&) = delete;
@@ -99,7 +100,7 @@ namespace gridtools {
                     inline ucp_worker_h get() const noexcept { return m_worker.get(); }
                     address_t address() const noexcept { return m_address; }
                     inline const endpoint_t& connect(rank_type rank);
-                    pthread_spin::mutex& mutex() { return *m_mutex; }
+                    mutex_t& mutex() { return *m_mutex_ptr; }
                 };
 
             } // namespace ucx

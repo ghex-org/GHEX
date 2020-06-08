@@ -152,7 +152,7 @@ namespace gridtools{
                     void destroy()
                     {
                         void* ucx_ptr = m_req->m_ucx_ptr;
-                        std::lock_guard<pthread_spin::mutex> lock(m_req->m_send_worker->mutex());
+                        std::lock_guard<decltype(m_req->m_send_worker->mutex())> lock(m_req->m_send_worker->mutex());
                         request_init(ucx_ptr);
                         ucp_request_free(ucx_ptr);
                     }
@@ -165,7 +165,7 @@ namespace gridtools{
                         ucp_worker_progress(m_req->m_send_worker->get());
                         ucp_worker_progress(m_req->m_send_worker->get());
 
-                        std::lock_guard<pthread_spin::mutex> lock(m_req->m_send_worker->mutex());
+                        std::lock_guard<decltype(m_req->m_send_worker->mutex())> lock(m_req->m_send_worker->mutex());
                         ucp_worker_progress(m_req->m_recv_worker->get());
 
                         // TODO sometimes causes a slowdown, e.g., in the ft_avail
@@ -215,7 +215,7 @@ namespace gridtools{
                         if (m_req->m_kind == request_kind::send) return false;
 
                         {
-                            std::lock_guard<pthread_spin::mutex> lock(m_req->m_send_worker->mutex());
+                            std::lock_guard<decltype(m_req->m_send_worker->mutex())> lock(m_req->m_send_worker->mutex());
                             auto ucx_ptr = m_req->m_ucx_ptr;
                             auto worker = m_req->m_recv_worker->get();
                             ucp_request_cancel(worker, ucx_ptr);
@@ -288,7 +288,7 @@ namespace gridtools{
 
                         if (m_req->m_kind == request_kind::send) return false;
 
-                        std::lock_guard<pthread_spin::mutex> lock(m_req->m_worker->mutex());
+                        std::lock_guard<decltype(m_req->m_worker->mutex())> lock(m_req->m_worker->mutex());
 
                         if (!(*m_completed)) {
                             auto ucx_ptr = m_req->m_ucx_ptr;
