@@ -307,7 +307,7 @@ namespace gridtools {
                                 // intersect in global coordinates
                                 const auto& extent = extents_vec[k];
                                 const auto& domain_id = domain_id_vec[k];
-                                const auto x = 
+                                const auto x =
                                 hgen.intersect(*d_it, halo.local().first(),    halo.local().last(),
                                                       halo.global().first(),   halo.global().last(),
                                                       extent.global().first(), extent.global().last());
@@ -573,6 +573,12 @@ namespace gridtools {
                 }
 
                 return pattern_container<communicator_type,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
+            }
+
+            template<typename Transport, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+            static auto apply(tl::context<Transport>& context, HaloGenerator&& hgen, RecvDomainIdsGen&&, DomainRange&& d_range)
+            {
+                return apply(context, hgen, d_range);
             }
         };
 
