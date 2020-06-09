@@ -101,6 +101,32 @@ namespace gridtools {
 
         }
 
+        /**
+         * @brief construct a pattern for each domain and establish neighbor relationships, with user-defined function for recv domain ids.
+         * TO DO: so far, the structured specialization just redirects to the previous one (recv_domains_gen is just ignored)
+         * @tparam GridType indicates structured/unstructured grids
+         * @tparam Transport transport protocol
+         * @tparam ThreadPrimitives threading primitivs (locks etc.)
+         * @tparam HaloGenerator function object which takes a domain as argument
+         * @tparam RecvDomainsGenerator function object which takes a domain as argument
+         * @tparam DomainRange a range type holding domains
+         * @param context transport layer context
+         * @param hgen receive halo generator function object (emits iteration spaces (global coordinates) or index lists (global indices)
+         * @param recv_domains_gen function object which emits recv domain ids (one for each iteration space / index list, as provided by hgen)
+         * @param d_range range of local domains
+         * @return iterable of patterns (one per domain)
+         */
+        template<typename GridType, typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+        auto make_pattern(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range)
+        {
+            using grid_type = typename GridType::template type<typename std::remove_reference_t<DomainRange>::value_type>;
+            return detail::make_pattern_impl<grid_type>::apply(context,
+                                                               std::forward<HaloGenerator>(hgen),
+                                                               std::forward<RecvDomainIdsGen>(recv_domain_ids_gen),
+                                                               std::forward<DomainRange>(d_range));
+
+        }
+
     } // namespace ghex
 
 } // namespace gridtools

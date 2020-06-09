@@ -53,16 +53,14 @@ class my_data_desc {
 
 public:
 
+    using value_type = T;
+
     my_data_desc(const DomainDescriptor& domain,
                  const coordinate_t& halos_offset,
                  const array<T, LayoutMap>& values) :
         m_domain{domain},
         m_halos_offset{halos_offset},
         m_values{values} {}
-
-    std::size_t data_type_size() const {
-        return sizeof (T);
-    }
 
     void set(const T& value, const coordinate_t& coords) {
         m_values(coords[0] + m_halos_offset[0], coords[1] + m_halos_offset[1], coords[2] + m_halos_offset[2]) = value;
