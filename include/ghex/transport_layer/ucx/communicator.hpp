@@ -288,52 +288,17 @@ namespace gridtools {
                         );
                     }
 
-                    void barrier()
-                    {
-                        // a trivial barrier implementation for debuging purposes only!
-                        // send a message to all other ranks, wait for their message
-                        static unsigned char msgid = 0;
-                        auto bfunc = [this]()
-                            {
-                                volatile int sent = 0;
-                                std::vector<unsigned char> smsg(1), rmsg(1);
-
-                                auto send_callback = [&](message_type, int, int) {sent++;};
-
-                                smsg[0] = msgid;
-                                using ref_msg = ::gridtools::ghex::tl::cb::ref_message<unsigned char>;
-                                for(rank_type r=0; r<m_size; r++)
-                                    if(r != m_rank)
-                                        send(message_type{ref_msg{smsg.data(),smsg.size()}}, r, 0xdeadbeef, send_callback);
-
-                                for(rank_type r=0; r<m_size; r++){
-                                    if(r != m_rank){
-                                        recv(rmsg, r, 0xdeadbeef).wait();
-                                        if (*reinterpret_cast<unsigned char*>(rmsg.data()) != msgid)
-                                            throw std::runtime_error("UCX barrier error: unexpected message id.");
-                                    }
-                                }
-                                
-                                while(sent!=size()-1) progress();
-                                progress(); // progress once more to set progress counters to zero
-                                msgid++;
-                            };
-
-                        if(m_send_worker->m_token_ptr)
-                        {
-                            thread_token &token = *m_send_worker->m_token_ptr;
-                            m_send_worker->m_thread_primitives->barrier(token);
-                            m_send_worker->m_thread_primitives->single(token, bfunc);
-                            // this thread barrier is needed to flush the progress queue:
-                            // if we omit this barrier, the other threads may see a progress
-                            // when calling progress()
-                            m_send_worker->m_thread_primitives->barrier(token);
-                        } 
-                        else 
-                        {
-                            bfunc();
-                        }
-                    }
+		  void barrier(MPI_Comm comm)
+		  {
+		    MPI_Request req = MPI_REQUEST_NULL;
+		    int flag;
+		    MPI_Ibarrier(comm, &req);
+		    while(true) {
+		      progress();
+		      MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+		      if(flag) break;
+		    }
+		  }
 
                 private:
                     

@@ -151,7 +151,13 @@ int main(int argc, char *argv[])
                 make_zero(rmsgs[j]);
             }
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
 
             if (thread_id == 0)
             {
@@ -213,7 +219,13 @@ int main(int argc, char *argv[])
                 }
             }
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
 
             if(thread_id==0 && rank == 0)
             {
@@ -223,14 +235,23 @@ int main(int argc, char *argv[])
             }
 
             // stop here to help produce a nice std output
-            comm.barrier();
-            context.thread_primitives().critical(
-                [&]()
-                {
-                    std::cout
-                    << "rank " << rank << " thread " << thread_id << " sends submitted " << submit_cnt/num_threads
-                    << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
-                });
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
+
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
+            {
+                std::cout << "rank " << rank << " thread " << thread_id
+                          << " sends submitted " << submit_cnt/num_threads
+                          << " serviced " << comm_cnt << ", non-local sends "
+                          << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
+            }
 
             // tail loops - submit RECV requests until
             // all SEND requests have been finalized.

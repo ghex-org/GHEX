@@ -152,7 +152,13 @@ int main(int argc, char *argv[])
             sreqs.resize(inflight);
             rreqs.resize(inflight);
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
 
             if (thread_id == 0)
             {
@@ -199,7 +205,13 @@ int main(int argc, char *argv[])
                 received = 0;
             }
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
             if(thread_id==0 && rank == 0)
             {
                 const auto t = ttimer.stoc();
@@ -208,14 +220,22 @@ int main(int argc, char *argv[])
             }
 
             // stop here to help produce a nice std output
-            comm.barrier();
-            context.thread_primitives().critical(
-                [&]()
-                {
-                    std::cout
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
+
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
+            {
+                std::cout
                     << "rank " << rank << " thread " << thread_id << " serviced " << comm_cnt
                     << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
-                });
+	    }
 
             // tail loops - not needed in wait benchmarks
         }

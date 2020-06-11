@@ -169,17 +169,9 @@ namespace gridtools {
                         }
                     }
 
-                    void barrier() {
-                        if (auto token_ptr = m_state->m_token_ptr) {
-                            auto& tp = *(m_shared_state->m_thread_primitives);
-                            auto& token = *token_ptr;
-                            tp.single(token, [this]() { MPI_Barrier(m_shared_state->m_comm); } );
-                            progress(); // progress once more to set progress counters to zero
-                            tp.barrier(token);
-                        }
-                        else
-                            MPI_Barrier(m_shared_state->m_comm);
-                    }
+		  void barrier(MPI_Comm comm) {
+		    MPI_Barrier(comm);
+		  }
                 };
 
             } // namespace mpi
