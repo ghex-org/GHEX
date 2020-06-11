@@ -151,9 +151,12 @@ int main(int argc, char *argv[])
             }
 
 #ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
 #pragma omp barrier
 #endif
-            MPI_Barrier(MPI_COMM_WORLD);
 
             if (thread_id == 0)
             {
@@ -216,9 +219,12 @@ int main(int argc, char *argv[])
             }
 
 #ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
 #pragma omp barrier
 #endif
-            MPI_Barrier(MPI_COMM_WORLD);
 
             if(thread_id==0 && rank == 0)
             {
@@ -229,9 +235,12 @@ int main(int argc, char *argv[])
 
             // stop here to help produce a nice std output
 #ifdef USE_OPENMP
+#pragma omp single
+#endif
+            comm.barrier(MPI_COMM_WORLD);
+#ifdef USE_OPENMP
 #pragma omp barrier
 #endif
-            MPI_Barrier(MPI_COMM_WORLD);
 
 #ifdef USE_OPENMP
 #pragma omp critical
