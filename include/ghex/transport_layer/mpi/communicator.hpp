@@ -165,6 +165,9 @@ namespace gridtools {
                         }
                     }
 
+		  void barrier(MPI_Comm comm) {
+		    MPI_Barrier(comm);
+		  }
                 };
 
             } // namespace mpi
