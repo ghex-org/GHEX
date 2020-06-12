@@ -12,7 +12,7 @@
 #define INCLUDED_GHEX_TL_UCX_REQUEST_HPP
 
 #include <functional>
-#include "../pthread_spin_mutex.hpp"
+#include "../util/pthread_spin_mutex.hpp"
 #include "../context.hpp"
 #include "./worker.hpp"
 #include "../callback_utils.hpp"

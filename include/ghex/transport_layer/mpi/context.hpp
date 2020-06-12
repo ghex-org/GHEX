@@ -11,6 +11,7 @@
 #ifndef INCLUDED_TL_MPI_CONTEXT_HPP
 #define INCLUDED_TL_MPI_CONTEXT_HPP
 
+#include <mutex>
 #include "../context.hpp"
 #include "./communicator.hpp"
 #include "../communicator.hpp"
@@ -32,6 +33,7 @@ namespace gridtools {
                 shared_state_type m_shared_state;
                 state_type m_state;
                 state_vector m_states;
+                std::mutex m_mutex;
 
                 template<typename... Args>
                 transport_context(MPI_Comm mpi_comm, Args&&...)
@@ -46,6 +48,7 @@ namespace gridtools {
 
                 communicator_type get_communicator()
                 {
+                    std::lock_guard<std::mutex> lock(m_mutex); // we need to guard only the isertion in the vector, but this is not a performance critical section
                     m_states.push_back(std::make_unique<state_type>());
                     return {&m_shared_state, m_states[m_states.size()-1].get()};
                 }

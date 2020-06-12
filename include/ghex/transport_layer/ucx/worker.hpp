@@ -18,7 +18,7 @@
 #include "./error.hpp"
 #include "./endpoint.hpp"
 #include "../context.hpp"
-#include "../pthread_spin_mutex.hpp"
+#include "../util/pthread_spin_mutex.hpp"
 
 namespace gridtools {
     namespace ghex {

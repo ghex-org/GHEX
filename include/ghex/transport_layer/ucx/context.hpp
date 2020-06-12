@@ -13,7 +13,7 @@
 
 #include "./communicator.hpp"
 #include "../communicator.hpp"
-#include "../pthread_spin_mutex.hpp"
+#include "../util/pthread_spin_mutex.hpp"
 
 #ifdef GHEX_USE_PMI
 // use the PMI interface ...
@@ -177,6 +177,7 @@ namespace gridtools {
 
                 communicator_type get_communicator()
                 {
+                    std::lock_guard<mutex_t> lock(m_mutex); // we need to guard only the isertion in the vector, but this is not a performance critical section
                     m_workers.push_back(std::make_unique<worker_type>(this, m_mutex, UCS_THREAD_MODE_SINGLE));
                 return {&m_worker, m_workers[m_workers.size()-1].get()};
                 }
