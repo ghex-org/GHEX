@@ -275,18 +275,6 @@ namespace gridtools {
                                 }
                     }
 
-		  void barrier(MPI_Comm comm)
-		  {
-		    MPI_Request req = MPI_REQUEST_NULL;
-		    int flag;
-		    MPI_Ibarrier(comm, &req);
-		    while(true) {
-		      progress();
-		      MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-		      if(flag) break;
-		    }
-		  }
-
                 private:
 
                     static void empty_send_callback(void *, ucs_status_t) {}

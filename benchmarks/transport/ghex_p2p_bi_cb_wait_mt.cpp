@@ -16,6 +16,7 @@
 #endif
 
 #include <ghex/common/timer.hpp>
+#include <ghex/transport_layer/util/barrier.hpp>
 #include "utils.hpp"
 
 namespace ghex = gridtools::ghex;
@@ -154,7 +155,7 @@ int main(int argc, char *argv[])
 #ifdef USE_OPENMP
 #pragma omp single
 #endif
-            comm.barrier(MPI_COMM_WORLD);
+            barrier(MPI_COMM_WORLD, comm);
 #ifdef USE_OPENMP
 #pragma omp barrier
 #endif
@@ -207,7 +208,7 @@ int main(int argc, char *argv[])
 #ifdef USE_OPENMP
 #pragma omp single
 #endif
-            comm.barrier(MPI_COMM_WORLD);
+            barrier(MPI_COMM_WORLD, comm);
 #ifdef USE_OPENMP
 #pragma omp barrier
 #endif
@@ -222,7 +223,7 @@ int main(int argc, char *argv[])
 #ifdef USE_OPENMP
 #pragma omp single
 #endif
-            comm.barrier(MPI_COMM_WORLD);
+            barrier(MPI_COMM_WORLD, comm);
 #ifdef USE_OPENMP
 #pragma omp barrier
 #endif

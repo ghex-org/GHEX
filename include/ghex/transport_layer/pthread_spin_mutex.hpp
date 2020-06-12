@@ -8,39 +8,57 @@ namespace gridtools {
         namespace tl {
             namespace pthread_spin {
 
-                class mutex
+                class recursive_mutex
                 {
                 private: // members
                     pthread_spinlock_t m_lock;
+
+                    int& level() noexcept
+                    {
+                        static thread_local int i = 0;
+                        return i;
+                    }
+
                 public:
-                    mutex() noexcept
+                    recursive_mutex() noexcept
                     {
                         pthread_spin_init(&m_lock, PTHREAD_PROCESS_PRIVATE);
                     }
-                    mutex(const mutex&) = delete;
-                    mutex(mutex&&) = delete;
-                    ~mutex()
+                    recursive_mutex(const recursive_mutex&) = delete;
+                    recursive_mutex(recursive_mutex&&) = delete;
+                    ~recursive_mutex()
                     {
                         pthread_spin_destroy(&m_lock);
                     }
 
                     inline bool try_lock() noexcept
                     {
-                        return (pthread_spin_trylock(&m_lock)==0);
+                        if (pthread_spin_trylock(&m_lock)==0)
+                            {
+                                ++level();
+                                return true;
+                            }
+                        else
+                            return false;
                     }
 
                     inline void lock() noexcept
                     {
-                        while (!try_lock()) { sched_yield(); }
+                        if (level()==0)
+                            while (!try_lock()) { sched_yield(); }
+                        else
+                            ++level();
                     }
 
                     inline void unlock() noexcept
                     {
-                        pthread_spin_unlock(&m_lock);
+                        --level();
+                        if (level()==0)
+                            pthread_spin_unlock(&m_lock);
                     }
                 };
 
-                using lock_guard = std::lock_guard<mutex>;
+                using lock_guard = std::lock_guard<recursive_mutex>;
 
             } // namespace pthread_spin
         }

@@ -71,7 +71,7 @@ namespace gridtools {
 
                     using cache_type             = std::unordered_map<rank_type, endpoint_t>;
                     using transport_context_type = transport_context<ucx_tag>;
-                    using mutex_t = std::recursive_mutex;
+                    using mutex_t = pthread_spin::recursive_mutex;
 
                     transport_context_type* m_context =  nullptr;
                     rank_type               m_rank;

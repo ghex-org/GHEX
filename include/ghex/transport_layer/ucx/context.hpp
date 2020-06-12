@@ -13,8 +13,7 @@
 
 #include "./communicator.hpp"
 #include "../communicator.hpp"
-//#include "../pthread_spin_mutex.hpp" TODO(Mauro): when ready
-#include <mutex>
+#include "../pthread_spin_mutex.hpp"
 
 #ifdef GHEX_USE_PMI
 // use the PMI interface ...
@@ -86,7 +85,7 @@ namespace gridtools {
 
             private: // members
 
-                using mutex_t = std::recursive_mutex;
+                using mutex_t = pthread_spin::recursive_mutex;
 
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
