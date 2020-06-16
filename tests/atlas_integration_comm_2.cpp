@@ -55,7 +55,6 @@ TEST(atlas_integration, halo_exchange) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
-    int size = context.size();
 
     // Global octahedral Gaussian grid
     atlas::StructuredGrid grid("O256");
@@ -72,23 +71,20 @@ TEST(atlas_integration, halo_exchange) {
 
     // Instantiate domain descriptor
     std::vector<domain_descriptor_t> local_domains{};
-    std::stringstream ss_1;
-    atlas::idx_t nb_nodes_1;
-    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
-    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     domain_descriptor_t d{rank,
-                          rank,
                           mesh.nodes().partition(),
                           mesh.nodes().remote_index(),
-                          nb_levels,
-                          nb_nodes_1};
+                          nb_levels};
     local_domains.push_back(d);
 
     // Instantiate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{size};
+    gridtools::ghex::atlas_halo_generator<int> hg{};
+
+    // Instantiate recv domain ids generator
+    gridtools::ghex::atlas_recv_domain_ids_gen<int> rdig{};
 
     // Make patterns
-    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
 
     // Make communication object
     auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
@@ -170,7 +166,6 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
-    int size = context.size();
 
     // Global octahedral Gaussian grid
     atlas::StructuredGrid grid("O256");
@@ -187,16 +182,10 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
 
     // Instantiate domain descriptor (halo size = 1)
     std::vector<domain_descriptor_t> local_domains_1{};
-    std::stringstream ss_1;
-    atlas::idx_t nb_nodes_1;
-    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
-    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     domain_descriptor_t d_1{rank,
-                            rank,
                             mesh.nodes().partition(),
                             mesh.nodes().remote_index(),
-                            nb_levels,
-                            nb_nodes_1};
+                            nb_levels};
     local_domains_1.push_back(d_1);
 
     // Generate functionspace associated to the mesh with halo size = 2
@@ -204,24 +193,21 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
 
     // Instantiate domain descriptor (halo size = 1)
     std::vector<domain_descriptor_t> local_domains_2{};
-    std::stringstream ss_2;
-    atlas::idx_t nb_nodes_2;
-    ss_2 << "nb_nodes_including_halo[" << 2 << "]";
-    mesh.metadata().get( ss_2.str(), nb_nodes_2 );
     domain_descriptor_t d_2{rank,
-                            rank,
                             mesh.nodes().partition(),
                             mesh.nodes().remote_index(),
-                            nb_levels,
-                            nb_nodes_2};
+                            nb_levels};
     local_domains_2.push_back(d_2);
 
     // Instantate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{size};
+    gridtools::ghex::atlas_halo_generator<int> hg{};
+
+    // Instantiate recv domain ids generator
+    gridtools::ghex::atlas_recv_domain_ids_gen<int> rdig{};
 
     // Make patterns
-    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_1);
-    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_2);
+    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains_1);
+    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains_2);
 
     // Make communication object
     auto co = gridtools::ghex::make_communication_object<decltype(patterns_1)>(context.get_communicator(context.get_token()));

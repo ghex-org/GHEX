@@ -62,7 +62,6 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
-    int size = context.size();
 
     // Output file
     std::stringstream ss_file;
@@ -92,24 +91,21 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     // Instantiate domain descriptor
     std::vector<domain_descriptor_t> local_domains{};
-    std::stringstream ss_1;
-    atlas::idx_t nb_nodes_1;
-    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
-    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     domain_descriptor_t d{rank,
-                          rank,
                           mesh.nodes().partition(),
                           mesh.nodes().remote_index(),
-                          nb_levels,
-                          nb_nodes_1};
+                          nb_levels};
     local_domains.push_back(d);
 
     // Instantiate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{size};
+    gridtools::ghex::atlas_halo_generator<int> hg{};
+
+    // Instantiate recv domain ids generator
+    gridtools::ghex::atlas_recv_domain_ids_gen<int> rdig{};
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;
-    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
 
     // Make communication object
     auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
