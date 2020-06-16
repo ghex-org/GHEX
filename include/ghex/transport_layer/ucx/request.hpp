@@ -162,14 +162,11 @@ namespace gridtools{
                         if (!m_req) return true;
 
                         ucp_worker_progress(m_req->m_send_worker->get());
-                        ucp_worker_progress(m_req->m_send_worker->get());
-                        ucp_worker_progress(m_req->m_send_worker->get());
-
+			
+			/* this is really important for large-scale multithreading */
+			sched_yield();
+			
                         return m_req->m_send_worker->m_thread_primitives->critical([this]() {
-                            ucp_worker_progress(m_req->m_recv_worker->get());
-
-                            // TODO sometimes causes a slowdown, e.g., in the ft_avail
-                            // test with 16 threads
                             ucp_worker_progress(m_req->m_recv_worker->get());
 
                             // check request status
