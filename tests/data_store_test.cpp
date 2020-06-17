@@ -1,24 +1,22 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 
 #include <ghex/communication_object_2.hpp>
 #include <ghex/glue/gridtools/gt_glue.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
-#include <ghex/threads/atomic/primitives.hpp>
 #include <gridtools/storage/storage_facility.hpp>
 #include <gtest/gtest.h>
 
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::atomic::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = gridtools::ghex::tl::context<transport>;
 
 TEST(data_store, make)
 {
@@ -43,12 +41,12 @@ TEST(data_store, make)
     MPI_Cart_create(MPI_COMM_WORLD, 3, &dimensions[0], period, false, &CartComm);
     const std::array<int, 3>  extents{Nx0,Ny0,Nz0};
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, CartComm);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(CartComm);
     auto& context = *context_ptr;
 
-    auto grid     = gridtools::ghex::make_gt_processor_grid(context, extents, periodicity); 
+    auto grid     = gridtools::ghex::make_gt_processor_grid(context, extents, periodicity);
     auto pattern1 = gridtools::ghex::make_gt_pattern(grid, std::array<int,6>{1,1,1,1,0,0});
-    auto co       = gridtools::ghex::make_communication_object<decltype(pattern1)>(context.get_communicator(context.get_token()));
+    auto co       = gridtools::ghex::make_communication_object<decltype(pattern1)>(context.get_communicator());
 
     using host_backend_t        = gridtools::backend::mc;
     using host_storage_info_t   = gridtools::storage_traits<host_backend_t>::storage_info_t<0, 3, halo_t>;
@@ -98,4 +96,3 @@ TEST(data_store, make)
 
     MPI_Comm_free(&CartComm);
 }
-

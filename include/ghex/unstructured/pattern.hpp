@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
 #define INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
@@ -188,12 +188,12 @@ namespace gridtools {
                  *   which becomes receive indices on the receive side (2 all to all communications in total,
                  *   one for the send / recv elements counters and one for the send / recv indices);
                  * - reconstruct recv halos on the receive side and set up receive halos in pattern.*/
-                template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
-                static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
+                template<typename Transport, typename HaloGenerator, typename DomainRange>
+                static auto apply(tl::context<Transport>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
 
                     // typedefs
                     using grid_type = unstructured::detail::grid<Index>;
-                    using context_type = tl::context<Transport, ThreadPrimitives>;
+                    using context_type = tl::context<Transport>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
                     using communicator_type = typename context_type::communicator_type;
                     using domain_id_type = typename domain_type::domain_id_type;
@@ -449,12 +449,12 @@ namespace gridtools {
                  *   which becomes send indices on the send side (2 all to all communications in total,
                  *   one for the recv / send elements counters and one for the recv / send indices);
                  * - reconstruct send halos on the send side and set up send halos in pattern.*/
-                template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
-                static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range) {
+                template<typename Transport, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+                static auto apply(tl::context<Transport>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range) {
 
                     // typedefs
                     using grid_type = unstructured::detail::grid<Index>;
-                    using context_type = tl::context<Transport, ThreadPrimitives>;
+                    using context_type = tl::context<Transport>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
                     using communicator_type = typename context_type::communicator_type;
                     using domain_id_type = typename domain_type::domain_id_type;
