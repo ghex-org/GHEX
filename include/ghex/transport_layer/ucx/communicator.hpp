@@ -155,11 +155,12 @@ namespace gridtools {
                         gridtools::ghex::tl::cb::progress_status status;
                         int p = 0;
                         p+= ucp_worker_progress(m_ucp_sw);
-                        p+= ucp_worker_progress(m_ucp_sw);
-                        p+= ucp_worker_progress(m_ucp_sw);
+
+                        /* this is really important for large-scale multithreading */
+                        sched_yield();
+
                         status.m_num_sends = std::exchange(m_send_worker->m_progressed_sends, 0);
                         std::lock_guard<decltype(m_send_worker->mutex())> lock(m_send_worker->mutex());
-                        p+= ucp_worker_progress(m_ucp_rw);
                         p+= ucp_worker_progress(m_ucp_rw);
                         status.m_num_recvs = std::exchange(m_recv_worker->m_progressed_recvs, 0);
                         status.m_num_cancels = std::exchange(m_recv_worker->m_progressed_cancels, 0);
