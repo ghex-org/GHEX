@@ -22,4 +22,4 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
-        run: cd build && ctest --verbose --output-on-failure	
+        run: cd build && env&& ctest --verbose --output-on-failure	
