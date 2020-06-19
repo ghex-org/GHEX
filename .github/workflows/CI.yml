@@ -16,8 +16,6 @@ jobs:
       - name: Configure
         run: |
           echo "WORKFLOW"
-          cat /github/workflow/1
-          echo "ENVIRONMENT"
           env
           mkdir -p build && cd build
           eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DMPI_CXX_COMPILER=/usr/bin/mpicxx -DMPI_C_COMPILER=/usr/bin/mpicc -DUCX_DIR=/usr/local -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_BENCHMARKS=ON -DMPIEXEC_PREFLAGS=--oversubscribe 
