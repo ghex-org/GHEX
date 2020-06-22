@@ -17,6 +17,7 @@ jobs:
         run: |
           echo "WORKFLOW"
           env
+          ulimit -a
           mkdir -p build && cd build
           CXX=/usr/bin/g++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/usr/local -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_BENCHMARKS=OFF
       - name: Build
