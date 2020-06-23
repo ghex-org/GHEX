@@ -59,6 +59,9 @@ namespace gridtools {
         public: // member functions
             int size() const noexcept { return m_patterns.size(); }
             const auto& operator[](int i) const noexcept { return m_patterns[i]; }
+            auto& operator[](int i) noexcept { return m_patterns[i]; }
+            auto begin() noexcept { return m_patterns.begin(); }
+            auto end() noexcept { return m_patterns.end(); }
             auto begin() const noexcept { return m_patterns.cbegin(); }
             auto end() const noexcept { return m_patterns.cend(); }
             int max_tag() const noexcept { return m_max_tag; }

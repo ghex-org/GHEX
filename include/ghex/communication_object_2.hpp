@@ -214,14 +214,9 @@ namespace gridtools {
             {
                 exchange(buffer_infos...).wait();
             }
-
-            /** @brief non-blocking exchange of halo data
-              * @tparam Archs list of device types
-              * @tparam Fields list of field types
-              * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
-              * @return handle to await communication */
+            
             template<typename... Archs, typename... Fields>
-            [[nodiscard]] handle_type exchange(buffer_info_type<Archs,Fields>... buffer_infos)
+            void prepare(buffer_info_type<Archs,Fields>... buffer_infos)
             {
                 // check that arguments are compatible
                 using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
@@ -260,6 +255,17 @@ namespace gridtools {
                     allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                     ++i;
                 });
+            }
+
+            /** @brief non-blocking exchange of halo data
+              * @tparam Archs list of device types
+              * @tparam Fields list of field types
+              * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
+              * @return handle to await communication */
+            template<typename... Archs, typename... Fields>
+            [[nodiscard]] handle_type exchange(buffer_info_type<Archs,Fields>... buffer_infos)
+            {
+                prepare(buffer_infos...);
                 handle_type h(m_comm, [this](){this->wait();});
                 post_recvs();
                 pack();

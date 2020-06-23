@@ -48,6 +48,9 @@ public: // member types
     using pack_iteration_space     = typename base::pack_iteration_space;
     using unpack_iteration_space   = typename base::unpack_iteration_space;
 
+    template<typename OtherArch>
+    using rebind_arch = field_descriptor<T,OtherArch,DomainDescriptor,Order...>;
+
 public: // ctors
     template<typename ExtentArray, typename OffsetArray>
     field_descriptor(

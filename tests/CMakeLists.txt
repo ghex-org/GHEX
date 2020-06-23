@@ -126,6 +126,16 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
+set(_tests_rma local_rma)
+foreach (_t ${_tests_rma})
+    add_executable(${_t} ${_t}.cpp)
+    target_link_libraries(${_t} gtest_main_mt)
+    add_test(
+        NAME ${_t}.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+
 set(_tests_gt data_store_test)
 foreach (_t ${_tests_gt})
     add_executable(${_t} ${_t}.cpp)
