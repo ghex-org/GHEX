@@ -22,7 +22,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
-#include <ghex/structured/range.hpp>
+#include <ghex/structured/remote_thread_range.hpp>
 #include <ghex/structured/bulk_communication_object.hpp>
 
 #include <ghex/structured/regular/domain_descriptor.hpp>

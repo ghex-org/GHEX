@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_STRUCTURED_RANGE_HPP
-#define INCLUDED_GHEX_STRUCTURED_RANGE_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_REMOTE_THREAD_RANGE_HPP
+#define INCLUDED_GHEX_STRUCTURED_REMOTE_THREAD_RANGE_HPP
 
 #include <cstring>
 #include <vector>
@@ -314,4 +314,4 @@ struct remote_range_traits<structured::remote_thread_range_generator>
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_STRUCTURED_RANGE_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_REMOTE_THREAD_RANGE_HPP */
