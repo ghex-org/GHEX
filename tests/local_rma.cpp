@@ -9,7 +9,6 @@
  *
  */
 
-#include <ghex/structured/range.hpp>
 
 #include <ghex/threads/atomic/primitives.hpp>
 #include <ghex/threads/std_thread/primitives.hpp>
@@ -23,7 +22,9 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
-#include <ghex/structured/exchange.hpp>
+#include <ghex/structured/range.hpp>
+#include <ghex/structured/bulk_communication_object.hpp>
+
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>

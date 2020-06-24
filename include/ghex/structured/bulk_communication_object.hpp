@@ -8,17 +8,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_STRUCTURED_EXCHANGE_HPP
-#define INCLUDED_GHEX_STRUCTURED_EXCHANGE_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_BULK_COMMUNICATION_OBJECT_HPP
+#define INCLUDED_GHEX_STRUCTURED_BULK_COMMUNICATION_OBJECT_HPP
 
 #include <vector>
 #include <tuple>
 #include <boost/mp11.hpp>
 #include "../communication_object_2.hpp"
+#include "../bulk_communication_object.hpp"
 #include "../transport_layer/ri/range_factory.hpp"
 #include "./pattern.hpp"
 
-#include <iostream>
+//#include <iostream>
 
 namespace gridtools {
 
@@ -38,8 +39,6 @@ public: // member types
     using transport = typename communicator_type::tag_type;
     using pattern_container_type = pattern_container<communicator_type,grid_type,domain_id_type>;
     using pattern_type = typename pattern_container_type::value_type;
-    using p_map_type = typename pattern_type::map_type;
-    using iteration_space_pair = typename pattern_type::iteration_space_pair;
 
 private: // member types
     template<typename A>
@@ -73,7 +72,6 @@ private: // member types
     {
         using ranges_type = select_target_range<Field>;
         using range_type = typename ranges_type::value_type;
-        pattern_type* m_pattern;
         ranges_type m_ranges; 
     };
 
@@ -82,7 +80,6 @@ private: // member types
     {
         using ranges_type = select_source_range<Field>;
         using range_type = typename ranges_type::value_type;
-        pattern_type* m_pattern;
         ranges_type m_ranges; 
     };
 
@@ -95,31 +92,13 @@ private: // members
     target_ranges_t m_target_ranges_tuple;
     source_ranges_t m_source_ranges_tuple;
     co_type m_co;
-    std::vector<p_map_type> m_local_send_map;
-    std::vector<p_map_type> m_local_recv_map;
     pattern_container_type& m_pattern;
-
-    struct remote_exchanger
-    {
-        static co_handle fn(bulk_communication_object& ex)
-        {
-            return ex_impl(ex, std::make_index_sequence<sizeof...(Fields)>());
-        }
-
-        template<std::size_t... I>
-        static co_handle ex_impl(bulk_communication_object& ex, std::index_sequence<I...>)
-        {
-            return ex.m_co.exchange(ex.m_pattern(*std::get<I>(ex.m_field_tuple))... );
-        }
-    };
 
 public: // ctors
 
     bulk_communication_object(communicator_type comm, pattern_container_type& pattern, Fields&... fields)
     : m_field_tuple{&fields...}
     , m_co(comm)
-    , m_local_send_map(pattern.size())
-    , m_local_recv_map(pattern.size())
     , m_pattern(pattern)
     {
         // loop over domain-patterns and set up source ranges
@@ -139,7 +118,6 @@ public: // ctors
                             if (f.domain_id() == p.domain_id())
                             {
                                 auto& source_r = std::get<decltype(i)::value>(m_source_ranges_tuple);
-                                source_r.m_pattern = &p;
                                 // loop over elements in index container
                                 for (const auto& c : sit->second)
                                 {
@@ -149,7 +127,6 @@ public: // ctors
                         });
                     }
                     // remove the local send halos
-                    m_local_send_map[d].insert(*sit);
                     sit = p.send_halos().erase(sit);
                 }
                 else
@@ -175,19 +152,17 @@ public: // ctors
                             if (f.domain_id() == p.domain_id())
                             {
                                 auto& target_r = std::get<decltype(i)::value>(m_target_ranges_tuple);
-                                target_r.m_pattern = &p;
-
                                 // loop over elements in index container
                                 for (const auto& c : rit->second)
                                 {
                                     target_r.m_ranges.emplace_back(comm, f, c.local().first(), c.local().last(), rit->first.tag); 
+                                    // start handshake
                                     target_r.m_ranges.back().send();
                                 }
                             }
                         });
                     }
                     // remove the local recv halos
-                    m_local_recv_map[d].insert(*rit);
                     rit = p.recv_halos().erase(rit);
                 }
                 else
@@ -196,6 +171,7 @@ public: // ctors
             ++d;
         }
         
+        // loop over source ranges
         for (std::size_t i=0; i<sizeof...(Fields); ++i)
         {
             boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this](auto i)
@@ -203,17 +179,18 @@ public: // ctors
                 using I = decltype(i);
                 // get source ranges for this field
                 auto& source_r = std::get<I::value>(m_source_ranges_tuple);
-                for (auto& r : source_r.m_ranges)
-                    r.recv();
+                // complete the handshake
+                for (auto& r : source_r.m_ranges) r.recv();
             });
         }
 
     }
 
+public: // member functions
     void exchange()
     {
         // start communication for remote domains
-        auto h = remote_exchanger::fn(*this);
+        auto h = exchange_remote();
         // loop over fields for putting
         for (std::size_t i=0; i<sizeof...(Fields); ++i)
         {
@@ -291,20 +268,23 @@ public: // ctors
         }
         h.wait();
     }
+
+private: // implementation details
+    co_handle exchange_remote() { return exchange_remote(std::make_index_sequence<sizeof...(Fields)>()); }
+
+    template<std::size_t... I>
+    co_handle exchange_remote(std::index_sequence<I...>) { return m_co.exchange(m_pattern(*std::get<I>(m_field_tuple))... ); }
 };
 
 } // namespace structured
 
 template<template <typename> class RangeGen, typename Communicator, typename Coordinate, typename DomainId, typename... Fields>
-inline structured::bulk_communication_object<RangeGen, Communicator, Coordinate, DomainId, Fields...>
-make_bulk_co(
-        Communicator comm, 
-        pattern_container<Communicator,structured::detail::grid<Coordinate>,DomainId>& pattern,
-        Fields&... fields)
+inline bulk_communication_object
+make_bulk_co(Communicator comm, pattern_container<Communicator,structured::detail::grid<Coordinate>,DomainId>& pattern, Fields&... fields)
 {
-    return {comm, pattern, fields...};
+    using type = structured::bulk_communication_object<RangeGen, Communicator, Coordinate, DomainId, Fields...>;
+    return {type{comm, pattern, fields...}};
 }
-
 
 } // namespace ghex
 
