@@ -267,6 +267,57 @@ namespace gridtools {
                 return h; 
             }
 
+            /** @brief non-blocking exchange of halo data with in-place recv (no unpacking)
+              * @tparam Archs list of device types
+              * @tparam Fields list of field types
+              * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
+              * @return handle to await communication */
+            template<typename... Archs, typename... Fields>
+            [[nodiscard]] handle_type exchange_recv_in_place(buffer_info_type<Archs,Fields>... buffer_infos)
+            {
+                // check that arguments are compatible
+                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
+                static_assert(detail::test_eq_t<test_t, typename buffer_info_type<Archs,Fields>::pattern_container_type...>::value,
+                        "patterns are not compatible with this communication object");
+                if (m_valid) 
+                    throw std::runtime_error("earlier exchange operation was not finished");
+                m_valid = true;
+
+                // temporarily store address of pattern containers
+                const test_t* ptrs[sizeof...(Fields)] = { &(buffer_infos.get_pattern_container())... };
+                // build a tag map
+                std::map<const test_t*,int> pat_ptr_map;
+                int max_tag = 0;
+                for (unsigned int k=0; k<sizeof...(Fields); ++k)
+                {
+                    auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptrs[k], max_tag) );
+                    if (p_it_bool.second == true)
+                        max_tag += ptrs[k]->max_tag()+1;
+                }
+                // compute tag offset for each field
+                int tag_offsets[sizeof...(Fields)] = { pat_ptr_map[&(buffer_infos.get_pattern_container())]... };
+                // store arguments and corresponding memory in tuples
+                using buffer_infos_ptr_t     = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
+                using memory_t               = std::tuple<buffer_memory<Archs>*...>;
+                buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
+                memory_t memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
+                // loop over buffer_infos/memory and compute required space
+                int i = 0;
+                detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&tag_offsets](auto mem, auto bi) 
+                {
+                    using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
+                    using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
+                    auto field_ptr = &(bi->get_field());
+                    const domain_id_type my_dom_id = bi->get_field().domain_id();
+                    allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
+                    ++i;
+                });
+                handle_type h(m_comm, [this](){this->wait();});
+                post_recvs();
+                pack();
+                return h; 
+            }
+
         public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
 
             /** @brief non-blocking exchange of data, vector interface
