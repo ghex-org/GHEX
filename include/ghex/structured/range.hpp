@@ -14,6 +14,8 @@
 #include <cstring>
 #include <vector>
 #include <gridtools/common/host_device.hpp>
+
+#include "../remote_range_traits.hpp"
 #include "../transport_layer/ri/types.hpp"
 #include "../transport_layer/ri/thread/access_guard.hpp"
 
@@ -149,11 +151,6 @@ struct remote_thread_range
 
     guard_view_type   m_guard;
     view_type         m_view;
-    //value_type*       m_data;
-    //coordinate        m_global_first;
-    //coordinate        m_offsets;
-    //coordinate        m_extents;
-    //strides_type      m_byte_strides;
     size_type         m_chunk_size;
     
     remote_thread_range(const view_type& v, guard_type& g) noexcept
@@ -196,16 +193,12 @@ struct remote_thread_range
     size_type inc(size_type index, size_type n, coordinate& coord) const noexcept {
         if (n < 0 && -n > index)
         {
-            //for (unsigned int d = 0; d < dimension::value; ++d) coord[d] = 0;
             coord = m_view.m_begin;
             return 0;
         }
         index += n;
         if (index >= m_view.m_size)
         {
-            //for (unsigned int d = 0; d < dimension::value; ++d) coord[d] = m_view.m_extent[d]-1;
-            //static constexpr auto I = layout::template find<dimension::value-1>();
-            //coord[I] = m_view.m_extent[I];
             coord = m_view.m_end;
             return m_view.m_size;
         }
@@ -228,8 +221,6 @@ struct remote_thread_range
         static constexpr auto I = layout::template find<dimension::value-1>();
         if (index + 1 >= m_view.m_size)
         {
-            //for (unsigned int d = 0; d < dimension::value; ++d) coord[d] = m_view.m_extent[d]-1;
-            //coord[I] = m_view.m_extent[I];
             coord = m_view.m_end;
             return m_view.m_size;
         }
@@ -309,6 +300,17 @@ struct remote_thread_range_generator
 };
 
 } // namespace structured
+
+template<>
+struct remote_range_traits<structured::remote_thread_range_generator>
+{
+    template<typename Communicator>
+    static bool is_local(Communicator comm, int remote_rank)
+    {
+        return comm.rank() == remote_rank;
+    }
+};
+
 } // namespace ghex
 } // namespace gridtools
 

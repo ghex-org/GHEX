@@ -19,6 +19,7 @@ namespace ghex {
 // type erased bulk communication object
 struct bulk_communication_object
 {
+private:
     struct bulk_co_iface
     {
         virtual ~bulk_co_iface() {}
@@ -35,6 +36,7 @@ struct bulk_communication_object
 
     std::unique_ptr<bulk_co_iface> m_impl;
 
+public:
     template<typename CO>
     bulk_communication_object(CO&& co) : m_impl{ std::make_unique<bulk_co_impl<CO>>(std::move(co)) } {}
 

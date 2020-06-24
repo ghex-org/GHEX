@@ -108,7 +108,7 @@ public: // ctors
             auto sit = p.send_halos().begin();
             while(sit != p.send_halos().end())
             {
-                if (sit->first.mpi_rank == comm.rank())
+                if (remote_range_traits<RangeGen>::is_local(comm, sit->first.mpi_rank))
                 {
                     for (std::size_t i=0; i<sizeof...(Fields); ++i)
                     {
@@ -142,7 +142,7 @@ public: // ctors
             auto rit = p.recv_halos().begin();
             while(rit != p.recv_halos().end())
             {
-                if (rit->first.mpi_rank == comm.rank())
+                if (remote_range_traits<RangeGen>::is_local(comm, rit->first.mpi_rank))
                 {
                     for (std::size_t i=0; i<sizeof...(Fields); ++i)
                     {
