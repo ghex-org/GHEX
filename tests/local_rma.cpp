@@ -169,11 +169,11 @@ struct simulation_1
             std::vector<std::thread> threads;
             threads.push_back(std::thread{[this](){
                 cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
-                    comms[0], pattern, field_1a/*, field_2a, field_3a*/);
+                    comms[0], pattern, field_1a, field_2a, field_3a);
             }});
             threads.push_back(std::thread{[this](){
                 cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
-                    comms[1], pattern, field_1b/*, field_2b, field_3b*/);
+                    comms[1], pattern, field_1b, field_2b, field_3b);
             }});
             for (auto& t : threads) t.join();
         }
@@ -288,8 +288,8 @@ TEST(local_rma, single)
 {
     simulation_1 sim(false);
     sim.exchange();
-    //sim.exchange();
-    //sim.exchange();
+    sim.exchange();
+    sim.exchange();
     EXPECT_TRUE(sim.check());
 }
 
@@ -297,8 +297,7 @@ TEST(local_rma, multi)
 {
     simulation_1 sim(true);
     sim.exchange();
-    //sim.exchange();
-    //sim.exchange();
-    //EXPECT_TRUE(sim.check());
-    //std::cout << "sldkjflkdsajflkdsjfdsklfjdskfldsajfdsflkj" << std::endl;
+    sim.exchange();
+    sim.exchange();
+    EXPECT_TRUE(sim.check());
 }
