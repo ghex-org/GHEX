@@ -37,8 +37,11 @@ private:
     std::unique_ptr<bulk_co_iface> m_impl;
 
 public:
+    bulk_communication_object() = default;
     template<typename CO>
     bulk_communication_object(CO&& co) : m_impl{ std::make_unique<bulk_co_impl<CO>>(std::move(co)) } {}
+    bulk_communication_object(bulk_communication_object&&) = default;
+    bulk_communication_object& operator=(bulk_communication_object&&) = default;
 
     void exchange() { m_impl->exchange(); }
 };

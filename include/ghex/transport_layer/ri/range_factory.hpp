@@ -63,7 +63,7 @@ struct range_factory
         data += sizeof(int);
         return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, [data, a](auto Id) {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            return create(a, std::move(reinterpret_cast<range_impl<range_t, stack_iterator, target_>*>(const_cast<byte*>(data))->m)).init();
+            return create(a, std::move(reinterpret_cast<range_impl<range_t, stack_iterator, target_>*>(const_cast<byte*>(data))->m));//.init();
         });
     }
 

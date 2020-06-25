@@ -45,11 +45,7 @@ struct range
     range(range&&) = default;
     range& operator=(range&&) = default;
 
-    range&& init() && {
-        iface().init();
-        return std::move(*this);
-    }
-
+    void print_info() { iface().print_info(); }
     iterator_type begin() const noexcept { return ciface().begin(); }
     iterator_type end() const noexcept { return ciface().end(); }
     chunk operator[](size_type i) const noexcept { return *(begin() + i); }
@@ -76,7 +72,11 @@ struct range
     const range_iface<iterator_type>&  iface() const { return *reinterpret_cast<const range_iface<iterator_type>*>(m_stack); }
     const range_iface<iterator_type>& ciface() const { return *reinterpret_cast<const range_iface<iterator_type>*>(m_stack); }
 
-    void put(const chunk& c, const byte* ptr) { iface().put(c, ptr); }
+    //void put(const chunk& c, const byte* ptr) {} //{ iface().put(c, ptr); }
+    void put(iterator_type it, const byte* ptr) {
+        //chunk c = it.iface();  
+        iface().put(it, ptr); 
+    }
 
   //private:
     //void start_local_epoch() { iface().start_local_epoch(); }

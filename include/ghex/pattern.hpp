@@ -46,8 +46,8 @@ namespace gridtools {
             friend class detail::make_pattern_impl<GridType>;
 
         public: // copy constructor
-            pattern_container(const pattern_container&) noexcept = delete;
-            pattern_container(pattern_container&&) noexcept = default;
+            pattern_container(const pattern_container&) = default;
+            pattern_container(pattern_container&&) = default;
 
         private: // private constructor called through make_pattern
             pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) 

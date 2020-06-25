@@ -72,6 +72,17 @@ struct field_view
     coordinate m_end;
     coordinate m_reduced_stride;
     size_type m_size;
+
+    void print_info()
+    {
+        std::cout << "view on field " << m_field << " with start at "
+            << m_offset[0] << ", "
+            << m_offset[1] << ", "
+            << m_offset[2] << " and size " 
+            << m_extent[0] << ", "
+            << m_extent[1] << ", "
+            << m_extent[2] << std::endl;
+    }
     
     template<typename Array>
     field_view(Field& f, const Array& offset, const Array& extent)
@@ -162,20 +173,35 @@ struct remote_thread_range
     remote_thread_range(const remote_thread_range&) = default;
     remote_thread_range(remote_thread_range&&) = default;
 
+    void print_info() { m_view.print_info(); }
     iterator  begin() const { return {const_cast<remote_thread_range*>(this), 0, m_view.m_begin}; }
     iterator  end()   const { return {const_cast<remote_thread_range*>(this), m_view.m_size, m_view.m_end}; }
     size_type buffer_size() const { return m_chunk_size; }
 
     // these functions are called at the remote site upon deserializing and reconstructing the range
     // and can be used to allocate state
-    void init(tl::ri::remote_host_) { }
+    void init(tl::ri::remote_host_)   {}
     void init(tl::ri::remote_device_) {}
+    void exit(tl::ri::remote_host_)   {}
+    void exit(tl::ri::remote_device_) {}
     
-    static void put(tl::ri::chunk c, const tl::ri::byte* ptr, tl::ri::remote_host_) {
+    //static void put(tl::ri::chunk c, const tl::ri::byte* ptr, tl::ri::remote_host_) {
+    //    // host to host put
+    //    std::memcpy(c.data(), ptr, c.size());
+    //}
+    //static void put(tl::ri::chunk, const tl::ri::byte*, tl::ri::remote_device_) {}
+
+    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_host_) {
+    //    // de-virtualize iterator
+    //    //iterator it_ = dynamic_cast<iterator&>(it);
+        tl::ri::chunk c = *it; 
         // host to host put
         std::memcpy(c.data(), ptr, c.size());
+        return it;
     }
-    static void put(tl::ri::chunk, const tl::ri::byte*, tl::ri::remote_device_) {}
+    //template<typename IteratorBase>
+    //static void put(iterator& it, const tl::ri::byte* ptr, tl::ri::remote_device_) { }
+
 
     void start_local_epoch() { m_guard.start_local_epoch(); }
     void end_local_epoch()   { m_guard.end_local_epoch(); }
@@ -233,7 +259,7 @@ struct remote_thread_range
     }
 };
 
-
+static std::mutex mtx;
 template<typename Field>
 struct remote_thread_range_generator
 {
@@ -264,6 +290,9 @@ struct remote_thread_range_generator
         void send()
         {
             m_guard.init(tl::ri::thread::access_guard::remote);
+            { std::lock_guard<std::mutex> lock(mtx);
+            std::cout << "sending with tag " << m_tag << " from thread " << m_comm.thread_id() << std::endl;
+            }
             m_comm.send(m_archive, m_comm.rank(), m_tag).wait();
         }
     };
@@ -286,6 +315,9 @@ struct remote_thread_range_generator
         , m_tag{tag}
         {
             m_buffer.resize(RangeFactory::serial_size);
+            { std::lock_guard<std::mutex> lock(mtx);
+            std::cout << "posting recv  with tag " << m_tag << " from thread " << m_comm.thread_id() << std::endl;
+            }
             m_request = m_comm.recv(m_buffer, m_comm.rank(), m_tag);
         }
 
@@ -293,6 +325,10 @@ struct remote_thread_range_generator
         {
             m_request.wait();
             m_remote_range = RangeFactory::deserialize(tl::ri::host, m_buffer.data());
+            { std::lock_guard<std::mutex> lock(mtx);
+                std::cout << "deserialized range:\n";
+                m_remote_range.print_info();
+            }
             m_buffer.resize(m_remote_range.buffer_size());
             m_pos = m_remote_range.begin();
         }

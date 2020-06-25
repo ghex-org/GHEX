@@ -14,7 +14,7 @@
 namespace gridtools {
 namespace ghex {
 
-template<template<typename> typename RangeGen>
+template<template<typename> class RangeGen>
 struct remote_range_traits
 {
     template<typename Communicator>

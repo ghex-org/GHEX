@@ -73,6 +73,8 @@ namespace gridtools {
                     rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
 
+                    auto thread_id() const { return m_state->m_token_ptr->id(); }
+
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.
                      * @tparam Message a meassage type
