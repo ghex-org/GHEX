@@ -485,7 +485,8 @@ TEST(unstructured_user_concepts, data_descriptor) {
 
     EXPECT_NO_THROW(co.bexchange(patterns(data)));
 
-    auto h = co.exchange(patterns(data));
+    //auto h = co.exchange(patterns(data));
+    auto h = co.exchange_ipr(patterns(data));
     h.wait();
 
     // check exchanged data

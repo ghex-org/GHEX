@@ -130,6 +130,22 @@ namespace gridtools {
                 }
             };
 
+            /** @brief pair of domain ids + tag id with ordering */
+            struct domain_id_pair_and_tag
+            {
+                domain_id_type first_id;
+                domain_id_type second_id;
+                int tag;
+                bool operator<(const domain_id_pair_and_tag& other) const noexcept
+                {
+                    return (first_id < other.first_id ? true :
+                                (first_id > other.first_id ? false :
+                                     (second_id < other.second_id ? true :
+                                          (second_id > other.second_id ? false :
+                                               (tag < other.tag)))));
+                }
+            };
+
             /** @brief Holds a pointer to a set of iteration spaces and a callback function pointer 
               * which is used to store a field's pack or unpack member function. 
               * This class also stores the offset in the serialized buffer in bytes.
@@ -160,6 +176,35 @@ namespace gridtools {
                 cuda::stream m_cuda_stream;
             };
 
+            class ipr_message
+            {
+            public:
+                using byte = unsigned char;
+                using value_type = byte;
+            private:
+                value_type* m_ipr_ptr;
+                std::size_t m_size;
+            public:
+                ipr_message() = default;
+                ipr_message(value_type* ipr_ptr) : m_ipr_ptr{ipr_ptr}, m_size{0} {}
+                ipr_message(value_type* ipr_ptr, const std::size_t size) : m_ipr_ptr{ipr_ptr}, m_size{size} {}
+                const value_type* data() const { return m_ipr_ptr; }
+                value_type* data() { return m_ipr_ptr; }
+                std::size_t size() const { return m_size; }
+                void resize(const std::size_t size) { m_size = size; }
+            };
+
+            struct recv_ipr_info
+            {
+                using field_info_type = field_info<std::function<void()>>;
+                address_type address;
+                int tag;
+                ipr_message message;
+                std::size_t size;
+                std::vector<field_info_type> field_infos;
+                cuda::stream m_cuda_stream;
+            };
+
             /** @brief Holds maps of buffers for send and recieve operations indexed by a domain_id_pair and a device id
               * @tparam Arch the device on which the buffer memory is allocated */
             template<typename Arch>
@@ -170,18 +215,29 @@ namespace gridtools {
                 using vector_type      = typename arch_traits<Arch>::message_type;
                 
                 using send_buffer_type = buffer<vector_type,pack_function_type>; 
-                using recv_buffer_type = buffer<vector_type,unpack_function_type>; 
+                using recv_buffer_type = buffer<vector_type,unpack_function_type>;
                 using send_memory_type = std::map<device_id_type, std::map<domain_id_pair,send_buffer_type>>;
                 using recv_memory_type = std::map<device_id_type, std::map<domain_id_pair,recv_buffer_type>>;
+
+                using send_memory_type_ipr = std::map<device_id_type, std::map<domain_id_pair_and_tag,send_buffer_type>>;
+                using recv_memory_type_ipr = std::map<device_id_type, std::map<domain_id_pair_and_tag,recv_ipr_info>>;
 
                 std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
                 send_memory_type send_memory;
                 recv_memory_type recv_memory;
 
+                send_memory_type_ipr send_memory_ipr;
+                recv_memory_type_ipr recv_memory_ipr;
+
                 // additional members needed for receive operations used for scheduling calls to unpack
                 using hook_type       = recv_buffer_type*;
                 using future_type     = typename communicator_type::template future<hook_type>;
+
+                using future_type_ipr = typename communicator_type::template future<void>;
+
                 std::vector<future_type> m_recv_futures;
+
+                std::vector<future_type_ipr> m_recv_futures_ipr;
 
             };
             
@@ -273,7 +329,7 @@ namespace gridtools {
               * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern
               * @return handle to await communication */
             template<typename... Archs, typename... Fields>
-            [[nodiscard]] handle_type exchange_recv_in_place(buffer_info_type<Archs,Fields>... buffer_infos)
+            [[nodiscard]] handle_type exchange_ipr(buffer_info_type<Archs,Fields>... buffer_infos)
             {
                 // check that arguments are compatible
                 using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
@@ -309,11 +365,11 @@ namespace gridtools {
                     using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
                     auto field_ptr = &(bi->get_field());
                     const domain_id_type my_dom_id = bi->get_field().domain_id();
-                    allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
+                    allocate_ipr<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                     ++i;
                 });
-                handle_type h(m_comm, [this](){this->wait();});
-                post_recvs();
+                handle_type h(m_comm, [this](){this->wait_ipr();});
+                post_recvs_ipr();
                 pack();
                 return h; 
             }
@@ -423,6 +479,26 @@ namespace gridtools {
                 });
             }
 
+            void post_recvs_ipr()
+            {
+                detail::for_each(m_mem, [this](auto& m)
+                {
+                    for (auto& p0 : m.recv_memory_ipr)
+                    {
+                        for (auto& p1: p0.second)
+                        {
+                            if (p1.second.size > 0u)
+                            {
+                                p1.second.message.resize(p1.second.size);
+                                m.m_recv_futures_ipr.emplace_back(
+                                    typename std::remove_reference_t<decltype(m)>::future_type_ipr{
+                                        m_comm.recv(p1.second.message, p1.second.address, p1.second.tag).m_handle});
+                            }
+                        }
+                    }
+                });
+            }
+
             void pack()
             {
                 detail::for_each(m_mem, [this](auto& m)
@@ -445,6 +521,19 @@ namespace gridtools {
                 for (auto& f : m_send_futures) 
                     f.wait();
                 clear();
+            }
+
+            void wait_ipr()
+            {
+                if (!m_valid) return;
+                detail::for_each(m_mem, [this](auto& m)
+                {
+                    for (auto& f : m.m_recv_futures)
+                        f.wait(); // no unpacking. TO DO: improve performances
+                });
+                for (auto& f : m_send_futures) 
+                    f.wait();
+                clear_ipr();
             }
 
 #ifdef __CUDACC__
@@ -489,6 +578,31 @@ namespace gridtools {
                 });
             }
 
+            // clear the internal flags so that a new exchange can be started
+            // important: does not deallocate
+            void clear_ipr()
+            {
+                m_valid = false;
+                m_send_futures.clear();
+                detail::for_each(m_mem, [this](auto& m)
+                {
+                    m.m_recv_futures_ipr.clear();
+                    for (auto& p0 : m.send_memory)
+                        for (auto& p1 : p0.second)
+                        {
+                            p1.second.buffer.resize(0);
+                            p1.second.size = 0;
+                            p1.second.field_infos.resize(0);
+                        }
+                    for (auto& p0 : m.recv_memory_ipr)
+                        for (auto& p1 : p0.second)
+                        {
+                            p1.second.size = 0;
+                            p1.second.field_infos.resize(0);
+                        }
+                });
+            }
+
         private: // allocation member functions
 
             template<typename Arch, typename T, typename Memory, typename Field, typename O>
@@ -514,6 +628,39 @@ namespace gridtools {
                     field_ptr);
                 allocate<Arch,T,typename buffer_memory<Arch>::send_buffer_type>(
                     mem->send_memory[device_id], 
+                    pattern.send_halos(),
+                    [field_ptr](void* buffer, const index_container_type& c, void* arg) 
+                    {
+                        field_ptr->pack(reinterpret_cast<T*>(buffer),c,arg);
+                    },
+                    dom_id, 
+                    device_id, 
+                    tag_offset, 
+                    false, 
+                    *pool, 
+                    field_ptr);
+            }
+
+            template<typename Arch, typename T, typename Memory, typename Field, typename O>
+            void allocate_ipr(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id, typename arch_traits<Arch>::device_id_type device_id, O tag_offset)
+            {
+                auto& pool = mem->m_pools[device_id];
+                if (!pool)
+                {
+                    pool.reset( new typename arch_traits<Arch>::pool_type{ typename arch_traits<Arch>::basic_allocator_type{} } );
+                }
+                set_recv_size<Arch,T,recv_ipr_info>(
+                    mem->recv_memory_ipr[device_id],
+                    pattern.recv_halos(),
+                    [](){},
+                    dom_id, 
+                    device_id, 
+                    tag_offset, 
+                    true, 
+                    *pool,
+                    field_ptr);
+                allocate_ipr<Arch,T,typename buffer_memory<Arch>::send_buffer_type>(
+                    mem->send_memory_ipr[device_id],
                     pattern.send_halos(),
                     [field_ptr](void* buffer, const index_container_type& c, void* arg) 
                     {
@@ -578,6 +725,113 @@ namespace gridtools {
                     it->second.size += padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
                 }
             }
+
+            template<typename Arch, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType,
+                typename Pool, typename Field = void>
+            void set_recv_size(Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id, DeviceIdType device_id,
+                          int tag_offset, bool receive, Pool& pool, Field* field_ptr = nullptr)
+            {
+                using byte = unsigned char;
+                for (const auto& p_id_c : halos)
+                {
+                    const auto num_elements   = pattern_type::num_elements(p_id_c.second);
+                    if (num_elements < 1) continue;
+                    const auto remote_address = p_id_c.first.address;
+                    const auto remote_dom_id  = p_id_c.first.id;
+                    const auto tag = p_id_c.first.tag;
+                    domain_id_type left, right;
+                    if (receive)
+                    {
+                        left  = my_dom_id;
+                        right = remote_dom_id;
+                    }
+                    else
+                    {
+                        left  = remote_dom_id;
+                        right = my_dom_id;
+                    }
+                    const auto d_p_t = domain_id_pair_and_tag{left,right,tag};
+                    auto it = memory.find(d_p_t);
+                    if (it == memory.end())
+                    {
+                        it = memory.insert(std::make_pair(
+                            d_p_t,
+                            BufferType{
+                                remote_address,
+                                p_id_c.first.tag+tag_offset,
+                                ipr_message{reinterpret_cast<byte*>(&(field_ptr->operator()(p_id_c.second.front().local_indices().front(), 0)))},
+                                0,
+                                std::vector<typename BufferType::field_info_type>(),
+                                cuda::stream()
+                            })).first;
+                    }
+                    else if (it->second.size==0)
+                    {
+                        it->second.address = remote_address;
+                        it->second.tag = p_id_c.first.tag+tag_offset;
+                        it->second.field_infos.resize(0);
+                    }
+                    const auto prev_size = it->second.size;
+                    const auto padding = ((prev_size+alignof(ValueType)-1)/alignof(ValueType))*alignof(ValueType) - prev_size;
+                    it->second.field_infos.push_back(
+                        typename BufferType::field_info_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding, field_ptr});
+                    it->second.size += padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
+                }
+            }
+
+            // compute memory requirements to be allocated on the device
+            template<typename Arch, typename ValueType, typename BufferType, typename Memory, typename Halos, typename Function, typename DeviceIdType,
+                typename Pool, typename Field = void>
+            void allocate_ipr(Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id, DeviceIdType device_id,
+                          int tag_offset, bool receive, Pool& pool, Field* field_ptr = nullptr)
+            {
+                for (const auto& p_id_c : halos)
+                {
+                    const auto num_elements   = pattern_type::num_elements(p_id_c.second);
+                    if (num_elements < 1) continue;
+                    const auto remote_address = p_id_c.first.address;
+                    const auto remote_dom_id  = p_id_c.first.id;
+                    const auto tag = p_id_c.first.tag;
+                    domain_id_type left, right;
+                    if (receive)
+                    {
+                        left  = my_dom_id;
+                        right = remote_dom_id;
+                    }
+                    else
+                    {
+                        left  = remote_dom_id;
+                        right = my_dom_id;
+                    }
+                    const auto d_p_t = domain_id_pair_and_tag{left,right,tag};
+                    auto it = memory.find(d_p_t);
+                    if (it == memory.end())
+                    {
+                        it = memory.insert(std::make_pair(
+                            d_p_t,
+                            BufferType{
+                                remote_address,
+                                p_id_c.first.tag+tag_offset,
+                                arch_traits<Arch>::make_message(pool, device_id),
+                                0,
+                                std::vector<typename BufferType::field_info_type>(),
+                                cuda::stream()
+                            })).first;
+                    }
+                    else if (it->second.size==0)
+                    {
+                        it->second.address = remote_address;
+                        it->second.tag = p_id_c.first.tag+tag_offset;
+                        it->second.field_infos.resize(0);
+                    }
+                    const auto prev_size = it->second.size;
+                    const auto padding = ((prev_size+alignof(ValueType)-1)/alignof(ValueType))*alignof(ValueType) - prev_size;
+                    it->second.field_infos.push_back(
+                        typename BufferType::field_info_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding, field_ptr});
+                    it->second.size += padding + static_cast<std::size_t>(num_elements)*sizeof(ValueType);
+                }
+            }
+
         };
 
         /** @brief creates a communication object based on the pattern type
