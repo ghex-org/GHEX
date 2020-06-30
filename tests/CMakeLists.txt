@@ -131,7 +131,7 @@ foreach (_t ${_tests_rma})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
     add_test(
-        NAME ${_t}.cpp
+        NAME ${_t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
     )
 
