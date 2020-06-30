@@ -134,6 +134,16 @@ foreach (_t ${_tests_rma})
         NAME ${_t}.cpp
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
     )
+
+    if (GHEX_USE_UCP)
+        add_executable(${_t}_ucx ${_t}.cpp)
+        target_compile_definitions(${_t}_ucx PUBLIC GHEX_TEST_USE_UCX)
+        target_link_libraries(${_t}_ucx gtest_main_ucx)
+        add_test(
+            NAME ${_t}_ucx
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_ucx> ${MPIEXEC_POSTFLAGS}
+        )
+    endif()
 endforeach()
 
 set(_tests_gt data_store_test)

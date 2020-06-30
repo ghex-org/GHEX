@@ -356,7 +356,11 @@ struct remote_range_traits<structured::remote_thread_range_generator>
     template<typename Communicator>
     static bool is_local(Communicator comm, int remote_rank)
     {
+#ifdef GHEX_USE_XPMEM
+        return comm.is_local(remote_rank);
+#else
         return comm.rank() == remote_rank;
+#endif /* GHEX_USE_XPMEM */
     }
 };
 
