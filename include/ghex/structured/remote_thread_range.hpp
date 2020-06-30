@@ -19,8 +19,6 @@
 #include "../transport_layer/ri/types.hpp"
 #include "../transport_layer/ri/thread/access_guard.hpp"
 
-#include <iostream>
-
 namespace gridtools {
 namespace ghex {
 namespace structured {
@@ -73,17 +71,6 @@ struct field_view
     coordinate m_reduced_stride;
     size_type m_size;
 
-    void print_info()
-    {
-        std::cout << "view on field " << m_field << " with start at "
-            << m_offset[0] << ", "
-            << m_offset[1] << ", "
-            << m_offset[2] << " and size " 
-            << m_extent[0] << ", "
-            << m_extent[1] << ", "
-            << m_extent[2] << std::endl;
-    }
-    
     template<typename Array>
     field_view(Field& f, const Array& offset, const Array& extent)
     : m_field(&f)
@@ -173,7 +160,6 @@ struct remote_thread_range
     remote_thread_range(const remote_thread_range&) = default;
     remote_thread_range(remote_thread_range&&) = default;
 
-    void print_info() { m_view.print_info(); }
     iterator  begin() const { return {const_cast<remote_thread_range*>(this), 0, m_view.m_begin}; }
     iterator  end()   const { return {const_cast<remote_thread_range*>(this), m_view.m_size, m_view.m_end}; }
     size_type buffer_size() const { return m_chunk_size; }
@@ -259,7 +245,6 @@ struct remote_thread_range
     }
 };
 
-static std::mutex mtx;
 template<typename Field>
 struct remote_thread_range_generator
 {
@@ -290,9 +275,6 @@ struct remote_thread_range_generator
         void send()
         {
             m_guard.init(tl::ri::thread::access_guard::remote);
-            { std::lock_guard<std::mutex> lock(mtx);
-            std::cout << "sending with tag " << m_tag << " from thread " << m_comm.thread_id() << std::endl;
-            }
             m_comm.send(m_archive, m_comm.rank(), m_tag).wait();
         }
     };
@@ -315,9 +297,6 @@ struct remote_thread_range_generator
         , m_tag{tag}
         {
             m_buffer.resize(RangeFactory::serial_size);
-            { std::lock_guard<std::mutex> lock(mtx);
-            std::cout << "posting recv  with tag " << m_tag << " from thread " << m_comm.thread_id() << std::endl;
-            }
             m_request = m_comm.recv(m_buffer, m_comm.rank(), m_tag);
         }
 
@@ -325,10 +304,6 @@ struct remote_thread_range_generator
         {
             m_request.wait();
             m_remote_range = RangeFactory::deserialize(tl::ri::host, m_buffer.data());
-            { std::lock_guard<std::mutex> lock(mtx);
-                std::cout << "deserialized range:\n";
-                m_remote_range.print_info();
-            }
             m_buffer.resize(m_remote_range.buffer_size());
             m_pos = m_remote_range.begin();
         }

@@ -24,7 +24,6 @@ struct range_iface
 {
     virtual ~range_iface() {}
 
-    virtual void print_info() = 0;
     virtual Iterator  begin() const noexcept = 0;
     virtual Iterator  end()   const noexcept = 0;
     //virtual void      put(const chunk&, const byte*) = 0;
@@ -51,7 +50,6 @@ struct range_impl : public range_iface<Iterator>
         m.exit(Arch{});
     }
     
-    void print_info() override final { m.print_info(); }
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }
     //void      put(const chunk& c, const byte* ptr) override final { Range::put(c, ptr, Arch{}); }
@@ -84,7 +82,6 @@ struct range_impl<Range, Iterator, target_> : public range_iface<Iterator>
 
     range_impl(Range&& r) : m{std::move(r)} { }
 
-    void print_info() override final { m.print_info(); }
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }
     //void      put(const chunk&, const byte*) override final { }

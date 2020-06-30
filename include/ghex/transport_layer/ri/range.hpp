@@ -45,7 +45,6 @@ struct range
     range(range&&) = default;
     range& operator=(range&&) = default;
 
-    void print_info() { iface().print_info(); }
     iterator_type begin() const noexcept { return ciface().begin(); }
     iterator_type end() const noexcept { return ciface().end(); }
     chunk operator[](size_type i) const noexcept { return *(begin() + i); }
