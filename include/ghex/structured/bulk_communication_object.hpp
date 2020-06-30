@@ -103,7 +103,6 @@ public: // ctors
     {
         // loop over domain-patterns and set up source ranges
         unsigned int d = 0;
-        unsigned int t = 0;
 
         const auto max_tag = m_pattern.max_tag();
         for (auto& p : m_pattern)
@@ -115,7 +114,7 @@ public: // ctors
                 {
                     for (std::size_t i=0; i<sizeof...(Fields); ++i)
                     {
-                        boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this,&p,d,&sit,&comm,&t,max_tag](auto i) mutable
+                        boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this,&p,d,&sit,&comm,max_tag](auto i) mutable
                         {
                             auto& f = *(std::get<decltype(i)::value>(m_field_tuple));
                             if (f.domain_id() == p.domain_id())
@@ -124,10 +123,7 @@ public: // ctors
                                 // loop over elements in index container
                                 for (const auto& c : sit->second)
                                 {
-                                    //const auto tag = t*(max_tag+1) + sit->first.tag;
-                                    const auto tag = sit->first.tag;
-                                    ++t;
-                                    source_r.m_ranges.emplace_back(comm, f, c.local().first(), c.local().last(), tag); 
+                                    source_r.m_ranges.emplace_back(comm, f, c.local().first(), c.local().last(), sit->first.mpi_rank, sit->first.tag); 
                                 }
                             }
                         });
@@ -143,7 +139,6 @@ public: // ctors
 
         // loop over domain-patterns and set up target ranges
         d = 0;
-        t = 0;
         for (auto& p : m_pattern)
         {
             auto rit = p.recv_halos().begin();
@@ -153,7 +148,7 @@ public: // ctors
                 {
                     for (std::size_t i=0; i<sizeof...(Fields); ++i)
                     {
-                        boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this,&p,d,&rit,&comm,&t,&max_tag](auto i) mutable
+                        boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this,&p,d,&rit,&comm,&max_tag](auto i) mutable
                         {
                             auto& f = *(std::get<decltype(i)::value>(m_field_tuple));
                             if (f.domain_id() == p.domain_id())
@@ -162,10 +157,7 @@ public: // ctors
                                 // loop over elements in index container
                                 for (const auto& c : rit->second)
                                 {
-                                    //const auto tag = t*(max_tag+1) + rit->first.tag;
-                                    const auto tag = rit->first.tag;
-                                    ++t;
-                                    target_r.m_ranges.emplace_back(comm, f, c.local().first(), c.local().last(), tag); 
+                                    target_r.m_ranges.emplace_back(comm, f, c.local().first(), c.local().last(), rit->first.mpi_rank, rit->first.tag); 
                                     // start handshake
                                     target_r.m_ranges.back().send();
                                 }

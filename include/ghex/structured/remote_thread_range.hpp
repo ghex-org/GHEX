@@ -253,19 +253,24 @@ struct remote_thread_range_generator
     template<typename RangeFactory, typename Communicator>
     struct target_range
     {
+        using rank_type = typename Communicator::rank_type;
+        using tag_type = typename Communicator::tag_type;
+
         Communicator m_comm;
         tl::ri::thread::access_guard m_guard;
         field_view<Field> m_view;
         typename RangeFactory::range_type m_local_range;
-        int m_tag;
+        rank_type m_rank;
+        tag_type m_tag;
         std::vector<tl::ri::byte> m_archive;
 
         template<typename Coord>
-        target_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, int tag)
+        target_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type rank, tag_type tag)
         : m_comm{comm}
         , m_guard{}
         , m_view{f, first, last-first+1}
         , m_local_range{RangeFactory::template create<range_type>(m_view,m_guard)}
+        , m_rank{rank}
         , m_tag{tag}
         {
             m_archive.resize(RangeFactory::serial_size);
@@ -282,18 +287,23 @@ struct remote_thread_range_generator
     template<typename RangeFactory, typename Communicator>
     struct source_range
     {
+        using rank_type = typename Communicator::rank_type;
+        using tag_type = typename Communicator::tag_type;
+
         Communicator m_comm;
         field_view<Field> m_view;
         typename RangeFactory::range_type m_remote_range;
-        int m_tag;
+        rank_type m_rank;
+        tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<tl::ri::byte> m_buffer;
         typename RangeFactory::range_type::iterator_type m_pos;
 
         template<typename Coord>
-        source_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, int tag)
+        source_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type rank, tag_type tag)
         : m_comm{comm}
         , m_view{f, first, last-first+1}
+        , m_rank{rank}
         , m_tag{tag}
         {
             m_buffer.resize(RangeFactory::serial_size);

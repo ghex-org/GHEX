@@ -54,10 +54,10 @@ struct access_guard
         m_impl->cv.notify_one();
     }
 
-    bool ready() {
+    /*bool ready() {
         std::lock_guard<std::mutex> lk{m_impl->mtx};
         return m_impl->mode != none;
-    }
+    }*/
 };
 
 // a view on an access guard
@@ -72,10 +72,10 @@ struct access_guard_view
     access_guard_view(access_guard& g) : m_impl{g.m_impl.get()} {
     }
 
-    bool ready() {
+    /*bool ready() {
         std::lock_guard<std::mutex> lk{m_impl->mtx};
         return m_impl->mode != access_guard::none;
-    }
+    }*/
 
     void start_remote_epoch() {
         std::unique_lock<std::mutex> lk{m_impl->mtx};
