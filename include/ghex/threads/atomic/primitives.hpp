@@ -13,6 +13,7 @@
 
 #include <atomic>
 #include <memory>
+#include <vector>
 #include <boost/callable_traits.hpp>
 #include "../mutex/atomic/mutex.hpp"
 

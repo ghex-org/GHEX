@@ -38,7 +38,9 @@ namespace gridtools {
             /** @brief extended domain id type, deduced form Pattern*/
             using extended_domain_id_t = typename Pattern::extended_domain_id_type;
             /** @brief iteration space type, deduced form Pattern*/
-            using iteration_space_t = typename Pattern::iteration_space_pair;
+            using iteration_space_t = typename Pattern::iteration_space;
+            /** @brief index container type, deduced form Pattern*/
+            using index_container_type = typename Pattern::index_container_type;
             /** @brief map type for send and receive halos, deduced form Pattern*/
             using map_t = typename Pattern::map_type;
             /** @brief communication protocol, deduced form Pattern*/
@@ -82,36 +84,20 @@ namespace gridtools {
             ordered_map_t m_ordered_send_halos;
             ordered_map_t m_ordered_receive_halos;
 
-            /** @brief sets the number of elements of a single buffer (single neighbor) given the halo sizes
-             * @param iteration_spaces list of iteration spaces (halos), can be more than one per neighbor
-             * @return std::size_t number of elements*/
-            std::size_t iteration_spaces_size(const std::vector<iteration_space_t>& iteration_spaces) {
-
-                std::size_t size{0};
-                for (const auto& is : iteration_spaces) {
-                    size += is.size();
-                }
-
-                return size;
-
-            }
-
             /** @brief sets the size of a single buffer (single neighbor) given the halo sizes and the data type sizes
              * @tparam DataDescriptor list of data descriptors types
              * @param iteration_spaces list of iteration spaces (halos), can be more than one per neighbor
              * @param data_descriptors list of data descriptors
              * @return std::size_t buffer size*/
             template <typename... DataDescriptor>
-            std::size_t buffer_size(const std::vector<iteration_space_t>& iteration_spaces,
+            std::size_t buffer_size(const index_container_type& iteration_spaces,
                                     const std::tuple<DataDescriptor...>& data_descriptors) {
 
                 std::size_t size{0};
-
-                for (const auto& is : iteration_spaces) {
-                    gridtools::ghex::detail::for_each(data_descriptors, [&is, &size](const auto& dd) {
-                        size += is.size() * dd.data_type_size();
-                    });
-                }
+                auto ic_num_elements = Pattern::num_elements(iteration_spaces);
+                gridtools::ghex::detail::for_each(data_descriptors, [ic_num_elements, &size](const auto& dd) {
+                    size += ic_num_elements * sizeof(typename std::remove_reference_t<decltype(dd)>::value_type);
+                });
 
                 return size;
 
@@ -135,7 +121,7 @@ namespace gridtools {
                 gridtools::ghex::detail::for_each(data_descriptors, [this, &iteration_spaces, &halo_index, &buffer_index](const auto& dd) {
                     for (const auto& is : iteration_spaces) {
                         dd.get(is, m_send_buffers[halo_index].data()+buffer_index);
-                        buffer_index += is.size() * dd.data_type_size();
+                        buffer_index += Pattern::num_elements({is}) * sizeof(typename std::remove_reference_t<decltype(dd)>::value_type);
                     }
                 });
 
@@ -167,7 +153,7 @@ namespace gridtools {
                     gridtools::ghex::detail::for_each(m_data_descriptors, [this, &halo_index, &iteration_spaces, &buffer_index](auto& dd) {
                         for (const auto& is : iteration_spaces) {
                             dd.set(is, m_receive_buffers[halo_index].data()+buffer_index);
-                            buffer_index += is.size() * dd.data_type_size();
+                            buffer_index += Pattern::num_elements({is}) * sizeof(typename std::remove_reference_t<decltype(dd)>::value_type);
                         }
                     });
 
@@ -216,14 +202,14 @@ namespace gridtools {
                 for (const auto& halo : m_send_halos) {
                     const auto& domain_id = halo.first;
                     const auto& iteration_spaces = halo.second; // maybe not using a reference?
-                    ordered_domain_id_t ordered_domain_id{domain_id, iteration_spaces_size(iteration_spaces)};
+                    ordered_domain_id_t ordered_domain_id{domain_id, static_cast<std::size_t>(Pattern::num_elements(iteration_spaces))};
                     m_ordered_send_halos.insert(std::make_pair(ordered_domain_id, iteration_spaces));
                 }
 
                 for (const auto& halo : m_receive_halos) {
                     const auto& domain_id = halo.first;
                     const auto& iteration_spaces = halo.second;  // maybe not using a reference?
-                    ordered_domain_id_t ordered_domain_id{domain_id, iteration_spaces_size(iteration_spaces)};
+                    ordered_domain_id_t ordered_domain_id{domain_id, static_cast<std::size_t>(Pattern::num_elements(iteration_spaces))};
                     m_ordered_receive_halos.insert(std::make_pair(ordered_domain_id, iteration_spaces));
                 }
 

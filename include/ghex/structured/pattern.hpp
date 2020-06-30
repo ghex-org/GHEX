@@ -287,6 +287,7 @@ namespace gridtools {
                 // check my receive halos against all existing domains (i.e. intersection check)
                 // in order to decide from which domain I shall be receiving from.
                 // loop over patterns/domains
+                auto d_it = std::begin(d_range);
                 for (unsigned int i=0; i<my_patterns.size(); ++i)
                 {
                     // get corresponding halos
@@ -306,23 +307,24 @@ namespace gridtools {
                                 // intersect in global coordinates
                                 const auto& extent = extents_vec[k];
                                 const auto& domain_id = domain_id_vec[k];
-                                const auto left  = max(halo.global().first(),extent.global().first());
-                                const auto right = min(halo.global().last(),extent.global().last());
-                                if (left <= right)
-                                {
-                                    // instersection is not empty
-                                    // get local coordinates for intersection
-                                    const auto leftl  = halo.local().first()+(left-halo.global().first());
-                                    const auto rightl = halo.local().first()+(right-halo.global().first());
-                                    // prepare pair of intersection (local and global)
-                                    iteration_space h{left, right};
-                                    iteration_space hl{leftl, rightl};
-                                    // add halo to respective extended domain id key
-                                    my_patterns[i].recv_halos()[domain_id].push_back(iteration_space_pair{hl,h});
+                                const auto x = 
+                                hgen.intersect(*d_it, halo.local().first(),    halo.local().last(),
+                                                      halo.global().first(),   halo.global().last(),
+                                                      extent.global().first(), extent.global().last());
+                                const coordinate_type x_global_first{x.global().first()};
+                                const coordinate_type x_global_last{x.global().last()};
+                                if (x_global_first <= x_global_last) {
+                                    my_patterns[i].recv_halos()[domain_id].push_back(
+                                        iteration_space_pair{
+                                            iteration_space{
+                                                coordinate_type{x.local().first()},
+                                                coordinate_type{x.local().last()}},
+                                            iteration_space{x_global_first, x_global_last}});
                                 }
                             }
                         }
                     }
+                    ++d_it;
                 }
 
                 // set tags in order to disambiguate receives from same the PE
@@ -398,6 +400,7 @@ namespace gridtools {
                                 if (dd.id == id_is_pair.first.id) break;
                                 ++ll;
                             }
+                            // use iteration space's transform to do that?
                             const auto is_g = extents_vec[ll].global();
                             const auto is_l = extents_vec[ll].local();
                             is_vec[l].local().first() = is_l.first() + (is_vec[l].global().first()-is_g.first());
@@ -570,6 +573,12 @@ namespace gridtools {
                 }
 
                 return pattern_container<communicator_type,grid_type,domain_id_type>(std::move(my_patterns), m_max_tag);
+            }
+
+            template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+            static auto apply(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&&, DomainRange&& d_range)
+            {
+                return apply(context, hgen, d_range);
             }
         };
 
