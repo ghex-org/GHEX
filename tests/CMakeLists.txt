@@ -130,6 +130,9 @@ set(_tests_rma local_rma)
 foreach (_t ${_tests_rma})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
+    if (GHEX_USE_XPMEM)
+        target_compile_definitions(${_t} PUBLIC GHEX_USE_XPMEM)
+    endif()
     add_test(
         NAME ${_t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
@@ -137,6 +140,9 @@ foreach (_t ${_tests_rma})
 
     if (GHEX_USE_UCP)
         add_executable(${_t}_ucx ${_t}.cpp)
+        if (GHEX_USE_XPMEM)
+            target_compile_definitions(${_t} PUBLIC GHEX_USE_XPMEM)
+        endif()
         target_compile_definitions(${_t}_ucx PUBLIC GHEX_TEST_USE_UCX)
         target_link_libraries(${_t}_ucx gtest_main_ucx)
         add_test(
