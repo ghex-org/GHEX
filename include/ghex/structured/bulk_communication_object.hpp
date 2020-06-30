@@ -14,6 +14,7 @@
 #include <vector>
 #include <tuple>
 #include <boost/mp11.hpp>
+#include "../common/moved_bit.hpp"
 #include "../communication_object_2.hpp"
 #include "../bulk_communication_object.hpp"
 #include "../transport_layer/ri/range_factory.hpp"
@@ -93,6 +94,7 @@ private: // members
     source_ranges_t m_source_ranges_tuple;
     co_type m_co;
     pattern_container_type m_pattern;
+    moved_bit m_moved;
 
 public: // ctors
 
@@ -187,11 +189,44 @@ public: // ctors
         }
     }
 
+    bulk_communication_object(bulk_communication_object&& ) = default;
+
+    ~bulk_communication_object()
+    {
+        if (!m_moved)
+        {
+            for (std::size_t i=0; i<sizeof...(Fields); ++i)
+            {
+                boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this](auto i)
+                {
+                    using I = decltype(i);
+                    // get target ranges for this field
+                    auto& target_r = std::get<I::value>(m_target_ranges_tuple);
+                    // wait for communication to complete
+                    for (auto& r : target_r.m_ranges)
+                        r.release();
+                });
+            }
+        }
+    }
 public: // member functions
     void exchange()
     {
         // start communication for remote domains
         auto h = exchange_remote();
+        // loop over fields for granting remote access
+        for (std::size_t i=0; i<sizeof...(Fields); ++i)
+        {
+            boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this](auto i)
+            {
+                using I = decltype(i);
+                // get target ranges for this field
+                auto& target_r = std::get<I::value>(m_target_ranges_tuple);
+                // wait for communication to complete
+                for (auto& r : target_r.m_ranges)
+                    r.m_local_range.end_target_epoch();
+            });
+        }
         // loop over fields for putting
         for (std::size_t i=0; i<sizeof...(Fields); ++i)
         {
@@ -264,7 +299,8 @@ public: // member functions
                 auto& target_r = std::get<I::value>(m_target_ranges_tuple);
                 // wait for communication to complete
                 for (auto& r : target_r.m_ranges)
-                    r.m_local_range.wait_at_target();
+                    //r.m_local_range.wait_at_target();
+                    r.m_local_range.start_target_epoch();
             });
         }
         h.wait();

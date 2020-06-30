@@ -1,0 +1,31 @@
+find_package(PkgConfig QUIET)
+pkg_check_modules(PC_XPMEM QUIET xpmem)
+
+find_path(XPMEM_INCLUDE_DIR xpmem.h
+    HINTS
+    ${XPMEM_ROOT}  ENV XPMEM_ROOT
+    ${XPMEM_DIR}   ENV XPMEM_DIR
+    PATH_SUFFIXES include)
+
+find_library(XPMEM_LIBRARY HINT ${PMIX_DIR} NAMES xpmem
+    HINTS
+    ${XPMEM_ROOT} ENV XPMEM_ROOT
+    ${XPMEM_DIR}  ENV XPMEM_DIR
+    PATH_SUFFIXES lib lib64)
+
+set(XPMEM_LIBRARIES    ${XPMEM_LIBRARY} CACHE INTERNAL "")
+set(XPMEM_INCLUDE_DIRS ${XPMEM_INCLUDE_DIR} CACHE INTERNAL "")
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(XPMEM DEFAULT_MSG XPMEM_LIBRARY XPMEM_INCLUDE_DIR)
+
+mark_as_advanced(XPMEM_ROOT XPMEM_LIBRARY XPMEM_INCLUDE_DIR)
+
+if(NOT TARGET XPMEM::libxpmem AND XPMEM_FOUND)
+  add_library(XPMEM::libxpmem SHARED IMPORTED)
+  set_target_properties(XPMEM::libxpmem PROPERTIES
+    IMPORTED_LOCATION ${XPMEM_LIBRARY}
+    INTERFACE_INCLUDE_DIRECTORIES ${XPMEM_INCLUDE_DIR}
+  )
+endif()
+

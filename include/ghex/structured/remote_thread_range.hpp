@@ -17,7 +17,11 @@
 
 #include "../remote_range_traits.hpp"
 #include "../transport_layer/ri/types.hpp"
+#ifdef GHEX_USE_XPMEM
+#include "../transport_layer/ri/xpmem/access_guard.hpp"
+#else
 #include "../transport_layer/ri/thread/access_guard.hpp"
+#endif /* GHEX_USE_XPMEM */
 
 namespace gridtools {
 namespace ghex {
@@ -59,21 +63,26 @@ struct field_view
     using value_type = typename Field::value_type;
     using coordinate = typename Field::coordinate_type;
     using strides_type = typename Field::strides_type;
+#ifdef GHEX_USE_XPMEM
+    using guard_type = tl::ri::xpmem::access_guard;
+    using guard_view_type = tl::ri::xpmem::access_guard_view;
+#else
     using guard_type = tl::ri::thread::access_guard;
     using guard_view_type = tl::ri::thread::access_guard_view;
+#endif /* GHEX_USE_XPMEM */
     using size_type = tl::ri::size_type;
 
-    Field* m_field;
+    Field m_field;
     coordinate m_offset;
     coordinate m_extent;
     coordinate m_begin;
     coordinate m_end;
     coordinate m_reduced_stride;
-    size_type m_size;
+    size_type  m_size;
 
     template<typename Array>
-    field_view(Field& f, const Array& offset, const Array& extent)
-    : m_field(&f)
+    field_view(const Field& f, const Array& offset, const Array& extent)
+    : m_field(f)
     {
         static constexpr auto I = layout::template find<dimension::value-1>();
         m_size = 1;
@@ -83,7 +92,7 @@ struct field_view
             m_extent[i] = extent[i];
             m_begin[i] = 0;
             m_end[i] = extent[i]-1;
-            m_reduced_stride[i] = m_field->byte_strides()[i] / m_field->extents()[I];
+            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
         m_end[I] = extent[I];
@@ -95,11 +104,11 @@ struct field_view
     
     GT_FUNCTION
     value_type& operator()(const coordinate& x) {
-        return m_field->operator()(x+m_offset);
+        return m_field(x+m_offset);
     }
     GT_FUNCTION
     const value_type& operator()(const coordinate& x) const {
-        return m_field->operator()(x+m_offset);
+        return m_field(x+m_offset);
     }
 };
 
@@ -142,8 +151,8 @@ struct remote_thread_range
     using value_type = typename Field::value_type;
     using coordinate = typename Field::coordinate_type;
     using strides_type = typename Field::strides_type;
-    using guard_type = tl::ri::thread::access_guard;
-    using guard_view_type = tl::ri::thread::access_guard_view;
+    using guard_type = typename view_type::guard_type;
+    using guard_view_type = typename view_type::guard_view_type;
     using size_type = tl::ri::size_type;
     using iterator = range_iterator<remote_thread_range>;
 
@@ -166,9 +175,17 @@ struct remote_thread_range
 
     // these functions are called at the remote site upon deserializing and reconstructing the range
     // and can be used to allocate state
-    void init(tl::ri::remote_host_)   {}
+    void init(tl::ri::remote_host_)   
+    {
+        m_view.m_field.init_rma_remote();
+	    m_guard.init_remote();
+    }
     void init(tl::ri::remote_device_) {}
-    void exit(tl::ri::remote_host_)   {}
+    void exit(tl::ri::remote_host_)
+    {
+        m_view.m_field.release_rma_remote();
+        m_guard.release_remote(); 
+    }
     void exit(tl::ri::remote_device_) {}
     
     //static void put(tl::ri::chunk c, const tl::ri::byte* ptr, tl::ri::remote_host_) {
@@ -249,6 +266,8 @@ template<typename Field>
 struct remote_thread_range_generator
 {
     using range_type = remote_thread_range<Field>;
+    using guard_type = typename range_type::guard_type;
+    using guard_view_type = typename range_type::guard_view_type;
 
     template<typename RangeFactory, typename Communicator>
     struct target_range
@@ -257,30 +276,35 @@ struct remote_thread_range_generator
         using tag_type = typename Communicator::tag_type;
 
         Communicator m_comm;
-        tl::ri::thread::access_guard m_guard;
+        guard_type m_guard;
         field_view<Field> m_view;
         typename RangeFactory::range_type m_local_range;
-        rank_type m_rank;
+        rank_type m_dst;
         tag_type m_tag;
         std::vector<tl::ri::byte> m_archive;
 
         template<typename Coord>
-        target_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type rank, tag_type tag)
+        target_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag)
         : m_comm{comm}
         , m_guard{}
         , m_view{f, first, last-first+1}
         , m_local_range{RangeFactory::template create<range_type>(m_view,m_guard)}
-        , m_rank{rank}
+        , m_dst{dst}
         , m_tag{tag}
         {
             m_archive.resize(RangeFactory::serial_size);
+            m_view.m_field.init_rma_local();
             RangeFactory::serialize(m_local_range, m_archive.data());
         }
 
         void send()
         {
-            m_guard.init(tl::ri::thread::access_guard::remote);
-            m_comm.send(m_archive, m_comm.rank(), m_tag).wait();
+            m_comm.send(m_archive, m_dst, m_tag).wait();
+        }
+
+        void release()
+        {
+            m_view.m_field.release_rma_local();
         }
     };
 
@@ -293,21 +317,21 @@ struct remote_thread_range_generator
         Communicator m_comm;
         field_view<Field> m_view;
         typename RangeFactory::range_type m_remote_range;
-        rank_type m_rank;
+        rank_type m_src;
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<tl::ri::byte> m_buffer;
         typename RangeFactory::range_type::iterator_type m_pos;
 
         template<typename Coord>
-        source_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type rank, tag_type tag)
+        source_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type src, tag_type tag)
         : m_comm{comm}
         , m_view{f, first, last-first+1}
-        , m_rank{rank}
+        , m_src{src}
         , m_tag{tag}
         {
             m_buffer.resize(RangeFactory::serial_size);
-            m_request = m_comm.recv(m_buffer, m_comm.rank(), m_tag);
+            m_request = m_comm.recv(m_buffer, m_src, m_tag);
         }
 
         void recv()
@@ -316,6 +340,10 @@ struct remote_thread_range_generator
             m_remote_range = RangeFactory::deserialize(tl::ri::host, m_buffer.data());
             m_buffer.resize(m_remote_range.buffer_size());
             m_pos = m_remote_range.begin();
+        }
+        
+        void release()
+        {
         }
     };
 };

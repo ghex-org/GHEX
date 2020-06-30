@@ -30,14 +30,13 @@ struct access_guard
 {
     enum access_mode
     {
-        none,
         local,
         remote
     };
 
     struct impl
     {
-        access_mode             mode = none;
+        access_mode             mode = local;
         std::mutex              mtx;
         std::condition_variable cv;
     };
@@ -45,19 +44,6 @@ struct access_guard
     std::unique_ptr<impl> m_impl;
 
     access_guard() : m_impl{std::make_unique<impl>()} {}
-
-    void init(access_mode m = remote) {
-        {
-            std::lock_guard<std::mutex> lk{m_impl->mtx};
-            m_impl->mode = m;
-        }
-        m_impl->cv.notify_one();
-    }
-
-    /*bool ready() {
-        std::lock_guard<std::mutex> lk{m_impl->mtx};
-        return m_impl->mode != none;
-    }*/
 };
 
 // a view on an access guard
@@ -69,13 +55,10 @@ struct access_guard_view
 
     access_guard_view() = default;
 
-    access_guard_view(access_guard& g) : m_impl{g.m_impl.get()} {
-    }
+    access_guard_view(access_guard& g) : m_impl{g.m_impl.get()} {}
 
-    /*bool ready() {
-        std::lock_guard<std::mutex> lk{m_impl->mtx};
-        return m_impl->mode != access_guard::none;
-    }*/
+    void init_remote() {}
+    void release_remote() {}
 
     void start_remote_epoch() {
         std::unique_lock<std::mutex> lk{m_impl->mtx};

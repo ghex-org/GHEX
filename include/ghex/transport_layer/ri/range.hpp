@@ -23,14 +23,6 @@ template<unsigned int StackMemory, unsigned int IteratorStackMemory>
 struct range
 {
     using iterator_type = iterator<IteratorStackMemory>;
-    //using channel_t = buffered_channel<range>;
-    //using channel2_t = channel2<range>;
-    //using epoch_t = local_epoch_t<range>;
-
-    //friend class channel<range>;
-    //friend class channel2<range>;
-    //friend class buffered_channel<range>;
-    //friend class local_epoch_t<range>;
 
     int  m_id = 0;
     byte m_stack[StackMemory];
@@ -52,21 +44,11 @@ struct range
 
     size_type buffer_size() const { return ciface().buffer_size(); }
 
-    //channel_t open_channel(byte* buffer) { return {*this, buffer}; }
-    //channel2_t get_channel(byte* buffer) { return {*this, buffer}; }
-
-    //epoch_t lock_at_target() { return {*this}; }
-
     void start_target_epoch() { iface().start_local_epoch(); }
     void end_target_epoch()   { iface().end_local_epoch(); }
     void start_source_epoch() { iface().start_remote_epoch(); }
     void end_source_epoch()   { iface().end_remote_epoch(); }
 
-    void wait_at_target() {
-        iface().start_local_epoch();
-        iface().end_local_epoch();
-    }
-    
           range_iface<iterator_type>&  iface()       { return *reinterpret_cast<range_iface<iterator_type>*>(m_stack); }
     const range_iface<iterator_type>&  iface() const { return *reinterpret_cast<const range_iface<iterator_type>*>(m_stack); }
     const range_iface<iterator_type>& ciface() const { return *reinterpret_cast<const range_iface<iterator_type>*>(m_stack); }
@@ -76,16 +58,7 @@ struct range
         //chunk c = it.iface();  
         iface().put(it, ptr); 
     }
-
-  //private:
-    //void start_local_epoch() { iface().start_local_epoch(); }
-    //void end_local_epoch() { iface().end_local_epoch(); }
-
-    //void put(const chunk& c, const byte* ptr) { iface().put(c, ptr); }
-
-    //void put(iterator_t& it, const skeleton& vec) { iface().put(it, vec); }
 };
-
 
 } // namespace ri
 } // namespace tl
