@@ -178,7 +178,7 @@ struct remote_thread_range
     void init(tl::ri::remote_host_)   
     {
         m_view.m_field.init_rma_remote();
-	    m_guard.init_remote();
+        m_guard.init_remote();
     }
     void init(tl::ri::remote_device_) {}
     void exit(tl::ri::remote_host_)
@@ -288,12 +288,12 @@ struct remote_thread_range_generator
         : m_comm{comm}
         , m_guard{}
         , m_view{f, first, last-first+1}
-        , m_local_range{RangeFactory::template create<range_type>(m_view,m_guard)}
         , m_dst{dst}
         , m_tag{tag}
         {
             m_archive.resize(RangeFactory::serial_size);
             m_view.m_field.init_rma_local();
+	    m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard)};
             RangeFactory::serialize(m_local_range, m_archive.data());
         }
 
