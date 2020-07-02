@@ -71,7 +71,7 @@ public: // member types
           * @param coord in local coordinate system
           * @return reference to the value in the buffer */
         GT_FUNCTION
-        T& buffer(const coordinate_type& coord) const noexcept {
+        T& buffer(const coordinate_type& coord) /*const*/ noexcept {
             // compute buffer coordinates, relative to the buffer origin
             const coordinate_type buffer_coord = coord - m_data_is.m_first;
             // dot product with strides to compute address
@@ -118,7 +118,7 @@ public: // member types
           * @param local coordinate system
           * @return reference to the value in the field */
         GT_FUNCTION
-        T& data(const coordinate_type& coord) const noexcept {
+        T& data(const coordinate_type& coord) /*const*/ noexcept {
             // make data memory coordinates from local coordinates
             const coordinate_type data_coord = coord + m_data_is.m_offset;
             // dot product with strides to compute address
