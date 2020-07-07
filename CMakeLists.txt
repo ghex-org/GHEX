@@ -30,23 +30,17 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
 
-# GridTools uses BUILD_TESTING, cache it and reset after (not required with GT 2.0)
-set(build_testing ${BUILD_TESTING})
-set(install_tools ${INSTALL_TOOLS})
-set(BUILD_TESTING OFF)
-set(INSTALL_TOOLS OFF)
 set(GT_INSTALL_EXAMPLES OFF)
 include(FetchContent)
 FetchContent_Declare(GridTools
-    URL https://github.com/GridTools/gridtools/archive/v1.1.3.tar.gz
+    GIT_REPOSITORY https://github.com/GridTools/gridtools.git
+    GIT_TAG v2.0.0rc1
 )
 FetchContent_GetProperties(GridTools)
 if(NOT GridTools_POPULATED)
     FetchContent_Populate(GridTools)
     add_subdirectory(${gridtools_SOURCE_DIR} ${gridtools_BINARY_DIR})
 endif()
-set(BUILD_TESTING ${build_testing})
-set(INSTALL_TOOLS ${install_tools})
 
 set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
 if (GHEX_USE_UCP)
