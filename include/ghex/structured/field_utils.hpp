@@ -74,8 +74,8 @@ namespace gridtools {
             GT_FUNCTION
             static void apply(const Coordinate& extents, Strides& strides)
             {
-                const auto last_idx = Layout::template find<I>();
-                const auto idx      = Layout::template find<I-1>();
+                const auto last_idx = Layout::find(I);
+                const auto idx      = Layout::find(I-1);
                 strides[idx]        = strides[last_idx]*extents[last_idx];
                 compute_strides_impl<D,I-1>::template apply<Layout>(extents,strides);
             }
@@ -96,7 +96,7 @@ namespace gridtools {
             GT_FUNCTION
             static void apply(const Coordinate& extents, Strides& strides)
             {
-                const auto idx      = Layout::template find<D-1>();
+                const auto idx      = Layout::find(D-1);
                 strides[idx]        = 1;
                 compute_strides_impl<D,D-1>::template apply<Layout>(extents,strides);
             }
@@ -104,9 +104,9 @@ namespace gridtools {
             GT_FUNCTION
             static void apply(const Coordinate& extents, Strides& strides, std::size_t padding)
             {
-                const auto idx      = Layout::template find<D-1>();
+                const auto idx      = Layout::find(D-1);
                 strides[idx]        = sizeof(T);
-                const auto idx2     = Layout::template find<D-2>();
+                const auto idx2     = Layout::find(D-2);
                 strides[idx2]       = sizeof(T)*extents[idx] + padding; 
                 compute_strides_impl<D,D-2>::template apply<Layout>(extents,strides);
             }
@@ -135,7 +135,7 @@ namespace gridtools {
             GT_FUNCTION
             static void apply(const Strides& strides, Coordinate& coord, I i)
             {
-                const auto idx = Layout::template find<D-(K)>();
+                const auto idx = Layout::find(D-(K));
                 coord[idx]     = i/strides[idx];
                 compute_coordinate_impl<D,K-1>::template apply<Layout>(strides, coord, i - coord[idx]*strides[idx]);
             }
@@ -156,7 +156,7 @@ namespace gridtools {
             GT_FUNCTION
             static void apply(const Strides& strides, Coordinate& coord, I i)
             {
-                const auto idx = Layout::template find<0>();
+                const auto idx = Layout::find(0);
                 coord[idx]     = i/strides[idx];
                 compute_coordinate_impl<D,D-1>::template apply<Layout>(strides, coord, i - coord[idx]*strides[idx]);
             }
