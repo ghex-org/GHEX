@@ -63,16 +63,18 @@ namespace gridtools {
                 using type = structured::regular::field_descriptor<T,Arch,DomainDescriptor,Is...>;
             };
 
+#ifdef __CUDACC__
+            // TODO: get proper arch from data store?
+            template<typename DataType>
+            struct get_arch
+            {
+                using type = ::gridtools::ghex::gpu;
+            };
+#else
             template<typename Storage>
             struct get_arch
             {
                 using type = ::gridtools::ghex::cpu;
-            };
-#ifdef __CUDACC__
-            template<typename DataType>
-            struct get_arch<cuda_storage<DataType>>
-            {
-                using type = ::gridtools::ghex::gpu;
             };
 #endif
         } // namespace _impl
@@ -81,42 +83,33 @@ namespace gridtools {
         template<typename Storage>
         using arch_from_storage = typename _impl::get_arch<Storage>::type;
 
-        template <typename DomainDescriptor, typename Storage, typename StorageInfo>
-        auto wrap_gt_field(const DomainDescriptor& dom, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename arch_traits<arch_from_storage<Storage>>::device_id_type device_id = 0)
+        template <typename DomainDescriptor, typename DataStore>
+        auto wrap_gt_field(const DomainDescriptor& dom,
+                           const std::shared_ptr<DataStore>& ds,
+                           const std::array<int, DataStore::ndims>& origin,
+                           int device_id = 0)
         {
-            //using domain_id_type    = DomainIdType;
-            using data_store_t      = ::gridtools::data_store<Storage,StorageInfo>;
-            using arch_t            = typename _impl::get_arch<Storage>::type;
-            using value_t           = typename data_store_t::data_t;
-            using layout_t          = typename StorageInfo::layout_t;
+            using arch_t            = typename _impl::get_arch<DataStore>::type;
+            using value_t           = typename DataStore::data_t;
+            using layout_t          = typename DataStore::layout_t;
             using integer_seq       = typename _impl::get_unmasked_layout_map<layout_t>::integer_seq;
             using uint_t            = decltype(layout_t::masked_length);
             using dimension         = std::integral_constant<uint_t, layout_t::masked_length>;
-            using halo_t            = typename StorageInfo::halo_t;
             using field_desc_t      = typename _impl::get_field_descriptor_type<
                 value_t, arch_t, DomainDescriptor, integer_seq>::type;
             using coordinate_t      = typename field_desc_t::coordinate_type;
 
-            value_t* ptr        = ds.get_storage_ptr()->get_target_ptr();
-            const auto& info    = ds.info();
-            const auto& extents = info.total_lengths();
-            const auto& origin  = _impl::get_begin<halo_t, uint_t>(std::make_index_sequence<dimension::value>());
-            auto strides        = info.strides();
-            coordinate_t extents2, origin2;
+            auto strides = ds->strides();
             for (unsigned int i=0u; i<dimension::value; ++i)
-            {
                 strides[i] *= sizeof(value_t);
-                extents2[i] = extents[i];
-                origin2[i] = origin[i];
-            }
 
-            return field_desc_t(dom, ptr, origin2, extents2, strides, 1, false, device_id);
+            return field_desc_t(dom, ds->get_target_ptr(), origin, ds->lengths(), strides, 1, false, device_id);
         }
 
-        template <typename Transport, typename Storage, typename StorageInfo>
-        auto wrap_gt_field(const gt_grid<Transport>& grid, const ::gridtools::data_store<Storage,StorageInfo>& ds, typename arch_traits<arch_from_storage<Storage>>::device_id_type device_id = 0)
+        template <typename Transport, typename DataStore, typename Origin>
+        auto wrap_gt_field(const gt_grid<Transport>& grid, DataStore&& ds, Origin&& origin, int device_id = 0)
         {
-            return wrap_gt_field(grid.m_domains[0], ds, device_id);
+            return wrap_gt_field(grid.m_domains[0], std::forward<DataStore>(ds), std::forward<Origin>(origin), device_id);
         }
 
     } // namespace ghex

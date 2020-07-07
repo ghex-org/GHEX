@@ -13,7 +13,8 @@
 #include <ghex/glue/gridtools/gt_glue.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 #include <ghex/threads/atomic/primitives.hpp>
-#include <gridtools/storage/storage_facility.hpp>
+#include <gridtools/storage/builder.hpp>
+#include <gridtools/storage/cpu_ifirst.hpp>
 #include <gtest/gtest.h>
 
 using transport = gridtools::ghex::tl::mpi_tag;
@@ -28,11 +29,11 @@ TEST(data_store, make)
 
     const std::array<bool, 3> periodicity{true, true, false};
 
-    using halo_t = gridtools::halo<3,3,0>;
+    const std::array<int, 3> halo{3, 3, 0};
 
-    const int Nx = Nx0+2*halo_t::at<0>();
-    const int Ny = Ny0+2*halo_t::at<1>();
-    const int Nz = Nz0+2*halo_t::at<2>();
+    const int Nx = Nx0+2*halo[0];
+    const int Ny = Ny0+2*halo[1];
+    const int Nz = Nz0+2*halo[2];
 
     int np;
     MPI_Comm_size(MPI_COMM_WORLD, &np);
@@ -50,25 +51,17 @@ TEST(data_store, make)
     auto pattern1 = gridtools::ghex::make_gt_pattern(grid, std::array<int,6>{1,1,1,1,0,0});
     auto co       = gridtools::ghex::make_communication_object<decltype(pattern1)>(context.get_communicator(context.get_token()));
 
-    using host_backend_t        = gridtools::backend::mc;
-    using host_storage_info_t   = gridtools::storage_traits<host_backend_t>::storage_info_t<0, 3, halo_t>;
-    using host_data_store_t     = gridtools::storage_traits<host_backend_t>::data_store_t<double, host_storage_info_t>;
-#ifdef __CUDACC__
-    //using target_backend_t      = gridtools::backend::cuda;
-#else
-    //using target_backend_t      = gridtools::backend::mc;
-#endif
-    //using target_storage_info_t = gridtools::storage_traits<target_backend_t>::select_storage_info<0, 3, halo_t>;
-    //using target_data_store_t   = gridtools::storage_traits<host_backend_t>::data_store_t<double, target_storage_info_t>;
+    auto host_data_store = gridtools::storage::builder<gridtools::storage::cpu_ifirst>
+        .type<double>()
+        .halos(halo[0], halo[1], halo[2])
+        .dimensions(Nx, Ny, Nz)
+        .value(-1.0)
+        .name("field")
+        .build();
 
-    host_storage_info_t   host_info(Nx, Ny, Nz);
-    host_data_store_t     host_data_store(host_info, -1., "field");
-    //target_storage_info_t target_info(Nx, Ny, Nz);
-    //target_data_store_t   target_data_store(target_info, -1., "field");
+    auto host_ghex_field   = gridtools::ghex::wrap_gt_field(grid, host_data_store, halo);
 
-    auto host_ghex_field   = gridtools::ghex::wrap_gt_field(grid, host_data_store);
-
-    auto host_view = gridtools::make_host_view(host_data_store);
+    auto host_view = host_data_store->host_view();
 
 
     unsigned long int i = 0;
@@ -85,11 +78,9 @@ TEST(data_store, make)
     for (int y=0; y<Ny; ++y)
     for (int x=0; x<Nx; ++x)
     {
-        const bool passed_this = (host_ghex_field(x-(int)halo_t::at<0>(),y-(int)halo_t::at<1>(),z-(int)halo_t::at<2>()) == i++);
+        const bool passed_this = (host_ghex_field(x-halo[0],y-halo[1],z-halo[2]) == i++);
         passed = passed && passed_this;
     }
-
-    //auto target_view = gridtools::make_target_view(host_data_store);
 
     EXPECT_TRUE(passed);
 
