@@ -15,9 +15,16 @@ jobs:
       - uses: actions/checkout@v1
       - name: Configure
         run: |
+          echo "WORKFLOW"
+          export SHLVL=1
+          env
+          ulimit -a
+          ipcs -lm
+          df
+          cat /proc/cpuinfo
           mkdir -p build && cd build
-          eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON
+          CXX=/usr/bin/g++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/usr/local -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_BENCHMARKS=ON
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
-        run: cd build && ctest --output-on-failure	
+        run: cd build && export SHLVL=1 && env &&  ctest --timeout 40
