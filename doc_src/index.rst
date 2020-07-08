@@ -9,6 +9,7 @@ our `github <https://github.com/GridTools/GHEX>`_ repository for more informatio
    :maxdepth: 2
 
    introduction/introduction
+   scope/scope.rst
 
 Indices and tables
 ==================
