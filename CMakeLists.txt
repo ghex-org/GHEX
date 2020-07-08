@@ -34,7 +34,7 @@ set(GT_INSTALL_EXAMPLES OFF)
 include(FetchContent)
 FetchContent_Declare(GridTools
     GIT_REPOSITORY https://github.com/GridTools/gridtools.git
-    GIT_TAG v2.0.0rc1
+    GIT_TAG master
 )
 FetchContent_GetProperties(GridTools)
 if(NOT GridTools_POPULATED)
