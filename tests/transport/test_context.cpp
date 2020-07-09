@@ -80,9 +80,7 @@ TEST(context, multi) {
 
 
         if (comm_1.rank() == 0)
-            while(counter_1 != comm_1.size()-1) { comm_1.progress(); }
-        if (comm_2.rank() == 0)
-            while(counter_2 != comm_2.size()-1) { comm_2.progress(); }
+            while(counter_1 != comm_1.size()-1) { comm_1.progress(); comm_2.progress(); }
 
         if (comm_2.rank() != 0)
             fut_2.wait();

@@ -213,12 +213,10 @@ struct recursive_functor {
         func(m,r,t);
         counter = 0;
         auto rr = comm.recv(std::move(m), rank, tag, *this);
-        std::cout << "here .... ";
         if (counter == 0) {
             ++counter;
             rreq = std::move(rr);
         }
-        std::cout << "... there";
     }
 };
 
