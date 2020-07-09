@@ -24,14 +24,11 @@ namespace ghex {
 namespace structured {
 namespace cubed_sphere {
 
-template<typename T, typename Arch, int...Order>
-using base_fd_t =
-    ::gridtools::ghex::structured::field_descriptor<T,Arch,domain_descriptor,Order...>;
-
 template<typename T, typename Arch, int X=3, int Y=2, int Z=1, int C=0>
-class field_descriptor : public base_fd_t<T,Arch,X,Y,Z,C> {
+class field_descriptor : public structured::field_descriptor<T,Arch,domain_descriptor,X,Y,Z,C>
+{
 public: // member types
-    using base = base_fd_t<T,Arch,X,Y,Z,C>;
+    using base = structured::field_descriptor<T,Arch,domain_descriptor,X,Y,Z,C>;
 
     using value_type               = typename base::value_type;
     using arch_type                = typename base::arch_type;
