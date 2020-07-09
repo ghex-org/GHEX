@@ -202,7 +202,7 @@ struct serialization<::gridtools::ghex::gpu,LMap> {
 
     template<typename UnPackIterationSpace>
     static void unpack_batch(UnPackIterationSpace&& unpack_is, void* arg) {
-        pack(std::forward<UNPackIterationSpace>(unpack_is), arg);
+        unpack(std::forward<UnPackIterationSpace>(unpack_is), arg);
     }
 };
 #endif
