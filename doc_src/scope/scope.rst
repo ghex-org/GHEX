@@ -39,13 +39,76 @@ on MPI.
 
 The main concepts needed by |GHEX| in order to provide all the above features are:
 
-    - **Context** : A computing node, that can be identified with a process, or an MPI rank, for instance, needs some information about how it is connected to other processes and which are those processes. The context provide this information to the application. In addition, the context must be informed of how many threads will be used for communication (in |GHEX| threads can communicate halos to each other) it, since this information needs to be provided by the user when constructing the context.
+    - **Context** : A computing node, that can be identified with a process, or an MPI rank, for instance, needs some information about how it is connected to other processes and which are those processes. The context provide this information to the application.
 
-    - **Token** : When the user schedule computations on different threads, contexts would need to know which threads are actually part of the communication bunch. For this reason, each thread must obtain a token from the context to identify itself. It's responsibility of the user to guarantee that th tokens are rightly associated to the threads. In many occasions these tokens are needed only to obtain the communicatot objects, but for re-obtaining them, or to perform barrier operations, the tokens are necessary. In this latter case, the tokens are needed to identify the threads that particiate in the berriers (the barriers are provided as debugging tools, and are not performance optimized).
-
-    - **Communicator**:
+    - **Communicator**: A communicator can be seen representing the end-point of a communication channel. These communication channels are obtained from the context.
 
     - **Coomunication Pattern**:
 
     - **Communication Object**:
 
+
+------------------------
+Context
+------------------------
+
+A computing node, that can be identified with a process, or an MPI rank, for instance, needs some information about how it is connected to other processes and which are those processes. The context provide this information to the application.
+
+In addition, contexts maintain state information that the *communicators* need in order to function. In other words, communicators (presented below) cannot outlive the contexts from where they were obtained.
+
+GHEX, assumes the platform where application runs, provide an implementation of the MPI library. We assume this is a safe assumption since the vast majority of the HPC application rely on MPI, directly or indirectly (for instance by using PGAS languages or runtime-systems such as HPX). This makes is possible to simplify creation of contexts and collect information about which processes participate to the computation. This is the reason why the creation of a context requires an MPI Communicator as runtime argument, in addition to other possible transport specific arcguments. The passed MPI Communicator will be cloned by the context constructor. For this reason the context should be destroyed before the call to ``MPI_Finalize``.
+
+Contexts are constructed on a specific *transport layers*. The available tranport layers are: MPI, UCX, and Libfabric. The transport layer is a *tag* passed as template argument to the context type.
+
+In order to guarantee an uniform initilization of the contexts, which are highly platform dependent, the user should not call the constructor of the context direcly, but instead the use should use a factory, which returns a ``std::unique_ptr`` to context object instantiated with the proper transport layer. The syntax looks like this:
+
+.. code-block:: c++
+
+    #ifdef USE_UCX
+    using transport = gridtools::ghex::tl::ucx_tag;
+    #else
+    using transport = gridtools::ghex::tl::mpi_tag;
+    #endif
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
+
+In the above example the use of ``#ifdef`` is an example of how code can be made portable by minimal use of macros, and a recompilation.
+
+From the context, additional information can be obtained, such as the ``context<TransportTag>::rank()``, which is the unique ID of the process in the parallel execution, and ranges from 0 to ``context<TransportTag>::size() - 1``.
+
+A context object is instantiated by the processes, but different processes in a computation should instantiate contexts in the same order. The contexts instatiated, one per process, form some kind of *distributed context*, since they are *connected* to one another. Suppose we have the following code, executed by a certain number `P` of processes:
+
+.. code-block:: c++
+
+    auto context_ptrA = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
+    auto context_ptrB = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
+
+The instances of ``context_ptrA`` in the `P` processes form a distributed context, those instances are connected to one another. The communicators (see below) obtained by it can communcate to one another directly. The same for the communicators obtianed from ``context_ptrB``. Communicators from ``context_ptrA`` cannot communicate directly to communicators from ``context_ptrB``.
+
+------------------------
+Communicator
+------------------------
+
+A context generates and keeps communicators. A communicator can be seen representing the end-point of a communi/cation channel. These communication channels are obtained from the context. Communicators coming from different contexts cannot communicate with one another in any way, creating isolation of communications, which is useful for program composition and creating abstractions.
+
+To get a communicator, the user calls
+
+.. code-block:: cpp
+
+    auto comm = context.get_communicator();
+
+In order to keep the API simple, ``get_communicator`` will return a *new* communicator every time the function is invoked. The function is thread safe, and each thread of the computation can call it and obtain a unique communicator object. Anyway, a thread should call ``get_communicator`` only to get the communicator objects it needs and should *never* invoke ``get_communicator`` to retrieve a previously generated communicator. The user is *responsible* for keeping the communicators alive for the duration needed by the computation. ``get_communicator`` must be called once for each communicator instance needed.
+
+Once communicator is obtained, it can be used to send message to, and receive from, other communicators obtained from the same distributed context, as explained in the previous Section.
+
+Communicators can communicate with one-another by sending messages with tags. There are two types of message exchanges: `future based` and `call-back based`.
+
+------------------------
+Communication Patern
+------------------------
+
+
+
+------------------------
+Communication Object
+------------------------
