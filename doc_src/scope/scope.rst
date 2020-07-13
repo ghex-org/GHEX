@@ -62,7 +62,7 @@ Contexts are constructed on a specific *transport layers*. The available tranpor
 
 In order to guarantee an uniform initilization of the contexts, which are highly platform dependent, the user should not call the constructor of the context direcly, but instead the use should use a factory, which returns a ``std::unique_ptr`` to context object instantiated with the proper transport layer. The syntax looks like this:
 
-.. code-block:: c++
+.. code-block:: gridtools
 
     #ifdef USE_UCX
     using transport = gridtools::ghex::tl::ucx_tag;
@@ -78,7 +78,7 @@ From the context, additional information can be obtained, such as the ``context<
 
 A context object is instantiated by the processes, but different processes in a computation should instantiate contexts in the same order. The contexts instatiated, one per process, form some kind of *distributed context*, since they are *connected* to one another. Suppose we have the following code, executed by a certain number `P` of processes:
 
-.. code-block:: c++
+.. code-block:: gridtools
 
     auto context_ptrA = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto context_ptrB = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
@@ -101,10 +101,45 @@ In order to keep the API simple, ``get_communicator`` will return a *new* commun
 
 Once communicator is obtained, it can be used to send message to, and receive from, other communicators obtained from the same distributed context, as explained in the previous Section.
 
-Communicators can communicate with one-another by sending messages with tags. There are two types of message exchanges: `future based` and `call-back based`.
+Communicators can communicate with one-another by sending messages with tags. There are two types of message exchanges: `future based` and `call-back based`. The destination of a message is a ``rank``, that identifies a context, and a ``tag`` is used to match a receive on that rank.
+
+Communicators do not direcly communicae to one-another, they rather send a message to a *context* and by using tag-matching the messages are delivered to the proper communicator. Communicators are mostly needed to increase concurrency, since different channels can be multiplexed or demultiplexed, depending on the characteristics of the transport layer.
+
+For instance, when using the MPI transport layer, multiple ``Isends`` and ``Irecvs`` are issued by different communicators, and the concurrency is managed by the MPI runtime system that should be initialized with ``MPI_THREAD_MULTI`` option. In UCX we can exploit concurrency differently: each communicator has its private end-point, while the receives are all channeled through a single end-point on the process. This choice was dictated by benchmarks that showed this solution was the most efficient, and by using the communicator obstraction, the code did not need to change. The same code runs well with MPI and UCX transport layers, despite a different way of handling concurrency and addressing latency hiding.
+
+.. note::
+
+    While this leave the tag management to the user, the design was decided in order to avoid shifting the problem to managing tags in MPI, which are a scarce resource in some implementations (that is, the tags only allow the use of few bits). Identifying the communicators directly would have required predermining the number of bits to assign for the local identifyers and the bits used for rank identification, which can lead to potentially hard to catch bugs. We may revise this decision in the future.
+
+Let's take a look at the main interfaces to exchange messages using communicators:
+
+.. code-block:: gridtools
+
+    template<typename Message>
+    [[nodiscard]] future<void> send(const Message& msg, rank_type dst, tag_type tag);
+    template<typename Message>
+    [[nodiscard]] future<void> recv(Message& msg, rank_type src, tag_type tag);
+    template<typename CallBack>
+    request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
+    template<typename CallBack>
+    request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
+
+The first function sends a message to a given rank with a given tag. The message can be any class with ``.data()`` member function returning a pointer to a region of memory of size ``.size()`` bytes. The function returns a future-like value that can be checked using ``.wait()`` to check that the message has been sent (the future does not guarantee the message has been delivered).
+
+Similarly, the second function reveives into a message, with the same requirements as before, and returns a future that, when ``.wait()`` returns guarantee the message has been received.
+
+The last two functions accept call-backs that are called either after the message has been sent (not necessarily delivered) or received, respectively. The message type, in this case cannot be arbitrary. The call-backs are a function taking three arguments: the message, the destination or the source, and the tag. The message is passed always by move, and the ownership of it is handled to the call-back. The call-back can, for instance, reuse the message in a receive recurvively, re-passing the message to the comunicator.
+
+.. note::
+
+    It would not make much sense to pass a message that cannot be moved (a message can have arbirary allocators that makes the move semantics not viable). To use the call-backs then, ``communicator::message_type`` must be used.
+
+The send/recv functions accepting call-backs, also return request values that can be used to check if an operation succeded (PLEASE EXPLAIN WHY THIS IS NOT A FUTURE)
+
+These four different function covers use-cases that covers more that simple halo-update operations, and these use-cases are explained in more detail in a separate Section.
 
 ------------------------
-Communication Patern
+Communication Pattern
 ------------------------
 
 
