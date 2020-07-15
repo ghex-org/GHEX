@@ -7,7 +7,19 @@ Scope and objectives of GHEX
 ============================
 
 |GHEX| is a C++ library to perform halo-update operations in mesh/grid applications
-in modern HPC architecures. The objective of |GHEX| is to enable halo-updates operations
+in modern HPC architecures. Domain decomposition refers the technique that applications use to distribute the work across different processes when numerically solving differentail equations. For instance in the next figure aschematic depiction this idea.
+
+.. figure:: figures/domain_decomp.png
+    :width: 600px
+    :align: center
+    :alt: This should not be visible
+    :figclass: align-center
+
+    Example of Domain Decomposition. The physical domain, on the right, is split into 4 different sub-domains. To allow for the computation to process without having to remotely access avery single element that resides on remote processes, the application uses *ghost regions*, or *halos* (in pink) that need to be updated whenever the computation requires accesing that region again (and the values in that regions have been updated). The blue arrows show the communication pattern, also referred in the manual as *halo-update*, or *halo-exchange* operation.
+
+
+
+The objective of |GHEX| is to enable halo-updates operations
 
     - For traditional domain decomposed distributed memory applications (i.e., one domain per node) either on CPUs or GPUs
 
