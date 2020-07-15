@@ -19,7 +19,7 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
 
 
 
-The objective of |GHEX| is to enable halo-updates operations
+The objective of |GHEX| is to enable halo-update operations
 
     - For traditional domain decomposed distributed memory applications (i.e., one domain per node) either on CPUs or GPUs
 
@@ -59,6 +59,7 @@ The main concepts needed by |GHEX| in order to provide all the above features ar
 
     - **Communication Object**:
 
+The interfaces for context and communicator are slightly richer than what is required by the *pure* halo-update operation. We deisgned contexts and communicators in order to cope with more complex scenarious where the domain decomposition more dynamic. The interfaces for communication patterns and communication objects are advantageous only
 
 ------------------------
 Context
@@ -153,6 +154,10 @@ These four different function covers use-cases that covers more that simple halo
 ------------------------
 Communication Pattern
 ------------------------
+
+In order to perform halo-update operations, the user needs to provide to |GHEX| information about the domain, the domain decomposition, the sizes of the halos and the accessing of the data. One of the most important aspects of |GHEX| is the choice of not imposing domain decomposition strateegy, that would have resulted in sub-optimal solutions that few users would have agreed with. So the user is providing descriptions of the above mentioned concepts as adaptors to their implementation choices. After all, all domain decomposed applications have to refer to similar information, even though the encoding of this information differs in all sort of details in different applications. The user of |GHEX| needs to provide standard functions that |GHEX| will call to gather/access the necessary information, and these functions form a thin layer that interfaces the specific domain decomposition implementation and |GHEX|. |GHEX| developers are providing some components directly, in order to facilitate the interfacing in the most common cases.
+
+
 
 
 
