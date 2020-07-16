@@ -29,7 +29,9 @@
 #include <ghex/communication_object.hpp>
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
-#include <ghex/structured/domain_descriptor.hpp>
+#include <ghex/structured/regular/domain_descriptor.hpp>
+#include <ghex/structured/regular/halo_generator.hpp>
+#include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 #include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"
@@ -103,10 +105,10 @@ public:
 
 namespace halo_exchange_3D_generic_full {
 
-    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int,3>;
+    using domain_descriptor_t = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using domain_id_t = domain_descriptor_t::domain_id_type;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = gridtools::ghex::structured::regular::halo_generator<domain_id_t,3>;
 
     int pid;
     int nprocs;

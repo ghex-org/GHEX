@@ -302,6 +302,8 @@ namespace gridtools {
 
                 device_id_type device_id() const { return 0; }
 
+                int num_components() const noexcept { return 1; }
+
                 /** @brief single access operator, used by multiple access set function*/
                 value_type& operator()(const local_index_type idx, const local_index_type level) {
                     return m_values(idx, level);
