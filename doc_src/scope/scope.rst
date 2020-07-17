@@ -17,7 +17,35 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
 
     Example of Domain Decomposition. The physical domain, on the right, is split into 4 different sub-domains. To allow for the computation to process without having to remotely access avery single element that resides on remote processes, the application uses *ghost regions*, or *halos* (in pink) that need to be updated whenever the computation requires accesing that region again (and the values in that regions have been updated). The blue arrows show the communication pattern, also referred in the manual as *halo-update*, or *halo-exchange* operation.
 
+.. figure:: figures/symmetric.png
+    :width: 300px
+    :align: center
+    :alt: This should not be visible
+    :figclass: align-center
 
+.. figure:: figures/oversubscription.png
+    :width: 300px
+    :align: center
+    :alt: This should not be visible
+    :figclass: align-center
+
+    Each process in a node can manage more than one sub-domain, for instance to achieve load balancing (oversubscription).
+
+.. figure:: figures/multi_threads.png
+    :width: 300px
+    :align: center
+    :alt: This should not be visible
+    :figclass: align-center
+
+    The oversubscription can be a tool to improve the parallelization in each process by running computations in independent threads.
+
+.. figure:: figures/hybrid.png
+    :width: 300px
+    :align: center
+    :alt: This should not be visible
+    :figclass: align-center
+
+    Using accelerators is certainly one of the most probable options for running HPC applications on current and near future platforms. The execution can be symmetrix, or really hybrid.
 
 The objective of |GHEX| is to enable halo-update operations
 
