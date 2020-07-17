@@ -369,7 +369,7 @@ namespace gridtools {
                 });
                 handle_type h(m_comm, [this](){this->wait_ipr();});
                 post_recvs_ipr();
-                pack();
+                pack_ipr();
                 return h; 
             }
 
@@ -510,6 +510,15 @@ namespace gridtools {
                 });
             }
 
+            void pack_ipr()
+            {
+                detail::for_each(m_mem, [this](auto& m)
+                {
+                    using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                    packer<arch_type>::pack_ipr(m,m_send_futures,m_comm);
+                });
+            }
+
         private: // wait functions
 
             void wait()
@@ -530,10 +539,10 @@ namespace gridtools {
                 if (!m_valid) return;
                 detail::for_each(m_mem, [this](auto& m)
                 {
-                    for (auto& f : m.m_recv_futures)
+                    for (auto& f : m.m_recv_futures_ipr)
                         f.wait(); // no unpacking. TO DO: improve performances
                 });
-                for (auto& f : m_send_futures) 
+                for (auto& f : m_send_futures)
                     f.wait();
                 clear_ipr();
             }
@@ -741,7 +750,7 @@ namespace gridtools {
                     if (num_elements < 1) continue;
                     const auto remote_address = p_id_c.first.address;
                     const auto remote_dom_id  = p_id_c.first.id;
-                    const auto tag = p_id_c.first.tag;
+                    const auto tag = p_id_c.first.tag + tag_offset;
                     domain_id_type left, right;
                     if (receive)
                     {
@@ -794,7 +803,7 @@ namespace gridtools {
                     if (num_elements < 1) continue;
                     const auto remote_address = p_id_c.first.address;
                     const auto remote_dom_id  = p_id_c.first.id;
-                    const auto tag = p_id_c.first.tag;
+                    const auto tag = p_id_c.first.tag + tag_offset;
                     domain_id_type left, right;
                     if (receive)
                     {
