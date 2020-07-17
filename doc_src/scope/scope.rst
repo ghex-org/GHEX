@@ -23,6 +23,8 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
     :alt: This should not be visible
     :figclass: align-center
 
+    Traditional distribute memory data distribution: one process (MPI rank) is responsible for one sub-domain of the decomposed domain.
+
 .. figure:: figures/oversubscription.png
     :width: 300px
     :align: center
