@@ -373,6 +373,10 @@ A third API is provided for messages wrapped in a ``shared_ptr``:
 Here, the owenership is obviously shared between the user and |GHEX|.
 
 
+.. note::
+
+   **Thread safety:** A communicator is thread-compatible, i.e. it is created per thread. One must
+   not use the same communicator from more than one thread.
 
 ------------------------
 Communication Pattern
