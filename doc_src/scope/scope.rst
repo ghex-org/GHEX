@@ -347,6 +347,12 @@ where ``message_type`` is a class defined by |GHEX| fulfilling the above message
    free to delete or re-use the message inside the callback body. However, when the user re-submits
    a further callback based communication through the above API from with the callback (recursive
    call) , the message must passed by r-value reference (through ``std::move``).
+
+.. note::
+
+   Since GHEX relies on move semantics of the message internally, the message type must not
+   re-allocate memory during move construction and the memory address must remain constant during
+   the communication.
                 
 The send/recv functions accepting call-backs, also return request values that can be used to check
 if an operation succeded. However, these requests may not be used like futures: they cannot be
