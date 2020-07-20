@@ -153,15 +153,31 @@ The main concepts needed by |GHEX| are:
 Context
 ------------------------
 
-A computing node, that can be identified with a process, or an MPI rank, for instance, needs some information about how it is connected to other processes and which are those processes. The context provide this information to the application.
+The context manages the underlying transport layer. Among its tasks are initialization, connectivity
+setup, commpunication end-point management, network topology exploration. It is the first entity
+that is created and the last that is being destroyed.  Contexts maintain state information that the
+*communicators* need in order to function. In other words, communicators (presented below) cannot
+outlive the contexts from where they were obtained.
+A context can be compared to a richer version of an MPI-Communicator, such as *MPI_COMM_WORLD*, and
+is encapsulated in a template class of type **communicator**.
 
-In addition, contexts maintain state information that the *communicators* need in order to function. In other words, communicators (presented below) cannot outlive the contexts from where they were obtained.
+|GHEX| assumes the availabilty of an MPI library implementation on the platform where it is run.
+While this is not strictly needed conceptually, the vast majority of HPC applications rely on MPI
+(for instance by using PGAS languages or runtime-systems such as HPX) and, thus, we can take
+advantage of the infrastructre provided through MPI for our implementation. This simplifies creation
+of contexts and collection of information about which processes participate in the computation.
+Therefore, the context requires an MPI Communicator as runtime argument, in addition to other
+possible transport specific arcguments.  The passed MPI Communicator will be cloned by the context.
+For this reason the context should be destroyed before the call to ``MPI_Finalize``.
 
-GHEX, assumes the platform where application runs, provide an implementation of the MPI library. We assume this is a safe assumption since the vast majority of the HPC application rely on MPI, directly or indirectly (for instance by using PGAS languages or runtime-systems such as HPX). This makes is possible to simplify creation of contexts and collect information about which processes participate to the computation. This is the reason why the creation of a context requires an MPI Communicator as runtime argument, in addition to other possible transport specific arcguments. The passed MPI Communicator will be cloned by the context constructor. For this reason the context should be destroyed before the call to ``MPI_Finalize``.
+Contexts are constructed for a specific *transport layer*. The available tranport layers are: MPI,
+UCX, and Libfabric. The transport layer is represented by a *tag* passed as template argument to the
+context type.
 
-Contexts are constructed on a specific *transport layers*. The available tranport layers are: MPI, UCX, and Libfabric. The transport layer is a *tag* passed as template argument to the context type.
-
-In order to guarantee an uniform initilization of the contexts, which are highly platform dependent, the user should not call the constructor of the context direcly, but instead the use should use a factory, which returns a ``std::unique_ptr`` to context object instantiated with the proper transport layer. The syntax looks like this:
+In order to guarantee uniform initilization of the contexts, which are highly platform dependent,
+the user should not call the constructor of the context direcly, but instead the use should use a
+factory, which returns a ``std::unique_ptr`` to context object instantiated with the proper
+transport layer. The syntax looks like this:
 
 .. code-block:: gridtools
 
@@ -173,71 +189,190 @@ In order to guarantee an uniform initilization of the contexts, which are highly
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
 
-In the above example the use of ``#ifdef`` is an example of how code can be made portable by minimal use of macros, and a recompilation.
+In the above example the use of ``#ifdef`` is an example of how code can be made portable by minimal
+use of macros, and a recompilation.
 
-From the context, additional information can be obtained, such as the ``context<TransportTag>::rank()``, which is the unique ID of the process in the parallel execution, and ranges from 0 to ``context<TransportTag>::size() - 1``.
+From the context, additional information can be obtained, such as the
+``context<TransportTag>::rank()``, which is the unique ID of the process in the parallel execution,
+and ranges from 0 to ``context<TransportTag>::size() - 1``.
 
-A context object is instantiated by the processes, but different processes in a computation should instantiate contexts in the same order. The contexts instatiated, one per process, form some kind of *distributed context*, since they are *connected* to one another. Suppose we have the following code, executed by a certain number `P` of processes:
+A context object is instantiated by the processes, but different processes in a computation should
+instantiate contexts in the same order. The contexts instatiated, one per process, form a kind of
+*distributed context*, since they are *connected* to one another. Suppose we have the following
+code, executed by a certain number `P` of processes:
 
 .. code-block:: gridtools
 
     auto context_ptrA = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto context_ptrB = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
 
-The instances of ``context_ptrA`` in the `P` processes form a distributed context, those instances are connected to one another. The communicators (see below) obtained by it can communcate to one another directly. The same for the communicators obtianed from ``context_ptrB``. Communicators from ``context_ptrA`` cannot communicate directly to communicators from ``context_ptrB``.
+The instances of ``context_ptrA`` in the `P` processes form a distributed context, those instances
+are connected to one another. The communicators (see below) obtained from it can communcate to one
+another directly. The same for the communicators obtianed from ``context_ptrB``. Communicators from
+``context_ptrA`` cannot communicate directly to communicators from ``context_ptrB``.
+
+.. note::
+
+   **Thread safety:** A context shall be created in a serial part of the code. Usage of a context is
+   thread-safe.
 
 ------------------------
 Communicator
 ------------------------
 
-A context generates and keeps communicators. A communicator can be seen representing the end-point of a communi/cation channel. These communication channels are obtained from the context. Communicators coming from different contexts cannot communicate with one another in any way, creating isolation of communications, which is useful for program composition and creating abstractions.
+A context generates and keeps communicators. A communicator represents the end-point of a
+communication and is obtained from a context.  Communicators coming from different contexts cannot
+communicate with one another in any way, creating isolation of communications, which is useful for
+program composition and creating abstractions.
 
 To get a communicator, the user calls
 
 .. code-block:: cpp
 
-    auto comm = context.get_communicator();
+    auto comm = context_ptr->get_communicator();
 
-In order to keep the API simple, ``get_communicator`` will return a *new* communicator every time the function is invoked. The function is thread safe, and each thread of the computation can call it and obtain a unique communicator object. Anyway, a thread should call ``get_communicator`` only to get the communicator objects it needs and should *never* invoke ``get_communicator`` to retrieve a previously generated communicator. The user is *responsible* for keeping the communicators alive for the duration needed by the computation. ``get_communicator`` must be called once for each communicator instance needed.
-
-Once communicator is obtained, it can be used to send message to, and receive from, other communicators obtained from the same distributed context, as explained in the previous Section.
-
-Communicators can communicate with one-another by sending messages with tags. There are two types of message exchanges: `future based` and `call-back based`. The destination of a message is a ``rank``, that identifies a context, and a ``tag`` is used to match a receive on that rank.
-
-Communicators do not direcly communicae to one-another, they rather send a message to a *context* and by using tag-matching the messages are delivered to the proper communicator. Communicators are mostly needed to increase concurrency, since different channels can be multiplexed or demultiplexed, depending on the characteristics of the transport layer.
-
-For instance, when using the MPI transport layer, multiple ``Isends`` and ``Irecvs`` are issued by different communicators, and the concurrency is managed by the MPI runtime system that should be initialized with ``MPI_THREAD_MULTI`` option. In UCX we can exploit concurrency differently: each communicator has its private end-point, while the receives are all channeled through a single end-point on the process. This choice was dictated by benchmarks that showed this solution was the most efficient, and by using the communicator obstraction, the code did not need to change. The same code runs well with MPI and UCX transport layers, despite a different way of handling concurrency and addressing latency hiding.
+In order to keep the API simple, ``get_communicator`` will return a *new* communicator every time
+the function is invoked. The function is thread safe, and each thread of the computation can call it
+and obtain a unique communicator object. A thread should call ``get_communicator`` only to get the
+communicator objects it needs and should *never* invoke ``get_communicator`` to retrieve a
+previously generated communicator. The user is *responsible* for keeping the communicators alive for
+the duration needed by the computation. ``get_communicator`` must be called once for each
+communicator instance needed.
 
 .. note::
 
-    While this leave the tag management to the user, the design was decided in order to avoid shifting the problem to managing tags in MPI, which are a scarce resource in some implementations (that is, the tags only allow the use of few bits). Identifying the communicators directly would have required predermining the number of bits to assign for the local identifyers and the bits used for rank identification, which can lead to potentially hard to catch bugs. We may revise this decision in the future.
+   If an application is only concerned with avaialble high-level halo-exchange facilities
+   (implemented in the *patterns* and *communication objects*, see below), a communicator is never
+   directly used by the application.  The API of the communicator explained below may however be
+   used to implement more complex scenarios where the applcation does not follow the typical bulk
+   halo exchange strategy.
+
+Once a communicator is obtained, it can be used to send messages to, and receive from, other
+communicators obtained from the same distributed context, as explained in the previous Section.
+
+Communicators can communicate with one-another by sending messages with tags. There are two types of
+message exchanges: `future based` and `call-back based`. The destination of a message is a ``rank``,
+that identifies a process/context, and a ``tag`` is used to match a receive on that rank.
+
+Communicators do not direcly communicate to one-another, they rather send a message to a *context*
+and by using tag-matching the messages are delivered to the proper communicator. Communicators are
+mostly needed to increase concurrency, since different channels can be multiplexed or demultiplexed,
+depending on the characteristics of the transport layer.
+
+For instance, when using the MPI transport layer, multiple ``Isends`` and ``Irecvs`` are issued by
+different communicators, and the concurrency is managed by the MPI runtime system that should be
+initialized with ``MPI_THREAD_MULTI`` option. In UCX we can exploit concurrency differently: each
+communicator has its private end-point, while the receives are all channeled through a single
+end-point on the process. This choice was dictated by benchmarks that showed this solution was the
+most efficient. The same code runs well with MPI and UCX transport layers, despite a different way
+of handling concurrency and addressing latency hiding.
+
+.. note::
+
+    While this leaves the tag management to the user, it avoids unnecessary restrictions for the
+    avaialbe tags, which are a scarce resource in some implementations (that is, the tags only allow
+    the use of few bits). Identifying the communicators directly would have required predetermining
+    the number of bits to assign for the local identyfiers and the bits used for rank
+    identification, which can lead to potentially hard to catch bugs. We may revise this decision in
+    the future.
 
 Let's take a look at the main interfaces to exchange messages using communicators:
 
 .. code-block:: gridtools
 
     template<typename Message>
-    [[nodiscard]] future<void> send(const Message& msg, rank_type dst, tag_type tag);
+    future<void> send(const Message& msg, rank_type dst, tag_type tag);
+    
     template<typename Message>
-    [[nodiscard]] future<void> recv(Message& msg, rank_type src, tag_type tag);
-    template<typename CallBack>
-    request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
-    template<typename CallBack>
-    request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
+    future<void> recv(Message& msg, rank_type src, tag_type tag);
+    
+    template <typename Message, typename Neighs>
+    std::vector<future<void>> send_multi(Message& msg, const Neighs& neighs, tag_type tag);
 
-The first function sends a message to a given rank with a given tag. The message can be any class with ``.data()`` member function returning a pointer to a region of memory of size ``.size()`` bytes. The function returns a future-like value that can be checked using ``.wait()`` to check that the message has been sent (the future does not guarantee the message has been delivered).
+The first function sends a message to a given rank with a given tag. The message can be any class
+with ``.data()`` member function returning a pointer to a region of *contiguous* memory of
+``.size()`` elements. Additionally, the message type has to expose a typedef ``value_type``
+identifiying the type of element that is sent. The function returns a future-like value that can be
+checked using ``.wait()`` to check that the message has been sent (the future does not guarantee the
+message has been delivered). This variant **does not take ownership of the message** (but refers to
+the address of the memory only) an the user is responsible to keep the message alive until the
+communication has finished.
+                
+Similarly, the second function reveives into a message, with the same requirements as before, and
+returns a future that, when ``.wait()`` returns guarantee the message has been received.
 
-Similarly, the second function reveives into a message, with the same requirements as before, and returns a future that, when ``.wait()`` returns guarantee the message has been received.
+The third function conveniently allows to send the same message to multiple neighbors, and returns a
+vector of futures to wait on.
 
-The last two functions accept call-backs that are called either after the message has been sent (not necessarily delivered) or received, respectively. The message type, in this case cannot be arbitrary. The call-backs are a function taking three arguments: the message, the destination or the source, and the tag. The message is passed always by move, and the ownership of it is handled to the call-back. The call-back can, for instance, reuse the message in a receive recurvively, re-passing the message to the comunicator.
+
+The communicator also has a secondary API where a user-defined callback may be registered, which is
+called upon completion of the communication:
+
+.. code-block:: gridtools
+
+    template<typename Message, typename CallBack>
+    request_cb send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback);
+                
+    template<typename Message, typename CallBack>
+    request_cb recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback);
+
+    template <typename Message, typename Neighs, typename CallBack>
+    std::vector<request_cb> send_multi(Message&& msg, Neighs const &neighs, tag_type tag, const CallBack& callback);
+
+Here, the functions accept callbacks that are called either after the message has been sent (not
+necessarily delivered) or received, respectively. The requirements on the message type stay the same
+as before, however, the type of the message will be type erased in the process and the callback must
+expose the following signature:
+
+.. code-block:: gridtools
+
+   void operator()(message_type msg, rank_type rank, tag_type tag);
+
+where ``message_type`` is a class defined by |GHEX| fulfilling the above message contract with
+``value_type`` being ``unsigned char``.
+
+|GHEX| makes a distinction based on the type of the message which is passed to the functions above:
+
+    - if the message is moved in (has r-value reference type), the communicator **takes ownership of
+      the message** and keeps the message alive internally. The user is free to delete or re-use the
+      (moved) message directly after calling the function.
+
+    - if the message is passed by l-value reference, the same requirements apply as above: the
+      communicator **does not take ownership of the message** and the user is responsible to keep
+      the message alive until the communication has finished.
 
 .. note::
 
-    It would not make much sense to pass a message that cannot be moved (a message can have arbirary allocators that makes the move semantics not viable). To use the call-backs then, ``communicator::message_type`` must be used.
+   When the callback is invoked, the message ownership is again passed to the user, i.e. the user is
+   free to delete or re-use the message inside the callback body. However, when the user re-submits
+   a further callback based communication through the above API from with the callback (recursive
+   call) , the message must passed by r-value reference (through ``std::move``).
+                
+The send/recv functions accepting call-backs, also return request values that can be used to check
+if an operation succeded. However, these requests may not be used like futures: they cannot be
+waited upon. Instead, to progress the communication and ensure the completion, the communicator has
+to be progressed explicitly:
 
-The send/recv functions accepting call-backs, also return request values that can be used to check if an operation succeded (PLEASE EXPLAIN WHY THIS IS NOT A FUTURE)
+.. code-block:: gridtools
 
-These four different function covers use-cases that covers more that simple halo-update operations, and these use-cases are explained in more detail in a separate Section.
+    progress_status progress();
+
+This function progresses the transport layer and returns a status object. The status object can be
+queried for the number of progressed send and receive callbacks.
+
+A third API is provided for messages wrapped in a ``shared_ptr``:
+
+.. code-block:: gridtools
+
+    template<typename Message, typename CallBack>
+    request_cb send(std::shared_ptr<Message> shared_msg_ptr, rank_type dst, tag_type tag, CallBack&& callback);
+
+    template<typename Message, typename CallBack>
+    request_cb recv(std::shared_ptr<Message> shared_msg_ptr, rank_type src, tag_type tag, CallBack&& callback);
+
+Here, the owenership is obviously shared between the user and |GHEX|.
+
+
 
 ------------------------
 Communication Pattern
