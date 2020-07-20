@@ -6,8 +6,10 @@
 Scope and objectives of GHEX
 ============================
 
-|GHEX| is a C++ library to perform halo-update operations in mesh/grid applications
-in modern HPC architecures. Domain decomposition refers the technique that applications use to distribute the work across different processes when numerically solving differentail equations. For instance in the next figure aschematic depiction this idea.
+|GHEX| is a C++ library to perform halo-update operations in mesh/grid applications in modern HPC
+architecures. Domain decomposition refers to the technique that applications use to distribute the
+work across different processes when numerically solving differential equations. For instance, see
+the next figure for a schematic depiction of this idea.
 
 .. figure:: figures/domain_decomp.png
     :width: 600px
@@ -15,7 +17,12 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
     :alt: This should not be visible
     :figclass: align-center
 
-    Example of Domain Decomposition. The physical domain, on the right, is split into 4 different sub-domains. To allow for the computation to process without having to remotely access avery single element that resides on remote processes, the application uses *ghost regions*, or *halos* (in pink) that need to be updated whenever the computation requires accesing that region again (and the values in that regions have been updated). The blue arrows show the communication pattern, also referred in the manual as *halo-update*, or *halo-exchange* operation.
+    Example of Domain Decomposition. The physical domain, on the left, is split into 4 different
+    sub-domains. To allow for the computation to progress without having to remotely access every
+    single element that resides on a remote process, the application uses **ghost regions**, or
+    **halos** (in pink), that need to be updated whenever the computation requires accesss to that
+    region.  The blue arrows show the communication pattern, also referred in the manual as
+    **halo-update**, or **halo-exchange** operation.
 
 .. figure:: figures/symmetric.png
     :width: 300px
@@ -23,7 +30,8 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
     :alt: This should not be visible
     :figclass: align-center
 
-    Traditional distribute memory data distribution: one process (MPI rank) is responsible for one sub-domain of the decomposed domain.
+    Traditional distributed memory data distribution: one process (MPI rank) is responsible for one
+    sub-domain of the decomposed domain.
 
 .. figure:: figures/oversubscription.png
     :width: 300px
@@ -31,7 +39,8 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
     :alt: This should not be visible
     :figclass: align-center
 
-    Each process in a node can manage more than one sub-domain, for instance to achieve load balancing (oversubscription).
+    Each process in a node can manage more than one sub-domain, for instance to achieve load
+    balancing (over-subscription).
 
 .. figure:: figures/multi_threads.png
     :width: 300px
@@ -39,7 +48,8 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
     :alt: This should not be visible
     :figclass: align-center
 
-    The oversubscription can be a tool to improve the parallelization in each process by running computations in independent threads.
+    The over-subscription can be a tool to improve the parallelization in each process by running
+    computations in independent threads.
 
 .. figure:: figures/hybrid.png
     :width: 300px
@@ -47,49 +57,97 @@ in modern HPC architecures. Domain decomposition refers the technique that appli
     :alt: This should not be visible
     :figclass: align-center
 
-    Using accelerators is certainly one of the most probable options for running HPC applications on current and near future platforms. The execution can be symmetrix, or really hybrid.
+    Using accelerators is certainly one of the most attractive options for running HPC applications
+    on current and near future platforms. The execution can be symmetric, or hybrid.
 
 The objective of |GHEX| is to enable halo-update operations
 
-    - For traditional domain decomposed distributed memory applications (i.e., one domain per node) either on CPUs or GPUs
+    - for traditional domain decomposed distributed memory applications (i.e., one domain per node)
+      either on CPUs or GPUs
 
-    - For applications applying oversubscriptioning on a node, either for latency hiding of exploiting multi-threading
+    - for applications applying over-subscription on a node, either for latency hiding or for
+      exploiting multi-threading
 
-    - For application exploiting hybrid systems (nodes with multiple address spaces and multiple computing devices)
+    - for application exploiting hybrid systems (nodes with multiple address spaces and multiple
+      computing devices)
 
-    - For applications regardless of the specific representation of the grid/mesh (by using *adaptors*)
+    - regardless of the specific representation of the grid/mesh (by using *adaptors*)
 
-    - On architectures that gives access to transport mechanisms other than MPI (e.g., ``UCX`` and ``Libfabric``) whose performance may be higher
+    - on architectures that provide access to transport mechanisms other than MPI (e.g., ``UCX`` and
+      ``Libfabric``) whose performance may be higher
 
-In order to accomplish all of the above, the interfaces to |GHEX| requires a non trivial amount of work on the user side.
-The reward for this work is: portability to multiple architectures, with and without accelerators, with the possibility to exploit
-native transport mechanisms. Depending on the complexity of the application, a user can easily adapt it to use different number of threads,
-or different types of threads. |GHEX| can accommodate these requirements quite flexibly.
+In order to accomplish all of the above, the interfaces to |GHEX| requires a non trivial amount of
+work on the user side.  The reward for this work is: portability to multiple architectures, with and
+without accelerators, with the possibility to exploit native transport mechanisms. Depending on the
+complexity of the application, a user can easily adapt it to use different number of threads, or
+different types of threads. |GHEX| can accommodate these requirements quite flexibly.
+
+----------
+Features
+----------
+
+|GHEX| employs a number of different communication strategies to improve performance of information
+exchange. In particular, the following features are available:
+
+    - off-node access: use of a buffered communication for remote neighbors and reduction of the
+      amount of messages by coallescing data with the same destination into larger chunks
+    
+    - in-node access: taking advantage of direct memory access within a shared memory region when
+      run with multiple threads (native) or when run with multiple processes (through *xpmem*)
+
+    - latency hiding: computation - communication overlap is possible through an explicit
+      future-like API
+
+    - cache friendliness: structured grids are traversed in a cache-friendly way to avoid cache
+      misses when serializing/deserializing data (for remote connections) and when directly
+      accessing memory (for node-local connections)
+
+    - avoid serialization: certain types of unstructured meshes can be configured such that
+      serialization on one side of the communication can be avoided
+
+    - heterogeneity of data: different types of data (with different neighbor regions) may be
+      exchanged in one go
+
+    - GPU accelerators: carefully tuned serialization kernels which exploit the bandwidth and
+      asynchronicity of execution
+
 
 --------------------------
 Type of interfaces
 --------------------------
 
-|GHEX| has a layered strctured. The user can enter at different leyers, depending on their needs. The highest level is the ``halo exchange`` level,
-where the user instructs |GHEX| to take a mesh or grid representation and produce a ``communication pattern`` to then perform the halo update operations.
+|GHEX| has a layered strctured. The user can enter at different layers, depending on their needs.
+The highest level is the ``halo exchange`` level, where the user instructs |GHEX| to take a mesh or
+grid representation and produce a ``communication pattern`` to then perform the halo update
+operations.
 
-In order to enable all the previously mentioned features, like oversusubscription, alternate transport layers and hybrid computations, the steps to create
-a pattern and use it to communicate can seem overly complicated. While we are working on shortening the number of steps to take for simple cases, more
-complex cases seem to require these complications, and hence they cannot be avoided. As we expect applications to become more and more complex in the future,
-we think the use cases in which the interfaces provided by |GHEX| will increase and overshadow the traditional distributed memory applications simply based
-on MPI.
+In order to enable all the previously mentioned features, like oversusubscription, alternate
+transport layers and hybrid computations, the steps to create a pattern and use it to communicate
+can seem overly complicated. While we are working on shortening the number of steps to take for
+simple cases, more complex cases seem to require these complications, and hence they cannot be
+avoided. As we expect applications to become more and more complex in the future, we think the use
+cases in which the interfaces provided by |GHEX| will increase and overshadow the traditional
+distributed memory applications simply based on MPI.
 
-The main concepts needed by |GHEX| in order to provide all the above features are:
+The main concepts needed by |GHEX| are:
 
-    - **Context** : A computing node, that can be identified with a process, or an MPI rank, for instance, needs some information about how it is connected to other processes and which are those processes. The context provide this information to the application.
+    - **Context** : Provides information to the application about network connectivity. A computing
+      node, that can be identified with a process (or an MPI rank, for instance) needs some
+      information about how it is connected to other processes.
 
-    - **Communicator**: A communicator can be seen representing the end-point of a communication channel. These communication channels are obtained from the context.
+    - **Communicator**: Represents an end-point of a communication, and is obtained from the
+      context.
 
-    - **Coomunication Pattern**:
+    - **Communication Pattern**: Provides application-specific neighbor conntectivity information
+      (encodes exposed halos for sending and receiving, for instance)
 
-    - **Communication Object**:
+    - **Communication Object**: Is responsible for executing communications by tying together
+      *Communication Pattern*, *Communicator*, and user-data.
 
-The interfaces for context and communicator are slightly richer than what is required by the *pure* halo-update operation. We deisgned contexts and communicators in order to cope with more complex scenarious where the domain decomposition more dynamic. The interfaces for communication patterns and communication objects are advantageous only
+.. The interfaces for *context* and *communicator* are slightly richer than what is required by
+   *pure* halo-update operations. We designed contexts and communicators in order to cope with more
+   complex scenarious, where the domain decomposition more dynamic. The interfaces for communication
+   patterns and communication objects are advantageous only
 
 ------------------------
 Context
