@@ -329,7 +329,8 @@ expose the following signature:
    void operator()(message_type msg, rank_type rank, tag_type tag);
 
 where ``message_type`` is a class defined by |GHEX| fulfilling the above message contract with
-``value_type`` being ``unsigned char``.
+``value_type`` being ``unsigned char``. Thus, the ``msg`` object provides access to the same data as the
+message passed to |GHEX| originally, reinterpreted as raw memory.
 
 |GHEX| makes a distinction based on the type of the message which is passed to the functions above:
 
