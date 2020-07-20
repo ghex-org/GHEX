@@ -91,7 +91,7 @@ exchange. In particular, the following features are available:
 
     - off-node access: use of a buffered communication for remote neighbors and reduction of the
       amount of messages by coallescing data with the same destination into larger chunks
-    
+
     - in-node access: taking advantage of direct memory access within a shared memory region when
       run with multiple threads (native) or when run with multiple processes (through *xpmem*)
 
@@ -154,7 +154,7 @@ Context
 ------------------------
 
 The context manages the underlying transport layer. Among its tasks are initialization, connectivity
-setup, commpunication end-point management, network topology exploration. It is the first entity
+setup, communication end-point management, network topology exploration. It is the first entity
 that is created and the last that is being destroyed.  Contexts maintain state information that the
 *communicators* need in order to function. In other words, communicators (presented below) cannot
 outlive the contexts from where they were obtained.
@@ -167,7 +167,7 @@ While this is not strictly needed conceptually, the vast majority of HPC applica
 advantage of the infrastructre provided through MPI for our implementation. This simplifies creation
 of contexts and collection of information about which processes participate in the computation.
 Therefore, the context requires an MPI Communicator as runtime argument, in addition to other
-possible transport specific arcguments.  The passed MPI Communicator will be cloned by the context.
+possible transport specific arguments.  The passed MPI Communicator will be cloned by the context.
 For this reason the context should be destroyed before the call to ``MPI_Finalize``.
 
 Contexts are constructed for a specific *transport layer*. The available tranport layers are: MPI,
@@ -255,14 +255,14 @@ message exchanges: `future based` and `call-back based`. The destination of a me
 that identifies a process/context, and a ``tag`` is used to match a receive on that rank.
 
 Communicators do not direcly communicate to one-another, they rather send a message to a *context*
-and by using tag-matching the messages are delivered to the proper communicator. Communicators are
+and by using tag-matching the messages are delivered to the proper communicator requesting a particular tag. Communicators are
 mostly needed to increase concurrency, since different channels can be multiplexed or demultiplexed,
 depending on the characteristics of the transport layer.
 
 For instance, when using the MPI transport layer, multiple ``Isends`` and ``Irecvs`` are issued by
 different communicators, and the concurrency is managed by the MPI runtime system that should be
 initialized with ``MPI_THREAD_MULTI`` option. In UCX we can exploit concurrency differently: each
-communicator has its private end-point, while the receives are all channeled through a single
+communicator has its private end-point for sending, while the receives are all channeled through a single
 end-point on the process. This choice was dictated by benchmarks that showed this solution was the
 most efficient. The same code runs well with MPI and UCX transport layers, despite a different way
 of handling concurrency and addressing latency hiding.
@@ -282,10 +282,10 @@ Let's take a look at the main interfaces to exchange messages using communicator
 
     template<typename Message>
     future<void> send(const Message& msg, rank_type dst, tag_type tag);
-    
+
     template<typename Message>
     future<void> recv(Message& msg, rank_type src, tag_type tag);
-    
+
     template <typename Message, typename Neighs>
     std::vector<future<void>> send_multi(Message& msg, const Neighs& neighs, tag_type tag);
 
@@ -297,7 +297,7 @@ checked using ``.wait()`` to check that the message has been sent (the future do
 message has been delivered). This variant **does not take ownership of the message** (but refers to
 the address of the memory only) an the user is responsible to keep the message alive until the
 communication has finished.
-                
+
 Similarly, the second function reveives into a message, with the same requirements as before, and
 returns a future that, when ``.wait()`` returns guarantee the message has been received.
 
@@ -312,7 +312,7 @@ called upon completion of the communication:
 
     template<typename Message, typename CallBack>
     request_cb send(Message&& msg, rank_type dst, tag_type tag, CallBack&& callback);
-                
+
     template<typename Message, typename CallBack>
     request_cb recv(Message&& msg, rank_type src, tag_type tag, CallBack&& callback);
 
@@ -347,7 +347,7 @@ where ``message_type`` is a class defined by |GHEX| fulfilling the above message
    free to delete or re-use the message inside the callback body. However, when the user re-submits
    a further callback based communication through the above API from with the callback (recursive
    call) , the message must passed by r-value reference (through ``std::move``).
-                
+
 The send/recv functions accepting call-backs, also return request values that can be used to check
 if an operation succeded. However, these requests may not be used like futures: they cannot be
 waited upon. Instead, to progress the communication and ensure the completion, the communicator has
