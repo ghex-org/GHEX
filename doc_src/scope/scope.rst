@@ -351,8 +351,8 @@ where ``message_type`` is a class defined by |GHEX| fulfilling the above message
 .. note::
 
    Since GHEX relies on move semantics of the message internally, the message type must not
-   re-allocate memory during move construction and the memory address must remain constant during
-   the communication.
+   re-allocate memory during move construction and the memory address of the data must remain
+   constant during the communication.
                 
 The send/recv functions accepting call-backs, also return request values that can be used to check
 if an operation succeded. However, these requests may not be used like futures: they cannot be
