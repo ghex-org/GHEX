@@ -116,7 +116,6 @@ inline std::shared_ptr<data> make_local_data(T* ptr, size_t size)
     return {new data{ detail::init_local(ptr,size) }, detail::local_deleter{} };
 }
 
-template<typename T>
 inline std::shared_ptr<data> make_remote_data(data m_data)
 {
     detail::init_remote(m_data);
