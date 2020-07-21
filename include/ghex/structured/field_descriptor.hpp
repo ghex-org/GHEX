@@ -235,7 +235,7 @@ public: // ctors
         if (!m_xpmem_data)
         {
             auto size = m_extents[0];
-            for (int i=1; i<m_extents.size(); ++i) size *= m_extents[i];
+            for (unsigned int i=1; i<m_extents.size(); ++i) size *= m_extents[i];
             m_xpmem_data = tl::ri::xpmem::make_local_data(m_data, size);
         }
 #endif /* GHEX_USE_XPMEM */
