@@ -33,7 +33,7 @@ class rma_handle<field_descriptor<T, cpu, DomainDescriptor, Order...>>
 public:
     using derived = field_descriptor<T, cpu, DomainDescriptor, Order...>;
 #ifdef GHEX_USE_XPMEM
-    using rma_data_t = tl::ri::xpmem::data
+    using rma_data_t = tl::ri::xpmem::data;
     std::shared_ptr<rma_data_t> m_rma_data;
 #else
     using rma_data_t = int;
