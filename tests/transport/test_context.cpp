@@ -43,7 +43,7 @@ TEST(context, multi) {
     using tag_type = typename comm_type::tag_type;
     using future = typename comm_type::template future<void>;
 
-    auto func = [&context_1, &context_2]() {
+    auto func = [&context_1, &context_2, num_threads]() {
         auto token_1 = context_1.get_token();
         auto comm_1 = context_1.get_communicator(token_1);
         auto token_2 = context_2.get_token();
@@ -58,7 +58,7 @@ TEST(context, multi) {
                 *reinterpret_cast<int*>(msg_1.data()+i*sizeof(int)) = i+payload_offset;
         }
         if (comm_2.rank() == 0) {
-            const int payload_offset = 2+token_2.id();
+            const int payload_offset = (size-1)+(num_threads)+1+token_2.id();
             for (unsigned int i=0; i<size; ++i)
                 *reinterpret_cast<int*>(msg_2.data()+i*sizeof(int)) = i+payload_offset;
         }
@@ -103,7 +103,7 @@ TEST(context, multi) {
                 EXPECT_TRUE(*reinterpret_cast<int*>(msg_1.data()+i*sizeof(int)) == (int)i+payload_offset);
         }
         if (comm_2.rank() != 0) {
-            const int payload_offset = 2+token_2.id();
+            const int payload_offset = (size-1)+(num_threads)+1+token_2.id();
             for (unsigned int i=0; i<size; ++i)
                 EXPECT_TRUE(*reinterpret_cast<int*>(msg_2.data()+i*sizeof(int)) == (int)i+payload_offset);
         }
