@@ -66,6 +66,7 @@ struct field_view
 #ifdef GHEX_USE_XPMEM
     using guard_type = tl::ri::xpmem::access_guard;
     using guard_view_type = tl::ri::xpmem::access_guard_view;
+    using rma_data_t = tl::ri::xpmem::data;
 #else
     using guard_type = tl::ri::thread::access_guard;
     using guard_view_type = tl::ri::thread::access_guard_view;
@@ -73,6 +74,9 @@ struct field_view
     using size_type = tl::ri::size_type;
 
     Field m_field;
+#ifdef GHEX_USE_XPMEM
+    rma_data_t m_rma_data;
+#endif /* GHEX_USE_XPMEM */
     coordinate m_offset;
     coordinate m_extent;
     coordinate m_begin;
@@ -177,7 +181,12 @@ struct remote_thread_range
     // and can be used to allocate state
     void init(tl::ri::remote_host_)   
     {
+#ifdef GHEX_USE_XPMEM
+        new(&m_view.m_field.m_xpmem_data) std::shared_ptr<tl::ri::xpmem::data>{};
+        m_view.m_field.init_rma_remote(m_view.m_rma_data);
+#else
         m_view.m_field.init_rma_remote();
+#endif
 	    m_guard.init_remote();
     }
     void init(tl::ri::remote_device_) {}
@@ -294,6 +303,9 @@ struct remote_thread_range_generator
         {
             m_archive.resize(RangeFactory::serial_size);
             m_view.m_field.init_rma_local();
+#ifdef GHEX_USE_XPMEM
+            m_view.m_rma_data = *m_view.m_field.m_xpmem_data;
+#endif
             RangeFactory::serialize(m_local_range, m_archive.data());
         }
 
