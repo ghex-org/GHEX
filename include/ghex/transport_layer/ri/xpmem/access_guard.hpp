@@ -59,7 +59,7 @@ struct access_guard
 
     access_guard(access_guard&& other)
     {
-        ptr = std::exchange(other.ptr, NULL);
+        ptr = std::exchange(other.ptr, (volatile unsigned char*)NULL);
         xpmem_endpoint = std::exchange(other.xpmem_endpoint, -1);
     }
 
@@ -100,7 +100,7 @@ struct access_guard_view
 
     void release_remote()
     {
-        /*auto ret = */xpmem_detach(m_impl.ptr);
+        /*auto ret = */xpmem_detach((void*)m_impl.ptr);
         /*auto ret = */xpmem_release(m_addr.apid);
     }
 

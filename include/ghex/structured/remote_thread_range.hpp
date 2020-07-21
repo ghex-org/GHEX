@@ -297,7 +297,6 @@ struct remote_thread_range_generator
         : m_comm{comm}
         , m_guard{}
         , m_view{f, first, last-first+1}
-        , m_local_range{RangeFactory::template create<range_type>(m_view,m_guard)}
         , m_dst{dst}
         , m_tag{tag}
         {
@@ -306,6 +305,7 @@ struct remote_thread_range_generator
 #ifdef GHEX_USE_XPMEM
             m_view.m_rma_data = *m_view.m_field.m_xpmem_data;
 #endif
+	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard)};
             RangeFactory::serialize(m_local_range, m_archive.data());
         }
 
