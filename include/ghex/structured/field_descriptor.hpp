@@ -18,9 +18,11 @@
 #include <gridtools/common/array.hpp>
 #include <gridtools/common/layout_map.hpp>
 
-#ifdef GHEX_USE_XPMEM
-#include "../transport_layer/ri/xpmem/data.hpp"
-#endif /* GHEX_USE_XPMEM */
+#include "./rma_handle.hpp"
+
+//#ifdef GHEX_USE_XPMEM
+//#include "../transport_layer/ri/xpmem/data.hpp"
+//#endif /* GHEX_USE_XPMEM */
 
 //#ifdef GHEX_USE_XPMEM
 //extern "C"{
@@ -40,8 +42,110 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
     
+//template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+//class field_descriptor;
+//
+//template<typename FieldDescriptor>
+//class rma_handle;
+//
+//template<typename T, typename DomainDescriptor, int... Order>
+//class rma_handle<field_descriptor<T, cpu, DomainDescriptor, Order...>>
+//{
+//public:
+//    using derived = field_descriptor<T, cpu, DomainDescriptor, Order...>;
+//
+//    derived* d_cast()
+//    {
+//        return static_cast<derived*>(this);
+//    }
+//
+//    const derived* d_cast() const
+//    {
+//        return static_cast<const derived*>(this);
+//    }
+//
+//#ifdef GHEX_USE_XPMEM
+//    std::shared_ptr<tl::ri::xpmem::data> m_xpmem_data;
+//#endif /* GHEX_USE_XPMEM */
+//
+//    void init_rma_local()
+//    {
+//#ifdef GHEX_USE_XPMEM
+//        if (!m_xpmem_data)
+//        {
+//            auto size = d_cast()->m_extents[0];
+//            for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i) size *= d_cast()->m_extents[i];
+//            m_xpmem_data = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
+//        }
+//#endif /* GHEX_USE_XPMEM */
+//    }
+//    void release_rma_local() { }
+//
+//    template<typename... Data>
+//    void init_rma_remote(Data&&... data)
+//    {
+//#ifdef GHEX_USE_XPMEM
+//        if (!m_xpmem_data)
+//        {
+//            m_xpmem_data = tl::ri::xpmem::make_remote_data(std::forward<Data>(data)...);
+//            d_cast()->m_data = (T*)m_xpmem_data->m_ptr;
+//        }
+//#endif /* GHEX_USE_XPMEM */	
+//    }
+//    
+//    void release_rma_remote() { }
+//};
+//
+//template<typename T, typename DomainDescriptor, int... Order>
+//class rma_handle<field_descriptor<T, gpu, DomainDescriptor, Order...>>
+//{
+//public:
+//    using derived = field_descriptor<T, cpu, DomainDescriptor, Order...>;
+//
+//    derived* d_cast()
+//    {
+//        return static_cast<derived*>(this);
+//    }
+//
+//    const derived* d_cast() const
+//    {
+//        return static_cast<const derived*>(this);
+//    }
+//
+//#ifdef GHEX_USE_XPMEM
+//    std::shared_ptr<tl::ri::xpmem::data> m_xpmem_data;
+//#endif /* GHEX_USE_XPMEM */
+//
+//    void init_rma_local()
+//    {
+//#ifdef GHEX_USE_XPMEM
+//        if (!m_xpmem_data)
+//        {
+//            auto size = d_cast()->m_extents[0];
+//            for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i) size *= d_cast()->m_extents[i];
+//            m_xpmem_data = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
+//        }
+//#endif /* GHEX_USE_XPMEM */
+//    }
+//    void release_rma_local() { }
+//
+//    template<typename... Data>
+//    void init_rma_remote(Data&&... data)
+//    {
+//#ifdef GHEX_USE_XPMEM
+//        if (!m_xpmem_data)
+//        {
+//            m_xpmem_data = tl::ri::xpmem::make_remote_data(std::forward<Data>(data)...);
+//            d_cast()->m_data = (T*)m_xpmem_data->m_ptr;
+//        }
+//#endif /* GHEX_USE_XPMEM */	
+//    }
+//    
+//    void release_rma_remote() { }
+//};
+
 template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-class field_descriptor
+class field_descriptor : public rma_handle< field_descriptor<T,Arch,DomainDescriptor,Order...> >
 {
 public: // member types
     using value_type             = T;
@@ -158,9 +262,9 @@ protected: // members
     strides_type           m_byte_strides;        ///< memory strides in bytes
 
 public:
-#ifdef GHEX_USE_XPMEM
-    std::shared_ptr<tl::ri::xpmem::data> m_xpmem_data;
-#endif /* GHEX_USE_XPMEM */
+//#ifdef GHEX_USE_XPMEM
+//    std::shared_ptr<tl::ri::xpmem::data> m_xpmem_data;
+//#endif /* GHEX_USE_XPMEM */
 //#ifdef GHEX_USE_XPMEM
 //    xpmem_segid_t          m_xpmem_endpoint = -1; ///< xpmem identifier for the m_data pointer
 //    size_t                 m_xpmem_size = -1;     ///< size of the xpmem segment (page aligned)
@@ -228,36 +332,36 @@ public: // ctors
     field_descriptor& operator=(field_descriptor&&) noexcept = default;
     field_descriptor& operator=(const field_descriptor&) noexcept = default;
     
-    void init_rma_local()
-    {
-        // TODO: make general (GPUs, shmem)
-#ifdef GHEX_USE_XPMEM
-        if (!m_xpmem_data)
-        {
-            auto size = m_extents[0];
-            for (unsigned int i=1; i<m_extents.size(); ++i) size *= m_extents[i];
-            m_xpmem_data = tl::ri::xpmem::make_local_data(m_data, size);
-        }
-#endif /* GHEX_USE_XPMEM */
-    }
-    void release_rma_local()
-    {
-    }
-    template<typename... Data>
-    void init_rma_remote(Data&&... data)
-    {
-        // TODO: make general (GPUs, shmem)
-#ifdef GHEX_USE_XPMEM
-        if (!m_xpmem_data)
-        {
-            m_xpmem_data = tl::ri::xpmem::make_remote_data(std::forward<Data>(data)...);
-            m_data = (value_type*)m_xpmem_data->m_ptr;
-        }
-#endif /* GHEX_USE_XPMEM */	
-    }
-    void release_rma_remote()
-    {
-    }
+//    void init_rma_local()
+//    {
+//        // TODO: make general (GPUs, shmem)
+//#ifdef GHEX_USE_XPMEM
+//        if (!m_xpmem_data)
+//        {
+//            auto size = m_extents[0];
+//            for (unsigned int i=1; i<m_extents.size(); ++i) size *= m_extents[i];
+//            m_xpmem_data = tl::ri::xpmem::make_local_data(m_data, size);
+//        }
+//#endif /* GHEX_USE_XPMEM */
+//    }
+//    void release_rma_local()
+//    {
+//    }
+//    template<typename... Data>
+//    void init_rma_remote(Data&&... data)
+//    {
+//        // TODO: make general (GPUs, shmem)
+//#ifdef GHEX_USE_XPMEM
+//        if (!m_xpmem_data)
+//        {
+//            m_xpmem_data = tl::ri::xpmem::make_remote_data(std::forward<Data>(data)...);
+//            m_data = (value_type*)m_xpmem_data->m_ptr;
+//        }
+//#endif /* GHEX_USE_XPMEM */	
+//    }
+//    void release_rma_remote()
+//    {
+//    }
 
 //    void init_rma_local()
 //    {
