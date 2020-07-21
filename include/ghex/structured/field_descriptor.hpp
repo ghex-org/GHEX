@@ -156,6 +156,8 @@ protected: // members
     bool                   m_is_vector_field;     ///< true if this field describes a vector field
     device_id_type         m_device_id;           ///< device id
     strides_type           m_byte_strides;        ///< memory strides in bytes
+
+public:
 #ifdef GHEX_USE_XPMEM
     std::shared_ptr<tl::ri::xpmem::data> m_xpmem_data;
 #endif /* GHEX_USE_XPMEM */

@@ -19,6 +19,7 @@
 #include "../transport_layer/ri/types.hpp"
 #ifdef GHEX_USE_XPMEM
 #include "../transport_layer/ri/xpmem/access_guard.hpp"
+#include "../transport_layer/ri/xpmem/data.hpp"
 #else
 #include "../transport_layer/ri/thread/access_guard.hpp"
 #endif /* GHEX_USE_XPMEM */
