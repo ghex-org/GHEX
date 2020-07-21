@@ -199,12 +199,12 @@ struct simulation_1
         fill_values(local_domains[0], field_3a);
         fill_values(local_domains[1], field_3b);
 #ifdef __CUDACC__
-         cudaMemcpy(field_1a_raw_gpu.get(), field_1a_raw.data(), max_memory, cudaHostToDevice); 
-         cudaMemcpy(field_1b_raw_gpu.get(), field_1b_raw.data(), max_memory, cudaHostToDevice); 
-         cudaMemcpy(field_2a_raw_gpu.get(), field_2a_raw.data(), max_memory, cudaHostToDevice); 
-         cudaMemcpy(field_2b_raw_gpu.get(), field_2b_raw.data(), max_memory, cudaHostToDevice); 
-         cudaMemcpy(field_3a_raw_gpu.get(), field_3a_raw.data(), max_memory, cudaHostToDevice); 
-         cudaMemcpy(field_3b_raw_gpu.get(), field_3b_raw.data(), max_memory, cudaHostToDevice); 
+         cudaMemcpy(field_1a_raw_gpu.get(), field_1a_raw.data(), max_memory, cudaMemcpyHostToDevice); 
+         cudaMemcpy(field_1b_raw_gpu.get(), field_1b_raw.data(), max_memory, cudaMemcpyHostToDevice); 
+         cudaMemcpy(field_2a_raw_gpu.get(), field_2a_raw.data(), max_memory, cudaMemcpyHostToDevice); 
+         cudaMemcpy(field_2b_raw_gpu.get(), field_2b_raw.data(), max_memory, cudaMemcpyHostToDevice); 
+         cudaMemcpy(field_3a_raw_gpu.get(), field_3a_raw.data(), max_memory, cudaMemcpyHostToDevice); 
+         cudaMemcpy(field_3b_raw_gpu.get(), field_3b_raw.data(), max_memory, cudaMemcpyHostToDevice); 
 #endif /* __CUDACC__ */
 
         if (!mt)
@@ -264,12 +264,12 @@ struct simulation_1
     bool check()
     {
 #ifdef __CUDACC__
-         cudaMemcpy(field_1a_raw.data(), field_1a_raw_gpu.get(), max_memory, cudaDeviceToHost); 
-         cudaMemcpy(field_1b_raw.data(), field_1b_raw_gpu.get(), max_memory, cudaDeviceToHost); 
-         cudaMemcpy(field_2a_raw.data(), field_2a_raw_gpu.get(), max_memory, cudaDeviceToHost); 
-         cudaMemcpy(field_2b_raw.data(), field_2b_raw_gpu.get(), max_memory, cudaDeviceToHost); 
-         cudaMemcpy(field_3a_raw.data(), field_3a_raw_gpu.get(), max_memory, cudaDeviceToHost); 
-         cudaMemcpy(field_3b_raw.data(), field_3b_raw_gpu.get(), max_memory, cudaDeviceToHost); 
+         cudaMemcpy(field_1a_raw.data(), field_1a_raw_gpu.get(), max_memory, cudaMemcpyDeviceToHost); 
+         cudaMemcpy(field_1b_raw.data(), field_1b_raw_gpu.get(), max_memory, cudaMemcpyDeviceToHost); 
+         cudaMemcpy(field_2a_raw.data(), field_2a_raw_gpu.get(), max_memory, cudaMemcpyDeviceToHost); 
+         cudaMemcpy(field_2b_raw.data(), field_2b_raw_gpu.get(), max_memory, cudaMemcpyDeviceToHost); 
+         cudaMemcpy(field_3a_raw.data(), field_3a_raw_gpu.get(), max_memory, cudaMemcpyDeviceToHost); 
+         cudaMemcpy(field_3b_raw.data(), field_3b_raw_gpu.get(), max_memory, cudaMemcpyDeviceToHost); 
 #endif /* __CUDACC__ */
         bool passed =true;
         passed = passed && test_values(local_domains[0], field_1a);
