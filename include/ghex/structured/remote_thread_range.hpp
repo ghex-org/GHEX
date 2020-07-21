@@ -17,6 +17,7 @@
 
 #include "../remote_range_traits.hpp"
 #include "../transport_layer/ri/types.hpp"
+#include "../arch_list.hpp"
 #ifdef GHEX_USE_XPMEM
 #include "../transport_layer/ri/xpmem/access_guard.hpp"
 #include "../transport_layer/ri/xpmem/data.hpp"
@@ -184,28 +185,72 @@ struct remote_thread_range
         m_view.m_field.init_rma_remote(m_view.m_rma_data);
 	    m_guard.init_remote();
     }
-    void init(tl::ri::remote_device_) {}
+    void init(tl::ri::remote_device_)
+    {
+        m_view.m_field.reset_rma_data();
+        m_view.m_field.init_rma_remote(m_view.m_rma_data);
+	    m_guard.init_remote();
+    }
     void exit(tl::ri::remote_host_)
     {
         m_view.m_field.release_rma_remote();
         m_guard.release_remote(); 
     }
-    void exit(tl::ri::remote_device_) {}
+    void exit(tl::ri::remote_device_)
+    {
+        m_view.m_field.release_rma_remote();
+        m_guard.release_remote(); 
+    }
     
     //static void put(tl::ri::chunk c, const tl::ri::byte* ptr, tl::ri::remote_host_) {
     //    // host to host put
     //    std::memcpy(c.data(), ptr, c.size());
     //}
     //static void put(tl::ri::chunk, const tl::ri::byte*, tl::ri::remote_device_) {}
-
-    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_host_) {
-    //    // de-virtualize iterator
-    //    //iterator it_ = dynamic_cast<iterator&>(it);
+    
+    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_host_, std::true_type) {
         tl::ri::chunk c = *it; 
-        // host to host put
         std::memcpy(c.data(), ptr, c.size());
         return it;
     }
+    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_host_, std::false_type) {
+#ifdef __CUDACC__
+        tl::ri::chunk c = *it; 
+        // devide to host put
+        cudaMemcpy(c.data(), ptr, cudaMemcpyHostToDevice);
+#endif /* __CUDACC__ */
+        return it;
+    }
+    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_device_, std::true_type) {
+#ifdef __CUDACC__
+        tl::ri::chunk c = *it; 
+        cudaMemcpy(c.data(), ptr, cudaMemcpyDeviceToHost);
+#endif /* __CUDACC__ */
+        return it;
+    }
+    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_device_, std::false_type) {
+#ifdef __CUDACC__
+        tl::ri::chunk c = *it; 
+        // devide to host put
+        cudaMemcpy(c.data(), ptr, cudaMemcpyDeviceToDevice);
+#endif /* __CUDACC__ */
+        return it;
+    }
+
+    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_host_ h) {
+        //// de-virtualize iterator
+        ////iterator it_ = dynamic_cast<iterator&>(it);
+        //tl::ri::chunk c = *it; 
+        //// host to host put
+        //std::memcpy(c.data(), ptr, c.size());
+        //return it;
+        return put(it, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
+    }
+
+    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_device_ d) {
+        return put(it, ptr, d, std::is_same<typename Field::arch_type, cpu>{});
+    }
+
     //template<typename IteratorBase>
     //static void put(iterator& it, const tl::ri::byte* ptr, tl::ri::remote_device_) { }
 

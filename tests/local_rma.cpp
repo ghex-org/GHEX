@@ -42,6 +42,17 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 
 struct simulation_1
 {
+#ifdef __CUDACC__
+    template<typename T>
+    struct cuda_deleter
+    {
+        void operator()(T* ptr)
+        {
+            cudaFree(ptr);
+        }
+    };
+#endif
+
     template<typename T, std::size_t N>
     using array_type = gridtools::array<T,N>;
     using T1 = double;
@@ -94,6 +105,14 @@ struct simulation_1
     std::vector<TT2> field_2b_raw;
     std::vector<TT3> field_3a_raw;
     std::vector<TT3> field_3b_raw;
+#ifdef __CUDACC__
+    std::unique_ptr<TT1,cuda_deleter<TT1>> field_1a_raw_gpu;
+    std::unique_ptr<TT1,cuda_deleter<TT1>> field_1b_raw_gpu;
+    std::unique_ptr<TT2,cuda_deleter<TT2>> field_2a_raw_gpu;
+    std::unique_ptr<TT2,cuda_deleter<TT2>> field_2b_raw_gpu;
+    std::unique_ptr<TT3,cuda_deleter<TT3>> field_3a_raw_gpu;
+    std::unique_ptr<TT3,cuda_deleter<TT3>> field_3b_raw_gpu;
+#endif /* __CUDACC__ */
     std::vector<domain_descriptor_type> local_domains;
     std::array<int,6> halos;
     halo_generator_type halo_gen;
@@ -106,6 +125,14 @@ struct simulation_1
     field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0> field_2b;
     field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0> field_3a;
     field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0> field_3b;
+#ifdef __CUDACC__
+    field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0> field_1a_gpu;
+    field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0> field_1b_gpu;
+    field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0> field_2a_gpu;
+    field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0> field_2b_gpu;
+    field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0> field_3a_gpu;
+    field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0> field_3b_gpu;
+#endif /* __CUDACC__ */
     typename context_type::communicator_type comm;
     std::vector<typename context_type::communicator_type> comms;
     std::vector<gridtools::ghex::bulk_communication_object> cos;
@@ -128,6 +155,14 @@ struct simulation_1
     , field_2b_raw(max_memory)
     , field_3a_raw(max_memory)
     , field_3b_raw(max_memory)
+#ifdef __CUDACC__
+    , field_1a_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory); return (TT1*)ptr; }())
+    , field_1b_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory); return (TT1*)ptr; }())
+    , field_2a_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory); return (TT2*)ptr; }())
+    , field_2b_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory); return (TT2*)ptr; }())
+    , field_3a_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory); return (TT3*)ptr; }())
+    , field_3b_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory); return (TT3*)ptr; }())
+#endif /* __CUDACC__ */
     , local_domains{ 
         domain_descriptor_type{
             context.rank()*2,
@@ -146,6 +181,14 @@ struct simulation_1
     , field_2b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_2b_raw.data(), offset, local_ext_buffer)}
     , field_3a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0], field_3a_raw.data(), offset, local_ext_buffer)}
     , field_3b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_3b_raw.data(), offset, local_ext_buffer)}
+#ifdef __CUDACC__
+    , field_1a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[0], field_1a_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_1b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[1], field_1b_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_2a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[0], field_2a_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_2b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[1], field_2b_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_3a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[0], field_3a_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_3b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[1], field_3b_raw_gpu.get(), offset, local_ext_buffer)}
+#endif /* __CUDACC__ */
     , comm{ context.get_serial_communicator() }
     , mt{multithread}
     {
@@ -155,25 +198,49 @@ struct simulation_1
         fill_values(local_domains[1], field_2b);
         fill_values(local_domains[0], field_3a);
         fill_values(local_domains[1], field_3b);
-    
+#ifdef __CUDACC__
+         cudaMemcpy(field_1a_raw_gpu.get(), field_1a_raw.data(), max_memory, cudaHostToDevice); 
+         cudaMemcpy(field_1b_raw_gpu.get(), field_1b_raw.data(), max_memory, cudaHostToDevice); 
+         cudaMemcpy(field_2a_raw_gpu.get(), field_2a_raw.data(), max_memory, cudaHostToDevice); 
+         cudaMemcpy(field_2b_raw_gpu.get(), field_2b_raw.data(), max_memory, cudaHostToDevice); 
+         cudaMemcpy(field_3a_raw_gpu.get(), field_3a_raw.data(), max_memory, cudaHostToDevice); 
+         cudaMemcpy(field_3b_raw_gpu.get(), field_3b_raw.data(), max_memory, cudaHostToDevice); 
+#endif /* __CUDACC__ */
+
         if (!mt)
         {
             comms.push_back(context.get_communicator(context.get_token()));
+#ifndef __CUDACC__
             cos.push_back(
                 gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
                     comms[0], pattern, field_1a, field_1b, field_2a, field_2b, field_3a, field_3b));
+#else
+            cos.push_back(
+                gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                    comms[0], pattern, field_1a_gpu, field_1b_gpu, field_2a_gpu, field_2b_gpu, field_3a_gpu, field_3b_gpu));
+#endif
         } else {
             comms.push_back(context.get_communicator(context.get_token()));
             comms.push_back(context.get_communicator(context.get_token()));
             cos.resize(2);
             std::vector<std::thread> threads;
             threads.push_back(std::thread{[this](){
+#ifndef __CUDACC__
                 cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
                     comms[0], pattern, field_1a, field_2a, field_3a);
+#else
+                cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                    comms[0], pattern, field_1a_gpu, field_2a_gpu, field_3a_gpu);
+#endif
             }});
             threads.push_back(std::thread{[this](){
+#ifndef __CUDACC__
                 cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
                     comms[1], pattern, field_1b, field_2b, field_3b);
+#else
+                cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                    comms[1], pattern, field_1b_gpu, field_2b_gpu, field_3b_gpu);
+#endif
             }});
             for (auto& t : threads) t.join();
         }
@@ -196,6 +263,14 @@ struct simulation_1
 
     bool check()
     {
+#ifdef __CUDACC__
+         cudaMemcpy(field_1a_raw.data(), field_1a_raw_gpu.get(), max_memory, cudaDeviceToHost); 
+         cudaMemcpy(field_1b_raw.data(), field_1b_raw_gpu.get(), max_memory, cudaDeviceToHost); 
+         cudaMemcpy(field_2a_raw.data(), field_2a_raw_gpu.get(), max_memory, cudaDeviceToHost); 
+         cudaMemcpy(field_2b_raw.data(), field_2b_raw_gpu.get(), max_memory, cudaDeviceToHost); 
+         cudaMemcpy(field_3a_raw.data(), field_3a_raw_gpu.get(), max_memory, cudaDeviceToHost); 
+         cudaMemcpy(field_3b_raw.data(), field_3b_raw_gpu.get(), max_memory, cudaDeviceToHost); 
+#endif /* __CUDACC__ */
         bool passed =true;
         passed = passed && test_values(local_domains[0], field_1a);
         passed = passed && test_values(local_domains[1], field_1b);
