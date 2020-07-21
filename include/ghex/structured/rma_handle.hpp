@@ -77,6 +77,7 @@ public:
         }
 #endif /* GHEX_USE_XPMEM */
     }
+
     void release_rma_local() { }
 
     void init_rma_remote(const rma_data_t& data)
@@ -100,9 +101,19 @@ class rma_handle<field_descriptor<T, gpu, DomainDescriptor, Order...>>
 {
 public:
     using derived = field_descriptor<T, cpu, DomainDescriptor, Order...>;
-    using rma_data_t = int;
 
+#ifdef GHEX_USE_XPMEM
+#ifdef __CUDACC__
+    using rma_data_t = cudaIpcMemHandle_t;
+    std::shared_ptr<rma_data_t> m_rma_data;
+#else
+    using rma_data_t = int;
     rma_data_t m_rma_data = 0;
+#endif /* __CUDACC__ */
+#else
+    using rma_data_t = int;
+    rma_data_t m_rma_data = 0;
+#endif /* GHEX_USE_XPMEM */	
 
     derived* d_cast()
     {
@@ -116,19 +127,63 @@ public:
     
     auto get_rma_data() const
     {
+#ifdef GHEX_USE_XPMEM
+#ifdef __CUDACC__
+        return *m_rma_data;
+#else
         return m_rma_data;
+#endif /* __CUDACC__ */
+#else
+        return m_rma_data;
+#endif /* GHEX_USE_XPMEM */	
     }
 
-    void reset_rma_data() {}
+    void reset_rma_data()
+    {
+#ifdef GHEX_USE_XPMEM
+#ifdef __CUDACC__
+        new(&m_rma_data) std::shared_ptr<rma_data_t>{};
+#endif /* __CUDACC__ */
+#endif
+    }
 
     void init_rma_local()
     {
+#ifdef GHEX_USE_XPMEM
+#ifdef __CUDACC__
+        if (!m_rma_data)
+        {
+            auto h = new rma_data_t;
+            cudaIpcGetMemHandle(h, d_cast()->m_data);
+            m_rma_data = std::shared_ptr<rma_data_t>{h};
+        }
+#endif /* __CUDACC__ */
+#endif /* GHEX_USE_XPMEM */	
     }
+
     void release_rma_local() { }
 
     void init_rma_remote(const rma_data_t& data)
     {
+#ifdef GHEX_USE_XPMEM
+#ifdef __CUDACC__
+        if (!m_rma_data)
+        {
+            cudaIpcOpenMemHandle(&(d_cast()->m_data), data, cudaIpcMemLazyEnablePeerAccess); 
+            m_rma_data = std::shared_ptr<rma_data_t>{
+                new rma_data_t{data},
+                [ptr = d_cast()->m_data](rma_data_t* h){
+                    cudaIpcCloseMemHandle(ptr); 
+                    delete h;
+                }
+            };
+        }
+#else
         m_rma_data = data;
+#endif /* __CUDACC__ */
+#else
+        m_rma_data = data;
+#endif /* GHEX_USE_XPMEM */	
     }
     
     void release_rma_remote() { }
