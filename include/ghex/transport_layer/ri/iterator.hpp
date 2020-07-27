@@ -30,7 +30,7 @@ struct iterator
         new (m_stack) iterator_impl<Iterator>{it};
     }
 
-    template<typename Iterator>
+    //template<typename Iterator>
     iterator(const byte* buffer) noexcept {
         std::memcpy(m_stack, buffer, StackMemory);
     }

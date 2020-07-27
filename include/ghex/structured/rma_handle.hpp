@@ -100,7 +100,7 @@ template<typename T, typename DomainDescriptor, int... Order>
 class rma_handle<field_descriptor<T, gpu, DomainDescriptor, Order...>>
 {
 public:
-    using derived = field_descriptor<T, cpu, DomainDescriptor, Order...>;
+    using derived = field_descriptor<T, gpu, DomainDescriptor, Order...>;
 
 #ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
@@ -169,7 +169,9 @@ public:
 #ifdef __CUDACC__
         if (!m_rma_data)
         {
-            cudaIpcOpenMemHandle(&(d_cast()->m_data), data, cudaIpcMemLazyEnablePeerAccess); 
+            void* vptr = (d_cast()->m_data);
+            cudaIpcOpenMemHandle(&vptr, data, cudaIpcMemLazyEnablePeerAccess); 
+            d_cast()->m_data = (T*)vptr;
             m_rma_data = std::shared_ptr<rma_data_t>{
                 new rma_data_t{data},
                 [ptr = d_cast()->m_data](rma_data_t* h){

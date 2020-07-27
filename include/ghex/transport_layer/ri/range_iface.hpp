@@ -66,7 +66,7 @@ struct range_impl : public range_iface<Iterator>
         iterator_impl_t& impl_it = static_cast<iterator_impl_t&>(iface_it);
         concrete_iterator_t c_it = impl_it.m;
         return {Range::put(c_it, ptr, Arch{})}; 
-        return it;
+        //return it;
     }
     void      start_local_epoch() override final { }
     void      end_local_epoch() override final { }

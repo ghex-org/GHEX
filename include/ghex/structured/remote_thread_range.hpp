@@ -217,14 +217,14 @@ struct remote_thread_range
 #ifdef __CUDACC__
         tl::ri::chunk c = *it; 
         // devide to host put
-        cudaMemcpy(c.data(), ptr, cudaMemcpyHostToDevice);
+        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyHostToDevice);
 #endif /* __CUDACC__ */
         return it;
     }
     static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_device_, std::true_type) {
 #ifdef __CUDACC__
         tl::ri::chunk c = *it; 
-        cudaMemcpy(c.data(), ptr, cudaMemcpyDeviceToHost);
+        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToHost);
 #endif /* __CUDACC__ */
         return it;
     }
@@ -232,7 +232,7 @@ struct remote_thread_range
 #ifdef __CUDACC__
         tl::ri::chunk c = *it; 
         // devide to host put
-        cudaMemcpy(c.data(), ptr, cudaMemcpyDeviceToDevice);
+        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToDevice);
 #endif /* __CUDACC__ */
         return it;
     }
