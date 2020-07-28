@@ -196,13 +196,13 @@ struct simulation
                 auto end = clock_type::now();
                 std::chrono::duration<double> elapsed_seconds = end - start;
                 
-                if (j == 0)
+                if (comm.rank() == 0 && j == 0)
                 {
                     const auto num_elements = 
                         (ext+halos[0]+halos[1]) * (ext+halos[2]+halos[3]) * (ext+halos[2]+halos[3]) -
                         ext * ext * ext;
                     const auto   num_bytes = num_elements * sizeof(T);
-                    const double load = 2 * num_threads * num_fields * num_bytes;
+                    const double load = 2 * comm.size() * num_threads * num_fields * num_bytes;
                     const auto   GB_per_s = num_reps * load / (elapsed_seconds.count() * 1.0e9);
                     std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
                     std::cout << "GB/s : " << GB_per_s << std::endl;
