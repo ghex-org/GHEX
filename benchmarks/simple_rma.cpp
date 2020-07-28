@@ -28,7 +28,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
-#include <ghex/structured/remote_thread_range.hpp>
+#include <ghex/structured/remote_range.hpp>
 #include <ghex/structured/bulk_communication_object.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
@@ -155,7 +155,7 @@ struct simulation
         {    
             threads.push_back(std::thread{[this,j](){
                 cos[j] = 
-                    gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                    gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                         comms[j], *pattern, 
                         fields[j][0],
                         fields[j][1],

@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_STRUCTURED_REMOTE_THREAD_RANGE_HPP
-#define INCLUDED_GHEX_STRUCTURED_REMOTE_THREAD_RANGE_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_REMOTE_RANGE_HPP
+#define INCLUDED_GHEX_STRUCTURED_REMOTE_RANGE_HPP
 
 #include <cstring>
 #include <vector>
@@ -147,7 +147,7 @@ struct inc_coord<Dim, Dim, Layout>
 } // namespace detail
 
 template<typename Field, typename Enable = void> // enable for gpu
-struct remote_thread_range
+struct remote_range
 {
     using view_type = field_view<Field>;
     using layout = typename Field::layout_map;
@@ -158,23 +158,23 @@ struct remote_thread_range
     using guard_type = typename view_type::guard_type;
     using guard_view_type = typename view_type::guard_view_type;
     using size_type = tl::ri::size_type;
-    using iterator = range_iterator<remote_thread_range>;
+    using iterator = range_iterator<remote_range>;
 
     guard_view_type   m_guard;
     view_type         m_view;
     size_type         m_chunk_size;
     
-    remote_thread_range(const view_type& v, guard_type& g) noexcept
+    remote_range(const view_type& v, guard_type& g) noexcept
     : m_guard{g}
     , m_view{v}
     , m_chunk_size{(size_type)(m_view.m_extent[layout::template find<dimension::value-1>()] * sizeof(value_type))}
     {}
     
-    remote_thread_range(const remote_thread_range&) = default;
-    remote_thread_range(remote_thread_range&&) = default;
+    remote_range(const remote_range&) = default;
+    remote_range(remote_range&&) = default;
 
-    iterator  begin() const { return {const_cast<remote_thread_range*>(this), 0, m_view.m_begin}; }
-    iterator  end()   const { return {const_cast<remote_thread_range*>(this), m_view.m_size, m_view.m_end}; }
+    iterator  begin() const { return {const_cast<remote_range*>(this), 0, m_view.m_begin}; }
+    iterator  end()   const { return {const_cast<remote_range*>(this), m_view.m_size, m_view.m_end}; }
     size_type buffer_size() const { return m_chunk_size; }
 
     // these functions are called at the remote site upon deserializing and reconstructing the range
@@ -312,9 +312,9 @@ struct remote_thread_range
 };
 
 template<typename Field>
-struct remote_thread_range_generator
+struct remote_range_generator
 {
-    using range_type = remote_thread_range<Field>;
+    using range_type = remote_range<Field>;
     using guard_type = typename range_type::guard_type;
     using guard_view_type = typename range_type::guard_view_type;
 
@@ -401,7 +401,7 @@ struct remote_thread_range_generator
 } // namespace structured
 
 template<>
-struct remote_range_traits<structured::remote_thread_range_generator>
+struct remote_range_traits<structured::remote_range_generator>
 {
     template<typename Communicator>
     static bool is_local(Communicator comm, int remote_rank)
@@ -417,4 +417,4 @@ struct remote_range_traits<structured::remote_thread_range_generator>
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_STRUCTURED_REMOTE_THREAD_RANGE_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_REMOTE_RANGE_HPP */

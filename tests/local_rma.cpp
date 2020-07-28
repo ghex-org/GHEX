@@ -26,7 +26,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
-#include <ghex/structured/remote_thread_range.hpp>
+#include <ghex/structured/remote_range.hpp>
 #include <ghex/structured/bulk_communication_object.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
@@ -212,11 +212,11 @@ struct simulation_1
             comms.push_back(context.get_communicator(context.get_token()));
 #ifndef __CUDACC__
             cos.push_back(
-                gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                     comms[0], pattern, field_1a, field_1b, field_2a, field_2b, field_3a, field_3b));
 #else
             cos.push_back(
-                gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                     comms[0], pattern, field_1a_gpu, field_1b_gpu, field_2a_gpu, field_2b_gpu, field_3a_gpu, field_3b_gpu));
 #endif
         } else {
@@ -226,19 +226,19 @@ struct simulation_1
             std::vector<std::thread> threads;
             threads.push_back(std::thread{[this](){
 #ifndef __CUDACC__
-                cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                     comms[0], pattern, field_1a, field_2a, field_3a);
 #else
-                cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                     comms[0], pattern, field_1a_gpu, field_2a_gpu, field_3a_gpu);
 #endif
             }});
             threads.push_back(std::thread{[this](){
 #ifndef __CUDACC__
-                cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                     comms[1], pattern, field_1b, field_2b, field_3b);
 #else
-                cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_thread_range_generator>(
+                cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                     comms[1], pattern, field_1b_gpu, field_2b_gpu, field_3b_gpu);
 #endif
             }});
