@@ -114,18 +114,15 @@ struct simulation
         int pz = comm.rank() / (pd[0]*pd[1]);
         int py = (comm.rank() - pz*pd[0]*pd[1]) / pd[0];
         int px = comm.rank() - pz*pd[0]*pd[1] - py*pd[0];
-        //std::cout << "pd: " << pd[0] << " " << pd[1] << " " << pd[2] << std::endl;
-        std::cout << "p: " << px << " " << py << " " << pz << std::endl;
         
         int j = 0;
         for (int tz=0; tz<td[2]; ++tz)
         for (int ty=0; ty<td[1]; ++ty)
         for (int tx=0; tx<td[0]; ++tx)
         {
-            int x = (px*pd[0]*td[0] + tx*td[0])*ext;
-            int y = (py*pd[1]*td[1] + ty*td[1])*ext;
-            int z = (pz*pd[2]*td[2] + tz*td[2])*ext;
-            std::cout << x << " " << y << " " << z << std::endl;
+            int x = (px*td[0] + tx)*ext;
+            int y = (py*td[1] + ty)*ext;
+            int z = (pz*td[2] + tz)*ext;
             local_domains.push_back(domain_descriptor_type{
                 context.rank()*num_threads+j,
                 std::array<int,3>{x,y,z},
