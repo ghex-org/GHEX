@@ -111,9 +111,10 @@ struct simulation
     , comm{ context.get_serial_communicator() }
     {
         // compute decomposition
-        int pz = comm.rank() / pd[0]*pd[1];
+        int pz = comm.rank() / (pd[0]*pd[1]);
         int py = (comm.rank() - pz*pd[0]*pd[1]) / pd[0];
         int px = comm.rank() - pz*pd[0]*pd[1] - py*pd[0];
+        //std::cout << "pd: " << pd[0] << " " << pd[1] << " " << pd[2] << std::endl;
         std::cout << "p: " << px << " " << py << " " << pz << std::endl;
         
         int j = 0;
@@ -211,13 +212,13 @@ struct simulation
                 }
 
             }});
-            // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
-            // only CPU i as set.
-            cpu_set_t cpuset;
-            CPU_ZERO(&cpuset);
-            CPU_SET(j, &cpuset);
-            int rc = pthread_setaffinity_np(threads[j].native_handle(), sizeof(cpu_set_t), &cpuset);
-            if (rc != 0) { std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n"; }
+            //// Create a cpu_set_t object representing a set of CPUs. Clear it and mark
+            //// only CPU i as set.
+            //cpu_set_t cpuset;
+            //CPU_ZERO(&cpuset);
+            //CPU_SET(j, &cpuset);
+            //int rc = pthread_setaffinity_np(threads[j].native_handle(), sizeof(cpu_set_t), &cpuset);
+            //if (rc != 0) { std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n"; }
         }
         for (auto& t : threads) t.join();
     }
