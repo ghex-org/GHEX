@@ -193,7 +193,6 @@ struct simulation
         {
 
             const auto j = omp_get_thread_num();
-            std::cout << "j = " << j << std::endl;
         //std::vector<std::thread> threads;
         //for (int j=0; j<num_threads; ++j)
         //{

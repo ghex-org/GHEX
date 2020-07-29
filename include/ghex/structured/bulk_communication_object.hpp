@@ -196,8 +196,10 @@ public: // ctors
                             {
                                 auto& source_r = std::get<decltype(i)::value>(m_source_ranges_tuple);
                                 // loop over elements in index container
-                                for (const auto& c : sit->second)
+                                //for (const auto& c : sit->second)
+                                for (auto it = sit->second.rbegin(); it != sit->second.rend(); ++it)
                                 {
+                                    const auto& c = *it;
                                     source_r.m_ranges.emplace_back(comm, f, c.local().first(), c.local().last(), sit->first.mpi_rank, sit->first.tag); 
                                 }
                             }
