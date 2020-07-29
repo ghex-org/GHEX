@@ -15,6 +15,7 @@
 #include <tuple>
 #include <boost/mp11.hpp>
 #include "../common/moved_bit.hpp"
+#include "../common/utils.hpp"
 #include "../communication_object_2.hpp"
 #include "../bulk_communication_object.hpp"
 #include "../transport_layer/ri/range_factory.hpp"
@@ -27,6 +28,78 @@ namespace gridtools {
 namespace ghex {
 
 namespace structured {
+
+namespace detail {
+
+template<typename Layout, std::size_t D, std::size_t I>
+struct range_loop
+{
+    template<typename Field, typename Filtered, typename Coord>
+    static inline void apply(const Field& f, Filtered& filtered_ranges, Coord coord) noexcept
+    {
+        static constexpr auto C = Layout::template find<I-1>();
+        for (auto c = -(long)f.offsets()[C]; c<(long)f.extents()[C]-f.offsets()[C]; ++c)
+        {
+            coord[C] = c;
+            
+            filtered_ranges[I-1].clear();
+            for (auto r : filtered_ranges[I-2])
+                if (c >= r->m_view.m_offset[C] && c < r->m_view.m_offset[C] + r->m_view.m_extent[C])
+                    filtered_ranges[I-1].push_back(r);
+            
+            range_loop<Layout,D,I+1>::apply(f,filtered_ranges,coord);
+        }
+    }
+};
+
+template<typename Layout, std::size_t D>
+struct range_loop<Layout, D, 1>
+{
+    template<typename Field, typename Ranges>
+    static inline void apply(const Field& f, Ranges& ranges) noexcept
+    {
+        using coordinate_type = typename Field::coordinate_type;
+        using range_type = std::remove_cv_t<std::remove_reference_t<decltype(*ranges.begin())>>;
+        static constexpr auto C = Layout::template find<0>();
+        
+        static thread_local std::array<std::vector<range_type*>, D-1> filtered_ranges;
+        for (auto c = -(long)f.offsets()[C]; c<(long)f.extents()[C]-f.offsets()[C]; ++c)
+        {
+            coordinate_type coord{};
+            coord[C] = c;
+            
+            filtered_ranges[0].clear();
+            for (auto& r : ranges)
+                if (c >= r.m_view.m_offset[C] && c < r.m_view.m_offset[C] + r.m_view.m_extent[C])
+                    filtered_ranges[0].push_back(&r);
+
+            range_loop<Layout,D,2>::apply(f,filtered_ranges,coord);
+        }
+    }
+};
+
+template<typename Layout, std::size_t D>
+struct range_loop<Layout, D, D>
+{
+    template<typename Field, typename Filtered, typename Coord>
+    static inline void apply(const Field&, Filtered& filtered_ranges, Coord coord) noexcept
+    {
+        static constexpr auto C = Layout::template find<D-1>();
+        for (auto r : filtered_ranges[D-2])
+        {
+            auto coord_new = coord;
+            for (unsigned int d=0; d<D; ++d)
+                coord_new[d] -= (d==C) ? coord[d] : r->m_view.m_offset[d];
+            // TODO: GPU pointer??
+            //auto mem_loc = &(r->m_view(coord_new));
+            auto mem_loc = r->m_view.ptr(coord_new);
+            r->m_remote_range.put(r->m_pos,(const tl::ri::byte*)mem_loc);
+            ++r->m_pos;
+        }
+    }
+};
+
+}
 
 template<template <typename> class RangeGen, typename Communicator, typename Coordinate, typename DomainId, typename... Fields>
 class bulk_communication_object
@@ -235,7 +308,6 @@ public: // member functions
                 using I = decltype(i);
                 // get source ranges for this field
                 auto& source_r = std::get<I::value>(m_source_ranges_tuple);
-                using S = std::remove_reference_t<decltype(source_r)>;
                 // get corresponding field
                 auto& f = *(std::get<I::value>(m_field_tuple));
                 using F = std::remove_reference_t<decltype(f)>;
@@ -244,43 +316,8 @@ public: // member functions
                 for (auto& r : source_r.m_ranges)
                     r.m_remote_range.start_source_epoch();
 
-                // loop over the whole domain and put fields
-                std::array<std::vector<typename S::range_type*>, F::dimension::value-1> filtered_ranges;
+                detail::range_loop<typename F::layout_map, F::dimension::value, 1>::apply(f, source_r.m_ranges);
 
-                typename F::coordinate_type coord;
-                static constexpr auto Z = F::layout_map::template find<0>();
-                for (auto z = -(long)f.offsets()[Z]; z<(long)f.extents()[Z]-f.offsets()[Z]; ++z)
-                {
-                    auto z_coord = coord;
-                    z_coord[Z] = z;
-                    filtered_ranges[0].clear();
-                    for (auto& r : source_r.m_ranges)
-                        if (z >= r.m_view.m_offset[Z] && z < r.m_view.m_offset[Z] + r.m_view.m_extent[Z])
-                            filtered_ranges[0].push_back(&r);
-                    static constexpr auto Y = F::layout_map::template find<1>();
-                    for (auto y = -(long)f.offsets()[Y]; y<(long)f.extents()[Y]-f.offsets()[Y]; ++y)
-                    {
-                        auto y_coord = z_coord;
-                        y_coord[Y] = y;
-                        filtered_ranges[1].clear();
-                        for (auto r : filtered_ranges[0])
-                            if (y >= r->m_view.m_offset[Y] && y < r->m_view.m_offset[Y] + r->m_view.m_extent[Y])
-                                filtered_ranges[1].push_back(r);
-                        
-                        static constexpr auto X = F::layout_map::template find<2>();
-                        for (auto r : filtered_ranges[1])
-                        {
-                            auto x_coord = y_coord;
-                            x_coord[X] = 0;//r->m_view.m_offset[X];
-                            x_coord[Y] -= r->m_view.m_offset[Y];
-                            x_coord[Z] -= r->m_view.m_offset[Z];
-                            auto mem_loc = &(r->m_view(x_coord));
-                            r->m_remote_range.put(r->m_pos,(const tl::ri::byte*)mem_loc);
-                            ++r->m_pos;
-                        }
-                    }
-                }
-                
                 // give up direct memory write access
                 for (auto& r : source_r.m_ranges)
                 {

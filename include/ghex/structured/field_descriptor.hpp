@@ -235,6 +235,13 @@ public: // member functions
         return *reinterpret_cast<const T*>((const char*)m_data +dot(x,m_byte_strides));
     }
 
+    value_type* ptr(const coordinate_type& x) {
+        return reinterpret_cast<T*>((char*)m_data +dot(x,m_byte_strides));
+    }
+    const value_type* ptr(const coordinate_type& x) const {
+        return reinterpret_cast<const T*>((const char*)m_data +dot(x,m_byte_strides));
+    }
+
     /** @brief access operator
      * @param is coordinates with respect to offset specified in constructor
      * @return reference to value */

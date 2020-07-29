@@ -16,6 +16,7 @@
 #include <pthread.h>
 #include <array>
 #include <gridtools/common/array.hpp>
+#include <omp.h>
 
 #include <ghex/threads/std_thread/primitives.hpp>
 #ifndef GHEX_TEST_USE_UCX
@@ -148,15 +149,14 @@ struct simulation
                 gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
                         context, halo_gen, local_domains)}};
         
-        j=0;
         cos.resize(num_threads);
-        std::vector<std::thread> threads;
-        for (; j<num_threads; ++j)
-        {    
-            threads.push_back(std::thread{[this,j](){
-                cos[j] = 
-                    gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-                        comms[j], *pattern, 
+        omp_set_num_threads(num_threads);
+#pragma omp parallel
+        {
+            const auto j = omp_get_thread_num();
+            cos[j] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
+                        comms[j], 
+                        *pattern, 
                         fields[j][0],
                         fields[j][1],
                         fields[j][2],
@@ -164,18 +164,41 @@ struct simulation
                         fields[j][4],
                         fields[j][5],
                         fields[j][6],
-                        fields[j][7]);}});
+                        fields[j][7]);
         }
-        for (auto& t : threads) t.join();
+
+        //j=0;
+        //std::vector<std::thread> threads;
+        //for (; j<num_threads; ++j)
+        //{    
+        //    threads.push_back(std::thread{[this,j](){
+        //        cos[j] = 
+        //            gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
+        //                comms[j], *pattern, 
+        //                fields[j][0],
+        //                fields[j][1],
+        //                fields[j][2],
+        //                fields[j][3],
+        //                fields[j][4],
+        //                fields[j][5],
+        //                fields[j][6],
+        //                fields[j][7]);}});
+        //}
+        //for (auto& t : threads) t.join();
     }
 
     void exchange()
     {
-        std::vector<std::thread> threads;
-        for (int j=0; j<num_threads; ++j)
+#pragma omp parallel
         {
-            threads.push_back(std::thread{[this,j]() -> void 
-            {
+
+            const auto j = omp_get_thread_num();
+            std::cout << "j = " << j << std::endl;
+        //std::vector<std::thread> threads;
+        //for (int j=0; j<num_threads; ++j)
+        //{
+        //    threads.push_back(std::thread{[this,j]() -> void 
+        //    {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 {
                     std::lock_guard<std::mutex> io_lock(io_mutex);
@@ -208,7 +231,7 @@ struct simulation
                     std::cout << "GB/s : " << GB_per_s << std::endl;
                 }
 
-            }});
+            //}});
             //// Create a cpu_set_t object representing a set of CPUs. Clear it and mark
             //// only CPU i as set.
             //cpu_set_t cpuset;
@@ -216,8 +239,9 @@ struct simulation
             //CPU_SET(j, &cpuset);
             //int rc = pthread_setaffinity_np(threads[j].native_handle(), sizeof(cpu_set_t), &cpuset);
             //if (rc != 0) { std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n"; }
+        //}
+        //for (auto& t : threads) t.join();
         }
-        for (auto& t : threads) t.join();
     }
 };
 

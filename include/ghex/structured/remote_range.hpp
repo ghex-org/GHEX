@@ -114,6 +114,13 @@ struct field_view
     const value_type& operator()(const coordinate& x) const {
         return m_field(x+m_offset);
     }
+    
+    value_type* ptr(const coordinate& x) {
+        return m_field.ptr(x+m_offset);
+    }
+    const value_type* ptr(const coordinate& x) const {
+        return m_field.ptr(x+m_offset);
+    }
 };
 
 namespace detail {
