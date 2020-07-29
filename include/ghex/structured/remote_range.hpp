@@ -115,9 +115,11 @@ struct field_view
         return m_field(x+m_offset);
     }
     
+    GT_FUNCTION
     value_type* ptr(const coordinate& x) {
         return m_field.ptr(x+m_offset);
     }
+    GT_FUNCTION
     const value_type* ptr(const coordinate& x) const {
         return m_field.ptr(x+m_offset);
     }

@@ -228,18 +228,20 @@ public: // member functions
      * @return reference to value */
     GT_FUNCTION
     value_type& operator()(const coordinate_type& x) {
-        return *reinterpret_cast<T*>((char*)m_data +dot(x,m_byte_strides));
+        return *reinterpret_cast<T*>((char*)m_data +dot(x+m_offsets,m_byte_strides));
     }
     GT_FUNCTION
     const value_type& operator()(const coordinate_type& x) const {
-        return *reinterpret_cast<const T*>((const char*)m_data +dot(x,m_byte_strides));
+        return *reinterpret_cast<const T*>((const char*)m_data +dot(x+m_offsets,m_byte_strides));
     }
 
+    GT_FUNCTION
     value_type* ptr(const coordinate_type& x) {
-        return reinterpret_cast<T*>((char*)m_data +dot(x,m_byte_strides));
+        return reinterpret_cast<T*>((char*)m_data +dot(x+m_offsets,m_byte_strides));
     }
+    GT_FUNCTION
     const value_type* ptr(const coordinate_type& x) const {
-        return reinterpret_cast<const T*>((const char*)m_data +dot(x,m_byte_strides));
+        return reinterpret_cast<const T*>((const char*)m_data +dot(x+m_offsets,m_byte_strides));
     }
 
     /** @brief access operator
@@ -247,12 +249,12 @@ public: // member functions
      * @return reference to value */
     template<typename... Is>
     GT_FUNCTION
-    value_type& operator()(Is&&... is) {
+    value_type& operator()(const Is&... is) {
         return *reinterpret_cast<T*>((char*)m_data+dot(coordinate_type{is...}+m_offsets,m_byte_strides));
     }
     template<typename... Is>
     GT_FUNCTION
-    const value_type& operator()(Is&&... is) const {
+    const value_type& operator()(const Is&... is) const {
         return *reinterpret_cast<const T*>((const char*)m_data+dot(coordinate_type{is...}+
             m_offsets,m_byte_strides));
     }

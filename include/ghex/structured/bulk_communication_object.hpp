@@ -90,8 +90,6 @@ struct range_loop<Layout, D, D>
             auto coord_new = coord;
             for (unsigned int d=0; d<D; ++d)
                 coord_new[d] -= (d==C) ? coord[d] : r->m_view.m_offset[d];
-            // TODO: GPU pointer??
-            //auto mem_loc = &(r->m_view(coord_new));
             auto mem_loc = r->m_view.ptr(coord_new);
             r->m_remote_range.put(r->m_pos,(const tl::ri::byte*)mem_loc);
             ++r->m_pos;
@@ -197,6 +195,7 @@ public: // ctors
                                 auto& source_r = std::get<decltype(i)::value>(m_source_ranges_tuple);
                                 // loop over elements in index container
                                 //for (const auto& c : sit->second)
+                                //{
                                 for (auto it = sit->second.rbegin(); it != sit->second.rend(); ++it)
                                 {
                                     const auto& c = *it;
@@ -232,8 +231,11 @@ public: // ctors
                             {
                                 auto& target_r = std::get<decltype(i)::value>(m_target_ranges_tuple);
                                 // loop over elements in index container
-                                for (const auto& c : rit->second)
+                                //for (const auto& c : rit->second)
+                                //{
+                                for (auto it = rit->second.rbegin(); it != rit->second.rend(); ++it)
                                 {
+                                    const auto& c = *it;
                                     target_r.m_ranges.emplace_back(comm, f, c.local().first(), c.local().last(), rit->first.mpi_rank, rit->first.tag); 
                                     // start handshake
                                     target_r.m_ranges.back().send();
