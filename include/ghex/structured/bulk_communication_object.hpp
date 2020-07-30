@@ -320,7 +320,58 @@ public: // member functions
                 for (auto& r : source_r.m_ranges)
                     r.m_remote_range.start_source_epoch();
 
-                detail::range_loop<typename F::layout_map, F::dimension::value, 1>::apply(f, source_r.m_ranges);
+                //// general loop
+                //detail::range_loop<typename F::layout_map, F::dimension::value, 1>::apply(f, source_r.m_ranges);
+
+                //// hard coded 3D loop
+                //using S = std::remove_reference_t<decltype(source_r)>;
+                //std::array<std::vector<typename S::range_type*>, F::dimension::value-1> filtered_ranges;
+                //typename F::coordinate_type coord;
+                //static constexpr auto Z = F::layout_map::template find<0>();
+                //for (auto z = -(long)f.offsets()[Z]; z<(long)f.extents()[Z]-f.offsets()[Z]; ++z)
+                //{
+                //    auto z_coord = coord;
+                //    z_coord[Z] = z;
+                //    filtered_ranges[0].clear();
+                //    for (auto& r : source_r.m_ranges)
+                //        if (z >= r.m_view.m_offset[Z] && z < r.m_view.m_offset[Z] + r.m_view.m_extent[Z])
+                //            filtered_ranges[0].push_back(&r);
+                //    static constexpr auto Y = F::layout_map::template find<1>();
+                //    for (auto y = -(long)f.offsets()[Y]; y<(long)f.extents()[Y]-f.offsets()[Y]; ++y)
+                //    {
+                //        auto y_coord = z_coord;
+                //        y_coord[Y] = y;
+                //        filtered_ranges[1].clear();
+                //        for (auto r : filtered_ranges[0])
+                //            if (y >= r->m_view.m_offset[Y] && y < r->m_view.m_offset[Y] + r->m_view.m_extent[Y])
+                //                filtered_ranges[1].push_back(r);
+                //        
+                //        static constexpr auto X = F::layout_map::template find<2>();
+                //        for (auto r : filtered_ranges[1])
+                //        {
+                //            auto x_coord = y_coord;
+                //            x_coord[X] = 0;//r->m_view.m_offset[X];
+                //            x_coord[Y] -= r->m_view.m_offset[Y];
+                //            x_coord[Z] -= r->m_view.m_offset[Z];
+                //            auto mem_loc = r->m_view.ptr(x_coord);
+                //            r->m_remote_range.put(r->m_pos,(const tl::ri::byte*)mem_loc);
+                //            ++r->m_pos;
+                //        }
+                //    }
+                //}
+
+                // loop over ranges - hard coded 3D
+                for (auto& r : source_r.m_ranges)
+                {
+                    for (int z = 0; z < r.m_view.m_extent[2]; ++z)
+                        for (int y = 0; y < r.m_view.m_extent[1]; ++y)
+                        {
+                            auto mem_loc = r.m_view.ptr(typename F::coordinate_type{0, y, z});
+                            r.m_remote_range.put(r.m_pos,(const tl::ri::byte*)mem_loc);
+                            ++r.m_pos;
+                        }
+                }
+
 
                 // give up direct memory write access
                 for (auto& r : source_r.m_ranges)
