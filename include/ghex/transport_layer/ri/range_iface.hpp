@@ -26,8 +26,8 @@ struct range_iface
 
     virtual Iterator  begin() const noexcept = 0;
     virtual Iterator  end()   const noexcept = 0;
-    //virtual void      put(const chunk&, const byte*) = 0;
-    virtual Iterator      put(Iterator, const byte*) = 0;
+    virtual void      put(const chunk&, const byte*) = 0;
+    //virtual Iterator      put(Iterator&, const byte*) = 0;
     virtual void      start_local_epoch() = 0;
     virtual void      end_local_epoch() = 0;
     virtual void      start_remote_epoch() = 0;
@@ -52,8 +52,11 @@ struct range_impl : public range_iface<Iterator>
     
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }
-    //void      put(const chunk& c, const byte* ptr) override final { Range::put(c, ptr, Arch{}); }
-    Iterator     put(Iterator it, const byte* ptr) override final{
+    void      put(const chunk& c, const byte* ptr) override final 
+    { 
+        Range::put(c, ptr, Arch{});
+    }
+    /*Iterator     put(Iterator& it, const byte* ptr) override final{
 
         //Range::put(*it,ptr,Arch{});
         //return it;
@@ -64,10 +67,10 @@ struct range_impl : public range_iface<Iterator>
         ////Range::put(it, ptr, Arch{}); 
         iterator_iface_t& iface_it = it.iface();
         iterator_impl_t& impl_it = static_cast<iterator_impl_t&>(iface_it);
-        concrete_iterator_t c_it = impl_it.m;
+        concrete_iterator_t& c_it = impl_it.m;
         return {Range::put(c_it, ptr, Arch{})}; 
         //return it;
-    }
+    }*/
     void      start_local_epoch() override final { }
     void      end_local_epoch() override final { }
     void      start_remote_epoch() override final { m.start_remote_epoch(Arch{}); }
@@ -84,8 +87,8 @@ struct range_impl<Range, Iterator, target_> : public range_iface<Iterator>
 
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }
-    //void      put(const chunk&, const byte*) override final { }
-    Iterator      put(Iterator it, const byte*) override final { return it; }
+    void      put(const chunk&, const byte*) override final { }
+    //Iterator      put(Iterator& it, const byte*) override final { return it; }
     void      start_local_epoch() override final { m.start_local_epoch(); }
     void      end_local_epoch() override final { m.end_local_epoch(); }
     void      start_remote_epoch() override final {}

@@ -54,7 +54,7 @@ struct range
     const range_iface<iterator_type>& ciface() const { return *reinterpret_cast<const range_iface<iterator_type>*>(m_stack); }
 
     //void put(const chunk& c, const byte* ptr) {} //{ iface().put(c, ptr); }
-    void put(iterator_type it, const byte* ptr) {
+    void put(const iterator_type& it, const byte* ptr) {
         //chunk c = it.iface();  
         iface().put(it, ptr); 
     }

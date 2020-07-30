@@ -310,6 +310,13 @@ public: // member functions
             boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this](auto i)
             {
                 using I = decltype(i);
+                
+                //// get target ranges for this field
+                //auto& target_r = std::get<I::value>(m_target_ranges_tuple);
+                //// wait for communication to complete
+                //for (auto& r : target_r.m_ranges)
+                //    r.m_local_range.end_target_epoch();
+                
                 // get source ranges for this field
                 auto& source_r = std::get<I::value>(m_source_ranges_tuple);
                 // get corresponding field
@@ -320,8 +327,8 @@ public: // member functions
                 for (auto& r : source_r.m_ranges)
                     r.m_remote_range.start_source_epoch();
 
-                //// general loop
-                //detail::range_loop<typename F::layout_map, F::dimension::value, 1>::apply(f, source_r.m_ranges);
+                // general loop
+                detail::range_loop<typename F::layout_map, F::dimension::value, 1>::apply(f, source_r.m_ranges);
 
                 //// hard coded 3D loop
                 //using S = std::remove_reference_t<decltype(source_r)>;
@@ -360,17 +367,17 @@ public: // member functions
                 //    }
                 //}
 
-                // loop over ranges - hard coded 3D
-                for (auto& r : source_r.m_ranges)
-                {
-                    for (int z = 0; z < r.m_view.m_extent[2]; ++z)
-                        for (int y = 0; y < r.m_view.m_extent[1]; ++y)
-                        {
-                            auto mem_loc = r.m_view.ptr(typename F::coordinate_type{0, y, z});
-                            r.m_remote_range.put(r.m_pos,(const tl::ri::byte*)mem_loc);
-                            ++r.m_pos;
-                        }
-                }
+                //// loop over ranges - hard coded 3D
+                //for (auto& r : source_r.m_ranges)
+                //{
+                //    for (int z = 0; z < r.m_view.m_extent[2]; ++z)
+                //        for (int y = 0; y < r.m_view.m_extent[1]; ++y)
+                //        {
+                //            auto mem_loc = r.m_view.ptr(typename F::coordinate_type{0, y, z});
+                //            r.m_remote_range.put(r.m_pos,(const tl::ri::byte*)mem_loc);
+                //            ++r.m_pos;
+                //        }
+                //}
 
 
                 // give up direct memory write access
