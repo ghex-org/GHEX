@@ -29,10 +29,6 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 
-static thread_local std::size_t ptr_acc_1 = 0u;
-static thread_local std::size_t ptr_acc_2 = 0u;
-static thread_local std::size_t put_count = 0u;
-
 template<typename Range>
 struct range_iterator
 {
@@ -170,26 +166,6 @@ struct inc_coord<Dim, Dim, Layout>
         coord[I] = ext[I];
     }
 };
-
-/*template<unsigned int Dim, typename Layout, typename Coord, typename View>
-inline int inc(Coord& coord, int index, const Coord& ext, const View& v) noexcept
-{
-    static constexpr auto I = Layout::template find<Dim-1>();
-    const bool at_end = index + 1 >= v.m_size;
-
-        if (index + 1 >= v.m_size)
-        {
-            coord = m_view.m_end;
-            return m_view.m_size;
-        }
-        else
-        {
-            coord[I] = 0;
-            detail::inc_coord<dimension::value, 1, layout>::fn(coord, m_view.m_extent);
-            return index + 1;
-        }
-
-}*/
 } // namespace detail
 
 template<typename Field, typename Enable = void> // enable for gpu
@@ -248,70 +224,39 @@ struct remote_range
         m_guard.release_remote(); 
     }
     
-    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_, std::true_type) {
+    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_, std::true_type)
+    {
+        // host to host put
         std::memcpy(c.data(), ptr, c.size());
-        //*((double*)c.data()) = *((const double*)ptr);
-        //ptr_acc_1 += reinterpret_cast<std::size_t>(c.data());
-        //ptr_acc_2 += reinterpret_cast<std::size_t>(ptr);
-        //++put_count;
+    }
+    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_, std::false_type)
+    {
+#ifdef __CUDACC__
+        // devide to host put
+        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyHostToDevice);
+#endif /* __CUDACC__ */
+    }
+    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_, std::true_type)
+    {
+#ifdef __CUDACC__
+        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToHost);
+#endif /* __CUDACC__ */
+    }
+    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_, std::false_type)
+    {
+#ifdef __CUDACC__
+        // devide to host put
+        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToDevice);
+#endif /* __CUDACC__ */
     }
     
     static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_ h) {
         put(c, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
     }
-    static inline void put(tl::ri::chunk, const tl::ri::byte*, tl::ri::remote_device_) {}
+    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_ h) {
+        put(c, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
+    }
     
-//    static iterator put(iterator& it, const tl::ri::byte* ptr, tl::ri::remote_host_, std::true_type) {
-//        tl::ri::chunk c = *it; 
-//        //std::memcpy(c.data(), ptr, c.size());
-//        //*((double*)c.data()) = *((const double*)ptr);
-//        ptr_acc_1 += reinterpret_cast<std::size_t>(c.data());
-//        ptr_acc_2 += reinterpret_cast<std::size_t>(ptr);
-//        ++put_count;
-//        return it;
-//    }
-//    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_host_, std::false_type) {
-//#ifdef __CUDACC__
-//        tl::ri::chunk c = *it; 
-//        // devide to host put
-//        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyHostToDevice);
-//#endif /* __CUDACC__ */
-//        return it;
-//    }
-//    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_device_, std::true_type) {
-//#ifdef __CUDACC__
-//        tl::ri::chunk c = *it; 
-//        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToHost);
-//#endif /* __CUDACC__ */
-//        return it;
-//    }
-//    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_device_, std::false_type) {
-//#ifdef __CUDACC__
-//        tl::ri::chunk c = *it; 
-//        // devide to host put
-//        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToDevice);
-//#endif /* __CUDACC__ */
-//        return it;
-//    }
-//
-//    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_host_ h) {
-//        //// de-virtualize iterator
-//        ////iterator it_ = dynamic_cast<iterator&>(it);
-//        //tl::ri::chunk c = *it; 
-//        //// host to host put
-//        //std::memcpy(c.data(), ptr, c.size());
-//        //return it;
-//        return put(it, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
-//    }
-//
-//    static iterator put(iterator it, const tl::ri::byte* ptr, tl::ri::remote_device_ d) {
-//        return put(it, ptr, d, std::is_same<typename Field::arch_type, cpu>{});
-//    }
-//
-//    //template<typename IteratorBase>
-//    //static void put(iterator& it, const tl::ri::byte* ptr, tl::ri::remote_device_) { }
-
-
     void start_local_epoch() { m_guard.start_local_epoch(); }
     void end_local_epoch()   { m_guard.end_local_epoch(); }
 

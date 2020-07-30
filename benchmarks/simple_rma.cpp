@@ -230,8 +230,6 @@ struct simulation
                     std::cout << "GB/s : " << GB_per_s << std::endl;
                 }
 
-                std::cout << gridtools::ghex::structured::put_count << std::endl;
-
             //}});
             //// Create a cpu_set_t object representing a set of CPUs. Clear it and mark
             //// only CPU i as set.

@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_STRUCTURED_BULK_COMMUNICATION_OBJECT_HPP
 
 #include <vector>
+#include <algorithm>
 #include <tuple>
 #include <boost/mp11.hpp>
 #include "../common/moved_bit.hpp"
@@ -46,7 +47,7 @@ struct range_loop
             for (auto r : filtered_ranges[I-2])
                 if (c >= r->m_view.m_offset[C] && c < r->m_view.m_offset[C] + r->m_view.m_extent[C])
                     filtered_ranges[I-1].push_back(r);
-            
+
             range_loop<Layout,D,I+1>::apply(f,filtered_ranges,coord);
         }
     }
@@ -59,7 +60,7 @@ struct range_loop<Layout, D, 1>
     static inline void apply(const Field& f, Ranges& ranges) noexcept
     {
         using coordinate_type = typename Field::coordinate_type;
-        using range_type = std::remove_cv_t<std::remove_reference_t<decltype(*ranges.begin())>>;
+        using range_type = std::remove_cv_t<std::remove_reference_t<decltype(**ranges.begin())>>;
         static constexpr auto C = Layout::template find<0>();
         
         static thread_local std::array<std::vector<range_type*>, D-1> filtered_ranges;
@@ -70,8 +71,8 @@ struct range_loop<Layout, D, 1>
             
             filtered_ranges[0].clear();
             for (auto& r : ranges)
-                if (c >= r.m_view.m_offset[C] && c < r.m_view.m_offset[C] + r.m_view.m_extent[C])
-                    filtered_ranges[0].push_back(&r);
+                if (c >= r->m_view.m_offset[C] && c < r->m_view.m_offset[C] + r->m_view.m_extent[C])
+                    filtered_ranges[0].push_back(r);
 
             range_loop<Layout,D,2>::apply(f,filtered_ranges,coord);
         }
@@ -153,6 +154,7 @@ private: // member types
         using ranges_type = select_source_range<Field>;
         using range_type = typename ranges_type::value_type;
         ranges_type m_ranges; 
+        std::vector<range_type*> m_range_ptrs;
     };
 
     using target_ranges_t = boost::mp11::mp_rename<boost::mp11::mp_transform<target_ranges, field_types>,std::tuple>;
@@ -261,9 +263,34 @@ public: // ctors
                 // get source ranges for this field
                 auto& source_r = std::get<I::value>(m_source_ranges_tuple);
                 // complete the handshake
-                for (auto& r : source_r.m_ranges) r.recv();
+                for (auto& r : source_r.m_ranges)
+                {
+                    r.recv();
+                    source_r.m_range_ptrs.push_back(&r); 
+                }
             });
         }
+            
+        
+        // loop over source ranges and sort
+        for (std::size_t i=0; i<sizeof...(Fields); ++i)
+        {
+            boost::mp11::mp_with_index<sizeof...(Fields)>(i, [this](auto i)
+            {
+                using I = decltype(i);
+                using F = std::remove_reference_t<decltype(*(std::get<decltype(i)::value>(m_field_tuple)))>;
+                using Layout = typename F::layout_map;
+
+                // get source ranges for this field
+                auto& source_r = std::get<I::value>(m_source_ranges_tuple);
+                std::sort(source_r.m_range_ptrs.begin(), source_r.m_range_ptrs.end(), [](const auto& lhs, const auto& rhs)
+                {
+                    return lhs->m_view.m_offset[Layout::template find<F::dimension::value-1>()] < 
+                        rhs->m_view.m_offset[Layout::template find<F::dimension::value-1>()];
+                });
+            });
+        }
+            
     }
 
     bulk_communication_object(bulk_communication_object&& ) = default;
@@ -328,7 +355,7 @@ public: // member functions
                     r.m_remote_range.start_source_epoch();
 
                 // general loop
-                detail::range_loop<typename F::layout_map, F::dimension::value, 1>::apply(f, source_r.m_ranges);
+                detail::range_loop<typename F::layout_map, F::dimension::value, 1>::apply(f, source_r.m_range_ptrs);
 
                 //// hard coded 3D loop
                 //using S = std::remove_reference_t<decltype(source_r)>;
