@@ -120,6 +120,7 @@ struct simulation
         fields_raw.reserve(num_threads);
         fields.reserve(num_threads);
         comms.reserve(num_threads);
+        omp_set_num_threads(num_threads);
 #pragma omp parallel for ordered schedule(static,1)
         for (int j=0; j<num_threads; ++j)
         {
@@ -186,7 +187,6 @@ struct simulation
                         context, halo_gen, local_domains)}};
         
         cos.resize(num_threads);
-        omp_set_num_threads(num_threads);
 #pragma omp parallel
         {
             const auto j = omp_get_thread_num();
