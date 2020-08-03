@@ -116,7 +116,38 @@ struct simulation
         int py = (comm.rank() - pz*pd[0]*pd[1]) / pd[0];
         int px = comm.rank() - pz*pd[0]*pd[1] - py*pd[0];
         
-        int j = 0;
+#pragma omp parallel for ordered schedule(static,1)
+        for (int j=0; j<num_threads; ++j)
+        {
+            int tz = j / (td[0]*td[1]);
+            int ty = (j - tz*td[0]*td[1]) / td[0];
+            int tx = j - tz*td[0]*td[1] - ty*td[0];
+            int x = (px*td[0] + tx)*ext;
+            int y = (py*td[1] + ty)*ext;
+            int z = (pz*td[2] + tz)*ext;
+#pragma omp ordered
+            {
+                local_domains.push_back(domain_descriptor_type{
+                    context.rank()*num_threads+j,
+                    std::array<int,3>{x,y,z},
+                    std::array<int,3>{x+ext-1,y+ext-1,z+ext-1}});
+                fields_raw.resize(fields_raw.size()+1);
+                fields.resize(fields.size()+1);
+                for (int i=0; i<num_fields; ++i)
+                {
+                    fields_raw.back().push_back( std::vector<T>(max_memory) );
+                    fields.back().push_back(
+                        gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(
+                            local_domains.back(),
+                            fields_raw.back().back().data(),
+                            offset,
+                            local_ext_buffer));
+                }
+                comms.push_back(context.get_communicator(context.get_token()));
+            }
+        }
+
+        /*int j = 0;
         for (int tz=0; tz<td[2]; ++tz)
         for (int ty=0; ty<td[1]; ++ty)
         for (int tx=0; tx<td[0]; ++tx)
@@ -142,7 +173,7 @@ struct simulation
             }
             comms.push_back(context.get_communicator(context.get_token()));
             ++j;
-        }
+        }*/
 
         pattern = std::unique_ptr<pattern_type>{
             new pattern_type{
