@@ -116,6 +116,10 @@ struct simulation
         int py = (comm.rank() - pz*pd[0]*pd[1]) / pd[0];
         int px = comm.rank() - pz*pd[0]*pd[1] - py*pd[0];
         
+        local_domains.reserve(num_threads);
+        fields_raw.reserve(num_threads);
+        fields.reserve(num_threads);
+        comms.reserve(num_threads);
 #pragma omp parallel for ordered schedule(static,1)
         for (int j=0; j<num_threads; ++j)
         {
@@ -127,6 +131,7 @@ struct simulation
             int z = (pz*td[2] + tz)*ext;
 #pragma omp ordered
             {
+                std::cout << tx << " " << ty << " " << tz << std::endl;
                 local_domains.push_back(domain_descriptor_type{
                     context.rank()*num_threads+j,
                     std::array<int,3>{x,y,z},
