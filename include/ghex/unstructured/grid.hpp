@@ -19,7 +19,7 @@ namespace gridtools {
 
                 template<typename Index>
                 struct grid {
-                    using index_t = Index;
+                    using index_type = Index;
                 };
 
             } // namespace detail
@@ -27,7 +27,7 @@ namespace gridtools {
             /** @brief type to indicate unstructured grids */
             struct grid {
                 template<typename Domain>
-                using type = detail::grid<typename Domain::index_t>;
+                using type = detail::grid<typename Domain::local_index_type>;
             };
 
         } // namespace unstructured

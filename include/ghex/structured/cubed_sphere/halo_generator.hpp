@@ -70,7 +70,7 @@ namespace gridtools {
                         // get tile id
                         const int tile_id = d.domain_id().tile;
                         // get resolution of cube
-                        const int c = d.x();
+                        const int c = d.edge_size();
                         // domain in global tile coords
                         const box domain_box{ d.first(), d.last() };
                         // domain in local tile coords
@@ -239,8 +239,8 @@ namespace gridtools {
                                     break;
                             // get inverse transform
                             const auto& t = inverse_transform_lu[d.domain_id().tile][n];
-                            auto f = t(x.first()[1],x.first()[2],d.x());
-                            auto l = t(x.last()[1],x.last()[2],d.x());
+                            auto f = t(x.first()[1],x.first()[2],d.edge_size());
+                            auto l = t(x.last()[1],x.last()[2],d.edge_size());
                             f[0] -= d.first()[1];
                             f[1] -= d.first()[2];
                             l[0] -= d.first()[1];
