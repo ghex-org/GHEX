@@ -9,7 +9,7 @@
 // those are configurable at compile time
 #include "ghex_defs.hpp"
 using arch_type                 = ghex::cpu;
-using domain_id_type            = ghex::structured::cubed_sphere::domain_id_t;
+using domain_id_type            = ghex::structured::cubed_sphere::domain_id_type;
 
 struct cubed_sphere_field_descriptor {
     fp_type *data;

@@ -1,8 +1,8 @@
 #include "context_bind.hpp"
 #include <array>
-#include <ghex/structured/domain_descriptor.hpp>
-// #include <ghex/structured/halo_generator.hpp>
-#include <ghex/structured/simple_field_wrapper.hpp>
+#include <ghex/structured/regular/domain_descriptor.hpp>
+#include <ghex/structured/regular/halo_generator.hpp>
+#include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object_2.hpp>
 
@@ -62,17 +62,17 @@ struct field_compare {
 
 using grid_type                 = ghex::structured::grid;
 using grid_detail_type          = ghex::structured::detail::grid<std::array<int, GHEX_DIMS>>;
-using domain_descriptor_type    = ghex::structured::domain_descriptor<domain_id_type, GHEX_DIMS>;
+using domain_descriptor_type    = ghex::structured::regular::domain_descriptor<domain_id_type, GHEX_DIMS>;
 using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
 using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
-using field_descriptor_type     = ghex::structured::simple_field_wrapper<fp_type, arch_type, domain_descriptor_type,2,1,0>;
+using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type,2,1,0>;
 using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
 using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
 using pattern_map_type          = std::map<struct_field_descriptor, pattern_type, field_compare>;
 using exchange_handle_type      = communication_obj_type::handle_type;
 
 // ASYMETRY
-using halo_generator_type       = ghex::structured::halo_generator<domain_id_type, GHEX_DIMS>;
+using halo_generator_type       = ghex::structured::regular::halo_generator<domain_id_type, GHEX_DIMS>;
 
 // a map of field descriptors to patterns
 static pattern_map_type field_to_pattern;
@@ -161,7 +161,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
             std::unique_ptr<field_descriptor_type> field_desc_uptr(
-                new field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(domains_desc[i].id, field.data, offset, extents)));
+                new field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(local_domains[i], field.data, offset, extents)));
             auto ptr = field_desc_uptr.get();
             pattern_fields.first.push_back(std::move(field_desc_uptr));
             pattern_fields.second.push_back(pattern(*ptr));
@@ -177,7 +177,7 @@ void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::binding
     if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
     communication_obj_type    &co             = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
     pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_safe<pattern_field_vector_type>(ewrapper);
-    return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.second.data(), pattern_fields.second.size()));
+    return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.second.begin(), pattern_fields.second.end()));
 }
 
 extern "C"
