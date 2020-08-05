@@ -33,8 +33,7 @@ find_package(Boost REQUIRED)
 set(GT_INSTALL_EXAMPLES OFF)
 include(FetchContent)
 FetchContent_Declare(GridTools
-    GIT_REPOSITORY https://github.com/GridTools/gridtools.git
-    GIT_TAG master
+    URL https://github.com/GridTools/gridtools/archive/v2.0.0.tar.gz
 )
 FetchContent_GetProperties(GridTools)
 if(NOT GridTools_POPULATED)
