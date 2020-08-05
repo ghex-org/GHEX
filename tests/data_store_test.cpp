@@ -59,7 +59,7 @@ TEST(data_store, make)
         .name("field")
         .build();
 
-    auto host_ghex_field   = gridtools::ghex::wrap_gt_field(grid, host_data_store, halo);
+    auto host_ghex_field = gridtools::ghex::wrap_gt_field<gridtools::ghex::cpu>(grid, host_data_store, halo);
 
     auto host_view = host_data_store->host_view();
 

@@ -62,41 +62,21 @@ namespace gridtools {
             {
                 using type = structured::regular::field_descriptor<T,Arch,DomainDescriptor,Is...>;
             };
-
-#ifdef __CUDACC__
-            // TODO: get proper arch from data store?
-            template<typename DataType>
-            struct get_arch
-            {
-                using type = ::gridtools::ghex::gpu;
-            };
-#else
-            template<typename Storage>
-            struct get_arch
-            {
-                using type = ::gridtools::ghex::cpu;
-            };
-#endif
         } // namespace _impl
 
-
-        template<typename Storage>
-        using arch_from_storage = typename _impl::get_arch<Storage>::type;
-
-        template <typename DomainDescriptor, typename DataStore>
+        template <typename Arch, typename DomainDescriptor, typename DataStore>
         auto wrap_gt_field(const DomainDescriptor& dom,
                            const std::shared_ptr<DataStore>& ds,
                            const std::array<int, DataStore::ndims>& origin,
                            int device_id = 0)
         {
-            using arch_t            = typename _impl::get_arch<DataStore>::type;
             using value_t           = typename DataStore::data_t;
             using layout_t          = typename DataStore::layout_t;
             using integer_seq       = typename _impl::get_unmasked_layout_map<layout_t>::integer_seq;
             using uint_t            = decltype(layout_t::masked_length);
             using dimension         = std::integral_constant<uint_t, layout_t::masked_length>;
             using field_desc_t      = typename _impl::get_field_descriptor_type<
-                value_t, arch_t, DomainDescriptor, integer_seq>::type;
+                value_t, Arch, DomainDescriptor, integer_seq>::type;
             using coordinate_t      = typename field_desc_t::coordinate_type;
 
             auto strides = ds->strides();
@@ -106,10 +86,10 @@ namespace gridtools {
             return field_desc_t(dom, ds->get_target_ptr(), origin, ds->lengths(), strides, 1, false, device_id);
         }
 
-        template <typename Transport, typename DataStore, typename Origin>
+        template <typename Arch, typename Transport, typename DataStore, typename Origin>
         auto wrap_gt_field(const gt_grid<Transport>& grid, DataStore&& ds, Origin&& origin, int device_id = 0)
         {
-            return wrap_gt_field(grid.m_domains[0], std::forward<DataStore>(ds), std::forward<Origin>(origin), device_id);
+            return wrap_gt_field<Arch>(grid.m_domains[0], std::forward<DataStore>(ds), std::forward<Origin>(origin), device_id);
         }
 
     } // namespace ghex
