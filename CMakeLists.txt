@@ -29,6 +29,7 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
+find_package(OpenMP)
 
 set(GT_INSTALL_EXAMPLES OFF)
 include(FetchContent)

@@ -1,5 +1,3 @@
-find_package(OpenMP)
-
 set(_serial_tests aligned_allocator unified_memory_allocator)
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)

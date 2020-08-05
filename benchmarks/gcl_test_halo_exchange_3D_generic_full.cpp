@@ -15,8 +15,7 @@
 #endif
 #include <fstream>
 #include <gridtools/common/boollist.hpp>
-#include <gridtools/communication/halo_exchange.hpp>
-#include <gridtools/storage/storage_facility.hpp>
+#include <gridtools/gcl/halo_exchange.hpp>
 #include <iostream>
 #include <mpi.h>
 #include <sstream>
@@ -57,9 +56,9 @@ namespace halo_exchange_3D_generic_full {
 #endif
 
 #ifdef __CUDACC__
-    typedef gridtools::gcl_gpu arch_type;
+    typedef gridtools::gcl::gpu arch_type;
 #else
-    typedef gridtools::gcl_cpu arch_type;
+    typedef gridtools::gcl::cpu arch_type;
 #endif
 
     template <typename ST, int I1, int I2, int I3, bool per0, bool per1, bool per2>
@@ -116,7 +115,7 @@ namespace halo_exchange_3D_generic_full {
            logically to processor (p+1,q,r). The other dimensions goes as
            the others.
         */
-        typedef gridtools::halo_exchange_generic<gridtools::layout_map<0, 1, 2>, arch_type> pattern_type;
+        typedef gridtools::gcl::halo_exchange_generic<gridtools::layout_map<0, 1, 2>, arch_type> pattern_type;
 
         /* The pattern is now instantiated with the periodicities and the
            communicator. The periodicity of the communicator is
@@ -165,7 +164,7 @@ namespace halo_exchange_3D_generic_full {
             DIM3 + MAX3(H3m1, H3m2, H3m3) + MAX3(H3p1, H3p3, H3p3));
 #undef MAX3
         he.setup(3,
-            gridtools::field_on_the_fly<int, layoutmap, pattern_type::traits>(nullptr, h_example), // BEWARE!!!!
+            gridtools::gcl::field_on_the_fly<int, layoutmap, pattern_type::traits>(nullptr, h_example), // BEWARE!!!!
             std::max(sizeof(triple_t<USE_DOUBLE, T1>::data_type),
                 std::max(sizeof(triple_t<USE_DOUBLE, T2>::data_type),
                     sizeof(triple_t<USE_DOUBLE, T3>::data_type)) // Estimates the size
@@ -260,18 +259,18 @@ namespace halo_exchange_3D_generic_full {
                 sizeof(triple_t<USE_DOUBLE, T3>::data_type),
             cudaMemcpyHostToDevice));
 
-        gridtools::field_on_the_fly<triple_t<USE_DOUBLE, T1>::data_type, layoutmap, pattern_type::traits> field1(
+        gridtools::gcl::field_on_the_fly<triple_t<USE_DOUBLE, T1>::data_type, layoutmap, pattern_type::traits> field1(
             reinterpret_cast<triple_t<USE_DOUBLE, T1>::data_type *>(gpu_a), halo_dsc1);
-        gridtools::field_on_the_fly<triple_t<USE_DOUBLE, T2>::data_type, layoutmap, pattern_type::traits> field2(
+        gridtools::gcl::field_on_the_fly<triple_t<USE_DOUBLE, T2>::data_type, layoutmap, pattern_type::traits> field2(
             reinterpret_cast<triple_t<USE_DOUBLE, T2>::data_type *>(gpu_b), halo_dsc2);
-        gridtools::field_on_the_fly<triple_t<USE_DOUBLE, T3>::data_type, layoutmap, pattern_type::traits> field3(
+        gridtools::gcl::field_on_the_fly<triple_t<USE_DOUBLE, T3>::data_type, layoutmap, pattern_type::traits> field3(
             reinterpret_cast<triple_t<USE_DOUBLE, T3>::data_type *>(gpu_c), halo_dsc3);
 #else
-        gridtools::field_on_the_fly<triple_t<USE_DOUBLE, T1>::data_type, layoutmap, pattern_type::traits> field1(
+        gridtools::gcl::field_on_the_fly<triple_t<USE_DOUBLE, T1>::data_type, layoutmap, pattern_type::traits> field1(
             reinterpret_cast<triple_t<USE_DOUBLE, T1>::data_type *>(a.ptr), halo_dsc1);
-        gridtools::field_on_the_fly<triple_t<USE_DOUBLE, T2>::data_type, layoutmap, pattern_type::traits> field2(
+        gridtools::gcl::field_on_the_fly<triple_t<USE_DOUBLE, T2>::data_type, layoutmap, pattern_type::traits> field2(
             reinterpret_cast<triple_t<USE_DOUBLE, T2>::data_type *>(b.ptr), halo_dsc2);
-        gridtools::field_on_the_fly<triple_t<USE_DOUBLE, T3>::data_type, layoutmap, pattern_type::traits> field3(
+        gridtools::gcl::field_on_the_fly<triple_t<USE_DOUBLE, T3>::data_type, layoutmap, pattern_type::traits> field3(
             reinterpret_cast<triple_t<USE_DOUBLE, T3>::data_type *>(c.ptr), halo_dsc3);
 #endif
 
