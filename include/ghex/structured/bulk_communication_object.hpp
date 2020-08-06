@@ -50,6 +50,16 @@ struct range_loop
             range_loop<Layout,D,I+1>::apply(f,filtered_ranges,coord);
         }
     }
+    template<typename Range, typename Coord>
+    static inline void apply2(Range& r, Coord coord) noexcept
+    {
+        static constexpr auto C = Layout::template find<I-1>();
+        for (int c = 0; c < r.m_view.m_extent[C]; ++c)
+        {
+            coord[C] = c;
+            range_loop<Layout,D,I+1>::apply2(r,coord);
+        }
+    }
 };
 
 template<typename Layout, std::size_t D>
@@ -76,6 +86,21 @@ struct range_loop<Layout, D, 1>
             range_loop<Layout,D,2>::apply(f,filtered_ranges,coord);
         }
     }
+    template<typename Field, typename Ranges>
+    static inline void apply2(Ranges& ranges) noexcept
+    {
+        using coordinate_type = typename Field::coordinate_type;
+        static constexpr auto C = Layout::template find<0>();
+        for (auto& r : ranges)
+        {
+            for (int c = 0; c < r.m_view.m_extent[C]; ++c)
+            {
+                coordinate_type coord{};
+                coord[C] = c;
+                range_loop<Layout,D,2>::apply2(r,coord);
+            }
+        }
+    }
 };
 
 template<typename Layout, std::size_t D>
@@ -95,18 +120,33 @@ struct range_loop<Layout, D, D>
             ++r->m_pos;
         }
     }
+    template<typename Range, typename Coord>
+    static inline void apply2(Range& r, Coord coord) noexcept
+    {
+        static constexpr auto C = Layout::template find<D-1>();
+        coord[C] = 0;
+        auto mem_loc = r.m_view.ptr(coord);
+        r.m_remote_range.put(r.m_pos,(const tl::ri::byte*)mem_loc);
+        ++r.m_pos;
+    }
 };
 
 } // namespace detail
 
 template<template <typename> class RangeGen, typename Pattern, typename... Fields>
-    //typename Communicator, typename Coordinate, typename DomainId, typename... Fields>
-class bulk_communication_object
+class bulk_communication_object;
+
+template<template <typename> class RangeGen, typename Communicator, typename Coordinate, typename DomainId, typename... Fields>
+class bulk_communication_object<
+    RangeGen, 
+    pattern_container<Communicator,structured::detail::grid<Coordinate>,DomainId>,
+    Fields...>
 {
 public: // member types
-    using communicator_type = typename Pattern::communicator_type;
-    using grid_type = typename Pattern::grid_type;
-    using domain_id_type = typename Pattern::domain_id_type;
+    using communicator_type = Communicator;
+    using pattern_type = pattern_container<Communicator,structured::detail::grid<Coordinate>,DomainId>;
+    using grid_type = typename pattern_type::grid_type;
+    using domain_id_type = typename pattern_type::domain_id_type;
     using co_type = communication_object<communicator_type,grid_type,domain_id_type>;
     using co_handle = typename co_type::handle_type;
     template<typename Field>
@@ -171,8 +211,8 @@ private: // members
 
     communicator_type       m_comm;
     co_type                 m_co;
-    Pattern                 m_remote_pattern;
-    Pattern                 m_local_pattern;
+    pattern_type            m_remote_pattern;
+    pattern_type            m_local_pattern;
     field_container_t       m_field_container_tuple;
     buffer_info_container_t m_buffer_info_container_tuple;
     target_ranges_t         m_target_ranges_tuple;
@@ -182,7 +222,7 @@ private: // members
 
 public: // ctors
 
-    bulk_communication_object(communicator_type comm, const Pattern& pattern)
+    bulk_communication_object(communicator_type comm, const pattern_type& pattern)
     : m_comm(comm)
     , m_co(comm)
     , m_remote_pattern(pattern)
@@ -297,6 +337,21 @@ public:
             }
         }
     }
+    
+    template<typename... F>
+    void add_fields(const F&... fs)
+    {
+        auto fields = std::make_tuple(fs...);
+        for (std::size_t i=0; i<sizeof...(F); ++i)
+        {
+            boost::mp11::mp_with_index<sizeof...(F)>(i,
+            [this,&fields](auto i) {
+                // get the field Index 
+                using I = decltype(i);
+                add_field(std::get<I::value>(fields));
+            });
+        }
+    }
 
 private:
 
@@ -398,21 +453,27 @@ public:
                 using Layout = typename F::layout_map;
                 // get source range
                 auto& s_range = std::get<I::value>(m_source_ranges_tuple);
-                // get corresponding fields vector
-                auto& f_vec   = std::get<I::value>(m_field_container_tuple);
+                //// A): loop over entire field
+                //// get corresponding fields vector
+                //auto& f_vec   = std::get<I::value>(m_field_container_tuple);
                 // loop over field vector (all fields of type F)
                 for (unsigned int k=0; k<s_range.m_ranges.size(); ++k)
                 {
                     auto& s_vec  = s_range.m_ranges[k];
-                    auto& s_ptrs = s_range.m_range_ptrs[k];
-                    auto& f      = f_vec[k];
-                
                     // get direct memory write access
                     for (auto& r : s_vec)
                         r.m_remote_range.start_source_epoch();
                 
                     // put data
-                    detail::range_loop<Layout, F::dimension::value, 1>::apply(f, s_ptrs);
+                    // ========
+
+                    //// A): loop over entire field
+                    //auto& s_ptrs = s_range.m_range_ptrs[k];
+                    //auto& f      = f_vec[k];
+                    //detail::range_loop<Layout, F::dimension::value, 1>::apply(f, s_ptrs);
+
+                    // B): loop over each range seperately
+                    detail::range_loop<Layout, F::dimension::value, 1>::template apply2<F>(s_vec);
                     
                     // give up direct memory write access
                     for (auto& r : s_vec)
