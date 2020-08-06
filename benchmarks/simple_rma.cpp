@@ -49,6 +49,8 @@ struct simulation
     template<typename Arch, int... Is>
     using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
 
+    using field_type = field_descriptor_type<gridtools::ghex::cpu, 2, 1, 0>;
+
     int num_reps;
     int num_threads;
     bool mt;
@@ -72,7 +74,7 @@ struct simulation
 
     const int max_memory;
     std::vector<std::vector<std::vector<T>>> fields_raw;
-    std::vector<std::vector<field_descriptor_type<gridtools::ghex::cpu, 2, 1, 0>>> fields;
+    std::vector<std::vector<field_type>> fields;
 
     typename context_type::communicator_type comm;
     std::vector<typename context_type::communicator_type> comms;
@@ -132,7 +134,6 @@ struct simulation
             int z = (pz*td[2] + tz)*ext;
 #pragma omp ordered
             {
-                std::cout << tx << " " << ty << " " << tz << std::endl;
                 local_domains.push_back(domain_descriptor_type{
                     context.rank()*num_threads+j,
                     std::array<int,3>{x,y,z},
@@ -153,34 +154,6 @@ struct simulation
             }
         }
 
-        /*int j = 0;
-        for (int tz=0; tz<td[2]; ++tz)
-        for (int ty=0; ty<td[1]; ++ty)
-        for (int tx=0; tx<td[0]; ++tx)
-        {
-            int x = (px*td[0] + tx)*ext;
-            int y = (py*td[1] + ty)*ext;
-            int z = (pz*td[2] + tz)*ext;
-            local_domains.push_back(domain_descriptor_type{
-                context.rank()*num_threads+j,
-                std::array<int,3>{x,y,z},
-                std::array<int,3>{x+ext-1,y+ext-1,z+ext-1}});
-            fields_raw.resize(fields_raw.size()+1);
-            fields.resize(fields.size()+1);
-            for (int i=0; i<num_fields; ++i)
-            {
-                fields_raw.back().push_back( std::vector<T>(max_memory) );
-                fields.back().push_back(
-                    gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(
-                        local_domains.back(),
-                        fields_raw.back().back().data(),
-                        offset,
-                        local_ext_buffer));
-            }
-            comms.push_back(context.get_communicator(context.get_token()));
-            ++j;
-        }*/
-
         pattern = std::unique_ptr<pattern_type>{
             new pattern_type{
                 gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
@@ -190,37 +163,18 @@ struct simulation
 #pragma omp parallel
         {
             const auto j = omp_get_thread_num();
-            cos[j] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-                        comms[j], 
-                        *pattern, 
-                        fields[j][0],
-                        fields[j][1],
-                        fields[j][2],
-                        fields[j][3],
-                        fields[j][4],
-                        fields[j][5],
-                        fields[j][6],
-                        fields[j][7]);
-        }
 
-        //j=0;
-        //std::vector<std::thread> threads;
-        //for (; j<num_threads; ++j)
-        //{    
-        //    threads.push_back(std::thread{[this,j](){
-        //        cos[j] = 
-        //            gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-        //                comms[j], *pattern, 
-        //                fields[j][0],
-        //                fields[j][1],
-        //                fields[j][2],
-        //                fields[j][3],
-        //                fields[j][4],
-        //                fields[j][5],
-        //                fields[j][6],
-        //                fields[j][7]);}});
-        //}
-        //for (auto& t : threads) t.join();
+            auto bco = gridtools::ghex::structured::bulk_communication_object<
+                gridtools::ghex::structured::remote_range_generator,
+                pattern_type,
+                field_type
+            > (comms[j], *pattern);
+
+            for (int i=0; i<num_fields; ++i)
+                bco.add_field(fields[j][i]);
+            
+            cos[j] = std::move(bco);
+        }
     }
 
     void exchange()
@@ -229,11 +183,6 @@ struct simulation
         {
 
             const auto j = omp_get_thread_num();
-        //std::vector<std::thread> threads;
-        //for (int j=0; j<num_threads; ++j)
-        //{
-        //    threads.push_back(std::thread{[this,j]() -> void 
-        //    {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 {
                     std::lock_guard<std::mutex> io_lock(io_mutex);
@@ -265,17 +214,6 @@ struct simulation
                     std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
                     std::cout << "GB/s : " << GB_per_s << std::endl;
                 }
-
-            //}});
-            //// Create a cpu_set_t object representing a set of CPUs. Clear it and mark
-            //// only CPU i as set.
-            //cpu_set_t cpuset;
-            //CPU_ZERO(&cpuset);
-            //CPU_SET(j, &cpuset);
-            //int rc = pthread_setaffinity_np(threads[j].native_handle(), sizeof(cpu_set_t), &cpuset);
-            //if (rc != 0) { std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n"; }
-        //}
-        //for (auto& t : threads) t.join();
         }
     }
 };

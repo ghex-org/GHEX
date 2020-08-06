@@ -332,10 +332,11 @@ struct remote_range_generator
         typename RangeFactory::range_type m_local_range;
         rank_type m_dst;
         tag_type m_tag;
+        typename Communicator::template future<void> m_request;
         std::vector<tl::ri::byte> m_archive;
 
         template<typename Coord>
-        target_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag)
+        target_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag)
         : m_comm{comm}
         , m_guard{}
         , m_view{f, first, last-first+1}
@@ -347,11 +348,13 @@ struct remote_range_generator
             m_view.m_rma_data = m_view.m_field.get_rma_data();
 	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard)};
             RangeFactory::serialize(m_local_range, m_archive.data());
+            m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
         void send()
         {
-            m_comm.send(m_archive, m_dst, m_tag).wait();
+            //m_comm.send(m_archive, m_dst, m_tag).wait();
+            m_request.wait();
         }
 
         void release()
@@ -376,7 +379,7 @@ struct remote_range_generator
         typename RangeFactory::range_type::iterator_type m_pos;
 
         template<typename Coord>
-        source_range(const Communicator& comm, Field& f, const Coord& first, const Coord& last, rank_type src, tag_type tag)
+        source_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type src, tag_type tag)
         : m_comm{comm}
         , m_view{f, first, last-first+1}
         , m_src{src}

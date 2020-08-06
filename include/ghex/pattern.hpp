@@ -36,6 +36,9 @@ namespace gridtools {
         class pattern_container
         {
         public: // member tyes
+            using communicator_type = Communicator;
+            using grid_type = GridType;
+            using domain_id_type = DomainIdType;
             /** @brief pattern type this object is holding */
             using value_type = pattern<Communicator,GridType,DomainIdType>;
 

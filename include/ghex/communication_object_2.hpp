@@ -295,16 +295,15 @@ namespace gridtools {
                 return exchange(std::make_index_sequence<sizeof...(iters)/2>(), iters...); 
             }
 
-        private: // implementation
-            template<typename Tuple, typename... Iterators>
+            template</*typename Tuple, */typename... Iterators>
             [[nodiscard]]
             handle_type exchange(std::pair<Iterators,Iterators>... iter_pairs)
             {
-                using pattern_container_types =
+                /*using pattern_container_types =
                     std::tuple<typename std::remove_reference<decltype(*(iter_pairs.first))>::type::
                         pattern_container_type...>;
                 static_assert(std::is_same<Tuple,pattern_container_types>::value,
-                    "patterns are incompatible with this communication object" );
+                    "patterns are incompatible with this communication object" );*/
 
                 const std::tuple<std::pair<Iterators,Iterators>...> iter_pairs_t{iter_pairs...};
 
@@ -343,14 +342,16 @@ namespace gridtools {
                 return handle_type(m_comm, [this](){this->wait();});
             }
             
+        private: // implementation
             template<std::size_t... Is, typename... Iterators>
             [[nodiscard]]
             handle_type exchange(std::index_sequence<Is...>, Iterators... iters)
             {
                 const std::tuple<Iterators...> iter_t{iters...};
-                using test_t = std::tuple<pattern_container<communicator_type,grid_type,domain_id_type>>;
+                /*using test_t = std::tuple<pattern_container<communicator_type,grid_type,domain_id_type>>;
                 using test_t_n = std::tuple< typename std::tuple_element<Is*0, test_t>::type... >;
-                return exchange<test_t_n>(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
+                return exchange<test_t_n>(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);*/
+                return exchange(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
             }
 
             void post_recvs()

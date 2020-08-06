@@ -211,38 +211,90 @@ struct simulation_1
         {
             comms.push_back(context.get_communicator(context.get_token()));
 #ifndef __CUDACC__
-            cos.push_back(
-                gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-                    comms[0], pattern, field_1a, field_1b, field_2a, field_2b, field_3a, field_3b));
+            auto bco =  gridtools::ghex::structured::bulk_communication_object<
+                gridtools::ghex::structured::remote_range_generator,
+                pattern_type,
+                field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
+            > (comms[0], pattern);
+
+            bco.add_field(field_1a);
+            bco.add_field(field_1b);
+            bco.add_field(field_2a);
+            bco.add_field(field_2b);
+            bco.add_field(field_3a);
+            bco.add_field(field_3b);
 #else
-            cos.push_back(
-                gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-                    comms[0], pattern, field_1a_gpu, field_1b_gpu, field_2a_gpu, field_2b_gpu, field_3a_gpu, field_3b_gpu));
+            auto bco =  gridtools::ghex::structured::bulk_communication_object<
+                gridtools::ghex::structured::remote_range_generator,
+                pattern_type,
+                field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0>
+            > (comms[0], pattern);
+
+            bco.add_field(field_1a_gpu);
+            bco.add_field(field_1b_gpu);
+            bco.add_field(field_2a_gpu);
+            bco.add_field(field_2b_gpu);
+            bco.add_field(field_3a_gpu);
+            bco.add_field(field_3b_gpu);
 #endif
+            cos.emplace_back( std::move(bco) );
+
         } else {
             comms.push_back(context.get_communicator(context.get_token()));
             comms.push_back(context.get_communicator(context.get_token()));
-            cos.resize(2);
-            std::vector<std::thread> threads;
-            threads.push_back(std::thread{[this](){
 #ifndef __CUDACC__
-                cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-                    comms[0], pattern, field_1a, field_2a, field_3a);
+            auto bco0 =  gridtools::ghex::structured::bulk_communication_object<
+                gridtools::ghex::structured::remote_range_generator,
+                pattern_type,
+                field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
+            > (comms[0], pattern);
+            bco0.add_field(field_1a);
+            bco0.add_field(field_2a);
+            bco0.add_field(field_3a);
+
+            auto bco1 =  gridtools::ghex::structured::bulk_communication_object<
+                gridtools::ghex::structured::remote_range_generator,
+                pattern_type,
+                field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
+            > (comms[1], pattern);
+            bco1.add_field(field_1b);
+            bco1.add_field(field_2b);
+            bco1.add_field(field_3b);
 #else
                 cos[0] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
                     comms[0], pattern, field_1a_gpu, field_2a_gpu, field_3a_gpu);
+            auto bco0 =  gridtools::ghex::structured::bulk_communication_object<
+                gridtools::ghex::structured::remote_range_generator,
+                pattern_type,
+                field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0>
+            > (comms[0], pattern);
+            bco0.add_field(field_1a_gpu);
+            bco0.add_field(field_2a_gpu);
+            bco0.add_field(field_3a_gpu);
+
+            auto bco1 =  gridtools::ghex::structured::bulk_communication_object<
+                gridtools::ghex::structured::remote_range_generator,
+                pattern_type,
+                field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0>
+            > (comms[1], pattern);
+            bco1.add_field(field_1b_gpu);
+            bco1.add_field(field_2b_gpu);
+            bco1.add_field(field_3b_gpu);
 #endif
-            }});
-            threads.push_back(std::thread{[this](){
-#ifndef __CUDACC__
-                cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-                    comms[1], pattern, field_1b, field_2b, field_3b);
-#else
-                cos[1] = gridtools::ghex::make_bulk_co<gridtools::ghex::structured::remote_range_generator>(
-                    comms[1], pattern, field_1b_gpu, field_2b_gpu, field_3b_gpu);
-#endif
-            }});
-            for (auto& t : threads) t.join();
+            cos.emplace_back( std::move(bco0) );
+            cos.emplace_back( std::move(bco1) );
         }
     }
 
