@@ -58,12 +58,12 @@ using exchange_handle_type      = communication_obj_type::handle_type;
 using halo_generator_type       = ghex::structured::cubed_sphere::halo_generator;
 
 // row-major storage
-using field_descriptor_type_1     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,0,3,2,1>;
+using field_descriptor_type_1     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,3,2,1,0>;
 using pattern_field_type_1        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_1>;
 using pattern_field_vector_type_1 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_1>>, std::vector<pattern_field_type_1>>;
 
 // field-major storage
-using field_descriptor_type_2     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,3,2,1,0>;
+using field_descriptor_type_2     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,2,1,0,3>;
 using pattern_field_type_2        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_2>;
 using pattern_field_vector_type_2 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_2>>, std::vector<pattern_field_type_2>>;
 
