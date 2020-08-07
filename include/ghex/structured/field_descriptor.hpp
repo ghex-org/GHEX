@@ -18,12 +18,14 @@
 #include <gridtools/common/array.hpp>
 #include <gridtools/common/layout_map.hpp>
 
+#include "./rma_handle.hpp"
+
 namespace gridtools {
 namespace ghex {
 namespace structured {
-    
+
 template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-class field_descriptor
+class field_descriptor : public rma_handle< field_descriptor<T,Arch,DomainDescriptor,Order...> >
 {
 public: // member types
     using value_type             = T;
@@ -39,6 +41,8 @@ public: // member types
     using coordinate_type        = ::gridtools::array<scalar_coordinate_type, dimension::value>;
     using size_type              = unsigned int;
     using strides_type           = ::gridtools::array<size_type, dimension::value>;
+
+    friend class rma_handle< field_descriptor<T,Arch,DomainDescriptor,Order...> >;
 
     // holds buffer information
     template<typename Pointer>
@@ -129,15 +133,15 @@ public: // member types
     };
 
 protected: // members
-    domain_descriptor_type m_dom;             ///< domain descriptor
-    value_type*            m_data;            ///< pointer to data
-    coordinate_type        m_dom_first;       ///< global coordinate of first domain cell
-    coordinate_type        m_offsets;         ///< offset from beginning of memory to the first domain cell
-    coordinate_type        m_extents;         ///< extent of memory (including halos)
-    size_type              m_num_components;  ///< number of components 
-    bool                   m_is_vector_field; ///< true if this field describes a vector field
-    device_id_type         m_device_id;       ///< device id
-    strides_type           m_byte_strides;    ///< memory strides in bytes
+    domain_descriptor_type m_dom;                 ///< domain descriptor
+    value_type*            m_data;                ///< pointer to data
+    coordinate_type        m_dom_first;           ///< global coordinate of first domain cell
+    coordinate_type        m_offsets;             ///< offset from beginning of memory to the first domain cell
+    coordinate_type        m_extents;             ///< extent of memory (including halos)
+    size_type              m_num_components;      ///< number of components 
+    bool                   m_is_vector_field;     ///< true if this field describes a vector field
+    device_id_type         m_device_id;           ///< device id
+    strides_type           m_byte_strides;        ///< memory strides in bytes
 
 public: // ctors
     template<typename DomainArray, typename OffsetArray, typename ExtentArray>
@@ -224,11 +228,20 @@ public: // member functions
      * @return reference to value */
     GT_FUNCTION
     value_type& operator()(const coordinate_type& x) {
-        return *reinterpret_cast<T*>((char*)m_data +dot(x,m_byte_strides));
+        return *reinterpret_cast<T*>((char*)m_data +dot(x+m_offsets,m_byte_strides));
     }
     GT_FUNCTION
     const value_type& operator()(const coordinate_type& x) const {
-        return *reinterpret_cast<const T*>((const char*)m_data +dot(x,m_byte_strides));
+        return *reinterpret_cast<const T*>((const char*)m_data +dot(x+m_offsets,m_byte_strides));
+    }
+
+    GT_FUNCTION
+    value_type* ptr(const coordinate_type& x) {
+        return reinterpret_cast<T*>((char*)m_data +dot(x+m_offsets,m_byte_strides));
+    }
+    GT_FUNCTION
+    const value_type* ptr(const coordinate_type& x) const {
+        return reinterpret_cast<const T*>((const char*)m_data +dot(x+m_offsets,m_byte_strides));
     }
 
     /** @brief access operator
@@ -236,12 +249,12 @@ public: // member functions
      * @return reference to value */
     template<typename... Is>
     GT_FUNCTION
-    value_type& operator()(Is&&... is) {
+    value_type& operator()(const Is&... is) {
         return *reinterpret_cast<T*>((char*)m_data+dot(coordinate_type{is...}+m_offsets,m_byte_strides));
     }
     template<typename... Is>
     GT_FUNCTION
-    const value_type& operator()(Is&&... is) const {
+    const value_type& operator()(const Is&... is) const {
         return *reinterpret_cast<const T*>((const char*)m_data+dot(coordinate_type{is...}+
             m_offsets,m_byte_strides));
     }

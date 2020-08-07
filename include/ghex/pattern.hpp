@@ -36,6 +36,9 @@ namespace gridtools {
         class pattern_container
         {
         public: // member tyes
+            using communicator_type = Communicator;
+            using grid_type = GridType;
+            using domain_id_type = DomainIdType;
             /** @brief pattern type this object is holding */
             using value_type = pattern<Communicator,GridType,DomainIdType>;
 
@@ -46,8 +49,8 @@ namespace gridtools {
             friend class detail::make_pattern_impl<GridType>;
 
         public: // copy constructor
-            pattern_container(const pattern_container&) noexcept = delete;
-            pattern_container(pattern_container&&) noexcept = default;
+            pattern_container(const pattern_container&) = default;
+            pattern_container(pattern_container&&) = default;
 
         private: // private constructor called through make_pattern
             pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) 
@@ -59,6 +62,9 @@ namespace gridtools {
         public: // member functions
             int size() const noexcept { return m_patterns.size(); }
             const auto& operator[](int i) const noexcept { return m_patterns[i]; }
+            auto& operator[](int i) noexcept { return m_patterns[i]; }
+            auto begin() noexcept { return m_patterns.begin(); }
+            auto end() noexcept { return m_patterns.end(); }
             auto begin() const noexcept { return m_patterns.cbegin(); }
             auto end() const noexcept { return m_patterns.cend(); }
             int max_tag() const noexcept { return m_max_tag; }

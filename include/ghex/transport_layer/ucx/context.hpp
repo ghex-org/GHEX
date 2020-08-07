@@ -87,6 +87,7 @@ namespace gridtools {
             private: // members
                 
                 thread_primitives_type&    m_thread_primitives;
+                const mpi::rank_topology&  m_rank_topology;
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
                 std::size_t                m_req_size;
@@ -102,8 +103,9 @@ namespace gridtools {
 
             public: // ctors
                 template<typename DB, typename... Args>
-                transport_context(ThreadPrimitives& tp, DB&& db, Args&&...)
+                transport_context(ThreadPrimitives& tp, const mpi::rank_topology& t, DB&& db, Args&&...)
                     : m_thread_primitives(tp)
+                    , m_rank_topology{t}
                     , m_db{std::forward<DB>(db)}
                     , m_workers(m_thread_primitives.size())
                     , m_tokens(m_thread_primitives.size())

@@ -60,6 +60,82 @@ foreach (_t ${_benchmarks_mt})
     endif()
 endforeach()
 
+# RMA benchmark
+set(_rma_benchmarks simple_rma)
+foreach (_t ${_rma_benchmarks})
+
+    # MPI, threads, float, cpu
+    # ========================
+    set(t ${_t}_mpi_threads_float_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_link_libraries(${t} ghexlib)
+    
+    # MPI, threads, double, cpu
+    # ========================
+    set(t ${_t}_mpi_threads_double_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_link_libraries(${t} ghexlib)
+    
+    if (GHEX_USE_XPMEM)
+    # MPI, xpmem, float, cpu
+    # ========================
+    set(t ${_t}_mpi_xpmem_float_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_link_libraries(${t} ghexlib)
+    
+    # MPI, xpmem, double, cpu
+    # ========================
+    set(t ${_t}_mpi_xpmem_double_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_link_libraries(${t} ghexlib)
+    endif()
+
+    if (GHEX_USE_UCP)
+    # UCX, threads, float, cpu
+    # ========================
+    set(t ${_t}_ucx_threads_float_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    
+    # UCX, threads, double, cpu
+    # ========================
+    set(t ${_t}_ucx_threads_double_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    
+    if (GHEX_USE_XPMEM)
+    # UCX, xpmem, float, cpu
+    # ========================
+    set(t ${_t}_ucx_xpmem_float_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    
+    # UCX, xpmem, double, cpu
+    # ========================
+    set(t ${_t}_ucx_xpmem_double_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    endif()
+    endif()
+endforeach()
+
+
 add_subdirectory(transport)
 
 
