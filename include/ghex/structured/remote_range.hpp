@@ -88,7 +88,7 @@ struct field_view
     field_view(const Field& f, const Array& offset, const Array& extent)
     : m_field(f)
     {
-        static constexpr auto I = layout::template find<dimension::value-1>();
+        static constexpr auto I = layout::find(dimension::value-1);
         m_size = 1;
         for (unsigned int i=0; i<dimension::value; ++i)
         {
@@ -100,7 +100,7 @@ struct field_view
             m_size *= extent[i];
         }
         m_end[I] = extent[I];
-        m_size /= extent[layout::template find<dimension::value-1>()];
+        m_size /= extent[layout::find(dimension::value-1)];
     }
 
     field_view(const field_view&) = default;
@@ -132,7 +132,7 @@ struct inc_coord
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto I = Layout::template find<Dim-D-1>();
+        static constexpr auto I = Layout::find(Dim-D-1);
         if (coord[I] == ext[I] - 1)
         {
             coord[I] = 0;
@@ -148,8 +148,8 @@ struct inc_coord<3,1,Layout>
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto Y = Layout::template find<1>();
-        static constexpr auto Z = Layout::template find<0>();
+        static constexpr auto Y = Layout::find(1);
+        static constexpr auto Z = Layout::find(0);
         const bool cond = coord[Y] < ext[Y] - 1;
         coord[Y]  = cond ? coord[Y] + 1 : 0;
         coord[Z] += cond ? 0 : 1;
@@ -161,7 +161,7 @@ struct inc_coord<Dim, Dim, Layout>
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto I = Layout::template find<Dim-1>();
+        static constexpr auto I = Layout::find(Dim-1);
         for (unsigned int i = 0; i < Dim; ++i) coord[i] = ext[i] - 1;
         coord[I] = ext[I];
     }
@@ -189,7 +189,7 @@ struct remote_range
     remote_range(const view_type& v, guard_type& g) noexcept
     : m_guard{g}
     , m_view{v}
-    , m_chunk_size{(size_type)(m_view.m_extent[layout::template find<dimension::value-1>()] * sizeof(value_type))}
+    , m_chunk_size{(size_type)(m_view.m_extent[layout::find(dimension::value-1)] * sizeof(value_type))}
     {}
     
     remote_range(const remote_range&) = default;
@@ -285,7 +285,7 @@ struct remote_range
         else
         {
             auto idx = index;
-            static constexpr auto I = layout::template find<dimension::value-1>();
+            static constexpr auto I = layout::find(dimension::value-1);
             coord[I] = 0;
             for (unsigned int d = 0; d < dimension::value; ++d)
             {
@@ -298,7 +298,7 @@ struct remote_range
     }
 
     size_type inc(size_type index, coordinate& coord) const noexcept {
-        static constexpr auto I = layout::template find<dimension::value-1>();
+        static constexpr auto I = layout::find(dimension::value-1);
         if (index + 1 >= m_view.m_size)
         {
             coord = m_view.m_end;

@@ -25,6 +25,9 @@ endforeach(t_ ${_tests})
 
 if (OpenMP_FOUND)
     target_link_libraries(test_barrier_mt OpenMP::OpenMP_CXX)
+if (GHEX_USE_UCP)
+    target_link_libraries(test_barrier_mt_ucx OpenMP::OpenMP_CXX)
+endif()
 endif()
 
 if (GHEX_USE_UCP)

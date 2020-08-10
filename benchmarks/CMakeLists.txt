@@ -70,6 +70,7 @@ foreach (_t ${_rma_benchmarks})
     add_executable(${t} ${_t}.cpp)
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     
     # MPI, threads, double, cpu
     # ========================
@@ -77,6 +78,7 @@ foreach (_t ${_rma_benchmarks})
     add_executable(${t} ${_t}.cpp)
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     
     if (GHEX_USE_XPMEM)
     # MPI, xpmem, float, cpu
@@ -86,6 +88,7 @@ foreach (_t ${_rma_benchmarks})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     
     # MPI, xpmem, double, cpu
     # ========================
@@ -94,6 +97,7 @@ foreach (_t ${_rma_benchmarks})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     endif()
 
     if (GHEX_USE_UCP)
@@ -104,6 +108,7 @@ foreach (_t ${_rma_benchmarks})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     
     # UCX, threads, double, cpu
     # ========================
@@ -112,6 +117,7 @@ foreach (_t ${_rma_benchmarks})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     
     if (GHEX_USE_XPMEM)
     # UCX, xpmem, float, cpu
@@ -122,6 +128,7 @@ foreach (_t ${_rma_benchmarks})
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     
     # UCX, xpmem, double, cpu
     # ========================
@@ -131,6 +138,7 @@ foreach (_t ${_rma_benchmarks})
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
     endif()
     endif()
 endforeach()
