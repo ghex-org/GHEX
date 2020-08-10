@@ -10,7 +10,9 @@
  */
 #include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/threads/atomic/primitives.hpp>
+#ifdef _OPENMP
 #include <ghex/threads/omp/primitives.hpp>
+#endif
 #include <iostream>
 #include <iomanip>
 #include <atomic>
@@ -74,6 +76,7 @@ TEST(transport, barrier_mt_std_atomic) {
         t.join();
 }
 
+#ifdef _OPENMP
 TEST(transport, barrier_mt_omp) {
     int num_threads = 1;
     omp_set_num_threads(4);
@@ -89,7 +92,11 @@ TEST(transport, barrier_mt_omp) {
         thread_func(context, num_threads)();
     }
 }
+#else
+TEST(transport, DISABLED_barrier_mt_omp) {}
+#endif
 
+#ifdef _OPENMP
 TEST(transport, barrier_mt_omp_atomic) {
     int num_threads = 1;
     omp_set_num_threads(4);
@@ -105,3 +112,6 @@ TEST(transport, barrier_mt_omp_atomic) {
         thread_func(context, num_threads)();
     }
 }
+#else
+TEST(transport, DISABLED_barrier_mt_omp) {}
+#endif

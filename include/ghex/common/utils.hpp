@@ -122,7 +122,7 @@ namespace gridtools {
             {
             private: // member types
                 using layout_t = gridtools::layout_map<Args...>;
-                using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
+                using idx = std::integral_constant<int, layout_t::find(D-I)>;
                 friend class for_loop<D,I+1,layout_t>;
 
             public: // static member functions
@@ -200,7 +200,7 @@ namespace gridtools {
             {
             private: // member types
                 using layout_t = gridtools::layout_map<Args...>;
-                using idx = std::integral_constant<int, layout_t::template find<D-I>()>;
+                using idx = std::integral_constant<int, layout_t::find(D-I)>;
                 friend class for_loop_pointer_arithmetic<D,I+1,layout_t>;
 
             public: // static member functions
@@ -266,7 +266,7 @@ namespace gridtools {
                     // functor call with two arguments
                     // argument 1: offset in global multi-dimensional array
                     // argument 2: offset within region defined by [first, last]
-                    using idx0 = std::integral_constant<int, layout_t::template find<D-1>()>;
+                    using idx0 = std::integral_constant<int, layout_t::find(D-1)>;
                     f(offset, iter*byte_strides[idx0::value]);
                 }
             };
