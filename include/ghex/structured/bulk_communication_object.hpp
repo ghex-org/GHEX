@@ -419,7 +419,7 @@ private:
 
 public:
 
-    void exchange()
+    auto exchange()
     {
         if (!m_initialized) init();
 
@@ -500,7 +500,8 @@ public:
         }
 
         // wait for remote exchange
-        h.wait();
+        //h.wait();
+        return h;
     }
 };
 

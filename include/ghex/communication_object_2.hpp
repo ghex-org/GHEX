@@ -47,7 +47,7 @@ namespace gridtools {
             using co_t              = communication_object<Communicator,GridType,DomainIdType>;
             using communicator_type = Communicator;
 
-        private: // members
+        public: // members
 
             communicator_type m_comm;
             std::function<void()> m_wait_fct;
