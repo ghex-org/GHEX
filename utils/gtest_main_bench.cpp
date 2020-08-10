@@ -14,8 +14,7 @@
 #include <fstream>
 #include <mpi.h>
 #include "gtest/gtest.h"
-//#include "mpi_listener.hpp"
-#include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
+#include "mpi_listener.hpp"
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
