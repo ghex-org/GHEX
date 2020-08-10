@@ -160,9 +160,7 @@ extern "C"
 void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
     if(nullptr == ewrapper) return nullptr;
-    // return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr_safe<bco_type>(ewrapper)->exchange());
-    ghex::bindings::get_object_ptr_safe<bco_type>(ewrapper)->exchange();
-    return nullptr;
+    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr_safe<bco_type>(ewrapper)->exchange());
 }
 
 extern "C"
