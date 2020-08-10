@@ -302,13 +302,13 @@ struct simulation_1
     {
         if (!mt)
         {
-            cos[0].exchange();
+            cos[0].exchange().wait();
         }
         else
         {
             std::vector<std::thread> threads;
-            threads.push_back(std::thread{[this]() -> void { cos[0].exchange(); }});
-            threads.push_back(std::thread{[this]() -> void { cos[1].exchange(); }});
+            threads.push_back(std::thread{[this]() -> void { cos[0].exchange().wait(); }});
+            threads.push_back(std::thread{[this]() -> void { cos[1].exchange().wait(); }});
             for (auto& t : threads) t.join();
         }
     }

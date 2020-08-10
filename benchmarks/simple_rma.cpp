@@ -192,13 +192,13 @@ struct simulation
                 // warm up
                 for (int t = 0; t < 50; ++t)
                 {
-                    cos[j].exchange();
+                    cos[j].exchange().wait();
                 }
     
                 auto start = clock_type::now();
                 for (int t = 0; t < num_reps; ++t)
                 {
-                    cos[j].exchange();
+                    cos[j].exchange().wait();
                 }
                 auto end = clock_type::now();
                 std::chrono::duration<double> elapsed_seconds = end - start;
