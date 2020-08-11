@@ -63,7 +63,7 @@ struct serialization {
         using coordinate_type = typename PackIterationSpace::coordinate_t;
         using value_type = typename PackIterationSpace::value_t;
         constexpr auto D = coordinate_type::size();
-        constexpr auto cont_idx = LayoutMap::template find<D-1>();
+        constexpr auto cont_idx = LayoutMap::find(D-1);
         const auto x_first = pack_is.m_data_is.m_first[cont_idx];
         const auto x_last = pack_is.m_data_is.m_last[cont_idx];
         using LayoutMap2 = typename reduced_layout_map<cont_idx,std::make_index_sequence<D-1>,LayoutMap>::type;
@@ -97,7 +97,7 @@ struct serialization {
         using coordinate_type = typename UnPackIterationSpace::coordinate_t;
         using value_type = typename UnPackIterationSpace::value_t;
         constexpr auto D = coordinate_type::size();
-        constexpr auto cont_idx = LayoutMap::template find<D-1>();
+        constexpr auto cont_idx = LayoutMap::find(D-1);
         const auto x_first = unpack_is.m_data_is.m_first[cont_idx];
         const auto x_last = unpack_is.m_data_is.m_last[cont_idx];
         using LayoutMap2 = typename reduced_layout_map<cont_idx,std::make_index_sequence<D-1>,LayoutMap>::type;
