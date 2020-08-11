@@ -90,7 +90,7 @@ struct field_view
     {
         static constexpr auto I = layout::find(dimension::value-1);
         m_size = 1;
-        for (unsigned int i=0; i<dimension::value; ++i)
+        for (unsigned int i=0; i<dimension::value-1; ++i)
         {
             m_offset[i] = offset[i];
             m_extent[i] = extent[i];
@@ -99,6 +99,27 @@ struct field_view
             m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
+        if (Field::has_components::value)
+        {
+            unsigned int i = dimension::value-1;
+            m_offset[i] = 0;
+            m_extent[i] = f.num_components();
+            m_begin[i] = 0;
+            m_end[i] = m_extent[i]-1;
+            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            m_size *= m_extent[i];
+        }
+        else
+        {
+            unsigned int i = dimension::value-1;
+            m_offset[i] = offset[i];
+            m_extent[i] = extent[i];
+            m_begin[i] = 0;
+            m_end[i] = extent[i]-1;
+            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            m_size *= extent[i];
+        }
+
         m_end[I] = extent[I];
         m_size /= extent[layout::find(dimension::value-1)];
     }
@@ -409,13 +430,13 @@ template<>
 struct remote_range_traits<structured::remote_range_generator>
 {
     template<typename Communicator>
-    static bool is_local(Communicator comm, int remote_rank)
+    static tl::ri::locality is_local(Communicator comm, int remote_rank)
     {
+        if (comm.rank() == remote_rank) return tl::ri::locality::thread;
 #ifdef GHEX_USE_XPMEM
-        return comm.is_local(remote_rank);
-#else
-        return comm.rank() == remote_rank;
+        else if (comm.is_local(remote_rank)) return tl::ri::locality::process;
 #endif /* GHEX_USE_XPMEM */
+        else return tl::ri::locality::remote;
     }
 };
 

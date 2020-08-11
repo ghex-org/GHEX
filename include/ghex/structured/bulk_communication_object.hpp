@@ -243,7 +243,7 @@ public: // ctors
             while (r_it != r_p.send_halos().end())
             {
                 const auto local = remote_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                if (local)
+                if (local != tl::ri::locality::remote)
                 {
                     // remove local fields from remote pattern
                     r_it = r_p.send_halos().erase(r_it);
@@ -263,7 +263,7 @@ public: // ctors
             while (r_it != r_p.recv_halos().end())
             {
                 const auto local = remote_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                if (local)
+                if (local != tl::ri::locality::remote)
                 {
                     // remove local fields from remote pattern
                     r_it = r_p.recv_halos().erase(r_it);

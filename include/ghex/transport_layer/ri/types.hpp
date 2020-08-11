@@ -28,6 +28,13 @@ static constexpr target_        target;
 static constexpr remote_host_   host;
 static constexpr remote_device_ device;
 
+enum class locality
+{
+    thread,
+    process,
+    remote
+};
+
 struct chunk
 {
     using pointer = byte*;
