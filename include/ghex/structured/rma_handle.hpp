@@ -39,6 +39,7 @@ public:
     using rma_data_t = int;
     rma_data_t m_rma_data = 0;
 #endif /* GHEX_USE_XPMEM */
+    tl::ri::locality m_locality;
 
     derived* d_cast()
     {
@@ -62,19 +63,22 @@ public:
     void reset_rma_data()
     {
 #ifdef GHEX_USE_XPMEM
-        new(&m_rma_data) std::shared_ptr<rma_data_t>{};
+        if (m_locality == ri::locality::process)
+            new(&m_rma_data) std::shared_ptr<rma_data_t>{};
 #endif
     }
 
-    void init_rma_local()
+    void init_rma_local(tl::ri::locality loc)
     {
+        m_locality = loc;
 #ifdef GHEX_USE_XPMEM
-        if (!m_rma_data)
-        {
-            auto size = d_cast()->m_extents[0];
-            for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i) size *= d_cast()->m_extents[i];
-            m_rma_data = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
-        }
+        if (m_locality == ri::locality::process)
+            if (!m_rma_data)
+            {
+                auto size = d_cast()->m_extents[0];
+                for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i) size *= d_cast()->m_extents[i];
+                m_rma_data = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
+            }
 #endif /* GHEX_USE_XPMEM */
     }
 
@@ -83,11 +87,12 @@ public:
     void init_rma_remote(const rma_data_t& data)
     {
 #ifdef GHEX_USE_XPMEM
-        if (!m_rma_data)
-        {
-            m_rma_data = tl::ri::xpmem::make_remote_data(data);
-            d_cast()->m_data = (T*)m_rma_data->m_ptr;
-        }
+        if (m_locality == ri::locality::process)
+            if (!m_rma_data)
+            {
+                m_rma_data = tl::ri::xpmem::make_remote_data(data);
+                d_cast()->m_data = (T*)m_rma_data->m_ptr;
+            }
 #else
         m_rma_data = data;
 #endif /* GHEX_USE_XPMEM */	
@@ -114,6 +119,7 @@ public:
     using rma_data_t = int;
     rma_data_t m_rma_data = 0;
 #endif /* GHEX_USE_XPMEM */	
+    tl::ri::locality m_locality;
 
     derived* d_cast()
     {
@@ -142,21 +148,24 @@ public:
     {
 #ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
-        new(&m_rma_data) std::shared_ptr<rma_data_t>{};
+        if (m_locality == ri::locality::process)
+            new(&m_rma_data) std::shared_ptr<rma_data_t>{};
 #endif /* __CUDACC__ */
 #endif
     }
 
-    void init_rma_local()
+    void init_rma_local(tl::ri::locality loc)
     {
+        m_locality = loc;
 #ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
-        if (!m_rma_data)
-        {
-            auto h = new rma_data_t;
-            cudaIpcGetMemHandle(h, d_cast()->m_data);
-            m_rma_data = std::shared_ptr<rma_data_t>{h};
-        }
+        if (m_locality == ri::locality::process)
+            if (!m_rma_data)
+            {
+                auto h = new rma_data_t;
+                cudaIpcGetMemHandle(h, d_cast()->m_data);
+                m_rma_data = std::shared_ptr<rma_data_t>{h};
+            }
 #endif /* __CUDACC__ */
 #endif /* GHEX_USE_XPMEM */	
     }
@@ -167,19 +176,20 @@ public:
     {
 #ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
-        if (!m_rma_data)
-        {
-            void* vptr = (d_cast()->m_data);
-            cudaIpcOpenMemHandle(&vptr, data, cudaIpcMemLazyEnablePeerAccess); 
-            d_cast()->m_data = (T*)vptr;
-            m_rma_data = std::shared_ptr<rma_data_t>{
-                new rma_data_t{data},
-                [ptr = d_cast()->m_data](rma_data_t* h){
-                    cudaIpcCloseMemHandle(ptr); 
-                    delete h;
-                }
-            };
-        }
+        if (m_locality == ri::locality::process)
+            if (!m_rma_data)
+            {
+                void* vptr = (d_cast()->m_data);
+                cudaIpcOpenMemHandle(&vptr, data, cudaIpcMemLazyEnablePeerAccess); 
+                d_cast()->m_data = (T*)vptr;
+                m_rma_data = std::shared_ptr<rma_data_t>{
+                    new rma_data_t{data},
+                    [ptr = d_cast()->m_data](rma_data_t* h){
+                        cudaIpcCloseMemHandle(ptr); 
+                        delete h;
+                    }
+                };
+            }
 #else
         m_rma_data = data;
 #endif /* __CUDACC__ */

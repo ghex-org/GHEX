@@ -328,10 +328,11 @@ public:
                 {
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
+                        const auto local = remote_range_traits<RangeGen>::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
                         t_range.m_ranges.back().emplace_back(
                             m_comm, f, c.local().first(), c.local().last(),
-                            h_it->first.mpi_rank, h_it->first.tag); 
+                            h_it->first.mpi_rank, h_it->first.tag, local); 
                     }
                 }
             }
