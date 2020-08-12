@@ -52,7 +52,7 @@ public:
     auto get_rma_data() const
     {
 #ifdef GHEX_USE_XPMEM
-        return *m_xmpmem_data_ptr;
+        return *m_xpmem_data_ptr;
 #else
         return 0;
 #endif
@@ -130,7 +130,7 @@ public:
 #else
         // used for emulated gpu fields
 #ifdef GHEX_USE_XPMEM
-        return *m_xmpmem_data_ptr;
+        return *m_xpmem_data_ptr;
 #else
         return 0;
 #endif

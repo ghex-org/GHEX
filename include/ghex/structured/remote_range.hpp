@@ -52,7 +52,7 @@ struct range_iterator
     bool      lt(const range_iterator& other) const { return m_index < other.m_index; }
 };
 
-template<typename Field, typename Enable = void> // enable for gpu
+template<typename Field>
 struct field_view
 {
     using layout = typename Field::layout_map;
