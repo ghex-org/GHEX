@@ -18,12 +18,7 @@
 #include "../remote_range_traits.hpp"
 #include "../transport_layer/ri/types.hpp"
 #include "../arch_list.hpp"
-#ifdef GHEX_USE_XPMEM
-#include "../transport_layer/ri/xpmem/access_guard.hpp"
-#include "../transport_layer/ri/xpmem/data.hpp"
-#else
-#include "../transport_layer/ri/thread/access_guard.hpp"
-#endif /* GHEX_USE_XPMEM */
+#include "../transport_layer/ri/access_guard.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -65,13 +60,8 @@ struct field_view
     using value_type = typename Field::value_type;
     using coordinate = typename Field::coordinate_type;
     using strides_type = typename Field::strides_type;
-#ifdef GHEX_USE_XPMEM
-    using guard_type = tl::ri::xpmem::access_guard;
-    using guard_view_type = tl::ri::xpmem::access_guard_view;
-#else
-    using guard_type = tl::ri::thread::access_guard;
-    using guard_view_type = tl::ri::thread::access_guard_view;
-#endif /* GHEX_USE_XPMEM */
+    using guard_type = tl::ri::access_guard;
+    using guard_view_type = tl::ri::access_guard_view;
     using rma_data_t = typename Field::rma_data_t;
     using size_type = tl::ri::size_type;
 
@@ -207,8 +197,8 @@ struct remote_range
     view_type         m_view;
     size_type         m_chunk_size;
     
-    remote_range(const view_type& v, guard_type& g) noexcept
-    : m_guard{g}
+    remote_range(const view_type& v, guard_type& g, tl::ri::locality loc) noexcept
+    : m_guard{g, loc}
     , m_view{v}
     , m_chunk_size{(size_type)(m_view.m_extent[layout::find(dimension::value-1)] * sizeof(value_type))}
     {}
@@ -357,7 +347,7 @@ struct remote_range_generator
         std::vector<tl::ri::byte> m_archive;
 
         template<typename Coord>
-        target_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag)
+        target_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag, tl::ri::locality loc)
         : m_comm{comm}
         , m_guard{}
         , m_view{f, first, last-first+1}
@@ -365,9 +355,9 @@ struct remote_range_generator
         , m_tag{tag}
         {
             m_archive.resize(RangeFactory::serial_size);
-            m_view.m_field.init_rma_local();
+            m_view.m_field.init_rma_local(loc);
             m_view.m_rma_data = m_view.m_field.get_rma_data();
-	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard)};
+	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard,loc)};
             RangeFactory::serialize(m_local_range, m_archive.data());
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
