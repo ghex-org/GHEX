@@ -34,12 +34,10 @@ public:
     using derived = field_descriptor<T, cpu, DomainDescriptor, Order...>;
 #ifdef GHEX_USE_XPMEM
     using rma_data_t = tl::ri::xpmem::data;
-    std::shared_ptr<rma_data_t> m_rma_data;
+    std::shared_ptr<rma_data_t> m_xpmem_data_ptr;
 #else
     using rma_data_t = int;
-    rma_data_t m_rma_data = 0;
 #endif /* GHEX_USE_XPMEM */
-    tl::ri::locality m_locality;
 
     derived* d_cast()
     {
@@ -54,47 +52,43 @@ public:
     auto get_rma_data() const
     {
 #ifdef GHEX_USE_XPMEM
-        return *m_rma_data;
+        return *m_xmpmem_data_ptr;
 #else
-        return m_rma_data;
+        return 0;
 #endif
     }
 
     void reset_rma_data()
     {
 #ifdef GHEX_USE_XPMEM
-        if (m_locality == ri::locality::process)
-            new(&m_rma_data) std::shared_ptr<rma_data_t>{};
+        new(&m_xpmem_data_ptr) std::shared_ptr<rma_data_t>{};
 #endif
     }
 
-    void init_rma_local(tl::ri::locality loc)
+    void init_rma_local()
     {
-        m_locality = loc;
 #ifdef GHEX_USE_XPMEM
-        if (m_locality == ri::locality::process)
-            if (!m_rma_data)
-            {
-                auto size = d_cast()->m_extents[0];
-                for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i) size *= d_cast()->m_extents[i];
-                m_rma_data = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
-            }
+        if (!m_xpmem_data_ptr)
+        {
+            auto size = d_cast()->m_extents[0];
+            for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i)
+                size *= d_cast()->m_extents[i];
+            m_xpmem_data_ptr = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
+        }
 #endif /* GHEX_USE_XPMEM */
     }
 
     void release_rma_local() { }
 
-    void init_rma_remote(const rma_data_t& data)
+    void init_rma_remote(const rma_data_t& data, tl::ri::locality loc)
     {
 #ifdef GHEX_USE_XPMEM
-        if (m_locality == ri::locality::process)
-            if (!m_rma_data)
+        if (loc == tl::ri::locality::process)
+            if (!m_xpmem_data_ptr)
             {
-                m_rma_data = tl::ri::xpmem::make_remote_data(data);
-                d_cast()->m_data = (T*)m_rma_data->m_ptr;
+                m_xpmem_data_ptr = tl::ri::xpmem::make_remote_data(data);
+                d_cast()->m_data = (T*)m_xpmem_data_ptr->m_ptr;
             }
-#else
-        m_rma_data = data;
 #endif /* GHEX_USE_XPMEM */	
     }
     
@@ -106,20 +100,18 @@ class rma_handle<field_descriptor<T, gpu, DomainDescriptor, Order...>>
 {
 public:
     using derived = field_descriptor<T, gpu, DomainDescriptor, Order...>;
-
-#ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
     using rma_data_t = cudaIpcMemHandle_t;
-    std::shared_ptr<rma_data_t> m_rma_data;
+    std::shared_ptr<rma_data_t> m_cuda_data_ptr;
+#else
+    // used for emulated gpu fields
+#ifdef GHEX_USE_XPMEM
+    using rma_data_t = tl::ri::xpmem::data;
+    std::shared_ptr<rma_data_t> m_xpmem_data_ptr;
 #else
     using rma_data_t = int;
-    rma_data_t m_rma_data = 0;
-#endif /* __CUDACC__ */
-#else
-    using rma_data_t = int;
-    rma_data_t m_rma_data = 0;
-#endif /* GHEX_USE_XPMEM */	
-    tl::ri::locality m_locality;
+#endif
+#endif
 
     derived* d_cast()
     {
@@ -133,56 +125,65 @@ public:
     
     auto get_rma_data() const
     {
-#ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
-        return *m_rma_data;
+        return *m_cuda_data_ptr;
 #else
-        return m_rma_data;
-#endif /* __CUDACC__ */
+        // used for emulated gpu fields
+#ifdef GHEX_USE_XPMEM
+        return *m_xmpmem_data_ptr;
 #else
-        return m_rma_data;
-#endif /* GHEX_USE_XPMEM */	
+        return 0;
+#endif
+#endif
     }
 
     void reset_rma_data()
     {
-#ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
-        if (m_locality == ri::locality::process)
-            new(&m_rma_data) std::shared_ptr<rma_data_t>{};
-#endif /* __CUDACC__ */
+        new(&m_cuda_data_ptr) std::shared_ptr<rma_data_t>{};
+#else
+        // used for emulated gpu fields
+#ifdef GHEX_USE_XPMEM
+        new(&m_xpmem_data_ptr) std::shared_ptr<rma_data_t>{};
+#endif
 #endif
     }
 
-    void init_rma_local(tl::ri::locality loc)
+    void init_rma_local()
     {
-        m_locality = loc;
-#ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
-        if (m_locality == ri::locality::process)
-            if (!m_rma_data)
-            {
-                auto h = new rma_data_t;
-                cudaIpcGetMemHandle(h, d_cast()->m_data);
-                m_rma_data = std::shared_ptr<rma_data_t>{h};
-            }
-#endif /* __CUDACC__ */
-#endif /* GHEX_USE_XPMEM */	
+        if (!m_cuda_data_ptr)
+        {
+            auto h = new rma_data_t;
+            cudaIpcGetMemHandle(h, d_cast()->m_data);
+            m_cuda_data_ptr = std::shared_ptr<rma_data_t>{h};
+        }
+#else
+        // used for emulated gpu fields
+#ifdef GHEX_USE_XPMEM
+        if (!m_xpmem_data_ptr)
+        {
+            auto size = d_cast()->m_extents[0];
+            for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i)
+                size *= d_cast()->m_extents[i];
+            m_xpmem_data_ptr = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
+        }
+#endif
+#endif
     }
 
     void release_rma_local() { }
 
-    void init_rma_remote(const rma_data_t& data)
+    void init_rma_remote(const rma_data_t& data, tl::ri::locality loc)
     {
-#ifdef GHEX_USE_XPMEM
 #ifdef __CUDACC__
-        if (m_locality == ri::locality::process)
-            if (!m_rma_data)
+        if (loc == tl::ri::locality::process)
+            if (!m_cuda_data_ptr)
             {
                 void* vptr = (d_cast()->m_data);
                 cudaIpcOpenMemHandle(&vptr, data, cudaIpcMemLazyEnablePeerAccess); 
                 d_cast()->m_data = (T*)vptr;
-                m_rma_data = std::shared_ptr<rma_data_t>{
+                m_cuda_data_ptr = std::shared_ptr<rma_data_t>{
                     new rma_data_t{data},
                     [ptr = d_cast()->m_data](rma_data_t* h){
                         cudaIpcCloseMemHandle(ptr); 
@@ -191,11 +192,16 @@ public:
                 };
             }
 #else
-        m_rma_data = data;
-#endif /* __CUDACC__ */
-#else
-        m_rma_data = data;
-#endif /* GHEX_USE_XPMEM */	
+        // used for emulated gpu fields
+#ifdef GHEX_USE_XPMEM
+        if (loc == tl::ri::locality::process)
+            if (!m_xpmem_data_ptr)
+            {
+                m_xpmem_data_ptr = tl::ri::xpmem::make_remote_data(data);
+                d_cast()->m_data = (T*)m_xpmem_data_ptr->m_ptr;
+            }
+#endif
+#endif
     }
     
     void release_rma_remote() { }

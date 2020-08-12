@@ -52,6 +52,8 @@ struct access_guard_view
 #endif
     {}
 
+    locality get_locality() const noexcept { return m_locality; }
+
     void init_remote()
     {
         if (m_locality == locality::thread) m_thread_guard_view.init_remote();
