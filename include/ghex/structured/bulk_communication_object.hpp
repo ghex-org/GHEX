@@ -166,7 +166,7 @@ private: // member types
     using field_types = boost::mp11::mp_unique<boost::mp11::mp_list<Fields...>>;
     using buffer_info_types = boost::mp11::mp_transform<buffer_info_type, field_types>;
     using cpu_fields = boost::mp11::mp_transform_q<select_arch_q<cpu>,field_types>;
-#ifdef GHEX_USE_GPU
+#ifdef __CUDACC__
     using gpu_fields = boost::mp11::mp_transform_q<select_arch_q<gpu>,field_types>;
     using all_fields = boost::mp11::mp_unique<boost::mp11::mp_append<cpu_fields,gpu_fields>>;
 #else

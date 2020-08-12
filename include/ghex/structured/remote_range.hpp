@@ -110,8 +110,8 @@ struct field_view
             m_size *= extent[i];
         }
 
-        m_end[I] = extent[I];
-        m_size /= extent[layout::find(dimension::value-1)];
+        m_end[I] = m_extent[I];
+        m_size  /= m_extent[I];
     }
 
     field_view(const field_view&) = default;
@@ -215,13 +215,13 @@ struct remote_range
     void init(tl::ri::remote_host_)   
     {
         m_view.m_field.reset_rma_data();
-        m_view.m_field.init_rma_remote(m_view.m_rma_data);
+        m_view.m_field.init_rma_remote(m_view.m_rma_data, m_guard.get_locality());
 	    m_guard.init_remote();
     }
     void init(tl::ri::remote_device_)
     {
         m_view.m_field.reset_rma_data();
-        m_view.m_field.init_rma_remote(m_view.m_rma_data);
+        m_view.m_field.init_rma_remote(m_view.m_rma_data, m_guard.get_locality());
 	    m_guard.init_remote();
     }
     void exit(tl::ri::remote_host_)
@@ -355,7 +355,7 @@ struct remote_range_generator
         , m_tag{tag}
         {
             m_archive.resize(RangeFactory::serial_size);
-            m_view.m_field.init_rma_local(loc);
+            m_view.m_field.init_rma_local();
             m_view.m_rma_data = m_view.m_field.get_rma_data();
 	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard,loc)};
             RangeFactory::serialize(m_local_range, m_archive.data());
