@@ -12,7 +12,7 @@
 #define INCLUDED_GHEX_STRUCTURED_RMA_HANDLE_HPP
 
 #include "../arch_traits.hpp"
-
+#include "../transport_layer/ri/types.hpp"
 #ifdef GHEX_USE_XPMEM
 #include "../transport_layer/ri/xpmem/data.hpp"
 #endif /* GHEX_USE_XPMEM */

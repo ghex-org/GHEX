@@ -88,9 +88,9 @@ struct field_view
     field_view(const Field& f, const Array& offset, const Array& extent)
     : m_field(f)
     {
-        static constexpr auto I = layout::template find<dimension::value-1>();
+        static constexpr auto I = layout::find(dimension::value-1);
         m_size = 1;
-        for (unsigned int i=0; i<dimension::value; ++i)
+        for (unsigned int i=0; i<dimension::value-1; ++i)
         {
             m_offset[i] = offset[i];
             m_extent[i] = extent[i];
@@ -99,8 +99,29 @@ struct field_view
             m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
+        if (Field::has_components::value)
+        {
+            unsigned int i = dimension::value-1;
+            m_offset[i] = 0;
+            m_extent[i] = f.num_components();
+            m_begin[i] = 0;
+            m_end[i] = m_extent[i]-1;
+            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            m_size *= m_extent[i];
+        }
+        else
+        {
+            unsigned int i = dimension::value-1;
+            m_offset[i] = offset[i];
+            m_extent[i] = extent[i];
+            m_begin[i] = 0;
+            m_end[i] = extent[i]-1;
+            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            m_size *= extent[i];
+        }
+
         m_end[I] = extent[I];
-        m_size /= extent[layout::template find<dimension::value-1>()];
+        m_size /= extent[layout::find(dimension::value-1)];
     }
 
     field_view(const field_view&) = default;
@@ -132,7 +153,7 @@ struct inc_coord
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto I = Layout::template find<Dim-D-1>();
+        static constexpr auto I = Layout::find(Dim-D-1);
         if (coord[I] == ext[I] - 1)
         {
             coord[I] = 0;
@@ -148,8 +169,8 @@ struct inc_coord<3,1,Layout>
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto Y = Layout::template find<1>();
-        static constexpr auto Z = Layout::template find<0>();
+        static constexpr auto Y = Layout::find(1);
+        static constexpr auto Z = Layout::find(0);
         const bool cond = coord[Y] < ext[Y] - 1;
         coord[Y]  = cond ? coord[Y] + 1 : 0;
         coord[Z] += cond ? 0 : 1;
@@ -161,7 +182,7 @@ struct inc_coord<Dim, Dim, Layout>
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto I = Layout::template find<Dim-1>();
+        static constexpr auto I = Layout::find(Dim-1);
         for (unsigned int i = 0; i < Dim; ++i) coord[i] = ext[i] - 1;
         coord[I] = ext[I];
     }
@@ -189,7 +210,7 @@ struct remote_range
     remote_range(const view_type& v, guard_type& g) noexcept
     : m_guard{g}
     , m_view{v}
-    , m_chunk_size{(size_type)(m_view.m_extent[layout::template find<dimension::value-1>()] * sizeof(value_type))}
+    , m_chunk_size{(size_type)(m_view.m_extent[layout::find(dimension::value-1)] * sizeof(value_type))}
     {}
     
     remote_range(const remote_range&) = default;
@@ -285,7 +306,7 @@ struct remote_range
         else
         {
             auto idx = index;
-            static constexpr auto I = layout::template find<dimension::value-1>();
+            static constexpr auto I = layout::find(dimension::value-1);
             coord[I] = 0;
             for (unsigned int d = 0; d < dimension::value; ++d)
             {
@@ -298,7 +319,7 @@ struct remote_range
     }
 
     size_type inc(size_type index, coordinate& coord) const noexcept {
-        static constexpr auto I = layout::template find<dimension::value-1>();
+        static constexpr auto I = layout::find(dimension::value-1);
         if (index + 1 >= m_view.m_size)
         {
             coord = m_view.m_end;
@@ -409,13 +430,13 @@ template<>
 struct remote_range_traits<structured::remote_range_generator>
 {
     template<typename Communicator>
-    static bool is_local(Communicator comm, int remote_rank)
+    static tl::ri::locality is_local(Communicator comm, int remote_rank)
     {
+        if (comm.rank() == remote_rank) return tl::ri::locality::thread;
 #ifdef GHEX_USE_XPMEM
-        return comm.is_local(remote_rank);
-#else
-        return comm.rank() == remote_rank;
+        else if (comm.is_local(remote_rank)) return tl::ri::locality::process;
 #endif /* GHEX_USE_XPMEM */
+        else return tl::ri::locality::remote;
     }
 };
 

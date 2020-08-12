@@ -37,7 +37,7 @@ struct range_loop
     template<typename Field, typename Filtered, typename Coord>
     static inline void apply(const Field& f, Filtered& filtered_ranges, Coord coord) noexcept
     {
-        static constexpr auto C = Layout::template find<I-1>();
+        static constexpr auto C = Layout::find(I-1);
         for (auto c = -(long)f.offsets()[C]; c<(long)f.extents()[C]-f.offsets()[C]; ++c)
         {
             coord[C] = c;
@@ -53,7 +53,7 @@ struct range_loop
     template<typename Range, typename Coord>
     static inline void apply2(Range& r, Coord coord) noexcept
     {
-        static constexpr auto C = Layout::template find<I-1>();
+        static constexpr auto C = Layout::find(I-1);
         for (int c = 0; c < r.m_view.m_extent[C]; ++c)
         {
             coord[C] = c;
@@ -70,7 +70,7 @@ struct range_loop<Layout, D, 1>
     {
         using coordinate_type = typename Field::coordinate_type;
         using range_type = std::remove_cv_t<std::remove_reference_t<decltype(**ranges.begin())>>;
-        static constexpr auto C = Layout::template find<0>();
+        static constexpr auto C = Layout::find(0);
         
         static thread_local std::array<std::vector<range_type*>, D-1> filtered_ranges;
         for (auto c = -(long)f.offsets()[C]; c<(long)f.extents()[C]-f.offsets()[C]; ++c)
@@ -90,7 +90,7 @@ struct range_loop<Layout, D, 1>
     static inline void apply2(Ranges& ranges) noexcept
     {
         using coordinate_type = typename Field::coordinate_type;
-        static constexpr auto C = Layout::template find<0>();
+        static constexpr auto C = Layout::find(0);
         for (auto& r : ranges)
         {
             for (int c = 0; c < r.m_view.m_extent[C]; ++c)
@@ -109,7 +109,7 @@ struct range_loop<Layout, D, D>
     template<typename Field, typename Filtered, typename Coord>
     static inline void apply(const Field&, Filtered& filtered_ranges, Coord coord) noexcept
     {
-        static constexpr auto C = Layout::template find<D-1>();
+        static constexpr auto C = Layout::find(D-1);
         for (auto r : filtered_ranges[D-2])
         {
             auto coord_new = coord;
@@ -123,7 +123,7 @@ struct range_loop<Layout, D, D>
     template<typename Range, typename Coord>
     static inline void apply2(Range& r, Coord coord) noexcept
     {
-        static constexpr auto C = Layout::template find<D-1>();
+        static constexpr auto C = Layout::find(D-1);
         coord[C] = 0;
         auto mem_loc = r.m_view.ptr(coord);
         r.m_remote_range.put(r.m_pos,(const tl::ri::byte*)mem_loc);
@@ -243,7 +243,7 @@ public: // ctors
             while (r_it != r_p.send_halos().end())
             {
                 const auto local = remote_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                if (local)
+                if (local != tl::ri::locality::remote)
                 {
                     // remove local fields from remote pattern
                     r_it = r_p.send_halos().erase(r_it);
@@ -263,7 +263,7 @@ public: // ctors
             while (r_it != r_p.recv_halos().end())
             {
                 const auto local = remote_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                if (local)
+                if (local != tl::ri::locality::remote)
                 {
                     // remove local fields from remote pattern
                     r_it = r_p.recv_halos().erase(r_it);
@@ -395,8 +395,8 @@ private:
                     // sort s_ptrs
                     std::sort(s_ptrs.begin(), s_ptrs.end(), [](const auto& lhs, const auto& rhs)
                     {
-                        return lhs->m_view.m_offset[Layout::template find<F::dimension::value-1>()] < 
-                            rhs->m_view.m_offset[Layout::template find<F::dimension::value-1>()];
+                        return lhs->m_view.m_offset[Layout::find(F::dimension::value-1)] < 
+                            rhs->m_view.m_offset[Layout::find(F::dimension::value-1)];
                     });
                 }
             });
