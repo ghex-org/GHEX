@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12.4)
+cmake_minimum_required(VERSION 3.14.5)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
@@ -29,24 +29,27 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
+find_package(OpenMP)
 
-# GridTools uses BUILD_TESTING, cache it and reset after (not required with GT 2.0)
-set(build_testing ${BUILD_TESTING})
-set(install_tools ${INSTALL_TOOLS})
-set(BUILD_TESTING OFF)
-set(INSTALL_TOOLS OFF)
-set(GT_INSTALL_EXAMPLES OFF)
-include(FetchContent)
-FetchContent_Declare(GridTools
-    URL https://github.com/GridTools/gridtools/archive/v1.1.3.tar.gz
-)
-FetchContent_GetProperties(GridTools)
-if(NOT GridTools_POPULATED)
-    FetchContent_Populate(GridTools)
-    add_subdirectory(${gridtools_SOURCE_DIR} ${gridtools_BINARY_DIR})
+set(_required_gridtools_version "2.0.0")
+if(NOT _gridtools_already_fetched)
+    find_package(GridTools ${_required_gridtools_version})
 endif()
-set(BUILD_TESTING ${build_testing})
-set(INSTALL_TOOLS ${install_tools})
+if(NOT GridTools_FOUND)
+    set(_gridtools_repository "https://github.com/GridTools/gridtools.git")
+    set(_gridtools_tag        "v${_required_gridtools_version}")
+    if(NOT _gridtools_already_fetched)
+        message(STATUS "Fetching GridTools tag ${_gridtools_tag} from ${_gridtools_repository}")
+    endif()
+    include(FetchContent)
+    FetchContent_Declare(
+        gridtools
+        GIT_REPOSITORY ${_gridtools_repository}
+        GIT_TAG        ${_gridtools_tag}
+    )
+    FetchContent_MakeAvailable(gridtools)
+    set(_gridtools_already_fetched ON CACHE INTERNAL "")
+endif()
 
 set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
 if (GHEX_USE_UCP)

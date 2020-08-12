@@ -119,12 +119,12 @@ struct simulation_1
     using pattern_type = std::remove_reference_t<decltype(
         gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains))>;
     pattern_type pattern;
-    field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0> field_1a;
-    field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0> field_1b;
-    field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0> field_2a;
-    field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0> field_2b;
-    field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0> field_3a;
-    field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0> field_3b;
+    field_descriptor_type<TT1, gridtools::ghex::cpu, 3, 2, 1, 0> field_1a;
+    field_descriptor_type<TT1, gridtools::ghex::cpu, 3, 2, 1, 0> field_1b;
+    field_descriptor_type<TT2, gridtools::ghex::cpu, 3, 2, 1, 0> field_2a;
+    field_descriptor_type<TT2, gridtools::ghex::cpu, 3, 2, 1, 0> field_2b;
+    field_descriptor_type<TT3, gridtools::ghex::cpu, 3, 2, 1, 0> field_3a;
+    field_descriptor_type<TT3, gridtools::ghex::cpu, 3, 2, 1, 0> field_3b;
 #ifdef __CUDACC__
     field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0> field_1a_gpu;
     field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0> field_1b_gpu;
@@ -175,12 +175,12 @@ struct simulation_1
     , halos{2,2,2,2,2,2}
     , halo_gen(g_first, g_last, halos, periodic)
     , pattern{gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains)}
-    , field_1a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0], field_1a_raw.data(), offset, local_ext_buffer)}
-    , field_1b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_1b_raw.data(), offset, local_ext_buffer)}
-    , field_2a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0], field_2a_raw.data(), offset, local_ext_buffer)}
-    , field_2b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_2b_raw.data(), offset, local_ext_buffer)}
-    , field_3a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0], field_3a_raw.data(), offset, local_ext_buffer)}
-    , field_3b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_3b_raw.data(), offset, local_ext_buffer)}
+    , field_1a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,3,2,1,0>(local_domains[0], field_1a_raw.data(), offset, local_ext_buffer)}
+    , field_1b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,3,2,1,0>(local_domains[1], field_1b_raw.data(), offset, local_ext_buffer)}
+    , field_2a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,3,2,1,0>(local_domains[0], field_2a_raw.data(), offset, local_ext_buffer)}
+    , field_2b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,3,2,1,0>(local_domains[1], field_2b_raw.data(), offset, local_ext_buffer)}
+    , field_3a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,3,2,1,0>(local_domains[0], field_3a_raw.data(), offset, local_ext_buffer)}
+    , field_3b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,3,2,1,0>(local_domains[1], field_3b_raw.data(), offset, local_ext_buffer)}
 #ifdef __CUDACC__
     , field_1a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[0], field_1a_raw_gpu.get(), offset, local_ext_buffer)}
     , field_1b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[1], field_1b_raw_gpu.get(), offset, local_ext_buffer)}
@@ -214,9 +214,9 @@ struct simulation_1
             auto bco =  gridtools::ghex::structured::bulk_communication_object<
                 gridtools::ghex::structured::remote_range_generator,
                 pattern_type,
-                field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
+                field_descriptor_type<TT1, gridtools::ghex::cpu, 3, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::cpu, 3, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::cpu, 3, 2, 1, 0>
             > (comms[0], pattern);
 
             bco.add_field(field_1a);
@@ -250,9 +250,9 @@ struct simulation_1
             auto bco0 =  gridtools::ghex::structured::bulk_communication_object<
                 gridtools::ghex::structured::remote_range_generator,
                 pattern_type,
-                field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
+                field_descriptor_type<TT1, gridtools::ghex::cpu, 3, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::cpu, 3, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::cpu, 3, 2, 1, 0>
             > (comms[0], pattern);
             bco0.add_field(field_1a);
             bco0.add_field(field_2a);
@@ -261,9 +261,9 @@ struct simulation_1
             auto bco1 =  gridtools::ghex::structured::bulk_communication_object<
                 gridtools::ghex::structured::remote_range_generator,
                 pattern_type,
-                field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
+                field_descriptor_type<TT1, gridtools::ghex::cpu, 3, 2, 1, 0>,
+                field_descriptor_type<TT2, gridtools::ghex::cpu, 3, 2, 1, 0>,
+                field_descriptor_type<TT3, gridtools::ghex::cpu, 3, 2, 1, 0>
             > (comms[1], pattern);
             bco1.add_field(field_1b);
             bco1.add_field(field_2b);
@@ -347,7 +347,7 @@ private:
                 int zl = 0;
                 for (int z=d.first()[2]; z<=d.last()[2]; ++z, ++zl)
                 {
-                    f(xl,yl,zl) = array_type<T,3>{(T)x,(T)y,(T)z};
+                    f(xl,yl,zl,0) = array_type<T,3>{(T)x,(T)y,(T)z};
                 }
             }
         }
@@ -394,7 +394,7 @@ private:
                     if (z>d.last()[2]  && !periodic[2]) continue;
                     T z_wrapped = (((z-g_first[2])+(g_last[2]-g_first[2]+1))%(g_last[2]-g_first[2]+1) + g_first[2]);
     
-                    const auto& value = f(xl,yl,zl);
+                    const auto& value = f(xl,yl,zl,0);
                     if(value[0]!=x_wrapped || value[1]!=y_wrapped || value[2]!=z_wrapped)
                     {
                         passed = false;

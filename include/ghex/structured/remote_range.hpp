@@ -18,12 +18,7 @@
 #include "../remote_range_traits.hpp"
 #include "../transport_layer/ri/types.hpp"
 #include "../arch_list.hpp"
-#ifdef GHEX_USE_XPMEM
-#include "../transport_layer/ri/xpmem/access_guard.hpp"
-#include "../transport_layer/ri/xpmem/data.hpp"
-#else
-#include "../transport_layer/ri/thread/access_guard.hpp"
-#endif /* GHEX_USE_XPMEM */
+#include "../transport_layer/ri/access_guard.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -65,13 +60,8 @@ struct field_view
     using value_type = typename Field::value_type;
     using coordinate = typename Field::coordinate_type;
     using strides_type = typename Field::strides_type;
-#ifdef GHEX_USE_XPMEM
-    using guard_type = tl::ri::xpmem::access_guard;
-    using guard_view_type = tl::ri::xpmem::access_guard_view;
-#else
-    using guard_type = tl::ri::thread::access_guard;
-    using guard_view_type = tl::ri::thread::access_guard_view;
-#endif /* GHEX_USE_XPMEM */
+    using guard_type = tl::ri::access_guard;
+    using guard_view_type = tl::ri::access_guard_view;
     using rma_data_t = typename Field::rma_data_t;
     using size_type = tl::ri::size_type;
 
@@ -88,9 +78,9 @@ struct field_view
     field_view(const Field& f, const Array& offset, const Array& extent)
     : m_field(f)
     {
-        static constexpr auto I = layout::template find<dimension::value-1>();
+        static constexpr auto I = layout::find(dimension::value-1);
         m_size = 1;
-        for (unsigned int i=0; i<dimension::value; ++i)
+        for (unsigned int i=0; i<dimension::value-1; ++i)
         {
             m_offset[i] = offset[i];
             m_extent[i] = extent[i];
@@ -99,8 +89,29 @@ struct field_view
             m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
+        if (Field::has_components::value)
+        {
+            unsigned int i = dimension::value-1;
+            m_offset[i] = 0;
+            m_extent[i] = f.num_components();
+            m_begin[i] = 0;
+            m_end[i] = m_extent[i]-1;
+            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            m_size *= m_extent[i];
+        }
+        else
+        {
+            unsigned int i = dimension::value-1;
+            m_offset[i] = offset[i];
+            m_extent[i] = extent[i];
+            m_begin[i] = 0;
+            m_end[i] = extent[i]-1;
+            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            m_size *= extent[i];
+        }
+
         m_end[I] = extent[I];
-        m_size /= extent[layout::template find<dimension::value-1>()];
+        m_size /= extent[layout::find(dimension::value-1)];
     }
 
     field_view(const field_view&) = default;
@@ -132,7 +143,7 @@ struct inc_coord
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto I = Layout::template find<Dim-D-1>();
+        static constexpr auto I = Layout::find(Dim-D-1);
         if (coord[I] == ext[I] - 1)
         {
             coord[I] = 0;
@@ -148,8 +159,8 @@ struct inc_coord<3,1,Layout>
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto Y = Layout::template find<1>();
-        static constexpr auto Z = Layout::template find<0>();
+        static constexpr auto Y = Layout::find(1);
+        static constexpr auto Z = Layout::find(0);
         const bool cond = coord[Y] < ext[Y] - 1;
         coord[Y]  = cond ? coord[Y] + 1 : 0;
         coord[Z] += cond ? 0 : 1;
@@ -161,7 +172,7 @@ struct inc_coord<Dim, Dim, Layout>
     template<typename Coord>
     static inline void fn(Coord& coord, const Coord& ext) noexcept
     {
-        static constexpr auto I = Layout::template find<Dim-1>();
+        static constexpr auto I = Layout::find(Dim-1);
         for (unsigned int i = 0; i < Dim; ++i) coord[i] = ext[i] - 1;
         coord[I] = ext[I];
     }
@@ -186,10 +197,10 @@ struct remote_range
     view_type         m_view;
     size_type         m_chunk_size;
     
-    remote_range(const view_type& v, guard_type& g) noexcept
-    : m_guard{g}
+    remote_range(const view_type& v, guard_type& g, tl::ri::locality loc) noexcept
+    : m_guard{g, loc}
     , m_view{v}
-    , m_chunk_size{(size_type)(m_view.m_extent[layout::template find<dimension::value-1>()] * sizeof(value_type))}
+    , m_chunk_size{(size_type)(m_view.m_extent[layout::find(dimension::value-1)] * sizeof(value_type))}
     {}
     
     remote_range(const remote_range&) = default;
@@ -285,7 +296,7 @@ struct remote_range
         else
         {
             auto idx = index;
-            static constexpr auto I = layout::template find<dimension::value-1>();
+            static constexpr auto I = layout::find(dimension::value-1);
             coord[I] = 0;
             for (unsigned int d = 0; d < dimension::value; ++d)
             {
@@ -298,7 +309,7 @@ struct remote_range
     }
 
     size_type inc(size_type index, coordinate& coord) const noexcept {
-        static constexpr auto I = layout::template find<dimension::value-1>();
+        static constexpr auto I = layout::find(dimension::value-1);
         if (index + 1 >= m_view.m_size)
         {
             coord = m_view.m_end;
@@ -336,7 +347,7 @@ struct remote_range_generator
         std::vector<tl::ri::byte> m_archive;
 
         template<typename Coord>
-        target_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag)
+        target_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag, tl::ri::locality loc)
         : m_comm{comm}
         , m_guard{}
         , m_view{f, first, last-first+1}
@@ -344,9 +355,9 @@ struct remote_range_generator
         , m_tag{tag}
         {
             m_archive.resize(RangeFactory::serial_size);
-            m_view.m_field.init_rma_local();
+            m_view.m_field.init_rma_local(loc);
             m_view.m_rma_data = m_view.m_field.get_rma_data();
-	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard)};
+	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard,loc)};
             RangeFactory::serialize(m_local_range, m_archive.data());
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
@@ -409,13 +420,13 @@ template<>
 struct remote_range_traits<structured::remote_range_generator>
 {
     template<typename Communicator>
-    static bool is_local(Communicator comm, int remote_rank)
+    static tl::ri::locality is_local(Communicator comm, int remote_rank)
     {
+        if (comm.rank() == remote_rank) return tl::ri::locality::thread;
 #ifdef GHEX_USE_XPMEM
-        return comm.is_local(remote_rank);
-#else
-        return comm.rank() == remote_rank;
+        else if (comm.is_local(remote_rank)) return tl::ri::locality::process;
 #endif /* GHEX_USE_XPMEM */
+        else return tl::ri::locality::remote;
     }
 };
 
