@@ -2,9 +2,12 @@ cmake_minimum_required(VERSION 3.14.5)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
+    set(CMAKE_CUDA_FLAGS "" CACHE STRING "")
+    string(APPEND CMAKE_CUDA_FLAGS " --cudart shared")
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_EXTENSIONS OFF)
+    #set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
 endif()
 
 cmake_policy(SET CMP0048 NEW)

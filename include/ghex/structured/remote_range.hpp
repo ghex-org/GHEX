@@ -52,7 +52,7 @@ struct range_iterator
     bool      lt(const range_iterator& other) const { return m_index < other.m_index; }
 };
 
-template<typename Field, typename Enable = void> // enable for gpu
+template<typename Field>
 struct field_view
 {
     using layout = typename Field::layout_map;
@@ -237,16 +237,15 @@ struct remote_range
     
     static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_, std::true_type)
     {
-        // host to host put
         std::memcpy(c.data(), ptr, c.size());
     }
     static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_, std::false_type)
     {
 #ifdef __CUDACC__
-        // devide to host put
         cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyHostToDevice);
 #endif /* __CUDACC__ */
     }
+
     static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_, std::true_type)
     {
 #ifdef __CUDACC__
@@ -256,7 +255,6 @@ struct remote_range
     static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_, std::false_type)
     {
 #ifdef __CUDACC__
-        // devide to host put
         cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToDevice);
 #endif /* __CUDACC__ */
     }
@@ -322,6 +320,17 @@ struct remote_range
             return index + 1;
         }
     }
+};
+
+template<typename Arch>
+struct select_arch
+{
+    static auto get() noexcept { return tl::ri::host; }
+};
+template<>
+struct select_arch<gpu>
+{
+    static auto get() noexcept { return tl::ri::device; }
 };
 
 template<typename Field>
@@ -403,7 +412,7 @@ struct remote_range_generator
         void recv()
         {
             m_request.wait();
-            m_remote_range = RangeFactory::deserialize(tl::ri::host, m_buffer.data());
+            m_remote_range = RangeFactory::deserialize(select_arch<typename Field::arch_type>::get(), m_buffer.data());
             m_buffer.resize(m_remote_range.buffer_size());
             m_pos = m_remote_range.begin();
         }
