@@ -354,7 +354,7 @@ public:
         }
     }
 
-private:
+public:
 
     void init()
     {
@@ -405,7 +405,8 @@ private:
         
         m_initialized = true;
     }
-    
+
+private:     
     co_handle exchange_remote()
     {
         return exchange_remote(std::make_index_sequence<boost::mp11::mp_size<field_types>::value>());

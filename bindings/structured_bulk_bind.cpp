@@ -142,17 +142,19 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
 	field_descriptor_type
 	> (comm, pattern);
 
-
     for(int i=0; i<n_domains; i++){
         field_vector_type &fields = *(domains_desc[i].fields);
         for(auto field: fields){
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
-	    auto f = field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(local_domains[i], field.data, offset, extents));
+	    auto f = field_descriptor_type(local_domains[i], field.data, offset, extents, field.n_components, false, 
+					   domains_desc[i].device_id);
 	    bco.add_field(f);
         }
     }
 
+    // exchange the RMA handles before any other BCO can be created
+    bco.init();
     return new ghex::bindings::obj_wrapper(std::move(bco));
 }
 

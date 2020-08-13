@@ -62,7 +62,7 @@ namespace gridtools {
                     void destroy()
                     {
                         if (!m_moved){
-                            ucs_status_ptr_t ret = ucp_ep_close_nb(m_ep, UCP_EP_CLOSE_MODE_FLUSH);
+                            ucs_status_ptr_t ret = ucp_ep_close_nb(m_ep, UCP_EP_CLOSE_MODE_FORCE);
                             if(UCS_OK == reinterpret_cast<std::uintptr_t>(ret)) return;
                             if(UCS_PTR_IS_ERR(ret)) return;
                             
