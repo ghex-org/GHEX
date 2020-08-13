@@ -29,6 +29,7 @@
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
+#include <ghex/communication_object_ipr.hpp>
 
 
 #ifndef GHEX_TEST_USE_UCX
@@ -545,14 +546,14 @@ TEST(unstructured_user_concepts, in_place_receive) {
 
     // communication object
     using pattern_container_type = decltype(patterns);
-    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
 
     // application data
     std::vector<int> field(d.size(), 0);
     initialize_data(d, field);
     data_descriptor_cpu_int_type data{d, field};
 
-    auto h = co.exchange_ipr(patterns(data));
+    auto h = co.exchange(patterns(data));
     h.wait();
 
     // check exchanged data
