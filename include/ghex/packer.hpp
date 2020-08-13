@@ -44,24 +44,6 @@ namespace gridtools {
                 }
             }
 
-            template<typename Map, typename Futures, typename Communicator>
-            static void pack_ipr(Map& map, Futures& send_futures,Communicator& comm)
-            {
-                for (auto& p0 : map.send_memory_ipr)
-                {
-                    for (auto& p1: p0.second)
-                    {
-                        if (p1.second.size > 0u)
-                        {
-                            p1.second.buffer.resize(p1.second.size);
-                            for (const auto& fb : p1.second.field_infos)
-                                fb.call_back( p1.second.buffer.data() + fb.offset, *fb.index_container, nullptr);
-                            send_futures.push_back(comm.send(p1.second.buffer, p1.second.address, p1.second.tag));
-                        }
-                    }
-                }
-            }
-
             template<typename BufferMem>
             static void unpack(BufferMem& m)
             {
