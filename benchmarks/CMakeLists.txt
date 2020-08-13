@@ -141,6 +141,86 @@ foreach (_t ${_rma_benchmarks})
     target_link_libraries(${t} OpenMP::OpenMP_CXX)
     endif()
     endif()
+
+    if(USE_GPU)
+    # MPI, threads, float, gpu
+    # ========================
+    set(t ${_t}_mpi_threads_float_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # MPI, threads, double, gpu
+    # ========================
+    set(t ${_t}_mpi_threads_double_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    if (GHEX_USE_XPMEM)
+    # MPI, xpmem, float, gpu
+    # ========================
+    set(t ${_t}_mpi_xpmem_float_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # MPI, xpmem, double, gpu
+    # ========================
+    set(t ${_t}_mpi_xpmem_double_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    endif()
+
+    if (GHEX_USE_UCP)
+    # UCX, threads, float, gpu
+    # ========================
+    set(t ${_t}_ucx_threads_float_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # UCX, threads, double, gpu
+    # ========================
+    set(t ${_t}_ucx_threads_double_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    if (GHEX_USE_XPMEM)
+    # UCX, xpmem, float, gpu
+    # ========================
+    set(t ${_t}_ucx_xpmem_float_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # UCX, xpmem, double, gpu
+    # ========================
+    set(t ${_t}_ucx_xpmem_double_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    endif()
+    endif()
+    endif()
 endforeach()
 
 
