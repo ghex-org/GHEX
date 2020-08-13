@@ -204,7 +204,11 @@ struct simulation
             auto bco = gridtools::ghex::structured::bulk_communication_object<
                 gridtools::ghex::structured::remote_range_generator,
                 pattern_type,
+#ifndef __CUDACC__
                 field_type
+#else
+                gpu_field_type
+#endif
             > (comms[j], *pattern);
 
 #ifndef __CUDACC__
