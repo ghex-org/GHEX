@@ -41,6 +41,8 @@ namespace gridtools {
                 , m_shared_state(mpi_comm, this)
                 {}
 
+                MPI_Comm mpi_comm() const { return m_comm; }
+
                 communicator_type get_serial_communicator()
                 {
                     return {&m_shared_state, &m_state};

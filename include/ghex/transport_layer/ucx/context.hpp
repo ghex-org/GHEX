@@ -86,7 +86,7 @@ namespace gridtools {
             private: // members
 
                 using mutex_t = pthread_spin::recursive_mutex;
-
+                MPI_Comm m_mpi_comm;
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
                 std::size_t                m_req_size;
@@ -102,8 +102,9 @@ namespace gridtools {
 
             public: // ctors
                 template<typename DB, typename... Args>
-                transport_context(DB&& db, Args&&...)
-                    : m_db{std::forward<DB>(db)}
+                transport_context(MPI_Comm comm, DB&& db, Args&&...)
+                    : m_mpi_comm{comm}
+                    , m_db{std::forward<DB>(db)}
                     , m_workers()
                 {
                     // read run-time context
@@ -169,6 +170,8 @@ namespace gridtools {
                     // intialize database
                     m_db.init(m_worker.address());
                 }
+
+                MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
 
                 communicator_type get_serial_communicator()
                 {
@@ -237,7 +240,7 @@ namespace gridtools {
                     ucx::address_db_mpi addr_db{new_comm};
 #endif
                     return std::unique_ptr<context<ucx_tag>>{
-                        new context<ucx_tag>{new_comm, std::move(addr_db)}};
+                        new context<ucx_tag>{new_comm, new_comm, std::move(addr_db)}};
                 }
             };
 

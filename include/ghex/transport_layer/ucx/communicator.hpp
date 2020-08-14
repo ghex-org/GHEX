@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP
-#define INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP
+#ifndef INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP
+#define INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP
 
 #include <atomic>
 #include <mutex>
@@ -64,6 +64,7 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
+                    typename worker_type::transport_context_type const& context() const noexcept { return m_send_worker->context(); }
 
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.
@@ -349,4 +350,4 @@ namespace gridtools {
     } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP */
+#endif /* INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP */

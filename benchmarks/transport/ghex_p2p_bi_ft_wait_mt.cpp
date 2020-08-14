@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
     inflight = atoi(argv[3]);
 
     int num_threads = 1;
+    gridtools::ghex::tl::barrier_t barrier;
 
 #ifdef USE_OPENMP
 #pragma omp parallel
@@ -120,7 +121,7 @@ int main(int argc, char *argv[])
 #ifdef USE_OPENMP
 #pragma omp single
 #endif
-            barrier(MPI_COMM_WORLD, comm);
+            barrier.rank_barrier(comm);
 #ifdef USE_OPENMP
 #pragma omp barrier
 #endif
@@ -169,7 +170,7 @@ int main(int argc, char *argv[])
 #ifdef USE_OPENMP
 #pragma omp single
 #endif
-            barrier(MPI_COMM_WORLD, comm);
+            barrier.rank_barrier(comm);
 #ifdef USE_OPENMP
 #pragma omp barrier
 #endif
