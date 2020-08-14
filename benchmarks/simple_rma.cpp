@@ -15,6 +15,7 @@
 #include <chrono>
 #include <pthread.h>
 #include <array>
+#include <memory>
 #include <gridtools/common/array.hpp>
 #include <omp.h>
 
@@ -39,8 +40,18 @@ using clock_type = std::chrono::high_resolution_clock;
 
 struct simulation
 {
-    using T = GHEX_FLOAT_TYPE;
+#ifdef __CUDACC__
+    template<typename T>
+    struct cuda_deleter
+    {
+        void operator()(T* ptr)
+        {
+            cudaFree(ptr);
+        }
+    };
+#endif
 
+    using T = GHEX_FLOAT_TYPE;
 
     using context_type = gridtools::ghex::tl::context<transport,threading>;
     using context_ptr_type = std::unique_ptr<context_type>;
@@ -49,7 +60,10 @@ struct simulation
     template<typename Arch, int... Is>
     using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
 
-    using field_type = field_descriptor_type<gridtools::ghex::cpu, 2, 1, 0>;
+    using field_type     = field_descriptor_type<gridtools::ghex::cpu, 2, 1, 0>;
+#ifdef __CUDACC__
+    using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, 2, 1, 0>;
+#endif
 
     int num_reps;
     int num_threads;
@@ -75,6 +89,10 @@ struct simulation
     const int max_memory;
     std::vector<std::vector<std::vector<T>>> fields_raw;
     std::vector<std::vector<field_type>> fields;
+#ifdef __CUDACC__
+    std::vector<std::vector<std::unique_ptr<T,cuda_deleter<T>>>> fields_raw_gpu;
+    std::vector<std::vector<gpu_field_type>> fields_gpu;
+#endif
 
     typename context_type::communicator_type comm;
     std::vector<typename context_type::communicator_type> comms;
@@ -121,6 +139,10 @@ struct simulation
         local_domains.reserve(num_threads);
         fields_raw.reserve(num_threads);
         fields.reserve(num_threads);
+#ifdef __CUDACC__
+        fields_raw_gpu.reserve(num_threads);
+        fields_gpu.reserve(num_threads);
+#endif
         comms.reserve(num_threads);
         omp_set_num_threads(num_threads);
 #pragma omp parallel for ordered schedule(static,1)
@@ -140,6 +162,10 @@ struct simulation
                     std::array<int,3>{x+ext-1,y+ext-1,z+ext-1}});
                 fields_raw.resize(fields_raw.size()+1);
                 fields.resize(fields.size()+1);
+#ifdef __CUDACC__
+                fields_raw_gpu.resize(fields_raw_gpu.size()+1);
+                fields_gpu.resize(fields_gpu.size()+1);
+#endif
                 for (int i=0; i<num_fields; ++i)
                 {
                     fields_raw.back().push_back( std::vector<T>(max_memory) );
@@ -149,6 +175,17 @@ struct simulation
                             fields_raw.back().back().data(),
                             offset,
                             local_ext_buffer));
+#ifdef __CUDACC__
+                    fields_raw_gpu.back().push_back( 
+                        std::unique_ptr<T,cuda_deleter<T>>{
+                            [this](){ void* ptr; cudaMalloc(&ptr, max_memory*sizeof(T)); return (T*)ptr; }()});
+                    fields_gpu.back().push_back(
+                        gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(
+                            local_domains.back(),
+                            fields_raw_gpu.back().back().get(),
+                            offset,
+                            local_ext_buffer));
+#endif
                 }
                 comms.push_back(context.get_communicator(context.get_token()));
             }
@@ -167,11 +204,20 @@ struct simulation
             auto bco = gridtools::ghex::structured::bulk_communication_object<
                 gridtools::ghex::structured::remote_range_generator,
                 pattern_type,
+#ifndef __CUDACC__
                 field_type
+#else
+                gpu_field_type
+#endif
             > (comms[j], *pattern);
 
+#ifndef __CUDACC__
             for (int i=0; i<num_fields; ++i)
                 bco.add_field(fields[j][i]);
+#else
+            for (int i=0; i<num_fields; ++i)
+                bco.add_field(fields_gpu[j][i]);
+#endif
             
             cos[j] = std::move(bco);
         }
