@@ -26,6 +26,9 @@ PROGRAM test_halo_exchange
   integer :: xs , xe , ys , ye , zs , ze
   integer :: xr , xrb, yr , yrb, zr , zrb
   integer :: C_CART, R_XUP, R_XDN, R_YUP, R_YDN, R_ZUP, R_ZDN
+  integer(kind=4) :: T_SENDXUP_REAL4,T_RECVXUP_REAL4,T_SENDXDN_REAL4,T_RECVXDN_REAL4
+  integer(kind=4) :: T_SENDYUP_REAL4,T_RECVYUP_REAL4,T_SENDYDN_REAL4,T_RECVYDN_REAL4
+  integer(kind=4) :: T_SENDZUP_REAL4,T_RECVZUP_REAL4,T_SENDZDN_REAL4,T_RECVZDN_REAL4
   integer(kind=4),dimension(MPI_STATUS_SIZE) :: status
   ! --------------   
 
@@ -259,6 +262,30 @@ PROGRAM test_halo_exchange
   end if
 
   ! ---- BIFROST-like comm ----
+
+  call exchange_subarray_init
+
+  i = 1
+  do while (i <= nfields)
+     call exchange_subarray(data_ptr(i)%ptr)
+    i = i+1
+  end do
+
+  call cpu_time(tic)
+  it = 0
+  do while (it < niters)
+    i = 1
+    do while (i <= nfields)
+      call exchange_subarray(data_ptr(i)%ptr)
+      i = i+1
+    end do
+    it = it+1
+  end do
+  call cpu_time(toc)
+  if (rank == 0) then 
+     print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)  
+  end if
+
   i = 1
   do while (i <= nfields)
     call update_sendrecv(data_ptr(i)%ptr)
@@ -383,7 +410,7 @@ contains
   
  
   ! -------------------------------------------------------------
-  ! Bifrost-like communication with 3 synchroneous steps
+  ! Bifrost-like communication with 3 synchroneous steps: sendrecv on array parts
   ! -------------------------------------------------------------
   subroutine update_sendrecv(f)
     implicit none
@@ -403,21 +430,21 @@ contains
     call MPI_SENDRECV(f(xe-(mb-1) :xe         , &
          ys        :ye         , &
          zs        :ze        ), &
-         mb*yr*zr,MPI_REAL,R_XUP,1  , &
+         mb*yr*zr,MPI_REAL4,R_XUP,1  , &
          f(xsb     :xsb+(mb-1) , &
          ys        :ye         , &
          zs        :ze        ), &
-         mb*yr*zr,MPI_REAL,R_XDN,1  , &
+         mb*yr*zr,MPI_REAL4,R_XDN,1  , &
          C_CART,status,ierr)
 
     call MPI_SENDRECV(f(xs        :xs+(mb-1)  , &
          ys        :ye         , &
          zs        :ze        ), &
-         mb*yr*zr,MPI_REAL,R_XDN,2  , &
+         mb*yr*zr,MPI_REAL4,R_XDN,2  , &
          f(xeb-(mb-1):xeb        , &
          ys        :ye         , &
          zs        :ze        ), &
-         mb*yr*zr,MPI_REAL,R_XUP,2  , &
+         mb*yr*zr,MPI_REAL4,R_XUP,2  , &
          C_CART,status,ierr)
 
   end subroutine comm_x
@@ -430,21 +457,21 @@ contains
     call MPI_SENDRECV(f(xsb       :xeb              , &
          ye-(mb-1):ye              , &
          zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL,R_YUP,3, &
+         xrb*mb*zr,MPI_REAL4,R_YUP,3, &
          f(xsb       :xeb              , &
          ysb         :ysb+(mb-1)         , &
          zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL,R_YDN,3, &
+         xrb*mb*zr,MPI_REAL4,R_YDN,3, &
          C_CART,status,ierr)
 
     call MPI_SENDRECV(f(xsb       :xeb              , &
          ys       :ys+(mb-1)       , &
          zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL,R_YDN,4          , &
+         xrb*mb*zr,MPI_REAL4,R_YDN,4          , &
          f(xsb       :xeb              , &
          yeb-(mb-1)  :yeb                , &
          zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL,R_YUP,4           , &
+         xrb*mb*zr,MPI_REAL4,R_YUP,4           , &
          C_CART,status,ierr)
 
   end subroutine comm_y
@@ -458,25 +485,27 @@ contains
          f(xsb        :xeb              , &
          ysb        :yeb              , &
          ze-(mb-1) :ze          )   , &
-         xrb*yrb*mb,MPI_REAL,R_ZUP,5, &
+         xrb*yrb*mb,MPI_REAL4,R_ZUP,5, &
          f(xsb        :xeb              , &
          ysb        :yeb              , &
          zsb       :zsb+(mb-1)  )   , &
-         xrb*yrb*mb,MPI_REAL,R_ZDN,5, &
+         xrb*yrb*mb,MPI_REAL4,R_ZDN,5, &
          C_CART,status,ierr)
 
     call MPI_SENDRECV( &
          f(xsb        :xeb              , &
          ysb        :yeb              , &
          zs        :zs+(mb-1))      , &
-         xrb*yrb*mb,MPI_REAL,R_ZDN,6, &
+         xrb*yrb*mb,MPI_REAL4,R_ZDN,6, &
          f(xsb        :xeb              , &
          ysb        :yeb              , &
          zeb-(mb-1):zeb         )   , &
-         xrb*yrb*mb,MPI_REAL,R_ZUP,6, &
+         xrb*yrb*mb,MPI_REAL4,R_ZUP,6, &
          C_CART,status,ierr)
   end subroutine comm_z
 
+
+  ! a version with explicit copy of halo areas into a buffer
   subroutine update_sendrecv_2(f)
     implicit none
 
@@ -497,9 +526,9 @@ contains
          ys        :ye         , &
          zs        :ze         ), (/mb*yr*zr/))
     call MPI_SENDRECV( sbuff,         &
-         mb*yr*zr,MPI_REAL,R_XUP,1  , &
+         mb*yr*zr,MPI_REAL4,R_XUP,1  , &
          rbuff,                       &
-         mb*yr*zr,MPI_REAL,R_XDN,1  , &
+         mb*yr*zr,MPI_REAL4,R_XDN,1  , &
          C_CART,status,ierr)
     f(xsb     :xsb+(mb-1) , &
          ys        :ye         , &
@@ -509,9 +538,9 @@ contains
          ys        :ye         , &
          zs        :ze         ), (/mb*yr*zr/))
     call MPI_SENDRECV(sbuff,          &
-         mb*yr*zr,MPI_REAL,R_XDN,2  , &
+         mb*yr*zr,MPI_REAL4,R_XDN,2  , &
          rbuff,                       &
-         mb*yr*zr,MPI_REAL,R_XUP,2  , &
+         mb*yr*zr,MPI_REAL4,R_XUP,2  , &
          C_CART,status,ierr)
     f(xeb-(mb-1):xeb        , &
          ys        :ye         , &
@@ -530,9 +559,9 @@ contains
          zs       :ze       )      , &
          (/xrb*mb*zr/));
     call MPI_SENDRECV( sbuff,        &
-         xrb*mb*zr,MPI_REAL,R_YUP,3, &
+         xrb*mb*zr,MPI_REAL4,R_YUP,3, &
          rbuff,                      &
-         xrb*mb*zr,MPI_REAL,R_YDN,3, &
+         xrb*mb*zr,MPI_REAL4,R_YDN,3, &
          C_CART,status,ierr)
     f(xsb       :xeb          , &
          ysb         :ysb+(mb-1)   , &
@@ -543,9 +572,9 @@ contains
          zs       :ze       )      , &
          (/xrb*mb*zr/));         
     call MPI_SENDRECV(sbuff,         &
-         xrb*mb*zr,MPI_REAL,R_YDN,4, &
+         xrb*mb*zr,MPI_REAL4,R_YDN,4, &
          rbuff,                      &
-         xrb*mb*zr,MPI_REAL,R_YUP,4, &
+         xrb*mb*zr,MPI_REAL4,R_YUP,4, &
          C_CART,status,ierr)
     f(xsb       :xeb          , &
          yeb-(mb-1)  :yeb          , &
@@ -563,9 +592,9 @@ contains
          ze-(mb-1) :ze          )   , &
          (/xrb*yrb*mb/))
     call MPI_SENDRECV( sbuff, &
-         xrb*yrb*mb,MPI_REAL,R_ZUP,5, &
+         xrb*yrb*mb,MPI_REAL4,R_ZUP,5, &
          rbuff, &
-         xrb*yrb*mb,MPI_REAL,R_ZDN,5, &
+         xrb*yrb*mb,MPI_REAL4,R_ZDN,5, &
          C_CART,status,ierr)
     f(xsb        :xeb              , &
          ysb        :yeb              , &
@@ -576,13 +605,154 @@ contains
          zs        :zs+(mb-1))      , &
          (/xrb*yrb*mb/));
     call MPI_SENDRECV( sbuff, &
-         xrb*yrb*mb,MPI_REAL,R_ZDN,6, &
+         xrb*yrb*mb,MPI_REAL4,R_ZDN,6, &
          rbuff, &
-         xrb*yrb*mb,MPI_REAL,R_ZUP,6, &
+         xrb*yrb*mb,MPI_REAL4,R_ZUP,6, &
          C_CART,status,ierr)
     f(xsb        :xeb              , &
          ysb        :yeb              , &
          zeb-(mb-1):zeb         ) = reshape(rbuff, (/xrb,yrb,mb/))
   end subroutine comm_z_2
+
+
+  ! a version with subarrays
+  subroutine  exchange_subarray_init() 
+    integer,dimension(3) :: sizeb,sizel,sizes
+
+    sizeb=(/xrb,yrb,zrb/)
+
+    ! --- X halos
+    sizel=(/mb,yrb,zrb/)
+    
+    ! send up
+    sizes=(/xrb-2*mb,0,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDXUP_REAL4,ierr)
+    call mpi_type_commit(T_SENDXUP_REAL4,ierr)
+
+    ! recv up
+    sizes=(/xrb-mb,0,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_RECVXUP_REAL4,ierr)
+    call mpi_type_commit(T_RECVXUP_REAL4,ierr)
+
+    ! send down
+    sizes=(/mb,0,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDXDN_REAL4,ierr)
+    call mpi_type_commit(T_SENDXDN_REAL4,ierr)
+
+    ! recv down
+    sizes=(/0,0,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_RECVXDN_REAL4,ierr)
+    call mpi_type_commit(T_RECVXDN_REAL4,ierr)
+
+    ! --- Y halos
+    sizel=(/xrb,mb,zrb/)
+    
+    ! send up
+    sizes=(/0,yrb-2*mb,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDYUP_REAL4,ierr)
+    call mpi_type_commit(T_SENDYUP_REAL4,ierr)
+
+    ! recv up
+    sizes=(/0,yrb-mb,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_RECVYUP_REAL4,ierr)
+    call mpi_type_commit(T_RECVYUP_REAL4,ierr)
+
+    ! send down
+    sizes=(/0,mb,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDYDN_REAL4,ierr)
+    call mpi_type_commit(T_SENDYDN_REAL4,ierr)
+
+    ! recv down
+    sizes=(/0,0,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_RECVYDN_REAL4,ierr)
+    call mpi_type_commit(T_RECVYDN_REAL4,ierr)
+
+    ! --- Z halos
+    sizel=(/xrb,yrb,mb/)
+    
+    ! send up
+    sizes=(/0,0,zrb-2*mb/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDZUP_REAL4,ierr)
+    call mpi_type_commit(T_SENDZUP_REAL4,ierr)
+
+    ! recv up
+    sizes=(/0,0,zrb-mb/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_RECVZUP_REAL4,ierr)
+    call mpi_type_commit(T_RECVZUP_REAL4,ierr)
+
+    ! send down
+    sizes=(/0,0,mb/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDZDN_REAL4,ierr)
+    call mpi_type_commit(T_SENDZDN_REAL4,ierr)
+
+    ! recv down
+    sizes=(/0,0,0/)
+    call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_RECVZDN_REAL4,ierr)
+    call mpi_type_commit(T_RECVZDN_REAL4,ierr)
+  end subroutine exchange_subarray_init
+
+  subroutine exchange_subarray(f)
+    implicit none
+
+    real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
+
+    call comm_x_subarray(f)
+    call comm_y_subarray(f)
+    call comm_z_subarray(f)
+  end subroutine exchange_subarray
+
+  subroutine comm_x_subarray(f)
+    implicit none
+
+    real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
+
+    call MPI_SENDRECV(f,                &
+         1, T_SENDXUP_REAL4, R_XUP, 1 , &
+         f,                             &
+         1, T_RECVXDN_REAL4, R_XDN, 1 , &
+         C_CART,status,ierr)
+
+    call MPI_SENDRECV(f,                &
+         1, T_SENDXDN_REAL4, R_XDN, 1 , &
+         f,                             &
+         1, T_RECVXUP_REAL4, R_XUP, 1 , &
+         C_CART,status,ierr)
+  end subroutine comm_x_subarray
+
+  subroutine comm_y_subarray(f)
+    implicit none
+
+    real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
+
+    call MPI_SENDRECV(f,                &
+         1, T_SENDYUP_REAL4, R_YUP, 1 , &
+         f,                             &
+         1, T_RECVYDN_REAL4, R_YDN, 1 , &
+         C_CART,status,ierr)
+
+    call MPI_SENDRECV(f,                &
+         1, T_SENDYDN_REAL4, R_YDN, 1 , &
+         f,                             &
+         1, T_RECVYUP_REAL4, R_YUP, 1 , &
+         C_CART,status,ierr)
+  end subroutine comm_y_subarray
+
+  subroutine comm_z_subarray(f)
+    implicit none
+
+    real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
+
+    call MPI_SENDRECV(f,                &
+         1, T_SENDZUP_REAL4, R_ZUP, 1 , &
+         f,                             &
+         1, T_RECVZDN_REAL4, R_ZDN, 1 , &
+         C_CART,status,ierr)
+
+    call MPI_SENDRECV(f,                &
+         1, T_SENDZDN_REAL4, R_ZDN, 1 , &
+         f,                             &
+         1, T_RECVZUP_REAL4, R_ZUP, 1 , &
+         C_CART,status,ierr)
+  end subroutine comm_z_subarray
 
 END PROGRAM
