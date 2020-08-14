@@ -9,9 +9,12 @@
  *
  */
 
+#include <vector>
 #include <memory>
 #include <atomic>
 #include <mutex>
+#include <cassert>
+#include <mpi.h>
 
 namespace gridtools {
     namespace ghex {
@@ -61,13 +64,14 @@ namespace gridtools {
 
             private: // members
                 int                      m_ids{0};
+                size_t                   m_threads;
                 std::vector<std::unique_ptr<token_impl>> m_tokens;
                 std::mutex               m_mutex;
                 mutable volatile int     m_epoch{0};
-                mutable std::atomic<int> b_count{0};
+                mutable std::atomic<size_t> b_count{0};
 
             public: // ctors
-                barrier_t() = default;
+                barrier_t(size_t n_threads = 1) : m_threads{n_threads} {}
 
                 barrier_t(const barrier_t&) = delete;
                 barrier_t(barrier_t&&) = delete;
@@ -87,6 +91,11 @@ namespace gridtools {
                     return {m_tokens.back().get()};
                 }
 
+
+                void wait_registration() {
+                    while (m_tokens.size() != m_threads) {}
+                }
+
                 /**
                  * This is the most general barrier, it synchronize threads and ranks.
                  *
@@ -96,12 +105,13 @@ namespace gridtools {
                 template <typename TLCommunicator>
                 void operator()(token& t, TLCommunicator& tlcomm) const
                 {
-                    int expected = b_count;
+                    assert(m_threads == m_tokens.size());
+                    size_t expected = b_count;
                     while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
                         expected = b_count;
                     t.impl->m_epoch ^= 1;
                     t.impl->m_selected = (expected?false:true);
-                    if (expected == m_tokens.size()-1)
+                    if (expected == m_threads-1)
                         {
                             MPI_Request req = MPI_REQUEST_NULL;
                             int flag;
@@ -148,12 +158,13 @@ namespace gridtools {
                 template <typename TLCommunicator>
                 void in_node(token& t, TLCommunicator& tlcomm) const
                 {
-                    int expected = b_count;
+                    assert(m_threads == m_tokens.size());
+                    size_t expected = b_count;
                     while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
                         expected = b_count;
                     t.impl->m_epoch ^= 1;
                     t.impl->m_selected = (expected?false:true);
-                    if (expected == m_tokens.size()-1)
+                    if (expected == m_threads-1)
                         {
                             tlcomm.progress();
                             b_count.store(0);
