@@ -7,7 +7,6 @@ if(USE_GPU)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_EXTENSIONS OFF)
-    #set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
 endif()
 
 cmake_policy(SET CMP0048 NEW)

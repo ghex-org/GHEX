@@ -28,7 +28,7 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 
 #include <ghex/bulk_communication_object.hpp>
 #include <ghex/structured/pattern.hpp>
-#include <ghex/structured/rma_range.hpp>
+#include <ghex/structured/rma_range_generator.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
