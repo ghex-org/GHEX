@@ -8,14 +8,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_STRUCTURED_REMOTE_RANGE_HPP
-#define INCLUDED_GHEX_STRUCTURED_REMOTE_RANGE_HPP
+#ifndef INCLUDED_GHEX_STRUCTURED_RMA_RANGE_HPP
+#define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_HPP
 
 #include <cstring>
 #include <vector>
 #include <gridtools/common/host_device.hpp>
 
-#include "../remote_range_traits.hpp"
+#include "../rma_range_traits.hpp"
 #include "../transport_layer/ri/types.hpp"
 #include "../arch_list.hpp"
 #include "../transport_layer/ri/access_guard.hpp"
@@ -23,6 +23,63 @@
 namespace gridtools {
 namespace ghex {
 namespace structured {
+
+namespace range_detail {
+
+template<typename Layout, std::size_t D, std::size_t I>
+struct range_loop
+{
+    template<typename Range, typename Coord>
+    static inline void apply(Range& r, Coord coord) noexcept
+    {
+        static constexpr auto C = Layout::find(I-1);
+        for (int c = 0; c < r.m_view.m_extent[C]; ++c)
+        {
+            coord[C] = c;
+            range_loop<Layout,D,I+1>::apply(r,coord);
+        }
+    }
+};
+
+template<typename Layout, std::size_t D>
+struct range_loop<Layout, D, 1>
+{
+    template<typename Range>
+    static inline void apply(Range& r) noexcept
+    {
+        using Field = typename Range::field_type;
+        using coordinate_type = typename Field::coordinate_type;
+        static constexpr auto C = Layout::find(0);
+        for (int c = 0; c < r.m_view.m_extent[C]; ++c)
+        {
+            coordinate_type coord{};
+            coord[C] = c;
+            range_loop<Layout,D,2>::apply(r,coord);
+        }
+    }
+};
+
+template<typename Layout, std::size_t D>
+struct range_loop<Layout, D, D>
+{
+    template<typename Range, typename Coord>
+    static inline void apply(Range& r, Coord coord) noexcept
+    {
+        static constexpr auto C = Layout::find(D-1);
+        coord[C] = 0;
+        auto mem_loc = r.m_view.ptr(coord);
+        r.m_remote_range.put(r.m_pos,(const tl::ri::byte*)mem_loc);
+        ++r.m_pos;
+    }
+};
+
+template<typename Range>
+inline void put_loop(Range& r)
+{
+    range_loop<typename Range::field_type::layout_map, Range::field_type::dimension::value, 1>::apply(r);
+}
+
+} // namespace detail
 
 template<typename Range>
 struct range_iterator
@@ -179,8 +236,8 @@ struct inc_coord<Dim, Dim, Layout>
 };
 } // namespace detail
 
-template<typename Field, typename Enable = void> // enable for gpu
-struct remote_range
+template<typename Field>
+struct rma_range
 {
     using view_type = field_view<Field>;
     using layout = typename Field::layout_map;
@@ -191,23 +248,23 @@ struct remote_range
     using guard_type = typename view_type::guard_type;
     using guard_view_type = typename view_type::guard_view_type;
     using size_type = tl::ri::size_type;
-    using iterator = range_iterator<remote_range>;
+    using iterator = range_iterator<rma_range>;
 
     guard_view_type   m_guard;
     view_type         m_view;
     size_type         m_chunk_size;
     
-    remote_range(const view_type& v, guard_type& g, tl::ri::locality loc) noexcept
+    rma_range(const view_type& v, guard_type& g, tl::ri::locality loc) noexcept
     : m_guard{g, loc}
     , m_view{v}
     , m_chunk_size{(size_type)(m_view.m_extent[layout::find(dimension::value-1)] * sizeof(value_type))}
     {}
     
-    remote_range(const remote_range&) = default;
-    remote_range(remote_range&&) = default;
+    rma_range(const rma_range&) = default;
+    rma_range(rma_range&&) = default;
 
-    iterator  begin() const { return {const_cast<remote_range*>(this), 0, m_view.m_begin}; }
-    iterator  end()   const { return {const_cast<remote_range*>(this), m_view.m_size, m_view.m_end}; }
+    iterator  begin() const { return {const_cast<rma_range*>(this), 0, m_view.m_begin}; }
+    iterator  end()   const { return {const_cast<rma_range*>(this), m_view.m_size, m_view.m_end}; }
     size_type buffer_size() const { return m_chunk_size; }
 
     // these functions are called at the remote site upon deserializing and reconstructing the range
@@ -266,6 +323,12 @@ struct remote_range
         put(c, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
     }
     
+    template<typename TargetRange>
+    void put(const TargetRange& r, tl::ri::remote_host_ this_arch)
+    {
+
+    }
+
     void start_local_epoch() { m_guard.start_local_epoch(); }
     void end_local_epoch()   { m_guard.end_local_epoch(); }
 
@@ -334,9 +397,9 @@ struct select_arch<gpu>
 };
 
 template<typename Field>
-struct remote_range_generator
+struct rma_range_generator
 {
-    using range_type = remote_range<Field>;
+    using range_type = rma_range<Field>;
     using guard_type = typename range_type::guard_type;
     using guard_view_type = typename range_type::guard_view_type;
 
@@ -355,11 +418,11 @@ struct remote_range_generator
         typename Communicator::template future<void> m_request;
         std::vector<tl::ri::byte> m_archive;
 
-        template<typename Coord>
-        target_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type dst, tag_type tag, tl::ri::locality loc)
+        template<typename IterationSpace>
+        target_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type dst, tag_type tag, tl::ri::locality loc)
         : m_comm{comm}
         , m_guard{}
-        , m_view{f, first, last-first+1}
+        , m_view{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_dst{dst}
         , m_tag{tag}
         {
@@ -373,7 +436,6 @@ struct remote_range_generator
 
         void send()
         {
-            //m_comm.send(m_archive, m_dst, m_tag).wait();
             m_request.wait();
         }
 
@@ -386,6 +448,7 @@ struct remote_range_generator
     template<typename RangeFactory, typename Communicator>
     struct source_range
     {
+        using field_type = Field;
         using rank_type = typename Communicator::rank_type;
         using tag_type = typename Communicator::tag_type;
 
@@ -398,10 +461,10 @@ struct remote_range_generator
         std::vector<tl::ri::byte> m_buffer;
         typename RangeFactory::range_type::iterator_type m_pos;
 
-        template<typename Coord>
-        source_range(const Communicator& comm, const Field& f, const Coord& first, const Coord& last, rank_type src, tag_type tag)
+        template<typename IterationSpace>
+        source_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type src, tag_type tag)
         : m_comm{comm}
-        , m_view{f, first, last-first+1}
+        , m_view{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_src{src}
         , m_tag{tag}
         {
@@ -412,9 +475,20 @@ struct remote_range_generator
         void recv()
         {
             m_request.wait();
+            // creates a remote traget range
+            // and stores the architecture of this source range
             m_remote_range = RangeFactory::deserialize(select_arch<typename Field::arch_type>::get(), m_buffer.data());
             m_buffer.resize(m_remote_range.buffer_size());
             m_pos = m_remote_range.begin();
+        }
+
+
+        void put()
+        {
+            m_remote_range.start_source_epoch();
+            range_detail::put_loop(*this);
+            m_pos = m_remote_range.begin();
+            m_remote_range.end_source_epoch();
         }
         
         void release()
@@ -426,7 +500,7 @@ struct remote_range_generator
 } // namespace structured
 
 template<>
-struct remote_range_traits<structured::remote_range_generator>
+struct rma_range_traits<structured::rma_range_generator>
 {
     template<typename Communicator>
     static tl::ri::locality is_local(Communicator comm, int remote_rank)
@@ -442,4 +516,4 @@ struct remote_range_traits<structured::remote_range_generator>
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_STRUCTURED_REMOTE_RANGE_HPP */
+#endif /* INCLUDED_GHEX_STRUCTURED_RMA_RANGE_HPP */

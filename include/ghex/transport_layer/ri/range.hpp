@@ -30,7 +30,7 @@ struct range
     template<typename Range, typename Arch>
     range(Range&& r, Arch, int id = 0) {
         using range_t = std::remove_cv_t<std::remove_reference_t<Range>>;
-        new (m_stack) range_impl<range_t, iterator_type, Arch>{std::forward<Range>(r)};
+        new (m_stack) range_impl<range_t, iterator_type, range, Arch>{std::forward<Range>(r)};
         m_id = id;
     }
     range() = default;
@@ -49,14 +49,26 @@ struct range
     void start_source_epoch() { iface().start_remote_epoch(); }
     void end_source_epoch()   { iface().end_remote_epoch(); }
 
-          range_iface<iterator_type>&  iface()       { return *reinterpret_cast<range_iface<iterator_type>*>(m_stack); }
-    const range_iface<iterator_type>&  iface() const { return *reinterpret_cast<const range_iface<iterator_type>*>(m_stack); }
-    const range_iface<iterator_type>& ciface() const { return *reinterpret_cast<const range_iface<iterator_type>*>(m_stack); }
+    range_iface<iterator_type,range>&  iface()
+    {
+        return *reinterpret_cast<range_iface<iterator_type,range>*>(m_stack);
+    }
+    const range_iface<iterator_type,range>&  iface() const
+    {
+        return *reinterpret_cast<const range_iface<iterator_type,range>*>(m_stack);
+    }
+    const range_iface<iterator_type,range>& ciface() const
+    {
+        return *reinterpret_cast<const range_iface<iterator_type,range>*>(m_stack);
+    }
 
     //void put(const chunk& c, const byte* ptr) {} //{ iface().put(c, ptr); }
     void put(const iterator_type& it, const byte* ptr) {
         //chunk c = it.iface();  
         iface().put(it, ptr); 
+    }
+    void put(const range& source_range) {
+        iface().put(source_range); 
     }
 };
 

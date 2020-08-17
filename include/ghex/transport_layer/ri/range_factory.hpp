@@ -35,7 +35,7 @@ struct range_factory
     using stack_iterator = iterator<max_iterator_size::value>;
 
     template<typename Range>
-    using range_size_p = boost::mp11::mp_size_t<sizeof(range_impl<Range, stack_iterator, target_>)>;
+    using range_size_p = boost::mp11::mp_size_t<sizeof(range_impl<Range, stack_iterator, int, target_>)>;
     using max_range_size =
         boost::mp11::mp_max_element<boost::mp11::mp_transform<range_size_p, RangeList>, boost::mp11::mp_less>;
     using range_type = range<max_range_size::value, max_iterator_size::value>;
@@ -63,7 +63,7 @@ struct range_factory
         data += sizeof(int);
         return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, [data, a](auto Id) {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            return create(a, std::move(reinterpret_cast<range_impl<range_t, stack_iterator, target_>*>(const_cast<byte*>(data))->m));//.init();
+            return create(a, std::move(reinterpret_cast<range_impl<range_t, stack_iterator, range_type, target_>*>(const_cast<byte*>(data))->m));//.init();
         });
     }
 

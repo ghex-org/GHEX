@@ -30,8 +30,9 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
-#include <ghex/structured/remote_range.hpp>
-#include <ghex/structured/bulk_communication_object.hpp>
+#include <ghex/bulk_communication_object.hpp>
+#include <ghex/structured/pattern.hpp>
+#include <ghex/structured/rma_range.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
@@ -96,7 +97,7 @@ struct simulation
 
     typename context_type::communicator_type comm;
     std::vector<typename context_type::communicator_type> comms;
-    std::vector<gridtools::ghex::bulk_communication_object> cos;
+    std::vector<gridtools::ghex::generic_bulk_communication_object> cos;
 
     using pattern_type = std::remove_reference_t<decltype(
         gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains))>;
@@ -201,22 +202,22 @@ struct simulation
         {
             const auto j = omp_get_thread_num();
 
-            auto bco = gridtools::ghex::structured::bulk_communication_object<
-                gridtools::ghex::structured::remote_range_generator,
+            auto bco = gridtools::ghex::bulk_communication_object<
+                gridtools::ghex::structured::rma_range_generator,
                 pattern_type,
 #ifndef __CUDACC__
                 field_type
 #else
                 gpu_field_type
 #endif
-            > (comms[j], *pattern);
+            > (comms[j]);
 
 #ifndef __CUDACC__
             for (int i=0; i<num_fields; ++i)
-                bco.add_field(fields[j][i]);
+                bco.add_field(pattern->operator()(fields[j][i]));
 #else
             for (int i=0; i<num_fields; ++i)
-                bco.add_field(fields_gpu[j][i]);
+                bco.add_field(pattern->operator()(fields_gpu[j][i]));
 #endif
             
             cos[j] = std::move(bco);

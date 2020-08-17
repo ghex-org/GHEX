@@ -19,7 +19,7 @@ namespace ghex {
 namespace tl {
 namespace ri {
 
-template<typename Iterator>
+template<typename Iterator, typename SourceRange>
 struct range_iface
 {
     virtual ~range_iface() {}
@@ -27,6 +27,7 @@ struct range_iface
     virtual Iterator  begin() const noexcept = 0;
     virtual Iterator  end()   const noexcept = 0;
     virtual void      put(const chunk&, const byte*) = 0;
+    virtual void put(const SourceRange&) {};
     //virtual Iterator      put(Iterator&, const byte*) = 0;
     virtual void      start_local_epoch() = 0;
     virtual void      end_local_epoch() = 0;
@@ -35,8 +36,8 @@ struct range_iface
     virtual size_type buffer_size() const = 0;
 };
 
-template<typename Range, typename Iterator, typename Arch>
-struct range_impl : public range_iface<Iterator>
+template<typename Range, typename Iterator, typename TargetRange, typename Arch>
+struct range_impl : public range_iface<Iterator, TargetRange>
 {
     Range m;
 
@@ -56,6 +57,10 @@ struct range_impl : public range_iface<Iterator>
     { 
         Range::put(c, ptr, Arch{});
     }
+    virtual void put(const TargetRange& r) override final
+    {
+        m.put(r, Arch{});
+    };
     /*Iterator     put(Iterator& it, const byte* ptr) override final{
 
         //Range::put(*it,ptr,Arch{});
@@ -78,8 +83,8 @@ struct range_impl : public range_iface<Iterator>
     size_type buffer_size() const override final { return m.buffer_size(); }
 };
 
-template<typename Range, typename Iterator>
-struct range_impl<Range, Iterator, target_> : public range_iface<Iterator>
+template<typename Range, typename Iterator, typename SourceRange>
+struct range_impl<Range, Iterator, SourceRange, target_> : public range_iface<Iterator, SourceRange>
 {
     Range m;
 
