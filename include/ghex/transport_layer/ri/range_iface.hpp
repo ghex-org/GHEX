@@ -19,15 +19,14 @@ namespace ghex {
 namespace tl {
 namespace ri {
 
-template<typename Iterator, typename SourceRange>
-struct range_iface
+template<typename Iterator>
+struct put_range_iface
 {
-    virtual ~range_iface() {}
+    virtual ~put_range_iface() {}
 
     virtual Iterator  begin() const noexcept = 0;
     virtual Iterator  end()   const noexcept = 0;
     virtual void      put(const chunk&, const byte*) = 0;
-    virtual void put(const SourceRange&) {};
     //virtual Iterator      put(Iterator&, const byte*) = 0;
     virtual void      start_local_epoch() = 0;
     virtual void      end_local_epoch() = 0;
@@ -36,31 +35,28 @@ struct range_iface
     virtual size_type buffer_size() const = 0;
 };
 
-template<typename Range, typename Iterator, typename TargetRange, typename Arch>
-struct range_impl : public range_iface<Iterator, TargetRange>
+// remote range representation
+template<typename Range, typename Iterator, typename SourceArch>
+struct put_range_impl : public put_range_iface<Iterator>
 {
     Range m;
 
-    range_impl(Range&& r) noexcept : m{std::move(r)}
+    put_range_impl(Range&& r) noexcept : m{std::move(r)}
     {
-        m.init(Arch{});
+        m.init(SourceArch{});
     }
 
-    ~range_impl()
+    ~put_range_impl()
     {
-        m.exit(Arch{});
+        m.exit(SourceArch{});
     }
     
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }
     void      put(const chunk& c, const byte* ptr) override final 
     { 
-        Range::put(c, ptr, Arch{});
+        Range::put(c, ptr, SourceArch{});
     }
-    virtual void put(const TargetRange& r) override final
-    {
-        m.put(r, Arch{});
-    };
     /*Iterator     put(Iterator& it, const byte* ptr) override final{
 
         //Range::put(*it,ptr,Arch{});
@@ -78,17 +74,18 @@ struct range_impl : public range_iface<Iterator, TargetRange>
     }*/
     void      start_local_epoch() override final { }
     void      end_local_epoch() override final { }
-    void      start_remote_epoch() override final { m.start_remote_epoch(Arch{}); }
-    void      end_remote_epoch() override final { m.end_remote_epoch(Arch{}); }
+    void      start_remote_epoch() override final { m.start_remote_epoch(SourceArch{}); }
+    void      end_remote_epoch() override final { m.end_remote_epoch(SourceArch{}); }
     size_type buffer_size() const override final { return m.buffer_size(); }
 };
 
-template<typename Range, typename Iterator, typename SourceRange>
-struct range_impl<Range, Iterator, SourceRange, target_> : public range_iface<Iterator, SourceRange>
+// local range representation
+template<typename Range, typename Iterator>
+struct put_range_impl<Range, Iterator, target_> : public put_range_iface<Iterator>
 {
     Range m;
 
-    range_impl(Range&& r) : m{std::move(r)} { }
+    put_range_impl(Range&& r) : m{std::move(r)} { }
 
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }

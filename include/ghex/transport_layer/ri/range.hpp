@@ -20,7 +20,7 @@ namespace tl {
 namespace ri {
 
 template<unsigned int StackMemory, unsigned int IteratorStackMemory>
-struct range
+struct put_range
 {
     using iterator_type = iterator<IteratorStackMemory>;
 
@@ -28,14 +28,14 @@ struct range
     byte m_stack[StackMemory];
 
     template<typename Range, typename Arch>
-    range(Range&& r, Arch, int id = 0) {
+    put_range(Range&& r, Arch, int id = 0) {
         using range_t = std::remove_cv_t<std::remove_reference_t<Range>>;
-        new (m_stack) range_impl<range_t, iterator_type, range, Arch>{std::forward<Range>(r)};
+        new (m_stack) put_range_impl<range_t, iterator_type, Arch>{std::forward<Range>(r)};
         m_id = id;
     }
-    range() = default;
-    range(range&&) = default;
-    range& operator=(range&&) = default;
+    put_range() = default;
+    put_range(put_range&&) = default;
+    put_range& operator=(put_range&&) = default;
 
     iterator_type begin() const noexcept { return ciface().begin(); }
     iterator_type end() const noexcept { return ciface().end(); }
@@ -49,17 +49,17 @@ struct range
     void start_source_epoch() { iface().start_remote_epoch(); }
     void end_source_epoch()   { iface().end_remote_epoch(); }
 
-    range_iface<iterator_type,range>&  iface()
+    put_range_iface<iterator_type>&  iface()
     {
-        return *reinterpret_cast<range_iface<iterator_type,range>*>(m_stack);
+        return *reinterpret_cast<put_range_iface<iterator_type>*>(m_stack);
     }
-    const range_iface<iterator_type,range>&  iface() const
+    const put_range_iface<iterator_type>&  iface() const
     {
-        return *reinterpret_cast<const range_iface<iterator_type,range>*>(m_stack);
+        return *reinterpret_cast<const put_range_iface<iterator_type>*>(m_stack);
     }
-    const range_iface<iterator_type,range>& ciface() const
+    const put_range_iface<iterator_type>& ciface() const
     {
-        return *reinterpret_cast<const range_iface<iterator_type,range>*>(m_stack);
+        return *reinterpret_cast<const put_range_iface<iterator_type>*>(m_stack);
     }
 
     //void put(const chunk& c, const byte* ptr) {} //{ iface().put(c, ptr); }
@@ -67,9 +67,9 @@ struct range
         //chunk c = it.iface();  
         iface().put(it, ptr); 
     }
-    void put(const range& source_range) {
-        iface().put(source_range); 
-    }
+    //void put(const put_range& source_range) {
+    //    iface().put(source_range); 
+    //}
 };
 
 } // namespace ri

@@ -65,7 +65,7 @@ template<template <typename> class RangeGen, typename Pattern, typename... Field
 class bulk_communication_object
 {
 public: // member types
-    using pattern_type = Pattern; //pattern_container<Communicator,structured::detail::grid<Coordinate>,DomainId>;
+    using pattern_type = Pattern;
     using communicator_type = typename pattern_type::communicator_type;
     using grid_type = typename pattern_type::grid_type;
     using domain_id_type = typename pattern_type::domain_id_type;

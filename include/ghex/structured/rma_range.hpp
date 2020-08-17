@@ -237,6 +237,7 @@ struct inc_coord<Dim, Dim, Layout>
 template<typename Field>
 struct rma_range
 {
+    using arch_type = typename Field::arch_type;
     using view_type = field_view<Field>;
     using layout = typename Field::layout_map;
     using dimension = typename Field::dimension;
@@ -321,10 +322,12 @@ struct rma_range
         put(c, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
     }
     
-    template<typename TargetRange>
-    void put(const TargetRange& r, tl::ri::remote_host_ this_arch)
+    template<typename SourceRange>
+    void put(const SourceRange& /*r*/, tl::ri::remote_host_ source_arch)
     {
+        start_remote_epoch(source_arch);
 
+        end_remote_epoch(source_arch);
     }
 
     void start_local_epoch() { m_guard.start_local_epoch(); }

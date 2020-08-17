@@ -119,10 +119,15 @@ struct rma_range_generator
 
         void put()
         {
+            auto target_arch = RangeFactory::get_arch(m_remote_range);
             m_remote_range.start_source_epoch();
             range_detail::put_loop(*this);
+            // this->m_remote_range.put(...);
             m_pos = m_remote_range.begin();
             m_remote_range.end_source_epoch();
+
+
+            //m_remote_range.put(
         }
         
         void release()
