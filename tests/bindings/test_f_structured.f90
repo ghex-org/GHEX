@@ -192,10 +192,6 @@ PROGRAM test_halo_exchange
      print *, rank, " exchange compact:      ", (toc-tic)
   end if
 
-  call ghex_free(co)
-  call ghex_free(ed)
-  call ghex_free(domain_desc)
-
   ! ---- SEQUENCE tests ----
   ! initialize the field datastructure
   ! compute the halo information for all domains and fields
@@ -331,7 +327,9 @@ PROGRAM test_halo_exchange
   call mpi_barrier(mpi_comm_world, mpi_err)
 
   ! cleanup 
+  call ghex_free(domain_desc)
   call ghex_free(co)
+  call ghex_free(ed)
   i = 1
   do while (i <= nfields)
     call ghex_free(domain_descs(i))
