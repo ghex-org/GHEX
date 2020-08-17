@@ -358,7 +358,7 @@ private:
             {
                 const auto nc = m_field.num_components();
                 auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaDeviceToDevice);
+                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyDeviceToDevice);
                 it+=nc;
             },
             m_begin, m_end);
