@@ -84,11 +84,12 @@ struct range_factory
         return res;
     }
 
-    static auto get_arch(const range_type& r)
+    static bool on_gpu(const range_type& r)
     {
         return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(r.m_id, [](auto Id) {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            return typename range_t::arch_type{};
+            using arch_t = typename range_t::arch_type;
+            return std::is_same<gridtools::ghex::gpu, arch_t>::value;
         });
     }
 };

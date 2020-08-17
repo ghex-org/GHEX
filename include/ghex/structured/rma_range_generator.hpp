@@ -93,7 +93,6 @@ struct rma_range_generator
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<tl::ri::byte> m_buffer;
-        typename RangeFactory::range_type::iterator_type m_pos;
 
         template<typename IterationSpace>
         source_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type src, tag_type tag)
@@ -113,23 +112,22 @@ struct rma_range_generator
             // and stores the architecture of this source range
             m_remote_range = RangeFactory::deserialize(select_arch<typename Field::arch_type>::get(), m_buffer.data());
             m_buffer.resize(m_remote_range.buffer_size());
-            m_pos = m_remote_range.begin();
         }
-
 
         void put()
         {
-            auto target_arch = RangeFactory::get_arch(m_remote_range);
             m_remote_range.start_source_epoch();
-            range_detail::put_loop(*this);
-            // this->m_remote_range.put(...);
-            m_pos = m_remote_range.begin();
+            put(RangeFactory::on_gpu(m_remote_range), typename Field::arch_type{});
             m_remote_range.end_source_epoch();
-
-
-            //m_remote_range.put(
         }
-        
+
+        template<typename SourceArch>
+        void put(bool target_on_gpu, SourceArch a)
+        {
+            if (target_on_gpu) m_view.put(m_remote_range, gridtools::ghex::gpu{}, a);
+            else m_view.put(m_remote_range, gridtools::ghex::cpu{}, a);
+        }
+
         void release()
         {
         }

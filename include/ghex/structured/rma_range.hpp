@@ -17,6 +17,7 @@
 
 #include "../transport_layer/ri/types.hpp"
 #include "../transport_layer/ri/access_guard.hpp"
+#include "../common/utils.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -119,6 +120,8 @@ struct field_view
     using guard_view_type = tl::ri::access_guard_view;
     using rma_data_t = typename Field::rma_data_t;
     using size_type = tl::ri::size_type;
+    using fuse_components = std::integral_constant<bool,
+        Field::has_components::value && (layout::at(dimension::value-1) == dimension::value-1)>;
 
     Field m_field;
     rma_data_t m_rma_data;
@@ -189,6 +192,63 @@ struct field_view
     const value_type* ptr(const coordinate& x) const {
         return m_field.ptr(x+m_offset);
     }
+    // put from cpu to cpu
+    template<typename RemoteRange>
+    void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::cpu) const
+    {
+        put(r, gridtools::ghex::cpu{}, gridtools::ghex::cpu{}, fuse_components{});
+    }
+
+    // put from gpu to cpu
+    template<typename RemoteRange>
+    void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::cpu) const
+    {
+    }
+
+    // put from cpu to gpu
+    template<typename RemoteRange>
+    void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::gpu) const
+    {
+    }
+
+    // put from gpu to gpu
+    template<typename RemoteRange>
+    void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::gpu) const
+    {
+    }
+
+private:
+
+    // put from cpu to cpu: normal implementation
+    template<typename RemoteRange>
+    void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::cpu, std::false_type) const
+    {
+        auto it = r.begin();
+        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 1>::apply(
+            [this,&it](auto... c)
+            {
+                auto chunk_ = *it;
+                std::memcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size());
+                ++it;
+            },
+            m_begin, m_end);
+    }
+    // put from cpu to cpu: fuse component loop
+    template<typename RemoteRange>
+    void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::cpu, std::true_type) const
+    {
+        auto it = r.begin();
+        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 2>::apply(
+            [this,&it](auto... c)
+            {
+                const auto nc = m_field.num_components();
+                auto chunk_ = *it;
+                std::memcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc);
+                it+=nc;
+            },
+            m_begin, m_end);
+    }
+
 };
 
 namespace detail {
@@ -291,45 +351,6 @@ struct rma_range
         m_guard.release_remote(); 
     }
     
-    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_, std::true_type)
-    {
-        std::memcpy(c.data(), ptr, c.size());
-    }
-    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_, std::false_type)
-    {
-#ifdef __CUDACC__
-        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyHostToDevice);
-#endif /* __CUDACC__ */
-    }
-
-    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_, std::true_type)
-    {
-#ifdef __CUDACC__
-        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToHost);
-#endif /* __CUDACC__ */
-    }
-    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_, std::false_type)
-    {
-#ifdef __CUDACC__
-        cudaMemcpy(c.data(), ptr, c.size(), cudaMemcpyDeviceToDevice);
-#endif /* __CUDACC__ */
-    }
-    
-    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_host_ h) {
-        put(c, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
-    }
-    static inline void put(const tl::ri::chunk& c, const tl::ri::byte* ptr, tl::ri::remote_device_ h) {
-        put(c, ptr, h, std::is_same<typename Field::arch_type, cpu>{});
-    }
-    
-    template<typename SourceRange>
-    void put(const SourceRange& /*r*/, tl::ri::remote_host_ source_arch)
-    {
-        start_remote_epoch(source_arch);
-
-        end_remote_epoch(source_arch);
-    }
-
     void start_local_epoch() { m_guard.start_local_epoch(); }
     void end_local_epoch()   { m_guard.end_local_epoch(); }
 

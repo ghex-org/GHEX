@@ -26,8 +26,6 @@ struct put_range_iface
 
     virtual Iterator  begin() const noexcept = 0;
     virtual Iterator  end()   const noexcept = 0;
-    virtual void      put(const chunk&, const byte*) = 0;
-    //virtual Iterator      put(Iterator&, const byte*) = 0;
     virtual void      start_local_epoch() = 0;
     virtual void      end_local_epoch() = 0;
     virtual void      start_remote_epoch() = 0;
@@ -53,25 +51,7 @@ struct put_range_impl : public put_range_iface<Iterator>
     
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }
-    void      put(const chunk& c, const byte* ptr) override final 
-    { 
-        Range::put(c, ptr, SourceArch{});
-    }
-    /*Iterator     put(Iterator& it, const byte* ptr) override final{
 
-        //Range::put(*it,ptr,Arch{});
-        //return it;
-        
-        using iterator_iface_t = std::remove_reference_t<decltype(it.iface())>;
-        using concrete_iterator_t = typename Range::iterator;
-        using iterator_impl_t = iterator_impl<concrete_iterator_t>;
-        ////Range::put(it, ptr, Arch{}); 
-        iterator_iface_t& iface_it = it.iface();
-        iterator_impl_t& impl_it = static_cast<iterator_impl_t&>(iface_it);
-        concrete_iterator_t& c_it = impl_it.m;
-        return {Range::put(c_it, ptr, Arch{})}; 
-        //return it;
-    }*/
     void      start_local_epoch() override final { }
     void      end_local_epoch() override final { }
     void      start_remote_epoch() override final { m.start_remote_epoch(SourceArch{}); }
@@ -89,8 +69,6 @@ struct put_range_impl<Range, Iterator, target_> : public put_range_iface<Iterato
 
     Iterator  begin() const noexcept override final { return m.begin(); }
     Iterator  end()   const noexcept override final { return m.end(); }
-    void      put(const chunk&, const byte*) override final { }
-    //Iterator      put(Iterator& it, const byte*) override final { return it; }
     void      start_local_epoch() override final { m.start_local_epoch(); }
     void      end_local_epoch() override final { m.end_local_epoch(); }
     void      start_remote_epoch() override final {}
