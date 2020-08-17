@@ -70,7 +70,8 @@ namespace gridtools {
                 template <typename TLCommunicator>
                 void operator()(TLCommunicator& tlcomm) const
                 {
-                    in_node1_full(tlcomm);
+                    if (in_node1())
+                        rank_barrier(tlcomm);
                     in_node2();
                 }
 
@@ -104,9 +105,7 @@ namespace gridtools {
                 //template <typename TLCommunicator>
                 void in_node(/*TLCommunicator& tlcomm*/) const
                 {
-                    if (in_node1()) {
-                        rank_barrier();
-                    }
+                    in_node1();
                     in_node2();
                  }
 
@@ -128,7 +127,8 @@ namespace gridtools {
                 void in_node2() const
                 {
                     size_t ex = b_count2;
-                    while(!b_count2.compare_exchange_weak(ex, ex-1, std::memory_order_relaxed)) ex = b_count2;
+                    while(!b_count2.compare_exchange_weak(ex, ex-1, std::memory_order_relaxed))
+                        ex = b_count2;
                     if (ex == 1) {
                         b_count2.store(m_threads);
                     }
