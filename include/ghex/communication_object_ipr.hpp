@@ -20,6 +20,8 @@
 #include "./transport_layer/tags.hpp"
 #include "./arch_traits.hpp"
 #include <map>
+#include <unordered_map>
+#include <queue>
 #include <stdio.h>
 #include <functional>
 
@@ -278,11 +280,22 @@ namespace gridtools {
                         m_valid = true;
 
                         // set tag offsets
+                        domain_id_type domain_ids[sizeof...(Fields)] = {buffer_infos.get_field().domain_id()...};
                         int max_tags[sizeof...(Fields)] = {buffer_infos.get_pattern_container().max_tag()...};
+                        std::unordered_map<domain_id_type, std::queue<std::pair<int, int>>> tag_offsets_and_max_tags_per_id{};
+                        for (std::size_t i = 0; i < sizeof...(Fields); ++i) {
+                            auto& q = tag_offsets_and_max_tags_per_id[domain_ids[i]];
+                            if (q.empty()) {
+                                q.push(std::make_pair(0, max_tags[i]));
+                            } else {
+                                q.push(std::make_pair(q.back().first + q.back().second + 1, max_tags[i]));
+                            }
+                        }
                         int tag_offsets[sizeof...(Fields)];
-                        tag_offsets[0] = 0;
-                        for (std::size_t i = 1; i < sizeof...(Fields); ++i) {
-                            tag_offsets[i] = tag_offsets[i-1] + max_tags[i-1] + 1;
+                        for (std::size_t i = 0; i < sizeof...(Fields); ++i) {
+                            auto& q = tag_offsets_and_max_tags_per_id[domain_ids[i]];
+                            tag_offsets[i] = q.front().first;
+                            q.pop();
                         }
 
                         // store arguments and corresponding memory in tuples
