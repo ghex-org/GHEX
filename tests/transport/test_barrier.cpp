@@ -60,12 +60,13 @@ TEST(transport, in_barrier) {
             int rank = context.rank();
             gridtools::ghex::timer timer;
 
-            auto token = barrier.get_token();
-            barrier.wait_registration();
+            // auto token = barrier.get_token();
+            // barrier.wait_registration();
 
             timer.tic();
             for(int i=0; i<100; i++)  {
-                barrier.in_node(token, comm);
+                comm.progress();
+                barrier.in_node();
             }
             const auto t = timer.stoc();
             if(rank==0)
@@ -98,12 +99,9 @@ TEST(transport, full_barrier) {
             int rank = context.rank();
             gridtools::ghex::timer timer;
 
-            auto token = barrier.get_token();
-            barrier.wait_registration();
-
             timer.tic();
             for(int i=0; i<100; i++)  {
-                barrier(token, comm);
+                barrier(comm);
             }
             const auto t = timer.stoc();
             if(rank==0)

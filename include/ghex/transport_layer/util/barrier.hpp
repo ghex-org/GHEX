@@ -20,58 +20,37 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
+            /**
+               The barrier object synchronize threads or ranks, or both. When synchronizing
+               ranks, it also progress the transport_layer::communicator.
+
+               This facility id provided as a debugging tool, or as a seldomly used operation.
+               Halo-exchanges doe not need, in general, to call barriers.
+
+               Note on the implementation:
+
+               The implementation follows a two-counter approach:
+               First: one (atomic) counter is increased to the number of threads participating.
+               Second: one (atomic) counter is decreased from the numner of threads
+
+               The global barrier performs the up-counting while the thread that reaches the
+               final value also perform the rank-barrier. After that the downward count is
+               performed as usual.
+
+               This is why the barrier is split into is_node1 and in_node2. The rist one also has
+               a version in_node1_full to perform the rank-synchronization.
+             */
             struct barrier_t
             {
-            public: // member types
-                using id_type = int;
-
-                class token_impl
-                {
-                private: // members
-                    id_type m_id;
-                    int     m_epoch = 0;
-                    bool    m_selected = false;
-
-                    friend barrier_t;
-
-                    token_impl(id_type id, int epoch) noexcept
-                        : m_id(id), m_epoch(epoch), m_selected(id==0?true:false)
-                    {}
-
-                public: // ctors
-                    token_impl(const token_impl&) = delete;
-                    token_impl(token_impl&&) = default;
-
-                public: // member functions
-                    id_type id() const noexcept { return m_id; }
-                };
-
-                class token
-                {
-                private:
-                    token_impl* impl = nullptr;
-                    friend barrier_t;
-                public:
-                    token() = default;
-                    token(token_impl* impl_) noexcept : impl{impl_} {}
-                    token(const token&) = default;
-                    token(token&&) = default;
-                    token& operator=(const token&) = default;
-                    token& operator=(token&&) = default;
-                public:
-                    id_type id() const noexcept { return impl->id();}
-                };
 
             private: // members
-                int                      m_ids{0};
                 size_t                   m_threads;
-                std::vector<std::unique_ptr<token_impl>> m_tokens;
-                std::mutex               m_mutex;
-                mutable volatile int     m_epoch{0};
                 mutable std::atomic<size_t> b_count{0};
+                mutable std::atomic<size_t> b_count2;
 
             public: // ctors
-                barrier_t(size_t n_threads = 1) : m_threads{n_threads} {}
+                barrier_t(size_t n_threads = 1) : m_threads{n_threads}, b_count2{m_threads} {
+                }
 
                 barrier_t(const barrier_t&) = delete;
                 barrier_t(barrier_t&&) = delete;
@@ -80,51 +59,19 @@ namespace gridtools {
 
                 int size() const noexcept
                 {
-                    return m_tokens.size();
-                }
-
-                inline token get_token() noexcept
-                {
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    m_tokens.push_back( std::unique_ptr<token_impl>{new token_impl{m_ids,0}} );
-                    m_ids++;
-                    return {m_tokens.back().get()};
-                }
-
-
-                void wait_registration() {
-                    while (m_tokens.size() != m_threads) {}
+                    return m_threads;
                 }
 
                 /**
                  * This is the most general barrier, it synchronize threads and ranks.
                  *
-                 * @param t Token obtained by callinf get_token before.
                  * @param tlcomm The communicator object associated with the thread.
                  */
                 template <typename TLCommunicator>
-                void operator()(token& t, TLCommunicator& tlcomm) const
+                void operator()(TLCommunicator& tlcomm) const
                 {
-                    assert(m_threads == m_tokens.size());
-                    size_t expected = b_count;
-                    while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
-                        expected = b_count;
-                    t.impl->m_epoch ^= 1;
-                    t.impl->m_selected = (expected?false:true);
-                    if (expected == m_threads-1)
-                        {
-                            MPI_Request req = MPI_REQUEST_NULL;
-                            int flag;
-                            MPI_Ibarrier(tlcomm.context().mpi_comm(), &req);
-                            while(true) {
-                                tlcomm.progress();
-                                MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-                                if(flag) break;
-                            }
-                            b_count.store(0);
-                            m_epoch ^= 1;
-                        }
-                    while(t.impl->m_epoch != m_epoch) {tlcomm.progress();}
+                    in_node1_full(tlcomm);
+                    in_node2();
                 }
 
                 /**
@@ -152,25 +99,50 @@ namespace gridtools {
                  * This function synchronize the threads in a rank. The threads must obtain a token
                  * before being able to call this function.
                  *
-                 * @param t Token obtained by callinf get_token before.
                  * @param tlcomm The communicator object associated with the thread.
                  */
-                template <typename TLCommunicator>
-                void in_node(token& t, TLCommunicator& tlcomm) const
+                //template <typename TLCommunicator>
+                void in_node(/*TLCommunicator& tlcomm*/) const
                 {
-                    assert(m_threads == m_tokens.size());
+                    in_node1();
+                    in_node2();
+                 }
+
+            private:
+
+                template <typename TLCommunicator>
+                void in_node1_full(TLCommunicator& tlcomm) const
+                {
                     size_t expected = b_count;
                     while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
                         expected = b_count;
-                    t.impl->m_epoch ^= 1;
-                    t.impl->m_selected = (expected?false:true);
                     if (expected == m_threads-1)
                         {
-                            tlcomm.progress();
+                            rank_barrier(tlcomm);
                             b_count.store(0);
-                            m_epoch ^= 1;
                         }
-                    while(t.impl->m_epoch != m_epoch) {tlcomm.progress();}
+
+                }
+
+                void in_node1() const
+                {
+                    size_t expected = b_count;
+                    while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
+                        expected = b_count;
+                    if (expected == m_threads-1)
+                        {
+                            b_count.store(0);
+                        }
+
+                }
+
+                void in_node2() const
+                {
+                    size_t ex = b_count2;
+                    while(!b_count2.compare_exchange_weak(ex, ex-1, std::memory_order_relaxed)) ex = b_count2;
+                    if (ex == 1) {
+                        b_count2.store(m_threads);
+                    }
                 }
 
             };
