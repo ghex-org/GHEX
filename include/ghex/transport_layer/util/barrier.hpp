@@ -37,8 +37,8 @@ namespace gridtools {
                final value also perform the rank-barrier. After that the downward count is
                performed as usual.
 
-               This is why the barrier is split into is_node1 and in_node2. The rist one also has
-               a version in_node1_full to perform the rank-synchronization.
+               This is why the barrier is split into is_node1 and in_node2. in_node1 returns
+               true to the thread selected to run the rank_barrier in the full barrier.
              */
             struct barrier_t
             {
@@ -104,27 +104,15 @@ namespace gridtools {
                 //template <typename TLCommunicator>
                 void in_node(/*TLCommunicator& tlcomm*/) const
                 {
-                    in_node1();
+                    if (in_node1()) {
+                        rank_barrier();
+                    }
                     in_node2();
                  }
 
             private:
 
-                template <typename TLCommunicator>
-                void in_node1_full(TLCommunicator& tlcomm) const
-                {
-                    size_t expected = b_count;
-                    while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
-                        expected = b_count;
-                    if (expected == m_threads-1)
-                        {
-                            rank_barrier(tlcomm);
-                            b_count.store(0);
-                        }
-
-                }
-
-                void in_node1() const
+                bool in_node1() const
                 {
                     size_t expected = b_count;
                     while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
@@ -132,8 +120,9 @@ namespace gridtools {
                     if (expected == m_threads-1)
                         {
                             b_count.store(0);
+                            return true;
                         }
-
+                    return false;
                 }
 
                 void in_node2() const

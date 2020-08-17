@@ -50,7 +50,7 @@ TEST(transport, in_barrier) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
-    size_t n_threads = 8;
+    size_t n_threads = 4;
     gridtools::ghex::tl::barrier_t barrier{n_threads};
 
     auto work =
@@ -59,9 +59,6 @@ TEST(transport, in_barrier) {
             auto comm = context.get_communicator();
             int rank = context.rank();
             gridtools::ghex::timer timer;
-
-            // auto token = barrier.get_token();
-            // barrier.wait_registration();
 
             timer.tic();
             for(int i=0; i<100; i++)  {
@@ -89,7 +86,7 @@ TEST(transport, full_barrier) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
-    size_t n_threads = 8;
+    size_t n_threads = 4;
     gridtools::ghex::tl::barrier_t barrier{n_threads};
 
     auto work =
