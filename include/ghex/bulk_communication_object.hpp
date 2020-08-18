@@ -14,6 +14,7 @@
 #include <memory>
 #include <functional>
 #include <vector>
+#include <map>
 #include <tuple>
 #include <boost/mp11.hpp>
 #include "./common/moved_bit.hpp"
@@ -74,6 +75,10 @@ public: // member types
     template<typename Field>
     using buffer_info_type = typename co_type::template buffer_info_type<typename Field::arch_type, Field>;
 
+private:
+
+    using pattern_map = std::map<const pattern_type*, pattern_type>;
+
 private: // member types
     template<typename A>
     struct select_arch_q
@@ -125,13 +130,14 @@ private: // member types
     struct field_container
     {
         Field m_field;
-        pattern_type m_remote_pattern;
-        pattern_type m_local_pattern;
+        pattern_type& m_remote_pattern;
+        pattern_type& m_local_pattern;
 
-        field_container(communicator_type comm, const Field& f, const pattern_type& pattern)
+        field_container(communicator_type comm, const Field& f, const pattern_type& pattern,
+            pattern_map& local_map, pattern_map& remote_map)
         : m_field{f}
-        , m_remote_pattern(pattern)
-        , m_local_pattern(pattern)
+        , m_remote_pattern(remote_map.insert(std::make_pair(&pattern, pattern)).first->second)
+        , m_local_pattern(local_map.insert(std::make_pair(&pattern, pattern)).first->second)
         {
             // prepare local and remote patterns
             // =================================
@@ -139,47 +145,43 @@ private: // member types
             // loop over all subdomains in pattern
             for (int n = 0; n<pattern.size(); ++n)
             {
+                // remove local fields from remote pattern
                 auto& r_p = m_remote_pattern[n];
-                auto& l_p = m_local_pattern[n];
-                
-                // loop over send halos
                 auto r_it = r_p.send_halos().begin();
-                auto l_it = l_p.send_halos().begin();
                 while (r_it != r_p.send_halos().end())
                 {
                     const auto local = rma_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                    if (local != tl::ri::locality::remote)
-                    {
-                        // remove local fields from remote pattern
-                        r_it = r_p.send_halos().erase(r_it);
-                        ++l_it;
-                    }
-                    else
-                    {
-                        // remove remote fields from local pattern
-                        l_it = l_p.send_halos().erase(l_it);
-                        ++r_it;
-                    }
+                    if (local != tl::ri::locality::remote) r_it = r_p.send_halos().erase(r_it);
+                    else ++r_it;
                 }
 
-                // loop over recv halos
+                // remove remote fields from local pattern
+                auto& l_p = m_local_pattern[n];
+                auto l_it = l_p.send_halos().begin();
+                while (l_it != l_p.send_halos().end())
+                {
+                    const auto local = rma_range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    if (local != tl::ri::locality::remote) ++l_it;
+                    else l_it = l_p.send_halos().erase(l_it);
+                }
+
+
+                // remove local fields from remote pattern
                 r_it = r_p.recv_halos().begin();
-                l_it = l_p.recv_halos().begin();
                 while (r_it != r_p.recv_halos().end())
                 {
                     const auto local = rma_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                    if (local != tl::ri::locality::remote)
-                    {
-                        // remove local fields from remote pattern
-                        r_it = r_p.recv_halos().erase(r_it);
-                        ++l_it;
-                    }
-                    else
-                    {
-                        // remove remote fields from local pattern
-                        l_it = l_p.recv_halos().erase(l_it);
-                        ++r_it;
-                    }
+                    if (local != tl::ri::locality::remote) r_it = r_p.recv_halos().erase(r_it);
+                    else ++r_it;
+                }
+
+                // remove remote fields from local pattern
+                l_it = l_p.recv_halos().begin();
+                while (l_it != l_p.recv_halos().end())
+                {
+                    const auto local = rma_range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    if (local != tl::ri::locality::remote) ++l_it;
+                    else l_it = l_p.recv_halos().erase(l_it);
                 }
             }
         }
@@ -202,6 +204,8 @@ private: // members
 
     communicator_type       m_comm;
     co_type                 m_co;
+    pattern_map             m_local_pattern_map;
+    pattern_map             m_remote_pattern_map;
     field_container_t       m_field_container_tuple;
     buffer_info_container_t m_buffer_info_container_tuple;
     target_ranges_t         m_target_ranges_tuple;
@@ -238,7 +242,8 @@ public:
         auto& s_range = std::get<s_range_t>(m_source_ranges_tuple);
 
         // store field
-        f_cont.push_back(field_container<Field>(m_comm, bi.get_field(), bi.get_pattern_container()));
+        f_cont.push_back(field_container<Field>(m_comm, bi.get_field(), bi.get_pattern_container(),
+            m_local_pattern_map, m_remote_pattern_map));
         s_range.m_ranges.resize(s_range.m_ranges.size()+1);
         t_range.m_ranges.resize(t_range.m_ranges.size()+1);
 
@@ -256,10 +261,7 @@ public:
                     {
                         const auto& c = *it;
                         s_range.m_ranges.back().emplace_back(
-                            m_comm, f,
-                            //c.local().first(), c.local().last(),
-                            c,
-                            h_it->first.mpi_rank, h_it->first.tag); 
+                            m_comm, f, c, h_it->first.mpi_rank, h_it->first.tag); 
                     }
                 }
                 // loop over halos and set up target
@@ -270,10 +272,7 @@ public:
                         const auto local = rma_range_traits<RangeGen>::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
                         t_range.m_ranges.back().emplace_back(
-                            m_comm, f, 
-                            //c.local().first(), c.local().last(),
-                            c,
-                            h_it->first.mpi_rank, h_it->first.tag, local); 
+                            m_comm, f, c, h_it->first.mpi_rank, h_it->first.tag, local); 
                     }
                 }
             }
@@ -294,8 +293,6 @@ public:
             });
         }
     }
-
-private:
 
     void init()
     {
@@ -331,6 +328,8 @@ private:
         m_initialized = true;
     }
     
+private:
+
     co_handle exchange_remote()
     {
         return exchange_remote(std::make_index_sequence<boost::mp11::mp_size<field_types>::value>());
