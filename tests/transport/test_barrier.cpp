@@ -58,10 +58,9 @@ namespace gridtools {
 
                 template <typename Context>
                 void test_in_node1(Context &context) {
-                    auto comm = context.get_communicator();
-
                     std::vector<int> innode1_out(br.size());
                     auto work = [&](int id) {
+                                    auto comm = context.get_communicator();
                                     innode1_out[id] = br.in_node1(comm)?1:0;
                                 };
                     std::vector<std::thread> ths;
