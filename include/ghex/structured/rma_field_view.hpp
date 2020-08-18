@@ -18,38 +18,36 @@
 #include "./rma_range_iterator.hpp"
 #include "../transport_layer/ri/access_guard.hpp"
 #include "../common/utils.hpp"
+#include "../cuda_utils/stream.hpp"
 
 namespace gridtools {
 namespace ghex {
 namespace structured {
 
 namespace detail {
-
-#ifdef __CUDACC__
-
-template<typename SourceRange, typename TargetRange>
-__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr, unsigned int size)
-{
-    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
-    if (index < size)
-    {
-        using T = typename SourceRange::value_type;
-        auto it = sr.begin();
-        it += index;
-        auto sr_chunk = *it;
-        auto tr_chunk = *(tr.begin() + index);
-
-        const unsigned int num_elements = sr_chunk.size()/sizeof(T);
-
-        for (unsigned int i=0; i<num_elements; ++i)
-        {
-            *((T*)(tr_chunk.data())+i) = *((T*)(sr_chunk.data())+i);
-        }
-    }
-}
-
-#endif
-
+// does not yet work
+//#ifdef __CUDACC__
+//template<typename SourceRange, typename TargetRange>
+//__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr, unsigned int size)
+//{
+//    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
+//    if (index < size)
+//    {
+//        using T = typename SourceRange::value_type;
+//        auto it = sr.begin();
+//        it += index;
+//        auto sr_chunk = *it;
+//        auto tr_chunk = *(tr.begin() + index);
+//
+//        const unsigned int num_elements = sr_chunk.size()/sizeof(T);
+//
+//        /*for (unsigned int i=0; i<num_elements; ++i)
+//        {
+//            *((T*)(tr_chunk.data())+i) = *((T*)(sr_chunk.data())+i);
+//        }*/
+//    }
+//}
+//#endif
 
 template<unsigned int Dim, unsigned int D, typename Layout>
 struct inc_coord
@@ -264,12 +262,14 @@ struct field_view
     template<typename RemoteRange>
     void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::gpu) const
     {
-        //put_device_to_device(r, fuse_components{});
-#ifdef __CUDACC__
-        static constexpr unsigned int block_dim = 128;
-        const unsigned int num_blocks = (m_size+block_dim-1)/block_dim;
-        detail::put_device_to_device_kernel<<<num_blocks,block_dim>>>(*this, r, m_size);
-#endif
+        put_device_to_device(r, fuse_components{});
+//#ifdef __CUDACC__
+//        // does not yet work
+//        static constexpr unsigned int block_dim = 128;
+//        const unsigned int num_blocks = (m_size+block_dim-1)/block_dim;
+//        detail::put_device_to_device_kernel<<<num_blocks,block_dim>>>(*this, r, m_size);
+//        cudaDeviceSynchronize();
+//#endif
     }
 
 private:
@@ -378,15 +378,17 @@ private:
     void put_device_to_device(RemoteRange& r, std::false_type) const
     {
 #ifdef __CUDACC__
+        cuda::stream s;
         auto it = r.begin();
         gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 1>::apply(
-            [this,&it](auto... c)
+            [this,&it,&s](auto... c)
             {
                 auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice);
+                cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice, s);
                 ++it;
             },
             m_begin, m_end);
+        s.sync();
 #else
         r.begin(); // prevent compiler warning
 #endif
@@ -395,16 +397,18 @@ private:
     void put_device_to_device(RemoteRange& r, std::true_type) const
     {
 #ifdef __CUDACC__
+        cuda::stream s;
         auto it = r.begin();
         gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 2>::apply(
-            [this,&it](auto... c)
+            [this,&it,&s](auto... c)
             {
                 const auto nc = m_field.num_components();
                 auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyDeviceToDevice);
+                cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyDeviceToDevice, s);
                 it+=nc;
             },
             m_begin, m_end);
+        s.sync();
 #else
         r.begin(); // prevent compiler warning
 #endif
