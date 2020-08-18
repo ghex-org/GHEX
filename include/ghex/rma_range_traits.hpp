@@ -8,14 +8,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_REMOTE_RANGE_TRAITS_HPP
-#define INCLUDED_GHEX_REMOTE_RANGE_TRAITS_HPP
+#ifndef INCLUDED_GHEX_RMA_RANGE_TRAITS_HPP
+#define INCLUDED_GHEX_RMA_RANGE_TRAITS_HPP
 
 namespace gridtools {
 namespace ghex {
 
 template<template<typename> class RangeGen>
-struct remote_range_traits
+struct rma_range_traits
 {
     template<typename Communicator>
     static bool is_local(Communicator comm, int remote_rank) { return false; }
@@ -24,4 +24,4 @@ struct remote_range_traits
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_REMOTE_RANGE_TRAITS_HPP */
+#endif /* INCLUDED_GHEX_RMA_RANGE_TRAITS_HPP */

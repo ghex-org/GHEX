@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
+
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
