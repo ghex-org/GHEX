@@ -72,6 +72,11 @@ namespace gridtools {
                 {
                     if (in_node1())
                         rank_barrier(tlcomm);
+                    else
+                    {
+                        while(b_count2 == m_threads)
+                            tlcomm.progress();
+                    }
                     in_node2();
                 }
 
