@@ -72,14 +72,14 @@ namespace gridtools {
                 template <typename TLCommunicator>
                 void operator()(TLCommunicator& tlcomm) const
                 {
-                    if (in_node1())
+                    if (in_node1(tlcomm))
                         rank_barrier(tlcomm);
                     else
                     {
                         while(b_count2 == m_threads)
                             tlcomm.progress();
                     }
-                    in_node2();
+                    in_node2(tlcomm);
                 }
 
                 /**
@@ -109,16 +109,16 @@ namespace gridtools {
                  *
                  * @param tlcomm The communicator object associated with the thread.
                  */
-                //template <typename TLCommunicator>
-                void in_node(/*TLCommunicator& tlcomm*/) const
+                template <typename TLCommunicator>
+                void in_node(TLCommunicator& tlcomm) const
                 {
-                    in_node1();
-                    in_node2();
+                    in_node1(tlcomm);
+                    in_node2(tlcomm);
                  }
 
             private:
-
-                bool in_node1() const
+                template <typename TLCommunicator>
+                bool in_node1(TLCommunicator& tlcomm) const
                 {
                     size_t expected = b_count;
                     while (!b_count.compare_exchange_weak(expected, expected+1, std::memory_order_relaxed))
@@ -128,12 +128,13 @@ namespace gridtools {
                             b_count.store(0);
                             return true;
                         } else {
-                            while (b_count != 0) {}
+                            while (b_count != 0) { tlcomm.progress(); }
                             return false;
                         }
                 }
 
-                void in_node2() const
+                template <typename TLCommunicator>
+                void in_node2(TLCommunicator& tlcomm) const
                 {
                     size_t ex = b_count2;
                     while(!b_count2.compare_exchange_weak(ex, ex-1, std::memory_order_relaxed))
@@ -141,7 +142,7 @@ namespace gridtools {
                     if (ex == 1) {
                         b_count2.store(m_threads);
                     } else {
-                        while (b_count2 != m_threads) {}
+                        while (b_count2 != m_threads) { tlcomm.progress(); }
                     }
                 }
 

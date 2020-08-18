@@ -37,7 +37,7 @@ TEST(transport, rank_barrier) {
     gridtools::ghex::timer timer;
 
     timer.tic();
-    for(int i=0; i<100; i++)  {
+    for(int i=0; i<20; i++)  {
         barrier.rank_barrier(comm);
     }
     const auto t = timer.stoc();
@@ -56,10 +56,13 @@ namespace gridtools {
 
                 test_barrier(gridtools::ghex::tl::barrier_t& br) : br{br} {}
 
-                void test_in_node1() {
+                template <typename Context>
+                void test_in_node1(Context &context) {
+                    auto comm = context.get_communicator();
+
                     std::vector<int> innode1_out(br.size());
                     auto work = [&](int id) {
-                                    innode1_out[id] = br.in_node1()?1:0;
+                                    innode1_out[id] = br.in_node1(comm)?1:0;
                                 };
                     std::vector<std::thread> ths;
                     for (int i = 0; i < br.size(); ++i) {
@@ -77,11 +80,14 @@ namespace gridtools {
 
 
 TEST(transport, in_barrier_1) {
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+
     size_t n_threads = 4;
     gridtools::ghex::tl::barrier_t barrier{n_threads};
 
     gridtools::ghex::tl::test_barrier test(barrier);
-    test.test_in_node1();
+    test.test_in_node1(context);
 }
 
 TEST(transport, in_barrier) {
@@ -99,9 +105,9 @@ TEST(transport, in_barrier) {
             gridtools::ghex::timer timer;
 
             timer.tic();
-            for(int i=0; i<100; i++)  {
+            for(int i=0; i<20; i++)  {
                 comm.progress();
-                barrier.in_node();
+                barrier.in_node(comm);
             }
             const auto t = timer.stoc();
             if(rank==0)
@@ -135,7 +141,7 @@ TEST(transport, full_barrier) {
             gridtools::ghex::timer timer;
 
             timer.tic();
-            for(int i=0; i<100; i++)  {
+            for(int i=0; i<20; i++)  {
                 barrier(comm);
             }
             const auto t = timer.stoc();
