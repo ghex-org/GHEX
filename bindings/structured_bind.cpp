@@ -70,8 +70,6 @@ using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, ar
 using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
 using pattern_map_type          = std::map<struct_field_descriptor, pattern_type, field_compare>;
 using exchange_handle_type      = communication_obj_type::handle_type;
-
-// ASYMETRY
 using halo_generator_type       = ghex::structured::regular::halo_generator<domain_id_type, GHEX_DIMS>;
 
 // a map of field descriptors to patterns
@@ -151,7 +149,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
             auto pit = field_to_pattern.find(field);
             if (pit == field_to_pattern.end()) {
                 std::array<int, 3> &periodic = *((std::array<int, 3>*)field.periodic);
-                std::array<int, 6> &halo = *((std::array<int, 6>*)(field.halo));
+                std::array<int, 6> &halo = *((std::array<int, 6>*)field.halo);
                 auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
                 pit = field_to_pattern.emplace(std::make_pair(std::move(field), 
                         ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;

@@ -34,6 +34,33 @@ struct struct_domain_descriptor {
     int  glast[3];  // indices of the last GLOBAL grid point (model dimensions)
 };
 
+// compare two fields to establish, if the same pattern can be used for both
+struct field_compare {
+    bool operator()( const struct_field_descriptor& lhs, const struct_field_descriptor& rhs ) const
+    {
+        if(lhs.halo[0] < rhs.halo[0]) return true; 
+        if(lhs.halo[0] > rhs.halo[0]) return false;
+        if(lhs.halo[1] < rhs.halo[1]) return true; 
+        if(lhs.halo[1] > rhs.halo[1]) return false;
+        if(lhs.halo[2] < rhs.halo[2]) return true; 
+        if(lhs.halo[2] > rhs.halo[2]) return false;
+        if(lhs.halo[3] < rhs.halo[3]) return true; 
+        if(lhs.halo[3] > rhs.halo[3]) return false;
+        if(lhs.halo[4] < rhs.halo[4]) return true; 
+        if(lhs.halo[4] > rhs.halo[4]) return false;
+        if(lhs.halo[5] < rhs.halo[5]) return true; 
+        if(lhs.halo[5] > rhs.halo[5]) return false;
+        
+        if(lhs.periodic[0] < rhs.periodic[0]) return true; 
+        if(lhs.periodic[0] > rhs.periodic[0]) return false;
+        if(lhs.periodic[1] < rhs.periodic[1]) return true; 
+        if(lhs.periodic[1] > rhs.periodic[1]) return false;
+        if(lhs.periodic[2] < rhs.periodic[2]) return true; 
+        if(lhs.periodic[2] > rhs.periodic[2]) return false;
+
+        return false;
+    }
+};
 
 using grid_type                 = ghex::structured::grid;
 using grid_detail_type          = ghex::structured::detail::grid<std::array<int, GHEX_DIMS>>;
@@ -41,12 +68,14 @@ using domain_descriptor_type    = ghex::structured::regular::domain_descriptor<d
 using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
 using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
 using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type,2,1,0>;
+using pattern_map_type          = std::map<struct_field_descriptor, pattern_type, field_compare>;
 using exchange_handle_type      = communication_obj_type::handle_type;
 using bco_type                  = ghex::bulk_communication_object<ghex::structured::rma_range_generator, pattern_type, field_descriptor_type>;
 using buffer_info_type          = bco_type::buffer_info_type<field_descriptor_type>;
-
-// ASYMETRY
 using halo_generator_type       = ghex::structured::regular::halo_generator<domain_id_type, GHEX_DIMS>;
+
+// a map of field descriptors to patterns
+static pattern_map_type field_to_pattern;
 
 extern "C"
 void ghex_struct_co_init(ghex::bindings::obj_wrapper **wrapper_ref)
@@ -127,13 +156,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
 
         local_domains.emplace_back(domains_desc[i].id, first, last);
     }
-
-    // halo and periodicity must be the same
-    std::array<int, 3> &periodic = *((std::array<int, 3>*)domains_desc[0].fields->front().periodic);
-    std::array<int, 6> &halo = *((std::array<int, 6>*)domains_desc[0].fields->front().halo);
-    auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
-    auto pattern = ghex::make_pattern<grid_type>(*context, halo_generator, local_domains);
-
+   
     // TODO: is this still relevant? or do I need comm as argument?
     auto token = context->get_token();
     auto comm  = context->get_communicator(token);
@@ -147,6 +170,16 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     for(int i=0; i<n_domains; i++){
         field_vector_type &fields = *(domains_desc[i].fields);
         for(auto field: fields){
+            auto pit = field_to_pattern.find(field);
+            if (pit == field_to_pattern.end()) {
+                std::array<int, 3> &periodic = *((std::array<int, 3>*)field.periodic);
+                std::array<int, 6> &halo = *((std::array<int, 6>*)field.halo);
+                auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
+                pit = field_to_pattern.emplace(std::make_pair(std::move(field), 
+                        ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;
+            } 
+            
+            pattern_type &pattern = (*pit).second;
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
 	    auto f = field_descriptor_type(local_domains[i], field.data, offset, extents, field.n_components, false, 
