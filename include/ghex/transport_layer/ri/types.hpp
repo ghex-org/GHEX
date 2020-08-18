@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_TRANSPORT_LAYER_RI_TYPES_HPP
 
 #include <stdint.h>
+#include <gridtools/common/host_device.hpp>
 
 namespace gridtools {
 namespace ghex {
@@ -42,7 +43,9 @@ struct chunk
     pointer const   m_ptr;
     size_type const m_size;
 
+    GT_FUNCTION
     pointer   data() const noexcept { return m_ptr; }
+    GT_FUNCTION
     size_type size() const noexcept { return m_size; }
 
     byte& operator[](size_type i) const { return m_ptr[i]; }
