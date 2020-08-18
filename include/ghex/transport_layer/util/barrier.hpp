@@ -49,6 +49,8 @@ namespace gridtools {
                 mutable std::atomic<size_t> b_count2;
 
             public: // ctors
+                friend struct test_barrier;
+
                 barrier_t(size_t n_threads = 1) : m_threads{n_threads}, b_count2{m_threads} {
                 }
 
@@ -125,8 +127,10 @@ namespace gridtools {
                         {
                             b_count.store(0);
                             return true;
+                        } else {
+                            while (b_count != 0) {}
+                            return false;
                         }
-                    return false;
                 }
 
                 void in_node2() const
@@ -136,6 +140,8 @@ namespace gridtools {
                         ex = b_count2;
                     if (ex == 1) {
                         b_count2.store(m_threads);
+                    } else {
+                        while (b_count2 != m_threads) {}
                     }
                 }
 

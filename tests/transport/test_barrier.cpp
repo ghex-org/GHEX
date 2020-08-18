@@ -11,6 +11,7 @@
 #include <iostream>
 #include <iomanip>
 #include <thread>
+#include <numeric>
 
 #include <ghex/transport_layer/util/barrier.hpp>
 #include <ghex/common/timer.hpp>
@@ -44,6 +45,43 @@ TEST(transport, rank_barrier) {
     {
         std::cout << "time:       " << t/1000000 << "s\n";
     }
+}
+
+namespace gridtools {
+    namespace ghex {
+        namespace tl {
+            struct test_barrier {
+
+                gridtools::ghex::tl::barrier_t& br;
+
+                test_barrier(gridtools::ghex::tl::barrier_t& br) : br{br} {}
+
+                void test_in_node1() {
+                    std::vector<int> innode1_out(br.size());
+                    auto work = [&](int id) {
+                                    innode1_out[id] = br.in_node1()?1:0;
+                                };
+                    std::vector<std::thread> ths;
+                    for (int i = 0; i < br.size(); ++i) {
+                        ths.push_back(std::thread{work, i});
+                    }
+                    for (int i = 0; i < br.size(); ++i) {
+                        ths[i].join();
+                    }
+                    EXPECT_EQ(std::accumulate(innode1_out.begin(), innode1_out.end(), 0), 1);
+                }
+            };
+        }
+    }
+}
+
+
+TEST(transport, in_barrier_1) {
+    size_t n_threads = 4;
+    gridtools::ghex::tl::barrier_t barrier{n_threads};
+
+    gridtools::ghex::tl::test_barrier test(barrier);
+    test.test_in_node1();
 }
 
 TEST(transport, in_barrier) {
