@@ -80,7 +80,7 @@ namespace gridtools {
                     address_t               m_address;
                     cache_type              m_endpoint_cache;
                     int                     m_progressed_sends = 0;
-                    mutex_t*                m_mutex_ptr;
+                    mutex_t*                m_mutex_ptr = nullptr;
                     volatile int            m_progressed_recvs = 0;
                     volatile int            m_progressed_cancels = 0;
 
