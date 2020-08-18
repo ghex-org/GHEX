@@ -1,7 +1,8 @@
 #include "context_bind.hpp"
 #include <array>
-#include <ghex/structured/remote_range.hpp>
-#include <ghex/structured/bulk_communication_object.hpp>
+#include <ghex/bulk_communication_object.hpp>
+#include <ghex/structured/rma_range.hpp>
+#include <ghex/structured/rma_range_generator.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
@@ -41,7 +42,8 @@ using pattern_type              = ghex::pattern_container<communicator_type, gri
 using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
 using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type,2,1,0>;
 using exchange_handle_type      = communication_obj_type::handle_type;
-using bco_type                  = ghex::structured::bulk_communication_object<ghex::structured::remote_range_generator,	pattern_type, field_descriptor_type>;
+using bco_type                  = ghex::bulk_communication_object<ghex::structured::rma_range_generator, pattern_type, field_descriptor_type>;
+using buffer_info_type          = bco_type::buffer_info_type<field_descriptor_type>;
 
 // ASYMETRY
 using halo_generator_type       = ghex::structured::regular::halo_generator<domain_id_type, GHEX_DIMS>;
@@ -136,11 +138,11 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     auto token = context->get_token();
     auto comm  = context->get_communicator(token);
     
-    auto bco = gridtools::ghex::structured::bulk_communication_object<
-	gridtools::ghex::structured::remote_range_generator,
+    auto bco = gridtools::ghex::bulk_communication_object<
+	gridtools::ghex::structured::rma_range_generator,
 	pattern_type,
 	field_descriptor_type
-	> (comm, pattern);
+	> (comm);
 
     for(int i=0; i<n_domains; i++){
         field_vector_type &fields = *(domains_desc[i].fields);
@@ -149,12 +151,12 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
 	    auto f = field_descriptor_type(local_domains[i], field.data, offset, extents, field.n_components, false, 
 					   domains_desc[i].device_id);
-	    bco.add_field(f);
+	    bco.add_field(pattern(f));
         }
     }
 
     // exchange the RMA handles before any other BCO can be created
-    bco.init();
+    // bco.init();
     return new ghex::bindings::obj_wrapper(std::move(bco));
 }
 
