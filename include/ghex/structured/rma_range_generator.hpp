@@ -13,7 +13,7 @@
 
 #include "../arch_list.hpp"
 #include "../rma/range_traits.hpp"
-#include "../rma/access_guard2.hpp"
+#include "../rma/access_guard.hpp"
 #include "./rma_range.hpp"
 
 namespace gridtools {
@@ -110,7 +110,10 @@ struct rma_range_generator
         void put()
         {
             m_remote_range.start_source_epoch();
-            RangeFactory::put(*this, m_remote_range);
+            RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
+            {
+                put(r);
+            });
             m_remote_range.end_source_epoch();
         }
 

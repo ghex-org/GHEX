@@ -16,7 +16,7 @@
 #include <boost/mp11.hpp>
 #include "./locality.hpp"
 #include "./handle.hpp"
-#include "./access_guard2.hpp"
+#include "./access_guard.hpp"
 #include "./range.hpp"
 
 namespace gridtools {
@@ -82,18 +82,6 @@ struct range_factory
         {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
             return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value, field_info, info_);
-        });
-    }
-
-    // calls sr.put(_tr) where _tr is the recovered concrete type of the target range
-    // (i.e. no longer type erased)
-    template<typename SourceRange>
-    static void put(SourceRange& sr, range& tr)
-    {
-        boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(tr.m_id, [&sr,&tr](auto Id)
-        {
-            using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            sr.put(dynamic_cast<range_impl<range_t>*>(tr.m_impl.get())->m);
         });
     }
 

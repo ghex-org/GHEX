@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_RMA_XPMEM_ACCESS_GUARD2_HPP
-#define INCLUDED_GHEX_RMA_XPMEM_ACCESS_GUARD2_HPP
+#ifndef INCLUDED_GHEX_RMA_XPMEM_ACCESS_GUARD_HPP
+#define INCLUDED_GHEX_RMA_XPMEM_ACCESS_GUARD_HPP
 
 #include <memory>
 #include "../access_mode.hpp"
@@ -30,7 +30,7 @@ struct local_access_guard
             unsigned char volatile* m_ptr;
 
             mem()
-            : m_page_size{getpagesize()}
+            : m_page_size{(unsigned)getpagesize()}
             {
                 if(0 != posix_memalign((void**)&m_ptr, m_page_size, m_page_size))
                     throw std::runtime_error("cannot allocate xpmem access_guard\n");
@@ -43,7 +43,7 @@ struct local_access_guard
         
         impl()
         : m_mem{}
-        , m_handle(m_mem.m_ptr, m_mem.m_page_size, false)    
+        , m_handle((void*)m_mem.m_ptr, m_mem.m_page_size, false)    
         {}
     };
 
@@ -117,4 +117,4 @@ struct remote_access_guard
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_RMA_XPMEM_ACCESS_GUARD2_HPP */
+#endif /* INCLUDED_GHEX_RMA_XPMEM_ACCESS_GUARD_HPP */

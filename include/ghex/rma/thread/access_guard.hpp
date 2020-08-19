@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD2_HPP
-#define INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD2_HPP
+#ifndef INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP
+#define INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP
 
 #include <mutex>
 #include <condition_variable>
@@ -114,5 +114,4 @@ struct remote_access_guard
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD2_HPP */
-
+#endif /* INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP */

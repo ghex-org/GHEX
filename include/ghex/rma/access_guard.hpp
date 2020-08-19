@@ -8,13 +8,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_RMA_ACCESS_GUARD2_HPP
-#define INCLUDED_GHEX_RMA_ACCESS_GUARD2_HPP
+#ifndef INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP
+#define INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP
 
 #include "./locality.hpp"
-#include "./thread/access_guard2.hpp"
+#include "./thread/access_guard.hpp"
 #ifdef GHEX_USE_XPMEM
-#include "./xpmem/access_guard2.hpp"
+#include "./xpmem/access_guard.hpp"
 #endif
 
 namespace gridtools {
@@ -113,4 +113,4 @@ struct remote_access_guard
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_RMA_ACCESS_GUARD2_HPP */
+#endif /* INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP */

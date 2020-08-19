@@ -14,7 +14,7 @@
 #include <memory>
 #include "./locality.hpp"
 #include "./handle.hpp"
-#include "./access_guard2.hpp"
+#include "./access_guard.hpp"
 #include "./range_iface.hpp"
 
 namespace gridtools {
