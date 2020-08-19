@@ -38,7 +38,7 @@ struct info
     std::uintptr_t m_xpmem_start;
     std::uintptr_t m_xpmem_size;  
     std::uintptr_t m_xpmem_offset;  
-    xpmem_endpoint m_xpmem_endpoint;
+    xpmem_segid_t  m_xpmem_endpoint;
 };
 
 struct local_data_holder
@@ -49,7 +49,7 @@ struct local_data_holder
     std::uintptr_t m_xpmem_end;  
     std::uintptr_t m_xpmem_size;  
     std::uintptr_t m_xpmem_offset;  
-    xpmem_endpoint m_xpmem_endpoint;
+    xpmem_segid_t  m_xpmem_endpoint;
     
     local_data_holder(void* ptr, unsigned int size, bool on_gpu)
     : m_on_gpu{on_gpu}
@@ -58,10 +58,10 @@ struct local_data_holder
         if (!m_on_gpu)
         {
             m_page_size      = getpagesize();
-            m_xpmem_start    = align_down_pow2((reinterpret_cast<std::uintptr_t>(ptr)), page_size);
-            m_xpmem_end      = align_up_pow2((reinterpret_cast<std::uintptr_t>(ptr) + size), page_size);
+            m_xpmem_start    = align_down_pow2((reinterpret_cast<std::uintptr_t>(ptr)), m_page_size);
+            m_xpmem_end      = align_up_pow2((reinterpret_cast<std::uintptr_t>(ptr) + size), m_page_size);
             m_xpmem_size     = m_xpmem_end - m_xpmem_start;
-            m_xpmem_offset   = reinterpret_cast<std::uintptr_t>(ptr)-start;
+            m_xpmem_offset   = reinterpret_cast<std::uintptr_t>(ptr)-m_xpmem_start;
             m_xpmem_endpoint = xpmem_make(ptr, m_xpmem_size, XPMEM_PERMIT_MODE, (void*)0666);
             if(m_xpmem_endpoint < 0)
                 throw std::runtime_error("could not register xpmem endpoint");
@@ -85,7 +85,7 @@ struct remote_data_holder
     std::uintptr_t m_xpmem_start;
     std::uintptr_t m_xpmem_size;  
     std::uintptr_t m_xpmem_offset;  
-    xpmem_endpoint m_xpmem_endpoint;
+    xpmem_segid_t  m_xpmem_endpoint;
     xpmem_addr     m_xpmem_addr;
     void*          m_xpmem_ptr;
         
