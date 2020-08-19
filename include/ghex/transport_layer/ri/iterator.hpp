@@ -26,6 +26,7 @@ struct iterator
     iterator() noexcept {}
 
     template<typename Iterator>
+    GT_FUNCTION
     iterator(const Iterator& it) noexcept {
         new (m_stack) iterator_impl<Iterator>{it};
     }
@@ -40,23 +41,34 @@ struct iterator
     iterator& operator=(const iterator&) = default;
     iterator& operator=(iterator&&) = default;
 
+    GT_FUNCTION
     chunk operator*() const noexcept { return *ciface(); }
 
     arrow_proxy<chunk> operator->() const noexcept { return {*ciface()}; }
 
+    GT_FUNCTION
     operator chunk() const noexcept { return (chunk)ciface(); }
 
+    GT_FUNCTION
     iterator& operator++()            noexcept { ++iface(); return *this; }
+    GT_FUNCTION
     iterator  operator++(int)         noexcept { const iterator tmp(*this); ++iface(); return tmp; }
+    GT_FUNCTION
     iterator& operator--()            noexcept { --iface(); return *this; }
+    GT_FUNCTION
     iterator  operator--(int)         noexcept { const iterator tmp(*this); --iface(); return tmp; }
+    GT_FUNCTION
     iterator& operator+=(size_type n) noexcept { iface() += n; return *this; }
+    GT_FUNCTION
     iterator& operator-=(size_type n) noexcept { iface() += -n; return *this; }
 
-    friend inline iterator operator+(iterator a, size_type n) noexcept { return a += n; }
-    friend inline iterator operator-(iterator a, size_type n) noexcept { return a -= n; }
+    GT_FUNCTION
+    friend iterator operator+(iterator a, size_type n) noexcept { return a += n; }
+    GT_FUNCTION
+    friend iterator operator-(iterator a, size_type n) noexcept { return a -= n; }
 
-    friend inline size_type operator-(const iterator& a, const iterator& b) { return a.ciface().sub(b.ciface()); }
+    GT_FUNCTION
+    friend size_type operator-(const iterator& a, const iterator& b) { return a.ciface().sub(b.ciface()); }
 
     friend inline bool operator==(const iterator& a, const iterator& b) noexcept { return a.ciface().equal(b.ciface()); }
     friend inline bool operator!=(const iterator& a, const iterator& b) noexcept { return !(a == b); }
@@ -65,8 +77,11 @@ struct iterator
     friend inline bool operator>(const iterator& a, const iterator& b)  noexcept { return !(a <= b); }
     friend inline bool operator>=(const iterator& a, const iterator& b) noexcept { return !(a < b); }
 
+    GT_FUNCTION
           iterator_iface&  iface()       { return *reinterpret_cast<iterator_iface*>(m_stack); }
+    GT_FUNCTION
     const iterator_iface&  iface() const { return *reinterpret_cast<const iterator_iface*>(m_stack); }
+    GT_FUNCTION
     const iterator_iface& ciface() const { return *reinterpret_cast<const iterator_iface*>(m_stack); }
 };
 

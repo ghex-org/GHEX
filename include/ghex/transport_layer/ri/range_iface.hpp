@@ -24,7 +24,9 @@ struct put_range_iface
 {
     virtual ~put_range_iface() {}
 
+    GT_HOST_DEVICE
     virtual Iterator  begin() const noexcept = 0;
+    GT_HOST_DEVICE
     virtual Iterator  end()   const noexcept = 0;
     virtual void      start_local_epoch() = 0;
     virtual void      end_local_epoch() = 0;
@@ -49,7 +51,9 @@ struct put_range_impl : public put_range_iface<Iterator>
         m.exit(SourceArch{});
     }
     
+    GT_FUNCTION
     Iterator  begin() const noexcept override final { return m.begin(); }
+    GT_FUNCTION
     Iterator  end()   const noexcept override final { return m.end(); }
 
     void      start_local_epoch() override final { }
@@ -67,7 +71,9 @@ struct put_range_impl<Range, Iterator, target_> : public put_range_iface<Iterato
 
     put_range_impl(Range&& r) : m{std::move(r)} { }
 
+    GT_FUNCTION
     Iterator  begin() const noexcept override final { return m.begin(); }
+    GT_FUNCTION
     Iterator  end()   const noexcept override final { return m.end(); }
     void      start_local_epoch() override final { m.start_local_epoch(); }
     void      end_local_epoch() override final { m.end_local_epoch(); }

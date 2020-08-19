@@ -18,17 +18,43 @@
 #include "./rma_range_iterator.hpp"
 #include "../transport_layer/ri/access_guard.hpp"
 #include "../common/utils.hpp"
+#include "../cuda_utils/stream.hpp"
 
 namespace gridtools {
 namespace ghex {
 namespace structured {
 
 namespace detail {
+// does not yet work
+//#ifdef __CUDACC__
+//template<typename SourceRange, typename TargetRange>
+//__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr, unsigned int size)
+//{
+//    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
+//    if (index < size)
+//    {
+//        using T = typename SourceRange::value_type;
+//        auto it = sr.begin();
+//        it += index;
+//        auto sr_chunk = *it;
+//        auto tr_chunk = *(tr.begin() + index);
+//
+//        const unsigned int num_elements = sr_chunk.size()/sizeof(T);
+//
+//        /*for (unsigned int i=0; i<num_elements; ++i)
+//        {
+//            *((T*)(tr_chunk.data())+i) = *((T*)(sr_chunk.data())+i);
+//        }*/
+//    }
+//}
+//#endif
+
 template<unsigned int Dim, unsigned int D, typename Layout>
 struct inc_coord
 {
     template<typename Coord>
-    static inline void fn(Coord& coord, const Coord& ext) noexcept
+    GT_FUNCTION
+    static void fn(Coord& coord, const Coord& ext) noexcept
     {
         static constexpr auto I = Layout::find(Dim-D-1);
         if (coord[I] == ext[I] - 1)
@@ -44,7 +70,8 @@ template<typename Layout>
 struct inc_coord<3,1,Layout>
 {
     template<typename Coord>
-    static inline void fn(Coord& coord, const Coord& ext) noexcept
+    GT_FUNCTION
+    static void fn(Coord& coord, const Coord& ext) noexcept
     {
         static constexpr auto Y = Layout::find(1);
         static constexpr auto Z = Layout::find(0);
@@ -57,7 +84,8 @@ template<unsigned int Dim, typename Layout>
 struct inc_coord<Dim, Dim, Layout>
 {
     template<typename Coord>
-    static inline void fn(Coord& coord, const Coord& ext) noexcept
+    GT_FUNCTION
+    static void fn(Coord& coord, const Coord& ext) noexcept
     {
         static constexpr auto I = Layout::find(Dim-1);
         for (unsigned int i = 0; i < Dim; ++i) coord[i] = ext[i] - 1;
@@ -81,6 +109,7 @@ struct field_view
     using size_type = tl::ri::size_type;
     using fuse_components = std::integral_constant<bool,
         Field::has_components::value && (layout::at(dimension::value-1) == dimension::value-1)>;
+    using iterator = range_iterator<field_view>;
 
     Field m_field;
     rma_data_t m_rma_data;
@@ -135,6 +164,11 @@ struct field_view
 
     field_view(const field_view&) = default;
     field_view(field_view&&) = default;
+
+    GT_FUNCTION
+    iterator  begin() { return {this, 0, m_begin}; }
+    GT_FUNCTION
+    iterator  end()   { return {this, m_size, m_end}; }
     
     GT_FUNCTION
     value_type& operator()(const coordinate& x) {
@@ -154,10 +188,12 @@ struct field_view
         return m_field.ptr(x+m_offset);
     }
 
+    GT_FUNCTION
     tl::ri::chunk get_chunk(const coordinate& coord) const noexcept {
         return {const_cast<tl::ri::byte*>(reinterpret_cast<const tl::ri::byte*>(ptr(coord))), m_chunk_size};
     }
 
+    GT_FUNCTION
     size_type inc(size_type index, size_type n, coordinate& coord) const noexcept {
         if (n < 0 && -n > index)
         {
@@ -185,6 +221,7 @@ struct field_view
         }
     }
 
+    GT_FUNCTION
     size_type inc(size_type index, coordinate& coord) const noexcept {
         static constexpr auto I = layout::find(dimension::value-1);
         if (index + 1 >= m_size)
@@ -225,8 +262,14 @@ struct field_view
     template<typename RemoteRange>
     void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::gpu) const
     {
-        //using view_iterator_type = range_iterator<field_view>;
         put_device_to_device(r, fuse_components{});
+//#ifdef __CUDACC__
+//        // does not yet work
+//        static constexpr unsigned int block_dim = 128;
+//        const unsigned int num_blocks = (m_size+block_dim-1)/block_dim;
+//        detail::put_device_to_device_kernel<<<num_blocks,block_dim>>>(*this, r, m_size);
+//        cudaDeviceSynchronize();
+//#endif
     }
 
 private:
@@ -335,15 +378,17 @@ private:
     void put_device_to_device(RemoteRange& r, std::false_type) const
     {
 #ifdef __CUDACC__
+        cuda::stream s;
         auto it = r.begin();
         gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 1>::apply(
-            [this,&it](auto... c)
+            [this,&it,&s](auto... c)
             {
                 auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice);
+                cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice, s);
                 ++it;
             },
             m_begin, m_end);
+        s.sync();
 #else
         r.begin(); // prevent compiler warning
 #endif
@@ -352,16 +397,18 @@ private:
     void put_device_to_device(RemoteRange& r, std::true_type) const
     {
 #ifdef __CUDACC__
+        cuda::stream s;
         auto it = r.begin();
         gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 2>::apply(
-            [this,&it](auto... c)
+            [this,&it,&s](auto... c)
             {
                 const auto nc = m_field.num_components();
                 auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyDeviceToDevice);
+                cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyDeviceToDevice, s);
                 it+=nc;
             },
             m_begin, m_end);
+        s.sync();
 #else
         r.begin(); // prevent compiler warning
 #endif

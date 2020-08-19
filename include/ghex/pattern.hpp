@@ -49,8 +49,21 @@ namespace gridtools {
             friend class detail::make_pattern_impl<GridType>;
 
         public: // copy constructor
-            pattern_container(const pattern_container&) = default;
-            pattern_container(pattern_container&&) = default;
+            pattern_container(const pattern_container& other)
+            : m_patterns{other.m_patterns}
+            , m_max_tag{other.m_max_tag}
+            {
+                for (auto& p : m_patterns)
+                    p.m_container = this;
+            }
+
+            pattern_container(pattern_container&& other)
+            : m_patterns{std::move(other.m_patterns)}
+            , m_max_tag{other.m_max_tag}
+            {
+                for (auto& p : m_patterns)
+                    p.m_container = this;
+            }
 
         private: // private constructor called through make_pattern
             pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) 

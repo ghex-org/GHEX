@@ -36,8 +36,11 @@ struct put_range
     put_range() = default;
     put_range(put_range&&) = default;
     put_range& operator=(put_range&&) = default;
+    put_range(const put_range&) = default;
 
+    GT_FUNCTION
     iterator_type begin() const noexcept { return ciface().begin(); }
+    GT_FUNCTION
     iterator_type end() const noexcept { return ciface().end(); }
     chunk operator[](size_type i) const noexcept { return *(begin() + i); }
     size_type size() const noexcept { return end() - begin(); }
@@ -49,14 +52,17 @@ struct put_range
     void start_source_epoch() { iface().start_remote_epoch(); }
     void end_source_epoch()   { iface().end_remote_epoch(); }
 
+    GT_FUNCTION
     put_range_iface<iterator_type>&  iface()
     {
         return *reinterpret_cast<put_range_iface<iterator_type>*>(m_stack);
     }
+    GT_FUNCTION
     const put_range_iface<iterator_type>&  iface() const
     {
         return *reinterpret_cast<const put_range_iface<iterator_type>*>(m_stack);
     }
+    GT_FUNCTION
     const put_range_iface<iterator_type>& ciface() const
     {
         return *reinterpret_cast<const put_range_iface<iterator_type>*>(m_stack);

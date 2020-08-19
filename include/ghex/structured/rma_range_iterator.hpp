@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_RMA_RANGE_ITERATOR_HPP
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_ITERATOR_HPP
 
+#include <gridtools/common/host_device.hpp>
 #include "../transport_layer/ri/types.hpp"
 
 namespace gridtools {
@@ -28,20 +29,38 @@ struct range_iterator
     size_type   m_index;
     coordinate  m_coord;
 
+    GT_FUNCTION
     range_iterator(Range* r, size_type idx, const coordinate& coord)
     : m_range{r}
     , m_index{idx}
     , m_coord{coord}
     {}
-    range_iterator(const range_iterator&) = default;
-    range_iterator(range_iterator&&) = default;
+    GT_FUNCTION
+    range_iterator(const range_iterator& other) noexcept
+    : m_range{other.m_range}
+    , m_index{other.m_index}
+    , m_coord{other.m_coord}
+    {}
+    GT_FUNCTION
+    range_iterator(range_iterator&& other) noexcept
+    : m_range{other.m_range}
+    , m_index{other.m_index}
+    , m_coord{other.m_coord}
+    {}
 
+    GT_FUNCTION
     chunk     operator*() const noexcept { return m_range->get_chunk(m_coord); }
+    GT_FUNCTION
     void      operator++() noexcept { m_index = m_range->inc(m_index, m_coord); }
+    GT_FUNCTION
     void      operator--() noexcept { m_index = m_range->inc(m_index, -1, m_coord); }
+    GT_FUNCTION
     void      operator+=(size_type n) noexcept { m_index = m_range->inc(m_index, n, m_coord); }
+    GT_FUNCTION
     size_type sub(const range_iterator& other) const { return m_index - other.m_index; }
+    GT_FUNCTION
     bool      equal(const range_iterator& other) const { return m_index == other.m_index; }
+    GT_FUNCTION
     bool      lt(const range_iterator& other) const { return m_index < other.m_index; }
 };
 

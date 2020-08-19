@@ -43,8 +43,11 @@ struct rma_range
     rma_range(const rma_range&) = default;
     rma_range(rma_range&&) = default;
 
+    GT_FUNCTION
     iterator  begin() const { return {const_cast<rma_range*>(this), 0, m_view.m_begin}; }
+    GT_FUNCTION
     iterator  end()   const { return {const_cast<rma_range*>(this), m_view.m_size, m_view.m_end}; }
+    GT_FUNCTION
     size_type buffer_size() const { return m_view.m_chunk_size; }
 
     // these functions are called at the remote site upon deserializing and reconstructing the range
@@ -80,14 +83,17 @@ struct rma_range
     void start_remote_epoch(tl::ri::remote_device_) { m_guard.start_remote_epoch(); }
     void end_remote_epoch(tl::ri::remote_device_)   { m_guard.end_remote_epoch(); }
     
+    GT_FUNCTION
     auto get_chunk(const coordinate& coord) const noexcept {
         return m_view.get_chunk(coord);
     }
 
+    GT_FUNCTION
     size_type inc(size_type index, size_type n, coordinate& coord) const noexcept {
         return m_view.inc(index,n,coord);
     }
     
+    GT_FUNCTION
     size_type inc(size_type index, coordinate& coord) const noexcept {
         return m_view.inc(index, coord);
     }
