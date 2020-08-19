@@ -23,6 +23,7 @@
 #include "./rma/locality.hpp"
 #include "./rma/range_traits.hpp"
 #include "./rma/range_factory.hpp"
+#include "./rma/handle.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -79,6 +80,7 @@ public: // member types
 private:
 
     using pattern_map = std::map<const pattern_type*, pattern_type>;
+    using local_handle_map = std::map<void*, rma::local_handle>;
 
 private: // member types
     template<typename A>
@@ -110,7 +112,6 @@ private: // member types
     using select_source_range = std::vector<typename RangeGen<Field>::template source_range<
         range_factory,communicator_type>>;
 
-
     template<typename Field>
     struct target_ranges
     {
@@ -131,15 +132,20 @@ private: // member types
     struct field_container
     {
         Field m_field;
+        rma::local_handle& m_local_handle;
         pattern_type& m_remote_pattern;
         pattern_type& m_local_pattern;
 
         field_container(communicator_type comm, const Field& f, const pattern_type& pattern,
+            local_handle_map& l_handle_map,
             pattern_map& local_map, pattern_map& remote_map)
         : m_field{f}
+        , m_local_handle(l_handle_map.insert(std::make_pair((void*)(f.data()),rma::local_handle{})).first->second)
         , m_remote_pattern(remote_map.insert(std::make_pair(&pattern, pattern)).first->second)
         , m_local_pattern(local_map.insert(std::make_pair(&pattern, pattern)).first->second)
         {
+            m_local_handle.init( f.data(), 32, std::is_same<typename Field::arch_type, gpu>::value);
+
             // prepare local and remote patterns
             // =================================
 
@@ -211,6 +217,7 @@ private: // members
     buffer_info_container_t m_buffer_info_container_tuple;
     target_ranges_t         m_target_ranges_tuple;
     source_ranges_t         m_source_ranges_tuple;
+    local_handle_map        m_local_handle_map;
     moved_bit               m_moved;
     bool                    m_initialized = false;
 
@@ -244,11 +251,12 @@ public:
 
         // store field
         f_cont.push_back(field_container<Field>(m_comm, bi.get_field(), bi.get_pattern_container(),
-            m_local_pattern_map, m_remote_pattern_map));
+            m_local_handle_map, m_local_pattern_map, m_remote_pattern_map));
         s_range.m_ranges.resize(s_range.m_ranges.size()+1);
         t_range.m_ranges.resize(t_range.m_ranges.size()+1);
 
         auto& f = f_cont.back().m_field;
+        auto field_info = f_cont.back().m_local_handle.get_info();
         // loop over patterns 
         for (auto& p : f_cont.back().m_local_pattern)
         {
@@ -273,7 +281,7 @@ public:
                         const auto local = rma::range_traits<RangeGen>::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
                         t_range.m_ranges.back().emplace_back(
-                            m_comm, f, c, h_it->first.mpi_rank, h_it->first.tag, local); 
+                            m_comm, f, field_info, c, h_it->first.mpi_rank, h_it->first.tag, local); 
                     }
                 }
             }

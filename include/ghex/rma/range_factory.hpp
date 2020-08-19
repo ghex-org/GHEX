@@ -14,6 +14,8 @@
 #include <vector>
 #include <cstring>
 #include <boost/mp11.hpp>
+#include "./locality.hpp"
+#include "./handle.hpp"
 #include "./range.hpp"
 
 namespace gridtools {
@@ -26,30 +28,37 @@ struct range_factory
     using range_type = range;
 
     static_assert(boost::mp11::mp_is_set<RangeList>::value, "range types must be unique");
+
+    static inline constexpr unsigned int a16(unsigned int size) noexcept { return ((size+15)/16)*16; }
     
     template<typename Range>
     using range_size_p = boost::mp11::mp_size_t<sizeof(Range)>;
     using max_range_size =
         boost::mp11::mp_max_element<boost::mp11::mp_transform<range_size_p, RangeList>, boost::mp11::mp_less>;
     
-    static constexpr std::size_t serial_size = sizeof(int)*2 + max_range_size::value;
+    static constexpr std::size_t serial_size =a16(sizeof(int)) + a16(sizeof(info)) 
+        + a16(sizeof(locality)) + max_range_size::value;
 
     template<typename Range>
-    static void serialize(const Range& r, unsigned char* buffer)
+    static void serialize(info field_info, locality loc, const Range& r, unsigned char* buffer)
     {
         static_assert(boost::mp11::mp_set_contains<RangeList, Range>::value, "range type not registered");
         using id = boost::mp11::mp_find<RangeList, Range>;
         const int m_id = id::value;
         std::memcpy(buffer, &m_id, sizeof(int));
-        buffer += 2*sizeof(int);
+        buffer += a16(sizeof(int));
+        std::memcpy(buffer, &field_info, sizeof(field_info));
+        buffer += a16(sizeof(field_info));
+        std::memcpy(buffer, &loc, sizeof(locality));
+        buffer += a16(sizeof(locality));
         std::memcpy(buffer, &r, sizeof(Range));
     }
 
     template<typename Range>
-    static std::vector<unsigned char> serialize(const Range& r)
+    static std::vector<unsigned char> serialize(info field_info, locality loc, const Range& r)
     {
         std::vector<unsigned char> res(serial_size);
-        serialize(r, res.data());
+        serialize(field_info, loc, r, res.data());
         return res;
     }
 
@@ -57,11 +66,18 @@ struct range_factory
     {
         int id;
         std::memcpy(&id, buffer, sizeof(int));
-        buffer += 2*sizeof(int);
-        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, [buffer](auto Id)
+        buffer += a16(sizeof(int));
+        info field_info;
+        std::memcpy(&field_info, buffer, sizeof(field_info));
+        buffer += a16(sizeof(field_info));
+        locality loc;
+        std::memcpy(&loc, buffer, sizeof(locality));
+        buffer += a16(sizeof(locality));
+        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, [buffer, field_info, loc]
+        (auto Id)
         {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value);
+            return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value, field_info, loc);
         });
     }
 
@@ -74,6 +90,17 @@ struct range_factory
         {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
             sr.put(dynamic_cast<range_impl<range_t>*>(tr.m_impl.get())->m);
+        });
+    }
+
+    template<typename Func>
+    static void call_back_with_type(range& r, Func&& f)
+    {
+        boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(r.m_id, 
+        [&r, f = std::forward<Func>(f)](auto Id)
+        {
+            using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
+            f(dynamic_cast<range_impl<range_t>*>(r.m_impl.get())->m);
         });
     }
 };
