@@ -58,7 +58,7 @@ struct range_iterator
     GT_HOST_DEVICE
     void      operator--() noexcept { m_range->inc(m_index, -1, m_coord); }
     GT_HOST_DEVICE
-    void      operator+=(size_type n) noexcept { m_range->inc(m_index, n, m_coord); }
+    void      operator+=(int n) noexcept { m_range->inc(m_index, n, m_coord); }
     GT_FUNCTION
     size_type sub(const range_iterator& other) const { return m_index - other.m_index; }
     GT_FUNCTION

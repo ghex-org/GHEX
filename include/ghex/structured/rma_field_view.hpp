@@ -179,8 +179,8 @@ struct field_view
     }
 
     GT_HOST_DEVICE
-    void inc(size_type& index, size_type n, coordinate& coord) const noexcept {
-        if (n < 0 && -n > index)
+    void inc(size_type& index, int n, coordinate& coord) const noexcept {
+        if (n < 0 && (size_type)(-n) > index)
         {
             coord = m_begin;
             index = 0;
