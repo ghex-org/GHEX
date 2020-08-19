@@ -14,8 +14,8 @@
 #include <memory>
 #include "./locality.hpp"
 #include "./handle.hpp"
+#include "./access_guard2.hpp"
 #include "./range_iface.hpp"
-//#include "./access_guard.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -27,14 +27,16 @@ struct range
     locality m_loc;
     remote_handle m_handle;
     std::unique_ptr<range_iface> m_impl;
+    remote_access_guard m_guard;
     
     range() = default;
 
     template<typename Range>
-    range(Range&& r, int id, info field_info, locality loc)
+    range(Range&& r, int id, info field_info, typename local_access_guard::info info_)
     : m_id{id}
-    , m_loc{loc}
+    , m_loc{info_.m_locality}
     , m_impl{new range_impl<std::remove_reference_t<Range>>(std::forward<Range>(r))}
+    , m_guard(info_)
     {
         m_handle.init(field_info);
     }
@@ -47,6 +49,9 @@ struct range
     {
         return m_handle.get_ptr(m_loc);
     }
+
+    void start_source_epoch2() { m_guard.start_source_epoch(); }
+    void end_source_epoch2() { m_guard.end_source_epoch(); }
 
     void start_source_epoch() { m_impl->start_source_epoch(); }
     void end_source_epoch() { m_impl->end_source_epoch(); }

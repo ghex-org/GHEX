@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 
 #include "../rma/range_traits.hpp"
+#include "../rma/access_guard2.hpp"
 #include "../arch_list.hpp"
 #include "./rma_range.hpp"
 
@@ -35,6 +36,7 @@ struct rma_range_generator
         Communicator m_comm;
         guard_type m_guard;
         guard_view_type m_guard_view;
+        rma::local_access_guard m_local_guard;
         field_view<Field> m_view;
         rank_type m_dst;
         tag_type m_tag;
@@ -47,6 +49,7 @@ struct rma_range_generator
         : m_comm{comm}
         , m_guard{}
         , m_guard_view{m_guard, loc}
+        , m_local_guard{loc}
         , m_view{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_dst{dst}
         , m_tag{tag}
@@ -54,17 +57,19 @@ struct rma_range_generator
             m_archive.resize(RangeFactory::serial_size);
             m_view.m_field.init_rma_local();
             m_view.m_rma_data = m_view.m_field.get_rma_data();
-            m_archive = RangeFactory::serialize(field_info, loc, rma_range<Field>{m_view,m_guard,loc});
+            m_archive = RangeFactory::serialize(field_info, m_local_guard, rma_range<Field>{m_view,m_guard,loc});
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
         void start_target_epoch()
         {
             m_guard_view.start_local_epoch();
+            m_local_guard.start_target_epoch();
         }
         void end_target_epoch()
         {
             m_guard_view.end_local_epoch();
+            m_local_guard.end_target_epoch();
         }
 
         void send()
@@ -120,8 +125,10 @@ struct rma_range_generator
         void put()
         {
             m_remote_range.start_source_epoch();
+            m_remote_range.start_source_epoch2();
             RangeFactory::put(*this, m_remote_range);
             m_remote_range.end_source_epoch();
+            m_remote_range.end_source_epoch2();
         }
 
         template<typename TargetRange>

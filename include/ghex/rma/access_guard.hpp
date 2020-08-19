@@ -21,21 +21,6 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
-struct access_guard2
-{
-    local_handle m_handle; 
-    thread::access_guard m_thread_guard;
-#ifdef GHEX_USE_XPMEM
-    xpmem::access_guard m_process_guard;
-#endif
-};
-
-/*struct access_guard_view2
-{
-    remote_handle m_handle;
-    
-    access_guard_view
-};*/
 
 struct access_guard
 {
