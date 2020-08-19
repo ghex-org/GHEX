@@ -12,9 +12,10 @@
 #define INCLUDED_GHEX_STRUCTURED_RMA_HANDLE_HPP
 
 #include "../arch_traits.hpp"
-#include "../transport_layer/ri/types.hpp"
+//#include "../transport_layer/ri/types.hpp"
+#include "../rma/locality.hpp"
 #ifdef GHEX_USE_XPMEM
-#include "../transport_layer/ri/xpmem/data.hpp"
+#include "../rma/xpmem/data.hpp"
 #endif /* GHEX_USE_XPMEM */
 
 namespace gridtools {
@@ -33,7 +34,7 @@ class rma_handle<field_descriptor<T, cpu, DomainDescriptor, Order...>>
 public:
     using derived = field_descriptor<T, cpu, DomainDescriptor, Order...>;
 #ifdef GHEX_USE_XPMEM
-    using rma_data_t = tl::ri::xpmem::data;
+    using rma_data_t = rma::xpmem::data;
     std::shared_ptr<rma_data_t> m_xpmem_data_ptr;
 #else
     using rma_data_t = int;
@@ -73,20 +74,20 @@ public:
             auto size = d_cast()->m_extents[0];
             for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i)
                 size *= d_cast()->m_extents[i];
-            m_xpmem_data_ptr = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
+            m_xpmem_data_ptr = rma::xpmem::make_local_data(d_cast()->m_data, size);
         }
 #endif /* GHEX_USE_XPMEM */
     }
 
     void release_rma_local() { }
 
-    void init_rma_remote(const rma_data_t& data, tl::ri::locality loc)
+    void init_rma_remote(const rma_data_t& data, rma::locality loc)
     {
 #ifdef GHEX_USE_XPMEM
-        if (loc == tl::ri::locality::process)
+        if (loc == rma::locality::process)
             if (!m_xpmem_data_ptr)
             {
-                m_xpmem_data_ptr = tl::ri::xpmem::make_remote_data(data);
+                m_xpmem_data_ptr = rma::xpmem::make_remote_data(data);
                 d_cast()->m_data = (T*)m_xpmem_data_ptr->m_ptr;
             }
 #endif /* GHEX_USE_XPMEM */	
@@ -106,7 +107,7 @@ public:
 #else
     // used for emulated gpu fields
 #ifdef GHEX_USE_XPMEM
-    using rma_data_t = tl::ri::xpmem::data;
+    using rma_data_t = rma::xpmem::data;
     std::shared_ptr<rma_data_t> m_xpmem_data_ptr;
 #else
     using rma_data_t = int;
@@ -166,7 +167,7 @@ public:
             auto size = d_cast()->m_extents[0];
             for (unsigned int i=1; i<d_cast()->m_extents.size(); ++i)
                 size *= d_cast()->m_extents[i];
-            m_xpmem_data_ptr = tl::ri::xpmem::make_local_data(d_cast()->m_data, size);
+            m_xpmem_data_ptr = rma::xpmem::make_local_data(d_cast()->m_data, size);
         }
 #endif
 #endif
@@ -174,10 +175,10 @@ public:
 
     void release_rma_local() { }
 
-    void init_rma_remote(const rma_data_t& data, tl::ri::locality loc)
+    void init_rma_remote(const rma_data_t& data, rma::locality loc)
     {
 #ifdef __CUDACC__
-        if (loc == tl::ri::locality::process)
+        if (loc == rma::locality::process)
             if (!m_cuda_data_ptr)
             {
                 void* vptr = (d_cast()->m_data);
@@ -194,10 +195,10 @@ public:
 #else
         // used for emulated gpu fields
 #ifdef GHEX_USE_XPMEM
-        if (loc == tl::ri::locality::process)
+        if (loc == rma::locality::process)
             if (!m_xpmem_data_ptr)
             {
-                m_xpmem_data_ptr = tl::ri::xpmem::make_remote_data(data);
+                m_xpmem_data_ptr = rma::xpmem::make_remote_data(data);
                 d_cast()->m_data = (T*)m_xpmem_data_ptr->m_ptr;
             }
 #endif

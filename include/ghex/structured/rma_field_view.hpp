@@ -16,9 +16,10 @@
 #include <gridtools/common/host_device.hpp>
 #include <iostream>
 
-#include "../transport_layer/ri/access_guard.hpp"
 #include "../common/utils.hpp"
 #include "../cuda_utils/stream.hpp"
+#include "../rma/chunk.hpp"
+#include "../rma/access_guard.hpp"
 #include "./rma_range_iterator.hpp"
 
 namespace gridtools {
@@ -79,10 +80,10 @@ struct field_view
     using value_type = typename Field::value_type;
     using coordinate = typename Field::coordinate_type;
     using strides_type = typename Field::strides_type;
-    using guard_type = tl::ri::access_guard;
-    using guard_view_type = tl::ri::access_guard_view;
+    using guard_type = rma::access_guard;
+    using guard_view_type = rma::access_guard_view;
     using rma_data_t = typename Field::rma_data_t;
-    using size_type = tl::ri::size_type;
+    using size_type = unsigned int;
     using fuse_components = std::integral_constant<bool,
         Field::has_components::value && (layout::at(dimension::value-1) == dimension::value-1)>;
     using iterator = range_iterator<field_view>;
@@ -96,6 +97,7 @@ struct field_view
     coordinate m_reduced_stride;
     size_type  m_size;
     size_type  m_chunk_size;
+    size_type  m_chunk_size_;
 
     template<typename Array>
     field_view(const Field& f, const Array& offset, const Array& extent)
@@ -132,6 +134,7 @@ struct field_view
 
         m_end[I] = m_extent[I];
         m_size  /= m_extent[I];
+        m_chunk_size_ = m_extent[I];
         m_chunk_size = m_extent[I] * sizeof(value_type);
 
         m_reduced_stride[I] = 1;
@@ -171,8 +174,8 @@ struct field_view
     }
 
     GT_FUNCTION
-    tl::ri::chunk get_chunk(const coordinate& coord) const noexcept {
-        return {const_cast<tl::ri::byte*>(reinterpret_cast<const tl::ri::byte*>(ptr(coord))), m_chunk_size};
+    rma::chunk<value_type> get_chunk(const coordinate& coord) const noexcept {
+        return {const_cast<value_type*>(ptr(coord)), m_chunk_size_};
     }
 
     GT_HOST_DEVICE
@@ -303,7 +306,7 @@ __global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr)
         auto t_it = tr.begin();
         t_it += index;
         auto t_chunk = *t_it;
-        memcpy(t_chunk.data(), s_chunk.data(), s_chunk.size());
+        memcpy(t_chunk.data(), s_chunk.data(), s_chunk.bytes());
     }
 }
 #endif

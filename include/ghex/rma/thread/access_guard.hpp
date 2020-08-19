@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_TRANSPORT_LAYER_RI_THREAD_ACCESS_GUARD_HPP
-#define INCLUDED_GHEX_TRANSPORT_LAYER_RI_THREAD_ACCESS_GUARD_HPP
+#ifndef INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP
+#define INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP
 
 #include <mutex>
 #include <condition_variable>
@@ -17,8 +17,7 @@
 
 namespace gridtools {
 namespace ghex {
-namespace tl {
-namespace ri {
+namespace rma {
 namespace thread {
 
 // a finite-state machine that guards alternating either the local or remote site
@@ -88,9 +87,9 @@ struct access_guard_view
 };
 
 } // namespace thread
-} // namespace ri
-} // namespace tl
+} // namespace rma
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TRANSPORT_LAYER_RI_THREAD_ACCESS_GUARD_HPP */
+#endif /* INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP */
+

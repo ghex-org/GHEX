@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_RMA_RANGE_HPP
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_HPP
 
+#include "../rma/locality.hpp"
 #include "./rma_field_view.hpp"
 
 namespace gridtools {
@@ -29,13 +30,13 @@ struct rma_range
     using strides_type = typename Field::strides_type;
     using guard_type = typename view_type::guard_type;
     using guard_view_type = typename view_type::guard_view_type;
-    using size_type = tl::ri::size_type;
+    using size_type = unsigned int;
     using iterator = range_iterator<rma_range>;
 
     guard_view_type   m_guard;
     view_type         m_view;
     
-    rma_range(const view_type& v, guard_type& g, tl::ri::locality loc) noexcept
+    rma_range(const view_type& v, guard_type& g, rma::locality loc) noexcept
     : m_guard{g, loc}
     , m_view{v}
     {}

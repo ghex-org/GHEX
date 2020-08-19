@@ -20,9 +20,9 @@
 #include "./common/moved_bit.hpp"
 #include "./common/utils.hpp"
 #include "./communication_object_2.hpp"
+#include "./rma/locality.hpp"
 #include "./rma/range_traits.hpp"
 #include "./rma/range_factory.hpp"
-#include "./transport_layer/ri/types.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -152,7 +152,7 @@ private: // member types
                 while (r_it != r_p.send_halos().end())
                 {
                     const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                    if (local != tl::ri::locality::remote) r_it = r_p.send_halos().erase(r_it);
+                    if (local != rma::locality::remote) r_it = r_p.send_halos().erase(r_it);
                     else ++r_it;
                 }
 
@@ -162,7 +162,7 @@ private: // member types
                 while (l_it != l_p.send_halos().end())
                 {
                     const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
-                    if (local != tl::ri::locality::remote) ++l_it;
+                    if (local != rma::locality::remote) ++l_it;
                     else l_it = l_p.send_halos().erase(l_it);
                 }
 
@@ -172,7 +172,7 @@ private: // member types
                 while (r_it != r_p.recv_halos().end())
                 {
                     const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
-                    if (local != tl::ri::locality::remote) r_it = r_p.recv_halos().erase(r_it);
+                    if (local != rma::locality::remote) r_it = r_p.recv_halos().erase(r_it);
                     else ++r_it;
                 }
 
@@ -181,7 +181,7 @@ private: // member types
                 while (l_it != l_p.recv_halos().end())
                 {
                     const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
-                    if (local != tl::ri::locality::remote) ++l_it;
+                    if (local != rma::locality::remote) ++l_it;
                     else l_it = l_p.recv_halos().erase(l_it);
                 }
             }

@@ -19,17 +19,6 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 
-template<typename Arch>
-struct select_arch
-{
-    static auto get() noexcept { return tl::ri::host; }
-};
-template<>
-struct select_arch<gpu>
-{
-    static auto get() noexcept { return tl::ri::device; }
-};
-
 template<typename Field>
 struct rma_range_generator
 {
@@ -53,7 +42,7 @@ struct rma_range_generator
         std::vector<unsigned char> m_archive;
 
         template<typename IterationSpace>
-        target_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type dst, tag_type tag, tl::ri::locality loc)
+        target_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type dst, tag_type tag, rma::locality loc)
         : m_comm{comm}
         , m_guard{}
         , m_guard_view{m_guard, loc}
@@ -148,13 +137,13 @@ template<>
 struct range_traits<structured::rma_range_generator>
 {
     template<typename Communicator>
-    static tl::ri::locality is_local(Communicator comm, int remote_rank)
+    static locality is_local(Communicator comm, int remote_rank)
     {
-        if (comm.rank() == remote_rank) return tl::ri::locality::thread;
+        if (comm.rank() == remote_rank) return locality::thread;
 #ifdef GHEX_USE_XPMEM
-        else if (comm.is_local(remote_rank)) return tl::ri::locality::process;
+        else if (comm.is_local(remote_rank)) return locality::process;
 #endif /* GHEX_USE_XPMEM */
-        else return tl::ri::locality::remote;
+        else return locality::remote;
     }
 };
 } // namespace rma

@@ -8,9 +8,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_TRANSPORT_LAYER_RI_ACCESS_GUARD_HPP
-#define INCLUDED_GHEX_TRANSPORT_LAYER_RI_ACCESS_GUARD_HPP
+#ifndef INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP
+#define INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP
 
+#include "./locality.hpp"
 #include "./thread/access_guard.hpp"
 #ifdef GHEX_USE_XPMEM
 #include "./xpmem/access_guard.hpp"
@@ -18,9 +19,7 @@
 
 namespace gridtools {
 namespace ghex {
-namespace tl {
-namespace ri {
-
+namespace rma {
 
 struct access_guard
 {
@@ -28,10 +27,8 @@ struct access_guard
 #ifdef GHEX_USE_XPMEM
     xpmem::access_guard m_process_guard;
 #endif
-
     access_guard() = default;
     access_guard(access_guard&& other) = default;
-
 };
 
 struct access_guard_view
@@ -104,9 +101,9 @@ struct access_guard_view
     
 };
 
-} // namespace ri
-} // namespace tl
+} // namespace rma
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TRANSPORT_LAYER_RI_ACCESS_GUARD_HPP */
+#endif /* INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP */
+

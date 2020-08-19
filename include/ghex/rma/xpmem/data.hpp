@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_TRANSPORT_LAYER_RI_XPMEM_DATA_HPP
-#define INCLUDED_GHEX_TRANSPORT_LAYER_RI_XPMEM_DATA_HPP
+#ifndef INCLUDED_GHEX_RMA_XPMEM_DATA_HPP
+#define INCLUDED_GHEX_RMA_XPMEM_DATA_HPP
 
 #include <utility>
 #include <memory>
@@ -27,8 +27,7 @@ extern "C"{
 
 namespace gridtools {
 namespace ghex {
-namespace tl {
-namespace ri {
+namespace rma {
 namespace xpmem {
 
 struct data
@@ -123,9 +122,9 @@ inline std::shared_ptr<data> make_remote_data(data m_data)
 }
 
 } // namespace xpmem
-} // namespace ri
-} // namespace tl
+} // namespace rma
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TRANSPORT_LAYER_RI_XPMEM_DATA_HPP */
+#endif /* INCLUDED_GHEX_TRANSPORT_RMA_DATA_HPP */
+
