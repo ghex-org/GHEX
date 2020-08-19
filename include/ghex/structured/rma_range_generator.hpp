@@ -11,9 +11,9 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 
-#include "./rma_range.hpp"
-#include "../rma_range_traits.hpp"
+#include "../rma/range_traits.hpp"
 #include "../arch_list.hpp"
+#include "./rma_range.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -45,17 +45,18 @@ struct rma_range_generator
 
         Communicator m_comm;
         guard_type m_guard;
+        guard_view_type m_guard_view;
         field_view<Field> m_view;
-        typename RangeFactory::range_type m_local_range;
         rank_type m_dst;
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
-        std::vector<tl::ri::byte> m_archive;
+        std::vector<unsigned char> m_archive;
 
         template<typename IterationSpace>
         target_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type dst, tag_type tag, tl::ri::locality loc)
         : m_comm{comm}
         , m_guard{}
+        , m_guard_view{m_guard, loc}
         , m_view{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_dst{dst}
         , m_tag{tag}
@@ -63,9 +64,17 @@ struct rma_range_generator
             m_archive.resize(RangeFactory::serial_size);
             m_view.m_field.init_rma_local();
             m_view.m_rma_data = m_view.m_field.get_rma_data();
-	        m_local_range = {RangeFactory::template create<range_type>(m_view,m_guard,loc)};
-            RangeFactory::serialize(m_local_range, m_archive.data());
+            m_archive = RangeFactory::serialize(rma_range<Field>{m_view,m_guard,loc});
             m_request = m_comm.send(m_archive, m_dst, m_tag);
+        }
+
+        void start_target_epoch()
+        {
+            m_guard_view.start_local_epoch();
+        }
+        void end_target_epoch()
+        {
+            m_guard_view.end_local_epoch();
         }
 
         void send()
@@ -92,7 +101,7 @@ struct rma_range_generator
         rank_type m_src;
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
-        std::vector<tl::ri::byte> m_buffer;
+        std::vector<unsigned char> m_buffer;
 
         template<typename IterationSpace>
         source_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type src, tag_type tag)
@@ -108,32 +117,21 @@ struct rma_range_generator
         void recv()
         {
             m_request.wait();
-            // creates a remote traget range
-            // and stores the architecture of this source range
-            m_remote_range = RangeFactory::deserialize(select_arch<typename Field::arch_type>::get(), m_buffer.data());
-            m_buffer.resize(m_remote_range.buffer_size());
+            // creates a traget range
+            m_remote_range = RangeFactory::deserialize(m_buffer.data());
+            //m_buffer.resize(m_remote_range.buffer_size());
         }
 
         void put()
         {
             m_remote_range.start_source_epoch();
-            RangeFactory::put(select_arch<typename Field::arch_type>::get(), *this, m_remote_range);
-            //put(RangeFactory::on_gpu(m_remote_range), typename Field::arch_type{});
+            RangeFactory::put(*this, m_remote_range);
             m_remote_range.end_source_epoch();
         }
-
-        template<typename SourceArch>
-        void put(bool target_on_gpu, SourceArch a)
-        {
-            if (target_on_gpu) m_view.put(m_remote_range, gridtools::ghex::gpu{}, a);
-            else m_view.put(m_remote_range, gridtools::ghex::cpu{}, a);
-        }
-
 
         template<typename TargetRange>
         void put(TargetRange& tr)
         {
-            //m_view.put(tr, typename TargetRange::arch_type{}, typename Field::arch_type{});
             ::gridtools::ghex::structured::put(m_view, tr.m_view);
         }
 
@@ -145,8 +143,9 @@ struct rma_range_generator
 
 } // namespace structured
 
+namespace rma {
 template<>
-struct rma_range_traits<structured::rma_range_generator>
+struct range_traits<structured::rma_range_generator>
 {
     template<typename Communicator>
     static tl::ri::locality is_local(Communicator comm, int remote_rank)
@@ -158,7 +157,7 @@ struct rma_range_traits<structured::rma_range_generator>
         else return tl::ri::locality::remote;
     }
 };
-
+} // namespace rma
 } // namespace ghex
 } // namespace gridtools
 

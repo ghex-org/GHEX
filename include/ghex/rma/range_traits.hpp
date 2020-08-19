@@ -13,15 +13,18 @@
 
 namespace gridtools {
 namespace ghex {
+namespace rma {
 
 template<template<typename> class RangeGen>
-struct rma_range_traits
+struct range_traits
 {
     template<typename Communicator>
     static bool is_local(Communicator comm, int remote_rank) { return false; }
 };
 
+} // namespace rma
 } // namespace ghex
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_RMA_RANGE_TRAITS_HPP */
+

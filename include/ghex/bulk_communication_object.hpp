@@ -20,8 +20,9 @@
 #include "./common/moved_bit.hpp"
 #include "./common/utils.hpp"
 #include "./communication_object_2.hpp"
-#include "./rma_range_traits.hpp"
-#include "./transport_layer/ri/range_factory.hpp"
+#include "./rma/range_traits.hpp"
+#include "./rma/range_factory.hpp"
+#include "./transport_layer/ri/types.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -100,7 +101,7 @@ private: // member types
     using all_fields = boost::mp11::mp_unique<cpu_fields>;
 #endif
     using all_ranges = boost::mp11::mp_transform<select_range,all_fields>;
-    using range_factory = tl::ri::range_factory<all_ranges>;
+    using range_factory = rma::range_factory<all_ranges>;
 
     template<typename Field>
     using select_target_range = std::vector<typename RangeGen<Field>::template target_range<
@@ -150,7 +151,7 @@ private: // member types
                 auto r_it = r_p.send_halos().begin();
                 while (r_it != r_p.send_halos().end())
                 {
-                    const auto local = rma_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
+                    const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
                     if (local != tl::ri::locality::remote) r_it = r_p.send_halos().erase(r_it);
                     else ++r_it;
                 }
@@ -160,7 +161,7 @@ private: // member types
                 auto l_it = l_p.send_halos().begin();
                 while (l_it != l_p.send_halos().end())
                 {
-                    const auto local = rma_range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
                     if (local != tl::ri::locality::remote) ++l_it;
                     else l_it = l_p.send_halos().erase(l_it);
                 }
@@ -170,7 +171,7 @@ private: // member types
                 r_it = r_p.recv_halos().begin();
                 while (r_it != r_p.recv_halos().end())
                 {
-                    const auto local = rma_range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
+                    const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
                     if (local != tl::ri::locality::remote) r_it = r_p.recv_halos().erase(r_it);
                     else ++r_it;
                 }
@@ -179,7 +180,7 @@ private: // member types
                 l_it = l_p.recv_halos().begin();
                 while (l_it != l_p.recv_halos().end())
                 {
-                    const auto local = rma_range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
                     if (local != tl::ri::locality::remote) ++l_it;
                     else l_it = l_p.recv_halos().erase(l_it);
                 }
@@ -269,7 +270,7 @@ public:
                 {
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
-                        const auto local = rma_range_traits<RangeGen>::is_local(m_comm, h_it->first.mpi_rank);
+                        const auto local = rma::range_traits<RangeGen>::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
                         t_range.m_ranges.back().emplace_back(
                             m_comm, f, c, h_it->first.mpi_rank, h_it->first.tag, local); 
@@ -362,7 +363,7 @@ public:
                 auto& t_range = std::get<I::value>(m_target_ranges_tuple);
                 for (auto& t_vec : t_range.m_ranges)
                     for (auto& r : t_vec)
-                        r.m_local_range.end_target_epoch();
+                        r.end_target_epoch();
             });
         }
         // loop over fields for putting
@@ -391,7 +392,7 @@ public:
                 auto& t_range = std::get<I::value>(m_target_ranges_tuple);
                 for (auto& t_vec : t_range.m_ranges)
                     for (auto& r : t_vec)
-                        r.m_local_range.start_target_epoch();
+                        r.start_target_epoch();
             });
         }
 

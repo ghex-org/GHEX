@@ -16,71 +16,15 @@
 #include <gridtools/common/host_device.hpp>
 #include <iostream>
 
-#include "./rma_range_iterator.hpp"
 #include "../transport_layer/ri/access_guard.hpp"
 #include "../common/utils.hpp"
 #include "../cuda_utils/stream.hpp"
+#include "./rma_range_iterator.hpp"
 
 namespace gridtools {
 namespace ghex {
 namespace structured {
-
 namespace detail {
-#ifdef __CUDACC__
-#include <stdio.h>
-__global__ void print_kernel() {
-    printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
-}
-#endif
-// does not yet work
-#ifdef __CUDACC__
-template<typename SourceRange, typename TargetRange>
-__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange& tr, unsigned int size)
-{
-    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
-    if (index < size)
-    {
-        printf("  in kernel %d %d\n", blockIdx.x, threadIdx.x);
-        printf("    extent = %d %d %d\n", sr.m_extent[0], sr.m_extent[1], sr.m_extent[2]);
-
-        auto it = sr.begin();
-        //printf("    extent = %d %d %d\n", it.m_range->m_extent[0], it.m_range->m_extent[1], it.m_range->m_extent[2]);
-
-        //printf("    it = %d %d %d (%d)\n", it.m_coord[0], it.m_coord[1], it.m_coord[2], it.m_index);
-        it += index;
-        const auto q = it.index();
-        printf("    it = %d %d %d   %d\n", it.m_coord[0], it.m_coord[1], it.m_coord[2], it.m_index);
-        printf("    it = %d %d %d   %d\n", it.m_coord[0], it.m_coord[1], it.m_coord[2], q);
-        auto sr_chunk = *it;
-
-        printf("    loc = %d \n", reinterpret_cast<unsigned long int>(sr_chunk.data()));
-        
-        auto it2 = tr.begin();
-        //auto tr_chunk = *(tr.begin() + index);
-        //printf("    loc = %d \n", reinterpret_cast<unsigned long int>(tr_chunk.data()));
-        
-
-        //using T = typename SourceRange::value_type;
-        //auto it = sr.begin();
-        //it += index;
-        //auto sr_chunk = *it;
-        //auto tr_chunk = *(tr.begin() + index);
-
-        //const unsigned int num_bytes = sr_chunk.size(); // sizeof(T);
-
-        //printf("copying %d bytes, from %d to %d \n", num_elements,
-        //    reinterpret_cast<unsigned long int>(sr_chunk.data()),
-        //    reinterpret_cast<unsigned long int>(tr_chunk.data())
-        //        );
-
-        ///*for (unsigned int i=0; i<num_elements; ++i)
-        //{
-        //    *((T*)(tr_chunk.data())+i) = *((T*)(sr_chunk.data())+i);
-        //}*/
-    }
-}
-#endif
-
 template<unsigned int Dim, unsigned int D, typename Layout>
 struct inc_coord
 {
@@ -165,7 +109,6 @@ struct field_view
             m_extent[i] = extent[i];
             m_begin[i] = 0;
             m_end[i] = extent[i]-1;
-            //m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
         if (Field::has_components::value)
@@ -175,7 +118,6 @@ struct field_view
             m_extent[i] = f.num_components();
             m_begin[i] = 0;
             m_end[i] = m_extent[i]-1;
-            //m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= m_extent[i];
         }
         else
@@ -185,7 +127,6 @@ struct field_view
             m_extent[i] = extent[i];
             m_begin[i] = 0;
             m_end[i] = extent[i]-1;
-            //m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
 
@@ -277,193 +218,6 @@ struct field_view
             return index + 1;
         }
     }
-
-    // put from cpu to cpu
-    template<typename RemoteRange>
-    void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::cpu) const
-    {
-        //put_host_to_host(r, fuse_components{});
-    }
-
-    // put from gpu to cpu
-    template<typename RemoteRange>
-    void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::cpu) const
-    {
-        //put_device_to_host(r, fuse_components{});
-    }
-
-    // put from cpu to gpu
-    template<typename RemoteRange>
-    void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::gpu) const
-    {
-        //put_host_to_device(r, fuse_components{});
-    }
-
-//    // put from gpu to gpu
-//    template<typename RemoteRange>
-//    void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::gpu) const
-//    {
-//        std::cout << "putting range" << std::endl;
-//#ifdef __CUDACC__
-////        // does not yet work
-////        //cuda::stream s;
-//        static constexpr unsigned int block_dim = 128;
-//        const unsigned int num_blocks = (m_size+block_dim-1)/block_dim;
-//        std::cout << "num lines = " << m_size << ", using " << num_blocks << " blocks" << std::endl;
-////        //detail::put_device_to_device_kernel<<<num_blocks,block_dim,0,s>>>(*this, r, m_size);
-//        detail::put_device_to_device_kernel<<<num_blocks,block_dim>>>(*this, r, m_size);
-////        //s.sync();
-//        cudaDeviceSynchronize();
-//#endif
-//        put_device_to_device(r, fuse_components{});
-//#ifdef __CUDACC__
-//        cudaDeviceSynchronize();
-//#endif
-//        std::cout << "putting range done" << std::endl;
-//    }
-
-private:
-
-    template<typename RemoteRange>
-    void put_host_to_host(RemoteRange& r, std::false_type) const
-    {
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 1>::apply(
-            [this,&it](auto... c)
-            {
-                auto chunk_ = *it;
-                std::memcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size());
-                ++it;
-            },
-            m_begin, m_end);
-    }
-    template<typename RemoteRange>
-    void put_host_to_host(RemoteRange& r, std::true_type) const
-    {
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 2>::apply(
-            [this,&it](auto... c)
-            {
-                const auto nc = m_field.num_components();
-                auto chunk_ = *it;
-                std::memcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc);
-                it+=nc;
-            },
-            m_begin, m_end);
-    }
-
-    template<typename RemoteRange>
-    void put_device_to_host(RemoteRange& r, std::false_type) const
-    {
-#ifdef __CUDACC__
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 1>::apply(
-            [this,&it](auto... c)
-            {
-                auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToHost);
-                ++it;
-            },
-            m_begin, m_end);
-#else
-        r.begin(); // prevent compiler warning
-#endif
-    }
-    template<typename RemoteRange>
-    void put_device_to_host(RemoteRange& r, std::true_type) const
-    {
-#ifdef __CUDACC__
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 2>::apply(
-            [this,&it](auto... c)
-            {
-                const auto nc = m_field.num_components();
-                auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyDeviceToHost);
-                it+=nc;
-            },
-            m_begin, m_end);
-#else
-        r.begin(); // prevent compiler warning
-#endif
-    }
-
-    template<typename RemoteRange>
-    void put_host_to_device(RemoteRange& r, std::false_type) const
-    {
-#ifdef __CUDACC__
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 1>::apply(
-            [this,&it](auto... c)
-            {
-                auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyHostToDevice);
-                ++it;
-            },
-            m_begin, m_end);
-#else
-        r.begin(); // prevent compiler warning
-#endif
-    }
-    template<typename RemoteRange>
-    void put_host_to_device(RemoteRange& r, std::true_type) const
-    {
-#ifdef __CUDACC__
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 2>::apply(
-            [this,&it](auto... c)
-            {
-                const auto nc = m_field.num_components();
-                auto chunk_ = *it;
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyHostToDevice);
-                it+=nc;
-            },
-            m_begin, m_end);
-#else
-        r.begin(); // prevent compiler warning
-#endif
-    }
-
-    template<typename RemoteRange>
-    void put_device_to_device(RemoteRange& r, std::false_type) const
-    {
-#ifdef __CUDACC__
-        cuda::stream s;
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 1>::apply(
-            [this,&it,&s](auto... c)
-            {
-                auto chunk_ = *it;
-                //cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice, s);
-                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice);
-                ++it;
-            },
-            m_begin, m_end);
-        //s.sync();
-#else
-        r.begin(); // prevent compiler warning
-#endif
-    }
-    template<typename RemoteRange>
-    void put_device_to_device(RemoteRange& r, std::true_type) const
-    {
-#ifdef __CUDACC__
-        cuda::stream s;
-        auto it = r.begin();
-        gridtools::ghex::detail::for_loop<dimension::value, dimension::value, layout, 2>::apply(
-            [this,&it,&s](auto... c)
-            {
-                const auto nc = m_field.num_components();
-                auto chunk_ = *it;
-                cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size()*nc, cudaMemcpyDeviceToDevice, s);
-                it+=nc;
-            },
-            m_begin, m_end);
-        s.sync();
-#else
-        r.begin(); // prevent compiler warning
-#endif
-    }
 };
 
 template<typename SourceField, typename TargetField>
@@ -525,6 +279,7 @@ inline std::enable_if_t<
     cpu_to_gpu<SourceField,TargetField>::value>
 put(field_view<SourceField>&, field_view<TargetField>&)
 {
+    // TODO
 }
 
 template<typename SourceField, typename TargetField>
@@ -532,6 +287,7 @@ inline std::enable_if_t<
     gpu_to_cpu<SourceField,TargetField>::value>
 put(field_view<SourceField>&, field_view<TargetField>&)
 {
+    // TODO
 }
 
 #ifdef __CUDACC__
