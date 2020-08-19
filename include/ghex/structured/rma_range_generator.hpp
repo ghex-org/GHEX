@@ -42,7 +42,8 @@ struct rma_range_generator
         std::vector<unsigned char> m_archive;
 
         template<typename IterationSpace>
-        target_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type dst, tag_type tag, rma::locality loc)
+        target_range(const Communicator& comm, const Field& f, rma::info field_info,
+            const IterationSpace& is, rank_type dst, tag_type tag, rma::locality loc)
         : m_comm{comm}
         , m_guard{}
         , m_guard_view{m_guard, loc}
@@ -53,7 +54,7 @@ struct rma_range_generator
             m_archive.resize(RangeFactory::serial_size);
             m_view.m_field.init_rma_local();
             m_view.m_rma_data = m_view.m_field.get_rma_data();
-            m_archive = RangeFactory::serialize(rma_range<Field>{m_view,m_guard,loc});
+            m_archive = RangeFactory::serialize(field_info, loc, rma_range<Field>{m_view,m_guard,loc});
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
@@ -81,6 +82,7 @@ struct rma_range_generator
     struct source_range
     {
         using field_type = Field;
+        using info = rma::info;
         using rank_type = typename Communicator::rank_type;
         using tag_type = typename Communicator::tag_type;
 
@@ -93,7 +95,8 @@ struct rma_range_generator
         std::vector<unsigned char> m_buffer;
 
         template<typename IterationSpace>
-        source_range(const Communicator& comm, const Field& f, const IterationSpace& is, rank_type src, tag_type tag)
+        source_range(const Communicator& comm, const Field& f,
+            const IterationSpace& is, rank_type src, tag_type tag)
         : m_comm{comm}
         , m_view{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_src{src}
@@ -109,6 +112,9 @@ struct rma_range_generator
             // creates a traget range
             m_remote_range = RangeFactory::deserialize(m_buffer.data());
             //m_buffer.resize(m_remote_range.buffer_size());
+
+            RangeFactory::call_back_with_type(m_remote_range,
+            [this] (auto& r) { init(r, m_remote_range); });
         }
 
         void put()
@@ -126,6 +132,15 @@ struct rma_range_generator
 
         void release()
         {
+        }
+
+    private:
+
+        template<typename TargetRange>
+        void init(TargetRange& tr, rma::range& r)
+        {
+            using T = typename TargetRange::value_type;
+            tr.m_view.m_field.set_data((T*)r.get_ptr());
         }
     };
 };
