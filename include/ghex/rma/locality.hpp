@@ -11,11 +11,6 @@
 #ifndef INCLUDED_GHEX_RMA_LOCALITY_HPP
 #define INCLUDED_GHEX_RMA_LOCALITY_HPP
 
-#include "./thread/access_guard.hpp"
-#ifdef GHEX_USE_XPMEM
-#include "./xpmem/access_guard.hpp"
-#endif
-
 namespace gridtools {
 namespace ghex {
 namespace rma {

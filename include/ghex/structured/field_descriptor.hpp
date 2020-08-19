@@ -18,14 +18,12 @@
 #include <gridtools/common/array.hpp>
 #include <gridtools/common/layout_map.hpp>
 
-#include "./rma_handle.hpp"
-
 namespace gridtools {
 namespace ghex {
 namespace structured {
 
 template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-class field_descriptor : public rma_handle< field_descriptor<T,Arch,DomainDescriptor,Order...> >
+class field_descriptor
 {
 public: // member types
     using value_type             = T;
@@ -41,8 +39,6 @@ public: // member types
     using coordinate_type        = ::gridtools::array<scalar_coordinate_type, dimension::value>;
     using size_type              = unsigned int;
     using strides_type           = ::gridtools::array<size_type, dimension::value>;
-
-    friend class rma_handle< field_descriptor<T,Arch,DomainDescriptor,Order...> >;
 
     // holds buffer information
     template<typename Pointer>

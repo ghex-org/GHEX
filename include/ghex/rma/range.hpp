@@ -50,13 +50,8 @@ struct range
         return m_handle.get_ptr(m_loc);
     }
 
-    void start_source_epoch2() { m_guard.start_source_epoch(); }
-    void end_source_epoch2() { m_guard.end_source_epoch(); }
-
-    void start_source_epoch() { m_impl->start_source_epoch(); }
-    void end_source_epoch() { m_impl->end_source_epoch(); }
-    void start_target_epoch() { m_impl->start_target_epoch(); }
-    void end_target_epoch() { m_impl->end_target_epoch(); }
+    void start_source_epoch() { m_guard.start_source_epoch(); }
+    void end_source_epoch() { m_guard.end_source_epoch(); }
 };
 
 } // namespace rma

@@ -386,14 +386,9 @@ public:
                 // put data
                 for (auto& s_vec : s_range.m_ranges)
                     for (auto& r : s_vec)
-                    {
-                        std::cout << "putting" << std::endl;
                         r.put();
-                        std::cout << "putting done" << std::endl;
-                    }
             });
         }
-        std::cout << "waiting" << std::endl;
         // loop over fields for waiting
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {

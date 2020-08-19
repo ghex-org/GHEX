@@ -11,9 +11,9 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 
+#include "../arch_list.hpp"
 #include "../rma/range_traits.hpp"
 #include "../rma/access_guard2.hpp"
-#include "../arch_list.hpp"
 #include "./rma_range.hpp"
 
 namespace gridtools {
@@ -24,8 +24,6 @@ template<typename Field>
 struct rma_range_generator
 {
     using range_type = rma_range<Field>;
-    using guard_type = typename range_type::guard_type;
-    using guard_view_type = typename range_type::guard_view_type;
 
     template<typename RangeFactory, typename Communicator>
     struct target_range
@@ -34,10 +32,8 @@ struct rma_range_generator
         using tag_type = typename Communicator::tag_type;
 
         Communicator m_comm;
-        guard_type m_guard;
-        guard_view_type m_guard_view;
         rma::local_access_guard m_local_guard;
-        field_view<Field> m_view;
+        range_type m_local_range;
         rank_type m_dst;
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
@@ -47,39 +43,28 @@ struct rma_range_generator
         target_range(const Communicator& comm, const Field& f, rma::info field_info,
             const IterationSpace& is, rank_type dst, tag_type tag, rma::locality loc)
         : m_comm{comm}
-        , m_guard{}
-        , m_guard_view{m_guard, loc}
         , m_local_guard{loc}
-        , m_view{f, is.local().first(), is.local().last()-is.local().first()+1}
+        , m_local_range{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_dst{dst}
         , m_tag{tag}
         {
             m_archive.resize(RangeFactory::serial_size);
-            m_view.m_field.init_rma_local();
-            m_view.m_rma_data = m_view.m_field.get_rma_data();
-            m_archive = RangeFactory::serialize(field_info, m_local_guard, rma_range<Field>{m_view,m_guard,loc});
+            m_archive = RangeFactory::serialize(field_info, m_local_guard, m_local_range);
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
         void start_target_epoch()
         {
-            m_guard_view.start_local_epoch();
             m_local_guard.start_target_epoch();
         }
         void end_target_epoch()
         {
-            m_guard_view.end_local_epoch();
             m_local_guard.end_target_epoch();
         }
 
         void send()
         {
             m_request.wait();
-        }
-
-        void release()
-        {
-            m_view.m_field.release_rma_local();
         }
     };
 
@@ -92,7 +77,7 @@ struct rma_range_generator
         using tag_type = typename Communicator::tag_type;
 
         Communicator m_comm;
-        field_view<Field> m_view;
+        range_type m_local_range;
         typename RangeFactory::range_type m_remote_range;
         rank_type m_src;
         tag_type m_tag;
@@ -103,7 +88,7 @@ struct rma_range_generator
         source_range(const Communicator& comm, const Field& f,
             const IterationSpace& is, rank_type src, tag_type tag)
         : m_comm{comm}
-        , m_view{f, is.local().first(), is.local().last()-is.local().first()+1}
+        , m_local_range{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_src{src}
         , m_tag{tag}
         {
@@ -116,29 +101,23 @@ struct rma_range_generator
             m_request.wait();
             // creates a traget range
             m_remote_range = RangeFactory::deserialize(m_buffer.data());
-            //m_buffer.resize(m_remote_range.buffer_size());
-
-            RangeFactory::call_back_with_type(m_remote_range,
-            [this] (auto& r) { init(r, m_remote_range); });
+            RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
+            {
+                init(r, m_remote_range);
+            });
         }
 
         void put()
         {
             m_remote_range.start_source_epoch();
-            m_remote_range.start_source_epoch2();
             RangeFactory::put(*this, m_remote_range);
             m_remote_range.end_source_epoch();
-            m_remote_range.end_source_epoch2();
         }
 
         template<typename TargetRange>
         void put(TargetRange& tr)
         {
-            ::gridtools::ghex::structured::put(m_view, tr.m_view);
-        }
-
-        void release()
-        {
+            ::gridtools::ghex::structured::put(m_local_range, tr);
         }
 
     private:
@@ -147,7 +126,7 @@ struct rma_range_generator
         void init(TargetRange& tr, rma::range& r)
         {
             using T = typename TargetRange::value_type;
-            tr.m_view.m_field.set_data((T*)r.get_ptr());
+            tr.m_field.set_data((T*)r.get_ptr());
         }
     };
 };
