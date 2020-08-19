@@ -116,9 +116,11 @@ struct rma_range_generator
 
         void put()
         {
-            m_remote_range.start_source_epoch();
-            put(RangeFactory::on_gpu(m_remote_range), typename Field::arch_type{});
-            m_remote_range.end_source_epoch();
+            RangeFactory::put(select_arch<typename Field::arch_type>::get(), *this, m_remote_range);
+
+            //m_remote_range.start_source_epoch();
+            //put(RangeFactory::on_gpu(m_remote_range), typename Field::arch_type{});
+            //m_remote_range.end_source_epoch();
         }
 
         template<typename SourceArch>
@@ -126,6 +128,14 @@ struct rma_range_generator
         {
             if (target_on_gpu) m_view.put(m_remote_range, gridtools::ghex::gpu{}, a);
             else m_view.put(m_remote_range, gridtools::ghex::cpu{}, a);
+        }
+
+
+        template<typename TargetRange>
+        void put(TargetRange& tr)
+        {
+            //m_view.put(tr, typename TargetRange::arch_type{}, typename Field::arch_type{});
+            ::gridtools::ghex::structured::put(m_view, tr.m_view);
         }
 
         void release()

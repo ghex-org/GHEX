@@ -36,7 +36,7 @@ struct put_range
     put_range() = default;
     put_range(put_range&&) = default;
     put_range& operator=(put_range&&) = default;
-    put_range(const put_range&) = default;
+    //put_range(const put_range&) = default;
 
     GT_FUNCTION
     iterator_type begin() const noexcept { return ciface().begin(); }

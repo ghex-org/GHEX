@@ -14,6 +14,7 @@
 #include <cstring>
 #include <vector>
 #include <gridtools/common/host_device.hpp>
+#include <iostream>
 
 #include "./rma_range_iterator.hpp"
 #include "../transport_layer/ri/access_guard.hpp"
@@ -25,29 +26,60 @@ namespace ghex {
 namespace structured {
 
 namespace detail {
+#ifdef __CUDACC__
+#include <stdio.h>
+__global__ void print_kernel() {
+    printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
+}
+#endif
 // does not yet work
-//#ifdef __CUDACC__
-//template<typename SourceRange, typename TargetRange>
-//__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr, unsigned int size)
-//{
-//    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
-//    if (index < size)
-//    {
-//        using T = typename SourceRange::value_type;
-//        auto it = sr.begin();
-//        it += index;
-//        auto sr_chunk = *it;
-//        auto tr_chunk = *(tr.begin() + index);
-//
-//        const unsigned int num_elements = sr_chunk.size()/sizeof(T);
-//
-//        /*for (unsigned int i=0; i<num_elements; ++i)
-//        {
-//            *((T*)(tr_chunk.data())+i) = *((T*)(sr_chunk.data())+i);
-//        }*/
-//    }
-//}
-//#endif
+#ifdef __CUDACC__
+template<typename SourceRange, typename TargetRange>
+__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange& tr, unsigned int size)
+{
+    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
+    if (index < size)
+    {
+        printf("  in kernel %d %d\n", blockIdx.x, threadIdx.x);
+        printf("    extent = %d %d %d\n", sr.m_extent[0], sr.m_extent[1], sr.m_extent[2]);
+
+        auto it = sr.begin();
+        //printf("    extent = %d %d %d\n", it.m_range->m_extent[0], it.m_range->m_extent[1], it.m_range->m_extent[2]);
+
+        //printf("    it = %d %d %d (%d)\n", it.m_coord[0], it.m_coord[1], it.m_coord[2], it.m_index);
+        it += index;
+        const auto q = it.index();
+        printf("    it = %d %d %d   %d\n", it.m_coord[0], it.m_coord[1], it.m_coord[2], it.m_index);
+        printf("    it = %d %d %d   %d\n", it.m_coord[0], it.m_coord[1], it.m_coord[2], q);
+        auto sr_chunk = *it;
+
+        printf("    loc = %d \n", reinterpret_cast<unsigned long int>(sr_chunk.data()));
+        
+        auto it2 = tr.begin();
+        //auto tr_chunk = *(tr.begin() + index);
+        //printf("    loc = %d \n", reinterpret_cast<unsigned long int>(tr_chunk.data()));
+        
+
+        //using T = typename SourceRange::value_type;
+        //auto it = sr.begin();
+        //it += index;
+        //auto sr_chunk = *it;
+        //auto tr_chunk = *(tr.begin() + index);
+
+        //const unsigned int num_bytes = sr_chunk.size(); // sizeof(T);
+
+        //printf("copying %d bytes, from %d to %d \n", num_elements,
+        //    reinterpret_cast<unsigned long int>(sr_chunk.data()),
+        //    reinterpret_cast<unsigned long int>(tr_chunk.data())
+        //        );
+
+        ///*for (unsigned int i=0; i<num_elements; ++i)
+        //{
+        //    *((T*)(tr_chunk.data())+i) = *((T*)(sr_chunk.data())+i);
+        //}*/
+    }
+}
+#endif
 
 template<unsigned int Dim, unsigned int D, typename Layout>
 struct inc_coord
@@ -133,7 +165,7 @@ struct field_view
             m_extent[i] = extent[i];
             m_begin[i] = 0;
             m_end[i] = extent[i]-1;
-            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            //m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
         if (Field::has_components::value)
@@ -143,7 +175,7 @@ struct field_view
             m_extent[i] = f.num_components();
             m_begin[i] = 0;
             m_end[i] = m_extent[i]-1;
-            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            //m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= m_extent[i];
         }
         else
@@ -153,13 +185,22 @@ struct field_view
             m_extent[i] = extent[i];
             m_begin[i] = 0;
             m_end[i] = extent[i]-1;
-            m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
+            //m_reduced_stride[i] = m_field.byte_strides()[i] / m_field.extents()[I];
             m_size *= extent[i];
         }
 
         m_end[I] = m_extent[I];
         m_size  /= m_extent[I];
         m_chunk_size = m_extent[I] * sizeof(value_type);
+
+        m_reduced_stride[I] = 1;
+        auto prod = m_reduced_stride[I];
+        for (unsigned int d = dimension::value-1; d > 0; --d)
+        {
+            const auto i = layout::find(d-1);
+            m_reduced_stride[i] = prod;
+            prod *= m_extent[i];
+        }
     }
 
     field_view(const field_view&) = default;
@@ -193,31 +234,31 @@ struct field_view
         return {const_cast<tl::ri::byte*>(reinterpret_cast<const tl::ri::byte*>(ptr(coord))), m_chunk_size};
     }
 
-    GT_FUNCTION
-    size_type inc(size_type index, size_type n, coordinate& coord) const noexcept {
+    GT_HOST_DEVICE
+    void inc(size_type& index, size_type n, coordinate& coord) const noexcept {
         if (n < 0 && -n > index)
         {
             coord = m_begin;
-            return 0;
+            index = 0;
+            return;
         }
         index += n;
         if (index >= m_size)
         {
             coord = m_end;
-            return m_size;
+            index = m_size;
         }
         else
         {
             auto idx = index;
             static constexpr auto I = layout::find(dimension::value-1);
             coord[I] = 0;
-            for (unsigned int d = 0; d < dimension::value; ++d)
+            for (unsigned int d = 0; d < dimension::value-1; ++d)
             {
                 const auto i = layout::find(d);
-                coord[i] = index / m_reduced_stride[i];
-                index -= coord[i] * m_reduced_stride[i];
+                coord[i] = idx / m_reduced_stride[i];
+                idx -= coord[i] * m_reduced_stride[i];
             }
-            return idx;
         }
     }
 
@@ -241,36 +282,45 @@ struct field_view
     template<typename RemoteRange>
     void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::cpu) const
     {
-        put_host_to_host(r, fuse_components{});
+        //put_host_to_host(r, fuse_components{});
     }
 
     // put from gpu to cpu
     template<typename RemoteRange>
     void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::cpu) const
     {
-        put_device_to_host(r, fuse_components{});
+        //put_device_to_host(r, fuse_components{});
     }
 
     // put from cpu to gpu
     template<typename RemoteRange>
     void put(RemoteRange& r, gridtools::ghex::cpu, gridtools::ghex::gpu) const
     {
-        put_host_to_device(r, fuse_components{});
+        //put_host_to_device(r, fuse_components{});
     }
 
-    // put from gpu to gpu
-    template<typename RemoteRange>
-    void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::gpu) const
-    {
-        put_device_to_device(r, fuse_components{});
+//    // put from gpu to gpu
+//    template<typename RemoteRange>
+//    void put(RemoteRange& r, gridtools::ghex::gpu, gridtools::ghex::gpu) const
+//    {
+//        std::cout << "putting range" << std::endl;
 //#ifdef __CUDACC__
-//        // does not yet work
+////        // does not yet work
+////        //cuda::stream s;
 //        static constexpr unsigned int block_dim = 128;
 //        const unsigned int num_blocks = (m_size+block_dim-1)/block_dim;
+//        std::cout << "num lines = " << m_size << ", using " << num_blocks << " blocks" << std::endl;
+////        //detail::put_device_to_device_kernel<<<num_blocks,block_dim,0,s>>>(*this, r, m_size);
 //        detail::put_device_to_device_kernel<<<num_blocks,block_dim>>>(*this, r, m_size);
+////        //s.sync();
 //        cudaDeviceSynchronize();
 //#endif
-    }
+//        put_device_to_device(r, fuse_components{});
+//#ifdef __CUDACC__
+//        cudaDeviceSynchronize();
+//#endif
+//        std::cout << "putting range done" << std::endl;
+//    }
 
 private:
 
@@ -384,11 +434,12 @@ private:
             [this,&it,&s](auto... c)
             {
                 auto chunk_ = *it;
-                cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice, s);
+                //cudaMemcpyAsync(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice, s);
+                cudaMemcpy(chunk_.data(), ptr(coordinate{c...}), chunk_.size(), cudaMemcpyDeviceToDevice);
                 ++it;
             },
             m_begin, m_end);
-        s.sync();
+        //s.sync();
 #else
         r.begin(); // prevent compiler warning
 #endif
@@ -414,6 +465,109 @@ private:
 #endif
     }
 };
+
+template<typename SourceField, typename TargetField>
+using cpu_to_cpu = std::integral_constant<bool,
+    std::is_same<typename SourceField::arch_type, gridtools::ghex::cpu>::value &&
+    std::is_same<typename TargetField::arch_type, gridtools::ghex::cpu>::value>;
+template<typename SourceField, typename TargetField>
+using cpu_to_gpu = std::integral_constant<bool,
+    std::is_same<typename SourceField::arch_type, gridtools::ghex::cpu>::value &&
+    std::is_same<typename TargetField::arch_type, gridtools::ghex::gpu>::value>;
+template<typename SourceField, typename TargetField>
+using gpu_to_cpu = std::integral_constant<bool,
+    std::is_same<typename SourceField::arch_type, gridtools::ghex::gpu>::value &&
+    std::is_same<typename TargetField::arch_type, gridtools::ghex::cpu>::value>;
+template<typename SourceField, typename TargetField>
+using gpu_to_gpu = std::integral_constant<bool,
+    std::is_same<typename SourceField::arch_type, gridtools::ghex::gpu>::value &&
+    std::is_same<typename TargetField::arch_type, gridtools::ghex::gpu>::value>;
+
+template<typename SourceField, typename TargetField>
+inline std::enable_if_t<
+    cpu_to_cpu<SourceField,TargetField>::value && !field_view<SourceField>::fuse_components::value>
+put(field_view<SourceField>& s, field_view<TargetField>& t)
+{
+    using sv_t = field_view<SourceField>;
+    using coordinate = typename sv_t::coordinate;
+    gridtools::ghex::detail::for_loop<
+        sv_t::dimension::value,
+        sv_t::dimension::value,
+        typename sv_t::layout, 1>::
+    apply([&s,&t](auto... c)
+    {
+        std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
+    },
+    s.m_begin, s.m_end);
+}
+
+template<typename SourceField, typename TargetField>
+inline std::enable_if_t<
+    cpu_to_cpu<SourceField,TargetField>::value && field_view<SourceField>::fuse_components::value>
+put(field_view<SourceField>& s, field_view<TargetField>& t)
+{
+    using sv_t = field_view<SourceField>;
+    using coordinate = typename sv_t::coordinate;
+    const auto nc = s.m_field.num_components();
+    gridtools::ghex::detail::for_loop<
+        sv_t::dimension::value,
+        sv_t::dimension::value,
+        typename sv_t::layout, 2>::
+    apply([&s,&t,nc](auto... c)
+    {
+        std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size*nc);
+    },
+    s.m_begin, s.m_end);
+}
+
+template<typename SourceField, typename TargetField>
+inline std::enable_if_t<
+    cpu_to_gpu<SourceField,TargetField>::value>
+put(field_view<SourceField>&, field_view<TargetField>&)
+{
+}
+
+template<typename SourceField, typename TargetField>
+inline std::enable_if_t<
+    gpu_to_cpu<SourceField,TargetField>::value>
+put(field_view<SourceField>&, field_view<TargetField>&)
+{
+}
+
+#ifdef __CUDACC__
+template<typename SourceRange, typename TargetRange>
+__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange& tr)
+{
+    const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
+    if (index < sr.m_size)
+    {
+        auto s_it = sr.begin();
+        s_it += index;
+        auto s_chunk = *s_it;
+        
+        auto t_it = tr.begin();
+        t_it += index;
+        auto t_chunk = *t_it;
+
+        memcpy(t_chunk.data(), s_chunk.data(), s_chunk.size());
+    }
+}
+#endif
+
+template<typename SourceField, typename TargetField>
+inline std::enable_if_t<
+    gpu_to_gpu<SourceField,TargetField>::value>
+put(field_view<SourceField>& s, field_view<TargetField>& t)
+{
+#ifdef __CUDACC__
+    cuda::stream st;
+    static constexpr unsigned int block_dim = 128;
+    const unsigned int num_blocks = (s.m_size+block_dim-1)/block_dim;
+    put_device_to_device_kernel<<<num_blocks,block_dim,0,st>>>(s, t);
+    st.sync();
+    //cudaDeviceSynchronize();
+#endif
+}
 
 } // namespace structured
 } // namespace ghex

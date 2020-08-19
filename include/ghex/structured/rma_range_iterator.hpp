@@ -48,14 +48,17 @@ struct range_iterator
     , m_coord{other.m_coord}
     {}
 
-    GT_FUNCTION
+    GT_HOST_DEVICE
+    auto index() const noexcept { return m_index; }
+    
+    GT_HOST_DEVICE
     chunk     operator*() const noexcept { return m_range->get_chunk(m_coord); }
-    GT_FUNCTION
+    GT_HOST_DEVICE
     void      operator++() noexcept { m_index = m_range->inc(m_index, m_coord); }
-    GT_FUNCTION
-    void      operator--() noexcept { m_index = m_range->inc(m_index, -1, m_coord); }
-    GT_FUNCTION
-    void      operator+=(size_type n) noexcept { m_index = m_range->inc(m_index, n, m_coord); }
+    GT_HOST_DEVICE
+    void      operator--() noexcept { m_range->inc(m_index, -1, m_coord); }
+    GT_HOST_DEVICE
+    void      operator+=(size_type n) noexcept { m_range->inc(m_index, n, m_coord); }
     GT_FUNCTION
     size_type sub(const range_iterator& other) const { return m_index - other.m_index; }
     GT_FUNCTION

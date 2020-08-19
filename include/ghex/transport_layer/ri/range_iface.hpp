@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_TRANSPORT_LAYER_RI_RANGE_IFACE_HPP
 #define INCLUDED_GHEX_TRANSPORT_LAYER_RI_RANGE_IFACE_HPP
 
+#include "../../common/moved_bit.hpp"
 #include "./types.hpp"
 #include "./iterator_iface.hpp"
 
@@ -40,6 +41,7 @@ template<typename Range, typename Iterator, typename SourceArch>
 struct put_range_impl : public put_range_iface<Iterator>
 {
     Range m;
+    moved_bit m_moved;
 
     put_range_impl(Range&& r) noexcept : m{std::move(r)}
     {
@@ -48,7 +50,7 @@ struct put_range_impl : public put_range_iface<Iterator>
 
     ~put_range_impl()
     {
-        m.exit(SourceArch{});
+        if (!m_moved) m.exit(SourceArch{});
     }
     
     GT_FUNCTION

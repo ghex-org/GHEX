@@ -89,8 +89,8 @@ struct rma_range
     }
 
     GT_FUNCTION
-    size_type inc(size_type index, size_type n, coordinate& coord) const noexcept {
-        return m_view.inc(index,n,coord);
+    void inc(size_type& index, size_type n, coordinate& coord) const noexcept {
+        m_view.inc(index,n,coord);
     }
     
     GT_FUNCTION

@@ -92,6 +92,17 @@ struct range_factory
             return std::is_same<gridtools::ghex::gpu, arch_t>::value;
         });
     }
+
+    template<typename Arch, typename SourceRange>
+    static void put(Arch, SourceRange& sr, range_type& tr)
+    {
+        boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(tr.m_id, [&sr,&tr](auto Id) {
+            using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
+            sr.put(
+                dynamic_cast<put_range_impl<range_t, stack_iterator, Arch>&>(tr.iface()).m
+            );
+        });
+    }
 };
 
 } // namespace ri
