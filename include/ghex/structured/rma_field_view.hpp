@@ -536,7 +536,7 @@ put(field_view<SourceField>&, field_view<TargetField>&)
 
 #ifdef __CUDACC__
 template<typename SourceRange, typename TargetRange>
-__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange& tr)
+__global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 {
     const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
     if (index < sr.m_size)
@@ -544,11 +544,9 @@ __global__ void put_device_to_device_kernel(SourceRange sr, TargetRange& tr)
         auto s_it = sr.begin();
         s_it += index;
         auto s_chunk = *s_it;
-        
         auto t_it = tr.begin();
         t_it += index;
         auto t_chunk = *t_it;
-
         memcpy(t_chunk.data(), s_chunk.data(), s_chunk.size());
     }
 }
@@ -565,7 +563,6 @@ put(field_view<SourceField>& s, field_view<TargetField>& t)
     const unsigned int num_blocks = (s.m_size+block_dim-1)/block_dim;
     put_device_to_device_kernel<<<num_blocks,block_dim,0,st>>>(s, t);
     st.sync();
-    //cudaDeviceSynchronize();
 #endif
 }
 

@@ -237,10 +237,10 @@ struct simulation_1
 
             bco.add_field(pattern(field_1a_gpu));
             bco.add_field(pattern(field_1b_gpu));
-            //bco.add_field(pattern(field_2a_gpu));
-            //bco.add_field(pattern(field_2b_gpu));
-            //bco.add_field(pattern(field_3a_gpu));
-            //bco.add_field(pattern(field_3b_gpu));
+            bco.add_field(pattern(field_2a_gpu));
+            bco.add_field(pattern(field_2b_gpu));
+            bco.add_field(pattern(field_3a_gpu));
+            bco.add_field(pattern(field_3b_gpu));
 #endif
             cos.emplace_back( std::move(bco) );
 
@@ -325,10 +325,10 @@ struct simulation_1
         bool passed =true;
         passed = passed && test_values(local_domains[0], field_1a);
         passed = passed && test_values(local_domains[1], field_1b);
-        //passed = passed && test_values(local_domains[0], field_2a);
-        //passed = passed && test_values(local_domains[1], field_2b);
-        //passed = passed && test_values(local_domains[0], field_3a);
-        //passed = passed && test_values(local_domains[1], field_3b);
+        passed = passed && test_values(local_domains[0], field_2a);
+        passed = passed && test_values(local_domains[1], field_2b);
+        passed = passed && test_values(local_domains[0], field_3a);
+        passed = passed && test_values(local_domains[1], field_3b);
         return passed;
     }
 
@@ -410,21 +410,21 @@ private:
     }
 };
 
-TEST(local_rma, single)
+/*TEST(local_rma, single)
 {
     simulation_1 sim(false);
     sim.exchange();
-    //sim.exchange();
-    //sim.exchange();
+    sim.exchange();
+    sim.exchange();
     EXPECT_TRUE(sim.check());
-}
+}*/
 
-/*TEST(local_rma, multi)
+TEST(local_rma, multi)
 {
     simulation_1 sim(true);
     sim.exchange();
     sim.exchange();
     sim.exchange();
     EXPECT_TRUE(sim.check());
-}*/
+}
 
