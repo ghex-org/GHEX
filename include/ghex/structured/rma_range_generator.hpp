@@ -101,20 +101,20 @@ struct rma_range_generator
         {
             m_request.wait();
             // creates a traget range
-            /*m_remote_range = RangeFactory::deserialize(m_buffer.data());
+            m_remote_range = RangeFactory::deserialize(m_buffer.data());
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 init(r, m_remote_range);
-            });*/
+            });
         }
 
         void put()
         {
             m_remote_range.start_source_epoch();
-            /*RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
+            RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 put(r);
-            });*/
+            });
             m_remote_range.end_source_epoch();
         }
 
