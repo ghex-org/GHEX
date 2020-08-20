@@ -15,6 +15,11 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+// source/destination of a communication
+// can be either
+// - among threads of the same rank,
+// - among ranks on the same shared memory region
+// - or remote
 enum class locality
 {
     thread,

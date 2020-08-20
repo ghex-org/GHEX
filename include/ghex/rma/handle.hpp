@@ -25,6 +25,9 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+/** @brief General local RMA handle created at the owner's site. Remote counterpart can be generated
+  * through the info object which this class exposes. The info object is POD and can be sent easily
+  * over any network. */
 struct local_handle
 {
     struct data_holder
@@ -95,9 +98,10 @@ struct local_handle
 
 using info = typename local_handle::info;
 
+/** @brief General local RMA handle created at the remote's site. The constructor
+  * takes an info object exposed and sent by the owner of the memory. */
 struct remote_handle
 {
-
     struct data_holder
     {
         unsigned int m_size;

@@ -21,6 +21,10 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+/** @brief General local access guard wich synchronizes between the two participants in a RMA put
+ * operation. This object is created at the site of the owner. All essential information can be
+ * extracted through get_info(). The returned info object is POD and can be sent through the network
+ * to the remote counter part. */
 struct local_access_guard
 {
     locality m_locality;
@@ -73,6 +77,9 @@ struct local_access_guard
     }
 };
 
+/** @brief General remote access guard wich synchronizes between the two participants in a RMA put
+ * operation. This object is created at the site of the remote and is constructed from an info
+ * object obtained from the local counter part. */
 struct remote_access_guard
 {
     locality m_locality;

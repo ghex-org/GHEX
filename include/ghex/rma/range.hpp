@@ -21,6 +21,12 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+/** @brief generic range type which is created through de-serialization of a target range. Hence,
+  * this range is created at the source side of a put operation and represents the remot target of
+  * this operation. It exposes member functions to get read/write access to the remote resource.
+  * The (void) pointer to the shared memory resource can be obtained. In order to be useful, this
+  * type can be converted to its underlying concrete type through type injection using the
+  * range_factory. */
 struct range
 {
     int m_id = 0;

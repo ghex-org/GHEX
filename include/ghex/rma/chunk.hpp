@@ -17,6 +17,8 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+// chunk of contiguous memory of type T
+// used in range iterators for example
 template<typename T>
 struct chunk
 {

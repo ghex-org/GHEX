@@ -68,6 +68,11 @@ struct rma_range_generator
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
+        void send()
+        {
+            m_request.wait();
+        }
+
         void start_target_epoch()
         {
             m_local_guard.start_target_epoch();
@@ -76,11 +81,6 @@ struct rma_range_generator
         void end_target_epoch()
         {
             m_local_guard.end_target_epoch();
-        }
-
-        void send()
-        {
-            m_request.wait();
         }
     };
 
@@ -148,7 +148,6 @@ struct rma_range_generator
         }
 
     private:
-
         template<typename TargetRange>
         void init(TargetRange& tr, rma::range& r)
         {

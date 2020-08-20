@@ -17,6 +17,7 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+// type erasure mechanism for ranges
 struct range_iface
 {
     virtual ~range_iface() {}

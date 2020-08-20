@@ -23,6 +23,9 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+/** @brief Serializes and de-serializes range types which are among the types in RangeList. This
+  * class manages the type erasure and type injection before and after serialization.
+  * @tparam RangeList a list of range types */
 template<typename RangeList>
 struct range_factory
 {
@@ -38,9 +41,7 @@ struct range_factory
         boost::mp11::mp_max_element<boost::mp11::mp_transform<range_size_p, RangeList>, boost::mp11::mp_less>;
     
     static constexpr std::size_t serial_size =a16(sizeof(int)) + a16(sizeof(info)) 
-        //+ a16(sizeof(locality)) 
-        + a16(sizeof(typename local_access_guard::info)) 
-        + max_range_size::value;
+        + a16(sizeof(typename local_access_guard::info)) + max_range_size::value;
 
     template<typename Range>
     static void serialize(info field_info, local_access_guard& g, const Range& r, unsigned char* buffer)
@@ -85,6 +86,7 @@ struct range_factory
         });
     }
 
+    // type injection here
     template<typename Func>
     static void call_back_with_type(range& r, Func&& f)
     {
