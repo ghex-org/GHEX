@@ -19,6 +19,9 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 
+// Here are different specializations of put functions. A put function takes 2 arguments (source and
+// target range) and performs the RMA put.
+
 template<typename SourceField, typename TargetField>
 using cpu_to_cpu = std::integral_constant<bool,
     std::is_same<typename SourceField::arch_type, gridtools::ghex::cpu>::value &&

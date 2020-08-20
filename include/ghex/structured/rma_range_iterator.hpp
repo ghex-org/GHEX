@@ -18,6 +18,9 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 
+/** @brief A simple iterator which works on multi-dimensional ranges. Furthermore, this type can be
+  * used on the device to access the range.
+  * @tparam Range The underlying range type */
 template<typename Range>
 struct range_iterator
 {

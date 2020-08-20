@@ -21,11 +21,25 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 
+/** @brief A range generator will generate target and source range template types based on the field
+  * template paramter. The generated ranges take themselves 2 template paramters, the first of which
+  * is the range factory which allows (de-) serialization and transport of range types.
+  * @tparam Field the field type */
 template<typename Field>
 struct rma_range_generator
 {
+    // the range type to be used for this field
     using range_type = rma_range<Field>;
 
+    /** @brief This class represents the target range of a halo exchange operation. It is
+     * referencing a local target field (the endpoint of the put) to which it has direct memory
+     * access. During construction and send() member function, it serializes the target range and
+     * sends it to its remote partner.
+     * It is also responsible for creating a synchronization point (access guard) which will be used
+     * in RMA exchanges. The access guard, along with the rma handle of the field and the range,
+     * will be serialized and sent to the remote partner.
+     * @tparam RangeFactory the factory type which knows about all possible range types
+     * @tparam Communicator the communicator type */
     template<typename RangeFactory, typename Communicator>
     struct target_range
     {
@@ -70,6 +84,14 @@ struct rma_range_generator
         }
     };
 
+    /** @brief This class represents the source range of a halo exchange operation. It is
+     * referencing a local source field (starting point of the put) to which it has direct memory
+     * access. During construction and recv() member function, it receives a target range from its
+     * remote partner and deserializes it into a generic range type, which exposes synchronization
+     * functions for RMA. The actual type can be recovered from generic range type by type injection
+     * through the range_factory.
+     * @tparam RangeFactory the factory type which knows about all possible range types
+     * @tparam Communicator the communicator type */
     template<typename RangeFactory, typename Communicator>
     struct source_range
     {
@@ -139,9 +161,11 @@ struct rma_range_generator
 } // namespace structured
 
 namespace rma {
+// specialization of the range_traits for the above range generator
 template<>
 struct range_traits<structured::rma_range_generator>
 {
+    // determines what is local
     template<typename Communicator>
     static locality is_local(Communicator comm, int remote_rank)
     {

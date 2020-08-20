@@ -15,7 +15,6 @@
 #include <vector>
 #include <gridtools/common/host_device.hpp>
 #include <iostream>
-
 #include "../rma/chunk.hpp"
 #include "./rma_range_iterator.hpp"
 
@@ -23,6 +22,7 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 namespace detail {
+// collection of helper template class to increment a range iterator
 template<unsigned int Dim, unsigned int D, typename Layout>
 struct inc_coord
 {
@@ -68,7 +68,10 @@ struct inc_coord<Dim, Dim, Layout>
 };
 } // namespace detail
 
-
+/** @brief An implementation of a multi-dimensional range which can be used on the device. This
+  * type is used in the target and source ranges generated from the range generator. A list of
+  * these types is passed to the range_factory.
+  * @tparam Field the field type it is accessing */
 template<typename Field>
 struct rma_range
 {
