@@ -104,8 +104,9 @@ namespace gridtools {
                 }
 
                 /**
-                 * This function synchronize the threads in a rank. The threads must obtain a token
-                 * before being able to call this function.
+                 * This function synchronize the threads in a rank. The number of threads that need to participate
+                 * is indicated in the construction of the barrier object, whose reference is shared among the
+                 * participating threads.
                  *
                  * @param tlcomm The communicator object associated with the thread.
                  */
