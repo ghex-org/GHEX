@@ -15,6 +15,7 @@
 #include "../rma/range_traits.hpp"
 #include "../rma/access_guard.hpp"
 #include "./rma_range.hpp"
+#include "./rma_put.hpp"
 
 namespace gridtools {
 namespace ghex {
