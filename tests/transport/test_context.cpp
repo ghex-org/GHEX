@@ -13,6 +13,7 @@
 #include <thread>
 
 #include <gtest/gtest.h>
+#include <ghex/transport_layer/util/barrier.hpp>
 
 #ifdef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/ucx/context.hpp>
@@ -38,7 +39,9 @@ TEST(context, multi) {
     using tag_type = typename comm_type::tag_type;
     using future = typename comm_type::template future<void>;
 
-    auto func = [&context_1, &context_2](int tid1, int tid2) {
+    gridtools::ghex::tl::barrier_t barrier(num_threads);
+
+    auto func = [&context_1, &context_2, &barrier](int tid1, int tid2) {
         auto comm_1 = context_1.get_communicator();
         auto comm_2 = context_2.get_communicator();
 
@@ -56,8 +59,8 @@ TEST(context, multi) {
                 *reinterpret_cast<int*>(msg_2.data()+i*sizeof(int)) = i+payload_offset;
         }
 
-        // comm_1.barrier();
-        // comm_2.barrier();
+        barrier(comm_1);
+        barrier(comm_2);
 
         future fut_1;
         int counter_1 = 0;
@@ -120,7 +123,9 @@ TEST(context, multi_ordered) {
     using tag_type = typename comm_type::tag_type;
     using future = typename comm_type::template future<void>;
 
-    auto func = [&context_1](int tid1) {
+    gridtools::ghex::tl::barrier_t barrier(num_threads);
+
+    auto func = [&context_1, &barrier](int tid1) {
         auto comm_1 = context_1.get_communicator();
 
         auto msg_1 = comm_1.make_message(size*sizeof(int));
@@ -137,7 +142,7 @@ TEST(context, multi_ordered) {
                 *reinterpret_cast<int*>(msg_2.data()+i*sizeof(int)) = i+payload_offset;
         }
 
-        //comm_1.barrier();
+        barrier(comm_1);
 
         // ordered sends/recvs with same tag should arrive in order
 
