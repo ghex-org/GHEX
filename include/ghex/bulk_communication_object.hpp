@@ -144,9 +144,7 @@ private: // member types
         , m_remote_pattern(remote_map.insert(std::make_pair(&pattern, pattern)).first->second)
         , m_local_pattern(local_map.insert(std::make_pair(&pattern, pattern)).first->second)
         {
-            std::cout << "before field rma init" << std::endl;
             m_local_handle.init( f.data(), f.bytes(), std::is_same<typename Field::arch_type, gpu>::value);
-            std::cout << "after field rma init" << std::endl;
 
             // prepare local and remote patterns
             // =================================
