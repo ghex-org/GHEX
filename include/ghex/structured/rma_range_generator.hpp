@@ -130,15 +130,23 @@ struct rma_range_generator
                 init(r, m_remote_range);
             });
         }
+        
+        void start_source_epoch()
+        {
+            m_remote_range.start_source_epoch();
+        }
+
+        void end_source_epoch()
+        {
+            m_remote_range.end_source_epoch();
+        }
 
         void put()
         {
-            m_remote_range.start_source_epoch();
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 put(r);
             });
-            m_remote_range.end_source_epoch();
         }
 
         template<typename TargetRange>

@@ -420,7 +420,11 @@ public:
                 // put data
                 for (auto& s_vec : s_range.m_ranges)
                     for (auto& r : s_vec)
+                    {
+                        r.start_source_epoch();
                         r.put();
+                        r.end_source_epoch();
+                    }
             });
         }
         // loop over fields for waiting
