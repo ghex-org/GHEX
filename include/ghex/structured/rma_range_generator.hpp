@@ -106,7 +106,7 @@ struct rma_range_generator
         rank_type m_src;
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
-        std::vector<unsigned char> m_buffer;
+        std::vector<unsigned char> m_archive;
 
         template<typename IterationSpace>
         source_range(const Communicator& comm, const Field& f,
@@ -116,15 +116,15 @@ struct rma_range_generator
         , m_src{src}
         , m_tag{tag}
         {
-            m_buffer.resize(RangeFactory::serial_size);
-            m_request = m_comm.recv(m_buffer, m_src, m_tag);
+            m_archive.resize(RangeFactory::serial_size);
+            m_request = m_comm.recv(m_archive, m_src, m_tag);
         }
 
         void recv()
         {
             m_request.wait();
             // creates a traget range
-            m_remote_range = RangeFactory::deserialize(m_buffer.data());
+            m_remote_range = RangeFactory::deserialize(m_archive.data());
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 init(r, m_remote_range);
