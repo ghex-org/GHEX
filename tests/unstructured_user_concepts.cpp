@@ -29,7 +29,7 @@
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
-#include <ghex/communication_object_ipr.hpp>
+#include <ghex/unstructured/communication_object_ipr.hpp>
 
 
 #ifndef GHEX_TEST_USE_UCX
