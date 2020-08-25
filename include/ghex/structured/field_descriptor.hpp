@@ -18,14 +18,12 @@
 #include <gridtools/common/array.hpp>
 #include <gridtools/common/layout_map.hpp>
 
-#include "./rma_handle.hpp"
-
 namespace gridtools {
 namespace ghex {
 namespace structured {
 
 template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-class field_descriptor : public rma_handle< field_descriptor<T,Arch,DomainDescriptor,Order...> >
+class field_descriptor
 {
 public: // member types
     using value_type             = T;
@@ -41,8 +39,6 @@ public: // member types
     using coordinate_type        = ::gridtools::array<scalar_coordinate_type, dimension::value>;
     using size_type              = unsigned int;
     using strides_type           = ::gridtools::array<size_type, dimension::value>;
-
-    friend class rma_handle< field_descriptor<T,Arch,DomainDescriptor,Order...> >;
 
     // holds buffer information
     template<typename Pointer>
@@ -142,6 +138,7 @@ protected: // members
     bool                   m_is_vector_field;     ///< true if this field describes a vector field
     device_id_type         m_device_id;           ///< device id
     strides_type           m_byte_strides;        ///< memory strides in bytes
+    size_type              m_bytes;               ///< size of memory
 
 public: // ctors
     template<typename DomainArray, typename OffsetArray, typename ExtentArray>
@@ -180,6 +177,8 @@ public: // ctors
         // compute strides in bytes
         detail::compute_strides<dimension::value>::template
             apply<layout_map,value_type>(m_extents,m_byte_strides,0u);
+
+        m_bytes = m_byte_strides[layout_map::find(0)]*m_extents[layout_map::find(0)];
     }
     template<typename DomainArray, typename OffsetArray, typename ExtentArray, typename Strides>
     field_descriptor(
@@ -196,6 +195,7 @@ public: // ctors
     {
         for (unsigned int i=0u; i<dimension::value; ++i)
             m_byte_strides[i] = strides_[i];
+        m_bytes = m_byte_strides[layout_map::find(0)]*m_extents[layout_map::find(0)];
     }
 
     field_descriptor(field_descriptor&&) noexcept = default;
@@ -222,6 +222,8 @@ public: // member functions
     int num_components() const noexcept { return m_num_components; }
     /** @brief returns true if this field describes a vector field */
     bool is_vector_field() const noexcept { return m_is_vector_field; }
+    /** @brief returns the size of the memory in bytes */
+    size_type bytes() const noexcept { return m_bytes; }
         
     /** @brief access operator
      * @param x coordinate vector with respect to offset specified in constructor

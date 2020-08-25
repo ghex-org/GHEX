@@ -410,14 +410,14 @@ private:
     }
 };
 
-/*TEST(local_rma, single)
+TEST(local_rma, single)
 {
     simulation_1 sim(false);
     sim.exchange();
     sim.exchange();
     sim.exchange();
     EXPECT_TRUE(sim.check());
-}*/
+}
 
 TEST(local_rma, multi)
 {

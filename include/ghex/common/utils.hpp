@@ -116,7 +116,8 @@ namespace gridtools {
              *
              * @tparam D dimensionality of loop nest
              * @tparam I I==D to start recursion
-             * @tparam Layout template meta function which determines order of nesting */
+             * @tparam Layout template meta function which determines order of nesting
+             * @tparam Skip the number of innermost loops to skip */
             template<int D, int I, int... Args, int Skip>
             struct for_loop<D,I,gridtools::layout_map<Args...>, Skip>
             {
