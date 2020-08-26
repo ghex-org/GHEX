@@ -13,7 +13,6 @@
 #include <thread>
 
 #include <gtest/gtest.h>
-#include <ghex/transport_layer/util/barrier.hpp>
 
 #ifdef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/ucx/context.hpp>
@@ -39,9 +38,7 @@ TEST(context, multi) {
     using tag_type = typename comm_type::tag_type;
     using future = typename comm_type::template future<void>;
 
-    gridtools::ghex::tl::barrier_t barrier(num_threads);
-
-    auto func = [&context_1, &context_2, &barrier](int tid1, int tid2) {
+    auto func = [&context_1, &context_2](int tid1, int tid2) {
         auto comm_1 = context_1.get_communicator();
         auto comm_2 = context_2.get_communicator();
 
@@ -59,8 +56,11 @@ TEST(context, multi) {
                 *reinterpret_cast<int*>(msg_2.data()+i*sizeof(int)) = i+payload_offset;
         }
 
-        barrier(comm_1);
-        barrier(comm_2);
+        if (comm_1.rank() == 0) {
+            if(comm_2.rank() != 0) {
+                EXPECT_TRUE(true);
+            }
+        }
 
         future fut_1;
         int counter_1 = 0;
@@ -83,7 +83,7 @@ TEST(context, multi) {
 
 
         if (comm_1.rank() == 0)
-            while(counter_1 != comm_1.size()-1) { comm_1.progress(); comm_2.progress(); }
+            while(counter_1 != comm_1.size()-1 or counter_2 != comm_2.size()-1) { comm_1.progress(); comm_2.progress(); }
 
         if (comm_2.rank() != 0)
             fut_2.wait();
@@ -123,9 +123,7 @@ TEST(context, multi_ordered) {
     using tag_type = typename comm_type::tag_type;
     using future = typename comm_type::template future<void>;
 
-    gridtools::ghex::tl::barrier_t barrier(num_threads);
-
-    auto func = [&context_1, &barrier](int tid1) {
+    auto func = [&context_1](int tid1) {
         auto comm_1 = context_1.get_communicator();
 
         auto msg_1 = comm_1.make_message(size*sizeof(int));
@@ -141,8 +139,6 @@ TEST(context, multi_ordered) {
             for (unsigned int i=0; i<size; ++i)
                 *reinterpret_cast<int*>(msg_2.data()+i*sizeof(int)) = i+payload_offset;
         }
-
-        barrier(comm_1);
 
         // ordered sends/recvs with same tag should arrive in order
 

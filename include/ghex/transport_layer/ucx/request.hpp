@@ -101,7 +101,8 @@ namespace gridtools{
                 };
 
                 /** @brief minimum size of the ucx provided storage in bytes */
-                using request_data_size = std::integral_constant<std::size_t,sizeof(request_data_cb)>;
+                using request_data_size = std::integral_constant<std::size_t, sizeof(request_data_cb) + alignof(request_data_cb)>;
+
 
                 /** @brief make the ucx provided storage zero */
                 inline void request_init(void *req) { std::memset(req, 0, request_data_size::value); }
