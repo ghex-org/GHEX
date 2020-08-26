@@ -9,6 +9,14 @@
  * 
  */
 
+// TO DO: headers for test code start here
+
+#include <vector>
+
+// TO DO: headers for test code end here
+
+#include <fstream>
+
 #include <gtest/gtest.h>
 
 #include <parmetis.h>
@@ -33,11 +41,36 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
 
+template<typename T>
+char* as_bytes(T& i) {
+    return reinterpret_cast<char*>(&i);
+}
+
+
 /** @brief Unstructured exchange benchmark (in-place receive against buffered receive)*/
 TEST(unstructured_parmetis, receive_type) {
 
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
+
+    std::ifstream ap_fs("Ap.out", std::ios_base::binary);
+    std::ifstream ai_fs("Ai.out", std::ios_base::binary);
+
+    // TO DO: sample code starts here (to be removed)
+
+    std::vector<long long unsigned int> ap{};
+    std::vector<long long unsigned int> ai{};
+
+    for (long long unsigned int i; ap_fs.read(as_bytes(i), sizeof(i));) {
+        ap.push_back(i);
+    }
+
+    for (long long unsigned int i; ai_fs.read(as_bytes(i), sizeof(i));) {
+        ai.push_back(i);
+    }
+
+    // TO DO: sample code ends here (to be removed)
+
 
 }
