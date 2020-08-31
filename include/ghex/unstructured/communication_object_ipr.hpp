@@ -48,11 +48,11 @@ namespace gridtools {
                     using grid_type = unstructured::detail::grid<index_type>;
                     using domain_id_type = DomainIdType;
 
-                    // friend class // TO DO: is friend needed?
+                    // friend class
                     friend class communication_object_ipr<communicator_type,grid_type,domain_id_type>;
 
                     // members
-                    communicator_type m_comm; // TO DO: is it needed?
+                    communicator_type m_comm; // TO DO: is it needed? // HERE (can remove, use default constructor for public constructor)
                     std::function<void()> m_wait_fct;
 
                 public:
