@@ -11,22 +11,20 @@
 #ifndef INCLUDED_GHEX_UNSTRUCTURED_COMMUNICATION_OBJECT_IPR_HPP
 #define INCLUDED_GHEX_UNSTRUCTURED_COMMUNICATION_OBJECT_IPR_HPP
 
-// TO DO: remove unneeded includes
-#include "../communication_object_ipr.hpp"
-#include "./grid.hpp"
-#include "../pattern.hpp"
-#include "../cuda_utils/stream.hpp"
-#include "../packer.hpp"
-#include "../common/utils.hpp"
-#include "../common/test_eq.hpp"
-#include "../buffer_info.hpp"
-#include "../transport_layer/tags.hpp"
-#include "../arch_traits.hpp"
+#include <iosfwd>
 #include <map>
 #include <unordered_map>
 #include <queue>
-#include <stdio.h>
-#include <functional>
+
+#include "../arch_traits.hpp"
+#include "../buffer_info.hpp"
+#include "../common/utils.hpp"
+#include "../common/test_eq.hpp"
+#include "../communication_object_ipr.hpp"
+#include "../cuda_utils/stream.hpp"
+#include "../packer.hpp"
+#include "../pattern.hpp"
+#include "./grid.hpp"
 
 namespace gridtools {
 
