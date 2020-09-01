@@ -52,27 +52,22 @@ namespace gridtools {
                     friend class communication_object_ipr<communicator_type,grid_type,domain_id_type>;
 
                     // members
-                    communicator_type m_comm; // TO DO: is it needed? // HERE (can remove, use default constructor for public constructor)
                     std::function<void()> m_wait_fct;
 
                 public:
 
                     // public constructor
-                    /** @brief construct a ready handle
-                     * @param comm communicator */
-                    communication_handle_ipr(const communicator_type& comm) : m_comm{comm} {}
+                    /** @brief construct a ready handle */
+                    communication_handle_ipr() = default;
 
                 private:
 
                     // private constructor
                     /** @brief construct a handle with a wait function
                      * @tparam Func function type with signature void()
-                     * @param comm communicator
                      * @param wait_fct wait function */
                     template<typename Func>
-                    communication_handle_ipr(const communicator_type& comm, Func&& wait_fct) :
-                        m_comm{comm},
-                        m_wait_fct(std::forward<Func>(wait_fct)) {}
+                    communication_handle_ipr(Func&& wait_fct) : m_wait_fct(std::forward<Func>(wait_fct)) {}
 
                 public:
 
@@ -313,7 +308,7 @@ namespace gridtools {
                             allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                             ++i;
                         });
-                        handle_type h(m_comm, [this](){ this->wait(); });
+                        handle_type h([this](){ this->wait(); });
                         post_recvs();
                         pack();
                         return h;
