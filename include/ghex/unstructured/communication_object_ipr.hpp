@@ -227,9 +227,6 @@ namespace gridtools {
                     /** tuple type of buffer_memory (one element for each device in arch_list) */
                     using memory_type = detail::transform<arch_list>::with<buffer_memory>;
 
-                    // friend class // TO DO: is friend needed?
-                    friend class communication_handle_ipr<Communicator,grid_type,DomainIdType>;
-
                     // members
                     bool m_valid;
                     communicator_type m_comm;
