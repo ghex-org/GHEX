@@ -340,7 +340,7 @@ namespace gridtools {
                     void wait() {
                         if (!m_valid) return;
                         detail::for_each(m_mem, [this](auto& m) {
-                            for (auto& f : m.m_recv_futures) f.wait(); // no unpacking. TO DO: improve performances
+                            for (auto& f : m.m_recv_futures) f.wait(); // no unpacking
                         });
                         for (auto& f : m_send_futures) f.wait();
                         clear();
