@@ -135,7 +135,7 @@ namespace gridtools {
                     /** @brief Holds a pointer to a set of iteration spaces and a callback function pointer
                      * which is used to store a field's pack or unpack member function.
                      * This class also stores the offset in the serialized buffer in bytes.
-                     * The type-erased field_ptr member is only used for the gpu-vector-interface. // TO DO: verify is still needed in this case
+                     * The type-erased field_ptr member is only used for the gpu-vector-interface.
                      * @tparam Function either pack or unpack function pointer type */
                     template<typename Function>
                     struct field_info {
@@ -157,7 +157,7 @@ namespace gridtools {
                             Vector buffer;
                             std::size_t size;
                             std::vector<field_info_type> field_infos;
-                            cuda::stream m_cuda_stream; // TO DO: naming conventions
+                            cuda::stream m_cuda_stream;
                     };
 
                     /** @brief Message-like wrapper over in-place receive memory*/
@@ -195,7 +195,7 @@ namespace gridtools {
                             ipr_message message;
                             std::size_t size;
                             std::vector<field_info_type> field_infos;
-                            cuda::stream m_cuda_stream; // TO DO: naming conventions
+                            cuda::stream m_cuda_stream;
                     };
 
                     /** @brief Holds maps of buffers / memory regions respectively for send and in-place receive operations.
