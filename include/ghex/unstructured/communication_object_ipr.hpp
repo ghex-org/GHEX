@@ -300,7 +300,7 @@ namespace gridtools {
                         detail::for_each(memory_tuple, buffer_info_tuple, [this, &i, &tag_offsets](auto mem, auto bi) {
                             using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
                             using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
-                            auto field_ptr = &(bi->get_field()); // HERE
+                            auto field_ptr = &(bi->get_field());
                             const domain_id_type my_dom_id = bi->get_field().domain_id();
                             allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                             ++i;
@@ -319,7 +319,7 @@ namespace gridtools {
                                         p1.second.message.resize(p1.second.size);
                                         m.m_recv_futures.emplace_back(
                                             typename std::remove_reference_t<decltype(m)>::future_type{
-                                                m_comm.recv(p1.second.message, p1.second.address, p1.second.tag).m_handle // TO DO: why not using directly the future move constructor?
+                                                m_comm.recv(p1.second.message, p1.second.address, p1.second.tag).m_handle
                                             });
                                     }
                                 }
