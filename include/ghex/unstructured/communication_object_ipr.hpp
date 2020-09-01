@@ -369,8 +369,6 @@ namespace gridtools {
                         });
                     }
 
-                    // TO DO: double check from here on. First of all, some code could be avoided
-
                     // allocation member functions
 
                     template<typename Arch,
@@ -378,7 +376,7 @@ namespace gridtools {
                              typename Memory,
                              typename Field,
                              typename O>
-                    void allocate(Memory& mem, // TO DO: can copy
+                    void allocate(Memory& mem,
                                   const pattern_type& pattern,
                                   Field* field_ptr,
                                   domain_id_type dom_id,
