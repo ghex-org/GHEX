@@ -298,9 +298,9 @@ namespace gridtools {
                         // loop over memory / buffer_infos and compute required space
                         int i = 0;
                         detail::for_each(memory_tuple, buffer_info_tuple, [this, &i, &tag_offsets](auto mem, auto bi) {
-                            using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type; // TO DO: remove_reference_t needed?
-                            using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type; // TO DO: remove_reference_t needed?
-                            auto field_ptr = &(bi->get_field()); // TO DO: maybe get the reference instead, as done for the pattern below
+                            using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
+                            using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
+                            auto field_ptr = &(bi->get_field()); // HERE
                             const domain_id_type my_dom_id = bi->get_field().domain_id();
                             allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                             ++i;
@@ -312,7 +312,7 @@ namespace gridtools {
                     }
 
                     void post_recvs() {
-                        detail::for_each(m_mem, [this](auto& m) { // TO DO: some memory types may not be needed
+                        detail::for_each(m_mem, [this](auto& m) {
                             for (auto& p0 : m.recv_memory) {
                                 for (auto& p1: p0.second) {
                                     if (p1.second.size > 0u) {
@@ -328,7 +328,7 @@ namespace gridtools {
                     }
 
                     void pack() {
-                        detail::for_each(m_mem, [this](auto& m) { // TO DO: some memory types may not be needed
+                        detail::for_each(m_mem, [this](auto& m) {
                             using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
                             packer<arch_type>::pack(m, m_send_futures, m_comm);
                         });
@@ -339,7 +339,7 @@ namespace gridtools {
                     /** @brief wait function*/
                     void wait() {
                         if (!m_valid) return;
-                        detail::for_each(m_mem, [this](auto& m) { // TO DO: some memory types may not be needed
+                        detail::for_each(m_mem, [this](auto& m) {
                             for (auto& f : m.m_recv_futures) f.wait(); // no unpacking. TO DO: improve performances
                         });
                         for (auto& f : m_send_futures) f.wait();
@@ -351,7 +351,7 @@ namespace gridtools {
                     void clear() {
                         m_valid = false;
                         m_send_futures.clear();
-                        detail::for_each(m_mem, [this](auto& m) { // TO DO: some memory types may not be needed
+                        detail::for_each(m_mem, [this](auto& m) {
                             m.m_recv_futures.clear();
                             for (auto& p0 : m.send_memory) {
                                 for (auto& p1 : p0.second) {
@@ -426,7 +426,7 @@ namespace gridtools {
                                        DeviceIdType device_id,
                                        int tag_offset,
                                        Pool& pool,
-                                       Field* field_ptr = nullptr) {
+                                       Field* field_ptr) {
 
                         using byte = unsigned char;
 
