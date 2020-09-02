@@ -33,12 +33,6 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
 
-//#include <iomanip>
-//#include <future>
-//#ifdef __CUDACC__
-//#include <gridtools/common/cuda_util.hpp>
-//#include <gridtools/common/host_device.hpp>
-//#endif
 
 
 struct simulation_1
@@ -427,4 +421,3 @@ TEST(local_rma, multi)
     sim.exchange();
     EXPECT_TRUE(sim.check());
 }
-
