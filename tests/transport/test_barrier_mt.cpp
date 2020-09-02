@@ -28,7 +28,9 @@ using transport = gridtools::ghex::tl::mpi_tag;
 
 using threading = gridtools::ghex::threads::std_thread::primitives;
 using threading2 = gridtools::ghex::threads::atomic::primitives;
+#ifdef _OPENMP
 using threading3 = gridtools::ghex::threads::omp::primitives;
+#endif
 
 std::atomic<int> barrier_count{0};
 
@@ -113,5 +115,5 @@ TEST(transport, barrier_mt_omp_atomic) {
     }
 }
 #else
-TEST(transport, DISABLED_barrier_mt_omp) {}
+TEST(transport, DISABLED_barrier_mt_omp_atomic) {}
 #endif
