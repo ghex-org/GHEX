@@ -9,10 +9,11 @@
  * 
  */
 
-
 #include <cstdint>
 #include <fstream>
 #include <vector>
+#include <array>
+#include <algorithm>
 
 #include <mpi.h>
 
@@ -59,56 +60,102 @@ TEST(unstructured_parmetis, receive_type) {
 
     // type definitions
     using data_int_type = int64_t;
+    static_assert(std::is_same<data_int_type, idx_t>::value, "data integer type must be the same as ParMETIS integer type");
 
     // MPI setup
+    MPI_Comm comm;
+    MPI_Comm_dup(MPI_COMM_WORLD, &comm);
     int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
 
-    // input data
+    // Ap
     std::ifstream ap_fs("Ap.out", std::ios_base::binary);
     ap_fs.seekg(0, std::ios_base::end); // go to the end
+    idx_t all_num_vertices = ap_fs.tellg() / sizeof(idx_t) - 1;
+    ap_fs.seekg(all_num_vertices / size * sizeof(idx_t) * rank); // rewind to begin of section, according to rank (remainder is handled entirely by last rank, TO DO: not optimal)
+    std::vector<idx_t> ap{};
+    if (rank == (size - 1)) { // last rank reads until eof
+        for (idx_t b; ap_fs.read(as_bytes(b), sizeof(b)); ) {
+            ap.push_back(b);
+        }
+    } else { // all other ranks read until end of their section
+        idx_t section_size = all_num_vertices / size + 1; // (CSR format provides always the two endpoints, first included, second excluded)
+        for (idx_t i = 0, b; i < section_size; ++i) {
+            ap_fs.read(as_bytes(b), sizeof(b));
+            ap.push_back(b);
+        }
+    }
+    idx_t offset = ap.front();
+    std::vector<idx_t> ap_n(ap.size());
+    std::transform(ap.begin(), ap.end(), ap_n.begin(), [offset](auto i){ return i - offset; }); // normalize
+
+    // Ai
+    std::ifstream ai_fs("Ai.out", std::ios_base::binary);
+    ai_fs.seekg(ap.front() * sizeof(idx_t));
+    std::vector<idx_t> ai{};
+    for (idx_t i = ap.front(), b; i < ap.back(); ++i) {
+        ai_fs.read(as_bytes(b), sizeof(b));
+        ai.push_back(b);
+    }
+
+    // Vertices initial distribution
+    std::vector<idx_t> vtxdist_v(size + 1);
+    idx_t num_vertices = all_num_vertices / size;
+    for (int i = 0; i < size; ++i) {
+        vtxdist_v[i] = num_vertices * i;
+    }
+    vtxdist_v[size] = all_num_vertices;
+
+    // Vertices final distribution (output)
+    std::vector<idx_t> part_v(ap.size() - 1);
+
+    // ParMETIS variables
+    idx_t wgtflag = 0;
+    idx_t numflag = 0;
+    idx_t ncon = 1; // TO DO: double check
+    idx_t nparts = size;
+    std::vector<real_t> tpwgts_v(ncon * nparts, 1 / static_cast<real_t>(nparts)); // TO DO: double check
+    std::vector<real_t> ubvec_v(ncon, 1.05); // TO DO: double check
+    std::array<idx_t, 3> options{0, 0, 0};
+    idx_t edgecut;
+
+    // ParMETIS graph partitioning
+    ParMETIS_V3_PartKway(vtxdist_v.data(),
+                         ap_n.data(),
+                         ai.data(),
+                         NULL,
+                         NULL,
+                         &wgtflag,
+                         &numflag,
+                         &ncon,
+                         &nparts,
+                         tpwgts_v.data(),
+                         ubvec_v.data(),
+                         options.data(),
+                         &edgecut,
+                         part_v.data(),
+                         &comm);
 
     // TO DO: debug info, please remove
     if (rank == 0) {
-        std::cout << "number of int64_t read: " << ap_fs.tellg() / sizeof(data_int_type) << "\n";
-    } // output is 817 (CSR format provides always the two endpoints, first included, second excluded)
-
-    data_int_type all_num_vertices = ap_fs.tellg() / sizeof(data_int_type) - 1;
-    auto pos = all_num_vertices / size * sizeof(data_int_type) * rank;
-    ap_fs.seekg(pos); // rewind to begin of section, according to rank (remainder is handled entirely by last rank, TO DO: not optimal)
-    if (rank == (size - 1)) { // last rank reads until eof
-        std::vector<data_int_type> ap{};
-        for (data_int_type b; ap_fs.read(as_bytes(b), sizeof(b)); ) {
-            ap.push_back(b);
-        }
-    } else { // all other ranks read until end of their section // HERE
-        data_int_type section_size = all_num_vertices / size + 1; // (CSR format provides always the two endpoints, first included, second excluded)
-        std::vector<data_int_type> ap(section_size);
+        std::cout << "part_v:\n";
+        debug_print(part_v);
+        std::cout << "edgecut = " << edgecut << "\n";
     }
-
-    // std::ifstream ai_fs("Ai.out", std::ios_base::binary);
-
-    // std::vector<data_int_type> ai{};
-    // for (data_int_type i; ai_fs.read(as_bytes(i), sizeof(i));) { ai.push_back(i); } // TO DO: set bounds according to rank
 
     /* // TO DO: debug info, please remove
     std::cout << "Ap:\n";
-    debug_print(ap);
-    std::cout << "\n";
-    std::cout << "Ai:\n";
-    debug_print(ai); */
+    debug_print(ap); */
 
-    // prepare parmetis routine arrays
-
-    // call parmetis routine
-
-    // repartition output according to parmetis labelling
+    // repartition output according to parmetis labeling
 
     // GHEX context
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     // GHEX user concepts
+
+    MPI_Comm_free(&comm);
 
 }
