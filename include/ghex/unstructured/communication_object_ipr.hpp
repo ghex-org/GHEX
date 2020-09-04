@@ -421,15 +421,11 @@ namespace gridtools {
                              typename ValueType,
                              typename Memory,
                              typename Halos,
-                             typename DeviceIdType,
-                             typename Pool,
                              typename Field = void>
                     void set_recv_size(Memory& memory, // reference not strictly needed here
                                        const Halos& halos,
                                        domain_id_type my_dom_id,
-                                       DeviceIdType device_id,
                                        int tag_offset,
-                                       Pool& pool,
                                        Field* field_ptr) {
 
                         using byte = unsigned char;
