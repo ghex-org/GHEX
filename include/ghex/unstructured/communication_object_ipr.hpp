@@ -376,7 +376,7 @@ namespace gridtools {
                              typename Memory,
                              typename Field,
                              typename O>
-                    void allocate(Memory& mem,
+                    void allocate(Memory& mem, // reference not strictly needed here
                                   const pattern_type& pattern,
                                   Field* field_ptr,
                                   domain_id_type dom_id,
@@ -417,7 +417,7 @@ namespace gridtools {
                              typename DeviceIdType,
                              typename Pool,
                              typename Field = void>
-                    void set_recv_size(Memory& memory,
+                    void set_recv_size(Memory& memory, // reference not strictly needed here
                                        const Halos& halos,
                                        Function&& func,
                                        domain_id_type my_dom_id,
@@ -480,7 +480,7 @@ namespace gridtools {
                              typename DeviceIdType,
                              typename Pool,
                              typename Field = void>
-                    void allocate_send(Memory& memory,
+                    void allocate_send(Memory& memory, // reference not strictly needed here
                                        const Halos& halos,
                                        Function&& func,
                                        domain_id_type my_dom_id,
