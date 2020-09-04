@@ -319,7 +319,7 @@ namespace gridtools {
                                         p1.second.message.resize(p1.second.size);
                                         m.m_recv_futures.emplace_back(
                                             typename std::remove_reference_t<decltype(m)>::future_type{
-                                                m_comm.recv(p1.second.message, p1.second.address, p1.second.tag).m_handle
+                                                m_comm.recv(p1.second.message, p1.second.address, p1.second.tag).m_handle // may also use future<void> move constructor
                                             });
                                     }
                                 }
