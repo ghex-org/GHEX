@@ -319,9 +319,9 @@ void check_exchanged_data(const domain_descriptor_type& d, const Container& fiel
 
 /** @brief Helper functor type, used as default template argument below*/
 struct domain_to_rank_identity {
-        int operator()(const domain_id_type d_id) const {
-            return static_cast<int>(d_id);
-        }
+    int operator()(const domain_id_type d_id) const {
+        return static_cast<int>(d_id);
+    }
 };
 
 

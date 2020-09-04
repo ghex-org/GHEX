@@ -118,17 +118,17 @@ namespace gridtools {
                     /** @brief pair of domain ids + tag id with ordering */
                     struct domain_id_pair_and_tag {
 
-                            domain_id_type first_id;
-                            domain_id_type second_id;
-                            int tag;
+                        domain_id_type first_id;
+                        domain_id_type second_id;
+                        int tag;
 
-                            bool operator<(const domain_id_pair_and_tag& other) const noexcept {
-                                return (first_id < other.first_id ? true :
-                                    (first_id > other.first_id ? false :
-                                        (second_id < other.second_id ? true :
-                                            (second_id > other.second_id ? false :
-                                                (tag < other.tag)))));
-                            }
+                        bool operator<(const domain_id_pair_and_tag& other) const noexcept {
+                            return (first_id < other.first_id ? true :
+                                (first_id > other.first_id ? false :
+                                    (second_id < other.second_id ? true :
+                                        (second_id > other.second_id ? false :
+                                            (tag < other.tag)))));
+                        }
 
                     };
 
@@ -139,11 +139,11 @@ namespace gridtools {
                      * @tparam Function either pack or unpack function pointer type */
                     template<typename Function>
                     struct field_info {
-                            using index_container_type = typename pattern_type::map_type::mapped_type;
-                            Function call_back;
-                            const index_container_type* index_container;
-                            std::size_t offset;
-                            void* field_ptr;
+                        using index_container_type = typename pattern_type::map_type::mapped_type;
+                        Function call_back;
+                        const index_container_type* index_container;
+                        std::size_t offset;
+                        void* field_ptr;
                     };
 
                     /** @brief Holds serial buffer memory and meta information associated with it.
@@ -151,13 +151,13 @@ namespace gridtools {
                      * @tparam Function pack function pointer type (not used for unpacking)*/
                     template<class Vector, class Function>
                     struct buffer {
-                            using field_info_type = field_info<Function>;
-                            address_type address;
-                            int tag;
-                            Vector buffer;
-                            std::size_t size;
-                            std::vector<field_info_type> field_infos;
-                            cuda::stream m_cuda_stream;
+                        using field_info_type = field_info<Function>;
+                        address_type address;
+                        int tag;
+                        Vector buffer;
+                        std::size_t size;
+                        std::vector<field_info_type> field_infos;
+                        cuda::stream m_cuda_stream;
                     };
 
                     /** @brief Message-like wrapper over in-place receive memory*/
@@ -189,13 +189,13 @@ namespace gridtools {
                      * Vector = ipr_message, Function = std::function<void()>;
                      * not a specialization, because it is no longer a buffer*/
                     struct recv_ipr_info {
-                            using field_info_type = field_info<std::function<void()>>;
-                            address_type address;
-                            int tag;
-                            ipr_message message;
-                            std::size_t size;
-                            std::vector<field_info_type> field_infos;
-                            cuda::stream m_cuda_stream;
+                        using field_info_type = field_info<std::function<void()>>;
+                        address_type address;
+                        int tag;
+                        ipr_message message;
+                        std::size_t size;
+                        std::vector<field_info_type> field_infos;
+                        cuda::stream m_cuda_stream;
                     };
 
                     /** @brief Holds maps of buffers / memory regions respectively for send and in-place receive operations.
@@ -207,20 +207,20 @@ namespace gridtools {
                     template<typename Arch>
                     struct buffer_memory {
 
-                            using arch_type = Arch;
-                            using device_id_type = typename arch_traits<arch_type>::device_id_type;
-                            using vector_type = typename arch_traits<arch_type>::message_type;
+                        using arch_type = Arch;
+                        using device_id_type = typename arch_traits<arch_type>::device_id_type;
+                        using vector_type = typename arch_traits<arch_type>::message_type;
 
-                            using send_buffer_type = buffer<vector_type,pack_function_type>;
-                            using send_memory_type = std::map<device_id_type, std::map<domain_id_pair_and_tag,send_buffer_type>>;
-                            using recv_memory_type = std::map<device_id_type, std::map<domain_id_pair_and_tag,recv_ipr_info>>;
+                        using send_buffer_type = buffer<vector_type,pack_function_type>;
+                        using send_memory_type = std::map<device_id_type, std::map<domain_id_pair_and_tag,send_buffer_type>>;
+                        using recv_memory_type = std::map<device_id_type, std::map<domain_id_pair_and_tag,recv_ipr_info>>;
 
-                            std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
-                            send_memory_type send_memory;
-                            recv_memory_type recv_memory;
+                        std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
+                        send_memory_type send_memory;
+                        recv_memory_type recv_memory;
 
-                            using future_type = typename communicator_type::template future<void>;
-                            std::vector<future_type> m_recv_futures;
+                        using future_type = typename communicator_type::template future<void>;
+                        std::vector<future_type> m_recv_futures;
 
                     };
 
@@ -539,14 +539,14 @@ namespace gridtools {
                 template<typename Communicator, typename Index, typename DomainIdType>
                 struct make_communication_object_ipr_impl<Communicator, unstructured::detail::grid<Index>, DomainIdType> {
 
-                        using communicator_type = Communicator;
-                        using index_type = Index;
-                        using grid_type = unstructured::detail::grid<index_type>;
-                        using domain_id_type = DomainIdType;
+                    using communicator_type = Communicator;
+                    using index_type = Index;
+                    using grid_type = unstructured::detail::grid<index_type>;
+                    using domain_id_type = DomainIdType;
 
-                        static auto apply(communicator_type comm) {
-                            return communication_object_ipr<communicator_type, grid_type, domain_id_type>{comm};
-                        }
+                    static auto apply(communicator_type comm) {
+                        return communication_object_ipr<communicator_type, grid_type, domain_id_type>{comm};
+                    }
 
                 };
 
