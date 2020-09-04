@@ -400,9 +400,7 @@ namespace gridtools {
                             mem->recv_memory[device_id],
                             pattern.recv_halos(),
                             dom_id,
-                            device_id,
                             tag_offset,
-                            *pool,
                             field_ptr);
                         allocate_send<Arch,T>(
                             mem->send_memory[device_id],
