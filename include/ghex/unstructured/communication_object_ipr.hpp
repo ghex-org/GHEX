@@ -133,10 +133,10 @@ namespace gridtools {
                     };
 
                     /** @brief Holds a pointer to a set of iteration spaces and a callback function pointer
-                     * which is used to store a field's pack or unpack member function.
+                     * which is used to store a field's pack member function.
                      * This class also stores the offset in the serialized buffer in bytes.
                      * The type-erased field_ptr member is only used for the gpu-vector-interface.
-                     * @tparam Function either pack or unpack function pointer type */
+                     * @tparam Function pack function pointer type */
                     template<typename Function>
                     struct field_info {
                         using index_container_type = typename pattern_type::map_type::mapped_type;
@@ -185,11 +185,21 @@ namespace gridtools {
 
                     };
 
+                    /** @brief Equivalent of field_info for in-place receive. No function needed in this case.
+                     * This class also stores the offset in the serialized buffer in bytes.
+                     * The type-erased field_ptr member is only used for the gpu-vector-interface.*/
+                    struct field_info_ipr {
+                        using index_container_type = typename pattern_type::map_type::mapped_type;
+                        const index_container_type* index_container;
+                        std::size_t offset;
+                        void* field_ptr;
+                    };
+
                     /** @brief Equivalent of buffer for in-place receive
-                     * Vector = ipr_message, Function = std::function<void()>;
+                     * Vector = ipr_message, Function not needed anymore;
                      * not a specialization, because it is no longer a buffer*/
                     struct recv_ipr_info {
-                        using field_info_type = field_info<std::function<void()>>;
+                        using field_info_type = field_info_ipr;
                         address_type address;
                         int tag;
                         ipr_message message;
@@ -386,16 +396,15 @@ namespace gridtools {
                         if (!pool) {
                             pool.reset(new typename arch_traits<Arch>::pool_type{typename arch_traits<Arch>::basic_allocator_type{}});
                         }
-                        set_recv_size<Arch,T,recv_ipr_info>(
+                        set_recv_size<Arch,T>(
                             mem->recv_memory[device_id],
                             pattern.recv_halos(),
-                            [](){},
                             dom_id,
                             device_id,
                             tag_offset,
                             *pool,
                             field_ptr);
-                        allocate_send<Arch,T,typename buffer_memory<Arch>::send_buffer_type>(
+                        allocate_send<Arch,T>(
                             mem->send_memory[device_id],
                             pattern.send_halos(),
                             [field_ptr](void* buffer, const index_container_type& c, void* arg) {
@@ -410,16 +419,13 @@ namespace gridtools {
 
                     template<typename Arch,
                              typename ValueType,
-                             typename BufferType,
                              typename Memory,
                              typename Halos,
-                             typename Function,
                              typename DeviceIdType,
                              typename Pool,
                              typename Field = void>
                     void set_recv_size(Memory& memory, // reference not strictly needed here
                                        const Halos& halos,
-                                       Function&& func,
                                        domain_id_type my_dom_id,
                                        DeviceIdType device_id,
                                        int tag_offset,
@@ -427,6 +433,7 @@ namespace gridtools {
                                        Field* field_ptr) {
 
                         using byte = unsigned char;
+                        using buffer_type = recv_ipr_info;
 
                         for (const auto& p_id_c : halos) {
 
@@ -445,12 +452,12 @@ namespace gridtools {
                             if (it == memory.end()) {
                                 it = memory.insert(std::make_pair(
                                     d_p_t,
-                                    BufferType{
+                                    buffer_type{
                                         remote_address,
                                         p_id_c.first.tag + tag_offset,
                                         ipr_message{reinterpret_cast<byte*>(&(field_ptr->operator()(p_id_c.second.front().local_indices().front(), 0)))},
                                         0,
-                                        std::vector<typename BufferType::field_info_type>(),
+                                        std::vector<typename buffer_type::field_info_type>(),
                                         cuda::stream()
                                     }
                                 )).first;
@@ -463,7 +470,7 @@ namespace gridtools {
                             const auto prev_size = it->second.size;
                             const auto padding = ((prev_size + alignof(ValueType) - 1) / alignof(ValueType)) * alignof(ValueType) - prev_size;
                             it->second.field_infos.push_back(
-                                typename BufferType::field_info_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding, field_ptr}
+                                typename buffer_type::field_info_type{&p_id_c.second, prev_size + padding, field_ptr}
                             );
                             it->second.size += padding + static_cast<std::size_t>(num_elements) * sizeof(ValueType);
 
@@ -473,7 +480,6 @@ namespace gridtools {
 
                     template<typename Arch,
                              typename ValueType,
-                             typename BufferType,
                              typename Memory,
                              typename Halos,
                              typename Function,
@@ -488,6 +494,8 @@ namespace gridtools {
                                        int tag_offset,
                                        Pool& pool,
                                        Field* field_ptr = nullptr) {
+
+                        using buffer_type = typename buffer_memory<Arch>::send_buffer_type;
 
                         for (const auto& p_id_c : halos) {
 
@@ -506,12 +514,12 @@ namespace gridtools {
                             if (it == memory.end()) {
                                 it = memory.insert(std::make_pair(
                                     d_p_t,
-                                    BufferType{
+                                    buffer_type{
                                         remote_address,
                                         p_id_c.first.tag + tag_offset,
                                         arch_traits<Arch>::make_message(pool, device_id),
                                         0,
-                                        std::vector<typename BufferType::field_info_type>(),
+                                        std::vector<typename buffer_type::field_info_type>(),
                                         cuda::stream()
                                     }
                                 )).first;
@@ -524,7 +532,7 @@ namespace gridtools {
                             const auto prev_size = it->second.size;
                             const auto padding = ((prev_size + alignof(ValueType) - 1) / alignof(ValueType)) * alignof(ValueType) - prev_size;
                             it->second.field_infos.push_back(
-                                typename BufferType::field_info_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding, field_ptr});
+                                typename buffer_type::field_info_type{std::forward<Function>(func), &p_id_c.second, prev_size + padding, field_ptr});
                             it->second.size += padding + static_cast<std::size_t>(num_elements) * sizeof(ValueType);
 
                         }
