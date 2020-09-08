@@ -86,9 +86,9 @@ TEST(unstructured_parmetis, receive_type) {
             ap.push_back(b);
         }
     }
-    idx_t offset = ap.front();
+    idx_t ap_offset = ap.front();
     std::vector<idx_t> ap_n(ap.size());
-    std::transform(ap.begin(), ap.end(), ap_n.begin(), [offset](auto i){ return i - offset; }); // normalize
+    std::transform(ap.begin(), ap.end(), ap_n.begin(), [ap_offset](auto i){ return i - ap_offset; }); // normalize
 
     // Ai
     std::ifstream ai_fs("Ai.out", std::ios_base::binary);
@@ -137,18 +137,15 @@ TEST(unstructured_parmetis, receive_type) {
                          part_v.data(),
                          &comm);
 
-    // TO DO: debug info, please remove
-    if (rank == 0) {
-        std::cout << "part_v:\n";
-        debug_print(part_v);
-        std::cout << "edgecut = " << edgecut << "\n";
+    // repartition output according to parmetis labeling
+
+    using vertices_dist_type = std::map<int, std::map<idx_t, std::vector<idx_t>>>;
+    vertices_dist_type vertices_dist{};
+    for (idx_t v_id = vtxdist_v[rank], i = 0; i < ap_n.size() - 1; ++v_id, ++i) {
+        vertices_dist[part_v[i]].insert(std::make_pair(v_id, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
     }
 
-    /* // TO DO: debug info, please remove
-    std::cout << "Ap:\n";
-    debug_print(ap); */
 
-    // repartition output according to parmetis labeling
 
     // GHEX context
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
