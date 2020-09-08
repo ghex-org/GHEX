@@ -319,16 +319,14 @@ void check_exchanged_data(const domain_descriptor_type& d, const Container& fiel
 
 /** @brief Helper functor type, used as default template argument below*/
 struct domain_to_rank_identity {
-        int operator()(const domain_id_type d_id) const {
-            return static_cast<int>(d_id);
-        }
+    int operator()(const domain_id_type d_id) const {
+        return static_cast<int>(d_id);
+    }
 };
 
 
 /** @brief Ad hoc receive domain ids generator, valid only for this specific test case.
- * Even if the concept is general, the implementation of the operator() is appplication-specific.
- * TO DO: the structured can be moved to the `user_concepts.hpp` header file, though,
- * and only the implementation should be here.*/
+ * Even if the concept is general, the implementation of the operator() is appplication-specific.*/
 template <typename DomainToRankFunc = domain_to_rank_identity>
 class recv_domain_ids_gen {
 
@@ -522,7 +520,6 @@ TEST(unstructured_user_concepts, data_descriptor) {
     EXPECT_NO_THROW(co.bexchange(patterns(data)));
 
     auto h = co.exchange(patterns(data));
-    //auto h = co.exchange_ipr(patterns(data));
     h.wait();
 
     // check exchanged data
