@@ -34,6 +34,7 @@ struct range
     remote_handle m_handle;
     std::unique_ptr<range_iface> m_impl;
     remote_access_guard m_guard;
+    bool m_on_gpu;
     
     range() = default;
 
@@ -43,6 +44,7 @@ struct range
     , m_loc{info_.m_locality}
     , m_impl{new range_impl<std::remove_reference_t<Range>>(std::forward<Range>(r))}
     , m_guard(info_)
+    , m_on_gpu{field_info.m_on_gpu}
     {
         m_handle.init(field_info);
     }

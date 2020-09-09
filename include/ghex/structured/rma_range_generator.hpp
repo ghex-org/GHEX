@@ -14,6 +14,7 @@
 #include "../arch_list.hpp"
 #include "../rma/range_traits.hpp"
 #include "../rma/access_guard.hpp"
+#include "../rma/event.hpp"
 #include "./rma_range.hpp"
 #include "./rma_put.hpp"
 
@@ -53,6 +54,7 @@ struct rma_range_generator
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<unsigned char> m_archive;
+        rma::local_event m_event;
 
         template<typename IterationSpace>
         target_range(const Communicator& comm, const Field& f, rma::info field_info,
@@ -73,10 +75,24 @@ struct rma_range_generator
             m_request.wait();
         }
 
+        void recv_event_start()
+        {
+            // recv event infos
+            m_archive.resize(sizeof(rma::event_info));
+            m_request = m_comm.recv(m_archive, m_dst, m_tag);
+        }
+
+        void recv_event_end()
+        {
+            m_request.wait();
+            m_event = rma::local_event(*reinterpret_cast<rma::event_info*>(m_archive.data()));
+        }
+
         void start_target_epoch()
         {
             m_local_guard.start_target_epoch();
             // wait for event
+            m_event.wait();
         }
 
         void end_target_epoch()
@@ -108,6 +124,8 @@ struct rma_range_generator
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<unsigned char> m_archive;
+        rma::remote_event m_event;
+        bool m_on_gpu = std::is_same<typename Field::arch_type, gridtools::ghex::gpu>::value;
 
         template<typename IterationSpace>
         source_range(const Communicator& comm, const Field& f,
@@ -126,10 +144,24 @@ struct rma_range_generator
             m_request.wait();
             // creates a traget range
             m_remote_range = RangeFactory::deserialize(m_archive.data());
+            m_event = rma::remote_event(m_on_gpu, m_remote_range);
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 init(r, m_remote_range);
             });
+        }
+
+        void send_event_start()
+        {
+            // send event infos
+            m_archive.resize(sizeof(rma::event_info));
+            new(m_archive.data()) rma::event_info(m_event.get_info());
+            m_request = m_comm.send(m_archive, m_src, m_tag);
+        }
+
+        void send_event_end()
+        {
+            m_request.wait();
         }
         
         void start_source_epoch()
@@ -140,6 +172,7 @@ struct rma_range_generator
         void end_source_epoch()
         {
             // record event
+            m_event.record();
             m_remote_range.end_source_epoch();
         }
 
