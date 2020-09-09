@@ -76,6 +76,7 @@ struct rma_range_generator
         void start_target_epoch()
         {
             m_local_guard.start_target_epoch();
+            // wait for event
         }
 
         void end_target_epoch()
@@ -138,6 +139,7 @@ struct rma_range_generator
 
         void end_source_epoch()
         {
+            // record event
             m_remote_range.end_source_epoch();
         }
 

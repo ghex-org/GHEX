@@ -13,9 +13,7 @@
 
 #include "./locality.hpp"
 #include "./thread/access_guard.hpp"
-#ifdef GHEX_USE_XPMEM
-#include "./xpmem/access_guard.hpp"
-#endif
+#include "./shmem/access_guard.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -29,17 +27,13 @@ struct local_access_guard
 {
     locality m_locality;
     thread::local_access_guard m_thread_guard;
-#ifdef GHEX_USE_XPMEM
-    xpmem::local_access_guard m_process_guard;
-#endif
+    shmem::local_access_guard m_process_guard;
 
     struct info
     {
         locality m_locality;
         thread::local_access_guard::info m_thread_guard_info;
-#ifdef GHEX_USE_XPMEM
-        xpmem::local_access_guard::info m_process_guard_info;
-#endif
+        shmem::local_access_guard::info m_process_guard_info;
     };
 
     local_access_guard(locality loc)
@@ -52,9 +46,7 @@ struct local_access_guard
     {
         return {m_locality
             , m_thread_guard.get_info()
-#ifdef GHEX_USE_XPMEM
             , m_process_guard.get_info()
-#endif
         };
     }
 
@@ -63,17 +55,13 @@ struct local_access_guard
     void start_target_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.start_target_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.start_target_epoch();
-#endif
     }
 
     void end_target_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.end_target_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.end_target_epoch();
-#endif
     }
 };
 
@@ -84,16 +72,12 @@ struct remote_access_guard
 {
     locality m_locality;
     thread::remote_access_guard m_thread_guard;
-#ifdef GHEX_USE_XPMEM
-    xpmem::remote_access_guard m_process_guard;
-#endif
+    shmem::remote_access_guard m_process_guard;
 
     remote_access_guard(typename local_access_guard::info info_)
     : m_locality(info_.m_locality)
     , m_thread_guard(info_.m_thread_guard_info)
-#ifdef GHEX_USE_XPMEM
     , m_process_guard(info_.m_process_guard_info)
-#endif
     {}
     remote_access_guard() = default;
     remote_access_guard(remote_access_guard&&) = default;
@@ -102,17 +86,13 @@ struct remote_access_guard
     void start_source_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.start_source_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.start_source_epoch();
-#endif
     }
     
     void end_source_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.end_source_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.end_source_epoch();
-#endif
     }
 };
 

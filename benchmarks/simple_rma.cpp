@@ -245,7 +245,12 @@ struct simulation
                 auto start = clock_type::now();
                 for (int t = 0; t < num_reps; ++t)
                 {
+                    auto start2 = clock_type::now();
                     cos[j].exchange().wait();
+                    auto end2 = clock_type::now();
+                    std::chrono::duration<double> elapsed_seconds2 = end2 - start2;
+                    if (comm.rank() == 0 && j == 0)
+                        std::cout << "elapsed time: " << elapsed_seconds2.count() << "s\n";
                 }
                 auto end = clock_type::now();
                 std::chrono::duration<double> elapsed_seconds = end - start;

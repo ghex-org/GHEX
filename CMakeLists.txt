@@ -32,6 +32,7 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
 find_package(OpenMP)
+find_library(LIBRT rt REQUIRED)
 
 set(_required_gridtools_version "2.0.0")
 if(NOT _gridtools_already_fetched)
@@ -105,6 +106,8 @@ endif()
 if (GHEX_ENABLE_ATLAS_BINDINGS)
     target_link_libraries(ghexlib INTERFACE atlas)
 endif()
+target_link_libraries(ghexlib INTERFACE ${LIBRT})
+
 target_compile_features(ghexlib INTERFACE cxx_std_14)
 
 # Enable adding of tests etc

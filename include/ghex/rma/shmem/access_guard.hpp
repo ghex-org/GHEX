@@ -8,11 +8,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP
-#define INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP
+#ifndef INCLUDED_GHEX_RMA_SHMEM_ACCESS_GUARD_HPP
+#define INCLUDED_GHEX_RMA_SHMEM_ACCESS_GUARD_HPP
 
-#include <mutex>
-#include <condition_variable>
+#include <boost/interprocess/sync/interprocess_mutex.hpp>
+#include <boost/interprocess/sync/interprocess_condition.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
 #include <memory>
 #include "../access_mode.hpp"
 #include "./handle.hpp"
@@ -20,31 +21,34 @@
 namespace gridtools {
 namespace ghex {
 namespace rma {
-namespace thread {
+namespace shmem {
 
 struct access_state
 {
     access_mode m_mode = access_mode::local;
-    std::mutex m_mtx;
-    std::condition_variable m_cv;
+    boost::interprocess::interprocess_mutex m_mtx;
+    boost::interprocess::interprocess_condition  m_cv;
 };
 
 struct local_access_guard
 {
     struct impl
     {
-        access_state m_state;
+        void* m_ptr = nullptr;
         local_data_holder m_handle;
+        access_state& m_state;
         
         impl()
-        : m_state{}
-        , m_handle(&m_state, sizeof(access_state), false)    
+        : m_handle(&m_ptr, sizeof(access_state), false)
+        , m_state{ *(new(m_ptr) access_state{}) }
         {}
     };
 
+    using lock_type = boost::interprocess::scoped_lock<boost::interprocess::interprocess_mutex>;    
+
     struct info
     {
-        ::gridtools::ghex::rma::thread::info m_info;
+        ::gridtools::ghex::rma::shmem::info m_info;
     };
 
     std::unique_ptr<impl> m_impl;
@@ -57,19 +61,19 @@ struct local_access_guard
 
     info get_info() const
     {
-        return { m_impl->m_handle.get_info()  };
+        return { m_impl->m_handle.get_info() };
     }
 
     void start_target_epoch()
     {
-        std::unique_lock<std::mutex> lk{m_impl->m_state.m_mtx};
+        lock_type lk{m_impl->m_state.m_mtx};
         m_impl->m_state.m_cv.wait(lk, [this] { return m_impl->m_state.m_mode == access_mode::local; });
     }
-
+    
     void end_target_epoch()
     {
         {
-        std::lock_guard<std::mutex> lk{m_impl->m_state.m_mtx};
+        lock_type lk{m_impl->m_state.m_mtx};
         m_impl->m_state.m_mode = access_mode::remote;
         }
         m_impl->m_state.m_cv.notify_one();
@@ -79,6 +83,8 @@ struct local_access_guard
 
 struct remote_access_guard
 {
+    using lock_type = boost::interprocess::scoped_lock<boost::interprocess::interprocess_mutex>;    
+
     std::unique_ptr<remote_data_holder> m_handle;
 
     remote_access_guard(typename local_access_guard::info info_)
@@ -95,23 +101,24 @@ struct remote_access_guard
 
     void start_source_epoch()
     {
-        std::unique_lock<std::mutex> lk{get_ptr()->m_mtx};
+        lock_type lk{get_ptr()->m_mtx};
         get_ptr()->m_cv.wait(lk, [this] { return get_ptr()->m_mode == access_mode::remote; });
     }
 
     void end_source_epoch()
     {
         {
-        std::lock_guard<std::mutex> lk{get_ptr()->m_mtx};
+        lock_type lk{get_ptr()->m_mtx};
         get_ptr()->m_mode = access_mode::local;
         }
         get_ptr()->m_cv.notify_one();
     }
 };
 
-} // namespace thread
+} // namespace shmem
 } // namespace rma
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_RMA_THREAD_ACCESS_GUARD_HPP */
+#endif /* INCLUDED_GHEX_RMA_SHMEM_ACCESS_GUARD_HPP */
+
