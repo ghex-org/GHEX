@@ -20,7 +20,7 @@ namespace rma {
 struct event_info
 {
     bool m_target_on_gpu;
-    locality m_locality;
+    locality m_loc;
 #ifdef __CUDACC__
     cudaIpcEventHandle_t m_event_handle;
     cudaEvent_t m_event;
@@ -32,14 +32,14 @@ struct local_event
     struct data_holder
     {
         bool m_target_on_gpu;
-        locality m_locality;
+        locality m_loc;
 #ifdef __CUDACC__
         cudaEvent_t m_event;
         cudaIpcEventHandle_t m_event_handle;
 #endif
         data_holder(bool target_on_gpu, locality loc)
         : m_target_on_gpu{target_on_gpu}
-        , m_locality{loc}
+        , m_loc{loc}
         {
 #ifdef __CUDACC__
             {
@@ -63,7 +63,7 @@ struct local_event
 
         event_info get_info() const
         {
-            return { m_target_on_gpu, m_locality
+            return { m_target_on_gpu, m_loc
 #ifdef __CUDACC__
                 , m_event_handle, m_event
 #endif
@@ -103,7 +103,7 @@ struct remote_event
     {
         bool m_source_on_gpu;
         bool m_target_on_gpu;
-        locality m_locality;
+        locality m_loc;
 #ifdef __CUDACC__
         cudaIpcEventHandle_t m_event_handle;
         cudaEvent_t m_event;
@@ -113,7 +113,7 @@ struct remote_event
         data_holder(const event_info& info_, bool source_on_gpu)
         : m_source_on_gpu{source_on_gpu}
         , m_target_on_gpu{info_.m_target_on_gpu}
-        , m_locality{info_.m_locality}
+        , m_loc{info_.m_loc}
         {
 #ifdef __CUDACC__
             if (m_source_on_gpu || m_target_on_gpu)

@@ -153,6 +153,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
             cudaMemcpyDeviceToDevice, st);
     },
     s.m_begin, s.m_end);
+    cudaStreamSynchronize(st);
 #endif
 }
 
