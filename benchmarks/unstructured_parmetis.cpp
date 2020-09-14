@@ -229,24 +229,6 @@ TEST(unstructured_parmetis, receive_type) {
                   r_adjncy_rank.data(), r_adjncy_rank_counts.data(), r_adjncy_rank_displs.data(), MPI_BYTE,
                   comm);
 
-    // TO DO: debug info, please remove
-    if (rank == 0) {
-        std::cout << "s_vertices ids:\n";
-        debug_print(s_v_ids_rank);
-        std::cout << "r_vertices_ids:\n";
-        debug_print(r_v_ids_rank);
-        std::cout << "s_adjncy sizes:\n";
-        debug_print(s_adjncy_size_vertex_rank);
-        std::cout << "r_adjncy_sizes:\n";
-        debug_print(r_adjncy_size_vertex_rank);
-        std::cout << "s_adjncy capacity = " << s_adjncy_rank.capacity() << "\n";
-        std::cout << "s adjncy:\n";
-        debug_print(s_adjncy_rank);
-        std::cout << "r_adjncy capacity = " << r_adjncy_rank.capacity() << "\n";
-        std::cout << "r_adjncy:\n";
-        debug_print(r_adjncy_rank);
-    }
-
     // FROM HERE
 
     // GHEX context
