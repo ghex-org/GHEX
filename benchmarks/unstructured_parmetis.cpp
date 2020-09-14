@@ -203,7 +203,8 @@ TEST(unstructured_parmetis, receive_type) {
                   comm);
 
     // 5) all-to-all: adjacency per rank
-    std::vector<idx_t> s_adjncy_rank(std::accumulate(s_adjncy_size_vertex_rank.begin(), s_adjncy_size_vertex_rank.end(), 0));
+    std::vector<idx_t> s_adjncy_rank{};
+    s_adjncy_rank.reserve(std::accumulate(s_adjncy_size_vertex_rank.begin(), s_adjncy_size_vertex_rank.end(), 0));
     for (const auto& r_m_pair : vertices_dist) {
         for (const auto& v_a_pair : r_m_pair.second) {
             s_adjncy_rank.insert(s_adjncy_rank.end(), v_a_pair.second.begin(), v_a_pair.second.end());
@@ -212,7 +213,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<int> s_adjncy_rank_counts{};
     s_adjncy_rank_counts.reserve(size);
     for (auto a_it = s_adjncy_size_vertex_rank.begin(), r_it = s_n_vertices_rank.begin(); r_it < s_n_vertices_rank.end(); ++r_it) {
-        s_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(int));
+        s_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(idx_t));
         a_it += *r_it;
     }
     std::vector<int> s_adjncy_rank_displs = counts_to_displs(s_adjncy_rank_counts);
@@ -220,13 +221,31 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<int> r_adjncy_rank_counts{};
     r_adjncy_rank_counts.reserve(size);
     for (auto a_it = r_adjncy_size_vertex_rank.begin(), r_it = r_n_vertices_rank.begin(); r_it < r_n_vertices_rank.end(); ++r_it) {
-        r_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(int));
+        r_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(idx_t));
         a_it += *r_it;
     }
     std::vector<int> r_adjncy_rank_displs = counts_to_displs(r_adjncy_rank_counts);
     MPI_Alltoallv(s_adjncy_rank.data(), s_adjncy_rank_counts.data(), s_adjncy_rank_displs.data(), MPI_BYTE,
                   r_adjncy_rank.data(), r_adjncy_rank_counts.data(), r_adjncy_rank_displs.data(), MPI_BYTE,
                   comm);
+
+    // TO DO: debug info, please remove
+    if (rank == 0) {
+        std::cout << "s_vertices ids:\n";
+        debug_print(s_v_ids_rank);
+        std::cout << "r_vertices_ids:\n";
+        debug_print(r_v_ids_rank);
+        std::cout << "s_adjncy sizes:\n";
+        debug_print(s_adjncy_size_vertex_rank);
+        std::cout << "r_adjncy_sizes:\n";
+        debug_print(r_adjncy_size_vertex_rank);
+        std::cout << "s_adjncy capacity = " << s_adjncy_rank.capacity() << "\n";
+        std::cout << "s adjncy:\n";
+        debug_print(s_adjncy_rank);
+        std::cout << "r_adjncy capacity = " << r_adjncy_rank.capacity() << "\n";
+        std::cout << "r_adjncy:\n";
+        debug_print(r_adjncy_rank);
+    }
 
     // FROM HERE
 
