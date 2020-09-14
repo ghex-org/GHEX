@@ -49,15 +49,16 @@ struct local_data_holder
 struct remote_data_holder
 {
     bool m_on_gpu;
+    locality m_loc;
     cudaIpcMemHandle_t m_cuda_handle;
-    void* m_cuda_ptr;
+    void* m_cuda_ptr = nullptr;
         
-    remote_data_holder(const info& info_)
+    remote_data_holder(const info& info_, locality loc)
     : m_on_gpu{info_.m_on_gpu}
     , m_cuda_handle{info_.m_cuda_handle}
     {
         // attach rma resource
-        if (m_on_gpu)
+        if (m_on_gpu && m_loc == locality::process)
         {
             cudaIpcOpenMemHandle(&m_cuda_ptr, m_cuda_handle, cudaIpcMemLazyEnablePeerAccess);
         }
@@ -66,7 +67,7 @@ struct remote_data_holder
     ~remote_data_holder()
     {
         // detach rma resource
-        if (m_on_gpu)
+        if (m_on_gpu && m_loc == locality::process)
         {
             cudaIpcCloseMemHandle(m_cuda_ptr); 
         }

@@ -54,6 +54,7 @@ struct rma_range_generator
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<unsigned char> m_archive;
+        bool m_on_gpu = std::is_same<typename Field::arch_type, gridtools::ghex::gpu>::value;
         rma::local_event m_event;
 
         template<typename IterationSpace>
@@ -64,28 +65,16 @@ struct rma_range_generator
         , m_local_range{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_dst{dst}
         , m_tag{tag}
+        , m_event{m_on_gpu, loc}
         {
             m_archive.resize(RangeFactory::serial_size);
-            m_archive = RangeFactory::serialize(field_info, m_local_guard, m_local_range);
+            m_archive = RangeFactory::serialize(field_info, m_local_guard, m_event, m_local_range);
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
         void send()
         {
             m_request.wait();
-        }
-
-        void recv_event_start()
-        {
-            // recv event infos
-            m_archive.resize(sizeof(rma::event_info));
-            m_request = m_comm.recv(m_archive, m_dst, m_tag);
-        }
-
-        void recv_event_end()
-        {
-            m_request.wait();
-            m_event = rma::local_event(*reinterpret_cast<rma::event_info*>(m_archive.data()));
         }
 
         void start_target_epoch()
@@ -124,8 +113,6 @@ struct rma_range_generator
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<unsigned char> m_archive;
-        rma::remote_event m_event;
-        bool m_on_gpu = std::is_same<typename Field::arch_type, gridtools::ghex::gpu>::value;
 
         template<typename IterationSpace>
         source_range(const Communicator& comm, const Field& f,
@@ -144,26 +131,12 @@ struct rma_range_generator
             m_request.wait();
             // creates a traget range
             m_remote_range = RangeFactory::deserialize(m_archive.data());
-            m_event = rma::remote_event(m_on_gpu, m_remote_range);
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 init(r, m_remote_range);
             });
         }
 
-        void send_event_start()
-        {
-            // send event infos
-            m_archive.resize(sizeof(rma::event_info));
-            new(m_archive.data()) rma::event_info(m_event.get_info());
-            m_request = m_comm.send(m_archive, m_src, m_tag);
-        }
-
-        void send_event_end()
-        {
-            m_request.wait();
-        }
-        
         void start_source_epoch()
         {
             m_remote_range.start_source_epoch();
@@ -172,7 +145,7 @@ struct rma_range_generator
         void end_source_epoch()
         {
             // record event
-            m_event.record();
+            m_remote_range.m_event.record();
             m_remote_range.end_source_epoch();
         }
 

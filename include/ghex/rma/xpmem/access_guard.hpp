@@ -13,6 +13,7 @@
 
 #include <memory>
 #include "../access_mode.hpp"
+#include "../locality.hpp"
 #include "./handle.hpp"
 
 namespace gridtools {
@@ -85,9 +86,10 @@ struct remote_access_guard
 {
     std::unique_ptr<remote_data_holder> m_handle;
 
-    remote_access_guard(typename local_access_guard::info info_)
-    : m_handle{std::make_unique<remote_data_holder>(info_.m_info)}
+    remote_access_guard(typename local_access_guard::info info_, locality loc)
+    : m_handle{std::make_unique<remote_data_holder>(info_.m_info, loc)}
     {}
+
     remote_access_guard() = default;
     remote_access_guard(remote_access_guard&&) = default;
     remote_access_guard& operator=(remote_access_guard&&) = default;

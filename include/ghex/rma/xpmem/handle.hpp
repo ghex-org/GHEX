@@ -82,22 +82,24 @@ struct local_data_holder
 struct remote_data_holder
 {
     bool m_on_gpu;
+    locality m_loc;
     std::uintptr_t m_xpmem_start;
     std::uintptr_t m_xpmem_size;  
     std::uintptr_t m_xpmem_offset;  
     xpmem_segid_t  m_xpmem_endpoint;
     xpmem_addr     m_xpmem_addr;
-    void*          m_xpmem_ptr;
+    void*          m_xpmem_ptr = nullptr;
         
-    remote_data_holder(const info& info_)
+    remote_data_holder(const info& info_, locality loc)
     : m_on_gpu{info_.m_on_gpu}
+    , m_loc{loc}
     , m_xpmem_start{info_.m_xpmem_start}
     , m_xpmem_size{info_.m_xpmem_size}
     , m_xpmem_offset{info_.m_xpmem_offset}
     , m_xpmem_endpoint{info_.m_xpmem_endpoint}
     {
         // attach rma resource
-        if (!m_on_gpu)
+        if (!m_on_gpu && m_loc == locality::process)
         {
             m_xpmem_addr.offset = 0;
             m_xpmem_addr.apid = xpmem_get(m_xpmem_endpoint, XPMEM_RDWR, XPMEM_PERMIT_MODE, NULL);
@@ -108,7 +110,7 @@ struct remote_data_holder
     ~remote_data_holder()
     {
         // detach rma resource
-        if (!m_on_gpu)
+        if (!m_on_gpu && m_loc == locality::process)
         {
             xpmem_detach((void*)m_xpmem_start);
             xpmem_release(m_xpmem_addr.apid);

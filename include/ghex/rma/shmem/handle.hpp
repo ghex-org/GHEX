@@ -37,15 +37,15 @@ struct local_data_holder
     local_data_holder(void** ptr, unsigned int size, bool on_gpu)
     : m_on_gpu{on_gpu}
     , m_id{}
-    , m_shmem_object{
-        boost::interprocess::create_only, 
-        m_id.name().c_str(),
-        boost::interprocess::read_write}
     {
         *ptr = nullptr;
         // aquire the rma resource
         if (!m_on_gpu)
         {
+            m_shmem_object = boost::interprocess::shared_memory_object{
+                boost::interprocess::create_only, 
+                m_id.name().c_str(),
+                boost::interprocess::read_write};
             // set size
             m_shmem_object.truncate(size);
             // map the whole memory
@@ -75,20 +75,22 @@ struct local_data_holder
 struct remote_data_holder
 {
     bool m_on_gpu;
+    locality m_loc;
     boost::interprocess::shared_memory_object m_shmem_object;
     boost::interprocess::mapped_region m_region;
     void* m_shmem_ptr = nullptr;
         
-    remote_data_holder(const info& info_)
+    remote_data_holder(const info& info_, locality loc)
     : m_on_gpu{info_.m_on_gpu}
-    , m_shmem_object{
-            boost::interprocess::open_only, 
-            info_.m_id.m_name,
-            boost::interprocess::read_write}
+    , m_loc{loc}
     {
         // attach rma resource
-        if (!m_on_gpu)
+        if (!m_on_gpu && m_loc == locality::process)
         {
+            m_shmem_object = boost::interprocess::shared_memory_object{
+                boost::interprocess::open_only, 
+                info_.m_id.m_name,
+                boost::interprocess::read_write};
             m_region = boost::interprocess::mapped_region{
                 m_shmem_object,
                 boost::interprocess::read_write};

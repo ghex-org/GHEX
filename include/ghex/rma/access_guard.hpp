@@ -76,9 +76,10 @@ struct remote_access_guard
 
     remote_access_guard(typename local_access_guard::info info_)
     : m_locality(info_.m_locality)
-    , m_thread_guard(info_.m_thread_guard_info)
-    , m_process_guard(info_.m_process_guard_info)
+    , m_thread_guard(info_.m_thread_guard_info, m_locality)
+    , m_process_guard(info_.m_process_guard_info, m_locality)
     {}
+
     remote_access_guard() = default;
     remote_access_guard(remote_access_guard&&) = default;
     remote_access_guard& operator=(remote_access_guard&&) = default;

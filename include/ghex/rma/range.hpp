@@ -15,6 +15,7 @@
 #include "./locality.hpp"
 #include "./handle.hpp"
 #include "./access_guard.hpp"
+#include "./event.hpp"
 #include "./range_iface.hpp"
 
 namespace gridtools {
@@ -35,18 +36,20 @@ struct range
     std::unique_ptr<range_iface> m_impl;
     remote_access_guard m_guard;
     bool m_on_gpu;
+    remote_event m_event;
     
     range() = default;
 
     template<typename Range>
-    range(Range&& r, int id, info field_info, typename local_access_guard::info info_)
+    range(Range&& r, int id, info field_info, typename local_access_guard::info info_, event_info e_info_)
     : m_id{id}
     , m_loc{info_.m_locality}
     , m_impl{new range_impl<std::remove_reference_t<Range>>(std::forward<Range>(r))}
     , m_guard(info_)
     , m_on_gpu{field_info.m_on_gpu}
+    , m_event{e_info_, m_on_gpu}
     {
-        m_handle.init(field_info);
+        m_handle.init(field_info, m_loc);
     }
 
     range(range&&) = default;

@@ -365,29 +365,8 @@ public:
                     {
                         r.recv();
                     }
-                for (auto& t_vec : t_range.m_ranges)
-                    for (auto& r : t_vec)
-                    {
-                        r.recv_event_start();
-                    }
-                for (auto& s_vec : s_range.m_ranges)
-                    for (auto& r : s_vec)
-                    {
-                        r.send_event_start();
-                    }
-                for (auto& t_vec : t_range.m_ranges)
-                    for (auto& r : t_vec)
-                    {
-                        r.recv_event_end();
-                    }
-                for (auto& s_vec : s_range.m_ranges)
-                    for (auto& r : s_vec)
-                    {
-                        r.send_event_end();
-                    }
             });
         }
-        
         m_initialized = true;
     }
     
