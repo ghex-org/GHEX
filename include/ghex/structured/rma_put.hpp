@@ -151,9 +151,9 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
     {
         cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size, 
             cudaMemcpyDeviceToDevice, st);
+    cudaStreamSynchronize(st);
     },
     s.m_begin, s.m_end);
-    cudaStreamSynchronize(st);
 #endif
 }
 

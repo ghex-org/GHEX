@@ -43,7 +43,7 @@ struct simulation_1
     {
         void operator()(T* ptr)
         {
-            //cudaFree(ptr);
+            cudaFree(ptr);
         }
     };
 #endif
@@ -414,11 +414,11 @@ TEST(local_rma, single)
     EXPECT_TRUE(sim.check());
 }
 
-/*TEST(local_rma, multi)
+TEST(local_rma, multi)
 {
     simulation_1 sim(true);
     sim.exchange();
     sim.exchange();
     sim.exchange();
     EXPECT_TRUE(sim.check());
-}*/
+}
