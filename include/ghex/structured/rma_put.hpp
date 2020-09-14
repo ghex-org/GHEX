@@ -42,7 +42,11 @@ using gpu_to_gpu = std::integral_constant<bool,
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_cpu<SourceField,TargetField>::value && !rma_range<SourceField>::fuse_components::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t)
+put(rma_range<SourceField>& s, rma_range<TargetField>& t
+#ifdef __CUDACC__
+    , cudaStream_t
+#endif
+)
 {
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
@@ -60,7 +64,11 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t)
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_cpu<SourceField,TargetField>::value && rma_range<SourceField>::fuse_components::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t)
+put(rma_range<SourceField>& s, rma_range<TargetField>& t
+#ifdef __CUDACC__
+    , cudaStream_t
+#endif
+)
 {
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
@@ -79,7 +87,11 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t)
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_gpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>&, rma_range<TargetField>&)
+put(rma_range<SourceField>&, rma_range<TargetField>&
+#ifdef __CUDACC__
+    , cudaStream_t
+#endif
+)
 {
     // TODO
 }
@@ -87,7 +99,11 @@ put(rma_range<SourceField>&, rma_range<TargetField>&)
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     gpu_to_cpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>&, rma_range<TargetField>&)
+put(rma_range<SourceField>&, rma_range<TargetField>&
+#ifdef __CUDACC__
+    , cudaStream_t
+#endif
+)
 {
     // TODO
 }
@@ -113,14 +129,30 @@ __global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     gpu_to_gpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t)
+put(rma_range<SourceField>& s, rma_range<TargetField>& t
+#ifdef __CUDACC__
+    , cudaStream_t st
+#endif
+)
 {
 #ifdef __CUDACC__
-    cuda::stream st;
+    /*//cuda::stream st;
     static constexpr unsigned int block_dim = 128;
     const unsigned int num_blocks = (s.m_size+block_dim-1)/block_dim;
     put_device_to_device_kernel<<<num_blocks,block_dim,0,st>>>(s, t);
-    st.sync();
+    //st.sync();*/
+    using sv_t = rma_range<SourceField>;
+    using coordinate = typename sv_t::coordinate;
+    gridtools::ghex::detail::for_loop<
+        sv_t::dimension::value,
+        sv_t::dimension::value,
+        typename sv_t::layout, 1>::
+    apply([&s,&t,&st](auto... c)
+    {
+        cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size, 
+            cudaMemcpyDeviceToDevice, st);
+    },
+    s.m_begin, s.m_end);
 #endif
 }
 

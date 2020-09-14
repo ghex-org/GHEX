@@ -160,7 +160,11 @@ struct rma_range_generator
         template<typename TargetRange>
         void put(TargetRange& tr)
         {
-            ::gridtools::ghex::structured::put(m_local_range, tr);
+            ::gridtools::ghex::structured::put(m_local_range, tr
+#ifdef __CUDACC__
+                    , m_remote_range.m_event.get_stream()
+#endif
+            );
         }
 
     private:
