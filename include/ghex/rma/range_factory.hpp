@@ -113,7 +113,6 @@ private:
         buffer += a16(sizeof(event_info));
         std::memcpy(buffer, &r, sizeof(Range));
     }
-
 };
 
 } // namespace rma

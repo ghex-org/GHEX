@@ -27,6 +27,12 @@ enum class locality
     remote
 };
 
+/** @brief Determine the locality of a neighbor rank
+  * @tparam Communicator Communicator type
+  * @param comm a communicator instance
+  * @param remote_rank neighbor rank
+  * @return thread if on the same rank, process if on shared memory (provided xpmem is available)
+  * and remote otherwise. */
 template<typename Communicator>
 static locality is_local(Communicator comm, int remote_rank)
 {
