@@ -87,9 +87,9 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_gpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>&, rma_range<TargetField>&
+put(rma_range<SourceField>& s, rma_range<TargetField>& t
 #ifdef __CUDACC__
-    , cudaStream_t
+    , cudaStream_t st
 #endif
 )
 {
@@ -112,9 +112,9 @@ put(rma_range<SourceField>&, rma_range<TargetField>&
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     gpu_to_cpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>&, rma_range<TargetField>&
+put(rma_range<SourceField>& s, rma_range<TargetField>& t
 #ifdef __CUDACC__
-    , cudaStream_t
+    , cudaStream_t st
 #endif
 )
 {
