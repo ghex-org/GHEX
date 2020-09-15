@@ -18,6 +18,9 @@ namespace ghex {
 namespace rma {
 namespace thread {
 
+// Below are implementations of a handle in a multi-threading setting.
+// Please refer to the documentation in rma/handle.hpp for further explanations.
+
 struct info
 {
     void* m_ptr;

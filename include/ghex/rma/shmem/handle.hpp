@@ -21,6 +21,9 @@ namespace ghex {
 namespace rma {
 namespace shmem {
 
+// Below are implementations of a handle in a multi-process setting using shmem.
+// Please refer to the documentation in rma/handle.hpp for further explanations.
+
 struct info
 {
     bool m_on_gpu;

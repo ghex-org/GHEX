@@ -21,6 +21,7 @@ namespace gridtools {
 namespace ghex {
 namespace rma {
 
+/** @brief Universally unique identifier used for labelling shared memory regions. */
 struct uuid
 {
     boost::uuids::uuid m_id;
