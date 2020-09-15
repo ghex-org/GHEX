@@ -55,7 +55,7 @@ namespace ghex {
 // 2. access guards: synchronize access to data
 // 3. events: additional synchronization mechanisms (used for GPUs)
 // 4. ranges: abstract representation of a data portion which shall be exposed (i.e. a halo)
-// 5. range factory: a class which type-erased fields/halos for transport through the network 
+// 5. range factory: a class which type-erases fields/halos for transport through the network 
 // 6. bulk communication object: user facing communication interface
 // 7. range generator: type which can generate ranges from halos. This class needs to be implemented
 // for each grid type in ghex. So far only regular grids are supported.

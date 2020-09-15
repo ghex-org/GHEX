@@ -20,7 +20,7 @@ namespace rma {
 namespace cuda {
 
 /** @brief  A cache for gpu rma pointers. Cuda IPC has a restriction that a memory region can only
-  * be attached once per process. Therefore, we need a cache to loop this up. */
+  * be attached once per process. Therefore, we need a cache to look this up. */
 struct resource_cache
 {
     struct impl_t

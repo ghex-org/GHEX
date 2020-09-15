@@ -17,7 +17,8 @@
 namespace gridtools {
 namespace ghex {
 namespace rma {
-        
+
+// POD event data
 struct event_info
 {
     bool m_target_on_gpu;
@@ -28,6 +29,12 @@ struct event_info
 #endif
 };
 
+/** @brief Events are used to synchronize cuda streams across threads/processes. Similar to handles,
+  * they consist of a local and a remote part and are associated with a range.
+  *
+  * A local event is created at the put target site and can be waited upon. The asynchronous GPU
+  * kernels involved with the one-sided put are guaranteed to be finished once the wait function
+  * returns. */
 struct local_event
 {
     struct data_holder
@@ -99,6 +106,12 @@ struct local_event
     }
 };
 
+/** @brief Events are used to synchronize cuda streams across threads/processes. Similar to handles,
+  * they consist of a local and a remote part and are associated with a range.
+  *
+  * A remote event is created at the put source site. It exposes a stream and it allows for
+  * registering an event. This event can then be waited upon by the local counterpart. All
+  * asynchronous GPU kernels should use the provided stream. */
 struct remote_event
 {
     struct data_holder
