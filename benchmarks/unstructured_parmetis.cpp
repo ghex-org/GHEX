@@ -9,6 +9,7 @@
  * 
  */
 
+#include <cassert>
 #include <cstdint>
 #include <fstream>
 #include <vector>
@@ -27,11 +28,14 @@
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
 #include <ghex/threads/std_thread/primitives.hpp>
-#include <ghex/unstructured/pattern.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
-// include communication object header file
+#include <ghex/pattern.hpp>
+#include <ghex/unstructured/pattern.hpp>
+#include <ghex/unstructured/grid.hpp>
+#include <ghex/communication_object_2.hpp>
 
 
+// GHEX type definitions
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
@@ -39,6 +43,13 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 using transport = gridtools::ghex::tl::ucx_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
+using domain_id_type = int;
+using global_index_type = idx_t;
+using domain_descriptor_type = gridtools::ghex::unstructured::domain_descriptor<domain_id_type, global_index_type>;
+using halo_generator_type = gridtools::ghex::unstructured::halo_generator<domain_id_type, global_index_type>;
+using grid_type = gridtools::ghex::unstructured::grid;
+template<typename T>
+using data_descriptor_cpu_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, T>;
 
 
 template<typename T>
@@ -59,6 +70,33 @@ std::vector<int> counts_to_displs(const std::vector<int>& counts) {
         displs[i] = displs[i-1] + counts[i-1];
     }
     return displs;
+}
+
+template<typename Domain, typename Field, typename O>
+void initialize_field(const Domain& d, Field& f, O d_id_offset) {
+    using value_type = typename Field::value_type;
+    assert(f.size() == d.size());
+    for (std::size_t i = 0; i < d.inner_size(); ++i) {
+        f[i] = static_cast<value_type>(d.domain_id()) * d_id_offset + static_cast<value_type>(d.vertices()[i]);
+    }
+}
+
+template<typename Domain, typename Pattern, typename Field, typename O>
+void check_exchanged_data(const Domain& d, const Pattern& p, const Field& f, O d_id_offset) {
+    using domain_id_type = typename Domain::domain_id_type;
+    using index_type = typename Pattern::index_type;
+    using value_type = typename Field::value_type;
+    std::map<index_type, domain_id_type> halo_map{}; // index -> recv_domain_id
+    for (const auto& rh : p.recv_halos()) {
+        for (const auto i : rh.second.front().local_indices()) {
+            halo_map.insert(std::make_pair(i, rh.first.id));
+        }
+    }
+    for (const auto& pair : halo_map) {
+        value_type actual = f[pair.first];
+        value_type expected = static_cast<value_type>(pair.second) * d_id_offset + static_cast<value_type>(d.vertices()[pair.first]);
+        EXPECT_EQ(actual, expected);
+    }
 }
 
 template<typename C>
@@ -160,7 +198,7 @@ TEST(unstructured_parmetis, receive_type) {
         vertices_dist[part_v[i]].insert(std::make_pair(v_id, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
     }
 
-    // 2) all-to-all: number of vertices per rank (use of int type is due to mpi constraints)
+    // 2) all-to-all: number of vertices per rank
     std::vector<int> s_n_vertices_rank(size);
     std::transform(vertices_dist.begin(), vertices_dist.end(), s_n_vertices_rank.begin(), [](const auto& r_m_pair){ return r_m_pair.second.size(); });
     std::vector<int> r_n_vertices_rank(size);
@@ -185,7 +223,7 @@ TEST(unstructured_parmetis, receive_type) {
                   r_v_ids_rank.data(), r_v_ids_rank_counts.data(), r_v_ids_rank_displs.data(), MPI_BYTE,
                   comm);
 
-    // 4) all-to-all: adjacency size per vertex per rank (use of int type is due to mpi constraints)
+    // 4) all-to-all: adjacency size per vertex per rank
     std::vector<int> s_adjncy_size_vertex_rank{};
     s_adjncy_size_vertex_rank.reserve(ap_n.size() - 1);
     for (const auto& r_m_pair : vertices_dist) {
@@ -229,14 +267,33 @@ TEST(unstructured_parmetis, receive_type) {
                   r_adjncy_rank.data(), r_adjncy_rank_counts.data(), r_adjncy_rank_displs.data(), MPI_BYTE,
                   comm);
 
-    // FROM HERE
+    // =======================================================================
 
     // GHEX context
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
+    int gh_rank = context.rank();
 
-    // GHEX user concepts
+    // GHEX setup
+    domain_id_type d_id{gh_rank}; // 1 domain per rank
+    domain_descriptor_type d{d_id, r_v_ids_rank, r_adjncy_rank}; // CSR constructor
+    std::vector<domain_descriptor_type> local_domains{d};
+    halo_generator_type hg{};
+    auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+    using pattern_container_type = decltype(p);
+    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+    std::vector<idx_t> f(d.size(), 0);
+    initialize_field(d, f, 1000);
+    data_descriptor_cpu_type<idx_t> data{d, f};
 
+    // GHEX exchange
+    auto h = co.exchange(p(data));
+    h.wait();
+
+    // check
+    check_exchanged_data(d, p[0], f, 1000);
+
+    // MPI setup
     MPI_Comm_free(&comm);
 
 }
