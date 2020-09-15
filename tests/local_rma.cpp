@@ -137,7 +137,6 @@ struct simulation_1
     : context_ptr{ gridtools::ghex::tl::context_factory<transport,threading>::create(multithread ? 2 : 1, MPI_COMM_WORLD) }
     , context{*context_ptr}
     , local_ext{4,3,2}
-    //, local_ext{14,13,12}
     , periodic{true,true,true}
     , g_first{0,0,0}
     , g_last{local_ext[0]*4-1, ((context.size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1}
@@ -296,7 +295,6 @@ struct simulation_1
         if (!mt)
         {
             cos[0].exchange().wait();
-            comms[0].barrier();
         }
         else
         {

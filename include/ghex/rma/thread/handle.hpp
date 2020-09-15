@@ -44,7 +44,7 @@ struct remote_data_holder
 {
     void* m_ptr;
         
-    remote_data_holder(const info& info_, locality)
+    remote_data_holder(const info& info_, locality, int)
     : m_ptr{info_.m_ptr}
     {}
 

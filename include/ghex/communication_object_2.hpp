@@ -27,6 +27,9 @@ namespace gridtools {
     namespace ghex {
 
         // forward declaration
+        struct generic_bulk_communication_object;
+
+        // forward declaration
         template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_object;
 
@@ -41,13 +44,14 @@ namespace gridtools {
         private: // friend class
 
             friend class communication_object<Communicator,GridType,DomainIdType>;
+            friend struct generic_bulk_communication_object;
 
         private: // member types
 
             using co_t              = communication_object<Communicator,GridType,DomainIdType>;
             using communicator_type = Communicator;
 
-        public: // members
+        private: // members
 
             communicator_type m_comm;
             std::function<void()> m_wait_fct;

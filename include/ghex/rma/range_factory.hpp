@@ -49,6 +49,52 @@ struct range_factory
         + max_range_size::value;
 
     template<typename Range>
+    static std::vector<unsigned char> serialize(info field_info, local_access_guard& g,
+        local_event& e, const Range& r)
+    {
+        std::vector<unsigned char> res(serial_size);
+        serialize(field_info, g, e, r, res.data());
+        return res;
+    }
+
+    static range deserialize(unsigned char* buffer, int rank)
+    {
+        int id;
+        std::memcpy(&id, buffer, sizeof(int));
+        buffer += a16(sizeof(int));
+        info field_info;
+        std::memcpy(&field_info, buffer, sizeof(field_info));
+        buffer += a16(sizeof(field_info));
+        typename local_access_guard::info info_;
+        std::memcpy(&info_, buffer, sizeof(typename local_access_guard::info));
+        buffer += a16(sizeof(typename local_access_guard::info));
+        event_info e_info_;
+        std::memcpy(&e_info_, buffer, sizeof(event_info));
+        buffer += a16(sizeof(event_info));
+        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, 
+        [buffer, field_info, info_, e_info_, rank] (auto Id)
+        {
+            using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
+            return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value,
+                field_info, info_, e_info_, rank);
+        });
+    }
+
+    // type injection here
+    template<typename Func>
+    static void call_back_with_type(range& r, Func&& f)
+    {
+        boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(r.m_id, 
+        [&r, f = std::forward<Func>(f)](auto Id)
+        {
+            using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
+            //f(dynamic_cast<range_impl<range_t>*>(r.m_impl.get())->m);
+            f(reinterpret_cast<range_impl<range_t>*>(r.m_impl.get())->m);
+        });
+    }
+
+private:
+    template<typename Range>
     static void serialize(info field_info, local_access_guard& g, local_event& e,
         const Range& r, unsigned char* buffer)
     {
@@ -68,50 +114,6 @@ struct range_factory
         std::memcpy(buffer, &r, sizeof(Range));
     }
 
-    template<typename Range>
-    static std::vector<unsigned char> serialize(info field_info, local_access_guard& g,
-        local_event& e, const Range& r)
-    {
-        std::vector<unsigned char> res(serial_size);
-        serialize(field_info, g, e, r, res.data());
-        return res;
-    }
-
-    static range deserialize(unsigned char* buffer)
-    {
-        int id;
-        std::memcpy(&id, buffer, sizeof(int));
-        buffer += a16(sizeof(int));
-        info field_info;
-        std::memcpy(&field_info, buffer, sizeof(field_info));
-        buffer += a16(sizeof(field_info));
-        typename local_access_guard::info info_;
-        std::memcpy(&info_, buffer, sizeof(typename local_access_guard::info));
-        buffer += a16(sizeof(typename local_access_guard::info));
-        event_info e_info_;
-        std::memcpy(&e_info_, buffer, sizeof(event_info));
-        buffer += a16(sizeof(event_info));
-        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, 
-        [buffer, field_info, info_, e_info_] (auto Id)
-        {
-            using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value,
-                field_info, info_, e_info_);
-        });
-    }
-
-    // type injection here
-    template<typename Func>
-    static void call_back_with_type(range& r, Func&& f)
-    {
-        boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(r.m_id, 
-        [&r, f = std::forward<Func>(f)](auto Id)
-        {
-            using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            //f(dynamic_cast<range_impl<range_t>*>(r.m_impl.get())->m);
-            f(reinterpret_cast<range_impl<range_t>*>(r.m_impl.get())->m);
-        });
-    }
 };
 
 } // namespace rma

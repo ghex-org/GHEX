@@ -90,7 +90,7 @@ struct remote_data_holder
     xpmem_addr     m_xpmem_addr;
     void*          m_xpmem_ptr = nullptr;
         
-    remote_data_holder(const info& info_, locality loc)
+    remote_data_holder(const info& info_, locality loc, int)
     : m_on_gpu{info_.m_on_gpu}
     , m_loc{loc}
     , m_xpmem_start{info_.m_xpmem_start}

@@ -115,15 +115,15 @@ struct remote_handle
         cuda::remote_data_holder m_cuda_data_holder;
 #endif
 
-        data_holder(const info& info_, locality loc)
+        data_holder(const info& info_, locality loc, int rank)
         : m_size{info_.m_size}
         , m_on_gpu{info_.m_on_gpu}
-        , m_thread_data_holder(info_.m_thread_info, loc)
+        , m_thread_data_holder(info_.m_thread_info, loc, rank)
 #ifdef GHEX_USE_XPMEM
-        , m_xpmem_data_holder(info_.m_xpmem_info, loc)
+        , m_xpmem_data_holder(info_.m_xpmem_info, loc, rank)
 #endif
 #ifdef __CUDACC__
-        , m_cuda_data_holder(info_.m_cuda_info, loc)
+        , m_cuda_data_holder(info_.m_cuda_info, loc, rank)
 #endif
         { }
 
@@ -142,9 +142,9 @@ struct remote_handle
     
     std::unique_ptr<data_holder> m_impl;
     
-    void init(const info& info, locality loc)
+    void init(const info& info, locality loc, int rank)
     {
-        if (!m_impl) m_impl.reset(new data_holder(info, loc));
+        if (!m_impl) m_impl.reset(new data_holder(info, loc, rank));
     }
 
     void* get_ptr(locality loc) const

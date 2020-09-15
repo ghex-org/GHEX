@@ -21,12 +21,46 @@
 #include "./common/utils.hpp"
 #include "./communication_object_2.hpp"
 #include "./rma/locality.hpp"
-#include "./rma/range_traits.hpp"
 #include "./rma/range_factory.hpp"
 #include "./rma/handle.hpp"
 
 namespace gridtools {
 namespace ghex {
+
+// RMA overview
+// ============
+//
+// The GHEX direct memory access is implemented for threads/processes that share the same memory.
+// This means, that in-node communication can be accelerated by by-passing message passing which
+// is otherwise employed. In order for direct memory access to work, the memory must be prepared
+// and the addresses must be communicated to the remote counter parts. Note, that word remote 
+// signifies a process/thread on the same shared memory (in-node) which is writing into memory which
+// it does not own (put operation). Conversly, the word local is used for a process/thread that
+// owns a memory resource which it exposes for remote puts. Since GHEX does only use put operations
+// (and no get operations), the local and remote processes/threads are also denoted as source and
+// target: source is where the data comes from (remote) and target is where the data is put to
+// (local).
+//
+// The rma facilites can be used for multi-threaded applications and multi-processed applications.
+// In the case of multi-processed applications, the xpmem kernel module must be available for the
+// transport to work.
+//
+// The multi-threaded parts are built on top of standard thread synchronization mechanisms, whereas
+// the multi-processed parts use shmem for synchronization and xpmem for data exposure. GPUs are
+// managed with cuda IPC facilities.
+//
+// The GHEX RMA facilities are comprised of several building blocks:
+//
+// 1. data handles: expose the data for remote read/write
+// 2. access guards: synchronize access to data
+// 3. events: additional synchronization mechanisms (used for GPUs)
+// 4. ranges: abstract representation of a data portion which shall be exposed (i.e. a halo)
+// 5. range factory: a class which type-erased fields/halos for transport through the network 
+// 6. bulk communication object: user facing communication interface
+// 7. range generator: type which can generate ranges from halos. This class needs to be implemented
+// for each grid type in ghex. So far only regular grids are supported.
+//
+
 
 // type erased bulk communication object
 // can be used for storing bulk communication objects
@@ -181,7 +215,7 @@ private: // member types
                 auto r_it = r_p.send_halos().begin();
                 while (r_it != r_p.send_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, r_it->first.mpi_rank);
                     if (local != rma::locality::remote) r_it = r_p.send_halos().erase(r_it);
                     else ++r_it;
                 }
@@ -191,7 +225,7 @@ private: // member types
                 auto l_it = l_p.send_halos().begin();
                 while (l_it != l_p.send_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, l_it->first.mpi_rank);
                     if (local != rma::locality::remote) ++l_it;
                     else l_it = l_p.send_halos().erase(l_it);
                 }
@@ -200,7 +234,7 @@ private: // member types
                 r_it = r_p.recv_halos().begin();
                 while (r_it != r_p.recv_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, r_it->first.mpi_rank);
                     if (local != rma::locality::remote) r_it = r_p.recv_halos().erase(r_it);
                     else ++r_it;
                 }
@@ -209,7 +243,7 @@ private: // member types
                 l_it = l_p.recv_halos().begin();
                 while (l_it != l_p.recv_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, l_it->first.mpi_rank);
                     if (local != rma::locality::remote) ++l_it;
                     else l_it = l_p.recv_halos().erase(l_it);
                 }
@@ -305,7 +339,7 @@ public:
                 {
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
-                        const auto local = rma::range_traits<RangeGen>::is_local(m_comm, h_it->first.mpi_rank);
+                        const auto local = rma::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
                         t_range.m_ranges.back().emplace_back(
                             m_comm, f, field_info, c, h_it->first.mpi_rank, h_it->first.tag, local); 

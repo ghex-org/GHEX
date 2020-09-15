@@ -27,6 +27,16 @@ enum class locality
     remote
 };
 
+template<typename Communicator>
+static locality is_local(Communicator comm, int remote_rank)
+{
+    if (comm.rank() == remote_rank) return locality::thread;
+#ifdef GHEX_USE_XPMEM
+    else if (comm.is_local(remote_rank)) return locality::process;
+#endif /* GHEX_USE_XPMEM */
+    else return locality::remote;
+}
+
 } // namespace rma
 } // namespace ghex
 } // namespace gridtools

@@ -80,7 +80,7 @@ struct remote_data_holder
     boost::interprocess::mapped_region m_region;
     void* m_shmem_ptr = nullptr;
         
-    remote_data_holder(const info& info_, locality loc)
+    remote_data_holder(const info& info_, locality loc, int)
     : m_on_gpu{info_.m_on_gpu}
     , m_loc{loc}
     {

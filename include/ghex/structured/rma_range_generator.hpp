@@ -12,7 +12,6 @@
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 
 #include "../arch_list.hpp"
-#include "../rma/range_traits.hpp"
 #include "../rma/access_guard.hpp"
 #include "../rma/event.hpp"
 #include "./rma_range.hpp"
@@ -130,7 +129,7 @@ struct rma_range_generator
         {
             m_request.wait();
             // creates a traget range
-            m_remote_range = RangeFactory::deserialize(m_archive.data());
+            m_remote_range = RangeFactory::deserialize(m_archive.data(), m_src);
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 init(r, m_remote_range);
@@ -178,30 +177,6 @@ struct rma_range_generator
 };
 
 } // namespace structured
-
-namespace rma {
-// specialization of the range_traits for the above range generator
-template<>
-struct range_traits<structured::rma_range_generator>
-{
-    // determines what is local
-    template<typename Communicator>
-    static locality is_local(Communicator comm, int remote_rank)
-    {
-#ifdef __CUDACC__
-        // cuda ipc does not work properly
-        // so it is disabled for now
-        return locality::remote;
-#else
-        if (comm.rank() == remote_rank) return locality::thread;
-#ifdef GHEX_USE_XPMEM
-        else if (comm.is_local(remote_rank)) return locality::process;
-#endif /* GHEX_USE_XPMEM */
-        else return locality::remote;
-#endif
-    }
-};
-} // namespace rma
 } // namespace ghex
 } // namespace gridtools
 

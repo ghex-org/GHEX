@@ -23,6 +23,9 @@ namespace ghex {
 namespace rma {
 namespace thread {
 
+// Below are implementations of access guards in a multi-threaded setting.
+// Please refer to the documentation in rma/access_guard.hpp for further explanations.
+
 struct access_state
 {
     access_mode m_mode = access_mode::local;
@@ -82,8 +85,8 @@ struct remote_access_guard
 {
     std::unique_ptr<remote_data_holder> m_handle;
 
-    remote_access_guard(typename local_access_guard::info info_, locality loc)
-    : m_handle{std::make_unique<remote_data_holder>(info_.m_info, loc)}
+    remote_access_guard(typename local_access_guard::info info_, locality loc, int rank)
+    : m_handle{std::make_unique<remote_data_holder>(info_.m_info, loc, rank)}
     {}
     remote_access_guard() = default;
     remote_access_guard(remote_access_guard&&) = default;

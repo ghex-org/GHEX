@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_RMA_EVENT_HPP
 
 #include <memory>
+#include "../cuda_utils/error.hpp"
 
 namespace gridtools {
 namespace ghex {
@@ -45,12 +46,13 @@ struct local_event
             {
                 if (m_loc == locality::thread)
                 {
-                    cudaEventCreate(&m_event, cudaEventDisableTiming);
+                    GHEX_CHECK_CUDA_RESULT(cudaEventCreate(&m_event, cudaEventDisableTiming));
                 }
                 if (m_loc == locality::process)
                 {
-                    cudaEventCreate(&m_event, cudaEventDisableTiming | cudaEventInterprocess);
-                    cudaIpcGetEventHandle(&m_event_handle, m_event);
+                    GHEX_CHECK_CUDA_RESULT(
+                        cudaEventCreate(&m_event, cudaEventDisableTiming | cudaEventInterprocess));
+                    GHEX_CHECK_CUDA_RESULT(cudaIpcGetEventHandle(&m_event_handle, m_event));
                 }
             }
 #endif
@@ -73,7 +75,7 @@ struct local_event
         void wait()
         {
 #ifdef __CUDACC__
-            cudaEventSynchronize(m_event);
+            GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
 #endif
         }
     };
@@ -118,7 +120,7 @@ struct remote_event
 #ifdef __CUDACC__
             if (m_source_on_gpu || m_target_on_gpu)
             {
-                cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking);
+                GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking));
                 if (m_loc == locality::thread)
                 {
                     m_event = info_.m_event;
@@ -126,7 +128,7 @@ struct remote_event
                 if (m_loc == locality::process)
                 {
                     m_event_handle = info_.m_event_handle;
-                    cudaIpcOpenEventHandle(&m_event, m_event_handle);
+                    GHEX_CHECK_CUDA_RESULT(cudaIpcOpenEventHandle(&m_event, m_event_handle));
                 }
             }
 #endif
@@ -135,7 +137,8 @@ struct remote_event
         void record()
         {
 #ifdef __CUDACC__
-            if (m_source_on_gpu || m_target_on_gpu) cudaEventRecord(m_event, m_stream);
+            if (m_source_on_gpu || m_target_on_gpu)
+                GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, m_stream));
 #endif
         }
     };
