@@ -31,6 +31,10 @@ struct chunk
     GT_FUNCTION
     T* data() const noexcept { return m_ptr; }
     GT_FUNCTION
+    T operator[](unsigned int i) const noexcept { return m_ptr[i]; }
+    GT_FUNCTION
+    T& operator[](unsigned int i) noexcept { return m_ptr[i]; }
+    GT_FUNCTION
     size_type size() const noexcept { return m_size; }
     GT_FUNCTION
     size_type bytes() const noexcept { return m_size*sizeof(T); }

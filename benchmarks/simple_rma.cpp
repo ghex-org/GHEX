@@ -17,7 +17,7 @@
 #include <array>
 #include <memory>
 #include <gridtools/common/array.hpp>
-#include <omp.h>
+#include <pthread.h>
 
 #include <ghex/threads/std_thread/primitives.hpp>
 #ifndef GHEX_TEST_USE_UCX
@@ -109,13 +109,14 @@ struct simulation
         int num_reps_,
         int ext_,
         int halo,
+        int num_fields_,
         std::array<int,3> pd,
         std::array<int,3> td,
         int num_threads_)
     : num_reps{num_reps_}
     , num_threads(num_threads_)
     , mt(num_threads > 1)
-    , num_fields{8}//{num_fields_}
+    , num_fields{num_fields_}
     , ext{ext_}
     , context_ptr{gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD)}
     , context{*context_ptr}
@@ -137,16 +138,16 @@ struct simulation
         int py = (comm.rank() - pz*pd[0]*pd[1]) / pd[0];
         int px = comm.rank() - pz*pd[0]*pd[1] - py*pd[0];
         
+        cos.resize(num_threads);
         local_domains.reserve(num_threads);
-        fields_raw.reserve(num_threads);
-        fields.reserve(num_threads);
+        fields_raw.resize(num_threads);
+        fields.resize(num_threads);
 #ifdef __CUDACC__
-        fields_raw_gpu.reserve(num_threads);
-        fields_gpu.reserve(num_threads);
+        fields_raw_gpu.resize(num_threads);
+        fields_gpu.resize(num_threads);
 #endif
-        comms.reserve(num_threads);
-        omp_set_num_threads(num_threads);
-#pragma omp parallel for ordered schedule(static,1)
+        comms = std::vector<typename context_type::communicator_type>(num_threads, comm);
+
         for (int j=0; j<num_threads; ++j)
         {
             int tz = j / (td[0]*td[1]);
@@ -155,117 +156,126 @@ struct simulation
             int x = (px*td[0] + tx)*ext;
             int y = (py*td[1] + ty)*ext;
             int z = (pz*td[2] + tz)*ext;
-#pragma omp ordered
-            {
-                local_domains.push_back(domain_descriptor_type{
-                    context.rank()*num_threads+j,
-                    std::array<int,3>{x,y,z},
-                    std::array<int,3>{x+ext-1,y+ext-1,z+ext-1}});
-                fields_raw.resize(fields_raw.size()+1);
-                fields.resize(fields.size()+1);
-#ifdef __CUDACC__
-                fields_raw_gpu.resize(fields_raw_gpu.size()+1);
-                fields_gpu.resize(fields_gpu.size()+1);
-#endif
-                for (int i=0; i<num_fields; ++i)
-                {
-                    fields_raw.back().push_back( std::vector<T>(max_memory) );
-                    fields.back().push_back(
-                        gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(
-                            local_domains.back(),
-                            fields_raw.back().back().data(),
-                            offset,
-                            local_ext_buffer));
-#ifdef __CUDACC__
-                    fields_raw_gpu.back().push_back( 
-                        std::unique_ptr<T,cuda_deleter<T>>{
-                            [this](){ void* ptr; cudaMalloc(&ptr, max_memory*sizeof(T)); return (T*)ptr; }()});
-                    fields_gpu.back().push_back(
-                        gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(
-                            local_domains.back(),
-                            fields_raw_gpu.back().back().get(),
-                            offset,
-                            local_ext_buffer));
-#endif
-                }
-                comms.push_back(context.get_communicator(context.get_token()));
-            }
+                
+            local_domains.push_back(domain_descriptor_type{
+                context.rank()*num_threads+j,
+                std::array<int,3>{x,y,z},
+                std::array<int,3>{x+ext-1,y+ext-1,z+ext-1}});
         }
-
-        pattern = std::unique_ptr<pattern_type>{
-            new pattern_type{
-                gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
-                        context, halo_gen, local_domains)}};
         
-        cos.resize(num_threads);
-#pragma omp parallel
-        {
-            const auto j = omp_get_thread_num();
-
-            auto bco = gridtools::ghex::bulk_communication_object<
-                gridtools::ghex::structured::rma_range_generator,
-                pattern_type,
-#ifndef __CUDACC__
-                field_type
-#else
-                gpu_field_type
-#endif
-            > (comms[j]);
-
-#ifndef __CUDACC__
-            for (int i=0; i<num_fields; ++i)
-                bco.add_field(pattern->operator()(fields[j][i]));
-#else
-            for (int i=0; i<num_fields; ++i)
-                bco.add_field(pattern->operator()(fields_gpu[j][i]));
-#endif
-            
-            cos[j] = std::move(bco);
-        }
+        pattern = std::unique_ptr<pattern_type>{new pattern_type{
+            gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
+                context, halo_gen, local_domains)}};
     }
 
     void exchange()
     {
-#pragma omp parallel
+        if (num_threads == 1)
         {
+            std::thread t([this](){exchange(0);});
+            // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
+            // only CPU j as set.
+            std::cout << "local rank = " << comm.local_rank() << std::endl;
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(comm.local_rank(), &cpuset);
+            int rc = pthread_setaffinity_np(t.native_handle(), sizeof(cpu_set_t), &cpuset);
+            if (rc != 0) { std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n"; }
+            t.join();
+        }
+        else
+        {
+            std::vector<std::thread> threads;
+            threads.reserve(num_threads);
+            for (int j=0; j<num_threads; ++j)
+            {
+                threads.push_back( std::thread([this,j](){ exchange(j); }) );
+                // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
+                // only CPU j as set.
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(j, &cpuset);
+                int rc = pthread_setaffinity_np(threads[j].native_handle(), sizeof(cpu_set_t), &cpuset);
+                if (rc != 0) { std::cerr << "Error calling pthread_setaffinity_np: " << rc << "\n"; }
+            }
+            for (auto& t : threads) t.join();
+        }
+    }
 
-            const auto j = omp_get_thread_num();
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                {
-                    std::lock_guard<std::mutex> io_lock(io_mutex);
-                    std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << "\n";
-                }
-    
-                // warm up
-                for (int t = 0; t < 50; ++t)
-                {
-                    cos[j].exchange().wait();
-                }
-    
-                auto start = clock_type::now();
-                for (int t = 0; t < num_reps; ++t)
-                {
-                    auto start2 = clock_type::now();
-                    cos[j].exchange().wait();
-                    auto end2 = clock_type::now();
-                    std::chrono::duration<double> elapsed_seconds2 = end2 - start2;
-                    if (comm.rank() == 0 && j == 0)
-                        std::cout << "elapsed time: " << elapsed_seconds2.count() << "s\n";
-                }
-                auto end = clock_type::now();
-                std::chrono::duration<double> elapsed_seconds = end - start;
-                
-                if (comm.rank() == 0 && j == 0)
-                {
-                    const auto num_elements = 
-                        (ext+halos[0]+halos[1]) * (ext+halos[2]+halos[3]) * (ext+halos[2]+halos[3]) -
-                        ext * ext * ext;
-                    const auto   num_bytes = num_elements * sizeof(T);
-                    const double load = 2 * comm.size() * num_threads * num_fields * num_bytes;
-                    const auto   GB_per_s = num_reps * load / (elapsed_seconds.count() * 1.0e9);
-                    std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
-                    std::cout << "GB/s : " << GB_per_s << std::endl;
-                }
+    void exchange(int j)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        {
+            std::lock_guard<std::mutex> io_lock(io_mutex);
+            std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << std::endl;
+        }
+        comms[j] = context.get_communicator(context.get_token());
+        for (int i=0; i<num_fields; ++i)
+        {
+            fields_raw[j].push_back( std::vector<T>(max_memory) );
+            fields[j].push_back(gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(
+                local_domains[j],
+                fields_raw[j].back().data(),
+                offset,
+                local_ext_buffer));
+#ifdef __CUDACC__
+            fields_raw_gpu[j].push_back( std::unique_ptr<T,cuda_deleter<T>>{
+                [this](){ void* ptr; cudaMalloc(&ptr, max_memory*sizeof(T)); return (T*)ptr; }()});
+            fields_gpu[j].push_back(gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(
+                local_domains[j],
+                fields_raw_gpu[j].back().get(),
+                offset,
+                local_ext_buffer));
+#endif
+        }
+
+        auto bco = gridtools::ghex::bulk_communication_object<
+            gridtools::ghex::structured::rma_range_generator,
+            pattern_type,
+#ifndef __CUDACC__
+            field_type
+#else
+            gpu_field_type
+#endif
+        > (comms[j]);
+#ifndef __CUDACC__
+        for (int i=0; i<num_fields; ++i)
+            bco.add_field(pattern->operator()(fields[j][i]));
+#else
+        for (int i=0; i<num_fields; ++i)
+            bco.add_field(pattern->operator()(fields_gpu[j][i]));
+#endif
+        cos[j] = std::move(bco);
+            
+        // warm up
+        for (int t = 0; t < 50; ++t)
+        {
+            //auto start2 = clock_type::now();
+            cos[j].exchange().wait();
+            //auto end2 = clock_type::now();
+            //std::chrono::duration<double> elapsed_seconds2 = end2 - start2;
+            //if (comm.rank() == 0 && j == 0)
+            //    std::cout << "elapsed time: " << elapsed_seconds2.count() << "s" << std::endl;
+        }
+
+        auto start = clock_type::now();
+        for (int t = 0; t < num_reps; ++t)
+        {
+            cos[j].exchange().wait();
+        }
+        auto end = clock_type::now();
+        std::chrono::duration<double> elapsed_seconds = end - start;
+        
+        if (comm.rank() == 0 && j == 0)
+        {
+            const auto num_elements = 
+                (ext+halos[0]+halos[1]) * (ext+halos[2]+halos[3]) * (ext+halos[2]+halos[3]) -
+                ext * ext * ext;
+            const auto   num_bytes = num_elements * sizeof(T);
+            const double load = 2 * comm.size() * num_threads * num_fields * num_bytes;
+            const auto   GB_per_s = num_reps * load / (elapsed_seconds.count() * 1.0e9);
+            std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
+            std::cout << "GB/s : " << GB_per_s << std::endl;
         }
     }
 };
@@ -277,6 +287,7 @@ void print_usage(const char* app_name)
         << "local-domain-size "
         << "num-repetition "
         << "halo-size "
+        << "num-fields "
         << "process-domain-decompositon "
         << "thread-domain-decompositon "
         << std::endl;
@@ -284,7 +295,7 @@ void print_usage(const char* app_name)
 
 int main(int argc, char** argv)
 {
-    if (argc != 10)
+    if (argc != 11)
     {
         print_usage(argv[0]);
         return 1;
@@ -293,19 +304,20 @@ int main(int argc, char** argv)
     int domain_size = std::atoi(argv[1]);
     int num_repetitions = std::atoi(argv[2]);
     int halo = std::atoi(argv[3]);
+    int num_fields = std::atoi(argv[4]);
     std::array<int,3> proc_decomposition;
     int num_ranks = 1;
-    for (int i = 4; i < 7; ++i)
+    for (int i = 5; i < 8; ++i)
     {
-        proc_decomposition[i - 4] = std::atoi(argv[i]);
-        num_ranks *= proc_decomposition[i-4];
+        proc_decomposition[i - 5] = std::atoi(argv[i]);
+        num_ranks *= proc_decomposition[i-5];
     }
     std::array<int,3> thread_decomposition;
     int num_threads = 1;
-    for (int i = 7; i < 10; ++i)
+    for (int i = 8; i < 11; ++i)
     {
-        thread_decomposition[i - 7] = std::atoi(argv[i]);
-        num_threads *= thread_decomposition[i-7];
+        thread_decomposition[i - 8] = std::atoi(argv[i]);
+        num_threads *= thread_decomposition[i-8];
     }
     
     int required = num_threads>1 ?  MPI_THREAD_MULTIPLE :  MPI_THREAD_SINGLE;
@@ -334,7 +346,7 @@ int main(int argc, char** argv)
     }
 
     {
-    simulation sim(num_repetitions, domain_size, halo, proc_decomposition, thread_decomposition, num_threads);
+    simulation sim(num_repetitions, domain_size, halo, num_fields, proc_decomposition, thread_decomposition, num_threads);
 
     sim.exchange();
     

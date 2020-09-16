@@ -139,15 +139,20 @@ template<typename SourceRange, typename TargetRange>
 __global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 {
     const unsigned int index = blockIdx.x*blockDim.x + threadIdx.x;
-    if (index < sr.m_size)
+    //if (index < sr.m_size)
+    if (index < sr.m_num_elements)
     {
+        const auto line_index = index/sr.m_chunk_size_;
+        const auto x = index - line_index*sr.m_chunk_size_;
         auto s_it = sr.begin();
-        s_it += index;
+        s_it += line_index;
         auto s_chunk = *s_it;
         auto t_it = tr.begin();
-        t_it += index;
+        t_it += line_index;
         auto t_chunk = *t_it;
-        memcpy(t_chunk.data(), s_chunk.data(), s_chunk.bytes());
+        memcpy(&t_chunk[x], &s_chunk[x], sizeof(typename SourceRange::value_type));
+        //t_chunk[x] = (const typename SourceRange::value_type &)s_chunk[x];
+        //memcpy(t_chunk.data(), s_chunk.data(), s_chunk.bytes());
     }
 }
 #endif
@@ -163,7 +168,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
 {
 #ifdef __CUDACC__
     static constexpr unsigned int block_dim = 128;
-    const unsigned int num_blocks = (s.m_size+block_dim-1)/block_dim;
+    const unsigned int num_blocks = (s.m_num_elements+block_dim-1)/block_dim;
     put_device_to_device_kernel<<<num_blocks,block_dim,0,st>>>(s, t);
 #endif
 }

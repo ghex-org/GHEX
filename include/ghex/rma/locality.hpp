@@ -36,11 +36,15 @@ enum class locality
 template<typename Communicator>
 static locality is_local(Communicator comm, int remote_rank)
 {
+#ifdef GHEX_NO_RMA
+    return locality::remote;
+#else
     if (comm.rank() == remote_rank) return locality::thread;
 #ifdef GHEX_USE_XPMEM
     else if (comm.is_local(remote_rank)) return locality::process;
 #endif /* GHEX_USE_XPMEM */
     else return locality::remote;
+#endif
 }
 
 } // namespace rma
