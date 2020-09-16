@@ -445,7 +445,7 @@ public:
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
             boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
-            [this](auto i) {
+            [this,&h](auto i) {
                 // get the field Index 
                 using I = decltype(i);
                 // get source range
@@ -457,6 +457,8 @@ public:
                         r.start_source_epoch();
                         r.put();
                         r.end_source_epoch();
+                        // progress inter-node communication
+                        h.progress();
                     }
             });
         }
