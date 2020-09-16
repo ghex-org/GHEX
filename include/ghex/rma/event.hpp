@@ -50,24 +50,27 @@ struct local_event
         , m_loc{loc}
         {
 #ifdef __CUDACC__
+            if (m_loc == locality::thread)
             {
-                if (m_loc == locality::thread)
-                {
-                    GHEX_CHECK_CUDA_RESULT(cudaEventCreate(&m_event, cudaEventDisableTiming));
-                }
-                if (m_loc == locality::process)
-                {
-                    GHEX_CHECK_CUDA_RESULT(
-                        cudaEventCreate(&m_event, cudaEventDisableTiming | cudaEventInterprocess));
-                    GHEX_CHECK_CUDA_RESULT(cudaIpcGetEventHandle(&m_event_handle, m_event));
-                }
+                GHEX_CHECK_CUDA_RESULT(cudaEventCreate(&m_event, cudaEventDisableTiming));
+            }
+            if (m_loc == locality::process)
+            {
+                GHEX_CHECK_CUDA_RESULT(
+                    cudaEventCreate(&m_event, cudaEventDisableTiming | cudaEventInterprocess));
+                GHEX_CHECK_CUDA_RESULT(cudaIpcGetEventHandle(&m_event_handle, m_event));
             }
 #endif
         }
 
         ~data_holder()
         {
-            // destroy cuda resources
+#ifdef __CUDACC__
+            if (m_loc != locality::remote)
+            {
+                cudaEventDestroy(m_event);
+            }
+#endif
         }
 
         event_info get_info() const
@@ -143,6 +146,16 @@ struct remote_event
                     m_event_handle = info_.m_event_handle;
                     GHEX_CHECK_CUDA_RESULT(cudaIpcOpenEventHandle(&m_event, m_event_handle));
                 }
+            }
+#endif
+        }
+
+        ~data_holder()
+        {
+#ifdef __CUDACC__
+            if (m_source_on_gpu || m_target_on_gpu)
+            {
+                cudaStreamDestroy(m_stream);
             }
 #endif
         }
