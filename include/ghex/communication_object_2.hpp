@@ -289,13 +289,20 @@ namespace gridtools {
 //                return h;
 //            }
 //#endif
-
-            template<typename... Iterators>
+            
+            template<typename Iterator>
             [[nodiscard]]
-            handle_type exchange(Iterators... iters)
+            handle_type exchange(Iterator first, Iterator last)
+            {
+                return exchange(std::make_index_sequence<1>(), first, last); 
+            }
+
+            template<typename Iterator0, typename Iterator1, typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange(Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
             {
                 static_assert(sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
-                return exchange(std::make_index_sequence<sizeof...(iters)/2>(), iters...); 
+                return exchange(std::make_index_sequence<2+sizeof...(iters)/2>(), first0, last0, first1, last1, iters...); 
             }
 
             template<typename... Iterators>

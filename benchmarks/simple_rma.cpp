@@ -174,8 +174,7 @@ struct simulation
         {
             std::thread t([this](){exchange(0);});
             // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
-            // only CPU j as set.
-            std::cout << "local rank = " << comm.local_rank() << std::endl;
+            // only CPU = local rank as set.
             cpu_set_t cpuset;
             CPU_ZERO(&cpuset);
             CPU_SET(comm.local_rank(), &cpuset);
