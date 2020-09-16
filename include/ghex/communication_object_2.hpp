@@ -189,6 +189,9 @@ namespace gridtools {
             /** tuple type of buffer_memory (one element for each device in arch_list) */
             using memory_type = detail::transform<arch_list>::with<buffer_memory>;
 
+            template<typename T, typename R>
+            using disable_if_buffer_info = std::enable_if_t< !is_buffer_info<T>::value, R>;
+
         private: // members
 
             bool m_valid;
@@ -291,15 +294,15 @@ namespace gridtools {
 //#endif
             
             template<typename Iterator>
-            [[nodiscard]]
-            handle_type exchange(Iterator first, Iterator last)
+            [[nodiscard]] disable_if_buffer_info<Iterator,handle_type>
+            exchange(Iterator first, Iterator last)
             {
                 return exchange(std::make_index_sequence<1>(), first, last); 
             }
 
             template<typename Iterator0, typename Iterator1, typename... Iterators>
-            [[nodiscard]]
-            handle_type exchange(Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
+            [[nodiscard]] disable_if_buffer_info<Iterator0,handle_type>
+            exchange(Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
             {
                 static_assert(sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
                 return exchange(std::make_index_sequence<2+sizeof...(iters)/2>(), first0, last0, first1, last1, iters...); 

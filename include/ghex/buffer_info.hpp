@@ -68,6 +68,12 @@ namespace gridtools {
             device_id_type m_id;
         };
 
+        template<typename T>
+        struct is_buffer_info : public std::false_type {};
+
+        template<typename Pattern, typename Arch, typename Field>
+        struct is_buffer_info<buffer_info<Pattern,Arch,Field>> : public std::true_type {};
+
     } // namespace ghex
 
 } // namespace gridtools
