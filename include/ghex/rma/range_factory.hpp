@@ -88,7 +88,6 @@ struct range_factory
         [&r, f = std::forward<Func>(f)](auto Id)
         {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            //f(dynamic_cast<range_impl<range_t>*>(r.m_impl.get())->m);
             f(reinterpret_cast<range_impl<range_t>*>(r.m_impl.get())->m);
         });
     }

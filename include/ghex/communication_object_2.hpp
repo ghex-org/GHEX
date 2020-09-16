@@ -84,6 +84,8 @@ namespace gridtools {
 
             /** @brief  wait for communication to be finished*/
             void wait() { if (m_wait_fct) m_wait_fct(); }
+
+            void progress() { m_comm.progress(); }
         };
 
      
@@ -120,6 +122,8 @@ namespace gridtools {
             using index_container_type    = typename pattern_type::index_container_type;
             using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;
             using unpack_function_type    = std::function<void(const void*,const index_container_type&, void*)>;
+            using future_type             = typename communicator_type::template future<void>;
+            using request_cb_type         = typename communicator_type::request_cb_type;
 
             /** @brief pair of domain ids with ordering */
             struct domain_id_pair
@@ -180,12 +184,6 @@ namespace gridtools {
                 std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
                 send_memory_type send_memory;
                 recv_memory_type recv_memory;
-
-                // additional members needed for receive operations used for scheduling calls to unpack
-                using hook_type       = recv_buffer_type*;
-                using future_type     = typename communicator_type::template future<hook_type>;
-                std::vector<future_type> m_recv_futures;
-
             };
             
             /** tuple type of buffer_memory (one element for each device in arch_list) */
@@ -196,7 +194,8 @@ namespace gridtools {
             bool m_valid;
             communicator_type m_comm;
             memory_type m_mem;
-            std::vector<typename communicator_type::template future<void>> m_send_futures;
+            std::vector<future_type> m_send_futures;
+            std::vector<request_cb_type> m_recv_reqs;
 
         public: // ctors
 
@@ -353,6 +352,7 @@ namespace gridtools {
             {
                 detail::for_each(m_mem, [this](auto& m)
                 {
+                    using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
                     for (auto& p0 : m.recv_memory)
                     {
                         for (auto& p1: p0.second)
@@ -360,10 +360,16 @@ namespace gridtools {
                             if (p1.second.size > 0u)
                             {
                                 p1.second.buffer.resize(p1.second.size);
-                                m.m_recv_futures.emplace_back(
-                                    typename std::remove_reference_t<decltype(m)>::future_type{
-                                        &p1.second,
-                                        m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
+                                auto ptr = &p1.second;
+                                // use callbacks for unpacking
+                                m_recv_reqs.push_back(
+                                    m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
+                                    [ptr](typename communicator_type::message_type m, 
+                                       typename communicator_type::rank_type/* src*/,
+                                       typename communicator_type::tag_type/* tag*/)
+                                    {
+                                        packer<arch_type>::unpack(*ptr, m.data());
+                                    }));
                             }
                         }
                     }
@@ -384,29 +390,34 @@ namespace gridtools {
             void wait()
             {
                 if (!m_valid) return;
-                detail::for_each(m_mem, [this](auto& m)
-                {
-                    using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-                    packer<arch_type>::unpack(m);
-                });
-                for (auto& f : m_send_futures) 
-                    f.wait();
+                // wait for data to arrive (unpack callback will be invoked)
+                await_requests(m_comm, m_recv_reqs);
+                // wait for data to be sent
+                await_futures(m_send_futures);
+#ifdef __CUDACC__
+                // wait for the unpack kernels to finish
+                auto& m = std::get<buffer_memory<gridtools::ghex::gpu>>(m_mem);
+                for (auto& p0 : m.recv_memory)
+                    for (auto& p1: p0.second)
+                        if (p1.second.size > 0u)
+                            p1.second.m_cuda_stream.sync();
+#endif
                 clear();
             }
 
-#ifdef __CUDACC__
-            template<typename T, typename Field>
-            void wait_u()
-            {
-                if (!m_valid) return;
-                using memory_t   = buffer_memory<gpu>;
-                memory_t& mem = std::get<memory_t>(m_mem);
-                packer<gpu>::template unpack_u<T,Field>(mem);
-                for (auto& f : m_send_futures) 
-                    f.wait();
-                clear();
-            }
-#endif
+//#ifdef __CUDACC__
+//            template<typename T, typename Field>
+//            void wait_u()
+//            {
+//                if (!m_valid) return;
+//                using memory_t   = buffer_memory<gpu>;
+//                memory_t& mem = std::get<memory_t>(m_mem);
+//                packer<gpu>::template unpack_u<T,Field>(mem);
+//                for (auto& f : m_send_futures) 
+//                    f.wait();
+//                clear();
+//            }
+//#endif
         
         private: // reset
 
@@ -416,9 +427,9 @@ namespace gridtools {
             {
                 m_valid = false;
                 m_send_futures.clear();
+                m_recv_reqs.clear();
                 detail::for_each(m_mem, [this](auto& m)
                 {
-                    m.m_recv_futures.clear();
                     for (auto& p0 : m.send_memory)
                         for (auto& p1 : p0.second)
                         {
