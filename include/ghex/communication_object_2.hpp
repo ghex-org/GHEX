@@ -25,6 +25,23 @@
 namespace gridtools {
 
     namespace ghex {
+        
+        // forward declaration for optimization on regular grids
+        namespace structured {
+            namespace regular {
+                template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+                class field_descriptor;
+            } // namespace structured
+        } // namespace regular
+
+        // traits class for optimization on regular grids
+        namespace detail{
+            template<typename T>
+            struct is_regular_gpu : public std::false_type {};
+            template<typename P, typename T, typename D, int... Order>
+            struct is_regular_gpu<buffer_info<P,gpu,structured::regular::field_descriptor<T,gpu,D,Order...>>>
+            : public std::true_type {};
+        } // namespace detail
 
         // forward declaration
         struct generic_bulk_communication_object;
@@ -105,7 +122,6 @@ namespace gridtools {
 
             /** @brief handle type returned by exhange operation */
             using handle_type             = communication_handle<Communicator,GridType,DomainIdType>;
-            //using transport_type          = Transport;
             using grid_type               = GridType;
             using domain_id_type          = DomainIdType;
             using pattern_type            = pattern<Communicator,GridType,DomainIdType>;
@@ -117,7 +133,7 @@ namespace gridtools {
 
         private: // member types
 
-            using communicator_type       = Communicator; //typename handle_type::communicator_type;
+            using communicator_type       = Communicator;
             using address_type            = typename communicator_type::address_type;
             using index_container_type    = typename pattern_type::index_container_type;
             using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;
@@ -272,32 +288,11 @@ namespace gridtools {
                 return h; 
             }
 
-//        public: // exchange a number of buffer_infos with Field = field_descriptor (optimization for gpu below)
-//
-//#ifdef __CUDACC__
-//            template<typename Arch, typename T, int... Order>
-//            [[nodiscard]] std::enable_if_t<std::is_same<Arch,gpu>::value, handle_type>
-//            exchange_u(
-//                buffer_info_type<Arch,structured::regular::field_descriptor<T,Arch,structured::regular::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
-//                std::size_t length)
-//            {
-//                using memory_t   = buffer_memory<gpu>;
-//                using field_type = std::remove_reference_t<decltype(first->get_field())>;
-//                using value_type = typename field_type::value_type;
-//                auto h = exchange_impl(first, length);
-//                post_recvs();
-//                h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
-//                memory_t& mem = std::get<memory_t>(m_mem);
-//                packer<gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, m_comm);
-//                return h;
-//            }
-//#endif
-            
             template<typename Iterator>
             [[nodiscard]] disable_if_buffer_info<Iterator,handle_type>
             exchange(Iterator first, Iterator last)
             {
-                return exchange(std::make_index_sequence<1>(), first, last); 
+                return exchange_u(first, last); 
             }
 
             template<typename Iterator0, typename Iterator1, typename... Iterators>
@@ -311,6 +306,70 @@ namespace gridtools {
             template<typename... Iterators>
             [[nodiscard]]
             handle_type exchange(std::pair<Iterators,Iterators>... iter_pairs)
+            {
+                exchange_impl(iter_pairs...);
+                post_recvs();
+                pack();
+                return handle_type(m_comm, [this](){this->wait();});
+            }
+            
+        private: // implementation
+            template<std::size_t... Is, typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange(std::index_sequence<Is...>, Iterators... iters)
+            {
+                const std::tuple<Iterators...> iter_t{iters...};
+                return exchange(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
+            }
+            
+            template<typename Iterator>
+            [[nodiscard]] std::enable_if_t<
+                !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
+                handle_type>
+            exchange_u(Iterator first, Iterator last)
+            {
+                return exchange(std::make_index_sequence<1>(), first, last); 
+            }
+
+#ifdef __CUDACC__
+            template<typename Iterator>
+            [[nodiscard]] std::enable_if_t<
+                detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
+                handle_type>
+            exchange_u(Iterator first, Iterator last)
+            {
+                using gpu_mem_t  = buffer_memory<gpu>;
+                using field_type = std::remove_reference_t<decltype(first->get_field())>;
+                using value_type = typename field_type::value_type;
+                exchange_impl(std::make_pair(first, last));
+                auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
+                for (auto& p0 : gpu_mem.recv_memory)
+                {
+                    for (auto& p1: p0.second)
+                    {
+                        if (p1.second.size > 0u)
+                        {
+                            p1.second.buffer.resize(p1.second.size);
+                            // use callbacks for unpacking
+                            auto ptr = &p1.second;
+                            m_recv_reqs.push_back(
+                                m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
+                                [ptr](typename communicator_type::message_type m, 
+                                   typename communicator_type::rank_type,
+                                   typename communicator_type::tag_type)
+                                {
+                                    packer<gpu>::template unpack_u<value_type, field_type>(*ptr, m.data());
+                                }));
+                        }
+                    }
+                }
+                packer<gpu>::template pack_u<value_type, field_type>(gpu_mem,m_send_futures,m_comm);
+                return handle_type(m_comm, [this](){this->wait();});
+            }
+#endif
+            
+            template<typename... Iterators>
+            void exchange_impl(std::pair<Iterators,Iterators>... iter_pairs)
             {
                 const std::tuple<std::pair<Iterators,Iterators>...> iter_pairs_t{iter_pairs...};
 
@@ -343,19 +402,6 @@ namespace gridtools {
                             it->device_id(), tag_offset);
                     }
                 });
-
-                post_recvs();
-                pack();
-                return handle_type(m_comm, [this](){this->wait();});
-            }
-            
-        private: // implementation
-            template<std::size_t... Is, typename... Iterators>
-            [[nodiscard]]
-            handle_type exchange(std::index_sequence<Is...>, Iterators... iters)
-            {
-                const std::tuple<Iterators...> iter_t{iters...};
-                return exchange(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
             }
 
             void post_recvs()
@@ -375,8 +421,8 @@ namespace gridtools {
                                 m_recv_reqs.push_back(
                                     m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
                                     [ptr](typename communicator_type::message_type m, 
-                                       typename communicator_type::rank_type/* src*/,
-                                       typename communicator_type::tag_type/* tag*/)
+                                       typename communicator_type::rank_type,
+                                       typename communicator_type::tag_type)
                                     {
                                         packer<arch_type>::unpack(*ptr, m.data());
                                     }));
@@ -406,7 +452,7 @@ namespace gridtools {
                 await_futures(m_send_futures);
 #ifdef __CUDACC__
                 // wait for the unpack kernels to finish
-                auto& m = std::get<buffer_memory<gridtools::ghex::gpu>>(m_mem);
+                auto& m = std::get<buffer_memory<gpu>>(m_mem);
                 for (auto& p0 : m.recv_memory)
                     for (auto& p1: p0.second)
                         if (p1.second.size > 0u)
@@ -415,20 +461,6 @@ namespace gridtools {
                 clear();
             }
 
-//#ifdef __CUDACC__
-//            template<typename T, typename Field>
-//            void wait_u()
-//            {
-//                if (!m_valid) return;
-//                using memory_t   = buffer_memory<gpu>;
-//                memory_t& mem = std::get<memory_t>(m_mem);
-//                packer<gpu>::template unpack_u<T,Field>(mem);
-//                for (auto& f : m_send_futures) 
-//                    f.wait();
-//                clear();
-//            }
-//#endif
-        
         private: // reset
 
             // clear the internal flags so that a new exchange can be started
@@ -555,7 +587,6 @@ namespace gridtools {
         template<typename PatternContainer>
         auto make_communication_object(typename PatternContainer::value_type::communicator_type comm)
         {
-            //using transport_type   = typename PatternContainer::value_type::communicator_type::transport_type;
             using communicator_type = typename PatternContainer::value_type::communicator_type;
             using grid_type         = typename PatternContainer::value_type::grid_type;
             using domain_id_type    = typename PatternContainer::value_type::domain_id_type;
@@ -567,4 +598,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_COMMUNICATION_OBJECT_2_HPP */
-
