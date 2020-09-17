@@ -1,7 +1,9 @@
 MODULE ghex_utils
-  use mpi
+  !use mpi
 
   implicit none
+
+include 'mpif.h'  
 
 contains
 
@@ -64,6 +66,18 @@ contains
     ! check if this is a cartesian communicator
     call MPI_Topo_test(comm, topo, ierr)
     if (topo/=MPI_CART) then
+
+       ! XYZ
+       ! tmp = rank;        coord(1) = modulo(tmp, dims(1))
+       ! tmp = tmp/dims(1); coord(2) = modulo(tmp, dims(2))
+       ! tmp = tmp/dims(2); coord(3) = tmp
+       
+       ! XZY
+       ! tmp = rank;        coord(1) = modulo(tmp, dims(1))
+       ! tmp = tmp/dims(1); coord(3) = modulo(tmp, dims(3))
+       ! tmp = tmp/dims(3); coord(2) = tmp
+       
+       ! ZYX
        tmp = rank;        coord(3) = modulo(tmp, dims(3))
        tmp = tmp/dims(3); coord(2) = modulo(tmp, dims(2))
        tmp = tmp/dims(2); coord(1) = tmp
@@ -111,6 +125,14 @@ contains
     ! check if this is a cartesian communicator
     call MPI_Topo_test(comm, topo, ierr)
     if (topo/=MPI_CART) then
+
+       ! XYZ
+       !rank = (tcoord(3)*dims(2) + tcoord(2))*dims(1) + tcoord(1)
+
+       ! XZY
+       !rank = (tcoord(2)*dims(3) + tcoord(3))*dims(1) + tcoord(1)
+
+       ! ZYX
        rank = (tcoord(1)*dims(2) + tcoord(2))*dims(3) + tcoord(3)
     else
        call mpi_cart_rank(comm, tcoord, rank, ierr)
