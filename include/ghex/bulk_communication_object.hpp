@@ -145,7 +145,7 @@ public: // member types
         void wait()
         {
             m_remote_handle.wait();
-            m_ptr->wait();
+            m_bulk_co_ptr->wait();
         }
     };
 
