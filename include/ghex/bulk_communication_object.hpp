@@ -66,17 +66,26 @@ namespace ghex {
 // can be used for storing bulk communication objects
 struct generic_bulk_communication_object
 {
-private:
+    struct bulk_co_iface;
+
     struct handle
     {
-        std::function<void()> m_wait;
-        void wait() { m_wait(); }
+        std::function<void()> m_remote_wait_fct;
+        bulk_co_iface* m_ptr;
+        void wait()
+        {
+            m_remote_wait_fct();
+            m_ptr->wait();
+        }
     };
 
     struct bulk_co_iface
     {
+        friend class handle;
         virtual ~bulk_co_iface() {}
         virtual handle exchange() = 0;
+    protected:
+        virtual void wait() = 0;
     };
 
     template<typename CO>
@@ -84,9 +93,16 @@ private:
     {
         CO m;
         bulk_co_impl(CO&& co) : m{std::move(co)} {}
-        handle exchange() override final { return {std::move(m.exchange().m_wait_fct)}; }
+        handle exchange() override final
+        {
+            return {std::move(m.exchange().m_remote_handle.m_wait_fct), this };
+        }
+
+    private:
+        void wait() override final { m.wait(); }
     };
 
+private:
     std::unique_ptr<bulk_co_iface> m_impl;
 
 public:
@@ -118,6 +134,20 @@ public: // member types
     using co_handle = typename co_type::handle_type;
     template<typename Field>
     using buffer_info_type = typename co_type::template buffer_info_type<typename Field::arch_type, Field>;
+
+    friend class generic_bulk_communication_object::bulk_co_impl<bulk_communication_object>;
+
+    struct handle
+    {
+        co_handle m_remote_handle;
+        bulk_communication_object* m_ptr;
+
+        void wait()
+        {
+            m_remote_handle.wait();
+            m_ptr->wait();
+        }
+    };
 
 private: // member types
     // this type holds the patterns used for remote and local exchanges
@@ -420,13 +450,10 @@ private: // helper functions to handle the remote exchanges
 public:
     /** @brief do an exchange of halos
       * @return handle to wait on (for the remote exchanges) */
-    auto exchange()
+    handle exchange()
     {
         if (!m_initialized) init();
 
-        // start remote exchange
-        auto h = exchange_remote();
-        
         // loop over Fields
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
@@ -441,6 +468,10 @@ public:
                         r.end_target_epoch();
             });
         }
+
+        // start remote exchange
+        auto h = exchange_remote();
+        
         // loop over fields for putting
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
@@ -462,6 +493,13 @@ public:
                     }
             });
         }
+
+        return {std::move(h),this};
+    }
+
+private:
+    void wait()
+    {
         // loop over fields for waiting
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
@@ -476,8 +514,6 @@ public:
                         r.start_target_epoch();
             });
         }
-        // return handle to remote exchange
-        return h;
     }
 };
 
