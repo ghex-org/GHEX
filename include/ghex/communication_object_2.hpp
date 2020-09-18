@@ -45,6 +45,8 @@ namespace gridtools {
 
         // forward declaration
         struct generic_bulk_communication_object;
+        template<template <typename> class RangeGen, typename Pattern, typename... Fields>
+        class bulk_communication_object;
 
         // forward declaration
         template<typename Communicator, typename GridType, typename DomainIdType>
@@ -114,10 +116,6 @@ namespace gridtools {
         template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_object
         {
-        private: // friend class
-
-            friend class communication_handle<Communicator,GridType,DomainIdType>;
-
         public: // member types
 
             /** @brief handle type returned by exhange operation */
@@ -130,6 +128,12 @@ namespace gridtools {
 
             template<typename D, typename F>
             using buffer_info_type        = buffer_info<pattern_type,D,F>;
+
+        private: // friend class
+
+            friend class communication_handle<Communicator,GridType,DomainIdType>;
+            template<template <typename> class RangeGen, typename Pattern, typename... Fields>
+            friend class bulk_communication_object;
 
         private: // member types
 
@@ -245,64 +249,48 @@ namespace gridtools {
             template<typename... Archs, typename... Fields>
             [[nodiscard]] handle_type exchange(buffer_info_type<Archs,Fields>... buffer_infos)
             {
-                // check that arguments are compatible
-                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
-                static_assert(detail::test_eq_t<test_t, typename buffer_info_type<Archs,Fields>::pattern_container_type...>::value,
-                        "patterns are not compatible with this communication object");
-                if (m_valid) 
-                    throw std::runtime_error("earlier exchange operation was not finished");
-                m_valid = true;
-
-                // temporarily store address of pattern containers
-                const test_t* ptrs[sizeof...(Fields)] = { &(buffer_infos.get_pattern_container())... };
-                // build a tag map
-                std::map<const test_t*,int> pat_ptr_map;
-                int max_tag = 0;
-                for (unsigned int k=0; k<sizeof...(Fields); ++k)
-                {
-                    auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptrs[k], max_tag) );
-                    if (p_it_bool.second == true)
-                        max_tag += ptrs[k]->max_tag()+1;
-                }
-                // compute tag offset for each field
-                int tag_offsets[sizeof...(Fields)] = { pat_ptr_map[&(buffer_infos.get_pattern_container())]... };
-                // store arguments and corresponding memory in tuples
-                using buffer_infos_ptr_t     = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
-                using memory_t               = std::tuple<buffer_memory<Archs>*...>;
-                buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
-                memory_t memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
-                // loop over buffer_infos/memory and compute required space
-                int i = 0;
-                detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&tag_offsets](auto mem, auto bi) 
-                {
-                    using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
-                    using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
-                    auto field_ptr = &(bi->get_field());
-                    const domain_id_type my_dom_id = bi->get_field().domain_id();
-                    allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
-                    ++i;
-                });
+                exchange_impl(buffer_infos...);
                 handle_type h(m_comm, [this](){this->wait();});
                 post_recvs();
                 pack();
                 return h; 
             }
 
+            /** @brief  non-blocking exchange of halo data
+              * @tparam Iterator Iterator type to range of buffer_info objects
+              * @param first points to the begin of the range
+              * @param last points to the end of the range
+              * @return handle to await communication */
             template<typename Iterator>
             [[nodiscard]] disable_if_buffer_info<Iterator,handle_type>
             exchange(Iterator first, Iterator last)
             {
+                // call special function for a single range
                 return exchange_u(first, last); 
             }
 
+            /** @brief  non-blocking exchange of halo data
+              * @tparam Iterator0 Iterator type to range of buffer_info objects
+              * @tparam Iterator1 Iterator type to range of buffer_info objects
+              * @tparam Iterators Iterator types to ranges of buffer_info objects
+              * @param first0 points to the begin of the range0
+              * @param last0 points to the end of the range0
+              * @param first1 points to the begin of the range1
+              * @param last1 points to the end of the range1
+              * @param iters first and last iterators for further ranges
+              * @return handle to await communication */
             template<typename Iterator0, typename Iterator1, typename... Iterators>
             [[nodiscard]] disable_if_buffer_info<Iterator0,handle_type>
             exchange(Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
             {
                 static_assert(sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
-                return exchange(std::make_index_sequence<2+sizeof...(iters)/2>(), first0, last0, first1, last1, iters...); 
+                // call helper function to turn iterators into pairs of iterators
+                return exchange_make_pairs(std::make_index_sequence<2+sizeof...(iters)/2>(),
+                    first0, last0, first1, last1, iters...); 
             }
 
+        private: // implementation
+            // overload for pairs of iterators
             template<typename... Iterators>
             [[nodiscard]]
             handle_type exchange(std::pair<Iterators,Iterators>... iter_pairs)
@@ -313,25 +301,29 @@ namespace gridtools {
                 return handle_type(m_comm, [this](){this->wait();});
             }
             
-        private: // implementation
+            // helper function to turn iterators into pairs of iterators
             template<std::size_t... Is, typename... Iterators>
             [[nodiscard]]
-            handle_type exchange(std::index_sequence<Is...>, Iterators... iters)
+            handle_type exchange_make_pairs(std::index_sequence<Is...>, Iterators... iters)
             {
                 const std::tuple<Iterators...> iter_t{iters...};
+                // call exchange with pairs of iterators
                 return exchange(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
             }
             
+            // special function to handle one iterator pair (optimization for gpus below)
             template<typename Iterator>
             [[nodiscard]] std::enable_if_t<
                 !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
                 handle_type>
             exchange_u(Iterator first, Iterator last)
             {
-                return exchange(std::make_index_sequence<1>(), first, last); 
+                // call exchange with a pair of iterators
+                return exchange(std::make_pair(first, last)); 
             }
 
 #ifdef __CUDACC__
+            // optimized exchange for regular grids and a range of same-type fields
             template<typename Iterator>
             [[nodiscard]] std::enable_if_t<
                 detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
@@ -368,6 +360,7 @@ namespace gridtools {
             }
 #endif
             
+            // helper function to set up communicaton buffers (run-time case)
             template<typename... Iterators>
             void exchange_impl(std::pair<Iterators,Iterators>... iter_pairs)
             {
@@ -401,6 +394,49 @@ namespace gridtools {
                         allocate<arch_t,value_t>(mem, it->get_pattern(), field_ptr, my_dom_id,
                             it->device_id(), tag_offset);
                     }
+                });
+            }
+
+            // helper function to set up communicaton buffers (compile-time case)
+            template<typename... Archs, typename... Fields>
+            void exchange_impl(buffer_info_type<Archs,Fields>... buffer_infos)
+            {
+                // check that arguments are compatible
+                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
+                static_assert(detail::test_eq_t<test_t, typename buffer_info_type<Archs,Fields>::pattern_container_type...>::value,
+                        "patterns are not compatible with this communication object");
+                if (m_valid) 
+                    throw std::runtime_error("earlier exchange operation was not finished");
+                m_valid = true;
+
+                // temporarily store address of pattern containers
+                const test_t* ptrs[sizeof...(Fields)] = { &(buffer_infos.get_pattern_container())... };
+                // build a tag map
+                std::map<const test_t*,int> pat_ptr_map;
+                int max_tag = 0;
+                for (unsigned int k=0; k<sizeof...(Fields); ++k)
+                {
+                    auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptrs[k], max_tag) );
+                    if (p_it_bool.second == true)
+                        max_tag += ptrs[k]->max_tag()+1;
+                }
+                // compute tag offset for each field
+                int tag_offsets[sizeof...(Fields)] = { pat_ptr_map[&(buffer_infos.get_pattern_container())]... };
+                // store arguments and corresponding memory in tuples
+                using buffer_infos_ptr_t     = std::tuple<std::remove_reference_t<decltype(buffer_infos)>*...>;
+                using memory_t               = std::tuple<buffer_memory<Archs>*...>;
+                buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
+                memory_t memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
+                // loop over buffer_infos/memory and compute required space
+                int i = 0;
+                detail::for_each(memory_tuple, buffer_info_tuple, [this,&i,&tag_offsets](auto mem, auto bi) 
+                {
+                    using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
+                    using value_type  = typename std::remove_reference_t<decltype(*bi)>::value_type;
+                    auto field_ptr = &(bi->get_field());
+                    const domain_id_type my_dom_id = bi->get_field().domain_id();
+                    allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
+                    ++i;
                 });
             }
 
