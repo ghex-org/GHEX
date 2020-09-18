@@ -140,7 +140,7 @@ public: // member types
     struct handle
     {
         co_handle m_remote_handle;
-        bulk_communication_object* m_ptr;
+        bulk_communication_object* m_bulk_co_ptr;
 
         void wait()
         {
