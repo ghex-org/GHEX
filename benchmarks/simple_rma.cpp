@@ -18,6 +18,8 @@
 #include <memory>
 #include <gridtools/common/array.hpp>
 #include <pthread.h>
+#include <thread>
+#include <vector>
 
 #include <ghex/threads/std_thread/primitives.hpp>
 #ifndef GHEX_TEST_USE_UCX
