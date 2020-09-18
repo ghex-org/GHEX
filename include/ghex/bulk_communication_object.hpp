@@ -71,11 +71,11 @@ struct generic_bulk_communication_object
     struct handle
     {
         std::function<void()> m_remote_wait_fct;
-        bulk_co_iface* m_ptr;
+        bulk_co_iface* m_bulk_co_iface_ptr;
         void wait()
         {
             m_remote_wait_fct();
-            m_ptr->wait();
+            m_bulk_co_iface_ptr->wait();
         }
     };
 
