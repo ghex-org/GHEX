@@ -12,6 +12,7 @@
 #include <cassert>
 #include <cstdint>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <array>
 #include <algorithm>
@@ -28,11 +29,15 @@
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
 #include <ghex/threads/std_thread/primitives.hpp>
+#include <ghex/arch_list.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/pattern.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/communication_object_2.hpp>
+#include <ghex/unstructured/communication_object_ipr.hpp>
+#include <ghex/common/timer.hpp>
+#include <ghex/common/accumulator.hpp>
 
 
 // GHEX type definitions
@@ -50,6 +55,7 @@ using halo_generator_type = gridtools::ghex::unstructured::halo_generator<domain
 using grid_type = gridtools::ghex::unstructured::grid;
 template<typename T>
 using data_descriptor_cpu_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, T>;
+using timer_type = gridtools::ghex::timer;
 
 
 template<typename T>
@@ -97,6 +103,21 @@ void check_exchanged_data(const Domain& d, const Pattern& p, const Field& f, O d
         value_type expected = static_cast<value_type>(pair.second) * d_id_offset + static_cast<value_type>(d.vertices()[pair.first]);
         EXPECT_EQ(actual, expected);
     }
+}
+
+template<typename Domain, typename Pattern>
+Domain make_reindexed_domain(const Domain& d, const Pattern& p) {
+    using vertices_type = typename Domain::vertices_type;
+    vertices_type vs{};
+    vs.reserve(d.size());
+    vs.insert(vs.end(), d.vertices().begin(), d.vertices().begin() + d.inner_size());
+    for (const auto& rh : p.recv_halos()) {
+        for (const auto i : rh.second.front().local_indices()) {
+            vs.push_back(d.vertices()[i]);
+        }
+    }
+    Domain res{d.domain_id(), vs, d.inner_size(), d.levels()}; // TO DO: std::move vs?
+    return res;
 }
 
 template<typename C>
@@ -273,25 +294,127 @@ TEST(unstructured_parmetis, receive_type) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int gh_rank = context.rank();
+    auto gh_comm = context.get_communicator(context.get_token());
 
-    // GHEX setup
+    // GHEX constants
+    const idx_t d_id_offset = 10e9;
+    const int n_iters = 50;
+
+    // timers
+    timer_type t_buf_local, t_buf_global; // 1 - unordered halos - buffered receive
+    timer_type t_ord_buf_local, t_ord_buf_global; // 2 - ordered halos - buffered receive
+    timer_type t_ord_ipr_local, t_ord_ipr_global; // 3 - ordered halos - in-place receive
+
+    // Output file
+    std::stringstream ss_file;
+    ss_file << gh_rank;
+    std::string filename = "unstructured_parmetis_receive_type_" + ss_file.str() + ".txt";
+    std::ofstream file(filename.c_str());
+    file << "Unstructured ParMETIS receive type benchmark - Timings\n";
+
+    // 1 ======== unordered halos - buffered receive =========================
+
+    // setup
     domain_id_type d_id{gh_rank}; // 1 domain per rank
     domain_descriptor_type d{d_id, r_v_ids_rank, r_adjncy_rank}; // CSR constructor
     std::vector<domain_descriptor_type> local_domains{d};
     halo_generator_type hg{};
     auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
     using pattern_container_type = decltype(p);
-    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm);
     std::vector<idx_t> f(d.size(), 0);
-    initialize_field(d, f, 1000);
+    initialize_field(d, f, d_id_offset);
     data_descriptor_cpu_type<idx_t> data{d, f};
 
-    // GHEX exchange
-    auto h = co.exchange(p(data));
+    // exchange
+    auto h = co.exchange(p(data)); // first iteration
     h.wait();
+    for (int i = 0; i < n_iters; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h = co.exchange(p(data));
+        h.wait();
+        t_local.toc();
+        t_buf_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_buf_global(t_global);
+    }
 
     // check
-    check_exchanged_data(d, p[0], f, 1000);
+    check_exchanged_data(d, p[0], f, d_id_offset);
+
+    // 2 ======== ordered halos - buffered receive ===========================
+
+    // setup
+    domain_descriptor_type d_ord = make_reindexed_domain(d, p[0]);
+    std::vector<domain_descriptor_type> local_domains_ord{d_ord};
+    auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // TO DO: definitely not optimal, only recv halos are different
+    auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm); // new one, same conditions
+    std::vector<idx_t> f_ord(d_ord.size(), 0);
+    initialize_field(d_ord, f_ord, d_id_offset);
+    data_descriptor_cpu_type<idx_t> data_ord{d_ord, f_ord};
+
+    // exchange
+    auto h_ord = co_ord.exchange(p_ord(data_ord)); // first iteration
+    h_ord.wait();
+    for (int i = 0; i < n_iters; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h_ord = co_ord.exchange(p_ord(data_ord));
+        h_ord.wait();
+        t_local.toc();
+        t_ord_buf_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_ord_buf_global(t_global);
+    }
+
+    // check
+    check_exchanged_data(d_ord, p_ord[0], f_ord, d_id_offset);
+
+    // 3 ======== ordered halos - in-place receive ===========================
+
+    // setup
+    auto co_ipr = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(gh_comm);
+    std::vector<idx_t> f_ipr(d_ord.size(), 0);
+    initialize_field(d_ord, f_ipr, d_id_offset);
+    data_descriptor_cpu_type<idx_t> data_ipr{d_ord, f_ipr};
+
+    // exchange
+    auto h_ipr = co_ipr.exchange(p_ord(data_ipr)); // first iteration
+    h_ipr.wait();
+    for (int i = 0; i < n_iters; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h_ipr = co_ipr.exchange(p_ord(data_ipr));
+        h_ipr.wait();
+        t_local.toc();
+        t_ord_ipr_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_ord_ipr_global(t_global);
+    }
+
+    // check
+    check_exchanged_data(d_ord, p_ord[0], f_ipr, d_id_offset);
+
+    // ======== output =======================================================
+
+    file << "1 - unordered halos - buffered receive\n"
+         << "\tlocal time = " << t_buf_local.mean() / 1000.0 << "+/-" << t_buf_local.stddev() / 1000.0 << "s\n"
+         << "\tglobal time = " << t_buf_global.mean() / 1000.0 << "+/-" << t_buf_global.stddev() / 1000.0 << "s\n";
+
+    file << "2 - ordered halos - buffered receive\n"
+         << "\tlocal time = " << t_ord_buf_local.mean() / 1000.0 << "+/-" << t_ord_buf_local.stddev() / 1000.0 << "s\n"
+         << "\tglobal time = " << t_ord_buf_global.mean() / 1000.0 << "+/-" << t_ord_buf_global.stddev() / 1000.0 << "s\n";
+
+    file << "3 - ordered halos - in-place receive\n"
+         << "\tlocal time = " << t_ord_ipr_local.mean() / 1000.0 << "+/-" << t_ord_ipr_local.stddev() / 1000.0 << "s\n"
+         << "\tglobal time = " << t_ord_ipr_global.mean() / 1000.0 << "+/-" << t_ord_ipr_global.stddev() / 1000.0 << "s\n";
 
     // MPI setup
     MPI_Comm_free(&comm);
