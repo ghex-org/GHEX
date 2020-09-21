@@ -1,6 +1,7 @@
 MODULE ghex_utils
   !use mpi
-
+  use ghex_defs
+  
   implicit none
 
 include 'mpif.h'  
@@ -57,30 +58,58 @@ contains
   ! obtain cartesian coordinates of rank.
   ! comm can be MPI_COMM_NULL
   ! if comm is an MPI cartesian communicator, we use MPI
-  subroutine ghex_cart_rank2coord(comm, dims, rank, coord)
+  subroutine ghex_cart_rank2coord(comm, dims, rank, coord, iorder)
     implicit none
     integer(kind=4), intent(in)  :: comm, dims(3), rank
     integer(kind=4), intent(out) :: coord(3)
-    integer(kind=4) :: topo, ierr, tmp
+    integer(kind=4), optional :: iorder
+    integer(kind=4) :: topo, ierr, tmp, order
+
+    if (present(iorder)) then
+       order = iorder
+    else
+       order = CartOrderXYZ
+    endif    
 
     ! check if this is a cartesian communicator
     call MPI_Topo_test(comm, topo, ierr)
     if (topo/=MPI_CART) then
 
-       ! XYZ
-       ! tmp = rank;        coord(1) = modulo(tmp, dims(1))
-       ! tmp = tmp/dims(1); coord(2) = modulo(tmp, dims(2))
-       ! tmp = tmp/dims(2); coord(3) = tmp
+       select case (order)
+          case (CartOrderXYZ)
+             tmp = rank;        coord(1) = modulo(tmp, dims(1))
+             tmp = tmp/dims(1); coord(2) = modulo(tmp, dims(2))
+             tmp = tmp/dims(2); coord(3) = tmp
        
-       ! XZY
-       ! tmp = rank;        coord(1) = modulo(tmp, dims(1))
-       ! tmp = tmp/dims(1); coord(3) = modulo(tmp, dims(3))
-       ! tmp = tmp/dims(3); coord(2) = tmp
-       
-       ! ZYX
-       tmp = rank;        coord(3) = modulo(tmp, dims(3))
-       tmp = tmp/dims(3); coord(2) = modulo(tmp, dims(2))
-       tmp = tmp/dims(2); coord(1) = tmp
+          case (CartOrderXZY)
+             tmp = rank;        coord(1) = modulo(tmp, dims(1))
+             tmp = tmp/dims(1); coord(3) = modulo(tmp, dims(3))
+             tmp = tmp/dims(3); coord(2) = tmp
+
+          case (CartOrderZYX)
+             tmp = rank;        coord(3) = modulo(tmp, dims(3))
+             tmp = tmp/dims(3); coord(2) = modulo(tmp, dims(2))
+             tmp = tmp/dims(2); coord(1) = tmp
+
+          case (CartOrderYZX)
+             tmp = rank;        coord(2) = modulo(tmp, dims(2))
+             tmp = tmp/dims(2); coord(3) = modulo(tmp, dims(3))
+             tmp = tmp/dims(3); coord(1) = tmp
+
+          case (CartOrderZXY)
+             tmp = rank;        coord(3) = modulo(tmp, dims(3))
+             tmp = tmp/dims(3); coord(1) = modulo(tmp, dims(1))
+             tmp = tmp/dims(1); coord(2) = tmp
+
+          case (CartOrderYXZ)
+             tmp = rank;        coord(2) = modulo(tmp, dims(2))
+             tmp = tmp/dims(2); coord(1) = modulo(tmp, dims(1))
+             tmp = tmp/dims(1); coord(3) = tmp
+
+          case default
+             print *, "unknown value of argument 'order': ", order
+             call exit
+          end select
     else
        call mpi_cart_coords(comm, rank, 3, coord, ierr)
     end if
@@ -92,12 +121,19 @@ contains
   ! handles periodicity, i.e., coord can have numbers <0 and >=dims
   ! comm can be MPI_COMM_NULL
   ! if comm is an MPI cartesian communicator, we use MPI
-  subroutine ghex_cart_coord2rank(comm, dims, periodic, coord, rank)
+  subroutine ghex_cart_coord2rank(comm, dims, periodic, coord, rank, iorder)
     implicit none
     integer(kind=4), intent(in) :: comm, dims(3), coord(3)
     logical, intent(in) :: periodic(3)
     integer(kind=4), intent(out) :: rank
-    integer(kind=4) :: tcoord(3), dim, topo, ierr
+    integer(kind=4) :: tcoord(3), dim, topo, ierr, order
+    integer(kind=4), optional :: iorder
+
+    if (present(iorder)) then
+       order = iorder
+    else
+       order = CartOrderXYZ
+    endif    
 
     ! apply periodicity
     dim = 1
@@ -126,14 +162,29 @@ contains
     call MPI_Topo_test(comm, topo, ierr)
     if (topo/=MPI_CART) then
 
-       ! XYZ
-       !rank = (tcoord(3)*dims(2) + tcoord(2))*dims(1) + tcoord(1)
+       select case (order)
+          case (CartOrderXYZ)
+             rank = (tcoord(3)*dims(2) + tcoord(2))*dims(1) + tcoord(1)
+       
+          case (CartOrderXZY)
+             rank = (tcoord(2)*dims(3) + tcoord(3))*dims(1) + tcoord(1)
 
-       ! XZY
-       !rank = (tcoord(2)*dims(3) + tcoord(3))*dims(1) + tcoord(1)
+          case (CartOrderZYX)
+             rank = (tcoord(1)*dims(2) + tcoord(2))*dims(3) + tcoord(3)
 
-       ! ZYX
-       rank = (tcoord(1)*dims(2) + tcoord(2))*dims(3) + tcoord(3)
+          case (CartOrderYZX)
+             rank = (tcoord(1)*dims(3) + tcoord(3))*dims(2) + tcoord(2)
+
+          case (CartOrderZXY)
+             rank = (tcoord(2)*dims(1) + tcoord(1))*dims(3) + tcoord(3)
+
+          case (CartOrderYXZ)
+             rank = (tcoord(3)*dims(1) + tcoord(1))*dims(2) + tcoord(2)
+
+          case default
+             print *, "unknown value of argument 'order': ", order
+             call exit
+          end select
     else
        call mpi_cart_rank(comm, tcoord, rank, ierr)
     end if
@@ -143,12 +194,19 @@ contains
 
   ! create a cartesian sub-communicator (as mpi_cart_sub)
   ! if comm is an MPI cartesian communicator, we use MPI
-  subroutine ghex_cart_create_subcomm(comm, dims, rank, belongs, newcomm)
+  subroutine ghex_cart_create_subcomm(comm, dims, rank, belongs, newcomm, iorder)
     implicit none
     integer(kind=4), intent(in)      :: comm, dims(3), rank
     logical,dimension(3), intent(in) :: belongs
     integer(kind=4), intent(out)     :: newcomm
-    integer :: ierr, coord(3), color, topo
+    integer :: ierr, coord(3), color, topo, order
+    integer(kind=4), optional :: iorder
+
+    if (present(iorder)) then
+       order = iorder
+    else
+       order = CartOrderXYZ
+    endif    
 
     ! check if this is a cartesian communicator
     call MPI_Topo_test(comm, topo, ierr)
@@ -157,11 +215,11 @@ contains
        ! Find ranks belonging to the new communicator based on each rank's cartesian coordinates.
        ! color is computed by zeroing out 'belongs' in the cartesian coordinate of each rank
        ! and then computing the 'collapsed' rank by coord2rank
-       call ghex_cart_rank2coord(comm, dims, rank, coord)
+       call ghex_cart_rank2coord(comm, dims, rank, coord, order)
        where (belongs)
           coord = 0
        end where
-       call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), coord, color)
+       call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), coord, color, order)
 
        ! create the new communicator
        call MPI_Comm_split(comm, color, 0, newcomm, ierr)
@@ -183,15 +241,22 @@ contains
   !
   ! TODO : find a good automatic way to compute nodedims: split the grid into compact sub-grids,
   ! which fit into a single compute node. Or use Z-curves instead.
-  subroutine ghex_cart_remap_ranks(comm, dims, nodedims, newcomm)
+  subroutine ghex_cart_remap_ranks(comm, dims, nodedims, newcomm, iorder)
     implicit none
     integer(kind=4), intent(in)  :: comm, dims(3), nodedims(3)
     integer(kind=4), intent(out) :: newcomm
     integer(kind=4) ::          newrank, newcoord(3)
     integer(kind=4) :: shmcomm, shmrank, shmcoord(3), shmdims(3), shmsize, rank, size
     integer(kind=4) ::         noderank, nodecoord(3)
-    integer(kind=4) :: ierr
+    integer(kind=4) :: ierr, order
     character(len=20) :: fmti
+    integer(kind=4), optional :: iorder
+
+    if (present(iorder)) then
+       order = iorder
+    else
+       order = CartOrderXYZ
+    endif    
 
     ! total number of ranks
     call MPI_Comm_rank(comm, rank, ierr)
@@ -221,38 +286,84 @@ contains
     call ghex_get_noderank(comm, noderank)
 
     ! cartesian node coordinates in the node space
-    call ghex_cart_rank2coord(MPI_COMM_NULL, nodedims, noderank, nodecoord)
+    call ghex_cart_rank2coord(MPI_COMM_NULL, nodedims, noderank, nodecoord, order)
 
     ! cartesian shmrank coordinates in node-local rank space
     shmdims = dims/nodedims
-    call ghex_cart_rank2coord(MPI_COMM_NULL, shmdims, shmrank, shmcoord)
+    call ghex_cart_rank2coord(MPI_COMM_NULL, shmdims, shmrank, shmcoord, order)
 
     ! new rank coordinates in remapped global rank space
     newcoord = nodecoord*shmdims + shmcoord
-    call ghex_cart_coord2rank(MPI_COMM_NULL, dims, (/.false., .false., .false./), newcoord, newrank)
+    call ghex_cart_coord2rank(MPI_COMM_NULL, dims, (/.false., .false., .false./), newcoord, newrank, order)
 
     ! create the new communicator with remapped ranks
     call MPI_Comm_split(comm, 0, newrank, newcomm, ierr)
 
   end subroutine ghex_cart_remap_ranks
 
-
-  subroutine ghex_cart_print_rank2node(comm, dims)
-    implicit none
-    integer(kind=4), intent(in) :: comm, dims(3)
-    integer(kind=4), dimension(:), allocatable :: buff
-    integer(kind=4) :: sbuff(1), ierr, k, j, i, kk, n
-    integer(kind=4) :: rank, size, noderank
-    character(len=20) :: fmt, fmti
+  subroutine ghex_print_rank2node(comm)
+    integer(kind=4), intent(in) :: comm
+    integer(kind=4), dimension(:,:), allocatable :: buff
+    integer(kind=4) :: sbuff(3), ierr, i
+    integer(kind=4) :: rank, size, noderank, orank
 
     call ghex_get_noderank(comm, noderank)
 
     ! obtain all values at master
+    call MPI_Comm_rank(mpi_comm_world, orank, ierr)
     call MPI_Comm_rank(comm, rank, ierr)
     call MPI_Comm_size(comm, size, ierr)
-    allocate(buff(0:size-1), Source=0)
+
+    allocate(buff(1:3,0:size-1), Source=0)
     sbuff(1) = noderank
-    call MPI_Gather(sbuff, 1, MPI_INT, buff, 1, MPI_INT, 0, comm, ierr)
+    sbuff(2) = rank
+    sbuff(3) = orank
+    call MPI_Gather(sbuff, 3, MPI_INT, buff, 3, MPI_INT, 0, comm, ierr)
+
+    if (rank==0) then       
+       do i=0,size-1
+          write (*,"(I3)",ADVANCE='NO') buff(1,i)
+       end do
+       write (*,*)
+       do i=0,size-1
+          write (*,"(I3)",ADVANCE='NO') buff(2,i)
+       end do
+       write (*,*)
+       do i=0,size-1
+          write (*,"(I3)",ADVANCE='NO') buff(3,i)
+       end do
+       write (*,*)
+    end if
+
+    deallocate(buff)    
+  end subroutine ghex_print_rank2node
+
+  subroutine ghex_cart_print_rank2node(comm, dims, iorder)
+    implicit none
+    integer(kind=4), intent(in) :: comm, dims(3)
+    integer(kind=4), dimension(:,:), allocatable :: buff
+    integer(kind=4) :: sbuff(3), ierr, k, j, i, kk, n
+    integer(kind=4) :: rank, size, noderank, order, orank
+    character(len=20) :: fmt, fmti
+    integer(kind=4), optional :: iorder
+
+    if (present(iorder)) then
+       order = iorder
+    else
+       order = CartOrderXYZ
+    endif    
+
+    call ghex_get_noderank(comm, noderank)
+
+    ! obtain all values at master
+    call MPI_Comm_rank(mpi_comm_world, orank, ierr)
+    call MPI_Comm_rank(comm, rank, ierr)
+    call MPI_Comm_size(comm, size, ierr)
+    allocate(buff(1:3,0:size-1), Source=0)
+    sbuff(1) = noderank
+    sbuff(2) = rank
+    sbuff(3) = orank
+    call MPI_Gather(sbuff, 3, MPI_INT, buff, 3, MPI_INT, 0, comm, ierr)
 
     if (rank==0) then
        write (*,*) ' '
@@ -272,8 +383,58 @@ contains
              end do
              fmt=fmti
              do i=0,dims(1)-1
-                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n)
-                write (*,fmt,ADVANCE='NO') buff(n)
+                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
+                write (*,fmt,ADVANCE='NO') buff(1,n)
+             end do
+             write (*,"(A1)",ADVANCE='NO') new_line(" ")
+          end do
+          write (*,"(A1)",ADVANCE='NO') new_line(" ")
+       end do
+
+       write (*,*) ' '
+       write (*,*) ' Rank layout '
+       write (*,*) ' '
+
+       if(size < 1000) then
+          fmti="($' ',I3)"
+       else
+          fmti="($' ',I4)"
+       endif
+       do k=dims(3)-1,0,-1
+          do j=dims(2)-1,0,-1
+             fmt="(A1)"
+             do kk=0,(j-1)*2+5
+                write (*,fmt,ADVANCE='NO') " "
+             end do
+             fmt=fmti
+             do i=0,dims(1)-1
+                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
+                write (*,fmt,ADVANCE='NO') buff(2,n)
+             end do
+             write (*,"(A1)",ADVANCE='NO') new_line(" ")
+          end do
+          write (*,"(A1)",ADVANCE='NO') new_line(" ")
+       end do
+
+       write (*,*) ' '
+       write (*,*) ' MPI_COMM_WORLD layout '
+       write (*,*) ' '
+
+       if(size < 1000) then
+          fmti="($' ',I3)"
+       else
+          fmti="($' ',I4)"
+       endif
+       do k=dims(3)-1,0,-1
+          do j=dims(2)-1,0,-1
+             fmt="(A1)"
+             do kk=0,(j-1)*2+5
+                write (*,fmt,ADVANCE='NO') " "
+             end do
+             fmt=fmti
+             do i=0,dims(1)-1
+                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
+                write (*,fmt,ADVANCE='NO') buff(3,n)
              end do
              write (*,"(A1)",ADVANCE='NO') new_line(" ")
           end do

@@ -7,4 +7,12 @@ MODULE ghex_defs
 
   integer, public, parameter :: LayoutFieldLast  = 1
   integer, public, parameter :: LayoutFieldFirst = 2
+
+  integer, public, parameter :: CartOrderXYZ = 1
+  integer, public, parameter :: CartOrderXZY = 2
+  integer, public, parameter :: CartOrderZYX = 3
+  integer, public, parameter :: CartOrderYZX = 4
+  integer, public, parameter :: CartOrderZXY = 5
+  integer, public, parameter :: CartOrderYXZ = 6
+
 END MODULE ghex_defs

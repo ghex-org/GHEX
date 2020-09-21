@@ -3,7 +3,7 @@ PROGRAM test_halo_exchange
   use ghex_mod
   use ghex_utils
 
-  implicit none  
+  implicit none
 
   character(len=512) :: arg
   real    :: tic, toc
@@ -13,12 +13,15 @@ PROGRAM test_halo_exchange
   integer :: gfirst(3), glast(3)       ! global index space
   integer :: first(3), last(3)
   integer :: gdim(3) = [1, 1, 1]       ! number of domains
+  integer :: nodedim(3) = [1, 1, 1]    ! (NUMA) node space dimensions
+  logical :: remap = .false.           ! remap MPI ranks
   integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
   integer :: periodic(3) = [1,1,0]
   integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
   integer :: halo(6)                   ! halo definition
   integer :: mb = 5                    ! halo width
   integer :: niters = 1000
+  integer :: cart_order = CartOrderXYZ
   integer, parameter :: nfields = 8
 
   ! -------------- variables used by the Bifrost-like implementation
@@ -30,14 +33,14 @@ PROGRAM test_halo_exchange
   integer(kind=4) :: T_SENDYUP_REAL4,T_RECVYUP_REAL4,T_SENDYDN_REAL4,T_RECVYDN_REAL4
   integer(kind=4) :: T_SENDZUP_REAL4,T_RECVZUP_REAL4,T_SENDZDN_REAL4,T_RECVZDN_REAL4
   integer(kind=4),dimension(MPI_STATUS_SIZE) :: status
-  ! --------------   
+  ! --------------
 
   type hptr
      real(kind=4), dimension(:,:,:), pointer :: ptr
   end type hptr
 
   real,dimension(:,:,:),allocatable, target :: v1, v2, v3, v4, v5, v6, v7, v8
-  
+
   ! ! exchange 8 data cubes
   type(hptr) :: data_ptr(nfields)
 
@@ -55,8 +58,8 @@ PROGRAM test_halo_exchange
   type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields)
   type(ghex_struct_exchange_handle)      :: eh
 
-  if (command_argument_count() /= 6) then
-     print *, "Usage: <benchmark> [grid size] [niters] [halo size] [rank dims :3] "
+  if (command_argument_count() < 6) then
+     print *, "Usage: <benchmark> [grid size] [niters] [halo size] [rank dims :3] <node dims :3> <cart_order=[1,2,3]>"
      call exit(1)
   end if
 
@@ -82,19 +85,109 @@ PROGRAM test_halo_exchange
   call get_command_argument(6, arg)
   read(arg,*) gdim(3)
 
+  if (command_argument_count() > 6) then
+
+     ! node grid dimensions
+     call get_command_argument(7, arg)
+     read(arg,*) nodedim(1)
+     call get_command_argument(8, arg)
+     read(arg,*) nodedim(2)
+     call get_command_argument(9, arg)
+     read(arg,*) nodedim(3)
+     remap = .true.
+  end if
+
+  if (command_argument_count() > 9) then
+     call get_command_argument(10, arg)
+     read(arg,*) cart_order
+  end if
+
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
   call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
   call mpi_comm_size(mpi_comm_world, size, mpi_err)
-  
-  C_CART = mpi_comm_world
-  ! call mpi_dims_create(size, 3, gdim, mpi_err)
-  ! call mpi_cart_create(mpi_comm_world, 3, gdim, [1, 1, 0], .true., C_CART, ierr)
+
+  if (world_rank==0) then
+     print *, "original rank placement --------------------------"
+  end if
+  call ghex_print_rank2node(mpi_comm_world)
+
+  if (world_rank==0) then
+     print *, "--------------------------"
+  end if
+  if (remap) then
+     if (world_rank==0) then
+        write (*,*)
+        write (*,"(A)",ADVANCE='NO') "Using rank remapping with cartesian communicator order "
+        select case (cart_order)
+          case (CartOrderXYZ)
+             print *, "XYZ"
+
+          case (CartOrderXZY)
+             print *, "XZY"
+
+          case (CartOrderZYX)
+             print *, "ZYX"
+
+          case (CartOrderYZX)
+             print *, "YZX"
+
+          case (CartOrderZXY)
+             print *, "ZXY"
+
+          case (CartOrderYXZ)
+             print *, "YXZ"
+
+          case default
+             print *, "unknown value of argument 'cart_order': ", cart_order
+             call exit
+          end select
+     end if
+     call ghex_cart_remap_ranks(mpi_comm_world, gdim, nodedim, C_CART, cart_order)
+  else
+     if (world_rank==0) then
+        print *, "Using standard MPI cartesian communicator"
+     end if
+     call mpi_dims_create(size, 3, gdim, mpi_err)
+     call mpi_cart_create(mpi_comm_world, 3, gdim, periodic, .true., C_CART, ierr)
+  end if
+
+  if (world_rank==0) then
+     print *, "C_CART rank placement --------------------------"
+  end if
+  call ghex_print_rank2node(C_CART)
 
   call mpi_comm_rank(C_CART, rank, mpi_err)
 
+  ! it = 0
+  ! call cpu_time(tic)
+  ! do while (it < niters)
+  !    call mpi_barrier(mpi_comm_world, ierr)
+  !   it = it+1
+  ! end do
+  ! call cpu_time(toc)
+  ! if (rank == 0) then
+  !    print *, rank, " barrier mpi_comm_world:      ", (toc-tic)
+  ! end if
+
+  ! it = 0
+  ! call cpu_time(tic)
+  ! do while (it < niters)
+  !    call mpi_barrier(C_CART, ierr)
+  !   it = it+1
+  ! end do
+  ! call cpu_time(toc)
+  ! if (rank == 0) then
+  !    print *, rank, " barrier C_CART:      ", (toc-tic)
+  ! end if
+
+  ! call mpi_barrier(mpi_comm_world, mpi_err)
+  ! call ghex_finalize()
+  ! call mpi_finalize(mpi_err)
+  ! call exit
+
   ! init ghex
-  call ghex_init(nthreads, mpi_comm_world)
+  call ghex_init(nthreads, C_CART)
 
   ! halo information
   halo(:) = 0
@@ -107,22 +200,23 @@ PROGRAM test_halo_exchange
      print *, "domain dist: ", gdim
      print *, "domain size: ", ldim
   end if
-  
-  ! use 27 ranks to test all halo connectivities
+
   if (size /= product(gdim)) then
     print *, "Usage: this test must be executed with ", product(gdim), " mpi ranks"
     call exit(1)
   end if
+
+  call ghex_cart_print_rank2node(C_CART, gdim, cart_order)
 
   ! define the global index domain
   gfirst = [1, 1, 1]
   glast = gdim * ldim
 
   ! local indices in the rank index space
-  call ghex_cart_rank2coord(C_CART, gdim, rank, rank_coord)
+  call ghex_cart_rank2coord(C_CART, gdim, rank, rank_coord, cart_order)
 
   ! compute neighbor information
-  call init_mpi_nbors(rank_coord)
+  ! call init_mpi_nbors(rank_coord)
 
   ! ! define the local domain
   first = (rank_coord) * ldim + 1
@@ -138,9 +232,9 @@ PROGRAM test_halo_exchange
 
   ! define local index ranges
   xs  = first(1)
-  xe  = last(1) 
+  xe  = last(1)
   ys  = first(2)
-  ye  = last(2) 
+  ye  = last(2)
   zs  = first(3)
   ze  = last(3)
 
@@ -174,7 +268,7 @@ PROGRAM test_halo_exchange
   ! allocate(v6(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
   ! allocate(v7(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
   ! allocate(v8(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  
+
 
   ! ---- COMPACT tests ----
   ! initialize the field datastructure
@@ -236,9 +330,9 @@ PROGRAM test_halo_exchange
     eh = ghex_exchange(co, ed)
     call ghex_wait(eh)
     call ghex_free(eh)
-    
+
   call cpu_time(toc)
-  if (rank == 0) then 
+  if (rank == 0) then
      print *, rank, " exchange compact:      ", (toc-tic)
   end if
     it = it+1
@@ -255,7 +349,7 @@ PROGRAM test_halo_exchange
   !   eds(i) = ghex_exchange_desc_new(domain_descs(i))
   !   i = i+1
   ! end do
-  
+
   ! ! create communication objects
   ! i = 1
   ! do while (i <= nfields)
@@ -281,8 +375,8 @@ PROGRAM test_halo_exchange
   !   it = it+1
   ! end do
   ! call cpu_time(toc)
-  ! if (rank == 0) then 
-  !    print *, rank, " exchange sequenced (multiple COs):      ", (toc-tic); 
+  ! if (rank == 0) then
+  !    print *, rank, " exchange sequenced (multiple COs):      ", (toc-tic);
   ! end if
 
 
@@ -305,8 +399,8 @@ PROGRAM test_halo_exchange
   !   it = it+1
   ! end do
   ! call cpu_time(toc)
-  ! if (rank == 0) then 
-  !    print *, rank, " exchange sequenced (single CO):      ", (toc-tic); 
+  ! if (rank == 0) then
+  !    print *, rank, " exchange sequenced (single CO):      ", (toc-tic);
   ! end if
 
   ! ---- BIFROST-like comm ----
@@ -330,8 +424,8 @@ PROGRAM test_halo_exchange
   ! !   it = it+1
   ! ! end do
   ! ! call cpu_time(toc)
-  ! ! if (rank == 0) then 
-  ! !    print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)  
+  ! ! if (rank == 0) then
+  ! !    print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)
   ! ! end if
 
   ! i = 1
@@ -349,8 +443,8 @@ PROGRAM test_halo_exchange
   !     i = i+1
   !   end do
   ! call cpu_time(toc)
-  ! if (rank == 0) then 
-  !    print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)  
+  ! if (rank == 0) then
+  !    print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)
   ! end if
   !   it = it+1
   ! end do
@@ -372,13 +466,13 @@ PROGRAM test_halo_exchange
   !   it = it+1
   ! end do
   ! call cpu_time(toc)
-  ! if (rank == 0) then 
-  !    print *, rank, " bifrost exchange 2 (sendrecv):      ", (toc-tic)  
+  ! if (rank == 0) then
+  !    print *, rank, " bifrost exchange 2 (sendrecv):      ", (toc-tic)
   ! end if
 
   call mpi_barrier(mpi_comm_world, mpi_err)
 
-  ! cleanup 
+  ! cleanup
   call ghex_free(domain_desc)
   call ghex_free(co)
   call ghex_free(ed)
@@ -390,12 +484,12 @@ PROGRAM test_halo_exchange
     ! deallocate(data_ptr(i)%ptr)
     i = i+1
   end do
-  
+
   call ghex_finalize()
   call mpi_finalize(mpi_err)
 
 contains
-  
+
   ! -------------------------------------------------------------
   ! cartesian coordinates computations
   ! -------------------------------------------------------------
@@ -412,7 +506,7 @@ contains
     end if
     coord = coord + 1
   end subroutine rank2coord
-  
+
   subroutine coord2rank(icoord, rank)
     integer :: icoord(3), coord(3), ierr
     integer :: rank
@@ -424,13 +518,13 @@ contains
        call mpi_cart_rank(C_CART, coord, rank, ierr)
     end if
   end subroutine coord2rank
-  
+
   function get_nbor(icoord, shift, idx)
     integer, intent(in) :: icoord(3)
     integer :: shift, idx
     integer :: get_nbor
     integer :: coord(3)
-    
+
     coord = icoord
     coord(idx) = coord(idx)+shift
     if (C_CART == mpi_comm_world) then
@@ -443,7 +537,7 @@ contains
     end if
     call coord2rank(coord, get_nbor)
   end function get_nbor
-  
+
   subroutine init_mpi_nbors(rank_coord)
     integer :: rank_coord(3)
 
@@ -457,8 +551,8 @@ contains
     R_ZUP = get_nbor(rank_coord, +1, 3);
     R_ZDN = get_nbor(rank_coord, -1, 3);
   end subroutine init_mpi_nbors
-  
- 
+
+
   ! -------------------------------------------------------------
   ! Bifrost-like communication with 3 synchroneous steps: sendrecv on array parts
   ! -------------------------------------------------------------
@@ -595,7 +689,7 @@ contains
     f(xeb-(mb-1):xeb        , &
          ys        :ye         , &
          zs        :ze        ) = reshape(rbuff, (/mb, yr, zr/));
-    
+
   end subroutine comm_x_2
 
   subroutine comm_y_2(f)
@@ -620,7 +714,7 @@ contains
     sbuff = reshape(f(xsb       :xeb              , &
          ys       :ys+(mb-1)       , &
          zs       :ze       )      , &
-         (/xrb*mb*zr/));         
+         (/xrb*mb*zr/));
     call MPI_SENDRECV(sbuff,         &
          xrb*mb*zr,MPI_REAL4,R_YDN,4, &
          rbuff,                      &
@@ -666,14 +760,14 @@ contains
 
 
   ! a version with subarrays
-  subroutine  exchange_subarray_init() 
+  subroutine  exchange_subarray_init()
     integer,dimension(3) :: sizeb,sizel,sizes
 
     sizeb=(/xrb,yrb,zrb/)
 
     ! --- X halos
     sizel=(/mb,yrb,zrb/)
-    
+
     ! send up
     sizes=(/xrb-2*mb,0,0/)
     call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDXUP_REAL4,ierr)
@@ -696,7 +790,7 @@ contains
 
     ! --- Y halos
     sizel=(/xrb,mb,zrb/)
-    
+
     ! send up
     sizes=(/0,yrb-2*mb,0/)
     call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDYUP_REAL4,ierr)
@@ -719,7 +813,7 @@ contains
 
     ! --- Z halos
     sizel=(/xrb,yrb,mb/)
-    
+
     ! send up
     sizes=(/0,0,zrb-2*mb/)
     call mpi_type_create_subarray(3,sizeb,sizel,sizes,MPI_ORDER_FORTRAN,MPI_REAL4,T_SENDZUP_REAL4,ierr)
