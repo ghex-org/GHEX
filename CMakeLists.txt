@@ -182,5 +182,6 @@ install(
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfigVersion.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindXPMEM.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)
