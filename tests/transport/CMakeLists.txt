@@ -1,5 +1,5 @@
 
-set(_tests test_low_level test_send_multi test_barrier test_barrier_mt test_cancel test_context test_send_recv)
+set(_tests test_low_level test_send_multi test_barrier test_barrier_mt test_cancel test_context test_send_recv test_locality)
 
 foreach(t_ ${_tests})
     add_executable( ${t_} ./${t_}.cpp )
@@ -25,6 +25,9 @@ endforeach(t_ ${_tests})
 
 if (OpenMP_FOUND)
     target_link_libraries(test_barrier_mt OpenMP::OpenMP_CXX)
+if (GHEX_USE_UCP)
+    target_link_libraries(test_barrier_mt_ucx OpenMP::OpenMP_CXX)
+endif()
 endif()
 
 if (GHEX_USE_UCP)
