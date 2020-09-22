@@ -4,7 +4,7 @@
 #include "obj_wrapper.hpp"
 #include <iostream>
 #include <vector>
-
+#include <sched.h>
 
 /* fortran-side user callback */
 typedef void (*f_callback)(void *mesg, int rank, int tag);
@@ -28,6 +28,12 @@ struct progress_status_type {
         num_cancels{ps.m_num_cancels} 
     {}
 };
+
+extern "C"
+int ghex_get_current_cpu()
+{
+    return sched_getcpu();
+}
 
 extern "C"
 void* ghex_comm_new()

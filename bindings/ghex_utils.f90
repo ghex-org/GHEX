@@ -6,6 +6,13 @@ MODULE ghex_utils
 
 include 'mpif.h'  
 
+  interface
+
+     integer(c_int) function ghex_get_current_cpu() bind(c)
+       use iso_c_binding
+     end function ghex_get_current_cpu
+
+  end interface
 contains
 
   ! obtain compute node ID of the calling rank
@@ -342,7 +349,7 @@ contains
     implicit none
     integer(kind=4), intent(in) :: comm, dims(3)
     integer(kind=4), dimension(:,:), allocatable :: buff
-    integer(kind=4) :: sbuff(3), ierr, k, j, i, kk, n
+    integer(kind=4) :: sbuff(4), ierr, k, j, i, kk, n
     integer(kind=4) :: rank, size, noderank, order, orank
     character(len=20) :: fmt, fmti
     integer(kind=4), optional :: iorder
@@ -359,11 +366,15 @@ contains
     call MPI_Comm_rank(mpi_comm_world, orank, ierr)
     call MPI_Comm_rank(comm, rank, ierr)
     call MPI_Comm_size(comm, size, ierr)
-    allocate(buff(1:3,0:size-1), Source=0)
+    allocate(buff(1:4,0:size-1), Source=0)
     sbuff(1) = noderank
     sbuff(2) = rank
     sbuff(3) = orank
-    call MPI_Gather(sbuff, 3, MPI_INT, buff, 3, MPI_INT, 0, comm, ierr)
+    sbuff(4) = ghex_get_current_cpu()
+    if (sbuff(4) >= 32) then
+       sbuff(4) = sbuff(4) - 32
+    end if
+    call MPI_Gather(sbuff, 4, MPI_INT, buff, 4, MPI_INT, 0, comm, ierr)
 
     if (rank==0) then
        write (*,*) ' '
@@ -435,6 +446,31 @@ contains
              do i=0,dims(1)-1
                 call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
                 write (*,fmt,ADVANCE='NO') buff(3,n)
+             end do
+             write (*,"(A1)",ADVANCE='NO') new_line(" ")
+          end do
+          write (*,"(A1)",ADVANCE='NO') new_line(" ")
+       end do
+
+       write (*,*) ' '
+       write (*,*) ' CPU '
+       write (*,*) ' '
+
+       if(size < 1000) then
+          fmti="($' ',I3)"
+       else
+          fmti="($' ',I4)"
+       endif
+       do k=dims(3)-1,0,-1
+          do j=dims(2)-1,0,-1
+             fmt="(A1)"
+             do kk=0,(j-1)*2+5
+                write (*,fmt,ADVANCE='NO') " "
+             end do
+             fmt=fmti
+             do i=0,dims(1)-1
+                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
+                write (*,fmt,ADVANCE='NO') buff(4,n)
              end do
              write (*,"(A1)",ADVANCE='NO') new_line(" ")
           end do
