@@ -16,6 +16,7 @@
 #include "./config.hpp"
 #include "./tags.hpp"
 #include "./mpi/setup.hpp"
+#include "./mpi/rank_topology.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -56,6 +57,7 @@ namespace gridtools {
 
             private: // members
                 MPI_Comm m_mpi_comm;
+                mpi::rank_topology m_rank_topology;
                 transport_context_type m_transport_context;
                 int m_rank;
                 int m_size;
@@ -64,7 +66,8 @@ namespace gridtools {
                 template<typename...Args>
                 context(MPI_Comm comm, Args&&... args)
                     : m_mpi_comm{comm}
-                    , m_transport_context{std::forward<Args>(args)...}
+                    , m_rank_topology{comm}
+                    , m_transport_context{m_rank_topology, std::forward<Args>(args)...}
                     , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) }
                     , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) }
                 {}

@@ -105,7 +105,7 @@ namespace gridtools {
             }
 
             // forward declaration
-            template<int D, int I, typename Layout=void>
+            template<int D, int I, typename Layout, int Skip = 0>
             struct for_loop;
 
             /** @brief compile time recursive generation of loop nest for a D-dimensional array
@@ -116,14 +116,15 @@ namespace gridtools {
              *
              * @tparam D dimensionality of loop nest
              * @tparam I I==D to start recursion
-             * @tparam Layout template meta function which determines order of nesting */
-            template<int D, int I, int... Args>
-            struct for_loop<D,I,gridtools::layout_map<Args...>>
+             * @tparam Layout template meta function which determines order of nesting
+             * @tparam Skip the number of innermost loops to skip */
+            template<int D, int I, int... Args, int Skip>
+            struct for_loop<D,I,gridtools::layout_map<Args...>, Skip>
             {
             private: // member types
                 using layout_t = gridtools::layout_map<Args...>;
                 using idx = std::integral_constant<int, layout_t::find(D-I)>;
-                friend class for_loop<D,I+1,layout_t>;
+                friend class for_loop<D,I+1,layout_t,Skip>;
 
             public: // static member functions
                 /**
@@ -139,9 +140,10 @@ namespace gridtools {
                 {
                     for(auto i=first[idx::value]; i<=last[idx::value]; ++i)
                     {
-                        std::remove_const_t<std::remove_reference_t<Array>> x{};
+                        //std::remove_const_t<std::remove_reference_t<Array>> x{};
+                        std::remove_const_t<std::remove_reference_t<Array>> x = first;
                         x[idx::value] = i;
-                        for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+                        for_loop<D,I-1,layout_t,Skip>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
                     }
                 }
 
@@ -153,18 +155,18 @@ namespace gridtools {
                     {
                         std::remove_const_t<std::remove_reference_t<Array2>> x{y};
                         x[idx::value] = i;
-                        for_loop<D,I-1,layout_t>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+                        for_loop<D,I-1,layout_t,Skip>::apply(std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
                     }
                 }
             };
 
             // end of recursion
-            template<int D, int... Args>
-            struct for_loop<D,0,gridtools::layout_map<Args...>>
+            template<int D, int... Args, int Skip>
+            struct for_loop<D,Skip,gridtools::layout_map<Args...>,Skip>
             {
             private: // member types
                 using layout_t = gridtools::layout_map<Args...>;
-                friend class for_loop<D,1,layout_t>;
+                friend class for_loop<D,Skip+1,layout_t,Skip>;
 
             private: // implementation details
                 template<typename Func, typename Array, typename Array2>

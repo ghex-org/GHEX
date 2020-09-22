@@ -87,6 +87,7 @@ namespace gridtools {
 
                 using mutex_t = pthread_spin::recursive_mutex;
                 MPI_Comm m_mpi_comm;
+                const mpi::rank_topology&  m_rank_topology;
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
                 std::size_t                m_req_size;
@@ -102,8 +103,8 @@ namespace gridtools {
 
             public: // ctors
                 template<typename DB, typename... Args>
-                transport_context(MPI_Comm comm, DB&& db, Args&&...)
-                    : m_mpi_comm{comm}
+                transport_context(const mpi::rank_topology& t, DB&& db, Args&&...)
+                    : m_rank_topology{t}
                     , m_db{std::forward<DB>(db)}
                     , m_workers()
                 {

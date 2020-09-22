@@ -28,6 +28,7 @@
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
+#include <ghex/unstructured/communication_object_ipr.hpp>
 
 
 #ifndef GHEX_TEST_USE_UCX
@@ -315,16 +316,14 @@ void check_exchanged_data(const domain_descriptor_type& d, const Container& fiel
 
 /** @brief Helper functor type, used as default template argument below*/
 struct domain_to_rank_identity {
-        int operator()(const domain_id_type d_id) const {
-            return static_cast<int>(d_id);
-        }
+    int operator()(const domain_id_type d_id) const {
+        return static_cast<int>(d_id);
+    }
 };
 
 
 /** @brief Ad hoc receive domain ids generator, valid only for this specific test case.
- * Even if the concept is general, the implementation of the operator() is appplication-specific.
- * TO DO: the structured can be moved to the `user_concepts.hpp` header file, though,
- * and only the implementation should be here.*/
+ * Even if the concept is general, the implementation of the operator() is appplication-specific.*/
 template <typename DomainToRankFunc = domain_to_rank_identity>
 class recv_domain_ids_gen {
 
@@ -403,6 +402,41 @@ class recv_domain_ids_gen {
         }
 
 };
+
+
+/** @brief Vertices generator to be used for in-place receive tests.
+ * Inner vertices are the same as before, halo vertices are partitioned according to recv domain id.*/
+vertices_type init_ordered_vertices(const domain_id_type domain_id) {
+    switch (domain_id) {
+        case 0: {
+            return {0, 13, 5, 2, 1, 7, 20, 3, 11};
+        }
+        case 1: {
+            return {1, 19, 20, 4, 7, 15, 8, 0, 13, 16, 9};
+        }
+        case 2: {
+            return {3, 16, 18, 5, 1, 6};
+        }
+        case 3: {
+            return {17, 6, 11, 10, 12, 9, 0, 4, 3};
+        }
+        default: {
+            return {};
+        }
+    }
+}
+
+
+/** @brief Simple generator of domain inner sizes, used for in-place receive tests.*/
+std::size_t init_inner_sizes(const domain_id_type domain_id) {
+    switch (domain_id) {
+        case 0: return 4;
+        case 1: return 7;
+        case 2: return 3;
+        case 3: return 6;
+        default: return 0;
+    }
+}
 
 
 #ifndef GHEX_TEST_UNSTRUCTURED_OVERSUBSCRIPTION
@@ -487,6 +521,79 @@ TEST(unstructured_user_concepts, data_descriptor) {
 
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
+
+}
+
+/** @brief Test in place receive*/
+TEST(unstructured_user_concepts, in_place_receive) {
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+
+    domain_id_type domain_id{rank}; // 1 domain per rank
+    domain_descriptor_type d{domain_id, init_ordered_vertices(domain_id), init_inner_sizes(domain_id)};
+    std::vector<domain_descriptor_type> local_domains{d};
+    halo_generator_type hg{};
+
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+    // communication object
+    using pattern_container_type = decltype(patterns);
+    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
+
+    // application data
+    std::vector<int> field(d.size(), 0);
+    initialize_data(d, field);
+    data_descriptor_cpu_int_type data{d, field};
+
+    auto h = co.exchange(patterns(data));
+    h.wait();
+
+    // check exchanged data
+    check_exchanged_data(d, field, patterns[0]);
+
+}
+
+/** @brief Test in place receive with multiple fields*/
+TEST(unstructured_user_concepts, in_place_receive_multi) {
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+
+    domain_id_type domain_id{rank}; // 1 domain per rank
+    domain_descriptor_type d{domain_id, init_ordered_vertices(domain_id), init_inner_sizes(domain_id)};
+    std::vector<domain_descriptor_type> local_domains{d};
+    halo_generator_type hg{};
+
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+    // communication object
+    using pattern_container_type = decltype(patterns);
+    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
+
+    // application data
+
+    std::vector<int> field_1(d.size(), 0);
+    initialize_data(d, field_1);
+    data_descriptor_cpu_int_type data_1{d, field_1};
+
+    std::vector<int> field_2(d.size(), 0);
+    initialize_data(d, field_2);
+    data_descriptor_cpu_int_type data_2{d, field_2};
+
+    std::vector<int> field_3(d.size(), 0);
+    initialize_data(d, field_3);
+    data_descriptor_cpu_int_type data_3{d, field_3};
+
+    auto h = co.exchange(patterns(data_1), patterns(data_2), patterns(data_3));
+    h.wait();
+
+    // check exchanged data
+    check_exchanged_data(d, field_1, patterns[0]);
+    check_exchanged_data(d, field_2, patterns[0]);
+    check_exchanged_data(d, field_3, patterns[0]);
 
 }
 
@@ -628,6 +735,45 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe) {
     // communication object
     using pattern_container_type = decltype(patterns);
     auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator());
+
+    // application data
+    std::vector<int> field_1(d_1.size(), 0);
+    std::vector<int> field_2(d_2.size(), 0);
+    initialize_data(d_1, field_1);
+    initialize_data(d_2, field_2);
+    data_descriptor_cpu_int_type data_1{d_1, field_1};
+    data_descriptor_cpu_int_type data_2{d_2, field_2};
+
+    EXPECT_NO_THROW(co.bexchange(patterns(data_1), patterns(data_2)));
+
+    auto h = co.exchange(patterns(data_1), patterns(data_2));
+    h.wait();
+
+    // check exchanged data
+    check_exchanged_data(d_1, field_1, patterns[0]);
+    check_exchanged_data(d_2, field_2, patterns[1]);
+
+}
+
+/** @brief Test data descriptor concept with in-place receive*/
+TEST(unstructured_user_concepts, data_descriptor_oversubscribe_ipr) {
+
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int rank = context.rank();
+
+    domain_id_type domain_id_1{rank * 2};
+    domain_id_type domain_id_2{rank * 2 + 1}; // HERE domain_id, init_ordered_vertices(domain_id), init_inner_sizes(domain_id)
+    domain_descriptor_type d_1{domain_id_1, init_ordered_vertices(domain_id_1), init_inner_sizes(domain_id_1)};
+    domain_descriptor_type d_2{domain_id_2, init_ordered_vertices(domain_id_2), init_inner_sizes(domain_id_2)};
+    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
+    halo_generator_type hg{};
+
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+
+    // communication object
+    using pattern_container_type = decltype(patterns);
+    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
 
     // application data
     std::vector<int> field_1(d_1.size(), 0);

@@ -29,6 +29,7 @@ namespace gridtools {
                 using state_ptr = std::unique_ptr<state_type>;
                 using state_vector = std::vector<state_ptr>;
 
+                const mpi::rank_topology& m_rank_topology;
                 MPI_Comm m_comm;
                 shared_state_type m_shared_state;
                 state_type m_state;
@@ -36,9 +37,13 @@ namespace gridtools {
                 std::mutex m_mutex;
 
                 template<typename... Args>
-                transport_context(MPI_Comm mpi_comm, Args&&...)
-                : m_comm{mpi_comm}
-                , m_shared_state(mpi_comm, this)
+                transport_context(const mpi::rank_topology& t, MPI_Comm mpi_comm, Args&&...)
+                    : m_rank_topology{t}
+                    , m_comm{mpi_comm}
+                    , m_tokens(tp.size())
+                    , m_shared_state(mpi_comm, this, &tp)
+                    , m_state(nullptr)
+                    , m_states(tp.size())
                 {}
 
                 MPI_Comm mpi_comm() const { return m_comm; }

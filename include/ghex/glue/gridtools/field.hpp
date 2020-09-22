@@ -74,7 +74,6 @@ namespace gridtools {
             using dimension         = std::integral_constant<uint_t, layout_t::masked_length>;
             using field_desc_t      = typename _impl::get_field_descriptor_type<
                 value_t, Arch, DomainDescriptor, integer_seq>::type;
-            using coordinate_t      = typename field_desc_t::coordinate_type;
 
             auto strides = ds->strides();
             for (unsigned int i=0u; i<dimension::value; ++i)

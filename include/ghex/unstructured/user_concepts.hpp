@@ -56,7 +56,7 @@ namespace gridtools {
                     // members
                     domain_id_type m_id;
                     vertices_type m_vertices; // including halo vertices
-                    adjncy_type m_adjncy; // named after ParMetis CSR arrays; TO DO: needed mostly for debugging, can be removed
+                    adjncy_type m_adjncy; // named after ParMetis CSR arrays
                     std::size_t m_inner_size;
                     std::size_t m_size;
                     std::size_t m_levels;
@@ -85,6 +85,16 @@ namespace gridtools {
                         }
                         set_halo_vertices();
                     }
+                    domain_descriptor(const domain_id_type id,
+                                      const vertices_type& vertices,
+                                      const std::size_t inner_size,
+                                      const std::size_t levels = 1) :
+                        m_id{id},
+                        m_vertices{vertices},
+                        m_adjncy{}, // not set using this constructor. Not a big deal, will eventually be removed
+                        m_inner_size{inner_size},
+                        m_size{vertices.size()},
+                        m_levels{levels} {}
 
                 private:
 
