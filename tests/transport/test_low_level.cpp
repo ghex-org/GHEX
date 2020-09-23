@@ -112,7 +112,7 @@ auto test_unidirectional(Context& context) {
         std::cout << "***********\n";
 #endif
     }
-    return std::move(rmsg);
+    return rmsg;
 }
 
 template<typename MsgType, typename Context>
@@ -152,7 +152,7 @@ auto test_bidirectional(Context& context) {
     std::cout << "***********\n";
 #endif
 
-    return std::move(rmsg);
+    return rmsg;
 }
 
 template<typename MsgType, typename Context>
@@ -162,8 +162,6 @@ auto test_unidirectional_cb(Context& context) {
 
     auto comm = context.get_communicator(token);
 
-    using allocator_type  = std::allocator<unsigned char>;
-    using smsg_type       = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type       = std::remove_reference_t<decltype(comm)>;
     using cb_msg_type     = typename comm_type::message_type;
 
@@ -198,7 +196,7 @@ auto test_unidirectional_cb(Context& context) {
         auto status = comm.progress();
         EXPECT_EQ(status.num(), 0);
     }
-    return std::move(rmsg);
+    return rmsg;
 }
 
 template<typename MsgType, typename Context>
@@ -208,8 +206,6 @@ auto test_bidirectional_cb(Context& context) {
 
     auto comm = context.get_communicator(token);
 
-    using allocator_type  = std::allocator<unsigned char>;
-    using smsg_type       = gridtools::ghex::tl::shared_message_buffer<allocator_type>;
     using comm_type       = std::remove_reference_t<decltype(comm)>;
     using cb_msg_type     = typename comm_type::message_type;
 
@@ -248,7 +244,7 @@ auto test_bidirectional_cb(Context& context) {
     auto status = comm.progress();
     EXPECT_EQ(status.num(), 0);
 
-    return std::move(rmsg);
+    return rmsg;
 }
 
 
