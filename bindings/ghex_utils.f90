@@ -1,10 +1,8 @@
 MODULE ghex_utils
-  !use mpi
+  use mpi
   use ghex_defs
   
   implicit none
-
-include 'mpif.h'  
 
   interface
 
@@ -75,7 +73,7 @@ contains
     if (present(iorder)) then
        order = iorder
     else
-       order = CartOrderXYZ
+       order = CartOrderDefault
     endif    
 
     ! check if this is a cartesian communicator
@@ -139,7 +137,7 @@ contains
     if (present(iorder)) then
        order = iorder
     else
-       order = CartOrderXYZ
+       order = CartOrderDefault
     endif    
 
     ! apply periodicity
@@ -212,7 +210,7 @@ contains
     if (present(iorder)) then
        order = iorder
     else
-       order = CartOrderXYZ
+       order = CartOrderDefault
     endif    
 
     ! check if this is a cartesian communicator
@@ -262,7 +260,7 @@ contains
     if (present(iorder)) then
        order = iorder
     else
-       order = CartOrderXYZ
+       order = CartOrderDefault
     endif    
 
     ! total number of ranks
@@ -357,7 +355,7 @@ contains
     if (present(iorder)) then
        order = iorder
     else
-       order = CartOrderXYZ
+       order = CartOrderDefault
     endif    
 
     call ghex_get_noderank(comm, noderank)

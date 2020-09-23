@@ -46,15 +46,112 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t)
 {
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
-    gridtools::ghex::detail::for_loop<
-        sv_t::dimension::value,
-        sv_t::dimension::value,
-        typename sv_t::layout, 1>::
-    apply([&s,&t](auto... c)
-    {
-        std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
-    },
-    s.m_begin, s.m_end);
+
+    auto dst = t.m_field.data();
+    auto src = s.m_field.data();
+    const auto dimx = s.m_field.extents()[0];
+    const auto dimy = s.m_field.extents()[1];
+    const int src_ox = s.m_offset[0]+s.m_field.offsets()[0];
+    const int src_oy = s.m_offset[1]+s.m_field.offsets()[1];
+    const int src_oz = s.m_offset[2]+s.m_field.offsets()[2];
+    const int dst_ox = t.m_offset[0]+t.m_field.offsets()[0];
+    const int dst_oy = t.m_offset[1]+t.m_field.offsets()[1];
+    const int dst_oz = t.m_offset[2]+t.m_field.offsets()[2];
+    for (int j=0; j<s.m_extent[1]; ++j)
+        for (int k=0; k<s.m_extent[2]; ++k)
+            for (int i=0; i<s.m_extent[0]; ++i)
+            {
+                dst[(k+dst_oz)*dimy*dimx + (j+dst_oy)*dimx + (i+dst_ox)] = 
+                    src[(k+src_oz)*dimy*dimx + (j+src_oy)*dimx + (i+src_ox)];
+            }
+
+    // using sv_t = rma_range<SourceField>;
+    // using coordinate = typename sv_t::coordinate;
+    // using T = typename SourceField::value_type;
+    // unsigned char* dst = (unsigned char*)t.m_field.data();
+    // const unsigned char* src = (const unsigned char*)s.m_field.data();
+    // const auto src_o = s.m_offset+s.m_field.offsets();
+    // const auto dst_o = t.m_offset+t.m_field.offsets();
+    // const auto src_strides = s.m_field.byte_strides();
+    // const auto dst_strides = t.m_field.byte_strides();
+    // for (int k=0; k<s.m_extent[2]; ++k)
+    //     for (int j=0; j<s.m_extent[1]; ++j)
+    //         for (int i=0; i<s.m_extent[0]; ++i)
+    //         {
+    //             *((T*)      (dst
+    //                     +(i+dst_o[0])*dst_strides[0]
+    //                     +(j+dst_o[1])*dst_strides[1]
+    //                     +(k+dst_o[2])*dst_strides[2])) =
+    //                 *((const T*)(src
+    //                         +(i+src_o[0])*src_strides[0]
+    //                         +(j+src_o[1])*src_strides[1]
+    //                         +(k+src_o[2])*src_strides[2]));
+    //         }
+
+    // for (int k=0; k<s.m_extent[2]; ++k)
+    //     for (int j=0; j<s.m_extent[1]; ++j)
+    //     {
+    //         auto tp = (dst
+    //             +(  dst_o[0])*dst_strides[0]
+    //             +(j+dst_o[1])*dst_strides[1]
+    //             +(k+dst_o[2])*dst_strides[2]) ;
+    //             auto sp = (src
+    //                 +(  src_o[0])*src_strides[0]
+    //                 +(j+src_o[1])*src_strides[1]
+    //                 +(k+src_o[2])*src_strides[2]);
+    //         std::memcpy(tp,sp,s.m_chunk_size);
+    //     }
+
+    // for (int k=0; k<s.m_extent[2]; ++k)
+    //     for (int j=0; j<s.m_extent[1]; ++j)
+    //     {
+    //         auto tp = (T*)(dst
+    //             +(  dst_o[0])*dst_strides[0]
+    //             +(j+dst_o[1])*dst_strides[1]
+    //             +(k+dst_o[2])*dst_strides[2]) ;
+    //             auto sp = (const T*)(src
+    //                 +(  src_o[0])*src_strides[0]
+    //                 +(j+src_o[1])*src_strides[1]
+    //                 +(k+src_o[2])*src_strides[2]);
+    //         for (int i=0; i<s.m_extent[0]; ++i)
+    //         {
+    //             tp[i] = sp[i];
+    //         }
+    //     }
+
+    // using sv_t = rma_range<SourceField>;
+    // using coordinate = typename sv_t::coordinate;
+    // using T = typename SourceField::value_type;
+    // unsigned char* dst = (unsigned char*)t.m_field.data();
+    // const unsigned char* src = (const unsigned char*)s.m_field.data();
+    // const auto src_o = s.m_offset+s.m_field.offsets();
+    // const auto dst_o = t.m_offset+t.m_field.offsets();
+    // const auto src_strides = s.m_field.byte_strides();
+    // const auto dst_strides = t.m_field.byte_strides();
+    // for (int k=0; k<s.m_extent[2]; ++k)
+    //     for (int j=0; j<s.m_extent[1]; ++j)
+    //         for (int i=0; i<s.m_extent[0]; ++i)
+    //         {
+    //             *((T*)      (dst+dot(coordinate{i,j,k}+dst_o, dst_strides))) = 
+    //                 *((const T*)(src+dot(coordinate{i,j,k}+src_o, src_strides)));
+    //         }
+
+    // gridtools::ghex::detail::for_loop<
+    //     sv_t::dimension::value,
+    //     sv_t::dimension::value,
+    //     typename sv_t::layout, 1>::
+    // apply([&s,&t](auto... c)
+    // {
+    //     std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
+    //     // auto dst = t.ptr(coordinate{c...});
+    //     // auto src = s.ptr(coordinate{c...});
+    //     // for (unsigned int i=0; i<s.m_chunk_size_; ++i)
+    //     // {
+    //     //     dst[i] = src[i]; 
+    //     // }
+    // },
+    // s.m_begin, s.m_end);
+
 }
 
 template<typename SourceField, typename TargetField>
@@ -72,6 +169,12 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t)
     apply([&s,&t,nc](auto... c)
     {
         std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size*nc);
+        // auto dst = t.ptr(coordinate{c...});
+        // auto src = s.ptr(coordinate{c...});
+        // for (unsigned int i=0; i<s.m_chunk_size_*nc; ++i)
+        // {
+        //     dst[i] = src[i]; 
+        // }
     },
     s.m_begin, s.m_end);
 }
