@@ -224,13 +224,14 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 
     // bulk exchange (rma)
     // ===================
-    auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field)>(comm);
 #ifdef __CUDACC__
+    auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field), decltype(field_gpu)>(comm);
     if (thread_id == 0)
         bco.add_field(pattern(field));
     else
         bco.add_field(pattern(field_gpu));
 #else
+    auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field)>(comm);
     bco.add_field(pattern(field));
 #endif
     bco.exchange().wait();
@@ -285,11 +286,13 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 
     // bulk exchange (rma)
     // ===================
-    auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a)>(comm);
-    bco.add_field(pattern(field_a));
 #ifdef __CUDACC__
+    auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a), decltype(field_b_gpu)>(comm);
+    bco.add_field(pattern(field_a));
     bco.add_field(pattern(field_b_gpu));
 #else
+    auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a)>(comm);
+    bco.add_field(pattern(field_a));
     bco.add_field(pattern(field_b));
 #endif
     bco.exchange().wait();
