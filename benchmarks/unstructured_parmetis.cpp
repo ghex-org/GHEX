@@ -189,7 +189,7 @@ TEST(unstructured_parmetis, receive_type) {
     idx_t ncon = 1; // TO DO: double check
     idx_t nparts = size;
     std::vector<real_t> tpwgts_v(ncon * nparts, 1 / static_cast<real_t>(nparts)); // TO DO: double check
-    std::vector<real_t> ubvec_v(ncon, 1.05); // TO DO: double check
+    std::vector<real_t> ubvec_v(ncon, 1.02); // TO DO: double check
     std::array<idx_t, 3> options{0, 0, 0};
     idx_t edgecut;
 
