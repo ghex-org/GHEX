@@ -282,6 +282,16 @@ if (USE_GPU)
         )
     endforeach()
 
+    foreach (_t ${_tests_unstructured})
+        add_executable(${_t}_gpu ${_t}.cu)
+        target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
+        target_link_libraries(${_t}_gpu gtest_main_mt)
+        add_test(
+            NAME ${_t}.cu
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_gpu> ${MPIEXEC_POSTFLAGS}
+        )
+    endforeach()
+
     if (GHEX_ENABLE_ATLAS_BINDINGS)
         set(_tests_atlas_gpu atlas_integration_comm_2)
         foreach (_t ${_tests_atlas_gpu})
