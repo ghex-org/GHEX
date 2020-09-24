@@ -17,6 +17,8 @@
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
+#include <ghex/cuda_utils/error.hpp>
+#include <gridtools/common/array.hpp>
 
 using namespace gridtools::ghex;
 using arr       = std::array<int,2>;
@@ -34,16 +36,82 @@ using halo_gen  = structured::regular::halo_generator<int,2>;
 constexpr std::array<int,4>  halos{HALO,HALO,HALO,HALO};
 constexpr std::array<bool,2> periodic{PX,PY};
 
-std::vector<arr> allocate_field()
+template<typename T>
+struct memory
+{
+    unsigned int m_size;
+    std::unique_ptr<T[]> m_host_memory;
+#ifdef __CUDACC__
+    struct cuda_deleter { void operator()(T* ptr) const {cudaFree(ptr);} };
+    std::unique_ptr<T[],cuda_deleter> m_device_memory;
+#endif
+
+    memory(unsigned int size_, const T& value)
+    : m_size{size_}
+    , m_host_memory{ new T[m_size] }
+    {
+        for (unsigned int i=0; i<m_size; ++i)
+            m_host_memory[i] = value;
+#ifdef __CUDACC__
+        void* ptr;
+        GHEX_CHECK_CUDA_RESULT(cudaMalloc(&ptr, m_size*sizeof(T)), "cudaMalloc")
+        m_device_memory.reset((T*)ptr);
+        clone_to_device();
+#endif
+    }
+
+    memory(const memory&) = delete;
+    memory(memory&&) = default;
+
+    T* data() const { return m_host_memory.get(); }
+    T* host_data() const { return m_host_memory.get(); }
+#ifdef __CUDACC__
+    T* device_data() const { return m_device_memory.get(); }
+#endif
+
+    unsigned int size() const { return m_size; }
+
+    const T& operator[](unsigned int i) const { return m_host_memory[i]; }
+          T& operator[](unsigned int i)       { return m_host_memory[i]; }
+
+    T* begin() { return m_host_memory.get(); }
+    T* end() { return m_host_memory.get()+m_size; }
+
+    const T* begin() const { return m_host_memory.get(); }
+    const T* end() const { return m_host_memory.get()+m_size; }
+
+#ifdef __CUDACC__
+    void clone_to_device()
+    {
+        GHEX_CHECK_CUDA_RESULT(cudaMemcpy(m_device_memory.get(), m_host_memory.get(),
+            m_size*sizeof(T), cudaMemcpyHostToDevice), "clone to device")
+    }
+    void clone_to_host()
+    {
+        GHEX_CHECK_CUDA_RESULT(cudaMemcpy(m_host_memory.get(),m_device_memory.get(),
+            m_size*sizeof(T), cudaMemcpyDeviceToHost), "clone to host")
+    }
+#endif
+};
+
+memory<gridtools::array<int,2>> allocate_field()
 { 
-    return {(HALO*2+DIM) * (HALO*2+DIM/2), std::array<int,2>{-1,-1}};
+    return {(HALO*2+DIM) * (HALO*2+DIM/2), gridtools::array<int,2>{-1,-1}};
 }
 
 template<typename RawField>
-auto wrap_field(RawField& raw_field, const domain& d)
+auto wrap_cpu_field(RawField& raw_field, const domain& d)
 {
     return wrap_field<cpu,1,0>(d, raw_field.data(), arr{HALO, HALO}, arr{HALO*2+DIM, HALO*2+DIM/2});
 }
+
+#ifdef __CUDACC__
+template<typename RawField>
+auto wrap_gpu_field(RawField& raw_field, const domain& d)
+{
+    return wrap_field<gpu,1,0>(d, raw_field.device_data(), arr{HALO, HALO}, arr{HALO*2+DIM, HALO*2+DIM/2});
+}
+#endif
 
 template<typename Field>
 Field&& fill(Field&& field)
@@ -80,7 +148,8 @@ int expected(int coord, int dim, int first, int last, bool periodic_)
     return res;
 }
 
-bool compare(const arr& v, int x, int y)
+template<typename Arr>
+bool compare(const Arr& v, int x, int y)
 {
     if (x == -1 || y == -1) { x = -1; y = -1; }
     return (x == v[0]) && (y == v[1]);
@@ -117,32 +186,60 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
     bool res = true;
     // field
     auto raw_field = allocate_field();
-    auto field     = fill(wrap_field(raw_field, domains[thread_id]));
+    auto field     = fill(wrap_cpu_field(raw_field, domains[thread_id]));
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_device();
+    auto field_gpu = wrap_gpu_field(raw_field, domains[thread_id]);
+#endif
+
     // get a communcator
     auto comm = context.get_communicator(context.get_token());
     
     // general exchange
     // ================
     auto co = make_communication_object<Pattern>(comm);
-    auto h0 = co.exchange(pattern(field));
-    // ...
-    h0.wait();
+#ifdef __CUDACC__
+    if (thread_id == 0)
+        co.exchange(pattern(field)).wait();
+    else
+        co.exchange(pattern(field_gpu)).wait();
+#else
+    co.exchange(pattern(field)).wait();
+#endif
 
     // check field
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_host();
+#endif
     res = res && check(field, dims);
 
     // reset field
     reset(field);
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_device();
+#endif
 
     // bulk exchange (rma)
     // ===================
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field)>(comm);
+#ifdef __CUDACC__
+    if (thread_id == 0)
+        bco.add_field(pattern(field));
+    else
+        bco.add_field(pattern(field_gpu));
+#else
     bco.add_field(pattern(field));
-    auto h1 = bco.exchange();
-    // ...
-    h1.wait();
+#endif
+    bco.exchange().wait();
 
     // check field
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_host();
+#endif
     res = res && check(field, dims);
     return res;
 }
@@ -154,36 +251,53 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
     // fields
     auto raw_field_a = allocate_field();
     auto raw_field_b = allocate_field();
-    auto field_a     = fill(wrap_field(raw_field_a, domains[0]));
-    auto field_b     = fill(wrap_field(raw_field_b, domains[1]));
+    auto field_a     = fill(wrap_cpu_field(raw_field_a, domains[0]));
+    auto field_b     = fill(wrap_cpu_field(raw_field_b, domains[1]));
+#ifdef __CUDACC__
+    raw_field_b.clone_to_device();
+    auto field_b_gpu = wrap_gpu_field(raw_field_b, domains[1]);
+#endif
     // get a communcator
     auto comm = context.get_communicator(context.get_token());
     
     // general exchange
     // ================
     auto co = make_communication_object<Pattern>(comm);
-    auto h0 = co.exchange(pattern(field_a), pattern(field_b));
-    // ...
-    h0.wait();
+#ifdef __CUDACC__
+    co.exchange(pattern(field_a), pattern(field_b_gpu)).wait();
+#else
+    co.exchange(pattern(field_a), pattern(field_b)).wait();
+#endif
 
     // check fields
+#ifdef __CUDACC__
+    raw_field_b.clone_to_host();
+#endif
     res = res && check(field_a, dims);
     res = res && check(field_b, dims);
 
     // reset fields
     reset(field_a);
     reset(field_b);
+#ifdef __CUDACC__
+    raw_field_b.clone_to_device();
+#endif
 
     // bulk exchange (rma)
     // ===================
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a)>(comm);
     bco.add_field(pattern(field_a));
+#ifdef __CUDACC__
+    bco.add_field(pattern(field_b_gpu));
+#else
     bco.add_field(pattern(field_b));
-    auto h1 = bco.exchange();
-    // ...
-    h1.wait();
+#endif
+    bco.exchange().wait();
 
     // check fields
+#ifdef __CUDACC__
+    raw_field_b.clone_to_host();
+#endif
     res = res && check(field_a, dims);
     res = res && check(field_b, dims);
     return res;
@@ -238,6 +352,6 @@ TEST(simple_regular_exchange, single)
 
 TEST(simple_regular_exchange, multi)
 {
-    sim(false);
+    sim(true);
 }
 
