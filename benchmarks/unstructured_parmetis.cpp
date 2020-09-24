@@ -221,7 +221,9 @@ TEST(unstructured_parmetis, receive_type) {
 
     // 2) all-to-all: number of vertices per rank
     std::vector<int> s_n_vertices_rank(size);
-    std::transform(vertices_dist.begin(), vertices_dist.end(), s_n_vertices_rank.begin(), [](const auto& r_m_pair){ return r_m_pair.second.size(); });
+    for (int i = 0; i < size; ++i) {
+        s_n_vertices_rank[i] = vertices_dist[i].size(); // any missing rank gets actually inserted into the map here
+    };
     std::vector<int> r_n_vertices_rank(size);
     MPI_Alltoall(s_n_vertices_rank.data(), sizeof(int), MPI_BYTE,
                  r_n_vertices_rank.data(), sizeof(int), MPI_BYTE,
@@ -305,12 +307,22 @@ TEST(unstructured_parmetis, receive_type) {
     timer_type t_ord_buf_local, t_ord_buf_global; // 2 - ordered halos - buffered receive
     timer_type t_ord_ipr_local, t_ord_ipr_global; // 3 - ordered halos - in-place receive
 
-    // Output file
+    // output file
     std::stringstream ss_file;
     ss_file << gh_rank;
     std::string filename = "unstructured_parmetis_receive_type_" + ss_file.str() + ".txt";
     std::ofstream file(filename.c_str());
-    file << "Unstructured ParMETIS receive type benchmark - Timings\n";
+    file << "Unstructured ParMETIS receive type benchmark\n\n";
+
+    // print sizes info
+    idx_t n_vertices_local{r_v_ids_rank.size()}, n_vertices_global;
+    idx_t n_edges_local{r_adjncy_rank.size()}, n_edges_global;
+    MPI_Allreduce(&n_vertices_local, &n_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
+    MPI_Allreduce(&n_edges_local, &n_edges_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
+    file << "local vertices: " << n_vertices_local << "\n"
+         << "global vertices: " << n_vertices_global << "\n"
+         << "local edges: " << n_edges_local << "\n"
+         << "global edges: " << n_edges_global << "\n\n";
 
     // 1 ======== unordered halos - buffered receive =========================
 
