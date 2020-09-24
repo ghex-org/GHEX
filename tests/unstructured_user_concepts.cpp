@@ -32,6 +32,10 @@
 #include <ghex/communication_object_2.hpp>
 #include <ghex/unstructured/communication_object_ipr.hpp>
 
+#ifdef __CUDACC__
+#include <gridtools/common/cuda_util.hpp>
+#endif
+
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
@@ -56,6 +60,9 @@ using local_index_type = domain_descriptor_type::local_index_type;
 using local_indices_type = std::vector<local_index_type>;
 using it_diff_type = vertices_type::iterator::difference_type;
 using data_descriptor_cpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, int>;
+#ifdef __CUDACC__
+using data_descriptor_gpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::gpu, domain_id_type, global_index_type, int>;
+#endif
 
 
 /* Domains
@@ -292,7 +299,7 @@ void check_recv_halos_indices(const pattern_type& p) {
 
 
 template <typename Container>
-void initialize_data(const domain_descriptor_type& d, Container& field) {
+void initialize_data(const domain_descriptor_type& d, Container& field) { // TO DO: add levels
     using value_type = typename Container::value_type;
     assert(field.size() == d.size());
     for (std::size_t idx = 0; idx < d.inner_size(); ++idx) {
@@ -302,7 +309,7 @@ void initialize_data(const domain_descriptor_type& d, Container& field) {
 
 
 template <typename Container>
-void check_exchanged_data(const domain_descriptor_type& d, const Container& field, const pattern_type& p) {
+void check_exchanged_data(const domain_descriptor_type& d, const Container& field, const pattern_type& p) { // TO DO: add levels
     using value_type = typename Container::value_type;
     using index_type = pattern_type::index_type;
     std::map<index_type, domain_id_type> halo_map{};
@@ -526,6 +533,28 @@ TEST(unstructured_user_concepts, data_descriptor) {
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
 
+#ifdef __CUDACC__
+
+    // application data
+    std::vector<int> field_cpu(d.size(), 0);
+    initialize_data(d, field_cpu);
+    using gpu_allocator_int_type = gridtools::ghex::allocator::cuda::allocator<int>;
+    gpu_allocator_int_type gpu_alloc{};
+    int* field_gpu = gpu_alloc.allocate(d.size());
+    cudaMemcpy(field_gpu, field_cpu.data(), d.size() * sizeof(int), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    data_descriptor_gpu_int_type data_gpu{d, field_gpu, 0};
+
+    EXPECT_NO_THROW(co.bexchange(patterns(data_gpu)));
+
+    auto h_gpu = co.exchange(patterns(data_gpu));
+    h_gpu.wait();
+
+    // check exchanged data
+    cudaMemcpy(field_cpu.data(), field_gpu, d.size() * sizeof(int), cudaMemcpyDeviceToHost);
+    check_exchanged_data(d, field_cpu, patterns[0]);
+
+#endif
+
 }
 
 /** @brief Test in place receive*/
@@ -556,6 +585,28 @@ TEST(unstructured_user_concepts, in_place_receive) {
 
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
+
+#ifdef __CUDACC__
+
+    // application data
+    std::vector<int> field_cpu(d.size(), 0);
+    initialize_data(d, field_cpu);
+    using gpu_allocator_int_type = gridtools::ghex::allocator::cuda::allocator<int>;
+    gpu_allocator_int_type gpu_alloc{};
+    int* field_gpu = gpu_alloc.allocate(d.size());
+    cudaMemcpy(field_gpu, field_cpu.data(), d.size() * sizeof(int), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    data_descriptor_gpu_int_type data_gpu{d, field_gpu, 0};
+
+    EXPECT_NO_THROW(co.bexchange(patterns(data_gpu)));
+
+    auto h_gpu = co.exchange(patterns(data_gpu));
+    h_gpu.wait();
+
+    // check exchanged data
+    cudaMemcpy(field_cpu.data(), field_gpu, d.size() * sizeof(int), cudaMemcpyDeviceToHost);
+    check_exchanged_data(d, field_cpu, patterns[0]);
+
+#endif
 
 }
 

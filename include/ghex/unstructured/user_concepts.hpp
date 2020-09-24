@@ -393,21 +393,17 @@ namespace gridtools {
 
                 // constructors
                 /** @brief constructs a GPU data descriptor
-                 * @tparam Container templated container type for the field to be wrapped; data are assumed to be contiguous in memory
                  * @param domain local domain instance
-                 * @param field field to be wrapped
+                 * @param field data pointer, assumed to point to a contiguous memory region of size = domain size * n levels
                  * @param device_id device id*/
-                template <template <typename, typename> class Container>
                 data_descriptor(const domain_descriptor_type& domain,
-                                Container<value_type, allocator_type>& field,
+                                value_type* field,
                                 device_id_type device_id) :
                     m_device_id{device_id},
                     m_domain_id{domain.domain_id()},
                     m_domain_size{domain.size()},
                     m_levels{domain.levels()},
-                    m_values{&(field[0])} {
-                        assert(field.size() == (domain.size() * domain.levels()));
-                    }
+                    m_values{field} {}
 
                 // member functions
 
