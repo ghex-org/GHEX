@@ -43,6 +43,9 @@ public: // member types
     using strides_type             = typename base::strides_type;
     using serialization_type       = serialization<arch_type,layout_map>;
     using pack_iteration_space     = typename base::pack_iteration_space;
+
+    template<typename OtherArch>
+    using rebind_arch = field_descriptor<T,OtherArch,X,Y,Z,C>;
     
     struct unpack_iteration_space : public base::unpack_iteration_space {
         using base_is = typename base::unpack_iteration_space;

@@ -381,12 +381,32 @@ namespace gridtools {
 
                     // allocation member functions
 
+                    /** @brief allocation member function (entry point).
+                     * This function calls in turn the allocation functions for receive and send,
+                     * respectively set_recv_size and allocate_send.
+                     * For the receive no allocation is actually needed, since field memory is used directly instead of buffers.
+                     * In this case the respective function (set_recv_size)
+                     * just sets the sizes and the other parameters needed for the receive operation.
+                     * Note that here memory (mem) is a pointer to a buffer_memory object and is passed by copy,
+                     * whereas in the inner functions it refers directly to the receive / send memory (respectively),
+                     * and is therefore passed by reference.
+                     * @tparam Arch the device on which the buffer / field memory is allocated
+                     * @tparam T buffer / field value type
+                     * @tparam Memory memory type (pointer to buffer_memory)
+                     * @tparam Field field (descriptor) type
+                     * @tparam O tag offset type (set to int in the exchange function)
+                     * @param mem buffer memory pointer
+                     * @param pattern pattern
+                     * @param field_ptr field pointer
+                     * @param dom_id domain id
+                     * @param device_id device id
+                     * @param tag_offset tag offset*/
                     template<typename Arch,
                              typename T,
                              typename Memory,
                              typename Field,
                              typename O>
-                    void allocate(Memory& mem, // reference not strictly needed here
+                    void allocate(Memory mem,
                                   const pattern_type& pattern,
                                   Field* field_ptr,
                                   domain_id_type dom_id,
@@ -420,7 +440,7 @@ namespace gridtools {
                              typename Memory,
                              typename Halos,
                              typename Field = void>
-                    void set_recv_size(Memory& memory, // reference not strictly needed here
+                    void set_recv_size(Memory& memory,
                                        const Halos& halos,
                                        domain_id_type my_dom_id,
                                        int tag_offset,
@@ -480,7 +500,7 @@ namespace gridtools {
                              typename DeviceIdType,
                              typename Pool,
                              typename Field = void>
-                    void allocate_send(Memory& memory, // reference not strictly needed here
+                    void allocate_send(Memory& memory,
                                        const Halos& halos,
                                        Function&& func,
                                        domain_id_type my_dom_id,

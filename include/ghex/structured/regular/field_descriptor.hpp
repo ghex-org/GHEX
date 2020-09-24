@@ -48,6 +48,9 @@ public: // member types
     using pack_iteration_space     = typename base::pack_iteration_space;
     using unpack_iteration_space   = typename base::unpack_iteration_space;
 
+    template<typename OtherArch>
+    using rebind_arch = field_descriptor<T,OtherArch,DomainDescriptor,Order...>;
+
 public: // ctors
     template<typename ExtentArray, typename OffsetArray>
     field_descriptor(
@@ -99,7 +102,6 @@ public: // ctors
         }
     }
 
-private: // implementation
     template<typename IterationSpace>
     pack_iteration_space make_pack_is(const IterationSpace& is, T* buffer, size_type size) {
         return {make_buffer_desc<typename base::template buffer_descriptor<T*>>(is,buffer,size),
@@ -112,6 +114,7 @@ private: // implementation
                 make_is<typename base::template basic_iteration_space<T*>>(is)};
     }
 
+private: // implementation
     template<typename BufferDesc, typename IterationSpace, typename Buffer>
     BufferDesc make_buffer_desc(const IterationSpace& is, Buffer buffer, size_type size) {
         // description of the halo in the buffer
