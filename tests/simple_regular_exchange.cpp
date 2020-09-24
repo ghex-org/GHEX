@@ -54,7 +54,7 @@ struct memory
             m_host_memory[i] = value;
 #ifdef __CUDACC__
         void* ptr;
-        GHEX_CHECK_CUDA_RESULT(cudaMalloc(&ptr, m_size*sizeof(T)), "cudaMalloc")
+        GHEX_CHECK_CUDA_RESULT(cudaMalloc(&ptr, m_size*sizeof(T)))
         m_device_memory.reset((T*)ptr);
         clone_to_device();
 #endif
@@ -84,12 +84,12 @@ struct memory
     void clone_to_device()
     {
         GHEX_CHECK_CUDA_RESULT(cudaMemcpy(m_device_memory.get(), m_host_memory.get(),
-            m_size*sizeof(T), cudaMemcpyHostToDevice), "clone to device")
+            m_size*sizeof(T), cudaMemcpyHostToDevice))
     }
     void clone_to_host()
     {
         GHEX_CHECK_CUDA_RESULT(cudaMemcpy(m_host_memory.get(),m_device_memory.get(),
-            m_size*sizeof(T), cudaMemcpyDeviceToHost), "clone to host")
+            m_size*sizeof(T), cudaMemcpyDeviceToHost))
     }
 #endif
 };
