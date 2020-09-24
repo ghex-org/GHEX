@@ -334,7 +334,117 @@ namespace gridtools {
             };
 
 #ifdef __CUDACC__
-        // TO DO: GPU SPECIALIZATION
+
+#define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK 32
+
+        template <typename T>
+        __global__ void pack_kernel(
+                const T* values,
+                const std::size_t local_indices_size,
+                const std::size_t* local_indices,
+                const std::size_t levels,
+                T* buffer) {
+            std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (idx < local_indices_size) {
+                for(std::size_t level = 0; level < levels; ++level) {
+                    buffer[idx * levels + level] = values[local_indices[idx] * levels + level];
+                }
+            }
+        }
+
+        template <typename T>
+        __global__ void unpack_kernel(
+                const T* buffer,
+                const std::size_t local_indices_size,
+                const std::size_t* local_indices,
+                const std::size_t levels,
+                T* values) {
+            std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
+            if (idx < local_indices_size) {
+                for(std::size_t level = 0; level < levels; ++level) {
+                    values[local_indices[idx] * levels + level] = buffer[idx * levels + level];
+                }
+            }
+        }
+
+        /** @brief data descriptor for unstructured grids (GPU specialization)*/
+        template <typename DomainId, typename Idx, typename T>
+        class data_descriptor<gridtools::ghex::gpu, DomainId, Idx, T> {
+
+            public:
+
+                using arch_type = gridtools::ghex::gpu;
+                using domain_id_type = DomainId;
+                using global_index_type = Idx;
+                using value_type = T;
+                using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
+                using domain_descriptor_type = domain_descriptor<domain_id_type, global_index_type>;
+                using allocator_type = gridtools::ghex::allocator::cuda::allocator<value_type>;
+
+            private:
+
+                device_id_type m_device_id;
+                domain_id_type m_domain_id;
+                std::size_t m_domain_size;
+                std::size_t m_levels;
+                value_type* m_values;
+
+            public:
+
+                // constructors
+                /** @brief constructs a GPU data descriptor
+                 * @tparam Container templated container type for the field to be wrapped; data are assumed to be contiguous in memory
+                 * @param domain local domain instance
+                 * @param field field to be wrapped
+                 * @param device_id device id*/
+                template <template <typename, typename> class Container>
+                data_descriptor(const domain_descriptor_type& domain,
+                                Container<value_type, allocator_type>& field,
+                                device_id_type device_id) :
+                    m_device_id{device_id},
+                    m_domain_id{domain.domain_id()},
+                    m_domain_size{domain.size()},
+                    m_levels{domain.levels()},
+                    m_values{&(field[0])} {
+                        assert(field.size() == (domain.size() * domain.levels()));
+                    }
+
+                // member functions
+
+                device_id_type device_id() const noexcept { return m_device_id; }
+                domain_id_type domain_id() const noexcept { return m_domain_id; }
+                std::size_t domain_size() const noexcept { return m_domain_size; }
+                std::size_t levels() const noexcept { return m_levels; }
+                int num_components() const noexcept { return 1; }
+
+                template<typename IndexContainer>
+                void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr) {
+                    for (const auto& is : c) {
+                        int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) / GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
+                        pack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
+                                m_values,
+                                is.local_indices().size(),
+                                &(is.local_indices()[0]),
+                                is.levels(),
+                                buffer);
+                    }
+                }
+
+                template<typename IndexContainer>
+                void unpack(const value_type* buffer, const IndexContainer& c, void* stream_ptr) {
+                    for (const auto& is : c) {
+                        int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) / GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
+                        unpack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
+                                buffer,
+                                is.local_indices().size(),
+                                &(is.local_indices()[0]),
+                                is.levels(),
+                                m_values);
+                    }
+                }
+
+        };
+
 #endif
 
         } // namespace unstructured
