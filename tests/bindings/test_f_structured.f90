@@ -17,6 +17,7 @@ PROGRAM test_halo_exchange
   logical :: remap = .false.           ! remap MPI ranks
   integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
   integer :: periodic(3) = [1,1,0]
+  logical :: lperiodic(3) = [.true.,.true.,.false.] ! for MPI_Cart_create
   integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
   integer :: halo(6)                   ! halo definition
   integer :: mb = 5                    ! halo width
@@ -149,7 +150,7 @@ PROGRAM test_halo_exchange
         print *, "Using standard MPI cartesian communicator"
      end if
      call mpi_dims_create(size, 3, gdim, mpi_err)
-     call mpi_cart_create(mpi_comm_world, 3, gdim, periodic, .true., C_CART, ierr)
+     call mpi_cart_create(mpi_comm_world, 3, gdim, lperiodic, .true., C_CART, ierr)
   end if
 
   if (world_rank==0) then

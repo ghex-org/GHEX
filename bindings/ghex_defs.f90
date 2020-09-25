@@ -14,5 +14,6 @@ MODULE ghex_defs
   integer, public, parameter :: CartOrderYZX = 4
   integer, public, parameter :: CartOrderZXY = 5
   integer, public, parameter :: CartOrderYXZ = 6
-
+  integer, public, parameter :: CartOrderDefault = 1
+  
 END MODULE ghex_defs

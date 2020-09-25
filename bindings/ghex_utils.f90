@@ -1,7 +1,8 @@
 MODULE ghex_utils
   use mpi
   use ghex_defs
-  
+
+#define OPEN_MPI
   implicit none
 
   interface
@@ -30,7 +31,11 @@ contains
     allocate(sbuff(1:size), rbuff(1:size), Source=0)
 
     ! create local communicator
+#ifdef OPEN_MPI
     call MPI_Comm_split_type(comm, OMPI_COMM_TYPE_NUMA, 0, MPI_INFO_NULL, shmcomm, ierr)
+#else
+    call MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, shmcomm, ierr)
+#endif
 
     ! figure out unique compute node id = max rank id on each compute node
     sbuff(1) = rank+1
@@ -77,7 +82,11 @@ contains
     endif    
 
     ! check if this is a cartesian communicator
-    call MPI_Topo_test(comm, topo, ierr)
+    if (comm == MPI_COMM_NULL) then
+       topo = -1;
+    else
+       call MPI_Topo_test(comm, topo, ierr)
+    end if
     if (topo/=MPI_CART) then
 
        select case (order)
@@ -164,7 +173,11 @@ contains
     end do
 
     ! check if this is a cartesian communicator
-    call MPI_Topo_test(comm, topo, ierr)
+    if (comm == MPI_COMM_NULL) then
+       topo = -1;
+    else
+       call MPI_Topo_test(comm, topo, ierr)
+    end if
     if (topo/=MPI_CART) then
 
        select case (order)
@@ -214,7 +227,11 @@ contains
     endif    
 
     ! check if this is a cartesian communicator
-    call MPI_Topo_test(comm, topo, ierr)
+    if (comm == MPI_COMM_NULL) then
+       topo = -1;
+    else
+       call MPI_Topo_test(comm, topo, ierr)
+    end if
     if (topo/=MPI_CART) then
 
        ! Find ranks belonging to the new communicator based on each rank's cartesian coordinates.
@@ -268,7 +285,11 @@ contains
     call MPI_Comm_size(comm, size, ierr)
 
     ! node-local communicator and node-local rank
+#ifdef OPEN_MPI
     call MPI_Comm_split_type(comm, OMPI_COMM_TYPE_NUMA, 0, MPI_INFO_NULL, shmcomm, ierr)
+#else
+    call MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, shmcomm, ierr)
+#endif
     call MPI_Comm_rank(shmcomm, shmrank, ierr)
     call MPI_Comm_size(shmcomm, shmsize, ierr)
     call MPI_Comm_Disconnect(shmcomm, ierr)
@@ -369,8 +390,8 @@ contains
     sbuff(2) = rank
     sbuff(3) = orank
     sbuff(4) = ghex_get_current_cpu()
-    if (sbuff(4) >= 32) then
-       sbuff(4) = sbuff(4) - 32
+    if (sbuff(4) >= 36) then
+       sbuff(4) = sbuff(4) - 36
     end if
     call MPI_Gather(sbuff, 4, MPI_INT, buff, 4, MPI_INT, 0, comm, ierr)
 
