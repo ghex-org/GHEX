@@ -38,6 +38,9 @@
 #include <ghex/unstructured/communication_object_ipr.hpp>
 #include <ghex/common/timer.hpp>
 #include <ghex/common/accumulator.hpp>
+#ifdef __CUDACC__
+#include <ghex/allocator/cuda_allocator.hpp>
+#endif
 
 
 // GHEX type definitions
@@ -56,6 +59,12 @@ using grid_type = gridtools::ghex::unstructured::grid;
 template<typename T>
 using data_descriptor_cpu_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, T>;
 using timer_type = gridtools::ghex::timer;
+#ifdef __CUDACC__
+template<typename T>
+using gpu_allocator_type = gridtools::ghex::allocator::cuda::allocator<T>;
+template<typename T>
+using data_descriptor_gpu_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::gpu, domain_id_type, global_index_type, T>;
+#endif
 
 
 template<typename T>
@@ -81,9 +90,12 @@ std::vector<int> counts_to_displs(const std::vector<int>& counts) {
 template<typename Domain, typename Field, typename O>
 void initialize_field(const Domain& d, Field& f, O d_id_offset) {
     using value_type = typename Field::value_type;
-    assert(f.size() == d.size());
+    assert(f.size() == d.size() * d.levels());
     for (std::size_t i = 0; i < d.inner_size(); ++i) {
-        f[i] = static_cast<value_type>(d.domain_id()) * d_id_offset + static_cast<value_type>(d.vertices()[i]);
+        value_type val = static_cast<value_type>(d.domain_id()) * d_id_offset + static_cast<value_type>(d.vertices()[i]);
+        for (std::size_t level = 0; level < d.levels(); ++level) {
+            f[i * d.levels() + level] = val; // TO DO: use different values for different levels
+        }
     }
 }
 
@@ -99,9 +111,10 @@ void check_exchanged_data(const Domain& d, const Pattern& p, const Field& f, O d
         }
     }
     for (const auto& pair : halo_map) {
-        value_type actual = f[pair.first];
         value_type expected = static_cast<value_type>(pair.second) * d_id_offset + static_cast<value_type>(d.vertices()[pair.first]);
-        EXPECT_EQ(actual, expected);
+        for (std::size_t level = 0; level < d.levels(); ++level) {
+            EXPECT_EQ(f[pair.first * d.levels() + level], expected);
+        }
     }
 }
 
@@ -299,6 +312,7 @@ TEST(unstructured_parmetis, receive_type) {
     auto gh_comm = context.get_communicator(context.get_token());
 
     // GHEX constants
+    const std::size_t levels = 100;
     const idx_t d_id_offset = 10e9;
     const int n_iters = 50;
 
@@ -328,7 +342,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // setup
     domain_id_type d_id{gh_rank}; // 1 domain per rank
-    domain_descriptor_type d{d_id, r_v_ids_rank, r_adjncy_rank}; // CSR constructor
+    domain_descriptor_type d{d_id, r_v_ids_rank, r_adjncy_rank, levels}; // CSR constructor
     std::vector<domain_descriptor_type> local_domains{d};
     halo_generator_type hg{};
     auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
@@ -416,17 +430,138 @@ TEST(unstructured_parmetis, receive_type) {
 
     // ======== output =======================================================
 
-    file << "1 - unordered halos - buffered receive\n"
+    file << "1 - unordered halos - buffered receive - CPU\n"
          << "\tlocal time = " << t_buf_local.mean() / 1000.0 << "+/-" << t_buf_local.stddev() / 1000.0 << "s\n"
          << "\tglobal time = " << t_buf_global.mean() / 1000.0 << "+/-" << t_buf_global.stddev() / 1000.0 << "s\n";
 
-    file << "2 - ordered halos - buffered receive\n"
+    file << "2 - ordered halos - buffered receive - CPU\n"
          << "\tlocal time = " << t_ord_buf_local.mean() / 1000.0 << "+/-" << t_ord_buf_local.stddev() / 1000.0 << "s\n"
          << "\tglobal time = " << t_ord_buf_global.mean() / 1000.0 << "+/-" << t_ord_buf_global.stddev() / 1000.0 << "s\n";
 
-    file << "3 - ordered halos - in-place receive\n"
+    file << "3 - ordered halos - in-place receive - CPU\n"
          << "\tlocal time = " << t_ord_ipr_local.mean() / 1000.0 << "+/-" << t_ord_ipr_local.stddev() / 1000.0 << "s\n"
          << "\tglobal time = " << t_ord_ipr_global.mean() / 1000.0 << "+/-" << t_ord_ipr_global.stddev() / 1000.0 << "s\n";
+
+//#ifdef __CUDACC__
+
+    gpu_allocator_type<idx_t> gpu_alloc{};
+
+    // timers
+    timer_type t_buf_local_gpu, t_buf_global_gpu; // 1 - unordered halos - buffered receive
+    timer_type t_ord_buf_local_gpu, t_ord_buf_global_gpu; // 2 - ordered halos - buffered receive
+    timer_type t_ord_ipr_local_gpu, t_ord_ipr_global_gpu; // 3 - ordered halos - in-place receive
+
+    // 1 ======== unordered halos - buffered receive =========================
+
+    // setup
+    std::vector<idx_t> f_cpu(d.size(), 0);
+    initialize_field(d, f_cpu, d_id_offset);
+    idx_t* f_gpu = gpu_alloc.allocate(d.size());
+    cudaMemcpy(f_gpu, f_cpu.data(), d.size() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, 0};
+
+    // exchange
+    auto h_gpu = co.exchange(p(data_gpu)); // first iteration
+    h_gpu.wait();
+    for (int i = 0; i < n_iters; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h_gpu = co.exchange(p(data_gpu));
+        h_gpu.wait();
+        t_local.toc();
+        t_buf_local_gpu(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_buf_global_gpu(t_global);
+    }
+
+    // check
+    cudaMemcpy(f_cpu.data(), f_gpu, d.size() * sizeof(idx_t), cudaMemcpyDeviceToHost);
+    check_exchanged_data(d, p[0], f_cpu, d_id_offset);
+
+    // deallocate
+    gpu_alloc.deallocate(f_gpu, d.size());
+
+    // 2 ======== ordered halos - buffered receive ===========================
+
+    // setup
+    std::vector<idx_t> f_ord_cpu(d_ord.size(), 0);
+    initialize_field(d_ord, f_ord_cpu, d_id_offset);
+    idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size());
+    cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, 0};
+
+    // exchange
+    auto h_ord_gpu = co_ord.exchange(p_ord(data_ord_gpu)); // first iteration
+    h_ord_gpu.wait();
+    for (int i = 0; i < n_iters; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h_ord_gpu = co_ord.exchange(p_ord(data_ord_gpu));
+        h_ord_gpu.wait();
+        t_local.toc();
+        t_ord_buf_local_gpu(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_ord_buf_global_gpu(t_global);
+    }
+
+    // check
+    cudaMemcpy(f_ord_cpu.data(), f_ord_gpu, d_ord.size() * sizeof(idx_t), cudaMemcpyDeviceToHost);
+    check_exchanged_data(d_ord, p_ord[0], f_ord_cpu, d_id_offset);
+
+    // deallocate
+    gpu_alloc.deallocate(f_ord_gpu, d_ord.size());
+
+    // 3 ======== ordered halos - in-place receive ===========================
+
+    // setup
+    std::vector<idx_t> f_ipr_cpu(d_ord.size(), 0);
+    initialize_field(d_ord, f_ipr_cpu, d_id_offset);
+    idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size());
+    cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, 0};
+
+    // exchange
+    auto h_ipr_gpu = co_ipr.exchange(p_ord(data_ipr_gpu)); // first iteration
+    h_ipr_gpu.wait();
+    for (int i = 0; i < n_iters; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        auto h_ipr_gpu = co_ipr.exchange(p_ord(data_ipr_gpu));
+        h_ipr_gpu.wait();
+        t_local.toc();
+        t_ord_ipr_local_gpu(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_ord_ipr_global_gpu(t_global);
+    }
+
+    // check
+    cudaMemcpy(f_ipr_cpu.data(), f_ipr_gpu, d_ord.size() * sizeof(idx_t), cudaMemcpyDeviceToHost);
+    check_exchanged_data(d_ord, p_ord[0], f_ipr_cpu, d_id_offset);
+
+    // deallocate
+    gpu_alloc.deallocate(f_ipr_gpu, d_ord.size());
+
+    // ======== output =======================================================
+
+    file << "1 - unordered halos - buffered receive - GPU\n"
+         << "\tlocal time = " << t_buf_local_gpu.mean() / 1000.0 << "+/-" << t_buf_local_gpu.stddev() / 1000.0 << "s\n"
+         << "\tglobal time = " << t_buf_global_gpu.mean() / 1000.0 << "+/-" << t_buf_global_gpu.stddev() / 1000.0 << "s\n";
+
+    file << "2 - ordered halos - buffered receive - GPU\n"
+         << "\tlocal time = " << t_ord_buf_local_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_local_gpu.stddev() / 1000.0 << "s\n"
+         << "\tglobal time = " << t_ord_buf_global_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_global_gpu.stddev() / 1000.0 << "s\n";
+
+    file << "3 - ordered halos - in-place receive - GPU\n"
+         << "\tlocal time = " << t_ord_ipr_local_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_local_gpu.stddev() / 1000.0 << "s\n"
+         << "\tglobal time = " << t_ord_ipr_global_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_global_gpu.stddev() / 1000.0 << "s\n";
+
+//#endif
 
     // MPI setup
     MPI_Comm_free(&comm);

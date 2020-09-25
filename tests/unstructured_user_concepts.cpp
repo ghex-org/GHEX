@@ -552,6 +552,9 @@ TEST(unstructured_user_concepts, data_descriptor) {
     cudaMemcpy(field_cpu.data(), field_gpu, d.size() * sizeof(int), cudaMemcpyDeviceToHost);
     check_exchanged_data(d, field_cpu, patterns[0]);
 
+    // deallocate
+    gpu_alloc.deallocate(field_gpu, d.size());
+
 #endif
 
 }
@@ -604,6 +607,9 @@ TEST(unstructured_user_concepts, in_place_receive) {
     // check exchanged data
     cudaMemcpy(field_cpu.data(), field_gpu, d.size() * sizeof(int), cudaMemcpyDeviceToHost);
     check_exchanged_data(d, field_cpu, patterns[0]);
+
+    // deallocate
+    gpu_alloc.deallocate(field_gpu, d.size());
 
 #endif
 
