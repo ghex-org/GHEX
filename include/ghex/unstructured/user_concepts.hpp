@@ -21,11 +21,6 @@
 
 #include "../arch_list.hpp"
 #include "../arch_traits.hpp"
-//#include "../allocator/unified_memory_allocator.hpp"
-
-#ifdef __CUDACC__
-#include "../../cuda_utils/error.hpp"
-#endif
 
 
 namespace gridtools {
@@ -412,6 +407,18 @@ namespace gridtools {
                 std::size_t domain_size() const noexcept { return m_domain_size; }
                 std::size_t levels() const noexcept { return m_levels; }
                 int num_components() const noexcept { return 1; }
+
+                /** @brief single access operator
+                 * used from the host to get data pointers, e.g.: &(data(i, j))*/ // TO DO: find better solution
+                value_type& operator()(const std::size_t local_v, const std::size_t level) {
+                    return m_values[local_v * m_levels + level];
+                }
+
+                /** @brief single access operator (const version)
+                 * used from the host to get data pointers, e.g.: &(data(i, j))*/ // TO DO: find better solution
+                const value_type& operator()(const std::size_t local_v, const std::size_t level) const {
+                    return m_values[local_v * m_levels + level];
+                }
 
                 template<typename IndexContainer>
                 void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr) {

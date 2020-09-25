@@ -31,9 +31,8 @@
 #include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
 #include <ghex/unstructured/communication_object_ipr.hpp>
-
 #ifdef __CUDACC__
-#include <gridtools/common/cuda_util.hpp>
+#include <ghex/allocator/cuda_allocator.hpp>
 #endif
 
 
