@@ -309,6 +309,7 @@ TEST(unstructured_parmetis, receive_type) {
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int gh_rank = context.rank();
+    int gh_size = context.size();
     auto gh_comm = context.get_communicator(context.get_token());
 
     // GHEX constants
@@ -336,7 +337,7 @@ TEST(unstructured_parmetis, receive_type) {
     file << "local vertices: " << n_vertices_local << "\n"
          << "global vertices: " << n_vertices_global << "\n"
          << "local edges: " << n_edges_local << "\n"
-         << "global edges: " << n_edges_global << "\n\n";
+         << "global edges: " << n_edges_global << "\n";
 
     // 1 ======== unordered halos - buffered receive =========================
 
@@ -351,6 +352,12 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<idx_t> f(d.size(), 0);
     initialize_field(d, f, d_id_offset);
     data_descriptor_cpu_type<idx_t> data{d, f};
+
+    // print sizes info
+    idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
+    MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
+    file << "average halo size in KB (assuming idx_t value type): "
+         << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t)) / (gh_size * 1024) << "\n\n";
 
     // exchange
     auto h = co.exchange(p(data)); // first iteration
