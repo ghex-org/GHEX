@@ -442,7 +442,7 @@ TEST(unstructured_parmetis, receive_type) {
          << "\tlocal time = " << t_ord_ipr_local.mean() / 1000.0 << "+/-" << t_ord_ipr_local.stddev() / 1000.0 << "s\n"
          << "\tglobal time = " << t_ord_ipr_global.mean() / 1000.0 << "+/-" << t_ord_ipr_global.stddev() / 1000.0 << "s\n";
 
-//#ifdef __CUDACC__
+#ifdef __CUDACC__
 
     gpu_allocator_type<idx_t> gpu_alloc{};
 
@@ -561,7 +561,7 @@ TEST(unstructured_parmetis, receive_type) {
          << "\tlocal time = " << t_ord_ipr_local_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_local_gpu.stddev() / 1000.0 << "s\n"
          << "\tglobal time = " << t_ord_ipr_global_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_global_gpu.stddev() / 1000.0 << "s\n";
 
-//#endif
+#endif
 
     // MPI setup
     MPI_Comm_free(&comm);
