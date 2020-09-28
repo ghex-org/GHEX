@@ -229,6 +229,8 @@ namespace gridtools {
             communication_object(const communication_object&) = delete;
             communication_object(communication_object&&) = default;
 
+            communicator_type communicator() const { return m_comm; }
+
         public: // exchange arbitrary field-device-pattern combinations
 
             /** @brief blocking variant of halo exchange

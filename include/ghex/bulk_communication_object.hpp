@@ -299,7 +299,7 @@ private: // member types
 
 private: // members
     communicator_type       m_comm;
-    co_type                 m_co;
+    co_type&                m_co;
     pattern_map             m_local_pattern_map;
     pattern_map             m_remote_pattern_map;
     field_container_t       m_field_container_tuple;
@@ -311,9 +311,14 @@ private: // members
     bool                    m_initialized = false;
 
 public: // ctors
-    bulk_communication_object(communicator_type comm)
+    /*bulk_communication_object(communicator_type comm)
     : m_comm(comm)
     , m_co(comm)
+    {}*/
+
+    bulk_communication_object(co_type& co)
+    : m_comm(co.communicator())
+    , m_co(co)
     {}
 
     // move only
@@ -516,6 +521,15 @@ private:
         }
     }
 };
+
+//template<template <typename> class RangeGen, typename Pattern, typename... Archs, typename... Fields>
+//generic_bulk_communication_object make_bulk_communication_object(
+//    typename Pattern::communicator_type comm, buffer_info<Pattern,Archs,Fields>... bis)
+//{
+//    bulk_communication_object<RangeGen, typename Pattern::pattern_container_type, Fields...> bco(comm);
+//    bco.add_fields(bis...);
+//    return {std::move(bco)};
+//}
 
 } // namespace ghex
 } // namespace gridtools

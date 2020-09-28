@@ -211,6 +211,7 @@ struct simulation
             std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << std::endl;
         }
         comms[j] = context.get_communicator(context.get_token());
+        auto basic_co = gridtools::ghex::make_communication_object<pattern_type>(comms[j]);
         for (int i=0; i<num_fields; ++i)
         {
             fields_raw[j].push_back( std::vector<T>(max_memory) );
@@ -238,7 +239,7 @@ struct simulation
 #else
             gpu_field_type
 #endif
-        > (comms[j]);
+        > (basic_co);
 #ifndef __CUDACC__
         for (int i=0; i<num_fields; ++i)
             bco.add_field(pattern->operator()(fields[j][i]));
