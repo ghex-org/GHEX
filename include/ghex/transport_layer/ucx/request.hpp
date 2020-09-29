@@ -14,6 +14,7 @@
 #include <functional>
 #include "../util/pthread_spin_mutex.hpp"
 #include "../context.hpp"
+#include "./context.hpp"
 #include "./worker.hpp"
 #include "../callback_utils.hpp"
 

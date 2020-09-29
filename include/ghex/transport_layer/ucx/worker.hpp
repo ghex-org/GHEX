@@ -14,19 +14,21 @@
 #include <map>
 #include <deque>
 #include <unordered_map>
+#include "./context.hpp"
 #include "../../common/moved_bit.hpp"
 #include "./error.hpp"
 #include "./endpoint.hpp"
-#include "../context.hpp"
+#include "../ucx/context.hpp"
 #include "../util/pthread_spin_mutex.hpp"
+#include "../mpi/rank_topology.hpp"
 
 namespace gridtools {
     namespace ghex {
         namespace tl {
 
             // forward declaration
-            template<>
-            struct transport_context<ucx_tag>;
+            // template<>
+            // struct transport_context<ucx_tag>;
 
             namespace ucx {
 
@@ -99,7 +101,7 @@ namespace gridtools {
                     inline const endpoint_t& connect(rank_type rank);
                     mutex_t& mutex() { return *m_mutex_ptr; }
 
-                    const ::gridtools::ghex::tl::mpi::rank_topology& rank_topology() const noexcept { return m_context->m_rank_topology; }
+                    const ::gridtools::ghex::tl::mpi::rank_topology& rank_topology() const noexcept; // implementation in ucx/context.hpp
                 };
 
             } // namespace ucx

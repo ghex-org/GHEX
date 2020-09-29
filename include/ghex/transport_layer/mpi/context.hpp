@@ -40,10 +40,7 @@ namespace gridtools {
                 transport_context(const mpi::rank_topology& t, MPI_Comm mpi_comm, Args&&...)
                     : m_rank_topology{t}
                     , m_comm{mpi_comm}
-                    , m_tokens(tp.size())
-                    , m_shared_state(mpi_comm, this, &tp)
-                    , m_state(nullptr)
-                    , m_states(tp.size())
+                    , m_shared_state(mpi_comm, this)
                 {}
 
                 MPI_Comm mpi_comm() const { return m_comm; }
@@ -62,6 +59,12 @@ namespace gridtools {
 
             };
 
+            namespace mpi {
+                bool communicator::is_local(rank_type r) const noexcept { return m_shared_state->m_context->m_rank_topology.is_local(r); }
+                communicator::rank_type communicator::local_rank() const noexcept { return m_shared_state->m_context->m_rank_topology.local_rank(); }
+
+            } // namespace mpi
+
             template<>
             struct context_factory<mpi_tag>
             {
@@ -73,8 +76,8 @@ namespace gridtools {
                 }
             };
 
-        }
-    }
-}
+        } // namespace tl
+    } // namespace ghex
+} // namespace gridtools
 
 #endif /* INCLUDED_TL_MPI_CONTEXT_HPP */

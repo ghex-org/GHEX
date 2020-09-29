@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 #define INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 
+#include "../context.hpp"
 #include "./communicator.hpp"
 #include "../communicator.hpp"
 #include "../util/pthread_spin_mutex.hpp"
@@ -103,8 +104,9 @@ namespace gridtools {
 
             public: // ctors
                 template<typename DB, typename... Args>
-                transport_context(const mpi::rank_topology& t, DB&& db, Args&&...)
-                    : m_rank_topology{t}
+                transport_context(const mpi::rank_topology& t, MPI_Comm comm, DB&& db, Args&&...)
+                    : m_mpi_comm{comm}
+                    , m_rank_topology{t}
                     , m_db{std::forward<DB>(db)}
                     , m_workers()
                 {
@@ -227,6 +229,8 @@ namespace gridtools {
                     return p.first->second;
                 }
 
+                const ::gridtools::ghex::tl::mpi::rank_topology& worker_t::rank_topology() const noexcept { return (*m_context).m_rank_topology; }
+
             } // namespace ucx
 
             template<>
@@ -248,5 +252,4 @@ namespace gridtools {
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools
-
 #endif /* INCLUDED_GHEX_TL_UCX_CONTEXT_HPP */
