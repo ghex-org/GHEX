@@ -21,15 +21,12 @@
 #include <thread>
 #include <vector>
 
-#include <ghex/threads/std_thread/primitives.hpp>
 #ifndef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/mpi/context.hpp>
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
 #include <ghex/bulk_communication_object.hpp>
@@ -56,7 +53,7 @@ struct simulation
 
     using T = GHEX_FLOAT_TYPE;
 
-    using context_type = gridtools::ghex::tl::context<transport,threading>;
+    using context_type = gridtools::ghex::tl::context<transport>;
     using context_ptr_type = std::unique_ptr<context_type>;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
@@ -81,7 +78,7 @@ struct simulation
     const std::array<int,3> g_last;
     const std::array<int,3> offset;
     const std::array<int,3> local_ext_buffer;
-    
+
     std::array<int,6> halos;
     halo_generator_type halo_gen;
 
@@ -120,7 +117,7 @@ struct simulation
     , mt(num_threads > 1)
     , num_fields{num_fields_}
     , ext{ext_}
-    , context_ptr{gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD)}
+    , context_ptr{gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD)}
     , context{*context_ptr}
     , local_ext{ext,ext,ext}
     , periodic{true,true,true}
@@ -139,7 +136,7 @@ struct simulation
         int pz = comm.rank() / (pd[0]*pd[1]);
         int py = (comm.rank() - pz*pd[0]*pd[1]) / pd[0];
         int px = comm.rank() - pz*pd[0]*pd[1] - py*pd[0];
-        
+
         cos.resize(num_threads);
         local_domains.reserve(num_threads);
         fields_raw.resize(num_threads);
@@ -158,13 +155,13 @@ struct simulation
             int x = (px*td[0] + tx)*ext;
             int y = (py*td[1] + ty)*ext;
             int z = (pz*td[2] + tz)*ext;
-                
+
             local_domains.push_back(domain_descriptor_type{
                 context.rank()*num_threads+j,
                 std::array<int,3>{x,y,z},
                 std::array<int,3>{x+ext-1,y+ext-1,z+ext-1}});
         }
-        
+
         pattern = std::unique_ptr<pattern_type>{new pattern_type{
             gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
                 context, halo_gen, local_domains)}};
@@ -210,7 +207,7 @@ struct simulation
             std::lock_guard<std::mutex> io_lock(io_mutex);
             std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << std::endl;
         }
-        comms[j] = context.get_communicator(context.get_token());
+        comms[j] = context.get_communicator();
         for (int i=0; i<num_fields; ++i)
         {
             fields_raw[j].push_back( std::vector<T>(max_memory) );
@@ -247,7 +244,7 @@ struct simulation
             bco.add_field(pattern->operator()(fields_gpu[j][i]));
 #endif
         cos[j] = std::move(bco);
-            
+
         // warm up
         for (int t = 0; t < 50; ++t)
         {
@@ -266,10 +263,10 @@ struct simulation
         }
         auto end = clock_type::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
-        
+
         if (comm.rank() == 0 && j == 0)
         {
-            const auto num_elements = 
+            const auto num_elements =
                 (ext+halos[0]+halos[1]) * (ext+halos[2]+halos[3]) * (ext+halos[2]+halos[3]) -
                 ext * ext * ext;
             const auto   num_bytes = num_elements * sizeof(T);
@@ -320,7 +317,7 @@ int main(int argc, char** argv)
         thread_decomposition[i - 8] = std::atoi(argv[i]);
         num_threads *= thread_decomposition[i-8];
     }
-    
+
     int required = num_threads>1 ?  MPI_THREAD_MULTIPLE :  MPI_THREAD_SINGLE;
     int provided;
     int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
@@ -350,7 +347,7 @@ int main(int argc, char** argv)
     simulation sim(num_repetitions, domain_size, halo, num_fields, proc_decomposition, thread_decomposition, num_threads);
 
     sim.exchange();
-    
+
     MPI_Barrier(MPI_COMM_WORLD);
 
     }

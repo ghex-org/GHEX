@@ -11,8 +11,10 @@
 #ifndef INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 #define INCLUDED_GHEX_TL_UCX_CONTEXT_HPP
 
+#include "../context.hpp"
 #include "./communicator.hpp"
 #include "../communicator.hpp"
+#include "../util/pthread_spin_mutex.hpp"
 
 #ifdef GHEX_USE_PMI
 // use the PMI interface ...
@@ -26,13 +28,13 @@ namespace gridtools {
     namespace ghex {
         namespace tl {
 
-            template<typename ThreadPrimitives>
-            struct transport_context<ucx_tag, ThreadPrimitives>
+            template <>
+            struct transport_context<ucx_tag>
             {
             public: // member types
                 using rank_type         = ucx::endpoint_t::rank_type;
-                using worker_type       = ucx::worker_t<ThreadPrimitives>;
-                using communicator_type = communicator<ucx::communicator<ThreadPrimitives>>;
+                using worker_type       = ucx::worker_t;
+                using communicator_type = communicator<ucx::communicator>;
 
             private: // member types
 
@@ -80,22 +82,21 @@ namespace gridtools {
                     ~ucp_context_h_holder() { ucp_cleanup(m_context); }
                 };
 
-                using thread_primitives_type = ThreadPrimitives;
-                using thread_token          = typename thread_primitives_type::token;
                 using worker_vector         = std::vector<std::unique_ptr<worker_type>>;
 
             private: // members
-                
-                thread_primitives_type&    m_thread_primitives;
+
+                using mutex_t = pthread_spin::recursive_mutex;
+                MPI_Comm m_mpi_comm;
                 const mpi::rank_topology&  m_rank_topology;
                 type_erased_address_db_t   m_db;
                 ucp_context_h_holder       m_context;
                 std::size_t                m_req_size;
                 worker_type                m_worker;  // shared, serialized - per rank
                 worker_vector              m_workers; // per thread
-                std::vector<thread_token>  m_tokens;
+                mutex_t                    m_mutex;
 
-                friend class ucx::worker_t<ThreadPrimitives>;
+                friend class ucx::worker_t;
 
             public: // static member functions
 
@@ -103,12 +104,11 @@ namespace gridtools {
 
             public: // ctors
                 template<typename DB, typename... Args>
-                transport_context(ThreadPrimitives& tp, const mpi::rank_topology& t, DB&& db, Args&&...)
-                    : m_thread_primitives(tp)
+                transport_context(const mpi::rank_topology& t, MPI_Comm comm, DB&& db, Args&&...)
+                    : m_mpi_comm{comm}
                     , m_rank_topology{t}
                     , m_db{std::forward<DB>(db)}
-                    , m_workers(m_thread_primitives.size())
-                    , m_tokens(m_thread_primitives.size())
+                    , m_workers()
                 {
                     // read run-time context
                     ucp_config_t* config_ptr;
@@ -168,25 +168,24 @@ namespace gridtools {
                     // make shared worker
                     // use single-threaded UCX mode, as per developer advice
                     // https://github.com/openucx/ucx/issues/4609
-                    m_worker = worker_type(this, &m_thread_primitives, nullptr, UCS_THREAD_MODE_SINGLE);
-                    
+                    m_worker = worker_type{this, m_mutex, UCS_THREAD_MODE_SINGLE};
+
                     // intialize database
                     m_db.init(m_worker.address());
                 }
-                
+
+                MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
+
                 communicator_type get_serial_communicator()
                 {
                     return {&m_worker,&m_worker};
                 }
 
-                communicator_type get_communicator(const thread_token& t)
+                communicator_type get_communicator()
                 {
-                    if (!m_workers[t.id()])
-                    {
-                        m_tokens[t.id()] = t;
-                        m_workers[t.id()] = std::make_unique<worker_type>(this, &m_thread_primitives, &m_tokens[t.id()], UCS_THREAD_MODE_SINGLE);
-                    }
-                    return {&m_worker, m_workers[t.id()].get()};
+                    std::lock_guard<mutex_t> lock(m_mutex); // we need to guard only the isertion in the vector, but this is not a performance critical section
+                    m_workers.push_back(std::make_unique<worker_type>(this, m_mutex, UCS_THREAD_MODE_SERIALIZED));
+                return {&m_worker, m_workers[m_workers.size()-1].get()};
                 }
 
                 rank_type rank() const { return m_db.rank(); }
@@ -196,13 +195,11 @@ namespace gridtools {
 
             namespace ucx {
 
-                template<typename ThreadPrimitives>
-                worker_t<ThreadPrimitives>::worker_t(transport_context_type* c, ThreadPrimitives *tp, thread_token* t, ucs_thread_mode_t mode)
+                worker_t::worker_t(transport_context_type* c, mutex_t& mm, ucs_thread_mode_t mode)
                     : m_context{c}
-                    , m_thread_primitives{tp}
-                    , m_token_ptr{t}
                     , m_rank(c->rank())
                     , m_size(c->size())
+                    , m_mutex_ptr{&mm}
                     {
                         ucp_worker_params_t params;
                         params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
@@ -222,8 +219,7 @@ namespace gridtools {
                         m_worker.m_moved = false;
                     }
 
-                template<typename ThreadPrimitives>
-                const endpoint_t& worker_t<ThreadPrimitives>::connect(rank_type rank)
+                const endpoint_t& worker_t::connect(rank_type rank)
                 {
                     auto it = m_endpoint_cache.find(rank);
                     if (it != m_endpoint_cache.end())
@@ -233,12 +229,14 @@ namespace gridtools {
                     return p.first->second;
                 }
 
+                const ::gridtools::ghex::tl::mpi::rank_topology& worker_t::rank_topology() const noexcept { return (*m_context).m_rank_topology; }
+
             } // namespace ucx
 
-            template<class ThreadPrimitives>
-            struct context_factory<ucx_tag, ThreadPrimitives>
+            template<>
+            struct context_factory<ucx_tag>
             {
-                static std::unique_ptr<context<ucx_tag, ThreadPrimitives>> create(int num_threads, MPI_Comm comm)
+                static std::unique_ptr<context<ucx_tag>> create(MPI_Comm comm)
                 {
                     auto new_comm = detail::clone_mpi_comm(comm);
 #if defined GHEX_USE_PMI
@@ -246,13 +244,12 @@ namespace gridtools {
 #else
                     ucx::address_db_mpi addr_db{new_comm};
 #endif
-                    return std::unique_ptr<context<ucx_tag, ThreadPrimitives>>{
-                        new context<ucx_tag,ThreadPrimitives>{num_threads, new_comm, std::move(addr_db)}};
+                    return std::unique_ptr<context<ucx_tag>>{
+                        new context<ucx_tag>{new_comm, new_comm, std::move(addr_db)}};
                 }
             };
-            
+
         } // namespace tl
     } // namespace ghex
 } // namespace gridtools
-
 #endif /* INCLUDED_GHEX_TL_UCX_CONTEXT_HPP */
