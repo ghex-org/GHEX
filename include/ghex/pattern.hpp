@@ -1,4 +1,4 @@
-/*
+*
  * GridTools
  *
  * Copyright (c) 2014-2020, ETH Zurich
@@ -126,7 +126,6 @@ namespace gridtools {
          * TO DO: so far, the structured specialization just redirects to the previous one (recv_domains_gen is just ignored)
          * @tparam GridType indicates structured/unstructured grids
          * @tparam Transport transport protocol
-         * @tparam ThreadPrimitives threading primitivs (locks etc.)
          * @tparam HaloGenerator function object which takes a domain as argument
          * @tparam RecvDomainsGenerator function object which takes a domain as argument
          * @tparam DomainRange a range type holding domains
