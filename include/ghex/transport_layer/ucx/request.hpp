@@ -12,7 +12,6 @@
 #define INCLUDED_GHEX_TL_UCX_REQUEST_HPP
 
 #include <functional>
-#include "../util/pthread_spin_mutex.hpp"
 #include "../context.hpp"
 #include "./context.hpp"
 #include "./worker.hpp"

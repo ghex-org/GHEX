@@ -100,7 +100,7 @@ TEST(communication_object, constructor) {
     using coordinate_t = domain_descriptor_t::coordinate_type;
     using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured::halo_generator<domain_id_t, 3>;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
 
     /* Problem sizes */
