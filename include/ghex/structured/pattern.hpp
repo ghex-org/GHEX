@@ -11,10 +11,11 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
 #define INCLUDED_GHEX_STRUCTURED_PATTERN_HPP
 
-#include "./grid.hpp"
-#include "../pattern.hpp"
 #include <map>
 #include <iosfwd>
+#include "./grid.hpp"
+#include "../pattern.hpp"
+#include "../transport_layer/mpi/setup.hpp"
 
 namespace gridtools {
     namespace ghex {
@@ -220,7 +221,7 @@ namespace gridtools {
                 using extended_domain_id_type   = typename pattern_type::extended_domain_id_type;
 
                 // get this address from new communicator
-                auto comm = context.get_setup_communicator();
+                auto comm = tl::mpi::setup_communicator(context.mpi_comm());
                 auto new_comm = context.get_serial_communicator();
                 auto my_address = new_comm.address();
 

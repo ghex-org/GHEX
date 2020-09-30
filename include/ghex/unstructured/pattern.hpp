@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iosfwd>
 
+#include "../transport_layer/mpi/setup.hpp"
 #include "../transport_layer/context.hpp"
 #include "../allocator/unified_memory_allocator.hpp"
 #include "../pattern.hpp"
@@ -207,7 +208,7 @@ namespace gridtools {
                     using vertices_map_type = std::map<global_index_type, index_type>;
 
                     // get setup comm and new comm, and then this rank, this address and size from new comm
-                    auto comm = context.get_setup_communicator();
+                    auto comm = tl::mpi::setup_communicator(context.mpi_comm());
                     auto new_comm = context.get_serial_communicator();
                     auto my_rank = new_comm.rank();
                     auto my_address = new_comm.address();
@@ -469,7 +470,7 @@ namespace gridtools {
                     using all_recv_indices_type = std::vector<std::map<domain_id_type, std::vector<index_type>>>;
 
                     // get setup comm and new comm, and then this rank, this address and size from new comm
-                    auto comm = context.get_setup_communicator();
+                    auto comm = tl::mpi::setup_communicator(context.mpi_comm());
                     auto new_comm = context.get_serial_communicator();
                     auto my_rank = new_comm.rank();
                     auto my_address = new_comm.address();

@@ -1,4 +1,4 @@
-*
+/*
  * GridTools
  *
  * Copyright (c) 2014-2020, ETH Zurich
