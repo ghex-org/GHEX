@@ -105,7 +105,7 @@ namespace gridtools {
                   * This function is thread-safe. */
                 communicator_type get_communicator()
                 {
-                    return m_transport_context.get_communicator(/*t*/);
+                    return m_transport_context.get_communicator();
                 }
             };
 
