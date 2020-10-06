@@ -322,6 +322,7 @@ PROGRAM test_halo_exchange
   ! exchange halos
   eh = ghex_exchange(co, ed)
   call ghex_wait(eh)
+  call ghex_free(eh)
 
   it = 0
   do while (it < niters)

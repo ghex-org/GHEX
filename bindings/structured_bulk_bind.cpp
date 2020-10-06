@@ -69,8 +69,8 @@ using pattern_type              = ghex::pattern_container<communicator_type, gri
 using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
 using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type,2,1,0>;
 using pattern_map_type          = std::map<struct_field_descriptor, pattern_type, field_compare>;
-using exchange_handle_type      = communication_obj_type::handle_type;
 using bco_type                  = ghex::bulk_communication_object<ghex::structured::rma_range_generator, pattern_type, field_descriptor_type>;
+using exchange_handle_type      = bco_type::handle;
 using buffer_info_type          = bco_type::buffer_info_type<field_descriptor_type>;
 using halo_generator_type       = ghex::structured::regular::halo_generator<domain_id_type, GHEX_DIMS>;
 
