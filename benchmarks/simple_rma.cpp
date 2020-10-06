@@ -208,7 +208,7 @@ struct simulation
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         {
             std::lock_guard<std::mutex> io_lock(io_mutex);
-            std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << std::endl;
+            //std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << std::endl;
         }
         comms[j] = context.get_communicator(context.get_token());
         auto basic_co = gridtools::ghex::make_communication_object<pattern_type>(comms[j]);

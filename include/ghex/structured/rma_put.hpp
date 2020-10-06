@@ -53,10 +53,13 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
     gridtools::ghex::detail::for_loop<
         sv_t::dimension::value,
         sv_t::dimension::value,
-        typename sv_t::layout, 1>::
+        typename sv_t::layout, 0>::
     apply([&s,&t](auto... c)
     {
-        std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
+        //std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
+        const auto coord = coordinate{c...};
+        const auto v = s(coord);
+        t(coord) = v;
     },
     s.m_begin, s.m_end);
 }
