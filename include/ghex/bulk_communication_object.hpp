@@ -297,9 +297,17 @@ private: // member types
     using target_ranges_t = boost::mp11::mp_rename<boost::mp11::mp_transform<target_ranges, field_types>,std::tuple>;
     using source_ranges_t = boost::mp11::mp_rename<boost::mp11::mp_transform<source_ranges, field_types>,std::tuple>;
 
+    struct co_deleter
+    {
+        bool m_owning;
+        void operator()(co_type* ptr) const { if (m_owning) delete ptr; }
+    };
+
+    using co_ptr = std::unique_ptr<co_type, co_deleter>;
+
 private: // members
     communicator_type       m_comm;
-    co_type&                m_co;
+    co_ptr                  m_co;
     pattern_map             m_local_pattern_map;
     pattern_map             m_remote_pattern_map;
     field_container_t       m_field_container_tuple;
@@ -311,14 +319,14 @@ private: // members
     bool                    m_initialized = false;
 
 public: // ctors
-    /*bulk_communication_object(communicator_type comm)
+    bulk_communication_object(communicator_type comm)
     : m_comm(comm)
-    , m_co(comm)
-    {}*/
+    , m_co{new co_type(comm), co_deleter{true}}
+    {}
 
     bulk_communication_object(co_type& co)
     : m_comm(co.communicator())
-    , m_co(co)
+    , m_co{&co, co_deleter{false}}
     {}
 
     // move only
@@ -448,7 +456,7 @@ private: // helper functions to handle the remote exchanges
     template<std::size_t... I>
     co_handle exchange_remote(std::index_sequence<I...>)
     {
-        return m_co.exchange(std::make_pair(std::get<I>(m_buffer_info_container_tuple).begin(),
+        return m_co->exchange(std::make_pair(std::get<I>(m_buffer_info_container_tuple).begin(),
             std::get<I>(m_buffer_info_container_tuple).end())...);
     }
 
