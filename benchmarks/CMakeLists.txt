@@ -63,6 +63,24 @@ endforeach()
 # RMA benchmark
 set(_rma_benchmarks simple_rma)
 foreach (_t ${_rma_benchmarks})
+    
+    # MPI, no rma, float, cpu
+    # ========================
+    set(t ${_t}_mpi_none_float_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # MPI, no rma, double, cpu
+    # ========================
+    set(t ${_t}_mpi_none_double_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
 
     # MPI, threads, float, cpu
     # ========================
@@ -101,6 +119,26 @@ foreach (_t ${_rma_benchmarks})
     endif()
 
     if (GHEX_USE_UCP)
+    # UCX, no rma, float, cpu
+    # ========================
+    set(t ${_t}_ucx_none_float_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # UCX, no rma, double, cpu
+    # ========================
+    set(t ${_t}_ucx_none_double_cpu)
+    add_executable(${t} ${_t}.cpp)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+
     # UCX, threads, float, cpu
     # ========================
     set(t ${_t}_ucx_threads_float_cpu)
@@ -143,6 +181,26 @@ foreach (_t ${_rma_benchmarks})
     endif()
 
     if(USE_GPU)
+    # MPI, no rma, float, gpu
+    # ========================
+    set(t ${_t}_mpi_none_float_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} GTest::gtest )
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # MPI, no rma, double, gpu
+    # ========================
+    set(t ${_t}_mpi_none_double_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} GTest::gtest )
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
     # MPI, threads, float, gpu
     # ========================
     set(t ${_t}_mpi_threads_float_gpu)
@@ -184,6 +242,28 @@ foreach (_t ${_rma_benchmarks})
     endif()
 
     if (GHEX_USE_UCP)
+    # UCX, no rma, float, gpu
+    # ========================
+    set(t ${_t}_ucx_none_float_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} GTest::gtest )
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
+    # UCX, no rma, double, gpu
+    # ========================
+    set(t ${_t}_ucx_none_double_gpu)
+    add_executable(${t} ${_t}.cu)
+    target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
+    target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+    target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
+    target_link_libraries(${t} GTest::gtest )
+    target_link_libraries(${t} ghexlib)
+    target_link_libraries(${t} OpenMP::OpenMP_CXX)
+    
     # UCX, threads, float, gpu
     # ========================
     set(t ${_t}_ucx_threads_float_gpu)

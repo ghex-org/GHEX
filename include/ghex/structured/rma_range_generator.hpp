@@ -12,8 +12,8 @@
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 
 #include "../arch_list.hpp"
-#include "../rma/range_traits.hpp"
 #include "../rma/access_guard.hpp"
+#include "../rma/event.hpp"
 #include "./rma_range.hpp"
 #include "./rma_put.hpp"
 
@@ -53,6 +53,8 @@ struct rma_range_generator
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<unsigned char> m_archive;
+        bool m_on_gpu = std::is_same<typename Field::arch_type, gridtools::ghex::gpu>::value;
+        rma::local_event m_event;
 
         template<typename IterationSpace>
         target_range(const Communicator& comm, const Field& f, rma::info field_info,
@@ -62,9 +64,10 @@ struct rma_range_generator
         , m_local_range{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_dst{dst}
         , m_tag{tag}
+        , m_event{m_on_gpu, loc}
         {
             m_archive.resize(RangeFactory::serial_size);
-            m_archive = RangeFactory::serialize(field_info, m_local_guard, m_local_range);
+            m_archive = RangeFactory::serialize(field_info, m_local_guard, m_event, m_local_range);
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
@@ -76,6 +79,8 @@ struct rma_range_generator
         void start_target_epoch()
         {
             m_local_guard.start_target_epoch();
+            // wait for event
+            m_event.wait();
         }
 
         void end_target_epoch()
@@ -124,13 +129,13 @@ struct rma_range_generator
         {
             m_request.wait();
             // creates a traget range
-            m_remote_range = RangeFactory::deserialize(m_archive.data());
+            m_remote_range = RangeFactory::deserialize(m_archive.data(), m_src);
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 init(r, m_remote_range);
             });
         }
-        
+
         void start_source_epoch()
         {
             m_remote_range.start_source_epoch();
@@ -138,6 +143,8 @@ struct rma_range_generator
 
         void end_source_epoch()
         {
+            // record event
+            m_remote_range.m_event.record();
             m_remote_range.end_source_epoch();
         }
 
@@ -152,7 +159,11 @@ struct rma_range_generator
         template<typename TargetRange>
         void put(TargetRange& tr)
         {
-            ::gridtools::ghex::structured::put(m_local_range, tr);
+            ::gridtools::ghex::structured::put(m_local_range, tr
+#ifdef __CUDACC__
+                    , m_remote_range.m_event.get_stream()
+#endif
+            );
         }
 
     private:
@@ -166,24 +177,6 @@ struct rma_range_generator
 };
 
 } // namespace structured
-
-namespace rma {
-// specialization of the range_traits for the above range generator
-template<>
-struct range_traits<structured::rma_range_generator>
-{
-    // determines what is local
-    template<typename Communicator>
-    static locality is_local(Communicator comm, int remote_rank)
-    {
-        if (comm.rank() == remote_rank) return locality::thread;
-#ifdef GHEX_USE_XPMEM
-        else if (comm.is_local(remote_rank)) return locality::process;
-#endif /* GHEX_USE_XPMEM */
-        else return locality::remote;
-    }
-};
-} // namespace rma
 } // namespace ghex
 } // namespace gridtools
 

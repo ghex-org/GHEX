@@ -80,6 +80,8 @@ namespace gridtools {
             auto end() noexcept { return m_patterns.end(); }
             auto begin() const noexcept { return m_patterns.cbegin(); }
             auto end() const noexcept { return m_patterns.cend(); }
+            auto cbegin() const noexcept { return m_patterns.cbegin(); }
+            auto cend() const noexcept { return m_patterns.cend(); }
             int max_tag() const noexcept { return m_max_tag; }
 
             /** @brief bind a field to a pattern

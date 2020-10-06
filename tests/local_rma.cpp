@@ -33,12 +33,6 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
 
-//#include <iomanip>
-//#include <future>
-//#ifdef __CUDACC__
-//#include <gridtools/common/cuda_util.hpp>
-//#include <gridtools/common/host_device.hpp>
-//#endif
 
 
 struct simulation_1
@@ -49,7 +43,7 @@ struct simulation_1
     {
         void operator()(T* ptr)
         {
-            //cudaFree(ptr);
+            cudaFree(ptr);
         }
     };
 #endif
@@ -143,7 +137,6 @@ struct simulation_1
     : context_ptr{ gridtools::ghex::tl::context_factory<transport,threading>::create(multithread ? 2 : 1, MPI_COMM_WORLD) }
     , context{*context_ptr}
     , local_ext{4,3,2}
-    //, local_ext{14,13,12}
     , periodic{true,true,true}
     , g_first{0,0,0}
     , g_last{local_ext[0]*4-1, ((context.size()-1)/2+1)*local_ext[1]-1, local_ext[2]-1}
@@ -427,4 +420,3 @@ TEST(local_rma, multi)
     sim.exchange();
     EXPECT_TRUE(sim.check());
 }
-

@@ -92,6 +92,7 @@ struct rma_range
     coordinate m_end;
     coordinate m_reduced_stride;
     size_type  m_size;
+    size_type  m_num_elements;
     size_type  m_chunk_size;
     size_type  m_chunk_size_;
 
@@ -129,6 +130,7 @@ struct rma_range
         }
 
         m_end[I] = m_extent[I];
+        m_num_elements = m_size;
         m_size  /= m_extent[I];
         m_chunk_size_ = m_extent[I];
         m_chunk_size = m_extent[I] * sizeof(value_type);

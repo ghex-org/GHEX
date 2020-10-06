@@ -21,28 +21,71 @@
 #include "./common/utils.hpp"
 #include "./communication_object_2.hpp"
 #include "./rma/locality.hpp"
-#include "./rma/range_traits.hpp"
 #include "./rma/range_factory.hpp"
 #include "./rma/handle.hpp"
 
 namespace gridtools {
 namespace ghex {
 
+// RMA overview
+// ============
+//
+// The GHEX direct memory access is implemented for threads/processes that share the same memory.
+// This means, that in-node communication can be accelerated by by-passing message passing which
+// is otherwise employed. In order for direct memory access to work, the memory must be prepared
+// and the addresses must be communicated to the remote counter parts. Note, that word remote 
+// signifies a process/thread on the same shared memory (in-node) which is writing into memory which
+// it does not own (put operation). Conversly, the word local is used for a process/thread that
+// owns a memory resource which it exposes for remote puts. Since GHEX does only use put operations
+// (and no get operations), the local and remote processes/threads are also denoted as source and
+// target: source is where the data comes from (remote) and target is where the data is put to
+// (local).
+//
+// The rma facilites can be used for multi-threaded applications and multi-processed applications.
+// In the case of multi-processed applications, the xpmem kernel module must be available for the
+// transport to work.
+//
+// The multi-threaded parts are built on top of standard thread synchronization mechanisms, whereas
+// the multi-processed parts use shmem for synchronization and xpmem for data exposure. GPUs are
+// managed with cuda IPC facilities.
+//
+// The GHEX RMA facilities are comprised of several building blocks:
+//
+// 1. data handles: expose the data for remote read/write
+// 2. access guards: synchronize access to data
+// 3. events: additional synchronization mechanisms (used for GPUs)
+// 4. ranges: abstract representation of a data portion which shall be exposed (i.e. a halo)
+// 5. range factory: a class which type-erases fields/halos for transport through the network 
+// 6. bulk communication object: user facing communication interface
+// 7. range generator: type which can generate ranges from halos. This class needs to be implemented
+// for each grid type in ghex. So far only regular grids are supported.
+//
+
+
 // type erased bulk communication object
 // can be used for storing bulk communication objects
 struct generic_bulk_communication_object
 {
-private:
+    struct bulk_co_iface;
+
     struct handle
     {
-        std::function<void()> m_wait;
-        void wait() { m_wait(); }
+        std::function<void()> m_remote_wait_fct;
+        bulk_co_iface* m_bulk_co_iface_ptr;
+        void wait()
+        {
+            m_remote_wait_fct();
+            m_bulk_co_iface_ptr->wait();
+        }
     };
 
     struct bulk_co_iface
     {
+        friend class handle;
         virtual ~bulk_co_iface() {}
         virtual handle exchange() = 0;
+    protected:
+        virtual void wait() = 0;
     };
 
     template<typename CO>
@@ -50,9 +93,16 @@ private:
     {
         CO m;
         bulk_co_impl(CO&& co) : m{std::move(co)} {}
-        handle exchange() override final { return {std::move(m.exchange().m_wait_fct)}; }
+        handle exchange() override final
+        {
+            return {std::move(m.exchange().m_remote_handle.m_wait_fct), this };
+        }
+
+    private:
+        void wait() override final { m.wait(); }
     };
 
+private:
     std::unique_ptr<bulk_co_iface> m_impl;
 
 public:
@@ -84,6 +134,20 @@ public: // member types
     using co_handle = typename co_type::handle_type;
     template<typename Field>
     using buffer_info_type = typename co_type::template buffer_info_type<typename Field::arch_type, Field>;
+
+    friend class generic_bulk_communication_object::bulk_co_impl<bulk_communication_object>;
+
+    struct handle
+    {
+        co_handle m_remote_handle;
+        bulk_communication_object* m_bulk_co_ptr;
+
+        void wait()
+        {
+            m_remote_handle.wait();
+            m_bulk_co_ptr->wait();
+        }
+    };
 
 private: // member types
     // this type holds the patterns used for remote and local exchanges
@@ -181,7 +245,7 @@ private: // member types
                 auto r_it = r_p.send_halos().begin();
                 while (r_it != r_p.send_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, r_it->first.mpi_rank);
                     if (local != rma::locality::remote) r_it = r_p.send_halos().erase(r_it);
                     else ++r_it;
                 }
@@ -191,7 +255,7 @@ private: // member types
                 auto l_it = l_p.send_halos().begin();
                 while (l_it != l_p.send_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, l_it->first.mpi_rank);
                     if (local != rma::locality::remote) ++l_it;
                     else l_it = l_p.send_halos().erase(l_it);
                 }
@@ -200,7 +264,7 @@ private: // member types
                 r_it = r_p.recv_halos().begin();
                 while (r_it != r_p.recv_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, r_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, r_it->first.mpi_rank);
                     if (local != rma::locality::remote) r_it = r_p.recv_halos().erase(r_it);
                     else ++r_it;
                 }
@@ -209,7 +273,7 @@ private: // member types
                 l_it = l_p.recv_halos().begin();
                 while (l_it != l_p.recv_halos().end())
                 {
-                    const auto local = rma::range_traits<RangeGen>::is_local(comm, l_it->first.mpi_rank);
+                    const auto local = rma::is_local(comm, l_it->first.mpi_rank);
                     if (local != rma::locality::remote) ++l_it;
                     else l_it = l_p.recv_halos().erase(l_it);
                 }
@@ -305,7 +369,7 @@ public:
                 {
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
-                        const auto local = rma::range_traits<RangeGen>::is_local(m_comm, h_it->first.mpi_rank);
+                        const auto local = rma::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
                         t_range.m_ranges.back().emplace_back(
                             m_comm, f, field_info, c, h_it->first.mpi_rank, h_it->first.tag, local); 
@@ -367,7 +431,6 @@ public:
                     }
             });
         }
-        
         m_initialized = true;
     }
     
@@ -387,13 +450,10 @@ private: // helper functions to handle the remote exchanges
 public:
     /** @brief do an exchange of halos
       * @return handle to wait on (for the remote exchanges) */
-    auto exchange()
+    handle exchange()
     {
         if (!m_initialized) init();
 
-        // start remote exchange
-        auto h = exchange_remote();
-        
         // loop over Fields
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
@@ -408,11 +468,15 @@ public:
                         r.end_target_epoch();
             });
         }
+
+        // start remote exchange
+        auto h = exchange_remote();
+        
         // loop over fields for putting
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
             boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
-            [this](auto i) {
+            [this,&h](auto i) {
                 // get the field Index 
                 using I = decltype(i);
                 // get source range
@@ -424,9 +488,18 @@ public:
                         r.start_source_epoch();
                         r.put();
                         r.end_source_epoch();
+                        // progress inter-node communication
+                        h.progress();
                     }
             });
         }
+
+        return {std::move(h),this};
+    }
+
+private:
+    void wait()
+    {
         // loop over fields for waiting
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
@@ -441,8 +514,6 @@ public:
                         r.start_target_epoch();
             });
         }
-        // return handle to remote exchange
-        return h;
     }
 };
 

@@ -18,6 +18,9 @@ namespace ghex {
 namespace rma {
 namespace thread {
 
+// Below are implementations of a handle in a multi-threading setting.
+// Please refer to the documentation in rma/handle.hpp for further explanations.
+
 struct info
 {
     void* m_ptr;
@@ -44,7 +47,7 @@ struct remote_data_holder
 {
     void* m_ptr;
         
-    remote_data_holder(const info& info_)
+    remote_data_holder(const info& info_, locality, int)
     : m_ptr{info_.m_ptr}
     {}
 

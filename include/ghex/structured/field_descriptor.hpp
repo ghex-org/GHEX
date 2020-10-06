@@ -44,28 +44,29 @@ public: // member types
     template<typename Pointer>
     struct buffer_descriptor {
         Pointer m_ptr;
-        const coordinate_type m_first;
-        const strides_type m_strides;
-        const size_type m_size;
+        coordinate_type m_first;
+        strides_type m_strides;
+        size_type m_size;
     };
     
     // holds halo iteration space information
     template<typename Pointer>
     struct basic_iteration_space {
         Pointer m_ptr;
-        const coordinate_type m_domain_first;
-        const coordinate_type m_offset;
-        const coordinate_type m_first;
-        const coordinate_type m_last;
-        const strides_type m_strides;
-        const strides_type m_local_strides;
+        coordinate_type m_domain_first;
+        coordinate_type m_offset;
+        coordinate_type m_first;
+        coordinate_type m_last;
+        strides_type m_strides;
+        strides_type m_local_strides;
     };
 
     struct pack_iteration_space {
         using value_t = T;
         using coordinate_t = coordinate_type;
-        const buffer_descriptor<T*> m_buffer_desc;
-        const basic_iteration_space<const T*> m_data_is;
+        using layout_map = typename field_descriptor::layout_map;
+        buffer_descriptor<T*> m_buffer_desc;
+        basic_iteration_space<const T*> m_data_is;
 
         /** @brief accesses buffer at specified local coordinate
           * @param coord in local coordinate system
@@ -98,8 +99,9 @@ public: // member types
     struct unpack_iteration_space {
         using value_t = T;
         using coordinate_t = coordinate_type;
-        const buffer_descriptor<const T*> m_buffer_desc;
-        const basic_iteration_space<T*> m_data_is;
+        using layout_map = typename field_descriptor::layout_map;
+        buffer_descriptor<const T*> m_buffer_desc;
+        basic_iteration_space<T*> m_data_is;
 
         /** @brief accesses buffer at specified local coordinate
           * @param coord in local coordinate system

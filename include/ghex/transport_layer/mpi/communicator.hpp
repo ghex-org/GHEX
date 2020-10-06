@@ -74,6 +74,7 @@ namespace gridtools {
                     address_type address() const noexcept { return rank(); }
 
                     bool is_local(rank_type r) const noexcept { return m_shared_state->m_context->m_rank_topology.is_local(r); }
+                    rank_type local_rank() const noexcept { return m_shared_state->m_context->m_rank_topology.local_rank(); }
 
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.

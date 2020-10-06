@@ -13,33 +13,33 @@
 
 #include "./locality.hpp"
 #include "./thread/access_guard.hpp"
-#ifdef GHEX_USE_XPMEM
-#include "./xpmem/access_guard.hpp"
-#endif
+#include "./shmem/access_guard.hpp"
 
 namespace gridtools {
 namespace ghex {
 namespace rma {
 
 /** @brief General local access guard wich synchronizes between the two participants in a RMA put
- * operation. This object is created at the site of the owner. All essential information can be
- * extracted through get_info(). The returned info object is POD and can be sent through the network
- * to the remote counter part. */
+  * operation. This object is created at the site of the owner. All essential information can be
+  * extracted through get_info(). The returned info object is POD and can be sent through the network
+  * to the remote counter part.
+  *
+  * Access guards model a finite state machine. The only state is called epoch and defines who has
+  * read/write access to a resource. The local access guard below can
+  * - start a target epoch: busy wait until the resource has been freed by the remote counterpart
+  * - end a target epoch: signal the end of read/write access to the remote counterpart
+  * */
 struct local_access_guard
 {
     locality m_locality;
     thread::local_access_guard m_thread_guard;
-#ifdef GHEX_USE_XPMEM
-    xpmem::local_access_guard m_process_guard;
-#endif
+    shmem::local_access_guard m_process_guard;
 
     struct info
     {
         locality m_locality;
         thread::local_access_guard::info m_thread_guard_info;
-#ifdef GHEX_USE_XPMEM
-        xpmem::local_access_guard::info m_process_guard_info;
-#endif
+        shmem::local_access_guard::info m_process_guard_info;
     };
 
     local_access_guard(locality loc)
@@ -52,9 +52,7 @@ struct local_access_guard
     {
         return {m_locality
             , m_thread_guard.get_info()
-#ifdef GHEX_USE_XPMEM
             , m_process_guard.get_info()
-#endif
         };
     }
 
@@ -63,38 +61,37 @@ struct local_access_guard
     void start_target_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.start_target_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.start_target_epoch();
-#endif
     }
 
     void end_target_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.end_target_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.end_target_epoch();
-#endif
     }
 };
 
 /** @brief General remote access guard wich synchronizes between the two participants in a RMA put
- * operation. This object is created at the site of the remote and is constructed from an info
- * object obtained from the local counter part. */
+  * operation. This object is created at the site of the remote and is constructed from an info
+  * object obtained from the local counter part.
+  *
+  * Access guards model a finite state machine. The only state is called epoch and defines who has
+  * read/write access to a resource. The remote access guard below can
+  * - start a source epoch: busy wait until the resource has been freed by the resource owning process
+  * - end a source epoch: signal the end of read/write access to the resource owning process
+  * */
 struct remote_access_guard
 {
     locality m_locality;
     thread::remote_access_guard m_thread_guard;
-#ifdef GHEX_USE_XPMEM
-    xpmem::remote_access_guard m_process_guard;
-#endif
+    shmem::remote_access_guard m_process_guard;
 
-    remote_access_guard(typename local_access_guard::info info_)
+    remote_access_guard(typename local_access_guard::info info_, int rank)
     : m_locality(info_.m_locality)
-    , m_thread_guard(info_.m_thread_guard_info)
-#ifdef GHEX_USE_XPMEM
-    , m_process_guard(info_.m_process_guard_info)
-#endif
+    , m_thread_guard(info_.m_thread_guard_info, m_locality, rank)
+    , m_process_guard(info_.m_process_guard_info, m_locality, rank)
     {}
+
     remote_access_guard() = default;
     remote_access_guard(remote_access_guard&&) = default;
     remote_access_guard& operator=(remote_access_guard&&) = default;
@@ -102,17 +99,13 @@ struct remote_access_guard
     void start_source_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.start_source_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.start_source_epoch();
-#endif
     }
     
     void end_source_epoch()
     {
         if (m_locality == locality::thread) m_thread_guard.end_source_epoch();
-#ifdef GHEX_USE_XPMEM
         if (m_locality == locality::process) m_process_guard.end_source_epoch();
-#endif
     }
 };
 

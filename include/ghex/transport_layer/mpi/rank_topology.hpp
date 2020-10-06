@@ -67,6 +67,9 @@ namespace gridtools {
 
                     /** @brief return ranks on this node */
                     const set_type& local_ranks() const noexcept { return m_rank_set; }
+
+                    /** @brief return local rank number */
+                    int local_rank() const noexcept { return m_rank; }
                 };
 
             } // namespace mpi

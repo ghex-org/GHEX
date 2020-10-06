@@ -17,6 +17,7 @@
 #include "./locality.hpp"
 #include "./handle.hpp"
 #include "./access_guard.hpp"
+#include "./event.hpp"
 #include "./range.hpp"
 
 namespace gridtools {
@@ -40,34 +41,23 @@ struct range_factory
     using max_range_size =
         boost::mp11::mp_max_element<boost::mp11::mp_transform<range_size_p, RangeList>, boost::mp11::mp_less>;
     
-    static constexpr std::size_t serial_size =a16(sizeof(int)) + a16(sizeof(info)) 
-        + a16(sizeof(typename local_access_guard::info)) + max_range_size::value;
+    static constexpr std::size_t serial_size =
+          a16(sizeof(int)) 
+        + a16(sizeof(info)) 
+        + a16(sizeof(typename local_access_guard::info))
+        + a16(sizeof(event_info))
+        + max_range_size::value;
 
     template<typename Range>
-    static void serialize(info field_info, local_access_guard& g, const Range& r, unsigned char* buffer)
-    {
-        static_assert(boost::mp11::mp_set_contains<RangeList, Range>::value, "range type not registered");
-        using id = boost::mp11::mp_find<RangeList, Range>;
-        const int m_id = id::value;
-        std::memcpy(buffer, &m_id, sizeof(int));
-        buffer += a16(sizeof(int));
-        std::memcpy(buffer, &field_info, sizeof(field_info));
-        buffer += a16(sizeof(field_info));
-        auto info_ = g.get_info();
-        std::memcpy(buffer, &info_, sizeof(typename local_access_guard::info));
-        buffer += a16(sizeof(typename local_access_guard::info));
-        std::memcpy(buffer, &r, sizeof(Range));
-    }
-
-    template<typename Range>
-    static std::vector<unsigned char> serialize(info field_info, local_access_guard& g, const Range& r)
+    static std::vector<unsigned char> serialize(info field_info, local_access_guard& g,
+        local_event& e, const Range& r)
     {
         std::vector<unsigned char> res(serial_size);
-        serialize(field_info, g, r, res.data());
+        serialize(field_info, g, e, r, res.data());
         return res;
     }
 
-    static range deserialize(unsigned char* buffer)
+    static range deserialize(unsigned char* buffer, int rank)
     {
         int id;
         std::memcpy(&id, buffer, sizeof(int));
@@ -78,11 +68,15 @@ struct range_factory
         typename local_access_guard::info info_;
         std::memcpy(&info_, buffer, sizeof(typename local_access_guard::info));
         buffer += a16(sizeof(typename local_access_guard::info));
-        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, [buffer, field_info, info_]
-        (auto Id)
+        event_info e_info_;
+        std::memcpy(&e_info_, buffer, sizeof(event_info));
+        buffer += a16(sizeof(event_info));
+        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, 
+        [buffer, field_info, info_, e_info_, rank] (auto Id)
         {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value, field_info, info_);
+            return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value,
+                field_info, info_, e_info_, rank);
         });
     }
 
@@ -94,8 +88,29 @@ struct range_factory
         [&r, f = std::forward<Func>(f)](auto Id)
         {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
-            f(dynamic_cast<range_impl<range_t>*>(r.m_impl.get())->m);
+            f(reinterpret_cast<range_impl<range_t>*>(r.m_impl.get())->m);
         });
+    }
+
+private:
+    template<typename Range>
+    static void serialize(info field_info, local_access_guard& g, local_event& e,
+        const Range& r, unsigned char* buffer)
+    {
+        static_assert(boost::mp11::mp_set_contains<RangeList, Range>::value, "range type not registered");
+        using id = boost::mp11::mp_find<RangeList, Range>;
+        const int m_id = id::value;
+        std::memcpy(buffer, &m_id, sizeof(int));
+        buffer += a16(sizeof(int));
+        std::memcpy(buffer, &field_info, sizeof(field_info));
+        buffer += a16(sizeof(field_info));
+        auto info_ = g.get_info();
+        std::memcpy(buffer, &info_, sizeof(typename local_access_guard::info));
+        buffer += a16(sizeof(typename local_access_guard::info));
+        auto e_info_ = e.get_info();
+        std::memcpy(buffer, &e_info_, sizeof(event_info));
+        buffer += a16(sizeof(event_info));
+        std::memcpy(buffer, &r, sizeof(Range));
     }
 };
 
