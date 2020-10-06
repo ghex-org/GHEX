@@ -349,7 +349,7 @@ TEST(unstructured_parmetis, receive_type) {
     auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
     using pattern_container_type = decltype(p);
     auto co = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm);
-    std::vector<idx_t> f(d.size(), 0);
+    std::vector<idx_t> f(d.size() * d.levels(), 0);
     initialize_field(d, f, d_id_offset);
     data_descriptor_cpu_type<idx_t> data{d, f};
 
@@ -385,7 +385,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<domain_descriptor_type> local_domains_ord{d_ord};
     auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // TO DO: definitely not optimal, only recv halos are different
     auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm); // new one, same conditions
-    std::vector<idx_t> f_ord(d_ord.size(), 0);
+    std::vector<idx_t> f_ord(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ord, d_id_offset);
     data_descriptor_cpu_type<idx_t> data_ord{d_ord, f_ord};
 
@@ -412,7 +412,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // setup
     auto co_ipr = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(gh_comm);
-    std::vector<idx_t> f_ipr(d_ord.size(), 0);
+    std::vector<idx_t> f_ipr(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ipr, d_id_offset);
     data_descriptor_cpu_type<idx_t> data_ipr{d_ord, f_ipr};
 
@@ -461,10 +461,10 @@ TEST(unstructured_parmetis, receive_type) {
     // 1 ======== unordered halos - buffered receive =========================
 
     // setup
-    std::vector<idx_t> f_cpu(d.size(), 0);
+    std::vector<idx_t> f_cpu(d.size() * d.levels(), 0);
     initialize_field(d, f_cpu, d_id_offset);
-    idx_t* f_gpu = gpu_alloc.allocate(d.size());
-    cudaMemcpy(f_gpu, f_cpu.data(), d.size() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    idx_t* f_gpu = gpu_alloc.allocate(d.size() * d.levels());
+    cudaMemcpy(f_gpu, f_cpu.data(), d.size() * d.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
     data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, 0};
 
     // exchange
@@ -484,19 +484,19 @@ TEST(unstructured_parmetis, receive_type) {
     }
 
     // check
-    cudaMemcpy(f_cpu.data(), f_gpu, d.size() * sizeof(idx_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(f_cpu.data(), f_gpu, d.size() * d.levels() * sizeof(idx_t), cudaMemcpyDeviceToHost);
     check_exchanged_data(d, p[0], f_cpu, d_id_offset);
 
     // deallocate
-    gpu_alloc.deallocate(f_gpu, d.size());
+    gpu_alloc.deallocate(f_gpu, d.size() * d.levels());
 
     // 2 ======== ordered halos - buffered receive ===========================
 
     // setup
-    std::vector<idx_t> f_ord_cpu(d_ord.size(), 0);
+    std::vector<idx_t> f_ord_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ord_cpu, d_id_offset);
-    idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size());
-    cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
+    cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
     data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, 0};
 
     // exchange
@@ -516,19 +516,19 @@ TEST(unstructured_parmetis, receive_type) {
     }
 
     // check
-    cudaMemcpy(f_ord_cpu.data(), f_ord_gpu, d_ord.size() * sizeof(idx_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(f_ord_cpu.data(), f_ord_gpu, d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyDeviceToHost);
     check_exchanged_data(d_ord, p_ord[0], f_ord_cpu, d_id_offset);
 
     // deallocate
-    gpu_alloc.deallocate(f_ord_gpu, d_ord.size());
+    gpu_alloc.deallocate(f_ord_gpu, d_ord.size() * d_ord.levels());
 
     // 3 ======== ordered halos - in-place receive ===========================
 
     // setup
-    std::vector<idx_t> f_ipr_cpu(d_ord.size(), 0);
+    std::vector<idx_t> f_ipr_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ipr_cpu, d_id_offset);
-    idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size());
-    cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
+    cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
     data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, 0};
 
     // exchange
@@ -548,11 +548,11 @@ TEST(unstructured_parmetis, receive_type) {
     }
 
     // check
-    cudaMemcpy(f_ipr_cpu.data(), f_ipr_gpu, d_ord.size() * sizeof(idx_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(f_ipr_cpu.data(), f_ipr_gpu, d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyDeviceToHost);
     check_exchanged_data(d_ord, p_ord[0], f_ipr_cpu, d_id_offset);
 
     // deallocate
-    gpu_alloc.deallocate(f_ipr_gpu, d_ord.size());
+    gpu_alloc.deallocate(f_ipr_gpu, d_ord.size() * d_ord.levels());
 
     // ======== output =======================================================
 
