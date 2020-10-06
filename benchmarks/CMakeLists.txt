@@ -319,21 +319,21 @@ add_subdirectory(transport)
 # ----------------
 
 if (GHEX_ENABLE_PARMETIS_BINDINGS)
-    # Variable used for benchmarks that DO NOT require multithreading support
+    # Variable used for benchmarks that require multithreading support
     set(_benchmarks unstructured_parmetis)
 
     foreach (_t ${_benchmarks})
         add_executable(${_t} ${_t}.cpp)
         target_include_directories(${_t} PRIVATE ${METIS_INCLUDE_DIR} ${PARMETIS_INCLUDE_DIR})
         target_link_directories(${_t} PRIVATE ${METIS_LIB_DIR} ${PARMETIS_LIB_DIR})
-        target_link_libraries(${_t} gtest_main_bench metis parmetis)
+        target_link_libraries(${_t} gtest_main_bench_mt metis parmetis)
 
         if(USE_GPU)
             add_executable(${_t}_gpu ${_t}.cu)
             target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
             target_include_directories(${_t}_gpu PRIVATE ${METIS_INCLUDE_DIR} ${PARMETIS_INCLUDE_DIR})
             target_link_directories(${_t}_gpu PRIVATE ${METIS_LIB_DIR} ${PARMETIS_LIB_DIR})
-            target_link_libraries(${_t}_gpu gtest_main_bench metis parmetis)
+            target_link_libraries(${_t}_gpu gtest_main_bench_mt metis parmetis)
         endif()
     endforeach()
 endif()
