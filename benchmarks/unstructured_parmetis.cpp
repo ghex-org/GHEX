@@ -257,7 +257,7 @@ TEST(unstructured_parmetis, receive_type) {
     vertices_dist_type vertices_dist{};
     for (idx_t v_id = vtxdist_v[rank], i = 0; i < static_cast<idx_t>(ap_n.size() - 1); ++v_id, ++i) {
         vertices_dist[domain_to_rank(part_v[i], num_threads)]
-                .insert(std::make_pair({part_v[i], v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
+                .insert(std::make_pair(d_v_pair<domain_id_type, idx_t>{part_v[i], v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
     }
 
     // 2) all-to-all: number of vertices per rank
