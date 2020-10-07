@@ -9,6 +9,7 @@
  * 
  */
 
+#include <cstdlib>
 #include <cassert>
 #include <cstdint>
 #include <fstream>
@@ -16,6 +17,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include <thread>
 
 #include <mpi.h>
 
@@ -88,7 +90,7 @@ std::vector<int> counts_to_displs(const std::vector<int>& counts) {
 }
 
 template<typename Domain, typename Field, typename O>
-void initialize_field(const Domain& d, Field& f, O d_id_offset) {
+void initialize_field(const Domain& d, Field& f, const O d_id_offset) {
     using value_type = typename Field::value_type;
     assert(f.size() == d.size() * d.levels());
     for (std::size_t i = 0; i < d.inner_size(); ++i) {
@@ -100,7 +102,7 @@ void initialize_field(const Domain& d, Field& f, O d_id_offset) {
 }
 
 template<typename Domain, typename Pattern, typename Field, typename O>
-void check_exchanged_data(const Domain& d, const Pattern& p, const Field& f, O d_id_offset) {
+void check_exchanged_data(const Domain& d, const Pattern& p, const Field& f, const O d_id_offset) {
     using domain_id_type = typename Domain::domain_id_type;
     using index_type = typename Pattern::index_type;
     using value_type = typename Field::value_type;
@@ -133,6 +135,27 @@ Domain make_reindexed_domain(const Domain& d, const Pattern& p) {
     return res;
 }
 
+template<typename DomainId>
+int domain_to_rank(const DomainId d_id, const int num_threads) {
+    return d_id / num_threads;
+}
+
+template<typename DomainId, typename VertexId>
+struct d_v_pair {
+
+    using domain_id_type = DomainId;
+    using v_id_type = VertexId;
+
+    domain_id_type d_id;
+    v_id_type v_id;
+
+    /** @brief unique ordering given by domain id and vertex id*/
+    bool operator < (const d_v_pair& other) const noexcept {
+        return d_id < other.d_id ? true : (d_id == other.d_id ? v_id < other.v_id : false);
+    }
+
+};
+
 template<typename C>
 void debug_print(const C& c) {
     std::cout << "Size = " << c.size() << "; elements = [ ";
@@ -154,6 +177,10 @@ TEST(unstructured_parmetis, receive_type) {
     int rank, size;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &size);
+
+    // Threads
+    auto env_threads = std::getenv("GHEX_PARMETIS_BENCHMARK_NUM_THREADS");
+    int num_threads = (env_threads) ? std::atoi(env_threads) : 1;
 
     // Ap
     std::ifstream ap_fs("Ap.out", std::ios_base::binary);
@@ -200,7 +227,7 @@ TEST(unstructured_parmetis, receive_type) {
     idx_t wgtflag = 0;
     idx_t numflag = 0;
     idx_t ncon = 1; // TO DO: double check
-    idx_t nparts = size;
+    idx_t nparts = size * num_threads;
     std::vector<real_t> tpwgts_v(ncon * nparts, 1 / static_cast<real_t>(nparts)); // TO DO: double check
     std::vector<real_t> ubvec_v(ncon, 1.02); // TO DO: double check
     std::array<idx_t, 3> options{0, 0, 0};
@@ -226,10 +253,11 @@ TEST(unstructured_parmetis, receive_type) {
     // ========== repartition output according to parmetis labeling ==========
 
     // 1) vertices distribution map
-    using vertices_dist_type = std::map<int, std::map<idx_t, std::vector<idx_t>>>;
+    using vertices_dist_type = std::map<int, std::map<d_v_pair<domain_id_type, idx_t>, std::vector<idx_t>>>;
     vertices_dist_type vertices_dist{};
     for (idx_t v_id = vtxdist_v[rank], i = 0; i < static_cast<idx_t>(ap_n.size() - 1); ++v_id, ++i) {
-        vertices_dist[part_v[i]].insert(std::make_pair(v_id, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
+        vertices_dist[domain_to_rank(part_v[i], num_threads)]
+                .insert(std::make_pair({part_v[i], v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
     }
 
     // 2) all-to-all: number of vertices per rank
@@ -247,7 +275,7 @@ TEST(unstructured_parmetis, receive_type) {
     s_v_ids_rank.reserve(ap_n.size() - 1);
     for (const auto& r_m_pair : vertices_dist) {
         for (const auto& v_a_pair : r_m_pair.second) {
-            s_v_ids_rank.push_back(v_a_pair.first);
+            s_v_ids_rank.push_back(v_a_pair.first.v_id);
         }
     }
     std::vector<int> s_v_ids_rank_counts = counts_as_bytes<idx_t>(s_n_vertices_rank);
@@ -259,7 +287,24 @@ TEST(unstructured_parmetis, receive_type) {
                   r_v_ids_rank.data(), r_v_ids_rank_counts.data(), r_v_ids_rank_displs.data(), MPI_BYTE,
                   comm);
 
-    // 4) all-to-all: adjacency size per vertex per rank
+    // 4) all-to-all: domain ids
+    std::vector<domain_id_type> s_d_ids_rank{};
+    s_d_ids_rank.reserve(ap_n.size() - 1);
+    for (const auto& r_m_pair : vertices_dist) {
+        for (const auto& v_a_pair : r_m_pair.second) {
+            s_d_ids_rank.push_back(v_a_pair.first.d_id);
+        }
+    }
+    std::vector<int> s_d_ids_rank_counts = counts_as_bytes<domain_id_type>(s_n_vertices_rank);
+    std::vector<int> s_d_ids_rank_displs = counts_to_displs(s_d_ids_rank_counts);
+    std::vector<domain_id_type> r_d_ids_rank(std::accumulate(r_n_vertices_rank.begin(), r_n_vertices_rank.end(), 0));
+    std::vector<int> r_d_ids_rank_counts = counts_as_bytes<domain_id_type>(r_n_vertices_rank);
+    std::vector<int> r_d_ids_rank_displs = counts_to_displs(r_d_ids_rank_counts);
+    MPI_Alltoallv(s_d_ids_rank.data(), s_d_ids_rank_counts.data(), s_d_ids_rank_displs.data(), MPI_BYTE,
+                  r_d_ids_rank.data(), r_d_ids_rank_counts.data(), r_d_ids_rank_displs.data(), MPI_BYTE,
+                  comm);
+
+    // 5) all-to-all: adjacency size per vertex per rank
     std::vector<int> s_adjncy_size_vertex_rank{};
     s_adjncy_size_vertex_rank.reserve(ap_n.size() - 1);
     for (const auto& r_m_pair : vertices_dist) {
@@ -276,7 +321,7 @@ TEST(unstructured_parmetis, receive_type) {
                   r_adjncy_size_vertex_rank.data(), r_adjncy_size_vertex_rank_counts.data(), r_adjncy_size_vertex_rank_displs.data(), MPI_BYTE,
                   comm);
 
-    // 5) all-to-all: adjacency per rank
+    // 6) all-to-all: adjacency per rank
     std::vector<idx_t> s_adjncy_rank{};
     s_adjncy_rank.reserve(std::accumulate(s_adjncy_size_vertex_rank.begin(), s_adjncy_size_vertex_rank.end(), 0));
     for (const auto& r_m_pair : vertices_dist) {
@@ -303,21 +348,23 @@ TEST(unstructured_parmetis, receive_type) {
                   r_adjncy_rank.data(), r_adjncy_rank_counts.data(), r_adjncy_rank_displs.data(), MPI_BYTE,
                   comm);
 
+    // 7) local domains resulting vertices distribution map
+
+
     // =======================================================================
 
     // GHEX context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int gh_rank = context.rank();
     int gh_size = context.size();
-    auto gh_comm = context.get_communicator(context.get_token());
 
     // GHEX constants
     const std::size_t levels = 100;
     const idx_t d_id_offset = 10e9;
     const int n_iters = 50;
 
-    // timers
+    // timers (local = rank local)
     timer_type t_buf_local, t_buf_global; // 1 - unordered halos - buffered receive
     timer_type t_ord_buf_local, t_ord_buf_global; // 2 - ordered halos - buffered receive
     timer_type t_ord_ipr_local, t_ord_ipr_global; // 3 - ordered halos - in-place receive
