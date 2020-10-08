@@ -140,6 +140,15 @@ int domain_to_rank(const DomainId d_id, const int num_threads) {
     return d_id / num_threads;
 }
 
+template<typename DomainId>
+std::vector<DomainId> rank_to_domains(const int rank, const int num_threads) {
+    std::vector<DomainId> res(num_threads);
+    for (int i = 0; i < num_threads; ++i) {
+        res[i] = rank * num_threads + i;
+    }
+    return res;
+}
+
 template<typename DomainId, typename VertexId>
 struct d_v_pair {
 
@@ -348,8 +357,16 @@ TEST(unstructured_parmetis, receive_type) {
                   r_adjncy_rank.data(), r_adjncy_rank_counts.data(), r_adjncy_rank_displs.data(), MPI_BYTE,
                   comm);
 
-    // 7) local domains resulting vertices distribution map
-
+    // 7) per-domain vertices distribution map
+    using domain_vertices_dist_type = std::map<domain_id_type, std::map<idx_t, std::vector<idx_t>>>;
+    domain_vertices_dist_type domain_vertices_dist{};
+    for (std::size_t i = 0, a_idx = 0; i < r_v_ids_rank.size(); ++i) {
+        auto a_begin = r_adjncy_rank.begin() + a_idx;
+        auto a_end = b + r_adjncy_size_vertex_rank[i];
+        domain_vertices_dist[r_d_ids_rank[i]]
+                .insert(std::make_pair(r_v_ids_rank[i], std::vector<idx_t>{a_begin, a_end}));
+        a_idx += r_adjncy_size_vertex_rank[i];
+    }
 
     // =======================================================================
 
@@ -376,6 +393,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::ofstream file(filename.c_str());
     file << "Unstructured ParMETIS receive type benchmark\n\n";
 
+    /*
     // print sizes info
     idx_t n_vertices_local{r_v_ids_rank.size()}, n_vertices_global;
     idx_t n_edges_local{r_adjncy_rank.size()}, n_edges_global;
@@ -385,30 +403,50 @@ TEST(unstructured_parmetis, receive_type) {
          << "global vertices: " << n_vertices_global << "\n"
          << "local edges: " << n_edges_local << "\n"
          << "global edges: " << n_edges_global << "\n";
+    */
 
     // 1 ======== unordered halos - buffered receive =========================
 
     // setup
-    domain_id_type d_id{gh_rank}; // 1 domain per rank
-    domain_descriptor_type d{d_id, r_v_ids_rank, r_adjncy_rank, levels}; // CSR constructor
-    std::vector<domain_descriptor_type> local_domains{d};
+    std::vector<domain_descriptor_type> local_domains{};
+    for (auto d_id : rank_to_domains<domain_id_type>(gh_rank, num_threads)) {
+        std::vector<idx_t> vertices{};
+        vertices.reserve(domain_vertices_dist[d_id].size()); // any missing domain gets actually inserted into the map here
+        std::vector<idx_t> adjncy{}; // TO DO: size might be deduced in advance
+        for (const auto& v_a_pair : domain_vertices_dist[d_id]) {
+            vertices.push_back(v_a_pair.first);
+            adjncy.insert(adjncy.end(), v_a_pair.second.begin(), v_a_pair.second.end());
+        }
+        local_domains.push_back(domain_descriptor_type{d_id, vertices, adjncy, levels}); // CSR constructor
+    }
     halo_generator_type hg{};
     auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
     using pattern_container_type = decltype(p);
-    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm);
-    std::vector<idx_t> f(d.size() * d.levels(), 0);
-    initialize_field(d, f, d_id_offset);
-    data_descriptor_cpu_type<idx_t> data{d, f};
+    std::vector<std::vector<idx_t>> f{};
+    std::vector<data_descriptor_cpu_type<idx_t>> data{};
+    for (const auto& d : local_domains) {
+        std::vector<idx_t> local_f(d.size() * d.levels(), 0);
+        initialize_field(d, local_f, d_id_offset);
+        f.push_back(std::move(local_f));
+        data.push_back(data_descriptor_cpu_type{d, f.back()});
+    }
+    auto thread_func = [&context](auto bi){ // TO DO: const auto& ?
+        auto th_token = context.get_token();
+        auto th_comm = context.get_communicator(th_token);
+        auto co = gridtools::ghex::make_communication_object<pattern_container_type>(th_comm);
+        auto h = co.exchange(bi); // first iteration
+        h.wait();
+    };
 
+    /* TO DO: old code, but still valid for the GPU part, and useful as a hint for rank local info
     // print sizes info
     idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
     MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
     file << "average halo size in KB (assuming idx_t value type): "
          << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t)) / (gh_size * 1024) << "\n\n";
+    */
 
-    // exchange
-    auto h = co.exchange(p(data)); // first iteration
-    h.wait();
+    /* TO DO: old code, move inside thread function
     for (int i = 0; i < n_iters; ++i) { // benchmark
         timer_type t_local;
         MPI_Barrier(context.mpi_comm());
@@ -421,10 +459,21 @@ TEST(unstructured_parmetis, receive_type) {
         auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
         t_buf_global(t_global);
     }
+    */
+
+    // exchange
+    std::vector<std::thread> threads{};
+    for (auto& d : data) {
+        threads.push_back(std::thread{thread_func, p(d)});
+    }
+    for (auto& t : threads) t.join();
 
     // check
-    check_exchanged_data(d, p[0], f, d_id_offset);
+    for (std::size_t i = 0; i < f.size(); ++i) {
+        check_exchanged_data(local_domains[i], p[i], f[i], d_id_offset); // HERE
+    }
 
+    /* TO DO: refactor from here (and add benchmark above)
     // 2 ======== ordered halos - buffered receive ===========================
 
     // setup
@@ -496,6 +545,10 @@ TEST(unstructured_parmetis, receive_type) {
          << "\tlocal time = " << t_ord_ipr_local.mean() / 1000.0 << "+/-" << t_ord_ipr_local.stddev() / 1000.0 << "s\n"
          << "\tglobal time = " << t_ord_ipr_global.mean() / 1000.0 << "+/-" << t_ord_ipr_global.stddev() / 1000.0 << "s\n";
 
+    */
+
+    // From HERE on (GPU code) it is ok, provided the code is executed by the main thread
+
 #ifdef __CUDACC__
 
     gpu_allocator_type<idx_t> gpu_alloc{};
@@ -508,6 +561,13 @@ TEST(unstructured_parmetis, receive_type) {
     // 1 ======== unordered halos - buffered receive =========================
 
     // setup
+    domain_id_type d_id{gh_rank}; // 1 domain per rank
+    domain_descriptor_type d{d_id, r_v_ids_rank, r_adjncy_rank, levels}; // CSR constructor
+    std::vector<domain_descriptor_type> local_domains{d};
+    halo_generator_type hg{};
+    auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+    using pattern_container_type = decltype(p);
+    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm);
     std::vector<idx_t> f_cpu(d.size() * d.levels(), 0);
     initialize_field(d, f_cpu, d_id_offset);
     idx_t* f_gpu = gpu_alloc.allocate(d.size() * d.levels());
@@ -540,6 +600,10 @@ TEST(unstructured_parmetis, receive_type) {
     // 2 ======== ordered halos - buffered receive ===========================
 
     // setup
+    domain_descriptor_type d_ord = make_reindexed_domain(d, p[0]);
+    std::vector<domain_descriptor_type> local_domains_ord{d_ord};
+    auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // TO DO: definitely not optimal, only recv halos are different
+    auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm); // new one, same conditions
     std::vector<idx_t> f_ord_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ord_cpu, d_id_offset);
     idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
@@ -572,6 +636,7 @@ TEST(unstructured_parmetis, receive_type) {
     // 3 ======== ordered halos - in-place receive ===========================
 
     // setup
+    auto co_ipr = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(gh_comm);
     std::vector<idx_t> f_ipr_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ipr_cpu, d_id_offset);
     idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
