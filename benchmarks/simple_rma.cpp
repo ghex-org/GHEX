@@ -10,6 +10,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <thread>
 #include <mutex>
 #include <chrono>
@@ -39,6 +40,7 @@ using threading = gridtools::ghex::threads::std_thread::primitives;
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
 #include <ghex/structured/regular/decomposition.hpp>
+#include <ghex/common/timer.hpp>
 
 using clock_type = std::chrono::high_resolution_clock;
 
@@ -103,6 +105,8 @@ struct simulation
     std::unique_ptr<pattern_type> pattern;
     std::mutex io_mutex;
 
+    std::vector<gridtools::ghex::timer> timer_vec;
+
     simulation(
         int num_reps_,
         int ext_,
@@ -133,6 +137,7 @@ struct simulation
     , halo_gen(g_first, g_last, halos, periodic)
     , max_memory{local_ext_buffer[0]*local_ext_buffer[1]*local_ext_buffer[2]}
     , comm{ context.get_serial_communicator() }
+    , timer_vec(num_threads)
     {
         cos.resize(num_threads);
         local_domains.reserve(num_threads);
@@ -193,6 +198,14 @@ struct simulation
             }
             for (auto& t : threads) t.join();
         }
+
+        for (int j=1; j<num_threads; ++j)
+            timer_vec[0](timer_vec[j]);
+        auto tt = gridtools::ghex::reduce(timer_vec[0], context.mpi_comm());
+        if (comm.rank() == 0)
+        {
+            std::cout << "sdev overall t: " << std::setprecision(12) << tt.stddev()/1000000.0 << "\n";
+        }
     }
 
     void exchange(int j)
@@ -250,7 +263,9 @@ struct simulation
         auto start = clock_type::now();
         for (int t = 0; t < num_reps; ++t)
         {
+            timer_vec[j].tic();
             cos[j].exchange().wait();
+            timer_vec[j].toc();
         }
         auto end = clock_type::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
@@ -265,6 +280,16 @@ struct simulation
             const auto   GB_per_s = num_reps * load / (elapsed_seconds.count() * 1.0e9);
             std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
             std::cout << "GB/s : " << GB_per_s << std::endl;
+            const auto tt = timer_vec[0];
+            std::cout << "mean time:    " << std::setprecision(12) << tt.mean()/1000000.0 << "\n";
+            std::cout << "min time:     " << std::setprecision(12) << tt.min()/1000000.0 << "\n";
+            std::cout << "max time:     " << std::setprecision(12) << tt.max()/1000000.0 << "\n";
+            std::cout << "sdev time:    " << std::setprecision(12) << tt.stddev()/1000000.0 << "\n";
+            std::cout << "sdev f time:  " << std::setprecision(12) << tt.stddev()/tt.mean() << "\n";
+            std::cout << "GB/s mean:    " << std::setprecision(12) << load / (tt.mean()*1000.0) << std::endl;
+            std::cout << "GB/s min:     " << std::setprecision(12) << load / (tt.max()*1000.0) << std::endl;
+            std::cout << "GB/s max:     " << std::setprecision(12) << load / (tt.min()*1000.0) << std::endl;
+            std::cout << "GB/s sdev:    " << std::setprecision(12) << (tt.stddev()/tt.mean())* (load / (tt.mean()*1000.0)) << std::endl;
         }
     }
 };
@@ -311,7 +336,10 @@ int main(int argc, char** argv)
         num_ranks *= node_decomposition[i]*numa_decomposition[i]*rank_decomposition[i];
         num_threads *= thread_decomposition[i];
     }
-    
+        
+    typename simulation::decomp_type decomp(node_decomposition, numa_decomposition,
+        rank_decomposition, thread_decomposition);
+
     int required = num_threads>1 ?  MPI_THREAD_MULTIPLE :  MPI_THREAD_SINGLE;
     int provided;
     int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
@@ -338,22 +366,11 @@ int main(int argc, char** argv)
     }
 
     {
-        typename simulation::decomp_type decomp(
-            node_decomposition,
-            numa_decomposition,
-            rank_decomposition,
-            thread_decomposition);
-        simulation sim(
-            num_repetitions,
-            domain_size,
-            halo,
-            num_fields,
-            decomp);
+        simulation sim(num_repetitions, domain_size, halo, num_fields, decomp);
 
-    sim.exchange();
+        sim.exchange();
     
-    MPI_Barrier(MPI_COMM_WORLD);
-
+        MPI_Barrier(MPI_COMM_WORLD);
     }
     MPI_Finalize();
 

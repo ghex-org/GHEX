@@ -501,9 +501,9 @@ public:
                         r.start_source_epoch();
                         r.put();
                         r.end_source_epoch();
-                        // progress inter-node communication
-                        h.progress();
                     }
+                // progress inter-node communication
+                h.progress();
             });
         }
 
