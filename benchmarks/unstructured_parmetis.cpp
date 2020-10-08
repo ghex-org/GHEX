@@ -362,7 +362,7 @@ TEST(unstructured_parmetis, receive_type) {
     domain_vertices_dist_type domain_vertices_dist{};
     for (std::size_t i = 0, a_idx = 0; i < r_v_ids_rank.size(); ++i) {
         auto a_begin = r_adjncy_rank.begin() + a_idx;
-        auto a_end = b + r_adjncy_size_vertex_rank[i];
+        auto a_end = a_begin + r_adjncy_size_vertex_rank[i];
         domain_vertices_dist[r_d_ids_rank[i]]
                 .insert(std::make_pair(r_v_ids_rank[i], std::vector<idx_t>{a_begin, a_end}));
         a_idx += r_adjncy_size_vertex_rank[i];
@@ -428,7 +428,7 @@ TEST(unstructured_parmetis, receive_type) {
         std::vector<idx_t> local_f(d.size() * d.levels(), 0);
         initialize_field(d, local_f, d_id_offset);
         f.push_back(std::move(local_f));
-        data.push_back(data_descriptor_cpu_type{d, f.back()});
+        data.push_back(data_descriptor_cpu_type<idx_t>{d, f.back()});
     }
     auto thread_func = [&context](auto bi){ // TO DO: const auto& ?
         auto th_token = context.get_token();
