@@ -446,7 +446,7 @@ TEST(unstructured_parmetis, receive_type) {
     auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
     using pattern_container_type = decltype(p);
 
-//#ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
+#ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
 
     std::vector<std::vector<idx_t>> f{};
     std::vector<data_descriptor_cpu_type<idx_t>> data{};
@@ -501,7 +501,7 @@ TEST(unstructured_parmetis, receive_type) {
          << "\tglobal time = " << t_buf_global.mean() / 1000.0
          << "+/-" << t_buf_global.stddev() / (std::sqrt(t_buf_global.num_samples()) * 1000.0) << "ms\n";
 
-//#endif
+#endif
 
     // 2 ======== ordered halos - buffered receive ===========================
 
@@ -512,7 +512,7 @@ TEST(unstructured_parmetis, receive_type) {
     }
     auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // TO DO: definitely not optimal, only recv halos are different
 
-//#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
+#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
 
     std::vector<std::vector<idx_t>> f_ord{};
     std::vector<data_descriptor_cpu_type<idx_t>> data_ord{};
@@ -567,11 +567,11 @@ TEST(unstructured_parmetis, receive_type) {
          << "\tglobal time = " << t_ord_buf_global.mean() / 1000.0
          << "+/-" << t_ord_buf_global.stddev() / (std::sqrt(t_ord_buf_global.num_samples()) * 1000.0) << "ms\n";
 
-//#endif
+#endif
 
     // 3 ======== ordered halos - in-place receive ===========================
 
-//#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
+#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
 
     std::vector<std::vector<idx_t>> f_ipr{};
     std::vector<data_descriptor_cpu_type<idx_t>> data_ipr{};
@@ -626,7 +626,7 @@ TEST(unstructured_parmetis, receive_type) {
          << "\tglobal time = " << t_ord_ipr_global.mean() / 1000.0
          << "+/-" << t_ord_ipr_global.stddev() / (std::sqrt(t_ord_ipr_global.num_samples()) * 1000.0) << "ms\n";
 
-//#endif
+#endif
 
     // ======== output =======================================================
 
@@ -638,9 +638,7 @@ TEST(unstructured_parmetis, receive_type) {
          << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t)) / (gh_size * 1024) << "\n\n";
     }
 
-    // From HERE on (GPU code) it is ok (just fix names), provided that the code is executed by the main thread
-
-//#else
+#else
 
     // GHEX context
     auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
@@ -797,7 +795,7 @@ TEST(unstructured_parmetis, receive_type) {
          << "\tglobal time = " << t_ord_ipr_global_gpu.mean() / 1000.0
          << "+/-" << t_ord_ipr_global_gpu.stddev() / (std::sqrt(t_ord_ipr_global_gpu.num_samples()) * 1000.0) << "ms\n";
 
-//#endif
+#endif
 
     // MPI setup
     MPI_Comm_free(&comm);
