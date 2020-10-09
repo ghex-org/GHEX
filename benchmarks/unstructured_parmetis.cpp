@@ -633,6 +633,7 @@ TEST(unstructured_parmetis, receive_type) {
     auto& context = *context_ptr;
     int gh_rank = context.rank();
     int gh_size = context.size();
+    auto gh_comm = context.get_communicator(context.get_token());
 
     // timers
     timer_type t_buf_local_gpu, t_buf_global_gpu; // 1 - unordered halos - buffered receive
