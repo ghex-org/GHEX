@@ -483,7 +483,17 @@ TEST(unstructured_parmetis, receive_type) {
     // global time
     auto t_buf_global = gridtools::ghex::reduce(t_buf_local, context.mpi_comm());
 
-    file << "1 - unordered halos - buffered receive - CPU\n"
+    // exchanged size
+    idx_t n_halo_vertices_local{0}, n_halo_vertices_global;
+    for (const auto& d : local_domains) {
+        n_halo_vertices_local += (d.size() - d.inner_size());
+    }
+    MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
+
+    // output
+    file << "total exchanged size in GB (assuming value type = idx_t): "
+         << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t) * 2) / (1024.0 * 1024.0 * 1024.0) << "\n\n"
+         << "1 - unordered halos - buffered receive - CPU\n"
          << "\tlocal time = " << t_buf_local.mean() / 1000.0
          << "+/-" << t_buf_local.stddev() / (std::sqrt(t_buf_local.num_samples()) * 1000.0) << "ms\n"
          << "\tglobal time = " << t_buf_global.mean() / 1000.0
