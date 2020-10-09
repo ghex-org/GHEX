@@ -616,16 +616,6 @@ TEST(unstructured_parmetis, receive_type) {
 
 #endif
 
-    // ======== output =======================================================
-
-    /* TO DO: old code, but still valid for the GPU part, and useful as a hint for rank local info
-    // print sizes info
-    idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
-    MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
-    file << "average halo size in KB (assuming idx_t value type): "
-         << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t)) / (gh_size * 1024) << "\n\n";
-    */
-
 #else
 
     // GHEX context
@@ -765,6 +755,12 @@ TEST(unstructured_parmetis, receive_type) {
     gpu_alloc.deallocate(f_ipr_gpu, d_ord.size() * d_ord.levels());
 
     // ======== output =======================================================
+
+    // print sizes info
+    idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
+    MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
+    file << "total exchanged size in GB (assuming value type = idx_t): "
+         << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t) * 2) / (1024.0 * 1024.0 * 1024.0) << "\n\n";
 
     file << "1 - unordered halos - buffered receive - GPU\n"
          << "\tlocal time = " << t_buf_local_gpu.mean() / 1000.0
