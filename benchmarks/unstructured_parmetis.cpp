@@ -756,7 +756,6 @@ TEST(unstructured_parmetis, receive_type) {
 
     // ======== output =======================================================
 
-    // print sizes info
     idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
     MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
     file << "total exchanged size in GB (assuming value type = idx_t): "
