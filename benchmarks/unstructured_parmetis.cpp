@@ -402,31 +402,19 @@ TEST(unstructured_parmetis, receive_type) {
     // output file
     std::stringstream ss_file;
     ss_file << gh_rank;
-    std::string filename = "unstructured_parmetis_receive_type_"
+    std::string filename =
 #ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
-            + "unordered_"
+            "unstructured_parmetis_receive_type_unordered_"
 #endif
 #ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
-            + "ordered_"
+            "unstructured_parmetis_receive_type_ordered_"
 #endif
 #ifdef GHEX_PARMETIS_BENCHMARK_IPR
-            + "ipr_"
+            "unstructured_parmetis_receive_type_ipr_"
 #endif
             + ss_file.str() + ".txt";
     std::ofstream file(filename.c_str());
     file << "Unstructured ParMETIS receive type benchmark\n\n";
-
-    /*
-    // print sizes info
-    idx_t n_vertices_local{r_v_ids_rank.size()}, n_vertices_global;
-    idx_t n_edges_local{r_adjncy_rank.size()}, n_edges_global;
-    MPI_Allreduce(&n_vertices_local, &n_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
-    MPI_Allreduce(&n_edges_local, &n_edges_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
-    file << "local vertices: " << n_vertices_local << "\n"
-         << "global vertices: " << n_vertices_global << "\n"
-         << "local edges: " << n_edges_local << "\n"
-         << "global edges: " << n_edges_global << "\n";
-    */
 
     // 1 ======== unordered halos - buffered receive =========================
 
