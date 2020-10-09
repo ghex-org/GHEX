@@ -559,7 +559,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // 3 ======== ordered halos - in-place receive ===========================
 
-#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
+#ifdef GHEX_PARMETIS_BENCHMARK_IPR
 
     std::vector<std::vector<idx_t>> f_ipr{};
     std::vector<data_descriptor_cpu_type<idx_t>> data_ipr{};
@@ -618,13 +618,13 @@ TEST(unstructured_parmetis, receive_type) {
 
     // ======== output =======================================================
 
-    { // TO DO: old code, but still valid for the GPU part, and useful as a hint for rank local info
+    /* TO DO: old code, but still valid for the GPU part, and useful as a hint for rank local info
     // print sizes info
     idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
     MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
     file << "average halo size in KB (assuming idx_t value type): "
          << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t)) / (gh_size * 1024) << "\n\n";
-    }
+    */
 
 #else
 
