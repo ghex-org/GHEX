@@ -371,25 +371,33 @@ TEST(unstructured_parmetis, receive_type) {
 
     // =======================================================================
 
-    // GHEX context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
-    auto& context = *context_ptr;
-    int gh_rank = context.rank();
-    int gh_size = context.size();
-
     // GHEX constants
     const std::size_t levels = 100;
     const idx_t d_id_offset = 10e9;
     const int n_iters_warm_up = 50;
     const int n_iters = 50;
 
+#ifndef __CUDACC__
+
+    // GHEX context
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int gh_rank = context.rank();
+    int gh_size = context.size();
+
     // timers (local = rank local)
+#ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
     timer_type t_buf_local; // 1 - unordered halos - buffered receive
     std::mutex t_buf_local_mutex;
+#endif
+#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
     timer_type t_ord_buf_local; // 2 - ordered halos - buffered receive
     std::mutex t_ord_buf_local_mutex;
+#endif
+#ifdef GHEX_PARMETIS_BENCHMARK_IPR
     timer_type t_ord_ipr_local; // 3 - ordered halos - in-place receive
     std::mutex t_ord_ipr_local_mutex;
+#endif
 
     // output file
     std::stringstream ss_file;
@@ -632,14 +640,28 @@ TEST(unstructured_parmetis, receive_type) {
 
     // From HERE on (GPU code) it is ok (just fix names), provided that the code is executed by the main thread
 
-//#ifdef __CUDACC__
+//#else
 
-    gpu_allocator_type<idx_t> gpu_alloc{};
+    // GHEX context
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto& context = *context_ptr;
+    int gh_rank = context.rank();
+    int gh_size = context.size();
 
     // timers
     timer_type t_buf_local_gpu, t_buf_global_gpu; // 1 - unordered halos - buffered receive
     timer_type t_ord_buf_local_gpu, t_ord_buf_global_gpu; // 2 - ordered halos - buffered receive
     timer_type t_ord_ipr_local_gpu, t_ord_ipr_global_gpu; // 3 - ordered halos - in-place receive
+
+    // output file
+    std::stringstream ss_file;
+    ss_file << gh_rank;
+    std::string filename = "unstructured_parmetis_receive_type_gpu_" + ss_file.str() + ".txt";
+    std::ofstream file(filename.c_str());
+    file << "Unstructured ParMETIS receive type benchmark\n\n";
+
+    // GPU allocator
+    gpu_allocator_type<idx_t> gpu_alloc{};
 
     // 1 ======== unordered halos - buffered receive =========================
 
