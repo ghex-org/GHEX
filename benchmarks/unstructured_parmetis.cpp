@@ -632,7 +632,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // From HERE on (GPU code) it is ok (just fix names), provided that the code is executed by the main thread
 
-#ifdef __CUDACC__
+//#ifdef __CUDACC__
 
     gpu_allocator_type<idx_t> gpu_alloc{};
 
@@ -752,18 +752,24 @@ TEST(unstructured_parmetis, receive_type) {
     // ======== output =======================================================
 
     file << "1 - unordered halos - buffered receive - GPU\n"
-         << "\tlocal time = " << t_buf_local_gpu.mean() / 1000.0 << "+/-" << t_buf_local_gpu.stddev() / 1000.0 << "ms\n"
-         << "\tglobal time = " << t_buf_global_gpu.mean() / 1000.0 << "+/-" << t_buf_global_gpu.stddev() / 1000.0 << "ms\n";
+         << "\tlocal time = " << t_buf_local_gpu.mean() / 1000.0
+         << "+/-" << t_buf_local_gpu.stddev() / (std::sqrt(t_buf_local_gpu.num_samples()) * 1000.0) << "ms\n"
+         << "\tglobal time = " << t_buf_global_gpu.mean() / 1000.0
+         << "+/-" << t_buf_global_gpu.stddev() / (std::sqrt(t_buf_global_gpu.num_samples()) * 1000.0) << "ms\n";
 
     file << "2 - ordered halos - buffered receive - GPU\n"
-         << "\tlocal time = " << t_ord_buf_local_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_local_gpu.stddev() / 1000.0 << "ms\n"
-         << "\tglobal time = " << t_ord_buf_global_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_global_gpu.stddev() / 1000.0 << "ms\n";
+         << "\tlocal time = " << t_ord_buf_local_gpu.mean() / 1000.0
+         << "+/-" << t_ord_buf_local_gpu.stddev() / (std::sqrt(t_ord_buf_local_gpu.num_samples()) * 1000.0) << "ms\n"
+         << "\tglobal time = " << t_ord_buf_global_gpu.mean() / 1000.0
+         << "+/-" << t_ord_buf_global_gpu.stddev() / (std::sqrt(t_ord_buf_global_gpu.num_samples()) * 1000.0) << "ms\n";
 
     file << "3 - ordered halos - in-place receive - GPU\n"
-         << "\tlocal time = " << t_ord_ipr_local_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_local_gpu.stddev() / 1000.0 << "ms\n"
-         << "\tglobal time = " << t_ord_ipr_global_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_global_gpu.stddev() / 1000.0 << "ms\n";
+         << "\tlocal time = " << t_ord_ipr_local_gpu.mean() / 1000.0
+         << "+/-" << t_ord_ipr_local_gpu.stddev() / (std::sqrt(t_ord_ipr_local_gpu.num_samples()) * 1000.0) << "ms\n"
+         << "\tglobal time = " << t_ord_ipr_global_gpu.mean() / 1000.0
+         << "+/-" << t_ord_ipr_global_gpu.stddev() / (std::sqrt(t_ord_ipr_global_gpu.num_samples()) * 1000.0) << "ms\n";
 
-#endif
+//#endif
 
     // MPI setup
     MPI_Comm_free(&comm);
