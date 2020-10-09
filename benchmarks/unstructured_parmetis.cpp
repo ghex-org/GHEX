@@ -658,8 +658,10 @@ TEST(unstructured_parmetis, receive_type) {
     data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, 0};
 
     // exchange
-    auto h_gpu = co.exchange(p(data_gpu)); // first iteration
-    h_gpu.wait();
+    for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
+        auto h_gpu = co.exchange(p(data_gpu));
+        h_gpu.wait();
+    }
     for (int i = 0; i < n_iters; ++i) { // benchmark
         timer_type t_local;
         MPI_Barrier(context.mpi_comm());
@@ -694,8 +696,10 @@ TEST(unstructured_parmetis, receive_type) {
     data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, 0};
 
     // exchange
-    auto h_ord_gpu = co_ord.exchange(p_ord(data_ord_gpu)); // first iteration
-    h_ord_gpu.wait();
+    for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
+        auto h_ord_gpu = co_ord.exchange(p_ord(data_ord_gpu));
+        h_ord_gpu.wait();
+    }
     for (int i = 0; i < n_iters; ++i) { // benchmark
         timer_type t_local;
         MPI_Barrier(context.mpi_comm());
@@ -727,8 +731,10 @@ TEST(unstructured_parmetis, receive_type) {
     data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, 0};
 
     // exchange
-    auto h_ipr_gpu = co_ipr.exchange(p_ord(data_ipr_gpu)); // first iteration
-    h_ipr_gpu.wait();
+    for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
+        auto h_ipr_gpu = co_ipr.exchange(p_ord(data_ipr_gpu));
+        h_ipr_gpu.wait();
+    }
     for (int i = 0; i < n_iters; ++i) { // benchmark
         timer_type t_local;
         MPI_Barrier(context.mpi_comm());
