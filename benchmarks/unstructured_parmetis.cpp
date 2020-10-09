@@ -18,6 +18,7 @@
 #include <array>
 #include <algorithm>
 #include <thread>
+#include <cmath>
 
 #include <mpi.h>
 
@@ -259,7 +260,7 @@ TEST(unstructured_parmetis, receive_type) {
                          part_v.data(),
                          &comm);
 
-    // ========== repartition output according to parmetis labeling ==========
+    // ========== repartition output according to parmetis labeling ========== // TO DO: wrap it into a function
 
     // 1) vertices distribution map
     using vertices_dist_type = std::map<int, std::map<d_v_pair<domain_id_type, idx_t>, std::vector<idx_t>>>;
@@ -379,17 +380,31 @@ TEST(unstructured_parmetis, receive_type) {
     // GHEX constants
     const std::size_t levels = 100;
     const idx_t d_id_offset = 10e9;
+    const int n_iters_warm_up = 50;
     const int n_iters = 50;
 
     // timers (local = rank local)
-    timer_type t_buf_local, t_buf_global; // 1 - unordered halos - buffered receive
-    timer_type t_ord_buf_local, t_ord_buf_global; // 2 - ordered halos - buffered receive
-    timer_type t_ord_ipr_local, t_ord_ipr_global; // 3 - ordered halos - in-place receive
+    timer_type t_buf_local; // 1 - unordered halos - buffered receive
+    std::mutex t_buf_local_mutex;
+    timer_type t_ord_buf_local; // 2 - ordered halos - buffered receive
+    std::mutex t_ord_buf_local_mutex;
+    timer_type t_ord_ipr_local; // 3 - ordered halos - in-place receive
+    std::mutex t_ord_ipr_local_mutex;
 
     // output file
     std::stringstream ss_file;
     ss_file << gh_rank;
-    std::string filename = "unstructured_parmetis_receive_type_" + ss_file.str() + ".txt";
+    std::string filename = "unstructured_parmetis_receive_type_"
+#ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
+            + "unordered_"
+#endif
+#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
+            + "ordered_"
+#endif
+#ifdef GHEX_PARMETIS_BENCHMARK_IPR
+            + "ipr_"
+#endif
+            + ss_file.str() + ".txt";
     std::ofstream file(filename.c_str());
     file << "Unstructured ParMETIS receive type benchmark\n\n";
 
@@ -422,6 +437,9 @@ TEST(unstructured_parmetis, receive_type) {
     halo_generator_type hg{};
     auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
     using pattern_container_type = decltype(p);
+
+//#ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
+
     std::vector<std::vector<idx_t>> f{};
     std::vector<data_descriptor_cpu_type<idx_t>> data{};
     for (const auto& d : local_domains) {
@@ -430,38 +448,31 @@ TEST(unstructured_parmetis, receive_type) {
         f.push_back(std::move(local_f));
         data.push_back(data_descriptor_cpu_type<idx_t>{d, f.back()});
     }
-    auto thread_func = [&context](auto bi){ // TO DO: const auto& ?
+
+    // thread function
+    auto thread_func = [&context, &t_buf_local, &t_buf_local_mutex](auto bi){
         auto th_token = context.get_token();
         auto th_comm = context.get_communicator(th_token);
+        timer_type t_buf_local_th;
         auto co = gridtools::ghex::make_communication_object<pattern_container_type>(th_comm);
-        auto h = co.exchange(bi); // first iteration
-        h.wait();
+        for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
+            auto h = co.exchange(bi);
+            h.wait();
+        }
+        for (int i = 0; i < n_iters; ++i) { // benchmark
+            timer_type t_local;
+            th_comm.barrier();
+            t_local.tic();
+            auto h = co.exchange(bi);
+            h.wait();
+            t_local.toc();
+            t_buf_local_th(t_local);
+        }
+        std::lock_guard<std::mutex> guard(t_buf_local_mutex);
+        t_buf_local(t_buf_local_th);
     };
 
-    /* TO DO: old code, but still valid for the GPU part, and useful as a hint for rank local info
-    // print sizes info
-    idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
-    MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
-    file << "average halo size in KB (assuming idx_t value type): "
-         << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t)) / (gh_size * 1024) << "\n\n";
-    */
-
-    /* TO DO: old code, move inside thread function
-    for (int i = 0; i < n_iters; ++i) { // benchmark
-        timer_type t_local;
-        MPI_Barrier(context.mpi_comm());
-        t_local.tic();
-        auto h = co.exchange(p(data));
-        h.wait();
-        t_local.toc();
-        t_buf_local(t_local);
-        MPI_Barrier(context.mpi_comm());
-        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
-        t_buf_global(t_global);
-    }
-    */
-
-    // exchange
+    // run
     std::vector<std::thread> threads{};
     for (auto& d : data) {
         threads.push_back(std::thread{thread_func, p(d)});
@@ -470,84 +481,156 @@ TEST(unstructured_parmetis, receive_type) {
 
     // check
     for (std::size_t i = 0; i < f.size(); ++i) {
-        check_exchanged_data(local_domains[i], p[i], f[i], d_id_offset); // HERE
+        check_exchanged_data(local_domains[i], p[i], f[i], d_id_offset);
     }
 
-    /* TO DO: refactor from here (and add benchmark above)
+    // global time
+    auto t_buf_global = gridtools::ghex::reduce(t_buf_local, context.mpi_comm());
+
+    file << "1 - unordered halos - buffered receive - CPU\n"
+         << "\tlocal time = " << t_buf_local.mean() / 1000.0
+         << "+/-" << t_buf_local.stddev() / (std::sqrt(t_buf_local.num_samples()) * 1000.0) << "ms\n"
+         << "\tglobal time = " << t_buf_global.mean() / 1000.0
+         << "+/-" << t_buf_global.stddev() / (std::sqrt(t_buf_global.num_samples()) * 1000.0) << "ms\n";
+
+//#endif
+
     // 2 ======== ordered halos - buffered receive ===========================
 
     // setup
-    domain_descriptor_type d_ord = make_reindexed_domain(d, p[0]);
-    std::vector<domain_descriptor_type> local_domains_ord{d_ord};
+    std::vector<domain_descriptor_type> local_domains_ord{};
+    for (std::size_t i = 0; i < local_domains.size(); ++i) {
+        local_domains_ord.push_back(make_reindexed_domain(local_domains[i], p[i]));
+    }
     auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // TO DO: definitely not optimal, only recv halos are different
-    auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm); // new one, same conditions
-    std::vector<idx_t> f_ord(d_ord.size() * d_ord.levels(), 0);
-    initialize_field(d_ord, f_ord, d_id_offset);
-    data_descriptor_cpu_type<idx_t> data_ord{d_ord, f_ord};
 
-    // exchange
-    auto h_ord = co_ord.exchange(p_ord(data_ord)); // first iteration
-    h_ord.wait();
-    for (int i = 0; i < n_iters; ++i) { // benchmark
-        timer_type t_local;
-        MPI_Barrier(context.mpi_comm());
-        t_local.tic();
-        auto h_ord = co_ord.exchange(p_ord(data_ord));
-        h_ord.wait();
-        t_local.toc();
-        t_ord_buf_local(t_local);
-        MPI_Barrier(context.mpi_comm());
-        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
-        t_ord_buf_global(t_global);
+//#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
+
+    std::vector<std::vector<idx_t>> f_ord{};
+    std::vector<data_descriptor_cpu_type<idx_t>> data_ord{};
+    for (const auto& d_ord : local_domains_ord) {
+        std::vector<idx_t> local_f_ord(d_ord.size() * d_ord.levels(), 0);
+        initialize_field(d_ord, local_f_ord, d_id_offset);
+        f_ord.push_back(std::move(local_f_ord));
+        data_ord.push_back(data_descriptor_cpu_type<idx_t>{d_ord, f_ord.back()});
     }
 
+    // thread function
+    auto thread_func_ord = [&context, &t_ord_buf_local, &t_ord_buf_local_mutex](auto bi){
+        auto th_token = context.get_token();
+        auto th_comm = context.get_communicator(th_token);
+        timer_type t_ord_buf_local_th;
+        auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(th_comm);
+        for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
+            auto h_ord = co_ord.exchange(bi);
+            h_ord.wait();
+        }
+        for (int i = 0; i < n_iters; ++i) { // benchmark
+            timer_type t_local;
+            th_comm.barrier();
+            t_local.tic();
+            auto h_ord = co_ord.exchange(bi);
+            h_ord.wait();
+            t_local.toc();
+            t_ord_buf_local_th(t_local);
+        }
+        std::lock_guard<std::mutex> guard(t_ord_buf_local_mutex);
+        t_ord_buf_local(t_ord_buf_local_th);
+    };
+
+    // run
+    std::vector<std::thread> threads_ord{};
+    for (auto& d_ord : data_ord) {
+        threads_ord.push_back(std::thread{thread_func_ord, p_ord(d_ord)});
+    }
+    for (auto& t_ord : threads_ord) t_ord.join();
+
     // check
-    check_exchanged_data(d_ord, p_ord[0], f_ord, d_id_offset);
+    for (std::size_t i = 0; i < f_ord.size(); ++i) {
+        check_exchanged_data(local_domains_ord[i], p_ord[i], f_ord[i], d_id_offset);
+    }
+
+    // global time
+    auto t_ord_buf_global = gridtools::ghex::reduce(t_ord_buf_local, context.mpi_comm());
+
+    file << "2 - ordered halos - buffered receive - CPU\n"
+         << "\tlocal time = " << t_ord_buf_local.mean() / 1000.0
+         << "+/-" << t_ord_buf_local.stddev() / (std::sqrt(t_ord_buf_local.num_samples()) * 1000.0) << "ms\n"
+         << "\tglobal time = " << t_ord_buf_global.mean() / 1000.0
+         << "+/-" << t_ord_buf_global.stddev() / (std::sqrt(t_ord_buf_global.num_samples()) * 1000.0) << "ms\n";
+
+//#endif
 
     // 3 ======== ordered halos - in-place receive ===========================
 
-    // setup
-    auto co_ipr = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(gh_comm);
-    std::vector<idx_t> f_ipr(d_ord.size() * d_ord.levels(), 0);
-    initialize_field(d_ord, f_ipr, d_id_offset);
-    data_descriptor_cpu_type<idx_t> data_ipr{d_ord, f_ipr};
+//#ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
 
-    // exchange
-    auto h_ipr = co_ipr.exchange(p_ord(data_ipr)); // first iteration
-    h_ipr.wait();
-    for (int i = 0; i < n_iters; ++i) { // benchmark
-        timer_type t_local;
-        MPI_Barrier(context.mpi_comm());
-        t_local.tic();
-        auto h_ipr = co_ipr.exchange(p_ord(data_ipr));
-        h_ipr.wait();
-        t_local.toc();
-        t_ord_ipr_local(t_local);
-        MPI_Barrier(context.mpi_comm());
-        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
-        t_ord_ipr_global(t_global);
+    std::vector<std::vector<idx_t>> f_ipr{};
+    std::vector<data_descriptor_cpu_type<idx_t>> data_ipr{};
+    for (const auto& d_ord : local_domains_ord) {
+        std::vector<idx_t> local_f_ipr(d_ord.size() * d_ord.levels(), 0);
+        initialize_field(d_ord, local_f_ipr, d_id_offset);
+        f_ipr.push_back(std::move(local_f_ipr));
+        data_ipr.push_back(data_descriptor_cpu_type<idx_t>{d_ord, f_ipr.back()});
     }
 
+    // thread function
+    auto thread_func_ipr = [&context, &t_ord_ipr_local, &t_ord_ipr_local_mutex](auto bi){
+        auto th_token = context.get_token();
+        auto th_comm = context.get_communicator(th_token);
+        timer_type t_ord_ipr_local_th;
+        auto co_ipr = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(th_comm);
+        for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
+            auto h_ipr = co_ipr.exchange(bi);
+            h_ipr.wait();
+        }
+        for (int i = 0; i < n_iters; ++i) { // benchmark
+            timer_type t_local;
+            th_comm.barrier();
+            t_local.tic();
+            auto h_ipr = co_ipr.exchange(bi);
+            h_ipr.wait();
+            t_local.toc();
+            t_ord_ipr_local_th(t_local);
+        }
+        std::lock_guard<std::mutex> guard(t_ord_ipr_local_mutex);
+        t_ord_ipr_local(t_ord_ipr_local_th);
+    };
+
+    // run
+    std::vector<std::thread> threads_ipr{};
+    for (auto& d_ipr : data_ipr) {
+        threads_ipr.push_back(std::thread{thread_func_ipr, p_ord(d_ipr)});
+    }
+    for (auto& t_ipr : threads_ipr) t_ipr.join();
+
     // check
-    check_exchanged_data(d_ord, p_ord[0], f_ipr, d_id_offset);
+    for (std::size_t i = 0; i < f_ipr.size(); ++i) {
+        check_exchanged_data(local_domains_ord[i], p_ord[i], f_ipr[i], d_id_offset);
+    }
+
+    // global time
+    auto t_ord_ipr_global = gridtools::ghex::reduce(t_ord_ipr_local, context.mpi_comm());
+
+    file << "3 - ordered halos - in-place receive - CPU\n"
+         << "\tlocal time = " << t_ord_ipr_local.mean() / 1000.0
+         << "+/-" << t_ord_ipr_local.stddev() / (std::sqrt(t_ord_ipr_local.num_samples()) * 1000.0) << "ms\n"
+         << "\tglobal time = " << t_ord_ipr_global.mean() / 1000.0
+         << "+/-" << t_ord_ipr_global.stddev() / (std::sqrt(t_ord_ipr_global.num_samples()) * 1000.0) << "ms\n";
+
+//#endif
 
     // ======== output =======================================================
 
-    file << "1 - unordered halos - buffered receive - CPU\n"
-         << "\tlocal time = " << t_buf_local.mean() / 1000.0 << "+/-" << t_buf_local.stddev() / 1000.0 << "s\n"
-         << "\tglobal time = " << t_buf_global.mean() / 1000.0 << "+/-" << t_buf_global.stddev() / 1000.0 << "s\n";
+    { // TO DO: old code, but still valid for the GPU part, and useful as a hint for rank local info
+    // print sizes info
+    idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
+    MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
+    file << "average halo size in KB (assuming idx_t value type): "
+         << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t)) / (gh_size * 1024) << "\n\n";
+    }
 
-    file << "2 - ordered halos - buffered receive - CPU\n"
-         << "\tlocal time = " << t_ord_buf_local.mean() / 1000.0 << "+/-" << t_ord_buf_local.stddev() / 1000.0 << "s\n"
-         << "\tglobal time = " << t_ord_buf_global.mean() / 1000.0 << "+/-" << t_ord_buf_global.stddev() / 1000.0 << "s\n";
-
-    file << "3 - ordered halos - in-place receive - CPU\n"
-         << "\tlocal time = " << t_ord_ipr_local.mean() / 1000.0 << "+/-" << t_ord_ipr_local.stddev() / 1000.0 << "s\n"
-         << "\tglobal time = " << t_ord_ipr_global.mean() / 1000.0 << "+/-" << t_ord_ipr_global.stddev() / 1000.0 << "s\n";
-
-    */
-
-    // From HERE on (GPU code) it is ok, provided the code is executed by the main thread
+    // From HERE on (GPU code) it is ok (just fix names), provided that the code is executed by the main thread
 
 #ifdef __CUDACC__
 
@@ -669,16 +752,16 @@ TEST(unstructured_parmetis, receive_type) {
     // ======== output =======================================================
 
     file << "1 - unordered halos - buffered receive - GPU\n"
-         << "\tlocal time = " << t_buf_local_gpu.mean() / 1000.0 << "+/-" << t_buf_local_gpu.stddev() / 1000.0 << "s\n"
-         << "\tglobal time = " << t_buf_global_gpu.mean() / 1000.0 << "+/-" << t_buf_global_gpu.stddev() / 1000.0 << "s\n";
+         << "\tlocal time = " << t_buf_local_gpu.mean() / 1000.0 << "+/-" << t_buf_local_gpu.stddev() / 1000.0 << "ms\n"
+         << "\tglobal time = " << t_buf_global_gpu.mean() / 1000.0 << "+/-" << t_buf_global_gpu.stddev() / 1000.0 << "ms\n";
 
     file << "2 - ordered halos - buffered receive - GPU\n"
-         << "\tlocal time = " << t_ord_buf_local_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_local_gpu.stddev() / 1000.0 << "s\n"
-         << "\tglobal time = " << t_ord_buf_global_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_global_gpu.stddev() / 1000.0 << "s\n";
+         << "\tlocal time = " << t_ord_buf_local_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_local_gpu.stddev() / 1000.0 << "ms\n"
+         << "\tglobal time = " << t_ord_buf_global_gpu.mean() / 1000.0 << "+/-" << t_ord_buf_global_gpu.stddev() / 1000.0 << "ms\n";
 
     file << "3 - ordered halos - in-place receive - GPU\n"
-         << "\tlocal time = " << t_ord_ipr_local_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_local_gpu.stddev() / 1000.0 << "s\n"
-         << "\tglobal time = " << t_ord_ipr_global_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_global_gpu.stddev() / 1000.0 << "s\n";
+         << "\tlocal time = " << t_ord_ipr_local_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_local_gpu.stddev() / 1000.0 << "ms\n"
+         << "\tglobal time = " << t_ord_ipr_global_gpu.mean() / 1000.0 << "+/-" << t_ord_ipr_global_gpu.stddev() / 1000.0 << "ms\n";
 
 #endif
 
