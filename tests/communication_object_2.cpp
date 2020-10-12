@@ -20,6 +20,7 @@
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
 #include <ghex/threads/atomic/primitives.hpp>
+#include <ghex/threads/pthread/primitives.hpp>
 #include <ghex/threads/std_thread/primitives.hpp>
 #include <array>
 #include <iomanip>
@@ -45,8 +46,9 @@ __global__ void print_kernel() {
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
+//using threading = gridtools::ghex::threads::std_thread::primitives;
 //using threading = gridtools::ghex::threads::atomic::primitives;
+using threading = gridtools::ghex::threads::pthread::primitives;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
 using threading = gridtools::ghex::threads::std_thread::primitives;
