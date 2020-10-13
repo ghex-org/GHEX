@@ -22,7 +22,7 @@ namespace gridtools {
         template<typename Future, typename Continuation>
         void await_futures(std::vector<Future>& range, Continuation&& cont)
         {
-            int size = range.size();
+            /*int size = range.size();
             while(size>0)
             {
                 for (int i=0; i<size; ++i)
@@ -36,13 +36,32 @@ namespace gridtools {
                         range.pop_back();
                     }
                 }
+            }*/
+            int size = range.size();
+            // make an index list (iota)
+            std::vector<int> index_list(size);
+            for (int i = 0; i < size; ++i)
+                index_list[i] = i;
+            // loop until all futures are ready
+            while(size>0)
+            {
+                for (int j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (range[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
+                        cont(range[k].get());
+                    }
+                }
             }
         }
         
         template<typename Future>
         void await_futures(std::vector<Future>& range)
         {
-            int size = range.size();
+            /*int size = range.size();
             while(size>0)
             {
                 for (int i=0; i<size; ++i)
@@ -53,6 +72,24 @@ namespace gridtools {
                         if (i<size)
                             range[i--] = std::move(range[size]);
                         range.pop_back();
+                    }
+                }
+            }*/
+            int size = range.size();
+            // make an index list (iota)
+            std::vector<int> index_list(size);
+            for (int i = 0; i < size; ++i)
+                index_list[i] = i;
+            // loop until all futures are ready
+            while(size>0)
+            {
+                for (int j = 0; j < size; ++j)
+                {
+                    const auto k = index_list[j];
+                    if (range[k].test())
+                    {
+                        if (j < --size)
+                            index_list[j--] = index_list[size];
                     }
                 }
             }

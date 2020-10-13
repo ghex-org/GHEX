@@ -503,7 +503,7 @@ public:
                         r.end_source_epoch();
                     }
                 // progress inter-node communication
-                h.progress();
+                //h.progress();
             });
         }
 
