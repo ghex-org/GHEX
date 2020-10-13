@@ -204,6 +204,11 @@ namespace gridtools {
                 std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
                 send_memory_type send_memory;
                 recv_memory_type recv_memory;
+
+                // additional members needed for receive operations used for scheduling calls to unpack
+                using hook_type = recv_buffer_type*;
+                using hook_future_type = typename communicator_type::template future<hook_type>;
+                std::vector<hook_future_type> m_recv_futures;
             };
             
             /** tuple type of buffer_memory (one element for each device in arch_list) */
@@ -218,7 +223,7 @@ namespace gridtools {
             communicator_type m_comm;
             memory_type m_mem;
             std::vector<future_type> m_send_futures;
-            std::vector<request_cb_type> m_recv_reqs;
+            //std::vector<request_cb_type> m_recv_reqs;
 
         public: // ctors
 
@@ -444,9 +449,32 @@ namespace gridtools {
 
             void post_recvs()
             {
+                //detail::for_each(m_mem, [this](auto& m)
+                //{
+                //    using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                //    for (auto& p0 : m.recv_memory)
+                //    {
+                //        for (auto& p1: p0.second)
+                //        {
+                //            if (p1.second.size > 0u)
+                //            {
+                //                p1.second.buffer.resize(p1.second.size);
+                //                auto ptr = &p1.second;
+                //                // use callbacks for unpacking
+                //                m_recv_reqs.push_back(
+                //                    m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
+                //                    [ptr](typename communicator_type::message_type m, 
+                //                       typename communicator_type::rank_type,
+                //                       typename communicator_type::tag_type)
+                //                    {
+                //                        packer<arch_type>::unpack(*ptr, m.data());
+                //                    }));
+                //            }
+                //        }
+                //    }
+                //});
                 detail::for_each(m_mem, [this](auto& m)
                 {
-                    using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
                     for (auto& p0 : m.recv_memory)
                     {
                         for (auto& p1: p0.second)
@@ -454,16 +482,10 @@ namespace gridtools {
                             if (p1.second.size > 0u)
                             {
                                 p1.second.buffer.resize(p1.second.size);
-                                auto ptr = &p1.second;
-                                // use callbacks for unpacking
-                                m_recv_reqs.push_back(
-                                    m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
-                                    [ptr](typename communicator_type::message_type m, 
-                                       typename communicator_type::rank_type,
-                                       typename communicator_type::tag_type)
-                                    {
-                                        packer<arch_type>::unpack(*ptr, m.data());
-                                    }));
+                                m.m_recv_futures.emplace_back(
+                                    typename std::remove_reference_t<decltype(m)>::hook_future_type{
+                                        &p1.second,
+                                        m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
                             }
                         }
                     }
@@ -485,7 +507,13 @@ namespace gridtools {
             {
                 if (!m_valid) return;
                 // wait for data to arrive (unpack callback will be invoked)
-                await_requests(m_comm, m_recv_reqs);
+                //await_requests(m_comm, m_recv_reqs);
+                detail::for_each(m_mem, [this](auto& m)
+                {
+                    using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                    packer<arch_type>::unpack(m);
+                });
+
                 // wait for data to be sent
                 await_futures(m_send_futures);
 #ifdef __CUDACC__
@@ -507,9 +535,10 @@ namespace gridtools {
             {
                 m_valid = false;
                 m_send_futures.clear();
-                m_recv_reqs.clear();
+                //m_recv_reqs.clear();
                 detail::for_each(m_mem, [this](auto& m)
                 {
+                    m.m_recv_futures.clear();
                     for (auto& p0 : m.send_memory)
                         for (auto& p1 : p0.second)
                         {
