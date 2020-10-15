@@ -61,7 +61,6 @@ struct range_factory
     {
         int id;
         std::memcpy(&id, buffer, sizeof(int));
-        //std::cout << "id = " << id << std::endl;
         buffer += a16(sizeof(int));
         info field_info;
         std::memcpy(&field_info, buffer, sizeof(field_info));
@@ -101,7 +100,6 @@ private:
         static_assert(boost::mp11::mp_set_contains<RangeList, Range>::value, "range type not registered");
         using id = boost::mp11::mp_find<RangeList, Range>;
         const int m_id = id::value;
-        //std::cout << "write id = " << m_id << std::endl; 
         std::memcpy(buffer, &m_id, sizeof(int));
         buffer += a16(sizeof(int));
         std::memcpy(buffer, &field_info, sizeof(field_info));
