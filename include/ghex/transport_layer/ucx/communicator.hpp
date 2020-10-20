@@ -161,16 +161,17 @@ namespace gridtools {
                     progress_status progress()
                     {
                         gridtools::ghex::tl::cb::progress_status status;
-                        int p = 0;
+                        int p = 0, c;
                         p+= ucp_worker_progress(m_ucp_sw);
-                        p+= ucp_worker_progress(m_ucp_sw);
-                        p+= ucp_worker_progress(m_ucp_sw);
+                        while(c = ucp_worker_progress(m_ucp_sw)) p+=c;
+                        // p+= ucp_worker_progress(m_ucp_sw);
                         status.m_num_sends = std::exchange(m_send_worker->m_progressed_sends, 0);
                         m_send_worker->m_thread_primitives->critical(
                             [this,&p,&status]()
                             {
-                                p+= ucp_worker_progress(m_ucp_rw);
-                                p+= ucp_worker_progress(m_ucp_rw);
+                                int c;
+                                while(c=ucp_worker_progress(m_ucp_rw)) p+=c;
+                                // p+= ucp_worker_progress(m_ucp_rw);
                                 status.m_num_recvs = std::exchange(m_recv_worker->m_progressed_recvs, 0);
                                 status.m_num_cancels = std::exchange(m_recv_worker->m_progressed_cancels, 0);
                             }

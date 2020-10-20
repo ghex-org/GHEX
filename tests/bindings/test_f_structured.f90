@@ -16,14 +16,15 @@ PROGRAM test_halo_exchange
   integer :: nodedim(3) = [1, 1, 1]    ! (NUMA) node space dimensions
   logical :: remap = .false.           ! remap MPI ranks
   integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
-  integer :: periodic(3) = [1,1,0]
-  logical :: lperiodic(3) = [.true.,.true.,.false.] ! for MPI_Cart_create
+  integer :: periodic(3) = [1,1,1]
+  logical :: lperiodic(3) = [.true.,.true.,.true.] ! for MPI_Cart_create
   integer :: rank_coord(3)             ! local rank coordinates in a cartesian rank space
   integer :: halo(6)                   ! halo definition
   integer :: mb = 5                    ! halo width
   integer :: niters = 1000
   integer :: cart_order = CartOrderXYZ
-  integer, parameter :: nfields = 8
+  integer, parameter :: nfields_max = 8
+  integer :: nfields
 
   ! -------------- variables used by the Bifrost-like implementation
   integer :: xsb, xeb, ysb, yeb, zsb, zeb
@@ -43,7 +44,7 @@ PROGRAM test_halo_exchange
   real,dimension(:,:,:),allocatable, target :: v1, v2, v3, v4, v5, v6, v7, v8
 
   ! ! exchange 8 data cubes
-  type(hptr) :: data_ptr(nfields)
+  type(hptr) :: data_ptr(nfields_max)
 
   ! GHEX stuff
   type(ghex_struct_field)                :: field_desc
@@ -54,9 +55,9 @@ PROGRAM test_halo_exchange
   type(ghex_struct_exchange_descriptor)  :: ed
 
   ! one field per domain, multiple domains
-  type(ghex_struct_domain),               dimension(:) :: domain_descs(nfields)
-  type(ghex_struct_communication_object), dimension(:) :: cos(nfields)
-  type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields)
+  type(ghex_struct_domain),               dimension(:) :: domain_descs(nfields_max)
+  type(ghex_struct_communication_object), dimension(:) :: cos(nfields_max)
+  type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
   type(ghex_struct_exchange_handle)      :: eh
 
   if (command_argument_count() < 6) then
@@ -78,28 +79,32 @@ PROGRAM test_halo_exchange
   call get_command_argument(3, arg)
   read(arg,*) mb
 
-  ! rank grid dimensions
+  ! number of fields
   call get_command_argument(4, arg)
-  read(arg,*) gdim(1)
+  read(arg,*) nfields
+
+  ! rank grid dimensions
   call get_command_argument(5, arg)
-  read(arg,*) gdim(2)
+  read(arg,*) gdim(1)
   call get_command_argument(6, arg)
+  read(arg,*) gdim(2)
+  call get_command_argument(7, arg)
   read(arg,*) gdim(3)
 
-  if (command_argument_count() > 6) then
+  if (command_argument_count() > 7) then
 
      ! node grid dimensions
-     call get_command_argument(7, arg)
-     read(arg,*) nodedim(1)
      call get_command_argument(8, arg)
-     read(arg,*) nodedim(2)
+     read(arg,*) nodedim(1)
      call get_command_argument(9, arg)
+     read(arg,*) nodedim(2)
+     call get_command_argument(10, arg)
      read(arg,*) nodedim(3)
      remap = .true.
   end if
 
-  if (command_argument_count() > 9) then
-     call get_command_argument(10, arg)
+  if (command_argument_count() > 10) then
+     call get_command_argument(11, arg)
      read(arg,*) cart_order
   end if
 
