@@ -126,7 +126,7 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
-set(_tests_rma local_rma)
+set(_tests_rma local_rma simple_regular_exchange)
 foreach (_t ${_tests_rma})
 
     set(t ${_t})

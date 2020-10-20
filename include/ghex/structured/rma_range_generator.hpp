@@ -71,6 +71,9 @@ struct rma_range_generator
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
+        target_range(const target_range&) = delete;
+        target_range(target_range&&) = default;
+
         void send()
         {
             m_request.wait();
@@ -124,6 +127,9 @@ struct rma_range_generator
             m_archive.resize(RangeFactory::serial_size);
             m_request = m_comm.recv(m_archive, m_src, m_tag);
         }
+
+        source_range(const source_range&) = delete;
+        source_range(source_range&&) = default;
 
         void recv()
         {
