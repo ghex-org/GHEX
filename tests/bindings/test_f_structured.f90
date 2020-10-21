@@ -324,11 +324,16 @@ PROGRAM test_halo_exchange
   ! create communication object
   call ghex_co_init(co)
 
+  ! warmup
   ! exchange halos
-  eh = ghex_exchange(co, ed)
-  call ghex_wait(eh)
-  call ghex_free(eh)
-
+  it = 0
+  do while (it < 10)
+     eh = ghex_exchange(co, ed)
+     call ghex_wait(eh)
+     call ghex_free(eh)
+     it = it+1;
+  end do
+  
   it = 0
   do while (it < niters)
   call cpu_time(tic)
