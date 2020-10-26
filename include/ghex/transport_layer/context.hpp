@@ -30,48 +30,44 @@ namespace gridtools {
                     MPI_Comm_dup(mpi_comm, &new_comm);
                     return new_comm;
                 }
-                
+
             }
 
             /** @brief Forward declaration of the transport backend */
-            template<typename TransportTag, typename ThreadPrimitives>
+            template<typename TransportTags>
             class transport_context;
 
             /** @brief Forward declaration of the context factory */
-            template<class TransportTag, class ThreadPrimitives>
+            template<class TransportTag>
             struct context_factory;
 
             /** @brief class providing access to the transport backend. Note, that this class can only be created using
-              * the factory class `context_factory`. 
+              * the factory class `context_factory`.
               * @tparam TransportTag the transport tag (mpi_tag, ucx_tag, ...)
-              * @tparam ThreadPrimitives type for thread managment */
-            template<class TransportTag, class ThreadPrimitives>
+              */
+            template<class TransportTag>
             class context
             {
             public: // member types
                 using tag                    = TransportTag;
-                using transport_context_type = transport_context<tag,ThreadPrimitives>;
+                using transport_context_type = transport_context<tag>;
                 using communicator_type      = typename transport_context_type::communicator_type;
-                using thread_primitives_type = ThreadPrimitives;
-                using thread_token           = typename thread_primitives_type::token;
 
-                friend class context_factory<TransportTag,ThreadPrimitives>;
+                friend class context_factory<TransportTag>;
 
             private: // members
                 MPI_Comm m_mpi_comm;
                 mpi::rank_topology m_rank_topology;
-                thread_primitives_type m_thread_primitives;
                 transport_context_type m_transport_context;
                 int m_rank;
                 int m_size;
 
             private: // private ctor
                 template<typename...Args>
-                context(int num_threads, MPI_Comm comm, Args&&... args)
+                context(MPI_Comm comm, Args&&... args)
                     : m_mpi_comm{comm}
                     , m_rank_topology{comm}
-                    , m_thread_primitives(num_threads)
-                    , m_transport_context{m_thread_primitives, m_rank_topology, std::forward<Args>(args)...}
+                    , m_transport_context{m_rank_topology, std::forward<Args>(args)...}
                     , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) }
                     , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) }
                 {}
@@ -79,7 +75,7 @@ namespace gridtools {
             public: // ctors
                 context(const context&) = delete;
                 context(context&&) = delete;
-                
+
                 ~context()
                 {
                     MPI_Comm_free(&m_mpi_comm);
@@ -91,20 +87,6 @@ namespace gridtools {
                 int rank() const noexcept { return m_rank; }
                 int size() const noexcept { return m_size; }
 
-                /** @brief return a reference to the thread-shared thread primitives instance.
-                  * This function is thread-safe. */
-                thread_primitives_type& thread_primitives() noexcept
-                {
-                    return m_thread_primitives;
-                }
-
-                /** @brief return a special per-rank setup communicator.
-                  * This function is not thread-safe and should only be used in the serial part of the code. */
-                mpi::setup_communicator get_setup_communicator()
-                {
-                    return mpi::setup_communicator(m_mpi_comm);
-                }
-
                 /** @brief return a per-rank communicator.
                   * This function is not thread-safe and should only be used in the serial part of the code. */
                 communicator_type get_serial_communicator()
@@ -114,16 +96,9 @@ namespace gridtools {
 
                 /** @brief return a per-thread communicator.
                   * This function is thread-safe. */
-                communicator_type get_communicator(const thread_token& t)
+                communicator_type get_communicator()
                 {
-                    return m_transport_context.get_communicator(t);
-                }
-
-                /** @brief return a per-thread thread token.
-                  * This function is thread-safe. */
-                thread_token get_token() noexcept
-                {
-                    return m_thread_primitives.get_token();
+                    return m_transport_context.get_communicator();
                 }
             };
 

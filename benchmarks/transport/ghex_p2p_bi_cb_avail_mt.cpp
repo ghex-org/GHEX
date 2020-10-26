@@ -1,29 +1,25 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #include <iostream>
 #include <vector>
 #include <atomic>
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
 
 #include <ghex/common/timer.hpp>
+#include <ghex/transport_layer/util/barrier.hpp>
 #include "utils.hpp"
 
 namespace ghex = gridtools::ghex;
-
-#ifdef USE_OPENMP
-#include <ghex/threads/omp/primitives.hpp>
-using threading    = ghex::threads::omp::primitives;
-#else
-#include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
-#endif
 
 #ifdef USE_UCP
 // UCX backend
@@ -36,7 +32,7 @@ using transport    = ghex::tl::mpi_tag;
 #endif
 
 #include <ghex/transport_layer/shared_message_buffer.hpp>
-using context_type = ghex::tl::context<transport, threading>;
+using context_type = ghex::tl::context<transport>;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::request_cb_type;
 
@@ -55,6 +51,12 @@ int tail_send(0);
 int tail_recv(0);
 #endif
 
+#ifdef USE_OPENMP
+#define THREADID omp_get_thread_num()
+#else
+#define THREADID 0
+#endif
+
 int main(int argc, char *argv[])
 {
     int niter, buff_size;
@@ -70,6 +72,7 @@ int main(int argc, char *argv[])
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
+    gridtools::ghex::tl::barrier_t barrier;
 
     int num_threads = 1;
 
@@ -89,19 +92,17 @@ int main(int argc, char *argv[])
 #endif
 
     {
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+        auto context_ptr = ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
 #pragma omp parallel
 #endif
         {
-            auto token             = context.get_token();
-            auto comm              = context.get_communicator(token);
+            auto comm              = context.get_communicator();
             const auto rank        = comm.rank();
             const auto size        = comm.size();
-            const auto thread_id   = token.id();
-            const auto num_threads = context.thread_primitives().size();
+            const auto thread_id   = THREADID;
             const auto peer_rank   = (rank+1)%2;
 
             bool using_mt = false;
@@ -147,7 +148,13 @@ int main(int argc, char *argv[])
                 make_zero(rmsgs[j]);
             }
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            barrier.rank_barrier(comm);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
 
             if (thread_id == 0)
             {
@@ -209,7 +216,13 @@ int main(int argc, char *argv[])
                 }
             }
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            barrier.rank_barrier(comm);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
 
             if(thread_id==0 && rank == 0)
             {
@@ -219,14 +232,23 @@ int main(int argc, char *argv[])
             }
 
             // stop here to help produce a nice std output
-            comm.barrier();
-            context.thread_primitives().critical(
-                [&]()
-                {
-                    std::cout
-                    << "rank " << rank << " thread " << thread_id << " sends submitted " << submit_cnt/num_threads
-                    << " serviced " << comm_cnt << ", non-local sends " << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
-                });
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            barrier.rank_barrier(comm);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
+
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
+            {
+                std::cout << "rank " << rank << " thread " << thread_id
+                          << " sends submitted " << submit_cnt/num_threads
+                          << " serviced " << comm_cnt << ", non-local sends "
+                          << nlsend_cnt << " non-local recvs " << nlrecv_cnt << "\n";
+            }
 
             // tail loops - submit RECV requests until
             // all SEND requests have been finalized.
@@ -263,12 +285,13 @@ int main(int argc, char *argv[])
                 // Notify the peer and keep submitting recvs until we get his notification.
                 future_type sf, rf;
                 MsgType smsg(1), rmsg(1);
-                context.thread_primitives().master(token,
-                    [&]() mutable
-                    {
-                        sf = comm.send(smsg, peer_rank, 0x80000, [](communicator_type::message_type, int, int){});
-                        rf = comm.recv(rmsg, peer_rank, 0x80000, [](communicator_type::message_type, int, int){});
-                    });
+#ifdef USE_OPENMP
+#pragma omp master
+#endif
+                {
+                    sf = comm.send(smsg, peer_rank, 0x80000, [](communicator_type::message_type, int, int){});
+                    rf = comm.recv(rmsg, peer_rank, 0x80000, [](communicator_type::message_type, int, int){});
+                }
 
                 while(tail_recv == 0){
                     comm.progress();
@@ -279,11 +302,12 @@ int main(int argc, char *argv[])
                             rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j, recv_callback);
                         }
                     }
-                    context.thread_primitives().master(token,
-                        [&]()
-                        {
-                            if(rf.test()) tail_recv = 1;
-                        });
+#ifdef USE_OPENMP
+#pragma omp master
+#endif
+                    {
+                        if(rf.test()) tail_recv = 1;
+                    }
                 }
             }
             // peer has sent everything, so we can cancel all posted recv requests
