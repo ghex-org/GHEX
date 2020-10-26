@@ -40,8 +40,8 @@ struct local_access_guard
         access_state m_state;
         local_data_holder m_handle;
         
-        impl()
-        : m_state{}
+        impl(access_mode m)
+        : m_state{m,{},{}}
         , m_handle(&m_state, sizeof(access_state), false)    
         {}
     };
@@ -53,8 +53,8 @@ struct local_access_guard
 
     std::unique_ptr<impl> m_impl;
 
-    local_access_guard()
-    : m_impl{std::make_unique<impl>()}
+    local_access_guard(access_mode m = access_mode::local)
+    : m_impl{std::make_unique<impl>(m)}
     {}
     
     local_access_guard(local_access_guard&&) = default;

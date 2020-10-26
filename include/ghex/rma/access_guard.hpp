@@ -51,8 +51,10 @@ struct local_access_guard
         typename process_guard_type::info m_process_guard_info;
     };
 
-    local_access_guard(locality loc)
+    local_access_guard(locality loc, access_mode m = access_mode::local)
     : m_locality{loc}
+    , m_thread_guard(m)
+    , m_process_guard(m)
     {}
 
     local_access_guard(local_access_guard&&) = default;

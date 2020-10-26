@@ -18,7 +18,6 @@
 namespace gridtools {
     namespace ghex {
         namespace tl {
-		    
             namespace ucx {    
 
                 template<typename ThreadPrimitives>

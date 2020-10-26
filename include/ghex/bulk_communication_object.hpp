@@ -377,6 +377,13 @@ public:
                             m_comm, f, c, h_it->first.mpi_rank, h_it->first.tag); 
                     }
                 }
+            }
+        }
+        for (auto& p : f_cont.back().m_local_pattern)
+        {
+            // check if field has the right domain
+            if (f.domain_id() == p.domain_id())
+            {
                 // loop over halos and set up target
                 for (auto h_it = p.recv_halos().begin(); h_it != p.recv_halos().end(); ++h_it)
                 {
@@ -390,6 +397,7 @@ public:
                 }
             }
         }
+        m_comm.barrier();
     }
     
     // add multiple fields at once
@@ -432,18 +440,19 @@ public:
                 for (auto& f : f_cont)
                     bi_cont.push_back( f.m_remote_pattern(f.m_field) );
                 // complete the handshake
-                for (auto& t_vec : t_range.m_ranges)
-                    for (auto& r : t_vec)
-                    {
-                        r.send();
-                    }
                 for (auto& s_vec : s_range.m_ranges)
                     for (auto& r : s_vec)
                     {
                         r.recv();
                     }
+                for (auto& t_vec : t_range.m_ranges)
+                    for (auto& r : t_vec)
+                    {
+                        r.send();
+                    }
             });
         }
+        m_comm.barrier();
         m_initialized = true;
     }
     
