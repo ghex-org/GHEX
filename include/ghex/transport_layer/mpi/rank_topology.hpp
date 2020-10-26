@@ -70,6 +70,8 @@ namespace gridtools {
 
                     /** @brief return local rank number */
                     int local_rank() const noexcept { return m_rank; }
+
+                    auto mpi_comm() const noexcept { return m_comm; }
                 };
 
             } // namespace mpi
