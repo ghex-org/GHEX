@@ -301,8 +301,8 @@ contains
           else
              fmti="(A,I3,A,I3,A,I3)"
           end if
-          write (*,*), ' ERROR: Wrong node space dimensions: number of ranks doesnt match.'
-          write (*,fmti), '  There is ', product(nodedims), ' nodes and ', shmsize, ' ranks per node, but the total number of ranks is ', size
+          write (*,*) ' ERROR: Wrong node space dimensions: number of ranks doesnt match.'
+          write (*,fmti) '  There is ', product(nodedims), ' nodes and ', shmsize, ' ranks per node, but the total number of ranks is ', size
        end if
        call MPI_Finalize(ierr)
        call exit
