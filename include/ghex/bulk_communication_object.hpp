@@ -23,6 +23,7 @@
 #include "./rma/locality.hpp"
 #include "./rma/range_factory.hpp"
 #include "./rma/handle.hpp"
+#include <iostream>
 
 namespace gridtools {
 namespace ghex {
@@ -317,6 +318,7 @@ private: // members
     local_handle_map        m_local_handle_map;
     moved_bit               m_moved;
     bool                    m_initialized = false;
+    std::map<int,int>       m_tag_map; // domain id -> tag
 
 public: // ctors
     bulk_communication_object(communicator_type comm)
@@ -359,6 +361,9 @@ public:
         s_range.m_ranges.resize(s_range.m_ranges.size()+1);
         t_range.m_ranges.resize(t_range.m_ranges.size()+1);
 
+        std::map<int,int> m_send_tag_map;
+        std::map<int,int> m_recv_tag_map;
+
         auto& f = f_cont.back().m_field;
         auto field_info = f_cont.back().m_local_handle.get_info();
         // loop over patterns 
@@ -367,35 +372,66 @@ public:
             // check if field has the right domain
             if (f.domain_id() == p.domain_id())
             {
+                auto m_it = m_tag_map.insert(std::pair<int,int>(f.domain_id(),0)).first;
                 // loop over halos and set up source ranges
                 for (auto h_it = p.send_halos().begin(); h_it != p.send_halos().end(); ++h_it)
                 {
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
+                        auto m_it2 = m_send_tag_map.insert(std::pair<int,int>(h_it->first.tag,0)).first;
                         const auto& c = *it;
+                        std::cout
+                            << "    post recv from " 
+                            << h_it->first.mpi_rank
+                            << " with tag "
+                            //<< h_it->first.tag 
+                            //<< (m_it->second + h_it->first.tag)
+                            << (m_it->second + h_it->first.tag*100 + m_it2->second)
+                            << std::endl;
                         s_range.m_ranges.back().emplace_back(
-                            m_comm, f, c, h_it->first.mpi_rank, h_it->first.tag); 
+                            m_comm, f, c, h_it->first.mpi_rank
+                            //, h_it->first.tag
+                            //, (m_it->second + h_it->first.tag)
+                            , (m_it->second + h_it->first.tag*100 + m_it2->second)
+                            ); 
+                        m_it2->second += 1;
                     }
                 }
-            }
+
+        /*    }
         }
         //m_comm.barrier();
         for (auto& p : f_cont.back().m_local_pattern)
         {
             // check if field has the right domain
             if (f.domain_id() == p.domain_id())
-            {
+            {*/
                 // loop over halos and set up target
                 for (auto h_it = p.recv_halos().begin(); h_it != p.recv_halos().end(); ++h_it)
                 {
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
+                        auto m_it2 = m_recv_tag_map.insert(std::pair<int,int>(h_it->first.tag,0)).first;
                         const auto local = rma::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
+                        std::cout
+                            << "    post send to   " 
+                            << h_it->first.mpi_rank
+                            << " with tag "
+                            //<< h_it->first.tag 
+                            //<< (m_it->second + h_it->first.tag)
+                            << (m_it->second + h_it->first.tag*100 + m_it2->second)
+                            << std::endl;
                         t_range.m_ranges.back().emplace_back(
-                            m_comm, f, field_info, c, h_it->first.mpi_rank, h_it->first.tag, local); 
+                            m_comm, f, field_info, c, h_it->first.mpi_rank
+                            //, h_it->first.tag
+                            //, (m_it->second + h_it->first.tag)
+                            , (m_it->second + h_it->first.tag*100 + m_it2->second)
+                            , local); 
+                        m_it2->second += 1;
                     }
                 }
+                m_it->second += (f_cont.back().m_local_pattern.max_tag()+1)*100;
             }
         }
         //m_comm.barrier();

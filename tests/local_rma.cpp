@@ -216,11 +216,18 @@ struct simulation_1
                 field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
             > (basic_cos[0]);
 
+            std::cout << "rank " << comm.rank() << " thread 0:" << std::endl;
+            std::cout << "  adding field_1a" << std::endl;
             bco.add_field(pattern(field_1a));
+            std::cout << "  adding field_1b" << std::endl;
             bco.add_field(pattern(field_1b));
+            std::cout << "  adding field_2a" << std::endl;
             bco.add_field(pattern(field_2a));
+            std::cout << "  adding field_2b" << std::endl;
             bco.add_field(pattern(field_2b));
+            std::cout << "  adding field_3a" << std::endl;
             bco.add_field(pattern(field_3a));
+            std::cout << "  adding field_3b" << std::endl;
             bco.add_field(pattern(field_3b));
 #else
             auto bco =  gridtools::ghex::bulk_communication_object<
@@ -253,9 +260,15 @@ struct simulation_1
                 field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
             > (basic_cos[0]);
+            std::cout << "rank " << comm.rank() << " thread 0:" << std::endl;
+            std::cout << "  adding field_1a" << std::endl;
             bco0.add_field(pattern(field_1a));
+            std::cout << "  adding field_2a" << std::endl;
             bco0.add_field(pattern(field_2a));
+            std::cout << "  adding field_3a" << std::endl;
             bco0.add_field(pattern(field_3a));
+            std::cout << std::endl;
+            std::cout << std::endl;
 
             auto bco1 =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,
@@ -264,9 +277,15 @@ struct simulation_1
                 field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
             > (basic_cos[1]);
+            std::cout << "rank " << comm.rank() << " thread 1:" << std::endl;
+            std::cout << "  adding field_1b" << std::endl;
             bco1.add_field(pattern(field_1b));
+            std::cout << "  adding field_2b" << std::endl;
             bco1.add_field(pattern(field_2b));
+            std::cout << "  adding field_3b" << std::endl;
             bco1.add_field(pattern(field_3b));
+            std::cout << std::endl;
+            std::cout << std::endl;
 #else
             auto bco0 =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,
@@ -290,6 +309,7 @@ struct simulation_1
             bco1.add_field(pattern(field_2b_gpu));
             bco1.add_field(pattern(field_3b_gpu));
 #endif
+            std::cout << "added fields" << std::endl;
             cos.emplace_back( std::move(bco0) );
             cos.emplace_back( std::move(bco1) );
         }
