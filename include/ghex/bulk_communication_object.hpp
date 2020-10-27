@@ -379,6 +379,7 @@ public:
                 }
             }
         }
+        //m_comm.barrier();
         for (auto& p : f_cont.back().m_local_pattern)
         {
             // check if field has the right domain
@@ -397,7 +398,7 @@ public:
                 }
             }
         }
-        m_comm.barrier();
+        //m_comm.barrier();
     }
     
     // add multiple fields at once
@@ -452,7 +453,7 @@ public:
                     }
             });
         }
-        m_comm.barrier();
+        //m_comm.barrier();
         m_initialized = true;
     }
     

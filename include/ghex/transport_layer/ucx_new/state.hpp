@@ -72,7 +72,7 @@ protected:
         if (size()) m_worker.progress();
         return m_request_cache.progress();
     }
-
+            
     void register_request(request_header& req)
     {
         m_request_cache.add(req);
@@ -121,6 +121,20 @@ public: // member functions
         {
             std::lock_guard<std::mutex> lock(m_request_cache_mutex);
             return m_request_cache.progress();
+        }
+    }
+
+    void progress(request& req)
+    {
+        while(!m_worker_mutex.try_lock())
+        {
+            if (req.ready()) return;
+        }
+        m_worker.progress();
+        m_worker_mutex.unlock();
+        {
+            std::lock_guard<std::mutex> lock(m_request_cache_mutex);
+            m_request_cache.progress();
         }
     }
 
@@ -343,6 +357,22 @@ public: // member functions
         };
     }
 
+    void progress(request& req)
+    {
+        if (req.kind() == request_kind::send)
+        {
+            base::progress();
+            if (req.ready()) return;
+            m_shared_state->progress();
+        } 
+        else
+        {
+            m_shared_state->progress(req);
+            if (req.ready()) return;
+            base::progress();
+        }
+    }
+
     const auto& rank_topology() const noexcept { return m_rank_topology; }
 
     auto mpi_comm() const noexcept { return m_rank_topology.mpi_comm(); }
@@ -379,7 +409,7 @@ inline bool request::cancel()
 
 inline void request::progress()
 {
-    m_state->progress();
+    m_state->progress(*this);
 }
 
 } // namespace ucx

@@ -189,6 +189,8 @@ public: // ctors
     }
 
 public: // member functions
+    request_kind kind() const noexcept { return m_kind; }
+
     bool test() noexcept
     {
         // invalid requests always return true
