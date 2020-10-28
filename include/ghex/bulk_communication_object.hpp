@@ -23,7 +23,6 @@
 #include "./rma/locality.hpp"
 #include "./rma/range_factory.hpp"
 #include "./rma/handle.hpp"
-#include <iostream>
 
 namespace gridtools {
 namespace ghex {
@@ -361,9 +360,6 @@ public:
         s_range.m_ranges.resize(s_range.m_ranges.size()+1);
         t_range.m_ranges.resize(t_range.m_ranges.size()+1);
 
-        std::map<int,int> m_send_tag_map;
-        std::map<int,int> m_recv_tag_map;
-
         auto& f = f_cont.back().m_field;
         auto field_info = f_cont.back().m_local_handle.get_info();
         // loop over patterns 
@@ -376,65 +372,35 @@ public:
                 // loop over halos and set up source ranges
                 for (auto h_it = p.send_halos().begin(); h_it != p.send_halos().end(); ++h_it)
                 {
+                    int q=0;
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
-                        auto m_it2 = m_send_tag_map.insert(std::pair<int,int>(h_it->first.tag,0)).first;
                         const auto& c = *it;
-                        std::cout
-                            << "    post recv from " 
-                            << h_it->first.mpi_rank
-                            << " with tag "
-                            //<< h_it->first.tag 
-                            //<< (m_it->second + h_it->first.tag)
-                            << (m_it->second + h_it->first.tag*100 + m_it2->second)
-                            << std::endl;
                         s_range.m_ranges.back().emplace_back(
                             m_comm, f, c, h_it->first.mpi_rank
-                            //, h_it->first.tag
-                            //, (m_it->second + h_it->first.tag)
-                            , (m_it->second + h_it->first.tag*100 + m_it2->second)
+                            , (m_it->second + h_it->first.tag+1)*10000 + q
                             ); 
-                        m_it2->second += 1;
+                        ++q;
                     }
                 }
-
-        /*    }
-        }
-        //m_comm.barrier();
-        for (auto& p : f_cont.back().m_local_pattern)
-        {
-            // check if field has the right domain
-            if (f.domain_id() == p.domain_id())
-            {*/
                 // loop over halos and set up target
                 for (auto h_it = p.recv_halos().begin(); h_it != p.recv_halos().end(); ++h_it)
                 {
+                    int q=0;
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
-                        auto m_it2 = m_recv_tag_map.insert(std::pair<int,int>(h_it->first.tag,0)).first;
                         const auto local = rma::is_local(m_comm, h_it->first.mpi_rank);
                         const auto& c = *it;
-                        std::cout
-                            << "    post send to   " 
-                            << h_it->first.mpi_rank
-                            << " with tag "
-                            //<< h_it->first.tag 
-                            //<< (m_it->second + h_it->first.tag)
-                            << (m_it->second + h_it->first.tag*100 + m_it2->second)
-                            << std::endl;
                         t_range.m_ranges.back().emplace_back(
                             m_comm, f, field_info, c, h_it->first.mpi_rank
-                            //, h_it->first.tag
-                            //, (m_it->second + h_it->first.tag)
-                            , (m_it->second + h_it->first.tag*100 + m_it2->second)
+                            , (m_it->second + h_it->first.tag+1)*10000 + q
                             , local); 
-                        m_it2->second += 1;
+                        ++q;
                     }
                 }
-                m_it->second += (f_cont.back().m_local_pattern.max_tag()+1)*100;
+                m_it->second += (f_cont.back().m_local_pattern.max_tag()+1);
             }
         }
-        //m_comm.barrier();
     }
     
     // add multiple fields at once
@@ -489,7 +455,6 @@ public:
                     }
             });
         }
-        //m_comm.barrier();
         m_initialized = true;
     }
     
