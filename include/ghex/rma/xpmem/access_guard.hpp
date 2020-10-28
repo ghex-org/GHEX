@@ -77,6 +77,11 @@ struct local_access_guard
             sched_yield();
         }
     }
+
+    bool try_start_target_epoch()
+    {
+        return static_cast<unsigned char>(access_mode::local) == m_impl->m_mem.m_ptr[0];
+    }
     
     void end_target_epoch()
     {
@@ -109,6 +114,11 @@ struct remote_access_guard
             // TODO call comm.progress()
             sched_yield();
         }
+    }
+
+    bool try_start_source_epoch()
+    {
+        return static_cast<unsigned char>(access_mode::remote) == get_ptr()[0];
     }
 
     void end_source_epoch()

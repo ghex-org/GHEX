@@ -63,6 +63,7 @@ struct range
     }
 
     void start_source_epoch() { m_guard.start_source_epoch(); }
+    bool try_start_source_epoch() { return m_guard.try_start_source_epoch(); }
     void end_source_epoch() { m_guard.end_source_epoch(); }
 };
 

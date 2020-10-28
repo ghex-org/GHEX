@@ -222,6 +222,8 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
         raw_field.clone_to_device();
 #endif
 
+    comm.barrier();
+
     // bulk exchange (rma)
     // ===================
 #ifdef __CUDACC__

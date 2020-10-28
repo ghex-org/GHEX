@@ -256,8 +256,6 @@ struct simulation_1
             bco0.add_field(pattern(field_1a));
             bco0.add_field(pattern(field_2a));
             bco0.add_field(pattern(field_3a));
-            std::cout << std::endl;
-            std::cout << std::endl;
 
             auto bco1 =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,
@@ -269,8 +267,6 @@ struct simulation_1
             bco1.add_field(pattern(field_1b));
             bco1.add_field(pattern(field_2b));
             bco1.add_field(pattern(field_3b));
-            std::cout << std::endl;
-            std::cout << std::endl;
 #else
             auto bco0 =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,
