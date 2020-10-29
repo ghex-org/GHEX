@@ -507,7 +507,7 @@ namespace gridtools {
             {
                 if (!m_valid) return;
                 // wait for data to arrive (unpack callback will be invoked)
-                //await_requests(m_comm, m_recv_reqs);
+                //await_requests(m_recv_reqs, [comm = m_comm]() mutable {comm.progress;});
                 detail::for_each(m_mem, [this](auto& m)
                 {
                     using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
@@ -515,7 +515,7 @@ namespace gridtools {
                 });
 
                 // wait for data to be sent
-                await_futures(m_send_futures);
+                await_requests(m_send_futures);
 #ifdef __CUDACC__
                 // wait for the unpack kernels to finish
                 auto& m = std::get<buffer_memory<gpu>>(m_mem);

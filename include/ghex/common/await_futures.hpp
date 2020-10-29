@@ -42,8 +42,9 @@ namespace gridtools {
             }
         }
         
-        template<typename Future>
-        void await_futures(std::vector<Future>& range)
+        /** @brief wait for all requests in a range to finish **/
+        template<typename Request>
+        void await_requests(std::vector<Request>& range)
         {
             std::vector<int> index_list(range.size());
             std::iota(index_list.begin(), index_list.end(), 0);
@@ -55,15 +56,17 @@ namespace gridtools {
                         - index_list.begin());
             }
         }
-        
-        template<typename Communicator, typename Request>
-        void await_requests(Communicator comm, std::vector<Request>& range)
+
+        /** @brief wait for all requests in a range to finish and call 
+          * a progress function regularly. */
+        template<typename Request, typename Progress>
+        void await_requests(std::vector<Request>& range, Progress&& progress)
         {
             std::vector<int> index_list(range.size());
             std::iota(index_list.begin(), index_list.end(), 0);
             while (index_list.size())
             {
-                comm.progress();
+                progress();
                 index_list.resize(
                         std::remove_if(index_list.begin(), index_list.end(),
                             [&range](int idx) { return range[idx].test(); })

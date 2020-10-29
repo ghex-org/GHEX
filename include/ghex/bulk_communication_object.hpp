@@ -137,6 +137,7 @@ public: // member types
 
     friend class generic_bulk_communication_object::bulk_co_impl<bulk_communication_object>;
 
+    // return type from exchange()
     struct handle
     {
         co_handle m_remote_handle;
@@ -305,32 +306,34 @@ private: // member types
 
     using co_ptr = std::unique_ptr<co_type, co_deleter>;
 
-private: // members
-    communicator_type       m_comm;
-    co_ptr                  m_co;
-    pattern_map             m_local_pattern_map;
-    pattern_map             m_remote_pattern_map;
-    field_container_t       m_field_container_tuple;
-    buffer_info_container_t m_buffer_info_container_tuple;
-    target_ranges_t         m_target_ranges_tuple;
-    source_ranges_t         m_source_ranges_tuple;
-    local_handle_map        m_local_handle_map;
-    moved_bit               m_moved;
-    bool                    m_initialized = false;
-    std::map<int,int>       m_tag_map; // domain id -> tag
-
-    struct func_future
+    // struct holding a function which implements a request
+    struct func_request
     {
         std::function<bool()> m_fct;
 
-        func_future(std::function<bool()>&& fct) : m_fct(std::move(fct)) {}
-        func_future(const func_future&) = delete;
-        func_future(func_future&&) = default;
+        func_request(std::function<bool()>&& fct) : m_fct(std::move(fct)) {}
+        func_request(const func_request&) = delete;
+        func_request(func_request&&) = default;
 
         bool test() noexcept { return m_fct(); }
     };
-    std::vector<func_future> m_put_funcs;
-    std::vector<func_future> m_wait_funcs;
+
+private: // members
+    communicator_type                  m_comm;
+    co_ptr                             m_co;
+    pattern_map                        m_local_pattern_map;
+    pattern_map                        m_remote_pattern_map;
+    field_container_t                  m_field_container_tuple;
+    buffer_info_container_t            m_buffer_info_container_tuple;
+    target_ranges_t                    m_target_ranges_tuple;
+    source_ranges_t                    m_source_ranges_tuple;
+    local_handle_map                   m_local_handle_map;
+    moved_bit                          m_moved;
+    bool                               m_initialized = false;
+    std::map<int,int>                  m_tag_map; // domain id -> tag
+    std::vector<func_request>          m_put_funcs;
+    std::vector<func_request>          m_wait_funcs;
+    std::vector<std::function<void()>> m_open_funcs;
 
 public: // ctors
     bulk_communication_object(communicator_type comm)
@@ -442,6 +445,7 @@ public:
     void init()
     {
         if (m_initialized) return;
+
         // loop over Fields
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
@@ -460,31 +464,41 @@ public:
                 // complete the handshake
                 for (auto& s_vec : s_range.m_ranges)
                     for (auto& r : s_vec)
-                    {
                         r.recv();
-                    }
                 for (auto& t_vec : t_range.m_ranges)
                     for (auto& r : t_vec)
-                    {
                         r.send();
-                    }
             });
         }
 
-        // loop over fields for putting
+        // loop over Fields
         for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
         {
             boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
             [this](auto i) {
                 // get the field Index 
                 using I = decltype(i);
-                // get source range
+                
+                // get target ranges for fields
+                auto& t_range = std::get<I::value>(m_target_ranges_tuple);
+                for (auto& t_vec : t_range.m_ranges)
+                    for (auto& r : t_vec)
+                    {
+                        // register open functions
+                        m_open_funcs.push_back([&r](){ r.end_target_epoch(); });
+                        // register wait functions
+                        m_wait_funcs.push_back(func_request{std::function<bool()>([&r]() -> bool
+                            { return r.try_start_target_epoch(); })});
+                    }
+                
+                // get source ranges for fields
                 auto& s_range = std::get<I::value>(m_source_ranges_tuple);
                 // put data
                 for (auto& s_vec : s_range.m_ranges)
                     for (auto& r : s_vec)
                     {
-                        m_put_funcs.push_back(func_future{std::function<bool()>([&r]() -> bool
+                        // register put functions
+                        m_put_funcs.push_back(func_request{std::function<bool()>([&r]() -> bool
                             {
                                 if (r.try_start_source_epoch())
                                 {
@@ -497,25 +511,6 @@ public:
                     }
             });
         }
-
-        // loop over fields for waiting
-        for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
-        {
-            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
-            [this](auto i) {
-                // get the field Index 
-                using I = decltype(i);
-                // get target ranges and wait
-                auto& t_range = std::get<I::value>(m_target_ranges_tuple);
-                for (auto& t_vec : t_range.m_ranges)
-                    for (auto& r : t_vec)
-                        m_wait_funcs.push_back(func_future{std::function<bool()>([&r]() -> bool
-                            {
-                                return r.try_start_target_epoch();
-                            })});
-            });
-        }
-
         m_initialized = true;
     }
     
@@ -538,45 +533,22 @@ public:
     handle exchange()
     {
         if (!m_initialized) init();
-
-        // loop over Fields
-        for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
-        {
-            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
-            [this](auto i) {
-                // get the field Index 
-                using I = decltype(i);
-                // get target ranges for fields and give remotes access
-                auto& t_range = std::get<I::value>(m_target_ranges_tuple);
-                for (auto& t_vec : t_range.m_ranges)
-                    for (auto& r : t_vec)
-                        r.end_target_epoch();
-            });
-        }
-
+        // loop over Fields for making the ranges writable for remotes
+        for (auto& x : m_open_funcs) x();
         // start remote exchange
         auto h = exchange_remote();
-        
-        await_futures(m_put_funcs);
-
+        // put data as soon as ranges are writable
+        await_requests(m_put_funcs, [comm = m_comm]() mutable {comm.progress();});
         return {std::move(h),this};
     }
 
 private:
     void wait()
     {
-        await_futures(m_wait_funcs);
+        // wait for all local ranges to be filled
+        await_requests(m_wait_funcs);
     }
 };
-
-//template<template <typename> class RangeGen, typename Pattern, typename... Archs, typename... Fields>
-//generic_bulk_communication_object make_bulk_communication_object(
-//    typename Pattern::communicator_type comm, buffer_info<Pattern,Archs,Fields>... bis)
-//{
-//    bulk_communication_object<RangeGen, typename Pattern::pattern_container_type, Fields...> bco(comm);
-//    bco.add_fields(bis...);
-//    return {std::move(bco)};
-//}
 
 } // namespace ghex
 } // namespace gridtools

@@ -53,7 +53,6 @@ struct rma_range_generator
         tag_type m_tag;
         typename Communicator::template future<void> m_request;
         std::vector<unsigned char> m_archive;
-        std::unique_ptr<std::vector<unsigned char>> m_archive2;
         bool m_on_gpu = std::is_same<typename Field::arch_type, gridtools::ghex::gpu>::value;
         rma::local_event m_event;
 
@@ -67,12 +66,8 @@ struct rma_range_generator
         , m_tag{tag}
         , m_event{m_on_gpu, loc}
         {
-            //m_archive.resize(RangeFactory::serial_size);
-            //m_archive = RangeFactory::serialize(field_info, m_local_guard, m_event, m_local_range);
-            //m_request = m_comm.send(m_archive, m_dst, m_tag);
-            m_archive2.reset( new std::vector<unsigned char>(RangeFactory::serial_size));
-            *m_archive2 = RangeFactory::serialize(field_info, m_local_guard, m_event, m_local_range);
-            m_request = m_comm.send(*m_archive2, m_dst, m_tag);
+            m_archive = RangeFactory::serialize(field_info, m_local_guard, m_event, m_local_range);
+            m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
 
         target_range(const target_range&) = delete;
