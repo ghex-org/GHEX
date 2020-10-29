@@ -40,3 +40,7 @@ CMakeCache.txt
 CMakeFiles
 .vscode
 build
+bin
+lib
+_build
+pyvenv.cfg

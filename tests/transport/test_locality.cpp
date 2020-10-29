@@ -1,14 +1,13 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
-#include <ghex/threads/none/primitives.hpp>
 #include <vector>
 #include <iomanip>
 #include <utility>
@@ -26,14 +25,13 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using transport = gridtools::ghex::tl::mpi_tag;
 #endif
 
-using threading = gridtools::ghex::threads::none::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = gridtools::ghex::tl::context<transport>;
 
 // test locality by collecting all local ranks
 TEST(locality, enumerate) {
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
-    auto comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator();
 
     // test self
     EXPECT_TRUE( comm.is_local(comm.rank()) );
@@ -65,7 +63,7 @@ TEST(locality, enumerate) {
                 EXPECT_EQ((comm.is_local(rr) ? 1 : 0), local_ranks[rr]);
             }
             const int equal_hosts = (std::strcmp(my_host_name.data(), other_host_name.data()) == 0) ? 1 : 0;
-            if (is_neighbor == 1) { 
+            if (is_neighbor == 1) {
                 EXPECT_EQ(equal_hosts, 1);
             }
         }

@@ -1,12 +1,12 @@
-﻿/* 
+﻿/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #include <vector>
 
@@ -24,7 +24,6 @@
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
-#include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
@@ -34,12 +33,10 @@
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = gridtools::ghex::tl::context<transport>;
 
 
 TEST(atlas_integration, dependencies) {
@@ -65,7 +62,7 @@ TEST(atlas_integration, dependencies) {
 
 TEST(atlas_integration, domain_descriptor) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -99,7 +96,7 @@ TEST(atlas_integration, domain_descriptor) {
 
 TEST(atlas_integration, halo_generator) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -135,7 +132,7 @@ TEST(atlas_integration, make_pattern) {
 
     using grid_type = gridtools::ghex::unstructured::grid;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -180,7 +177,7 @@ TEST(atlas_integration, halo_exchange) {
     using grid_type = gridtools::ghex::unstructured::grid;
     using data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -238,7 +235,7 @@ TEST(atlas_integration, halo_exchange) {
     using communication_object_t = gridtools::ghex::communication_object<decltype(patterns)::value_type, gridtools::ghex::cpu>;
     std::vector<communication_object_t> cos;
     for (const auto& p : patterns) {
-        cos.push_back(communication_object_t{p, context.get_communicator(context.get_token())});
+        cos.push_back(communication_object_t{p, context.get_communicator()});
     }
 
     // Istantiate data descriptor

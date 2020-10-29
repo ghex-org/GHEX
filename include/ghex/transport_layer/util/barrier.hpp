@@ -23,15 +23,20 @@ namespace gridtools {
             /**
                The barrier object synchronize threads or ranks, or both. When synchronizing
                ranks, it also progress the transport_layer::communicator.
+
                This facility id provided as a debugging tool, or as a seldomly used operation.
                Halo-exchanges doe not need, in general, to call barriers.
+
                Note on the implementation:
+
                The implementation follows a two-counter approach:
                First: one (atomic) counter is increased to the number of threads participating.
                Second: one (atomic) counter is decreased from the numner of threads
+
                The global barrier performs the up-counting while the thread that reaches the
                final value also perform the rank-barrier. After that the downward count is
                performed as usual.
+
                This is why the barrier is split into is_node1 and in_node2. in_node1 returns
                true to the thread selected to run the rank_barrier in the full barrier.
              */
@@ -39,7 +44,7 @@ namespace gridtools {
             {
 
             private: // members
-                size_t                   m_threads;
+                size_t                      m_threads;
                 mutable std::atomic<size_t> b_count{0};
                 mutable std::atomic<size_t> b_count2;
 
@@ -90,7 +95,7 @@ namespace gridtools {
                 {
                     MPI_Request req = MPI_REQUEST_NULL;
                     int flag;
-                    MPI_Ibarrier(tlcomm.mpi_comm(), &req);
+                    MPI_Ibarrier(tlcomm.context().mpi_comm(), &req);
                     while(true) {
                         tlcomm.progress();
                         MPI_Test(&req, &flag, MPI_STATUS_IGNORE);

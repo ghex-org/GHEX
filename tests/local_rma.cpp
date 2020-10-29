@@ -14,16 +14,12 @@
 #include <array>
 #include <gridtools/common/array.hpp>
 
-#include <ghex/threads/atomic/primitives.hpp>
-#include <ghex/threads/std_thread/primitives.hpp>
 #ifndef GHEX_TEST_USE_UCX
 #include <ghex/transport_layer/mpi/context.hpp>
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 
 #include <ghex/bulk_communication_object.hpp>
@@ -57,13 +53,13 @@ struct simulation_1
     using TT2 = array_type<T2,3>;
     using TT3 = array_type<T3,3>;
 
-    using context_type = gridtools::ghex::tl::context<transport,threading>;
+    using context_type = gridtools::ghex::tl::context<transport>;
     using context_ptr_type = std::unique_ptr<context_type>;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
     template<typename T, typename Arch, int... Is>
     using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
-        
+
     // decomposition: 4 domains in x-direction, 1 domain in z-direction, rest in y-direction
     //                each MPI rank owns two domains: either first or last two domains in x-direction
     //
@@ -136,7 +132,7 @@ struct simulation_1
 
 
     simulation_1(bool multithread = false)
-    : context_ptr{ gridtools::ghex::tl::context_factory<transport,threading>::create(multithread ? 2 : 1, MPI_COMM_WORLD) }
+    : context_ptr{ gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD) }
     , context{*context_ptr}
     , local_ext{4,3,2}
     , periodic{true,true,true}
@@ -159,7 +155,7 @@ struct simulation_1
     , field_3a_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory*sizeof(TT3)); return (TT3*)ptr; }())
     , field_3b_raw_gpu([this](){ void* ptr; cudaMalloc(&ptr, max_memory*sizeof(TT3)); return (TT3*)ptr; }())
 #endif /* __CUDACC__ */
-    , local_domains{ 
+    , local_domains{
         domain_descriptor_type{
             context.rank()*2,
             std::array<int,3>{ ((context.rank()%2)*2  )*local_ext[0],   (context.rank()/2  )*local_ext[1],                0},
@@ -195,17 +191,17 @@ struct simulation_1
         fill_values(local_domains[0], field_3a);
         fill_values(local_domains[1], field_3b);
 #ifdef __CUDACC__
-         cudaMemcpy(field_1a_raw_gpu.get(), field_1a_raw.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice); 
-         cudaMemcpy(field_1b_raw_gpu.get(), field_1b_raw.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice); 
-         cudaMemcpy(field_2a_raw_gpu.get(), field_2a_raw.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice); 
-         cudaMemcpy(field_2b_raw_gpu.get(), field_2b_raw.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice); 
-         cudaMemcpy(field_3a_raw_gpu.get(), field_3a_raw.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice); 
-         cudaMemcpy(field_3b_raw_gpu.get(), field_3b_raw.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice); 
+         cudaMemcpy(field_1a_raw_gpu.get(), field_1a_raw.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice);
+         cudaMemcpy(field_1b_raw_gpu.get(), field_1b_raw.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice);
+         cudaMemcpy(field_2a_raw_gpu.get(), field_2a_raw.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice);
+         cudaMemcpy(field_2b_raw_gpu.get(), field_2b_raw.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice);
+         cudaMemcpy(field_3a_raw_gpu.get(), field_3a_raw.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice);
+         cudaMemcpy(field_3b_raw_gpu.get(), field_3b_raw.data(), max_memory*sizeof(TT3), cudaMemcpyHostToDevice);
 #endif /* __CUDACC__ */
 
         if (!mt)
         {
-            comms.push_back(context.get_communicator(context.get_token()));
+            comms.push_back(context.get_communicator());
             basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[0]));
 #ifndef __CUDACC__
             auto bco =  gridtools::ghex::bulk_communication_object<
@@ -241,8 +237,8 @@ struct simulation_1
             cos.emplace_back( std::move(bco) );
 
         } else {
-            comms.push_back(context.get_communicator(context.get_token()));
-            comms.push_back(context.get_communicator(context.get_token()));
+            comms.push_back(context.get_communicator());
+            comms.push_back(context.get_communicator());
             basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[0]));
             basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[1]));
 #ifndef __CUDACC__
@@ -313,12 +309,12 @@ struct simulation_1
     bool check()
     {
 #ifdef __CUDACC__
-         cudaMemcpy(field_1a_raw.data(), field_1a_raw_gpu.get(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost); 
-         cudaMemcpy(field_1b_raw.data(), field_1b_raw_gpu.get(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost); 
-         cudaMemcpy(field_2a_raw.data(), field_2a_raw_gpu.get(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost); 
-         cudaMemcpy(field_2b_raw.data(), field_2b_raw_gpu.get(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost); 
-         cudaMemcpy(field_3a_raw.data(), field_3a_raw_gpu.get(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost); 
-         cudaMemcpy(field_3b_raw.data(), field_3b_raw_gpu.get(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost); 
+         cudaMemcpy(field_1a_raw.data(), field_1a_raw_gpu.get(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost);
+         cudaMemcpy(field_1b_raw.data(), field_1b_raw_gpu.get(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost);
+         cudaMemcpy(field_2a_raw.data(), field_2a_raw_gpu.get(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost);
+         cudaMemcpy(field_2b_raw.data(), field_2b_raw_gpu.get(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost);
+         cudaMemcpy(field_3a_raw.data(), field_3a_raw_gpu.get(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost);
+         cudaMemcpy(field_3b_raw.data(), field_3b_raw_gpu.get(), max_memory*sizeof(TT3), cudaMemcpyDeviceToHost);
 #endif /* __CUDACC__ */
         bool passed =true;
         passed = passed && test_values(local_domains[0], field_1a);
@@ -349,7 +345,7 @@ private:
             }
         }
     }
-    
+
     template<typename Field>
     bool test_values(const domain_descriptor_type& d, const Field& f)
     {
@@ -358,7 +354,7 @@ private:
         const int i = d.domain_id()%2;
         int rank = comm.rank();
         int size = comm.size();
-    
+
         int xl = -halos[0];
         int hxl = halos[0];
         int hxr = halos[1];
@@ -390,7 +386,7 @@ private:
                     if (z<d.first()[2] && !periodic[2]) continue;
                     if (z>d.last()[2]  && !periodic[2]) continue;
                     T z_wrapped = (((z-g_first[2])+(g_last[2]-g_first[2]+1))%(g_last[2]-g_first[2]+1) + g_first[2]);
-    
+
                     const auto& value = f(xl,yl,zl);
                     if(value[0]!=x_wrapped || value[1]!=y_wrapped || value[2]!=z_wrapped)
                     {

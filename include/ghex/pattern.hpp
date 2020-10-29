@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_PATTERN_HPP
 #define INCLUDED_GHEX_PATTERN_HPP
@@ -66,7 +66,7 @@ namespace gridtools {
             }
 
         private: // private constructor called through make_pattern
-            pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt) 
+            pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt)
             {
                 for (auto& p : m_patterns)
                     p.m_container = this;
@@ -101,24 +101,23 @@ namespace gridtools {
             data_type m_patterns;
             int m_max_tag;
         };
-        
+
         /**
          * @brief construct a pattern for each domain and establish neighbor relationships
          * @tparam GridType indicates structured/unstructured grids
          * @tparam Transport transport protocol
-         * @tparam ThreadPrimitives threading primitivs (locks etc.)
          * @tparam HaloGenerator function object which takes a domain as argument
          * @tparam DomainRange a range type holding domains
          * @param context transport layer context
          * @param hgen receive halo generator function object (emits iteration spaces (global coordinates) or index lists (global indices)
          * @param d_range range of local domains
-         * @return iterable of patterns (one per domain) 
+         * @return iterable of patterns (one per domain)
          */
-        template<typename GridType, typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
-        auto make_pattern(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range)
+        template<typename GridType, typename Transport, typename HaloGenerator, typename DomainRange>
+        auto make_pattern(tl::context<Transport>& context, HaloGenerator&& hgen, DomainRange&& d_range)
         {
             using grid_type = typename GridType::template type<typename std::remove_reference_t<DomainRange>::value_type>;
-            return detail::make_pattern_impl<grid_type>::apply(context, std::forward<HaloGenerator>(hgen), std::forward<DomainRange>(d_range)); 
+            return detail::make_pattern_impl<grid_type>::apply(context, std::forward<HaloGenerator>(hgen), std::forward<DomainRange>(d_range));
 
         }
 
@@ -127,7 +126,6 @@ namespace gridtools {
          * TO DO: so far, the structured specialization just redirects to the previous one (recv_domains_gen is just ignored)
          * @tparam GridType indicates structured/unstructured grids
          * @tparam Transport transport protocol
-         * @tparam ThreadPrimitives threading primitivs (locks etc.)
          * @tparam HaloGenerator function object which takes a domain as argument
          * @tparam RecvDomainsGenerator function object which takes a domain as argument
          * @tparam DomainRange a range type holding domains
@@ -137,8 +135,8 @@ namespace gridtools {
          * @param d_range range of local domains
          * @return iterable of patterns (one per domain)
          */
-        template<typename GridType, typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
-        auto make_pattern(tl::context<Transport,ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range)
+        template<typename GridType, typename Transport, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+        auto make_pattern(tl::context<Transport>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range)
         {
             using grid_type = typename GridType::template type<typename std::remove_reference_t<DomainRange>::value_type>;
             return detail::make_pattern_impl<grid_type>::apply(context,

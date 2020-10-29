@@ -10,7 +10,7 @@
 #include <ghex/transport_layer/ucx/context.hpp>
 #define TRANSPORT tl::ucx_tag
 #endif
-#include <ghex/threads/std_thread/primitives.hpp>
+#include <ghex/transport_layer/util/barrier.hpp>
 #include <ghex/bulk_communication_object.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/rma_range_generator.hpp>
@@ -23,8 +23,7 @@
 using namespace gridtools::ghex;
 using arr       = std::array<int,2>;
 using transport = TRANSPORT;
-using threading = threads::std_thread::primitives;
-using factory   = tl::context_factory<transport,threading>;
+using factory   = tl::context_factory<transport>;
 using domain    = structured::regular::domain_descriptor<int,2>;
 using halo_gen  = structured::regular::halo_generator<int,2>;
 
@@ -180,8 +179,8 @@ auto make_domain(int rank, int id, std::array<int,2> coord)
     return domain{rank*2+id, arr{x, y}, arr{x+DIM-1, y+DIM/2-1}};
 }
 
-template<typename Context, typename Pattern, typename Domains>
-bool run(Context& context, const Pattern& pattern, const Domains& domains, const arr& dims, int thread_id)
+template<typename Context, typename Pattern, typename Domains, typename Barrier>
+bool run(Context& context, const Pattern& pattern, const Domains& domains, const arr& dims, int thread_id, Barrier& barrier)
 {
     bool res = true;
     // field
@@ -194,7 +193,7 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 #endif
 
     // get a communcator
-    auto comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator();
     
     // general exchange
     // ================
@@ -222,7 +221,7 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
         raw_field.clone_to_device();
 #endif
 
-    comm.barrier();
+    barrier(comm);
 
     // bulk exchange (rma)
     // ===================
@@ -249,8 +248,8 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
     return res;
 }
 
-template<typename Context, typename Pattern, typename Domains>
-bool run(Context& context, const Pattern& pattern, const Domains& domains, const arr& dims)
+template<typename Context, typename Pattern, typename Domains, typename Barrier>
+bool run(Context& context, const Pattern& pattern, const Domains& domains, const arr& dims, Barrier& barrier)
 {
     bool res = true;
     // fields
@@ -263,7 +262,7 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
     auto field_b_gpu = wrap_gpu_field(raw_field_b, domains[1]);
 #endif
     // get a communcator
-    auto comm = context.get_communicator(context.get_token());
+    auto comm = context.get_communicator();
     
     // general exchange
     // ================
@@ -287,6 +286,8 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 #ifdef __CUDACC__
     raw_field_b.clone_to_device();
 #endif
+
+    barrier(comm);
 
     // bulk exchange (rma)
     // ===================
@@ -313,7 +314,7 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 void sim(bool multi_threaded)
 {
     // make a context from mpi world and number of threads
-    auto context_ptr = factory::create(multi_threaded? 2 : 1, MPI_COMM_WORLD);
+    auto context_ptr = factory::create(MPI_COMM_WORLD);
     auto& context    = *context_ptr;
     // 2D domain decomposition
     arr dims{0,0}, coords{0,0};
@@ -332,8 +333,9 @@ void sim(bool multi_threaded)
     bool res = true;
     if (multi_threaded)
     {
-        auto run_fct = [&context,&pattern,&domains,&dims](int id)
-            { return run(context, pattern, domains, dims, id); };
+        tl::barrier_t barrier(2);
+        auto run_fct = [&context,&pattern,&domains,&dims,&barrier](int id)
+            { return run(context, pattern, domains, dims, id, barrier); };
         auto f1 = std::async(std::launch::async, run_fct, 0);
         auto f2 = std::async(std::launch::async, run_fct, 1);
         res = res && f1.get();
@@ -341,7 +343,8 @@ void sim(bool multi_threaded)
     }
     else
     {
-        res = res && run(context, pattern, domains, dims);
+        tl::barrier_t barrier(1);
+        res = res && run(context, pattern, domains, dims, barrier);
     }
     // reduce res
     bool all_res = false;

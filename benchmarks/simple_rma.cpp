@@ -23,15 +23,11 @@
 #include <vector>
 
 #ifndef GHEX_TEST_USE_UCX
-#include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
-#include <ghex/threads/pthread/primitives.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::pthread::primitives;
 #endif
 
 #include <ghex/bulk_communication_object.hpp>
@@ -60,7 +56,7 @@ struct simulation
 
     using T = GHEX_FLOAT_TYPE;
 
-    using context_type = gridtools::ghex::tl::context<transport,threading>;
+    using context_type = gridtools::ghex::tl::context<transport>;
     using context_ptr_type = std::unique_ptr<context_type>;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
@@ -120,7 +116,7 @@ struct simulation
     , mt(num_threads > 1)
     , num_fields{num_fields_}
     , ext{ext_}
-    , context_ptr{gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD)}
+    , context_ptr{gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD)}
     , context{*context_ptr}
     , local_ext{ext,ext,ext}
     , periodic{true,true,true}
@@ -156,13 +152,12 @@ struct simulation
             int x = coord[0]*local_ext[0];
             int y = coord[1]*local_ext[1];
             int z = coord[2]*local_ext[2];
-                
             local_domains.push_back(domain_descriptor_type{
                 context.rank()*num_threads+j,
                 std::array<int,3>{x,y,z},
                 std::array<int,3>{x+local_ext[0]-1,y+local_ext[1]-1,z+local_ext[2]-1}});
         }
-        
+
         pattern = std::unique_ptr<pattern_type>{new pattern_type{
             gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
                 context, halo_gen, local_domains)}};
@@ -212,11 +207,7 @@ struct simulation
     void exchange(int j)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        //{
-        //    std::lock_guard<std::mutex> io_lock(io_mutex);
-        //    std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << std::endl;
-        //}
-        comms[j] = context.get_communicator(context.get_token());
+        comms[j] = context.get_communicator();
         auto basic_co = gridtools::ghex::make_communication_object<pattern_type>(comms[j]);
         for (int i=0; i<num_fields; ++i)
         {
@@ -254,7 +245,7 @@ struct simulation
             bco.add_field(pattern->operator()(fields_gpu[j][i]));
 #endif
         cos[j] = std::move(bco);
-            
+
         // warm up
         for (int t = 0; t < 50; ++t)
         {
@@ -270,7 +261,7 @@ struct simulation
         }
         auto end = clock_type::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
-        
+
         if (comm.rank() == 0 && j == 0)
         {
             const auto num_elements =
@@ -337,7 +328,7 @@ int main(int argc, char** argv)
         num_ranks *= node_decomposition[i]*numa_decomposition[i]*rank_decomposition[i];
         num_threads *= thread_decomposition[i];
     }
-        
+
     typename simulation::decomp_type decomp(node_decomposition, numa_decomposition,
         rank_decomposition, thread_decomposition);
 
