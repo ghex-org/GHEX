@@ -64,8 +64,7 @@ namespace gridtools {
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
                     typename worker_type::transport_context_type const& context() const noexcept { return m_send_worker->context(); }
-
-
+                    auto mpi_comm() const noexcept { return m_recv_worker->rank_topology().mpi_comm(); }
                     bool is_local(rank_type r) const noexcept { return m_recv_worker->rank_topology().is_local(r); }
                     rank_type local_rank() const noexcept { return m_recv_worker->rank_topology().local_rank(); }
 

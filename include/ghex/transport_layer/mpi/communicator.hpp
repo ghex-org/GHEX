@@ -69,6 +69,7 @@ namespace gridtools {
                     rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
                     transport_context_type const& context() const noexcept { return m_shared_state->context(); }
+                    auto mpi_comm() const noexcept { return m_shared_state->m_comm; }
 
                     bool is_local(rank_type r) const noexcept; // implementation in mpi/context.hpp
                     rank_type local_rank() const noexcept; // implementation in mpi/context.hpp
