@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include "../util/barrier2.hpp"
 #include "./worker.hpp"
 
 namespace gridtools{
@@ -94,14 +93,10 @@ public: // member types
 private: // members
     std::mutex m_request_cache_mutex;
     std::mutex m_worker_mutex;
-    unsigned int m_num_threads;
-    tl::barrier_t m_barrier;
 
 public: // ctors
-    shared_state(ucp_context_h context, unsigned int num_threads_)
+    shared_state(ucp_context_h context)
     : base(context)
-    , m_num_threads(num_threads_)
-    , m_barrier(num_threads_)
     {}
 
     shared_state(const shared_state&) = delete;
@@ -376,8 +371,6 @@ public: // member functions
     const auto& rank_topology() const noexcept { return m_rank_topology; }
 
     auto mpi_comm() const noexcept { return m_rank_topology.mpi_comm(); }
-
-    void barrier() { m_shared_state->m_barrier(*this); }
 
 private: // implementation
     static std::size_t context_request_size(ucp_context_h context)

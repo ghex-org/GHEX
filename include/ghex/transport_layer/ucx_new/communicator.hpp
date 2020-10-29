@@ -74,8 +74,6 @@ public:
     }
                     
     auto progress() { return m_state->progress(); }
-
-    void barrier() { m_state->barrier(); }
 };
 
 } // namespace ucx
