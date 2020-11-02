@@ -1,12 +1,12 @@
-﻿/* 
+﻿/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #include <fstream>
 #include <vector>
@@ -25,7 +25,6 @@
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
-#include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
@@ -39,12 +38,10 @@
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = gridtools::ghex::tl::context<transport>;
 
 
 /* WARN: Atlas halo exchange on GPU is disabled for the moment
@@ -59,10 +56,9 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     const int n_iter = 50;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
-    int size = context.size();
 
     // Output file
     std::stringstream ss_file;
@@ -92,27 +88,24 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     // Instantiate domain descriptor
     std::vector<domain_descriptor_t> local_domains{};
-    std::stringstream ss_1;
-    atlas::idx_t nb_nodes_1;
-    ss_1 << "nb_nodes_including_halo[" << 1 << "]";
-    mesh.metadata().get( ss_1.str(), nb_nodes_1 );
     domain_descriptor_t d{rank,
-                          rank,
                           mesh.nodes().partition(),
                           mesh.nodes().remote_index(),
-                          nb_levels,
-                          nb_nodes_1};
+                          nb_levels};
     local_domains.push_back(d);
 
     // Instantiate halo generator
-    gridtools::ghex::atlas_halo_generator<int> hg{size};
+    gridtools::ghex::atlas_halo_generator<int> hg{};
+
+    // Instantiate recv domain ids generator
+    gridtools::ghex::atlas_recv_domain_ids_gen<int> rdig{};
 
     // Make patterns
     using grid_type = gridtools::ghex::unstructured::grid;
-    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
+    auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
 
     // Make communication object
-    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator());
 
     // Fields creation and initialization
     atlas::FieldSet fields;

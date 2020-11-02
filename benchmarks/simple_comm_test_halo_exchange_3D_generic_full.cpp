@@ -16,7 +16,7 @@
 #include <sys/time.h>
 #include <mpi.h>
 #include <string>
-#include <cstring>    
+#include <cstring>
 #include <utility>
 
 #include <type_traits>
@@ -29,14 +29,15 @@
 #include <ghex/communication_object.hpp>
 #include <ghex/pattern.hpp>
 #include <ghex/structured/pattern.hpp>
-#include <ghex/structured/domain_descriptor.hpp>
+#include <ghex/structured/regular/domain_descriptor.hpp>
+#include <ghex/structured/regular/halo_generator.hpp>
+#include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
-#include <ghex/threads/atomic/primitives.hpp>
 #include "../utils/triplet.hpp"
 
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::atomic::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+
+using context_type = gridtools::ghex::tl::context<transport>;
 
 /* CPU data descriptor */
 template <typename T, typename DomainDescriptor, typename LayoutMap>
@@ -51,16 +52,14 @@ class my_data_desc {
 
 public:
 
+    using value_type = T;
+
     my_data_desc(const DomainDescriptor& domain,
                  const coordinate_t& halos_offset,
                  const array<T, LayoutMap>& values) :
         m_domain{domain},
         m_halos_offset{halos_offset},
         m_values{values} {}
-
-    std::size_t data_type_size() const {
-        return sizeof (T);
-    }
 
     void set(const T& value, const coordinate_t& coords) {
         m_values(coords[0] + m_halos_offset[0], coords[1] + m_halos_offset[1], coords[2] + m_halos_offset[2]) = value;
@@ -105,10 +104,10 @@ public:
 
 namespace halo_exchange_3D_generic_full {
 
-    using domain_descriptor_t = gridtools::ghex::structured::domain_descriptor<int,3>;
+    using domain_descriptor_t = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using domain_id_t = domain_descriptor_t::domain_id_type;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = domain_descriptor_t::halo_generator_type; //gridtools::structured_halo_generator<domain_id_t, 3>;
+    using halo_generator_t = gridtools::ghex::structured::regular::halo_generator<domain_id_t,3>;
 
     int pid;
     int nprocs;
@@ -513,10 +512,10 @@ namespace halo_exchange_3D_generic_full {
         MPI_Cart_create(MPI_COMM_WORLD, 3, dims, period, false, &CartComm);
 
         MPI_Cart_get(CartComm, 3, dims, period, coords);
-    
-        auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, CartComm);
+
+        auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(CartComm);
         auto& context = *context_ptr;
-        auto comm = context.get_communicator(context.get_token());
+        auto comm = context.get_communicator();
 
         /* Each process will hold a tile of size
            (DIM1+2*H)x(DIM2+2*H)x(DIM3+2*H). The DIM1xDIM2xDIM3 area inside

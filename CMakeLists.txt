@@ -1,10 +1,12 @@
-cmake_minimum_required(VERSION 3.12.4)
+cmake_minimum_required(VERSION 3.14.5)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
+    set(CMAKE_CUDA_FLAGS "" CACHE STRING "")
+    string(APPEND CMAKE_CUDA_FLAGS " --cudart shared")
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 14)
-    set(CMAKE_CUDA_EXTENSIONS OFF)    
+    set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
 
 cmake_policy(SET CMP0048 NEW)
@@ -14,7 +16,7 @@ set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic") # Last option is because of a problem with GCC9. Try to remove with more releases of the compiler
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wno-unknown-pragmas")
 
 set(default_build_type "Debug")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -29,8 +31,28 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
-find_package(GridTools REQUIRED HINTS ${GridTools_DIR})
-list(APPEND CMAKE_MODULE_PATH "${GridTools_MODULE_PATH}")
+find_package(OpenMP)
+find_library(LIBRT rt REQUIRED)
+
+set(_required_gridtools_version "2.0.0")
+if(NOT _gridtools_already_fetched)
+    find_package(GridTools ${_required_gridtools_version})
+endif()
+if(NOT GridTools_FOUND)
+    set(_gridtools_repository "https://github.com/GridTools/gridtools.git")
+    set(_gridtools_tag        "v${_required_gridtools_version}")
+    if(NOT _gridtools_already_fetched)
+        message(STATUS "Fetching GridTools tag ${_gridtools_tag} from ${_gridtools_repository}")
+    endif()
+    include(FetchContent)
+    FetchContent_Declare(
+        gridtools
+        GIT_REPOSITORY ${_gridtools_repository}
+        GIT_TAG        ${_gridtools_tag}
+    )
+    FetchContent_MakeAvailable(gridtools)
+    set(_gridtools_already_fetched ON CACHE INTERNAL "")
+endif()
 
 set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
 if (GHEX_USE_UCP)
@@ -40,6 +62,11 @@ endif()
 set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
 if (GHEX_USE_PMIX)
     find_package(PMIx REQUIRED)
+endif()
+
+set(GHEX_USE_XPMEM OFF CACHE BOOL "Set to true to use xpmem shared memory")
+if (GHEX_USE_XPMEM)
+    find_package(XPMEM REQUIRED)
 endif()
 
 set(GHEX_SKIP_MPICXX OFF CACHE BOOL "True if your compiler wrapper includes MPI already (as CRAY PE for instance)")
@@ -73,12 +100,21 @@ if (GHEX_USE_UCP)
         target_link_libraries(ghexlib INTERFACE PMIx::libpmix)
     endif()
 endif()
+if (GHEX_USE_XPMEM)
+    target_link_libraries(ghexlib INTERFACE XPMEM::libxpmem)
+endif()
 if (GHEX_ENABLE_ATLAS_BINDINGS)
     target_link_libraries(ghexlib INTERFACE atlas)
 endif()
+target_link_libraries(ghexlib INTERFACE ${LIBRT})
+
 target_compile_features(ghexlib INTERFACE cxx_std_14)
 
+# Enable adding of tests etc
 enable_testing()
+
+# Enable CDash dashboard testing integration
+include(CTest)
 
 if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     include(FetchContent)
@@ -98,7 +134,7 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     if (GHEX_BUILD_TESTS)
         add_library(gtest_main_mt ./utils/gtest_main.cpp)
         target_link_libraries(gtest_main_mt GTest::gtest ghexlib)
-    
+
         if (GHEX_USE_UCP)
             add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp)
             target_link_libraries(gtest_main_ucx GTest::gtest ghexlib)
@@ -106,11 +142,11 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
 
         add_subdirectory(tests)
     endif()
-  
+
     if (GHEX_BUILD_BENCHMARKS)
         add_library(gtest_main_bench ./utils/gtest_main_bench.cpp)
         target_link_libraries(gtest_main_bench GTest::gtest ghexlib)
- 
+
         add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp)
         target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
         target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
@@ -146,5 +182,6 @@ install(
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfigVersion.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindXPMEM.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)

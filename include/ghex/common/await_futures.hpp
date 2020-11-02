@@ -19,25 +19,60 @@ namespace gridtools {
         
         /** @brief wait for all futures in a range to finish and call 
           * a continuation with the future's value as argument. */
-        template<typename FutureRange, typename Continuation>
-        void await_futures(FutureRange& range, Continuation&& cont)
+        template<typename Future, typename Continuation>
+        void await_futures(std::vector<Future>& range, Continuation&& cont)
         {
             int size = range.size();
-            // make an index list (iota)
-            std::vector<int> index_list(size);
-            for (int i = 0; i < size; ++i)
-                index_list[i] = i;
-            // loop until all futures are ready
             while(size>0)
             {
-                for (int j = 0; j < size; ++j)
+                for (int i=0; i<size; ++i)
                 {
-                    const auto k = index_list[j];
-                    if (range[k].test())
+                    if (range[i].test())
                     {
-                        if (j < --size)
-                            index_list[j--] = index_list[size];
-                        cont(range[k].get());
+                        cont(range[i].get());
+                        --size;
+                        if (i<size)
+                            range[i--] = std::move(range[size]);
+                        range.pop_back();
+                    }
+                }
+            }
+        }
+        
+        template<typename Future>
+        void await_futures(std::vector<Future>& range)
+        {
+            int size = range.size();
+            while(size>0)
+            {
+                for (int i=0; i<size; ++i)
+                {
+                    if (range[i].test())
+                    {
+                        --size;
+                        if (i<size)
+                            range[i--] = std::move(range[size]);
+                        range.pop_back();
+                    }
+                }
+            }
+        }
+        
+        template<typename Communicator, typename Request>
+        void await_requests(Communicator comm, std::vector<Request>& range)
+        {
+            int size = range.size();
+            while(size>0)
+            {
+                comm.progress();
+                for (int i=0; i<size; ++i)
+                {
+                    if (range[i].test())
+                    {
+                        --size;
+                        if (i<size)
+                            range[i--] = std::move(range[size]);
+                        range.pop_back();
                     }
                 }
             }
