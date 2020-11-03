@@ -330,10 +330,12 @@ private: // members
     local_handle_map                   m_local_handle_map;
     moved_bit                          m_moved;
     bool                               m_initialized = false;
-    std::map<int,int>                  m_tag_map;
     std::vector<func_request>          m_put_funcs;
     std::vector<func_request>          m_wait_funcs;
     std::vector<std::function<void()>> m_open_funcs;
+#ifdef GHEX_BULK_UNIQUE_TAGS
+    std::map<int,int>                  m_tag_map;
+#endif
 
 public: // ctors
     bulk_communication_object(communicator_type comm)
@@ -384,7 +386,9 @@ public:
             // check if field has the right domain
             if (f.domain_id() == p.domain_id())
             {
+#ifdef GHEX_BULK_UNIQUE_TAGS
                 auto m_it = m_tag_map.insert(std::pair<int,int>(f.domain_id(),0)).first;
+#endif
                 // loop over halos and set up source ranges
                 for (auto h_it = p.send_halos().begin(); h_it != p.send_halos().end(); ++h_it)
                 {
@@ -394,9 +398,12 @@ public:
                         const auto& c = *it;
                         s_range.m_ranges.back().emplace_back(
                             m_comm, f, c, h_it->first.mpi_rank
+#ifdef GHEX_BULK_UNIQUE_TAGS
                             , (m_it->second + h_it->first.tag+1)*10000 + q
+#else
                             // alternatively rely on message ordering:
-                            //, h_it->first.tag
+                            , h_it->first.tag
+#endif
                             ); 
                         ++q;
                     }
@@ -411,14 +418,19 @@ public:
                         const auto& c = *it;
                         t_range.m_ranges.back().emplace_back(
                             m_comm, f, field_info, c, h_it->first.mpi_rank
+#ifdef GHEX_BULK_UNIQUE_TAGS
                             , (m_it->second + h_it->first.tag+1)*10000 + q
+#else
                             // alternatively rely on message ordering:
-                            //, h_it->first.tag
+                            , h_it->first.tag
+#endif
                             , local); 
                         ++q;
                     }
                 }
+#ifdef GHEX_BULK_UNIQUE_TAGS
                 m_it->second += (f_cont.back().m_local_pattern.max_tag()+1);
+#endif
             }
         }
     }
