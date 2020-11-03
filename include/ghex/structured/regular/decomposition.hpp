@@ -18,6 +18,17 @@ namespace ghex {
 namespace structured {
 namespace regular {
 
+// A class which stores a hierarchical domain decomposition.
+// The hierarchy is established through 4 levels which can be mapped to
+// - nodes per run
+// - numa-nodes per node
+// - ranks per numa-node
+// - threads per rank
+//
+// Each level stores the extents of a D-dimensional hypercube. Given a scalar index
+// or a rank-index, thread-index pair it computes the coordinate in D-dimensional space of the
+// corresponding domain. The relative order within each level is Fortran / first dimension has
+// stride=1.
 template<unsigned int D>
 class hierarchical_decomposition
 {

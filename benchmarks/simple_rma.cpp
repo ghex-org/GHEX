@@ -194,14 +194,6 @@ struct simulation
             }
             for (auto& t : threads) t.join();
         }
-
-        //for (int j=1; j<num_threads; ++j)
-        //    timer_vec[0](timer_vec[j]);
-        //auto tt = gridtools::ghex::reduce(timer_vec[0], context.mpi_comm());
-        //if (comm.rank() == 0)
-        //{
-        //    std::cout << "sdev overall t: " << std::setprecision(12) << tt.stddev()/1000000.0 << "\n";
-        //}
     }
 
     void exchange(int j)

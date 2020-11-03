@@ -330,7 +330,7 @@ private: // members
     local_handle_map                   m_local_handle_map;
     moved_bit                          m_moved;
     bool                               m_initialized = false;
-    std::map<int,int>                  m_tag_map; // domain id -> tag
+    std::map<int,int>                  m_tag_map;
     std::vector<func_request>          m_put_funcs;
     std::vector<func_request>          m_wait_funcs;
     std::vector<std::function<void()>> m_open_funcs;
@@ -395,6 +395,7 @@ public:
                         s_range.m_ranges.back().emplace_back(
                             m_comm, f, c, h_it->first.mpi_rank
                             , (m_it->second + h_it->first.tag+1)*10000 + q
+                            // alternatively rely on message ordering:
                             //, h_it->first.tag
                             ); 
                         ++q;
@@ -411,6 +412,7 @@ public:
                         t_range.m_ranges.back().emplace_back(
                             m_comm, f, field_info, c, h_it->first.mpi_rank
                             , (m_it->second + h_it->first.tag+1)*10000 + q
+                            // alternatively rely on message ordering:
                             //, h_it->first.tag
                             , local); 
                         ++q;

@@ -39,30 +39,7 @@ using gpu_to_gpu = std::integral_constant<bool,
     std::is_same<typename SourceField::arch_type, gridtools::ghex::gpu>::value &&
     std::is_same<typename TargetField::arch_type, gridtools::ghex::gpu>::value>;
 
-//template<typename SourceField, typename TargetField>
-//inline std::enable_if_t<
-//    cpu_to_cpu<SourceField,TargetField>::value && !rma_range<SourceField>::fuse_components::value>
-//put(rma_range<SourceField>& s, rma_range<TargetField>& t
-//#ifdef __CUDACC__
-//    , cudaStream_t
-//#endif
-//)
-//{
-//    using sv_t = rma_range<SourceField>;
-//    using coordinate = typename sv_t::coordinate;
-//    gridtools::ghex::detail::for_loop<
-//        sv_t::dimension::value,
-//        sv_t::dimension::value,
-//        typename sv_t::layout, 0>::
-//    apply([&s,&t](auto... c)
-//    {
-//        //std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
-//        const auto coord = coordinate{c...};
-//        const auto v = s(coord);
-//        t(coord) = v;
-//    },
-//    s.m_begin, s.m_end);
-//}
+// attributes needed for gcc to produce optimized code
 template<typename SourceField, typename TargetField>
 __attribute__ ((optimize ("no-tree-loop-distribute-patterns")))
 __attribute__ ((target ("sse2")))
@@ -82,7 +59,6 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
         typename sv_t::layout, 1>::
     apply([&s,&t](auto... c)
     {
-        // std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
         auto dst = t.ptr(coordinate{c...});
         auto src = s.ptr(coordinate{c...});
         for (unsigned int i=0; i<s.m_chunk_size_; ++i)

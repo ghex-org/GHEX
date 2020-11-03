@@ -17,6 +17,8 @@
 namespace gridtools {
 namespace ghex {
 
+// a class that stores the extents of an N-dimensional hypercube
+// given a scalar index it computes the coordinates within this cube
 template<unsigned int N>
 class dims_map
 {
@@ -93,6 +95,7 @@ public:
     }
 };
 
+// alias definition used for a hierarchical, regular domain decomposition
 template<unsigned int Levels>
 using hierarchical_distribution = dims_map<Levels>;
 
