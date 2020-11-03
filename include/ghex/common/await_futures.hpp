@@ -26,35 +26,18 @@ inline void await_futures(std::vector<Future>& range, Continuation&& cont)
     static thread_local std::vector<int> index_list;
     index_list.resize(range.size());
     std::iota(index_list.begin(), index_list.end(), 0);
-    while (index_list.size())
+    const auto begin = index_list.begin();
+    auto end = index_list.end();
+    while (begin != end)
     {
-        index_list.resize(
-                std::remove_if(index_list.begin(), index_list.end(),
-                    [&range, cont = std::forward<Continuation>(cont)](int idx)
-                    {
-                        if (range[idx].test())
-                        {
-                            cont(range[idx].get());
-                            return true;
-                        } else return false;
-                    })
-                - index_list.begin());
-    }
-}
-
-/** @brief wait for all requests in a range to finish **/
-template<typename Request>
-inline void await_requests(std::vector<Request>& range)
-{
-    static thread_local std::vector<int> index_list;
-    index_list.resize(range.size());
-    std::iota(index_list.begin(), index_list.end(), 0);
-    while (index_list.size())
-    {
-        index_list.resize(
-                std::remove_if(index_list.begin(), index_list.end(),
-                    [&range](int idx) { return range[idx].test(); })
-                - index_list.begin());
+        end = std::remove_if(begin, end, [&range, cont = std::forward<Continuation>(cont)](int idx)
+        {
+            if (range[idx].test())
+            {
+                cont(range[idx].get());
+                return true;
+            } else return false;
+        });
     }
 }
 
@@ -66,14 +49,20 @@ inline void await_requests(std::vector<Request>& range, Progress&& progress)
     static thread_local std::vector<int> index_list;
     index_list.resize(range.size());
     std::iota(index_list.begin(), index_list.end(), 0);
-    while (index_list.size())
+    const auto begin = index_list.begin();
+    auto end = index_list.end();
+    while (begin != end)
     {
         progress();
-        index_list.resize(
-                std::remove_if(index_list.begin(), index_list.end(),
-                    [&range](int idx) { return range[idx].test(); })
-                - index_list.begin());
+        end = std::remove_if(begin, end, [&range](int idx) { return range[idx].test(); });
     }
+}
+
+/** @brief wait for all requests in a range to finish **/
+template<typename Request>
+inline void await_requests(std::vector<Request>& range)
+{
+    await_requests(range, [](){});
 }
 
 } // namespace ghex
