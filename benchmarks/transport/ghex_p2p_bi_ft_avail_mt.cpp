@@ -149,6 +149,7 @@ int main(int argc, char *argv[])
             int dbg = 0, sdbg = 0, rdbg = 0;
             int last_received = 0;
             int last_sent = 0;
+	    int lsent = 0, lrecv = 0;	    
             while(sent < niter || received < niter)
             {
                 for(int j=0; j<inflight; j++)
@@ -175,13 +176,15 @@ int main(int argc, char *argv[])
 
                     if(rreqs[j].test()) {
                         received++;
+			lrecv++;
                         rdbg+=num_threads;
                         dbg+=num_threads;
                         rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight + j);
                     }
 
-                    if(sent < niter && sreqs[j].test()) {
+                    if(lsent < lrecv+2*inflight && sent < niter && sreqs[j].test()) {
                         sent++;
+			lsent++;
                         sdbg+=num_threads;
                         dbg+=num_threads;
                         sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight + j);

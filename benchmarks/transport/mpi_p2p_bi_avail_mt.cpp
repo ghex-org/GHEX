@@ -131,17 +131,18 @@ int main(int argc, char *argv[])
         }
 
         int dbg = 0, sdbg = 0, rdbg = 0, flag, j;
+	int lsent = 0, lrecv = 0;
 	char header[256];
 	snprintf(header, 256, "%d total bwdt ", rank);
 	while(sent<niter || received<niter){
 
-	    if(rank==0 && thrid==0 && sdbg>=(niter/10)) {
-		std::cout << sent << " sent\n";
+	    if(thrid==0 && sdbg>=(niter/10)) {
+		std::cout << rank << "   " << sent << " sent\n";
 		sdbg = 0;
 	    }
 
-	    if(rank==0 && thrid==0 && rdbg>=(niter/10)) {
-		std::cout << received << " received\n";
+	    if(thrid==0 && rdbg>=(niter/10)) {
+	      std::cout << rank << "   " << received << " received\n";
 		rdbg = 0;
 	    }
 
@@ -154,7 +155,7 @@ int main(int argc, char *argv[])
 	    }
 
             // testany version is much faster with OpenMPI, esp. for large messages 
-#define USE_TESTANY
+	    // #define USE_TESTANY
 #ifdef USE_TESTANY
 	    MPI_Testany(inflight, rreq, &j, &flag, MPI_STATUS_IGNORE);
 	    if(flag) {
@@ -162,15 +163,17 @@ int main(int argc, char *argv[])
 	        dbg += nthr;
 	        rdbg += nthr;
 	        received++;
+		lrecv++;
 	    }
 
-	    if(sent<niter){
+	    if(lsent < lrecv+2*inflight && sent<niter){
 	        MPI_Testany(inflight, sreq, &j, &flag, MPI_STATUS_IGNORE);
 	        if(flag) {
 	            MPI_Isend(sbuffers[j], buff_size, MPI_BYTE, peer_rank, thrid*inflight+j, mpi_comm, &sreq[j]);
 	            dbg += nthr;
 	            sdbg += nthr;
 	            sent++;
+		    lsent++;
 	        }
 	    }
 #else
@@ -181,17 +184,20 @@ int main(int argc, char *argv[])
                     dbg += nthr;
                     rdbg += nthr;
                     received++;
+		    lrecv++;
                 }
             }
-            for(int i=0; i<inflight; i++){
+	    if(lsent < lrecv+2*inflight)
+	      for(int i=0; i<inflight; i++){
                 MPI_Test(&sreq[i], &j, MPI_STATUS_IGNORE);
                 if(j){
-                    MPI_Isend(sbuffers[i], buff_size, MPI_BYTE, peer_rank, thrid*inflight+i, mpi_comm, &sreq[i]);
-                    dbg += nthr;
-                    sdbg += nthr;
-                    sent++;
+		  MPI_Isend(sbuffers[i], buff_size, MPI_BYTE, peer_rank, thrid*inflight+i, mpi_comm, &sreq[i]);
+		  dbg += nthr;
+		  sdbg += nthr;
+		  sent++;
+		  lsent++;
                 }
-            }
+	      }
 #endif
 	}
 

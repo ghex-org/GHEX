@@ -169,6 +169,7 @@ int main(int argc, char *argv[])
             }
 
             // send/recv niter messages - as soon as a slot becomes free
+	    int lsent = 0, lrecv = 0;
             while(sent < niter || received < niter)
             {
                 if(thread_id == 0 && dbg >= (niter/10))
@@ -203,20 +204,24 @@ int main(int argc, char *argv[])
                         rdbg += num_threads;
                         dbg += num_threads;
                         rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight+j, recv_callback);
+			lrecv++;
                     }
                     else
                         comm.progress();
 
-                    if(sent < niter && smsgs[j].use_count() == 1)
+		    if(lsent < lrecv+2*inflight){
+		      if(sent < niter && smsgs[j].use_count() == 1)
                         //if(sent < niter && sreqs[j].test())
-                    {
-                        submit_cnt += num_threads;
-                        sdbg += num_threads;
-                        dbg += num_threads;
-                        sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
-                    }
-                    else
+			{
+			  submit_cnt += num_threads;
+			  sdbg += num_threads;
+			  dbg += num_threads;
+			  sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
+			  lsent++;
+			}
+		      else
                         comm.progress();
+                    }
                 }
             }
 
