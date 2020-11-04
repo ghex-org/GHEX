@@ -136,7 +136,8 @@ The main concepts needed by |GHEX| are:
       information about how it is connected to other processes.
 
     - **Communicator**: Represents an end-point of a communication, and is obtained from the
-      context.
+      context (this are hidden when using the halo-exchange facilities, this is why the description
+      is placed ath the end of the chapter).
 
     - **Communication Pattern**: Provides application-specific neighbor conntectivity information
       (encodes exposed halos for sending and receiving, for instance)
@@ -144,24 +145,43 @@ The main concepts needed by |GHEX| are:
     - **Communication Object**: Is responsible for executing communications by tying together
       *Communication Pattern*, *Communicator*, and user-data.
 
-.. The interfaces for *context* and *communicator* are slightly richer than what is required by
-   *pure* halo-update operations. We designed contexts and communicators in order to cope with more
-   complex scenarious, where the domain decomposition more dynamic. The interfaces for communication
-   patterns and communication objects are advantageous only
+The following figure depicts the different components and their interactions:
+
+.. figure:: figures/GHEXSWARCH.png
+    :width: 300px
+    :align: center
+    :alt: This should not be visible
+    :figclass: align-center
+
+    Traditional distributed memory data distribution: one process (MPI rank) is responsible for one
+    sub-domain of the decomposed domain.
+
+Domains, halo-generators, and data descriptors are provided by the users, while the light-blue boxes
+are provided by the GHEX library. Some user provided components are also provided by GHEX if
+their implementation is found on common infrastructures, for instance, in Cartesian grids, or
+parmeteis partitioned graphs, or the Atlas library for meshing and domain decomposition by ECMWF.
+
+All these components live in **contexts**, that are the only platform specific interfaces of GHEX.
+This allows for the GHEX codes to be portable across architectures in the sense that the sections
+of the code impacted by the different characteristics of the architectures are confined in limited
+places that can be easily controlled.
+
 
 ------------------------
 Context
 ------------------------
 
 The context manages the underlying transport layer. Among its tasks are initialization, connectivity
-setup, communication end-point management, network topology exploration. It is the first entity
-that is created and the last that is being destroyed.  Contexts maintain state information that the
+setup, communication end-point management, network topology exploration. It is the first GHEX entity
+that is created and the last that is being destroyed (enclosed only by MPI initialization and finalization).  Contexts maintain state information that the
 *communicators* need in order to function. In other words, communicators (presented below) cannot
-outlive the contexts from where they were obtained.
-A context can be compared to a richer version of an MPI-Communicator, such as *MPI_COMM_WORLD*, and
-is encapsulated in a template class of type **communicator**.
+outlive the contexts from where they were obtained. Initialization of contexts is platform specific,
+since different transport layers require different information in the setup phase. Contexts assumes
+that MPI is already initialized at the time of initialization. An MPI communicator is passed to it as
+first argument, while subsequent arguments may be required for non-MPI transport layers, such as UCX
+and Libfabric.
 
-|GHEX| assumes the availabilty of an MPI library implementation on the platform where it is run.
+|GHEX| assumes the availabilty of an MPI library implementation on the platform.
 While this is not strictly needed conceptually, the vast majority of HPC applications rely on MPI
 (for instance by using PGAS languages or runtime-systems such as HPX) and, thus, we can take
 advantage of the infrastructre provided through MPI for our implementation. This simplifies creation
@@ -187,7 +207,7 @@ transport layer. The syntax looks like this:
     using transport = gridtools::ghex::tl::mpi_tag;
     #endif
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD, other_args);
 
 In the above example the use of ``#ifdef`` is an example of how code can be made portable by minimal
 use of macros, and a recompilation.
@@ -213,8 +233,129 @@ another directly. The same for the communicators obtianed from ``context_ptrB``.
 
 .. note::
 
-   **Thread safety:** A context shall be created in a serial part of the code. Usage of a context is
-   thread-safe.
+   **Thread safety:** A context shall be created in a (process-)serial part of the code.
+   Usage of a context is thread-safe.
+
+------------------------
+Communication Pattern
+------------------------
+
+In order to perform halo-update operations, the user needs to provide information about the domain,
+the domain decomposition, the sizes of the halos and the access to the data.
+One of the most important aspects of |GHEX| is the choice of not imposing a domain decomposition
+strategy, that would possibly result in sub-optimal solutions or not match the developer thinking process.
+Instead, the user is providing descriptions of the above mentioned concepts as adaptors to their
+implementation.  After all, domain
+decomposed applications all have to refer to similar information, even though the encoding of this
+information differs in all sorts of details in different applications.
+The user of |GHEX| needs to provide standard functions that |GHEX| will call to gather/access the
+necessary information, and these functions form a thin layer that interfaces the specific domain
+decomposition implementation and |GHEX|. We are providing some components directly, in order to
+facilitate the interfacing in the most common cases and showcase the approach.
+
+The *communication pattern* itself encodes the neighbor information with respect to a
+domain decomposition and halo shapes.
+The way |GHEX| digests user input is through adaptor classes. Since structured and unstructured
+grids are rather different, we have decieded to specialize all concepts and classes for either case. Let us
+first look at the structured grids.
+
+For a given application, the following concepts need to be implemented:
+
+- **domain descriptor:** a class which describes a domain which provide (at least) the following interface
+
+.. code-block:: cpp
+
+    // this class must be (cheaply) copy constructible.
+
+    public: // member types
+        using domain_id_type      = ...;  // a globally unique id type which can be compared
+        using dimension           = ...;  // A integral constant
+        using coordinate_type     = ...;  // An array-like type
+
+    public: // member functions
+        domain_id_type domain_id() const;     // returns the id
+        const coordinate_type& first() const; // returns the coordinate to the first (physical)
+                                              // point in global coordinates
+        const coordinate_type& last() const;  // returns the coordinate to the last (physical)
+                                              // point in global coordinates
+
+Note that the constructors, or any additional functionality, are not shown here, since they are not needed by |GHEX|. The user of |GHEX| construct those and give the objects with those prescribed characteristics to |GHEX|.
+
+The ``domain_id_type`` needs to be comparable, and at least operators ``<`` and ``==`` should be provided.
+
+- **domain region**
+
+.. code-block:: cpp
+
+    public: // member functions
+        const coordinate_type& first() const;
+        const coordinate_type& last() const;
+
+- **halo region**
+
+.. code-block:: cpp
+
+    public: // member functions
+        const domain_region& local() const;
+        const domain_region& global() const;
+
+- **halo generator:** a class which generates a halo given a domain descriptor, with the following
+  interface
+
+.. code-block:: cpp
+
+    public: // member functions
+        std::vector<halo_region> operator()(const domain_descriptor& dom) const;
+        halo_region intersect(const domain_type& d,
+            const coordinate_type& first_a_local,  const coordinate_type& last_a_local,
+            const coordinate_type& first_a_global, const coordinate_type& last_a_global,
+            const coordinate_type& first_b_global, const coordinate_type& last_b_global) const;
+
+
+Creation of a pattern container:
+
+.. code-block:: cpp
+
+        template<typename GridType, typename Transport, typename HaloGenerator, typename DomainRange>
+        auto make_pattern(context<Transport>& context, HaloGenerator&& hgen, DomainRange&& d_range);
+
+with ``GridType`` equal to ``structured::grid``.
+
+In the case of unstructured grids:
+
+------------------------
+Communication Object
+------------------------
+
+- **field descriptor:**
+
+.. code-block:: cpp
+
+    public: // member types
+        using value_type      = ...; // fields value type
+        using arch_type       = ...; // fields location (cpu or gpu)
+        using dimension       = ...; // integral constant with the number of dimensions
+                                     // including possible additional dimensions due to
+                                     // multiples components
+        using layout_map      = ...; // memory layout (gridtools::layout_map<...>)
+        using coordinate_type = ...; // an array-like type with basic arithmetic operations
+
+    public: // queries
+        typename arch_traits<arch_type>::device_id_type device_id() const;
+        domain_id_type domain_id() const;
+        const coordinate_type& extents() const;
+        const coordinate_type& offsets() const;
+        const auto& byte_strides() const;
+        value_type* data() const;
+        int num_components() const;
+        bool is_vector_field() const;
+
+    public: // member functions
+        template<typename IndexContainer>
+        void pack(value_type* buffer, const IndexContainer& c, void* arg);
+
+        template<typename IndexContainer>
+        void unpack(const value_type* buffer, const IndexContainer& c, void* arg);
 
 ------------------------
 Communicator
@@ -222,7 +363,7 @@ Communicator
 
 A context generates and keeps communicators. A communicator represents the end-point of a
 communication and is obtained from a context.  Communicators coming from different contexts cannot
-communicate with one another in any way, creating isolation of communications, which is useful for
+communicate with one another, creating isolation of communications, which is useful for
 program composition and creating abstractions.
 
 To get a communicator, the user calls
@@ -264,7 +405,7 @@ different communicators, and the concurrency is managed by the MPI runtime syste
 initialized with ``MPI_THREAD_MULTI`` option. In UCX we can exploit concurrency differently: each
 communicator has its private end-point for sending, while the receives are all channeled through a single
 end-point on the process. This choice was dictated by benchmarks that showed this solution was the
-most efficient. The same code runs well with MPI and UCX transport layers, despite a different way
+most efficient. The same code runs with MPI and UCX transport layers, despite a different way
 of handling concurrency and addressing latency hiding.
 
 .. note::
@@ -295,7 +436,7 @@ with ``.data()`` member function returning a pointer to a region of *contiguous*
 identifiying the type of element that is sent. The function returns a future-like value that can be
 checked using ``.wait()`` to check that the message has been sent (the future does not guarantee the
 message has been delivered). This variant **does not take ownership of the message** (but refers to
-the address of the memory only) an the user is responsible to keep the message alive until the
+the address of the memory only) and the user is responsible to keep the message alive until the
 communication has finished.
 
 Similarly, the second function reveives into a message, with the same requirements as before, and
@@ -384,122 +525,3 @@ Here, the owenership is obviously shared between the user and |GHEX|.
 
    **Thread safety:** A communicator is thread-compatible, i.e. it is created per thread. One must
    not use the same communicator from more than one thread.
-
-------------------------
-Communication Pattern
-------------------------
-
-In order to perform halo-update operations, the user needs to provide information about the domain,
-the domain decomposition, the sizes of the halos and the access to the data.
-One of the most important aspects of |GHEX| is the choice of not imposing a domain decomposition
-strategy, that would possibly result in sub-optimal solutions. Instead, the user is providing
-descriptions of the above mentioned concepts as adaptors to their implementation.  After all, domain
-decomposed applications all have to refer to similar information, even though the encoding of this
-information differs in all sorts of details in different applications.
-The user of |GHEX| needs to provide standard functions that |GHEX| will call to gather/access the
-necessary information, and these functions form a thin layer that interfaces the specific domain
-decomposition implementation and |GHEX|. We are providing some components directly, in order to
-facilitate the interfacing in the most common cases.
-
-The *communication pattern* itself encodes the neighbor information with respect to a givien halo
-and domain decomposition. It does not deal with any data, but works on the level of (sub-) domains
-only.
-
-The way |GHEX| digests user input is through adaptor classes. Since structured and unstructured
-grids are rather different, we have decieded to specialize all concepts and classes for either case. Let us
-first look at the structured grids.
-
-For a given application, the following concepts need to be implemented:
-
-- **domain descriptor:** a class which describes a domain with the following interface
-
-.. code-block:: cpp
-
-    // this class must be (cheaply) copy constructible.
-
-    public: // member types
-        using domain_id_type      = ...;  // a globally unique id type which can be compared
-        using dimension           = ...;  // A integral constant
-        using coordinate_type     = ...;  // An array-like type
-
-    public: // member functions
-        domain_id_type domain_id() const;     // returns the id
-        const coordinate_type& first() const; // returns the coordinate to the first (physical)
-                                              // point in global coordinates
-        const coordinate_type& last() const;  // returns the coordinate to the last (physical)
-                                              // point in global coordinates
-
-- **domain region**
-
-.. code-block:: cpp
-
-    public: // member functions
-        const coordinate_type& first() const;
-        const coordinate_type& last() const;
-
-- **halo region**
-
-.. code-block:: cpp
-
-    public: // member functions
-        const domain_region& local() const;
-        const domain_region& global() const;
-
-- **halo generator:** a class which generates a halo given a domain descriptor, with the following
-  interface
-
-.. code-block:: cpp
-
-    public: // member functions
-        std::vector<halo_region> operator()(const domain_descriptor& dom) const;
-        halo_region intersect(const domain_type& d,
-            const coordinate_type& first_a_local,  const coordinate_type& last_a_local,
-            const coordinate_type& first_a_global, const coordinate_type& last_a_global,
-            const coordinate_type& first_b_global, const coordinate_type& last_b_global) const;
-
-
-Creation of a pattern container:
-
-.. code-block:: cpp
-
-        template<typename GridType, typename Transport, typename HaloGenerator, typename DomainRange>
-        auto make_pattern(context<Transport>& context, HaloGenerator&& hgen, DomainRange&& d_range);
-
-with ``GridType`` equal to ``structured::grid``.
-
-In the case of unstructured grids:
-
-------------------------
-Communication Object
-------------------------
-
-- **field descriptor:**
-
-.. code-block:: cpp
-
-    public: // member types
-        using value_type      = ...; // fields value type
-        using arch_type       = ...; // fields location (cpu or gpu)
-        using dimension       = ...; // integral constant with the number of dimensions
-                                     // including possible additional dimensions due to
-                                     // multiples components
-        using layout_map      = ...; // memory layout (gridtools::layout_map<...>)
-        using coordinate_type = ...; // an array-like type with basic arithmetic operations
-
-    public: // queries
-        typename arch_traits<arch_type>::device_id_type device_id() const;
-        domain_id_type domain_id() const;
-        const coordinate_type& extents() const;
-        const coordinate_type& offsets() const;
-        const auto& byte_strides() const;
-        value_type* data() const;
-        int num_components() const;
-        bool is_vector_field() const;
-
-    public: // member functions
-        template<typename IndexContainer>
-        void pack(value_type* buffer, const IndexContainer& c, void* arg);
-
-        template<typename IndexContainer>
-        void unpack(const value_type* buffer, const IndexContainer& c, void* arg);
-

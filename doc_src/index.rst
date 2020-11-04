@@ -1,6 +1,6 @@
 
-GridTools
-=========
+GHEX
+====
 
 Welcome to the documentation of GHEX. Please visit
 our `github <https://github.com/GridTools/GHEX>`_ repository for more information.
