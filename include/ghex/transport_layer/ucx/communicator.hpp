@@ -1,46 +1,45 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
-#ifndef INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP
-#define INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP
+#ifndef INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP
+#define INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP
 
 #include <atomic>
+#include <mutex>
 #include "../shared_message_buffer.hpp"
 #include "./future.hpp"
+#include "../util/pthread_spin_mutex.hpp"
 
 namespace gridtools {
     namespace ghex {
         namespace tl {
-		    
-            namespace ucx {    
 
-                template<typename ThreadPrimitives>
+            namespace ucx {
+
                 struct communicator
                 {
-                    using worker_type            = worker_t<ThreadPrimitives>;
-                    using thread_primitives_type = ThreadPrimitives;
-                    using thread_token           = typename thread_primitives_type::token;
+                    using worker_type            = worker_t;
                     using rank_type              = endpoint_t::rank_type;
                     using tag_type               = typename worker_type::tag_type;
-                    using request                = request_ft<ThreadPrimitives>;
+                    using request                = request_ft;
                     template<typename T>
-                    using future                 = future_t<T,ThreadPrimitives>;
+                    using future                 = future_t<T>;
                     // needed for now for high-level API
                     using address_type           = rank_type;
-                    
-                    using request_cb_type        = request_cb<ThreadPrimitives>;
+
+                    using request_cb_type        = request_cb;
                     using request_cb_data_type   = typename request_cb_type::data_type;
                     using request_cb_state_type  = typename request_cb_type::state_type;
                     using message_type           = typename request_cb_type::message_type;
                     using progress_status        = gridtools::ghex::tl::cb::progress_status;
-                    
+
                     worker_type*  m_recv_worker;
                     worker_type*  m_send_worker;
                     ucp_worker_h  m_ucp_rw;
@@ -65,7 +64,12 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
-                   
+                    typename worker_type::transport_context_type const& context() const noexcept { return m_send_worker->context(); }
+
+
+                    bool is_local(rank_type r) const noexcept { return m_recv_worker->rank_topology().is_local(r); }
+                    rank_type local_rank() const noexcept { return m_recv_worker->rank_topology().local_rank(); }
+
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.
                      * @tparam Message a meassage type
@@ -77,7 +81,7 @@ namespace gridtools {
                     [[nodiscard]] future<void> send(const Message &msg, rank_type dst, tag_type tag)
                     {
                         const auto& ep = m_send_worker->connect(dst);
-                        const auto stag = ((std::uint_fast64_t)tag << 32) | 
+                        const auto stag = ((std::uint_fast64_t)tag << 32) |
                                            (std::uint_fast64_t)(rank());
                         auto ret = ucp_tag_send_nb(
                             ep.get(),                                        // destination
@@ -86,12 +90,12 @@ namespace gridtools {
                             ucp_dt_make_contig(1),                           // data type
                             stag,                                            // tag
                             &communicator::empty_send_callback);             // callback function pointer: empty here
-                        
+
                         if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
                         {
                             // send operation is completed immediately and the call-back function is not invoked
                             return request{nullptr};
-                        } 
+                        }
                         else if(!UCS_PTR_IS_ERR(ret))
                         {
                             return request{request::data_type::construct(ret, m_recv_worker, m_send_worker, request_kind::send)};
@@ -102,7 +106,7 @@ namespace gridtools {
                             throw std::runtime_error("ghex: ucx error - send operation failed");
                         }
                     }
-		
+
                     /** @brief receive a message. The message must be kept alive by the caller until the communication is
                      * finished.
                      * @tparam Message a meassage type
@@ -113,11 +117,9 @@ namespace gridtools {
                     template <typename Message>
                     [[nodiscard]] future<void> recv(Message &msg, rank_type src, tag_type tag)
                     {
-                        const auto rtag = ((std::uint_fast64_t)tag << 32) | 
+                        const auto rtag = ((std::uint_fast64_t)tag << 32) |
                                            (std::uint_fast64_t)(src);
-                        return m_send_worker->m_thread_primitives->critical(
-                            [this,rtag,&msg,src,tag]()
-                            {
+                        std::lock_guard<worker_type::mutex_t> lock(m_send_worker->mutex());
                                 auto ret = ucp_tag_recv_nb(
                                     m_recv_worker->get(),                            // worker
                                     msg.data(),                                      // buffer
@@ -147,8 +149,6 @@ namespace gridtools {
                                     // an error occurred
                                     throw std::runtime_error("ghex: ucx error - recv operation failed");
                                 }
-                            }
-                        );
                     }
 
                     /** @brief Function to poll the transport layer and check for completion of operations with an
@@ -160,25 +160,23 @@ namespace gridtools {
                         gridtools::ghex::tl::cb::progress_status status;
                         int p = 0;
                         p+= ucp_worker_progress(m_ucp_sw);
-			
-			/* this is really important for large-scale multithreading */
-			sched_yield();
-			
+
+                        /* this is really important for large-scale multithreading */
+                        sched_yield();
+
                         status.m_num_sends = std::exchange(m_send_worker->m_progressed_sends, 0);
-                        m_send_worker->m_thread_primitives->critical(
-                            [this,&p,&status]()
-                            {
-                                p+= ucp_worker_progress(m_ucp_rw);
-                                status.m_num_recvs = std::exchange(m_recv_worker->m_progressed_recvs, 0);
-                                status.m_num_cancels = std::exchange(m_recv_worker->m_progressed_cancels, 0);
-                            }
-                        );
+                        {
+                        std::lock_guard<worker_type::mutex_t> lock(m_send_worker->mutex());
+                        p+= ucp_worker_progress(m_ucp_rw);
+                        status.m_num_recvs = std::exchange(m_recv_worker->m_progressed_recvs, 0);
+                        status.m_num_cancels = std::exchange(m_recv_worker->m_progressed_cancels, 0);
+                        }
                         return status;
                     }
-	    
+
                    /** @brief send a message and get notified with a callback when the communication has finished.
                      * The ownership of the message is transferred to this communicator and it is safe to destroy the
-                     * message at the caller's site. 
+                     * message at the caller's site.
                      * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
                      * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
                      * @param msg r-value reference to any_message instance
@@ -190,7 +188,7 @@ namespace gridtools {
                     request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
                         const auto& ep = m_send_worker->connect(dst);
-                        const auto stag = ((std::uint_fast64_t)tag << 32) | 
+                        const auto stag = ((std::uint_fast64_t)tag << 32) |
                                            (std::uint_fast64_t)(rank());
                         auto ret = ucp_tag_send_nb(
                             ep.get(),                                        // destination
@@ -199,7 +197,7 @@ namespace gridtools {
                             ucp_dt_make_contig(1),                           // data type
                             stag,                                            // tag
                             &communicator::send_callback);                   // callback function pointer
-                        
+
                         if (reinterpret_cast<std::uintptr_t>(ret) == UCS_OK)
                         {
                             // send operation is completed immediately and the call-back function is not invoked
@@ -207,7 +205,7 @@ namespace gridtools {
                             callback(std::move(msg), dst, tag);
                             ++(m_send_worker->m_progressed_sends);
                             return {};
-                        } 
+                        }
                         else if(!UCS_PTR_IS_ERR(ret))
                         {
                             auto req_ptr = request_cb_data_type::construct(ret,
@@ -229,7 +227,7 @@ namespace gridtools {
 
                    /** @brief receive a message and get notified with a callback when the communication has finished.
                      * The ownership of the message is transferred to this communicator and it is safe to destroy the
-                     * message at the caller's site. 
+                     * message at the caller's site.
                      * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
                      * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
                      * @param msg r-value reference to any_message instance
@@ -240,12 +238,10 @@ namespace gridtools {
                     template<typename CallBack>
                     request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {
-                        const auto rtag = ((std::uint_fast64_t)tag << 32) | 
+                        const auto rtag = ((std::uint_fast64_t)tag << 32) |
                                            (std::uint_fast64_t)(src);
-                        return m_send_worker->m_thread_primitives->critical(
-                            [this,rtag,&msg,src,tag,&callback]()
-                            {
-                                auto ret = ucp_tag_recv_nb(
+                        std::lock_guard<worker_type::mutex_t> lock(m_send_worker->mutex());
+                        auto ret = ucp_tag_recv_nb(
                                     m_ucp_rw,                                        // worker
                                     msg.data(),                                      // buffer
                                     msg.size(),                                      // buffer size
@@ -255,12 +251,12 @@ namespace gridtools {
                                     &communicator::recv_callback);                   // callback function pointer
                                 if(!UCS_PTR_IS_ERR(ret))
                                 {
-			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
+                                    if (UCS_INPROGRESS != ucp_request_check_status(ret))
                                     {
                                         // early completed
                                         callback(std::move(msg), src, tag);
                                         ++(m_recv_worker->m_progressed_recvs);
-		    		                    // we need to free the request here, not in the callback
+                                        // we need to free the request here, not in the callback
                                         auto ucx_ptr = ret;
                                         request_cb_data_type::get(ucx_ptr).m_kind = request_kind::none;
 				                        ucp_request_free(ucx_ptr);
@@ -284,24 +280,10 @@ namespace gridtools {
                                     // an error occurred
                                     throw std::runtime_error("ghex: ucx error - recv operation failed");
                                 }
-                            }
-                        );
                     }
 
-		  void barrier(MPI_Comm comm)
-		  {
-		    MPI_Request req = MPI_REQUEST_NULL;
-		    int flag;
-		    MPI_Ibarrier(comm, &req);
-		    while(true) {
-		      progress();
-		      MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-		      if(flag) break;
-		    }
-		  }
-
                 private:
-                    
+
                     static void empty_send_callback(void *, ucs_status_t) {}
 
                     static void empty_recv_callback(void *, ucs_status_t, ucp_tag_recv_info_t*) {}
@@ -349,13 +331,13 @@ namespace gridtools {
                         }
                         else if (status == UCS_ERR_CANCELED)
                         {
-			                // canceled - do nothing
+                            // canceled - do nothing
                             ++(req.m_worker->m_progressed_cancels);
                             // set completion bit
                             *req.m_completed = true;
                             // destroy the request - releases the message
                             req.m_kind = request_kind::none;
-                            req.~request_cb_data_type(); 
+                            req.~request_cb_data_type();
                             // free ucx request
                             ucp_request_free(ucx_req);
                         }
@@ -372,5 +354,4 @@ namespace gridtools {
     } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_TL_UCX_COMMUNICATOR_CONTEXT_HPP */
-
+#endif /* INCLUDED_GHEX_TL_UCX_COMMUNICATOR_HPP */
