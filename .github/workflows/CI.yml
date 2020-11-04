@@ -27,4 +27,5 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
-        run: cd build && export SHLVL=1 && env &&  ctest --timeout 40
+        run: cd build && export SHLVL=1 && env &&  ctest 
+

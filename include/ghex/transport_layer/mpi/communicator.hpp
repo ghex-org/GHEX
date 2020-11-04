@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP
 #define INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP
@@ -21,28 +21,24 @@
 #include "./communicator_state.hpp"
 
 namespace gridtools {
-    
+
     namespace ghex {
 
         namespace tl {
-            
-            template<typename ThreadPrimitives>
-            struct transport_context<mpi_tag, ThreadPrimitives>;
+
+            struct transport_context<mpi_tag>;
 
             namespace mpi {
 
                 /** @brief A communicator for MPI point-to-point communication.
                   * This class is lightweight and copying/moving instances is safe and cheap.
                   * Communicators can be created through the context, and are thread-compatible.
-                  * @tparam ThreadPrimitives The thread primitives type */
-                template<typename ThreadPrimitives>
+                  */
                 class communicator {
                   public: // member types
-                    using thread_primitives_type = ThreadPrimitives;
-                    using shared_state_type = shared_communicator_state<ThreadPrimitives>;
+                    using shared_state_type = shared_communicator_state;
                     using transport_context_type = typename shared_state_type::transport_context_type;
-                    using thread_token = typename thread_primitives_type::token;
-                    using state_type = communicator_state<ThreadPrimitives>;
+                    using state_type = communicator_state;
                     using rank_type = typename state_type::rank_type;
                     using tag_type = typename state_type::tag_type;
                     using request = request_t;
@@ -50,7 +46,7 @@ namespace gridtools {
                     template<typename T>
                     using future = typename state_type::template future<T>;
                     using address_type    = rank_type;
-                    using request_cb_type = request_cb<ThreadPrimitives>;
+                    using request_cb_type = request_cb;
                     using message_type    = typename request_cb_type::message_type;
                     using progress_status = typename state_type::progress_status;
 
@@ -72,6 +68,10 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_shared_state->rank(); }
                     rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
+                    transport_context_type const& context() const noexcept { return m_shared_state->context(); }
+
+                    bool is_local(rank_type r) const noexcept; // implementation in mpi/context.hpp
+                    rank_type local_rank() const noexcept; // implementation in mpi/context.hpp
 
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.
@@ -115,7 +115,7 @@ namespace gridtools {
 
                    /** @brief send a message and get notified with a callback when the communication has finished.
                      * The ownership of the message is transferred to this communicator and it is safe to destroy the
-                     * message at the caller's site. 
+                     * message at the caller's site.
                      * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
                      * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
                      * @param msg r-value reference to any_message instance
@@ -136,14 +136,14 @@ namespace gridtools {
                         else
                         {
                             return { &m_state->m_send_queue,
-                                m_state->m_send_queue.enqueue(std::move(msg), dst, tag, std::move(fut), 
+                                m_state->m_send_queue.enqueue(std::move(msg), dst, tag, std::move(fut),
                                         std::forward<CallBack>(callback))};
                         }
                     }
-                    
+
                    /** @brief receive a message and get notified with a callback when the communication has finished.
                      * The ownership of the message is transferred to this communicator and it is safe to destroy the
-                     * message at the caller's site. 
+                     * message at the caller's site.
                      * Note, that the communicator has to be progressed explicitely in order to guarantee completion.
                      * @tparam CallBack a callback type with the signature void(message_type, rank_type, tag_type)
                      * @param msg r-value reference to any_message instance
@@ -164,14 +164,11 @@ namespace gridtools {
                         else
                         {
                             return { &m_state->m_recv_queue,
-                                m_state->m_recv_queue.enqueue(std::move(msg), src, tag, std::move(fut), 
+                                m_state->m_recv_queue.enqueue(std::move(msg), src, tag, std::move(fut),
                                         std::forward<CallBack>(callback))};
                         }
                     }
 
-		  void barrier(MPI_Comm comm) {
-		    MPI_Barrier(comm);
-		  }
                 };
 
             } // namespace mpi
@@ -183,4 +180,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_TL_MPI_COMMUNICATOR_HPP */
-

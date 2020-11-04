@@ -1,17 +1,16 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object_2.hpp>
-#include <ghex/threads/none/primitives.hpp>
 #include <ghex/structured/cubed_sphere/halo_generator.hpp>
 #include <ghex/structured/cubed_sphere/field_descriptor.hpp>
 
@@ -22,8 +21,8 @@ using transport = gridtools::ghex::tl::mpi_tag;
 #include <ghex/transport_layer/ucx/context.hpp>
 using transport = gridtools::ghex::tl::ucx_tag;
 #endif
-using threading = gridtools::ghex::threads::none::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+
+using context_type = gridtools::ghex::tl::context<transport>;
 
 #include <iostream>
 #include <iomanip>
@@ -51,18 +50,18 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 //
 // here we have each tile/face decomposed into 4 parts
 // neigborhood of a tile/face is depicted below (tile in the center, neighbors around in -y,-x,+x,+y directions)
-//              
+//
 // -------------------------------------------------------+-------------------------------------------------------
-//                       even tiles                       :                      odd tiles                        
+//                       even tiles                       :                      odd tiles
 // -------------------------------------------------------+-------------------------------------------------------
-//                   +--------+--------+                  :                  +--------+--------+                  
-//                   |        |        |                  :                  |        |        |                  
-//                   |        |        |                  :                  |        |        |                  
-//                   |       3|1       |                  :                  |       2|3       |                  
-//                   +--------+--------+                  :                  +--------+--------+                  
-//                   |       2|0   x ∧ |                  :                  | ∧ y   0|1       |                  
-//                   |        |      | |                  :                  | |      |        |                  
-//                   |        |  y<--+ |                  :                  | +-->x  |        |                  
+//                   +--------+--------+                  :                  +--------+--------+
+//                   |        |        |                  :                  |        |        |
+//                   |        |        |                  :                  |        |        |
+//                   |       3|1       |                  :                  |       2|3       |
+//                   +--------+--------+                  :                  +--------+--------+
+//                   |       2|0   x ∧ |                  :                  | ∧ y   0|1       |
+//                   |        |      | |                  :                  | |      |        |
+//                   |        |  y<--+ |                  :                  | +-->x  |        |
 // +--------+--------+--------+--------+--------+--------+:+--------+--------+--------+--------+--------+--------+
 // | +-->y  |        |        |        |        |        |:|        |        |        |        | +-->y  |        |
 // | |      |        |        |        |        |        |:|        |        |        |        | |      |        |
@@ -72,14 +71,14 @@ using context_type = gridtools::ghex::tl::context<transport, threading>;
 // |        |        | |      |        | |      |        |:| |      |        | |      |        |        |        |
 // |        |        | +-->x  |        | +-->x  |        |:| +-->x  |        | +-->x  |        |        |        |
 // +--------+--------+--------+--------+--------+--------+:+--------+--------+--------+--------+--------+--------+
-//                   |        |        |                  :                  |        |        |                  
-//                   |        |        |                  :                  |        |        |                  
-//                   |       2|3       |                  :                  |       3|1       |                  
-//                   +--------+--------+                  :                  +--------+--------+                  
-//                   | ∧ y   0|1       |                  :                  |       2|0   x ∧ |                  
-//                   | |      |        |                  :                  |        |      | |                  
-//                   | +-->x  |        |                  :                  |        |  y<--+ |                  
-//                   +--------+--------+                  :                  +--------+--------+                  
+//                   |        |        |                  :                  |        |        |
+//                   |        |        |                  :                  |        |        |
+//                   |       2|3       |                  :                  |       3|1       |
+//                   +--------+--------+                  :                  +--------+--------+
+//                   | ∧ y   0|1       |                  :                  |       2|0   x ∧ |
+//                   | |      |        |                  :                  |        |      | |
+//                   | +-->x  |        |                  :                  |        |  y<--+ |
+//                   +--------+--------+                  :                  +--------+--------+
 // -------------------------------------------------------+-------------------------------------------------------
 
 // helper macro for checks
@@ -131,7 +130,7 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -140,7 +139,7 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -161,7 +160,7 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -182,7 +181,7 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
@@ -191,7 +190,7 @@ void check_even_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
@@ -212,7 +211,7 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*2 + 1000*c + z +
-                        100*(n+x-field.offsets()[0]) + 
+                        100*(n+x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -221,7 +220,7 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -247,7 +246,7 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -267,7 +266,7 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
@@ -276,7 +275,7 @@ void check_even_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
@@ -307,7 +306,7 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -316,7 +315,7 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -337,7 +336,7 @@ void check_even_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -386,7 +385,7 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(n+x-field.offsets()[0]) + 
+                        100*(n+x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -395,7 +394,7 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -404,7 +403,7 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -424,7 +423,7 @@ void check_even_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -482,7 +481,7 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(n+y-field.offsets()[1]) + 
+                        100*(n+y-field.offsets()[1]) +
                         10*(n-(x-field.offsets()[0])-1);
                     const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -492,7 +491,7 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
-                        100*(n+y-field.offsets()[1]) + 
+                        100*(n+y-field.offsets()[1]) +
                         10*(n-(x-field.offsets()[0]-n)-1);
                     const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -513,7 +512,7 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -533,7 +532,7 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*2 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
@@ -542,7 +541,7 @@ void check_odd_0(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
@@ -563,7 +562,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*3 + 1000*c + z +
-                        100*(n+y-field.offsets()[1]) + 
+                        100*(n+y-field.offsets()[1]) +
                         10*(n-(x-field.offsets()[0]+n)-1);
                     const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -573,7 +572,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][2]+1) + 10000*1 + 1000*c + z +
-                        100*(n+y-field.offsets()[1]) + 
+                        100*(n+y-field.offsets()[1]) +
                         10*(n-(x-field.offsets()[0])-1);
                     const value_type v_factor = (field.is_vector_field() && c==0) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -600,7 +599,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
-                        100*(n-(y-field.offsets()[1])-1) + 
+                        100*(n-(y-field.offsets()[1])-1) +
                         10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -621,7 +620,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(y-field.offsets()[1]-n);
                     EXPECT_EQ(value, expected);
                 }
@@ -630,7 +629,7 @@ void check_odd_1(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(n-(y-field.offsets()[1]-n)-1) + 
+                        100*(n-(y-field.offsets()[1]-n)-1) +
                         10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -661,7 +660,7 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -670,7 +669,7 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -690,7 +689,7 @@ void check_odd_2(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*3 + 1000*c + z +
-                        100*(x-field.offsets()[0]-n) + 
+                        100*(x-field.offsets()[0]-n) +
                         10*(y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -737,7 +736,7 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*0 + 1000*c + z +
-                        100*(n+x-field.offsets()[0]) + 
+                        100*(n+x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -746,7 +745,7 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(field.domain_id().tile+1) + 10000*1 + 1000*c + z +
-                        100*(x-field.offsets()[0]) + 
+                        100*(x-field.offsets()[0]) +
                         10*(n+y-field.offsets()[1]);
                     EXPECT_EQ(value, expected);
                 }
@@ -755,7 +754,7 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*1 + 1000*c + z +
-                        100*(n-(y-field.offsets()[1]+n)-1) + 
+                        100*(n-(y-field.offsets()[1]+n)-1) +
                         10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -776,7 +775,7 @@ void check_odd_3(const Field& field, int halo, int n) {
                     GHEX_CS_CHECK_VALUE
                     const value_type expected =
                         100000*(tile_lu[field.domain_id().tile][1]+1) + 10000*0 + 1000*c + z +
-                        100*(n-(y-field.offsets()[1])-1) + 
+                        100*(n-(y-field.offsets()[1])-1) +
                         10*(x-field.offsets()[0]-n);
                     const value_type v_factor = (field.is_vector_field() && c==1) ? -1 : 1;
                     EXPECT_EQ(value, v_factor*expected);
@@ -854,15 +853,15 @@ TEST(cubed_sphere, domain)
     using namespace gridtools::ghex::structured::cubed_sphere;
 
     // create context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
-    
+
     // halo generator with 2 halo lines in x and y dimensions (on both sides)
     halo_generator halo_gen(2);
 
     // cube with size 10 and 6 levels
     cube c{10,6};
-    
+
     // define 4 local domains
     domain_descriptor domain0 (c, context.rank(), 0, 4, 0, 4);
     domain_descriptor domain1 (c, context.rank(), 5, 9, 0, 4);
@@ -974,8 +973,8 @@ TEST(cubed_sphere, domain)
     // make a communication object
     using pattern_type = decltype(pattern1);
     auto co = gridtools::ghex::make_communication_object<pattern_type>(
-        context.get_communicator(context.get_token()));
-    
+        context.get_communicator());
+
     // exchange halo data
     co.exchange(
         pattern1(field_dom_0),
@@ -1010,15 +1009,15 @@ TEST(cubed_sphere, domain_vector)
     using namespace gridtools::ghex::structured::cubed_sphere;
 
     // create context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
-    
+
     // halo generator with 2 halo lines in x and y dimensions (on both sides)
     halo_generator halo_gen(2);
-    
+
     // cube with size 10 and 7 levels
     cube c{10,7};
-    
+
     // define 4 local domains
     domain_descriptor domain0 (c, context.rank(), 0, 4, 0, 4);
     domain_descriptor domain1 (c, context.rank(), 5, 9, 0, 4);
@@ -1130,8 +1129,8 @@ TEST(cubed_sphere, domain_vector)
     // make a communication object
     using pattern_type = decltype(pattern1);
     auto co = gridtools::ghex::make_communication_object<pattern_type>(
-        context.get_communicator(context.get_token()));
-    
+        context.get_communicator());
+
     // exchange halo data
     co.exchange(
         pattern1(field_dom_0),
