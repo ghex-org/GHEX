@@ -60,8 +60,8 @@ namespace gridtools {
             };
 
             namespace mpi {
-                bool communicator::is_local(rank_type r) const noexcept { return m_shared_state->m_context->m_rank_topology.is_local(r); }
-                communicator::rank_type communicator::local_rank() const noexcept { return m_shared_state->m_context->m_rank_topology.local_rank(); }
+                inline bool communicator::is_local(rank_type r) const noexcept { return m_shared_state->m_context->m_rank_topology.is_local(r); }
+                inline communicator::rank_type communicator::local_rank() const noexcept { return m_shared_state->m_context->m_rank_topology.local_rank(); }
 
             } // namespace mpi
 

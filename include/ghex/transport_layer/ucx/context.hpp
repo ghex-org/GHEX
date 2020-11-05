@@ -195,7 +195,7 @@ namespace gridtools {
 
             namespace ucx {
 
-                worker_t::worker_t(transport_context_type* c, mutex_t& mm, ucs_thread_mode_t mode)
+                inline worker_t::worker_t(transport_context_type* c, mutex_t& mm, ucs_thread_mode_t mode)
                     : m_context{c}
                     , m_rank(c->rank())
                     , m_size(c->size())
@@ -219,7 +219,7 @@ namespace gridtools {
                         m_worker.m_moved = false;
                     }
 
-                const endpoint_t& worker_t::connect(rank_type rank)
+                inline const endpoint_t& worker_t::connect(rank_type rank)
                 {
                     auto it = m_endpoint_cache.find(rank);
                     if (it != m_endpoint_cache.end())
@@ -229,7 +229,7 @@ namespace gridtools {
                     return p.first->second;
                 }
 
-                const ::gridtools::ghex::tl::mpi::rank_topology& worker_t::rank_topology() const noexcept { return (*m_context).m_rank_topology; }
+                inline const ::gridtools::ghex::tl::mpi::rank_topology& worker_t::rank_topology() const noexcept { return (*m_context).m_rank_topology; }
 
             } // namespace ucx
 

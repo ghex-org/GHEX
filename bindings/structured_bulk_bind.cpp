@@ -158,8 +158,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     }
    
     // TODO: is this still relevant? or do I need comm as argument?
-    auto token = context->get_token();
-    auto comm  = context->get_communicator(token);
+    auto comm  = context->get_communicator();
     
     auto bco = gridtools::ghex::bulk_communication_object<
 	gridtools::ghex::structured::rma_range_generator,

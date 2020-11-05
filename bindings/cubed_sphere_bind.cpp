@@ -78,8 +78,7 @@ static pattern_map_type field_to_pattern;
 extern "C"
 void ghex_cubed_sphere_co_init(ghex::bindings::obj_wrapper **wrapper_ref)
 {
-    auto token = context->get_token();
-    auto comm  = context->get_communicator(token);
+    auto comm  = context->get_communicator();
     *wrapper_ref = new ghex::bindings::obj_wrapper(ghex::make_communication_object<pattern_type>(comm));
 }
 

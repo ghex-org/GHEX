@@ -5,9 +5,12 @@
 #include <iostream>
 #include <vector>
 #include <sched.h>
+#include <ghex/transport_layer/util/barrier.hpp>
 
 /* fortran-side user callback */
 typedef void (*f_callback)(void *mesg, int rank, int tag);
+
+extern int ghex_nthreads;
 
 struct callback {
     f_callback cb;
@@ -38,8 +41,7 @@ int ghex_get_current_cpu()
 extern "C"
 void* ghex_comm_new()
 {
-    auto token = context->get_token();
-    return new ghex::bindings::obj_wrapper(context->get_communicator(token));
+    return new ghex::bindings::obj_wrapper(context->get_communicator());
 }
 
 extern "C"
@@ -63,7 +65,9 @@ progress_status_type ghex_comm_progress(ghex::bindings::obj_wrapper *wrapper)
 extern "C"
 void ghex_comm_barrier(ghex::bindings::obj_wrapper *wrapper)
 {
-    ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->barrier();
+    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper);
+    gridtools::ghex::tl::barrier_t barrier(ghex_nthreads);
+    barrier(*comm);
 }
 
 extern "C"
