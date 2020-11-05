@@ -36,7 +36,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
-#include <ghex/structured/regular/decomposition.hpp>
+#include <ghex/util/decomposition.hpp>
 #include <ghex/common/timer.hpp>
 
 using clock_type = std::chrono::high_resolution_clock;
@@ -67,7 +67,7 @@ struct simulation
 #ifdef __CUDACC__
     using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, 2, 1, 0>;
 #endif
-    using decomp_type = gridtools::ghex::structured::regular::hierarchical_decomposition<3>;
+    using decomp_type = gridtools::ghex::hierarchical_decomposition<3>;
 
     int num_reps;
     decomp_type decomp;
