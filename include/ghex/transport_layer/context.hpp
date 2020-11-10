@@ -33,10 +33,6 @@ namespace gridtools {
 
             }
 
-            /** @brief Forward declaration of the transport backend */
-            template<typename TransportTags>
-            class transport_context;
-
             /** @brief Forward declaration of the context factory */
             template<class TransportTag>
             struct context_factory;
@@ -45,15 +41,15 @@ namespace gridtools {
               * the factory class `context_factory`.
               * @tparam TransportTag the transport tag (mpi_tag, ucx_tag, ...)
               */
-            template<class TransportTag>
+            template<class TransportContext>
             class context
             {
             public: // member types
-                using tag                    = TransportTag;
-                using transport_context_type = transport_context<tag>;
+                using transport_context_type = TransportContext;
+                using tag                    = typename transport_context_type::tag;
                 using communicator_type      = typename transport_context_type::communicator_type;
 
-                friend class context_factory<TransportTag>;
+                friend class context_factory<tag>;
 
             private: // members
                 MPI_Comm m_mpi_comm;

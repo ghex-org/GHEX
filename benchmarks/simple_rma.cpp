@@ -53,7 +53,7 @@ struct simulation
 
     using T = GHEX_FLOAT_TYPE;
 
-    using context_type = gridtools::ghex::tl::context<transport>;
+    using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
     using context_ptr_type = std::unique_ptr<context_type>;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
