@@ -73,7 +73,7 @@ struct local_access_guard
     {
         while(static_cast<unsigned char>(access_mode::local) != m_impl->m_mem.m_ptr[0])
         {
-            // TODO call comm.progress()
+            // test if call to comm.progress() is beneficial for performance
             sched_yield();
         }
     }
