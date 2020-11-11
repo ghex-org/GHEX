@@ -118,10 +118,10 @@ public:
         return relative_resource(idx, std::integral_constant<unsigned int, I>());
     }
 
-    /** returns last coordinate in domain */
+    /** returns last coordinate in global domain */
     array_type last_coord() const noexcept { return this->operator()(size()-1); }
 
-    /** returns domain coordinate given a domain index */
+    /** returns spatial coordinate given a resource index */
     array_type operator()(size_type idx) const noexcept
     {
         array_type res;
