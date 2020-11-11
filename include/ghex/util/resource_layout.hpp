@@ -121,6 +121,7 @@ public:
     /** returns last coordinate in domain */
     array_type last_coord() const noexcept { return this->operator()(size()-1); }
 
+    /** returns domain coordinate given a domain index */
     array_type operator()(size_type idx) const noexcept
     {
         array_type res;
