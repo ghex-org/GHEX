@@ -199,7 +199,7 @@ TEST(decompostion, decomposition)
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distrib(1, 5);
  
-    for (int n=0; n<50; ++n)
+    for (int n=0; n<10; ++n)
         test_decomposition_3_4(
             distrib(gen), distrib(gen), distrib(gen),
             distrib(gen), distrib(gen), distrib(gen),
