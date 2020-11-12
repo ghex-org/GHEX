@@ -95,7 +95,7 @@ namespace gridtools {
                 {
                     MPI_Request req = MPI_REQUEST_NULL;
                     int flag;
-                    MPI_Ibarrier(tlcomm.context().mpi_comm(), &req);
+                    MPI_Ibarrier(tlcomm.mpi_comm(), &req);
                     while(true) {
                         tlcomm.progress();
                         MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
