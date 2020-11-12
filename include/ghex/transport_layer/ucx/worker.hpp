@@ -110,7 +110,7 @@ namespace gridtools {
                     worker_t(const worker_t&) = delete;
                     worker_t(worker_t&& other) noexcept = default;
                     worker_t& operator=(const worker_t&) = delete;
-                    worker_t& operator=(worker_t&&) noexcept = delete; //default;
+                    worker_t& operator=(worker_t&&) noexcept = delete;
 
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
