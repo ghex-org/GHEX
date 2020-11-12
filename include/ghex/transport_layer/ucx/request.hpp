@@ -148,13 +148,13 @@ namespace gridtools{
                     {
                         if (!m_req) return true;
 
-                        ucp_worker_progress(m_req->m_send_worker->get());
+                        while(ucp_worker_progress(m_req->m_send_worker->get()));
 
                         /* this is really important for large-scale multithreading */
                         sched_yield();
 
                         std::lock_guard<decltype(m_req->m_send_worker->mutex())> lock(m_req->m_send_worker->mutex());
-                        ucp_worker_progress(m_req->m_recv_worker->get());
+                        while(ucp_worker_progress(m_req->m_recv_worker->get()));
 
                         // check request status
                         // TODO check whether ucp_request_check_status has to be locked also:

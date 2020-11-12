@@ -65,10 +65,10 @@ int main(int argc, char *argv[])
     gridtools::ghex::timer timer, ttimer;
 
     if(argc != 4)
-    {
-        std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
-        std::terminate();
-    }
+	{
+	    std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	    std::terminate();
+	}
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
@@ -120,37 +120,37 @@ int main(int argc, char *argv[])
             int dbg = 0, sdbg = 0, rdbg = 0;
 
             auto send_callback = [&](communicator_type::message_type, int, int tag)
-            {
-                int pthr = tag/inflight;
-                if(pthr != thread_id) nlsend_cnt++;
-                comm_cnt++;
-                sent++;
-            };
+				 {
+				     int pthr = tag/inflight;
+				     if(pthr != thread_id) nlsend_cnt++;
+				     comm_cnt++;
+				     sent++;
+				 };
 
             auto recv_callback = [&](communicator_type::message_type, int, int tag)
-            {
-                int pthr = tag/inflight;
-                if(pthr != thread_id) nlrecv_cnt++;
-                comm_cnt++;
-                received++;
-            };
+				 {
+				     int pthr = tag/inflight;
+				     if(pthr != thread_id) nlrecv_cnt++;
+				     comm_cnt++;
+				     received++;
+				 };
 
             if (thread_id==0 && rank==0)
-            {
-                std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
-            };
+		{
+		    std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+		};
 
             std::vector<MsgType> smsgs(inflight);
             std::vector<MsgType> rmsgs(inflight);
             std::vector<future_type> sreqs(inflight);
             std::vector<future_type> rreqs(inflight);
             for(int j=0; j<inflight; j++)
-            {
-                smsgs[j].resize(buff_size);
-                rmsgs[j].resize(buff_size);
-                make_zero(smsgs[j]);
-                make_zero(rmsgs[j]);
-            }
+		{
+		    smsgs[j].resize(buff_size);
+		    rmsgs[j].resize(buff_size);
+		    make_zero(smsgs[j]);
+		    make_zero(rmsgs[j]);
+		}
 
 #ifdef USE_OPENMP
 #pragma omp single
@@ -161,64 +161,69 @@ int main(int argc, char *argv[])
 #endif
 
             if (thread_id == 0)
-            {
-                timer.tic();
-                ttimer.tic();
-                if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
-            }
+		{
+		    timer.tic();
+		    ttimer.tic();
+		    if(rank == 1)
+			std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
+		}
 
             // send/recv niter messages - as soon as a slot becomes free
+            int lsent = 0, lrecv = 0;
             while(sent < niter || received < niter)
-            {
-                if(thread_id == 0 && dbg >= (niter/10))
-                {
-                    dbg = 0;
-                    std::cout << rank << " total bwdt MB/s:      "
-                              << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.stoc()
-                              << "\n";
-                    timer.tic();
-                    last_received = received;
-                    last_sent = sent;
-                }
+		{
+		    if(thread_id == 0 && dbg >= (niter/10))
+			{
+			    dbg = 0;
+			    std::cout << rank << " total bwdt MB/s:      "
+				      << ((double)(received-last_received + sent-last_sent)*size*buff_size/2)/timer.stoc()
+				      << "\n";
+			    timer.tic();
+			    last_received = received;
+			    last_sent = sent;
+			}
 
-                if(rank==0 && thread_id==0 && rdbg >= (niter/10))
-                {
-                    std::cout << received << " received\n";
-                    rdbg = 0;
-                }
+		    if(rank==0 && thread_id==0 && rdbg >= (niter/10))
+			{
+			    std::cout << received << " received\n";
+			    rdbg = 0;
+			}
 
-                if(rank==0 && thread_id==0 && sdbg >= (niter/10))
-                {
-                    std::cout << sent << " sent\n";
-                    sdbg = 0;
-                }
+		    if(rank==0 && thread_id==0 && sdbg >= (niter/10))
+			{
+			    std::cout << sent << " sent\n";
+			    sdbg = 0;
+			}
 
-                for(int j=0; j<inflight; j++)
-                {
-                    if(rmsgs[j].use_count() == 1)
-                        //if (rreqs[j].test())
-                    {
-                        submit_recv_cnt += num_threads;
-                        rdbg += num_threads;
-                        dbg += num_threads;
-                        rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight+j, recv_callback);
-                    }
-                    else
-                        comm.progress();
+		    for(int j=0; j<inflight; j++)
+			{
+			    if(rmsgs[j].use_count() == 1)
+				//if (rreqs[j].test())
+				{
+				    submit_recv_cnt += num_threads;
+				    rdbg += num_threads;
+				    dbg += num_threads;
+				    rreqs[j] = comm.recv(rmsgs[j], peer_rank, thread_id*inflight+j, recv_callback);
+				    lrecv++;
+				}
+			    else
+				comm.progress();
 
-                    if(sent < niter && smsgs[j].use_count() == 1)
-                        //if(sent < niter && sreqs[j].test())
-                    {
-                        submit_cnt += num_threads;
-                        sdbg += num_threads;
-                        dbg += num_threads;
-                        sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
-                    }
-                    else
-                        comm.progress();
-                }
-            }
+			    if(lsent < lrecv+2*inflight){
+				if(sent < niter && smsgs[j].use_count() == 1)
+				    //if(sent < niter && sreqs[j].test())
+				    {
+					submit_cnt += num_threads;
+					sdbg += num_threads;
+					dbg += num_threads;
+					sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
+					lsent++;
+				    }
+				else
+				    comm.progress();
+			    }
+			}
+		}
 
 #ifdef USE_OPENMP
 #pragma omp single
@@ -229,11 +234,11 @@ int main(int argc, char *argv[])
 #endif
 
             if(thread_id==0 && rank == 0)
-            {
-                const auto t = ttimer.stoc();
-                std::cout << "time:       " << t/1000000 << "s\n";
-                std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
-            }
+		{
+		    const auto t = ttimer.stoc();
+		    std::cout << "time:       " << t/1000000 << "s\n";
+		    std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
+		}
 
             // stop here to help produce a nice std output
 #ifdef USE_OPENMP

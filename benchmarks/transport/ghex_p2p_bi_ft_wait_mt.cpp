@@ -53,10 +53,10 @@ int main(int argc, char *argv[])
     gridtools::ghex::timer timer, ttimer;
 
     if(argc != 4)
-    {
-        std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
-        std::terminate();
-    }
+	{
+	    std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	    std::terminate();
+	}
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
@@ -102,21 +102,21 @@ int main(int argc, char *argv[])
 #endif
 
             if (thread_id==0 && rank==0)
-            {
-                std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
-            };
+		{
+		    std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+		};
 
             std::vector<MsgType> smsgs(inflight);
             std::vector<MsgType> rmsgs(inflight);
             std::vector<future_type> sreqs(inflight);
             std::vector<future_type> rreqs(inflight);
             for(int j=0; j<inflight; j++)
-            {
-                smsgs[j].resize(buff_size);
-                rmsgs[j].resize(buff_size);
-                make_zero(smsgs[j]);
-                make_zero(rmsgs[j]);
-            }
+		{
+		    smsgs[j].resize(buff_size);
+		    rmsgs[j].resize(buff_size);
+		    make_zero(smsgs[j]);
+		    make_zero(rmsgs[j]);
+		}
 
 #ifdef USE_OPENMP
 #pragma omp single
@@ -126,12 +126,12 @@ int main(int argc, char *argv[])
 #pragma omp barrier
 #endif
             if(thread_id == 0)
-            {
-                timer.tic();
-                ttimer.tic();
-                if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
-            }
+		{
+		    timer.tic();
+		    ttimer.tic();
+		    if(rank == 1)
+			std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
+		}
 
             int dbg = 0;
             int sent = 0, received = 0;
@@ -165,7 +165,6 @@ int main(int argc, char *argv[])
                     rreqs[j].wait();
                 }
             }
-
 
 #ifdef USE_OPENMP
 #pragma omp single

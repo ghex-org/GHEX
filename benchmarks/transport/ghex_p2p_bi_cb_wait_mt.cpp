@@ -61,10 +61,10 @@ int main(int argc, char *argv[])
     gridtools::ghex::timer timer, ttimer;
 
     if(argc != 4)
-    {
-        std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
-        std::terminate();
-    }
+	{
+	    std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	    std::terminate();
+	}
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
@@ -116,27 +116,27 @@ int main(int argc, char *argv[])
             int comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0;
 
             auto send_callback = [&](communicator_type::message_type, int, int tag)
-            {
-                // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-                int pthr = tag/inflight;
-                if(pthr != thread_id) nlsend_cnt++;
-                comm_cnt++;
-                sent++;
-            };
+				 {
+				     // std::cout << "send callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+				     int pthr = tag/inflight;
+				     if(pthr != thread_id) nlsend_cnt++;
+				     comm_cnt++;
+				     sent++;
+				 };
 
             auto recv_callback = [&](communicator_type::message_type, int, int tag)
-            {
-                // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
-                int pthr = tag/inflight;
-                if(pthr != thread_id) nlrecv_cnt++;
-                comm_cnt++;
-                received++;
-            };
+				 {
+				     // std::cout << "recv callback called " << rank << " thread " << omp_get_thread_num() << " tag " << tag << "\n";
+				     int pthr = tag/inflight;
+				     if(pthr != thread_id) nlrecv_cnt++;
+				     comm_cnt++;
+				     received++;
+				 };
 
             if (thread_id==0 && rank==0)
-            {
-                if(rank==0)     std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
-            }
+		{
+		    if(rank==0)     std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+		}
 
             std::vector<MsgType> smsgs;
             std::vector<MsgType> rmsgs;
@@ -161,12 +161,12 @@ int main(int argc, char *argv[])
 #endif
 
             if (thread_id == 0)
-            {
-                timer.tic();
-                ttimer.tic();
-                if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
-            }
+		{
+		    timer.tic();
+		    ttimer.tic();
+		    if(rank == 1)
+			std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
+		}
 
             // send / recv niter messages, work in inflight requests at a time
             int i = 0, dbg = 0;
@@ -213,11 +213,11 @@ int main(int argc, char *argv[])
 #pragma omp barrier
 #endif
             if(thread_id==0 && rank == 0)
-            {
-                const auto t = ttimer.stoc();
-                std::cout << "time:       " << t/1000000 << "s\n";
-                std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
-            }
+		{
+		    const auto t = ttimer.stoc();
+		    std::cout << "time:       " << t/1000000 << "s\n";
+		    std::cout << "final MB/s: " << ((double)niter*size*buff_size)/t << "\n";
+		}
 
             // stop here to help produce a nice std output
 #ifdef USE_OPENMP
