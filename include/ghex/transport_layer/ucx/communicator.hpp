@@ -20,7 +20,6 @@
 namespace gridtools {
     namespace ghex {
         namespace tl {
-
             namespace ucx {
 
                 struct communicator
@@ -64,6 +63,7 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
+
                     bool is_local(rank_type r) const noexcept { return m_recv_worker->rank_topology().is_local(r); }
                     rank_type local_rank() const noexcept { return m_recv_worker->rank_topology().local_rank(); }
                     auto mpi_comm() const noexcept { return m_recv_worker->rank_topology().mpi_comm(); }

@@ -44,7 +44,7 @@ namespace gridtools {
             {
 
             private: // members
-                size_t                   m_threads;
+                size_t                      m_threads;
                 mutable std::atomic<size_t> b_count{0};
                 mutable std::atomic<size_t> b_count2;
 
