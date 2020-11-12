@@ -114,7 +114,6 @@ public:
     size_type relative_resource(size_type idx) const noexcept
     {
         static_assert(I < (Levels-1), "level I must be lower than greatest level");
-        //return relative_resource<I-1>(idx) - index<I>(idx)*m_1D_dist[I].size();
         return relative_resource(idx, std::integral_constant<unsigned int, I>());
     }
 
