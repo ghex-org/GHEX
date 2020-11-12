@@ -50,6 +50,18 @@ namespace gridtools {
                 for (const auto& fb :  buffer.field_infos)
                     fb.call_back(data + fb.offset, *fb.index_container, nullptr);
             }
+
+            template<typename BufferMem>
+            static void unpack(BufferMem& m)
+            {
+                await_futures(
+                    m.m_recv_futures,
+                    [](typename BufferMem::hook_type hook)
+                    {
+                        for (const auto& fb :  hook->field_infos)
+                            fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, nullptr);
+                    });
+            }
         };
 
         

@@ -36,7 +36,7 @@ using transport = gridtools::ghex::tl::mpi_tag;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
 #endif
-using context_type = gridtools::ghex::tl::context<transport>;
+using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
 using communicator_type = context_type::communicator_type;
 using domain_id_type = int;
 using global_index_type = int;

@@ -20,7 +20,6 @@
 namespace gridtools {
     namespace ghex {
         namespace tl {
-
             namespace ucx {
 
                 struct communicator
@@ -64,11 +63,10 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
-                    typename worker_type::transport_context_type const& context() const noexcept { return m_send_worker->context(); }
-
 
                     bool is_local(rank_type r) const noexcept { return m_recv_worker->rank_topology().is_local(r); }
                     rank_type local_rank() const noexcept { return m_recv_worker->rank_topology().local_rank(); }
+                    auto mpi_comm() const noexcept { return m_recv_worker->rank_topology().mpi_comm(); }
 
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.
@@ -158,8 +156,9 @@ namespace gridtools {
                     progress_status progress()
                     {
                         gridtools::ghex::tl::cb::progress_status status;
-                        int p = 0;
-                        p+= ucp_worker_progress(m_ucp_sw);
+                        int p = 0, c;
+			
+			while((c = ucp_worker_progress(m_ucp_sw))) p+=c;
 
                         /* this is really important for large-scale multithreading */
                         sched_yield();
@@ -167,7 +166,8 @@ namespace gridtools {
                         status.m_num_sends = std::exchange(m_send_worker->m_progressed_sends, 0);
                         {
                         std::lock_guard<worker_type::mutex_t> lock(m_send_worker->mutex());
-                        p+= ucp_worker_progress(m_ucp_rw);
+                        int c;
+                        while((c = ucp_worker_progress(m_ucp_rw))) p+=c;
                         status.m_num_recvs = std::exchange(m_recv_worker->m_progressed_recvs, 0);
                         status.m_num_cancels = std::exchange(m_recv_worker->m_progressed_cancels, 0);
                         }

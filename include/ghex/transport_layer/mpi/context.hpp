@@ -19,11 +19,12 @@
 namespace gridtools {
     namespace ghex {
         namespace tl {
+            namespace mpi {
 
-            template <>
-            struct transport_context<mpi_tag>
+            struct transport_context
             {
-                using communicator_type = communicator<mpi::communicator>;
+                using tag = mpi_tag;
+                using communicator_type = tl::communicator<mpi::communicator>;
                 using shared_state_type = typename communicator_type::shared_state_type;
                 using state_type = typename communicator_type::state_type;
                 using state_ptr = std::unique_ptr<state_type>;
@@ -36,11 +37,10 @@ namespace gridtools {
                 state_vector m_states;
                 std::mutex m_mutex;
 
-                template<typename... Args>
-                transport_context(const mpi::rank_topology& t, MPI_Comm mpi_comm, Args&&...)
+                transport_context(const rank_topology& t)
                     : m_rank_topology{t}
-                    , m_comm{mpi_comm}
-                    , m_shared_state(mpi_comm, this)
+                    , m_comm{t.mpi_comm()}
+                    , m_shared_state(m_rank_topology)
                 {}
 
                 MPI_Comm mpi_comm() const { return m_comm; }
@@ -52,27 +52,24 @@ namespace gridtools {
 
                 communicator_type get_communicator()
                 {
-                    std::lock_guard<std::mutex> lock(m_mutex); // we need to guard only the isertion in the vector, but this is not a performance critical section
+                    std::lock_guard<std::mutex> lock(m_mutex); // we need to guard only the insertion in the vector,
+                                                               // but this is not a performance critical section
                     m_states.push_back(std::make_unique<state_type>());
                     return {&m_shared_state, m_states[m_states.size()-1].get()};
                 }
-
             };
-
-            namespace mpi {
-                bool communicator::is_local(rank_type r) const noexcept { return m_shared_state->m_context->m_rank_topology.is_local(r); }
-                communicator::rank_type communicator::local_rank() const noexcept { return m_shared_state->m_context->m_rank_topology.local_rank(); }
 
             } // namespace mpi
 
             template<>
             struct context_factory<mpi_tag>
             {
-                static std::unique_ptr<context<mpi_tag>> create(MPI_Comm mpi_comm)
+                using context_type = context<mpi::transport_context>;
+                static std::unique_ptr<context_type> create(MPI_Comm mpi_comm)
                 {
                     auto new_comm = detail::clone_mpi_comm(mpi_comm);
-                    return std::unique_ptr<context<mpi_tag>>{
-                        new context<mpi_tag>{new_comm, new_comm}};
+                    return std::unique_ptr<context_type>{
+                        new context_type{new_comm}};
                 }
             };
 

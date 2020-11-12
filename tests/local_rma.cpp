@@ -53,13 +53,12 @@ struct simulation_1
     using TT2 = array_type<T2,3>;
     using TT3 = array_type<T3,3>;
 
-    using context_type = gridtools::ghex::tl::context<transport>;
+    using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
     using context_ptr_type = std::unique_ptr<context_type>;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
     template<typename T, typename Arch, int... Is>
     using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
-
 
     // decomposition: 4 domains in x-direction, 1 domain in z-direction, rest in y-direction
     //                each MPI rank owns two domains: either first or last two domains in x-direction
@@ -126,8 +125,11 @@ struct simulation_1
 #endif /* __CUDACC__ */
     typename context_type::communicator_type comm;
     std::vector<typename context_type::communicator_type> comms;
-    std::vector<gridtools::ghex::generic_bulk_communication_object> cos;
     bool mt;
+    using co_type = decltype(gridtools::ghex::make_communication_object<pattern_type>(comm));
+    std::vector<co_type> basic_cos;
+    std::vector<gridtools::ghex::generic_bulk_communication_object> cos;
+
 
     simulation_1(bool multithread = false)
     : context_ptr{ gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD) }
@@ -200,6 +202,7 @@ struct simulation_1
         if (!mt)
         {
             comms.push_back(context.get_communicator());
+            basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[0]));
 #ifndef __CUDACC__
             auto bco =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,
@@ -207,7 +210,7 @@ struct simulation_1
                 field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
-            > (comms[0]);
+            > (basic_cos[0]);
 
             bco.add_field(pattern(field_1a));
             bco.add_field(pattern(field_1b));
@@ -222,7 +225,7 @@ struct simulation_1
                 field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0>
-            > (comms[0]);
+            > (basic_cos[0]);
 
             bco.add_field(pattern(field_1a_gpu));
             bco.add_field(pattern(field_1b_gpu));
@@ -236,6 +239,8 @@ struct simulation_1
         } else {
             comms.push_back(context.get_communicator());
             comms.push_back(context.get_communicator());
+            basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[0]));
+            basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[1]));
 #ifndef __CUDACC__
             auto bco0 =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,
@@ -243,7 +248,7 @@ struct simulation_1
                 field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
-            > (comms[0]);
+            > (basic_cos[0]);
             bco0.add_field(pattern(field_1a));
             bco0.add_field(pattern(field_2a));
             bco0.add_field(pattern(field_3a));
@@ -254,7 +259,7 @@ struct simulation_1
                 field_descriptor_type<TT1, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT2, gridtools::ghex::cpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::cpu, 2, 1, 0>
-            > (comms[1]);
+            > (basic_cos[1]);
             bco1.add_field(pattern(field_1b));
             bco1.add_field(pattern(field_2b));
             bco1.add_field(pattern(field_3b));
@@ -265,7 +270,7 @@ struct simulation_1
                 field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0>
-            > (comms[0]);
+            > (basic_cos[0]);
             bco0.add_field(pattern(field_1a_gpu));
             bco0.add_field(pattern(field_2a_gpu));
             bco0.add_field(pattern(field_3a_gpu));
@@ -276,7 +281,7 @@ struct simulation_1
                 field_descriptor_type<TT1, gridtools::ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT2, gridtools::ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT3, gridtools::ghex::gpu, 2, 1, 0>
-            > (comms[1]);
+            > (basic_cos[1]);
             bco1.add_field(pattern(field_1b_gpu));
             bco1.add_field(pattern(field_2b_gpu));
             bco1.add_field(pattern(field_3b_gpu));
