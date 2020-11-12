@@ -26,25 +26,23 @@ namespace gridtools {
                 /** @brief common data which is shared by all communicators. This class is thread safe.
                  */
                 struct shared_communicator_state {
-                    using transport_context_type = transport_context<mpi_tag>;
                     using rank_type = int;
                     using tag_type = int;
 
                     MPI_Comm m_comm;
-                    transport_context_type* m_context;
+                    const rank_topology& m_rank_topology;
                     rank_type m_rank;
                     rank_type m_size;
 
-                    shared_communicator_state(MPI_Comm comm, transport_context_type* tc)
-                    : m_comm{comm}
-                    , m_context{tc}
-                    , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) }
-                    , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) }
+                    shared_communicator_state(const rank_topology& t)
+                    : m_comm{t.mpi_comm()}
+                    , m_rank_topology{t}
+                    , m_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(t.mpi_comm()) }
+                    , m_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(t.mpi_comm()) }
                     {}
 
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
-                    transport_context_type const& context() const noexcept { return *m_context; }
                 };
 
                 /** @brief communicator per-thread data.

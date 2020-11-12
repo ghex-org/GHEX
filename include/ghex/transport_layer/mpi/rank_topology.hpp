@@ -71,6 +71,7 @@ namespace gridtools {
                     /** @brief return local rank number */
                     int local_rank() const noexcept { return m_rank; }
 
+                    /** @brief return raw mpi communicator */
                     auto mpi_comm() const noexcept { return m_comm; }
                 };
 
