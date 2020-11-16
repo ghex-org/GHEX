@@ -174,6 +174,19 @@ namespace gridtools {
                     fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
             }
 
+            template<typename BufferMem>
+            static void unpack(BufferMem& m)
+            {
+                await_futures(
+                    m.m_recv_futures,
+                    [](typename BufferMem::hook_type hook)
+                    {
+                        for (const auto& fb : hook->field_infos)
+                                fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(&hook->m_cuda_stream.get()));
+
+                    });
+            }
+
             template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
             static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
             {

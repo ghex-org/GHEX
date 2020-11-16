@@ -22,6 +22,10 @@
 #include <stdio.h>
 #include <functional>
 
+// Define this macro to use optimizations for same type fields
+// Improves performance for gpu, but only when solely same field types are passed to an exhange
+//#define GHEX_COMM_OBJ_USE_U
+
 // Define this macro for fat callbacks
 // Description: Fat callbacks take advantage of the capability of the underlying communicator to
 //   receive messages with a callback function. This callback function is then used to unpack data.
@@ -31,7 +35,7 @@
 //   worker will be locked for the entire duration of the callback execution which may lead to
 //   performance issues.
 // TODO: Performance tests are needed to determine which option is better.
-//#define GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+#define GHEX_COMM_OBJ_USE_FAT_CALLBACKS
 
 namespace gridtools {
 
@@ -318,15 +322,20 @@ namespace gridtools {
             
             // special function to handle one iterator pair (optimization for gpus below)
             template<typename Iterator>
+#ifdef GHEX_COMM_OBJ_USE_U
             [[nodiscard]] std::enable_if_t<
                 !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
                 handle_type>
+#else
+            [[nodiscard]] handle_type
+#endif
             exchange_u(Iterator first, Iterator last)
             {
                 // call exchange with a pair of iterators
                 return exchange(std::make_pair(first, last)); 
             }
 
+#ifdef GHEX_COMM_OBJ_USE_U
 #ifdef __CUDACC__
             // optimized exchange for regular grids and a range of same-type fields
             template<typename Iterator>
@@ -374,7 +383,7 @@ namespace gridtools {
                         if (p1.second.size > 0u)
                         {
                             p1.second.buffer.resize(p1.second.size);
-                            m.m_recv_futures.emplace_back(
+                            gpu_mem.m_recv_futures.emplace_back(
                                 typename gpu_mem_t::hook_future_type{
                                     &p1.second,
                                     m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
@@ -387,6 +396,7 @@ namespace gridtools {
                 return handle_type(m_comm, [this](){this->template wait_u_gpu<field_type>();});
 #endif
             }
+#endif
 #endif
             
             // helper function to set up communicaton buffers (run-time case)
@@ -553,6 +563,7 @@ namespace gridtools {
                 clear();
             }
 
+#ifdef GHEX_COMM_OBJ_USE_U
 #if defined(__CUDACC__) && !defined(GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
             template<typename FieldType>
             void wait_u_gpu()
@@ -579,6 +590,7 @@ namespace gridtools {
                             p1.second.m_cuda_stream.sync();
                 clear();
             }
+#endif
 #endif
 
         private: // reset
