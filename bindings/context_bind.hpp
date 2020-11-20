@@ -23,5 +23,6 @@ using context_uptr_type = std::unique_ptr<context_type>;
 using communicator_type = context_type::communicator_type;
 
 extern context_uptr_type context;
+extern int __GHEX_nthreads;
 
 #endif /* GHEX_FORTRAN_CONTEXT_BIND_INCLUDED_HPP */

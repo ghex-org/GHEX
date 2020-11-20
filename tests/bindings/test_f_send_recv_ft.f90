@@ -13,7 +13,6 @@ PROGRAM test_send_recv_ft
   integer :: mpi_threading, mpi_size, mpi_rank, mpi_peer
   integer :: nthreads = 0, thrid
 
-  type(ghex_communicator), dimension(:), pointer :: communicators
   type(ghex_communicator) :: comm
   type(ghex_future) :: sreq, rreq
 
@@ -41,21 +40,13 @@ PROGRAM test_send_recv_ft
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world);
 
-  ! make per-thread communicators
   !$omp parallel private(thrid, comm, sreq, rreq, smsg, rmsg, msg_data)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
 
-  ! initialize shared datastructures
-  !$omp master
-  allocate(communicators(nthreads))  
-  !$omp end master
-  !$omp barrier
-
   ! allocate a communicator per thread and store in a shared array
-  communicators(thrid) = ghex_comm_new()
-  comm = communicators(thrid)
+  comm = ghex_comm_new()
 
   ! create a message per thread
   rmsg = ghex_message_new(msg_size, ALLOCATOR_STD)
@@ -90,13 +81,7 @@ PROGRAM test_send_recv_ft
   ! cleanup per-thread
   call ghex_free(rmsg)
   call ghex_free(smsg)
-  call ghex_free(communicators(thrid))
-
-  ! cleanup shared
-  !$omp barrier
-  !$omp master
-  deallocate(communicators)
-  !$omp end master
+  call ghex_free(comm)
 
   !$omp end parallel
 

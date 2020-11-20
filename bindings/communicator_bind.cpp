@@ -4,13 +4,10 @@
 #include "obj_wrapper.hpp"
 #include <iostream>
 #include <vector>
-#include <sched.h>
 #include <ghex/transport_layer/util/barrier.hpp>
 
 /* fortran-side user callback */
 typedef void (*f_callback)(void *mesg, int rank, int tag);
-
-extern int ghex_nthreads;
 
 struct callback {
     f_callback cb;
@@ -31,12 +28,6 @@ struct progress_status_type {
         num_cancels{ps.m_num_cancels} 
     {}
 };
-
-extern "C"
-int ghex_get_current_cpu()
-{
-    return sched_getcpu();
-}
 
 extern "C"
 void* ghex_comm_new()
@@ -66,7 +57,7 @@ extern "C"
 void ghex_comm_barrier(ghex::bindings::obj_wrapper *wrapper)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper);
-    gridtools::ghex::tl::barrier_t barrier(ghex_nthreads);
+    gridtools::ghex::tl::barrier_t barrier(__GHEX_nthreads);
     barrier(*comm);
 }
 
@@ -75,6 +66,16 @@ void ghex_comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_m
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
     auto fut = comm->send(*wmessage, rank, tag);
+    new(ffut->data) decltype(fut)(std::move(fut));
+}
+
+extern "C"
+void ghex_comm_post_send_multi(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int *ranks, int nranks, int tag, frequest_type *ffut)
+{
+    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    std::vector<int> ranks_array(nranks);
+    ranks_array.assign(ranks, ranks+nranks);
+    auto fut = comm->send_multi(*wmessage, ranks_array, tag);
     new(ffut->data) decltype(fut)(std::move(fut));
 }
 

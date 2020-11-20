@@ -28,7 +28,6 @@ PROGRAM test_context
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
-  print *, "thread ", thrid
 
   ! initialize shared datastructures
   !$omp master
