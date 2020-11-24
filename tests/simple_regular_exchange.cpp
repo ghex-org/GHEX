@@ -166,6 +166,12 @@ bool check(const Field& field, const arr& dims)
         {
             const auto x = expected(i, dims[0], field.domain().first()[0],
                 field.domain().last()[0], periodic[0]);
+            const bool tmp = compare(field({i,j}),x,y);
+            if (!tmp)
+            {
+                std::cout << "  expected: " << x << ", " << y << "   -  got: " 
+                    << field({i,j})[0] << ", " << field({i,j})[1] << std::endl;
+            }
             res = res && compare(field({i,j}),x,y);
         }
     }
@@ -300,6 +306,8 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
     bco.add_field(pattern(field_a));
     bco.add_field(pattern(field_b));
 #endif
+    bco.init();
+    barrier(comm);
     bco.exchange().wait();
 
     // check fields

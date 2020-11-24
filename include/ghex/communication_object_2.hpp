@@ -35,7 +35,7 @@
 //   worker will be locked for the entire duration of the callback execution which may lead to
 //   performance issues.
 // TODO: Performance tests are needed to determine which option is better.
-#define GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+//#define GHEX_COMM_OBJ_USE_FAT_CALLBACKS
 
 namespace gridtools {
 
@@ -366,7 +366,7 @@ namespace gridtools {
                                    typename communicator_type::rank_type,
                                    typename communicator_type::tag_type)
                                 {
-                                    packer<gpu>::template unpack_u<value_type, field_type>(*ptr, m.data());
+                                    packer<gpu>::unpack(*ptr, m.data());
                                 }));
                         }
                     }
@@ -571,23 +571,12 @@ namespace gridtools {
                 if (!m_valid) return;
                 using field_type = FieldType;
                 using value_type = typename field_type::value_type;
-                using gpu_mem_t  = buffer_memory<gpu>;
-                auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
-                // wait for data to arrive (unpack callback will be invoked)
-                await_futures(
-                    gpu_mem.m_recv_futures,
-                    [](typename gpu_mem_t::hook_type hook)
-                    {
-                        packer<gpu>::template unpack_u<value_type, field_type>(*hook, hook->buffer.data());
-                    });
+                using memory_t   = buffer_memory<gpu>;
+                // unpack
+                memory_t& mem = std::get<memory_t>(m_mem);
+                packer<gpu>::template unpack_u<value_type,field_type>(mem);
                 // wait for data to be sent
                 await_requests(m_send_futures);
-                // wait for the unpack kernels to finish
-                auto& m = std::get<buffer_memory<gpu>>(m_mem);
-                for (auto& p0 : m.recv_memory)
-                    for (auto& p1: p0.second)
-                        if (p1.second.size > 0u)
-                            p1.second.m_cuda_stream.sync();
                 clear();
             }
 #endif

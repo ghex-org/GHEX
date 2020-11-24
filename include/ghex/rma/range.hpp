@@ -42,12 +42,12 @@ struct range
 
     template<typename Range>
     range(Range&& r, int id, info field_info, typename local_access_guard::info info_,
-        event_info e_info_, int rank)
+        event_info e_info_, int rank, bool on_gpu_)
     : m_id{id}
     , m_loc{info_.m_locality}
     , m_impl{new range_impl<std::remove_reference_t<Range>>(std::forward<Range>(r))}
     , m_guard(info_, rank)
-    , m_on_gpu{field_info.m_on_gpu}
+    , m_on_gpu{on_gpu_}
     , m_event{e_info_, m_on_gpu}
     {
         m_handle.init(field_info, m_loc, rank);

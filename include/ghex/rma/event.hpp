@@ -154,9 +154,7 @@ struct remote_event
         {
 #ifdef __CUDACC__
             if (m_source_on_gpu || m_target_on_gpu)
-            {
                 cudaStreamDestroy(m_stream);
-            }
 #endif
         }
 
