@@ -131,7 +131,6 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
 #ifdef __CUDACC__
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
-
 #ifndef GHEX_USE_XPMEM
     gridtools::ghex::detail::for_loop<
         sv_t::dimension::value,
@@ -174,8 +173,8 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
                 data.push_back(std::vector<unsigned char>(s.m_chunk_size));
             else
                 data[i].resize(s.m_chunk_size);
-            cudaMemcpyAsync(data[i++].data(), s.ptr(coordinate{c...}), s.m_chunk_size, 
-                cudaMemcpyDeviceToHost,st2);
+            GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(data[i++].data(), s.ptr(coordinate{c...}), s.m_chunk_size, 
+                cudaMemcpyDeviceToHost,st2));
         },
         s.m_begin, s.m_end);
         st2.sync();
