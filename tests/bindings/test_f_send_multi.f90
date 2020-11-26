@@ -1,4 +1,13 @@
-PROGRAM test_send_recv_cb
+PROGRAM test_send_multi
+
+  ! This test starts m MPI ranks, each with n threads. Each thread sends the same message
+  ! to all other ranks (using send_multi variant). So each rank sends n messages.
+  ! Each rank pre-posts a single recv request to accept messages from all other ranks.
+  ! After completion of a recv request, the receiving thread (i.e. thread, which calls
+  ! the recv callback) re-submits the recv request.
+  ! The test stops when each rank completes recv of n messages from each other rank.
+  ! Then all the outstanding recv requests are canceled.
+  
   use iso_fortran_env
   use omp_lib
   use ghex_mod
@@ -17,18 +26,19 @@ PROGRAM test_send_recv_cb
   ! shared array to store per-thread communicators (size 0-nthreads-1)
   type(ghex_communicator), dimension(:), pointer :: communicators
 
-  ! shared array to store per-thread recv request arrays (size 0-nthreads-1)
+  ! recv data structures (size 0-mpi_size-1):
+  !  - recv requests to be able to cancel outstanding comm
+  !  - shared array to count messages received from each peer rank
+  !  - an array of recv messages
   type(ghex_request), dimension(:), pointer :: rrequests
-
-  ! shared array to count messages received from each peer rank (size 0-mpi_size-1)
-  integer, volatile, dimension(:), pointer :: rank_received
+  integer, volatile,  dimension(:), pointer :: rank_received
   type(ghex_message), dimension(:), pointer :: rmsg
   type(ghex_cb_user_data) :: user_data
   
   ! recv callback
   procedure(f_callback), pointer :: pcb
   pcb => recv_callback
-  
+
   call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
   if (MPI_THREAD_MULTIPLE /= mpi_threading) then
     stop "MPI does not support multithreading"
@@ -43,37 +53,39 @@ PROGRAM test_send_recv_cb
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world);
   
+  ! allocate shared data structures. things related to recv messages
+  ! could be allocated here, but have to wait til per-thread communicator
+  ! is created below.
   allocate(communicators(0:nthreads-1))
-  
+
   !$omp parallel 
   block
     integer :: it, thrid, peer
-    integer, dimension(:), pointer :: peers
+    integer, dimension(:), pointer :: peers  ! MPI peer ranks to which to send a message
     type(ghex_communicator) :: comm
     logical :: status
-    
-    ! message
+
+    ! the sent message
     integer(8) :: msg_size = 16
     type(ghex_message) :: smsg
     type(ghex_progress_status) :: ps
     integer(1), dimension(:), pointer :: msg_data
 
-    ! make thread id 1-based
-    thrid = omp_get_thread_num()
-
     ! allocate a communicator per thread and store in a shared array
+    thrid = omp_get_thread_num()
     communicators(thrid) = ghex_comm_new()
     comm = communicators(thrid)
 
-    ! these are recv requests - one per peer rank. has to be done once per rank
+    ! these are recv requests - one per peer (mpi_size-1).
     ! could be done outside of the parallel block, but comm is required
     !$omp master
+    
     ! initialize shared datastructures
     allocate(rrequests(0:mpi_size-1))
     allocate(rank_received(0:mpi_size-1))
     rank_received = 0
 
-    ! pre-post a recv, one per peer rank.
+    ! pre-post a recv
     allocate (rmsg(0:mpi_size-1))
     it = 0
     user_data%data = c_loc(rank_received)
@@ -106,10 +118,11 @@ PROGRAM test_send_recv_cb
     msg_data => ghex_message_data(smsg)
     msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
 
-    ! send, but keep ownership of the message: buffer is not freed after send 
+    ! send, but keep ownership of the message: smsg buffer is not freed after send.
+    ! completion callback can, but doesn't need to be passed
     call ghex_comm_post_send_multi_cb(comm, smsg, peers, mpi_rank)
     
-    ! send again, give ownership of the message to ghex: buffer will be freed after completion
+    ! send again, give ownership of the message to ghex: smsg buffer will be freed after completion
     call ghex_comm_send_multi_cb(comm, smsg, peers, mpi_rank)
 
     ! wait for all recv requests to complete - enough if only master does this,
@@ -129,7 +142,7 @@ PROGRAM test_send_recv_cb
     !$omp end master
 
     ! wait for all threads and ranks to complete the recv.
-    ! ghex_comm_barrier is safe as it progresses all communication
+    ! ghex_comm_barrier is safe as it progresses all communication: MPI and GHEX
     call ghex_comm_barrier(comm)
 
     ! cancel all outstanding recv requests
@@ -162,7 +175,7 @@ PROGRAM test_send_recv_cb
   call ghex_finalize()  
   call mpi_finalize(mpi_err)
 
-contains
+CONTAINS
 
   subroutine send_callback (mesg, rank, tag, user_data) bind(c)
     use iso_c_binding
@@ -180,9 +193,8 @@ contains
     type(ghex_cb_user_data), value :: user_data
     
     integer :: thrid
-    integer(1), dimension(:), pointer :: msg_data
-    procedure(f_callback), pointer :: pcb
     integer, volatile, dimension(:), pointer :: rank_received
+    procedure(f_callback), pointer :: pcb
 
     ! needed to know which communicator we can use. Communicators are bound to threads.
     thrid = omp_get_thread_num()
@@ -201,4 +213,4 @@ contains
 
   end subroutine recv_callback
 
-END PROGRAM test_send_recv_cb
+END PROGRAM test_send_multi

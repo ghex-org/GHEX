@@ -3,6 +3,7 @@
 
 #include "obj_wrapper.hpp"
 #include <vector>
+#include <ghex/transport_layer/util/barrier.hpp>
 
 namespace ghex = gridtools::ghex;
 
@@ -24,5 +25,6 @@ using communicator_type = context_type::communicator_type;
 
 extern context_uptr_type context;
 extern int __GHEX_nthreads;
+extern gridtools::ghex::tl::barrier_t *barrier;
 
 #endif /* GHEX_FORTRAN_CONTEXT_BIND_INCLUDED_HPP */

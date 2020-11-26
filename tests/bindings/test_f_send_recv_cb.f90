@@ -21,7 +21,8 @@ PROGRAM test_send_recv_cb
   integer(8) :: msg_size = 16
   type(ghex_message) :: smsg, rmsg
   type(ghex_request) :: sreq
-  integer(atomic_int_kind), allocatable :: received(:)[:]
+  type(ghex_cb_user_data) :: user_data
+  integer, volatile, target :: tag_received
   type(ghex_progress_status) :: ps
   integer(1), dimension(:), pointer :: msg_data
 
@@ -29,6 +30,9 @@ PROGRAM test_send_recv_cb
   pcb => recv_callback
 
   call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
+  if (MPI_THREAD_MULTIPLE /= mpi_threading) then
+    stop "MPI does not support multithreading"
+  end if
   call mpi_comm_size (mpi_comm_world, mpi_size, mpi_err)
   call mpi_comm_rank (mpi_comm_world, mpi_rank, mpi_err)
   if (mpi_size /= 2) then
@@ -49,10 +53,8 @@ PROGRAM test_send_recv_cb
 
   ! initialize shared datastructures
   allocate(communicators(nthreads))
-  allocate(received(nthreads)[*], source=0)
 
-  ! make per-thread communicators
-  !$omp parallel private(thrid, comm, sreq, smsg, rmsg, msg_data, ps)
+  !$omp parallel private(thrid, comm, sreq, smsg, rmsg, msg_data, ps, user_data, tag_received)
 
   ! make thread id 1-based
   thrid = omp_get_thread_num()+1
@@ -61,16 +63,22 @@ PROGRAM test_send_recv_cb
   communicators(thrid) = ghex_comm_new()
   comm = communicators(thrid)
 
-  ! create messages, or get a reference to a shared message
+  ! create messages
   rmsg = ghex_message_new(msg_size, ALLOCATOR_STD)
   smsg = ghex_message_new(msg_size, ALLOCATOR_STD)
 
   ! initialize send data
   msg_data => ghex_message_data(smsg)
-  msg_data(1:msg_size) = (mpi_rank+1)*10 + thrid;
+  msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
 
   ! pre-post a recv. subsequent recv are posted inside the callback
-  call ghex_comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb)
+  ! user_data is used to count completed receive requests. 
+  ! This per-thread integer is updated inside the callback by any thread.
+  ! Lock is not needed, because only thread can write to it at the same time
+  ! (recv requests are submitted sequentially, after completion)
+  tag_received = 0
+  user_data%data = c_loc(tag_received)
+  call ghex_comm_recv_cb(comm, rmsg, mpi_peer, thrid, pcb, user_data = user_data)
 
   ! send, but keep ownership of the message: buffer is not freed after send
   call ghex_comm_post_send_cb(comm, smsg, mpi_peer, thrid, req=sreq)
@@ -82,15 +90,19 @@ PROGRAM test_send_recv_cb
   end do
 
   ! send again, give ownership of the message to ghex: buffer will be freed after completion
-  call ghex_comm_send_cb(comm, smsg, mpi_peer, thrid, req=sreq)
+  call ghex_comm_send_cb(comm, smsg, mpi_peer, thrid)
 
   ! progress the communication - wait for all (2) recv to complete
-  do while(minval(received)/=2)
+  do while(tag_received/=2)
     ps = ghex_comm_progress(comm)
   end do
-  
+
+  ! wait for all while progressing the communication
+  print *, mpi_rank, thrid, "finished"
+  call ghex_comm_barrier(comm)
+
   ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
-  call ghex_free(communicators(thrid))
+  call ghex_free(comm)
 
   !$omp end parallel
 
@@ -102,29 +114,31 @@ PROGRAM test_send_recv_cb
 
 contains
 
-  subroutine recv_callback (mesg, rank, tag) bind(c)
+  subroutine recv_callback (mesg, rank, tag, user_data) bind(c)
     use iso_c_binding
     type(ghex_message), value :: mesg
-    type(ghex_request) :: req
     integer(c_int), value :: rank, tag
+    type(ghex_cb_user_data), value :: user_data
     integer :: thrid
     integer(1), dimension(:), pointer :: msg_data
     procedure(f_callback), pointer :: pcb
+    integer, pointer :: received
     pcb => recv_callback
 
+    ! needed to know which communicator we can use. Communicators are bound to threads.
     thrid = omp_get_thread_num()+1
 
     ! what have we received?
-    msg_data => ghex_message_data(mesg)
-    print *, mpi_rank, thrid, msg_data
+    ! msg_data => ghex_message_data(mesg)
 
-    call atomic_add(received(tag), 1)
+    ! mark receipt in the user data
+    call c_f_pointer(user_data%data, received)
+    received = received + 1
+    ! print *, mpi_rank, thrid, "received callback", received
 
     ! resubmit if needed. here: receive only 2 (rank,tag) messages
-    if (received(tag) < 2) then
-      comm = communicators(thrid)
-      call ghex_comm_resubmit_recv(comm, mesg, rank, tag, pcb)
-      ! print *, "recv request ", rank, tag, " has been resubmitted"
+    if (received < 2) then
+      call ghex_comm_resubmit_recv(communicators(thrid), mesg, rank, tag, pcb, user_data = user_data)
     end if
 
   end subroutine recv_callback
