@@ -265,9 +265,9 @@ namespace gridtools {
 
                 // find all domains and their extents by all_gather operations
                 int my_num_domains   = my_domain_ids.size();
-                auto num_domain_ids  = comm.all_gather(my_num_domains).get();
-                auto domain_ids      = comm.all_gather(my_domain_ids, num_domain_ids).get();
-                auto domain_extents  = comm.all_gather(my_domain_extents, num_domain_ids).get();
+                auto num_domain_ids  = comm.all_gather(my_num_domains);
+                auto domain_ids      = comm.all_gather(my_domain_ids, num_domain_ids);
+                auto domain_extents  = comm.all_gather(my_domain_extents, num_domain_ids);
                 const int world_size = num_domain_ids.size();
 
                 // find global extents
@@ -362,7 +362,7 @@ namespace gridtools {
 
                 // communicate max tag to be used for thread safety in communication object
                 // use all_gather
-                auto max_tags  = comm.all_gather(m_max_tag).get();
+                auto max_tags  = comm.all_gather(m_max_tag);
                 // compute maximum tag and store in m_max_tag
                 for (auto x : max_tags)
                     m_max_tag = std::max(x,m_max_tag);

@@ -17,11 +17,7 @@ TEST(all_gather, all_gather_fixed)
     gridtools::ghex::tl::mpi::communicator_base mpi_comm;
     gridtools::ghex::tl::mpi::setup_communicator comm{mpi_comm};
 
-    std::vector<T> values;
-    {
-        auto f = comm.all_gather( static_cast<T>(comm.address()) );
-        values = f.get();
-    }
+    std::vector<T> values = comm.all_gather( static_cast<T>(comm.address()) );
     bool passed = true;
     int i = 0;
     for (const auto& v : values)
@@ -44,8 +40,8 @@ TEST(all_gather, all_gather_vector)
     for (int i=0; i<my_num_values; ++i)
         my_values[i] = (comm.address()+1)*1000 + i;
 
-    auto num_values = comm.all_gather(my_num_values).get();
-    auto values = comm.all_gather(my_values, num_values).get();
+    auto num_values = comm.all_gather(my_num_values);
+    auto values = comm.all_gather(my_values, num_values);
 
     bool passed = true;
     if (values.size() != (unsigned)mpi_comm.size()) passed =  false;;

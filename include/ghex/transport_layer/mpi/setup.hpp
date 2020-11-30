@@ -84,8 +84,9 @@ namespace gridtools{
                     GHEX_CHECK_MPI_RESULT(MPI_Bcast(values, sizeof(T)*n, MPI_BYTE, root, *this));
                 }
 
+#ifdef GHEX_EMULATE_ALLGATHERV
                 template<typename T>
-                future< std::vector<std::vector<T>> > all_gather(const std::vector<T>& payload, const std::vector<int>& sizes) const
+                std::vector<std::vector<T>> all_gather(const std::vector<T>& payload, const std::vector<int>& sizes) const
                 {
                     std::vector<std::vector<T>> res(size());
                     for (int neigh=0; neigh<size(); ++neigh)
@@ -107,45 +108,60 @@ namespace gridtools{
                     for (auto& r : m_reqs)
                         r.wait();
 
-                    return {std::move(res), std::move(m_reqs.front())};
-
-                    /*handle_type h;
-                    std::vector<int> displs(size());
+                    return res;
+                }
+#else
+                template<typename T>
+                std::vector<std::vector<T>> all_gather(const std::vector<T>& payload, const std::vector<int>& sizes) const
+                {
+                    std::vector<T> recvbuf;
                     std::vector<int> recvcounts(size());
+                    std::vector<int> displs(size());
                     std::vector<std::vector<T>> res(size());
+                    unsigned int c = 0;
                     for (int i=0; i<size(); ++i)
                     {
-                        res[i].resize(sizes[i]);
                         recvcounts[i] = sizes[i]*sizeof(T);
-                        displs[i] = reinterpret_cast<char*>(&res[i][0]) - reinterpret_cast<char*>(&res[0][0]);
+                        displs[i] = c*sizeof(T);
+                        res[i].resize(sizes[i]);
+                        c += sizes[i];
                     }
-                    GHEX_CHECK_MPI_RESULT( MPI_Iallgatherv(
+                    recvbuf.resize(c);
+
+                    GHEX_CHECK_MPI_RESULT( MPI_Allgatherv(
                         &payload[0], payload.size()*sizeof(T), MPI_BYTE,
-                        &res[0][0], &recvcounts[0], &displs[0], MPI_BYTE,
-                        *this, 
-                        &h.m_req));
-                    return {std::move(res), std::move(h)};*/
+                        &recvbuf[0], &recvcounts[0], &displs[0], MPI_BYTE,
+                        *this));
+
+                    c = 0;
+                    for (int i=0; i<size(); ++i)
+                    {
+                        std::copy(
+                            &recvbuf[displs[i]/sizeof(T)],
+                            &recvbuf[displs[i]/sizeof(T)] + sizes[i],
+                            res[i].begin());
+                    }
+                    return res;
                 }
+#endif
 
                 template<typename T>
-                future< std::vector<T> > all_gather(const T& payload) const
+                std::vector<T> all_gather(const T& payload) const
                 {
                     std::vector<T> res(size());
-                    handle_type h;
                     GHEX_CHECK_MPI_RESULT(
-                        MPI_Iallgather
+                        MPI_Allgather
                         (&payload, sizeof(T), MPI_BYTE,
                         &res[0], sizeof(T), MPI_BYTE,
-                        *this,
-                        &h.get()));
-                    return {std::move(res), std::move(h)};
+                        *this));
+                    return res;
                 }
                 
                 /** @brief computes the max element of a vector<T> among all ranks */
                 template<typename T>
                 T max_element(const std::vector<T>& elems) const {
                     T local_max{*(std::max_element(elems.begin(), elems.end()))};
-                    auto all_max = all_gather(local_max).get();
+                    auto all_max = all_gather(local_max);
                     return *(std::max_element(all_max.begin(), all_max.end()));
                 }
 

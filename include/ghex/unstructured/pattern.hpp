@@ -223,7 +223,7 @@ namespace gridtools {
 
                     // gather halos from all local domains on all ranks. TO DO: from here to the end of the function, are all casts actually needed?
                     int num_domains = static_cast<int>(d_range.size()); // number of local domains (int, since has to be used as elem counter)
-                    auto all_num_domains = comm.all_gather(num_domains).get(); // numbers of local domains on all ranks
+                    auto all_num_domains = comm.all_gather(num_domains); // numbers of local domains on all ranks
                     std::vector<domain_id_type> domain_ids{}; // domain id for each local domain
                     std::vector<std::size_t> halo_sizes{}; // halo size for each local domain
                     std::vector<std::size_t> num_levels{}; // halo levels for each local domain
@@ -235,16 +235,16 @@ namespace gridtools {
                         num_levels.push_back(h.levels());
                         reduced_halo.insert(reduced_halo.end(), h.vertices().begin(), h.vertices().end());
                     }
-                    auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains).get(); // domain id for each local domain on all ranks
-                    auto all_halo_sizes = comm.all_gather(halo_sizes, all_num_domains).get(); // halo size for each local domain on all ranks
+                    auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains); // domain id for each local domain on all ranks
+                    auto all_halo_sizes = comm.all_gather(halo_sizes, all_num_domains); // halo size for each local domain on all ranks
                     std::vector<int> all_reduced_halo_sizes{}; // size of reduced halo on all ranks (int, since has to be used as elem counter)
                     for (const auto& hs : all_halo_sizes) {
                         all_reduced_halo_sizes.push_back(static_cast<int>(std::accumulate(hs.begin(), hs.end(), 0)));
                     }
-                    auto all_reduced_halos = comm.all_gather(reduced_halo, all_reduced_halo_sizes).get(); // single reduced halos with halo vertices of all local domains on all ranks
+                    auto all_reduced_halos = comm.all_gather(reduced_halo, all_reduced_halo_sizes); // single reduced halos with halo vertices of all local domains on all ranks
 
                     // other setup helpers
-                    auto all_addresses = comm.all_gather(my_address).get(); // addresses of all ranks
+                    auto all_addresses = comm.all_gather(my_address); // addresses of all ranks
                     std::vector<domain_id_type> max_domain_ids{}; // max domain id on every rank
                     for (const auto& d_ids : all_domain_ids) {
                         max_domain_ids.push_back(*(std::max_element(d_ids.begin(), d_ids.end())));
@@ -478,15 +478,15 @@ namespace gridtools {
 
                     // gather domain ids and addresses for all ranks
                     int num_domains = static_cast<int>(d_range.size()); // number of local domains (int, since has to be used as elem counter)
-                    auto all_num_domains = comm.all_gather(num_domains).get(); // numbers of local domains on all ranks
+                    auto all_num_domains = comm.all_gather(num_domains); // numbers of local domains on all ranks
                     std::map<domain_id_type, std::size_t> local_domain_ids_map{}; // map between local domain ids and indices in d_range
                     for (std::size_t idx = 0; idx < d_range.size(); ++idx) {
                         local_domain_ids_map.insert({d_range[idx].domain_id(), idx});
                     }
                     std::vector<domain_id_type> domain_ids(d_range.size()); // domain id for each local domain (ordered)
                     std::transform(local_domain_ids_map.begin(), local_domain_ids_map.end(), domain_ids.begin(), [](auto p){return p.first;});
-                    auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains).get(); // domain id for each local domain on all ranks
-                    auto all_addresses = comm.all_gather(my_address).get(); // addresses of all ranks
+                    auto all_domain_ids = comm.all_gather(domain_ids, all_num_domains); // domain id for each local domain on all ranks
+                    auto all_addresses = comm.all_gather(my_address); // addresses of all ranks
 
                     // set max tag
                     auto max_domain_id = comm.max_element(domain_ids);
