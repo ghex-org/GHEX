@@ -346,6 +346,7 @@ CONTAINS
     integer, dimension(:), intent(in), target :: ranks
     integer, intent(in) :: tag
     type(ghex_future_multi) :: future
+    
     call ghex_comm_post_send_multi_wrapped(comm, message, c_loc(ranks), size(ranks), tag, future)
   end subroutine ghex_comm_post_send_multi
 
@@ -384,7 +385,7 @@ CONTAINS
   subroutine ghex_comm_send_multi_cb(comm, message, ranks, tag, cb, req, user_data)
     use iso_c_binding
     type(ghex_communicator), intent(in) :: comm
-    type(ghex_message), value :: message
+    type(ghex_message) :: message
     integer, dimension(:), intent(in), target :: ranks
     integer, intent(in) :: tag
     procedure(f_callback), optional, pointer :: cb
@@ -395,7 +396,7 @@ CONTAINS
     procedure(f_callback), pointer :: lcb
     type(ghex_request) :: lreq
     type(ghex_cb_user_data) :: luser_data
-
+    
     if (present(cb)) then
       lcb => cb
     else
