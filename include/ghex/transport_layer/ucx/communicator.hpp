@@ -23,6 +23,13 @@ namespace gridtools {
 
             namespace ucx {
 
+#define GHEX_TAG_BITS                       32
+#define GHEX_RANK_BITS                      32
+#define GHEX_ANY_SOURCE_MASK                0x0000000000000000ul
+#define GHEX_SPECIFIC_SOURCE_MASK           0x00000000fffffffful
+#define GHEX_TAG_MASK                       0xffffffff00000000ul
+
+		
                 struct communicator
                 {
                     using worker_type            = worker_t;
@@ -81,7 +88,7 @@ namespace gridtools {
                     [[nodiscard]] future<void> send(const Message &msg, rank_type dst, tag_type tag)
                     {
                         const auto& ep = m_send_worker->connect(dst);
-                        const auto stag = ((std::uint_fast64_t)tag << 32) |
+                        const auto stag = ((std::uint_fast64_t)tag << GHEX_TAG_BITS) |
                                            (std::uint_fast64_t)(rank());
                         auto ret = ucp_tag_send_nb(
                             ep.get(),                                        // destination
@@ -117,8 +124,12 @@ namespace gridtools {
                     template <typename Message>
                     [[nodiscard]] future<void> recv(Message &msg, rank_type src, tag_type tag)
                     {
-                        const auto rtag = ((std::uint_fast64_t)tag << 32) |
-                                           (std::uint_fast64_t)(src);
+                        const auto rtag = (GHEX_ANY_SOURCE == src) ?
+			    ((std::uint_fast64_t)tag << GHEX_TAG_BITS) :
+			    ((std::uint_fast64_t)tag << GHEX_TAG_BITS) | (std::uint_fast64_t)(src);
+			const auto rtag_mask = (GHEX_ANY_SOURCE == src) ?
+			    (GHEX_TAG_MASK | GHEX_ANY_SOURCE_MASK) :
+			    (GHEX_TAG_MASK | GHEX_SPECIFIC_SOURCE_MASK);
                         std::lock_guard<worker_type::mutex_t> lock(m_send_worker->mutex());
                                 auto ret = ucp_tag_recv_nb(
                                     m_recv_worker->get(),                            // worker
@@ -126,17 +137,17 @@ namespace gridtools {
                                     msg.size()*sizeof(typename Message::value_type), // buffer size
                                     ucp_dt_make_contig(1),                           // data type
                                     rtag,                                            // tag
-                                    ~std::uint_fast64_t(0ul),                        // tag mask
+                                    rtag_mask,                                       // tag mask
                                     &communicator::empty_recv_callback);             // callback function pointer: empty here
                                 if(!UCS_PTR_IS_ERR(ret))
                                 {
-			                        if (UCS_INPROGRESS != ucp_request_check_status(ret))
+                                    if (UCS_INPROGRESS != ucp_request_check_status(ret))
                                     {
-				                        // recv completed immediately
-		    		                    // we need to free the request here, not in the callback
+                                        // recv completed immediately
+                                        // we need to free the request here, not in the callback
                                         auto ucx_ptr = ret;
                                         request_init(ucx_ptr);
-				                        ucp_request_free(ucx_ptr);
+                                        ucp_request_free(ucx_ptr);
                                         return request{nullptr};
                                     }
                                     else
@@ -190,7 +201,7 @@ namespace gridtools {
                     request_cb_type send(message_type&& msg, rank_type dst, tag_type tag, CallBack&& callback)
                     {
                         const auto& ep = m_send_worker->connect(dst);
-                        const auto stag = ((std::uint_fast64_t)tag << 32) |
+                        const auto stag = ((std::uint_fast64_t)tag << GHEX_TAG_BITS) |
                                            (std::uint_fast64_t)(rank());
                         auto ret = ucp_tag_send_nb(
                             ep.get(),                                        // destination
@@ -240,8 +251,12 @@ namespace gridtools {
                     template<typename CallBack>
                     request_cb_type recv(message_type&& msg, rank_type src, tag_type tag, CallBack&& callback)
                     {
-                        const auto rtag = ((std::uint_fast64_t)tag << 32) |
-                                           (std::uint_fast64_t)(src);
+                        const auto rtag = (GHEX_ANY_SOURCE == src) ?
+			    ((std::uint_fast64_t)tag << GHEX_TAG_BITS) :
+			    ((std::uint_fast64_t)tag << GHEX_TAG_BITS) | (std::uint_fast64_t)(src);
+			const auto rtag_mask = (GHEX_ANY_SOURCE == src) ?
+			    (GHEX_TAG_MASK | GHEX_ANY_SOURCE_MASK) :
+			    (GHEX_TAG_MASK | GHEX_SPECIFIC_SOURCE_MASK);
                         std::lock_guard<worker_type::mutex_t> lock(m_send_worker->mutex());
                         auto ret = ucp_tag_recv_nb(
                                     m_ucp_rw,                                        // worker
@@ -249,7 +264,7 @@ namespace gridtools {
                                     msg.size(),                                      // buffer size
                                     ucp_dt_make_contig(1),                           // data type
                                     rtag,                                            // tag
-                                    ~std::uint_fast64_t(0ul),                        // tag mask
+                                    rtag_mask,                                       // tag mask
                                     &communicator::recv_callback);                   // callback function pointer
                                 if(!UCS_PTR_IS_ERR(ret))
                                 {
@@ -261,7 +276,7 @@ namespace gridtools {
                                         // we need to free the request here, not in the callback
                                         auto ucx_ptr = ret;
                                         request_cb_data_type::get(ucx_ptr).m_kind = request_kind::none;
-				                        ucp_request_free(ucx_ptr);
+                                        ucp_request_free(ucx_ptr);
                                         return request_cb_type{};
                                     }
                                     else
@@ -305,11 +320,11 @@ namespace gridtools {
                         req.m_kind = request_kind::none;
                         req.~request_cb_data_type();
                         // free ucx request
-				        ucp_request_free(ucx_req);
+                        ucp_request_free(ucx_req);
                     }
 
                     // this function must be called from within a locked region
-                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t* /*info*/)
+                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t*info /*info*/)
                     {
                         auto& req = request_cb_data_type::get(ucx_req);
 
@@ -320,8 +335,8 @@ namespace gridtools {
                                 // we're in early completion mode
                                 return;
                             }
-
-                            req.m_cb(std::move(req.m_msg), req.m_rank, req.m_tag);
+                            
+                            req.m_cb(std::move(req.m_msg), info->sender_tag & GHEX_SPECIFIC_SOURCE_MASK, req.m_tag);
                             ++(req.m_worker->m_progressed_recvs);
                             // set completion bit
                             *req.m_completed = true;

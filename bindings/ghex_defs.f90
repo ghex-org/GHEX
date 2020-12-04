@@ -1,4 +1,6 @@
 MODULE ghex_defs
+  integer, public, parameter :: GHEX_ANY_SOURCE = -1
+
   integer, public, parameter :: ghex_fp_kind = 4
 
   integer, public, parameter :: DeviceUnknown = 0
