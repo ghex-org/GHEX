@@ -1,4 +1,4 @@
-set(_serial_tests aligned_allocator unified_memory_allocator)
+set(_serial_tests aligned_allocator unified_memory_allocator decomposition)
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
@@ -126,7 +126,7 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
-set(_tests_rma local_rma)
+set(_tests_rma local_rma simple_regular_exchange)
 foreach (_t ${_tests_rma})
 
     set(t ${_t})

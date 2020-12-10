@@ -1,12 +1,12 @@
-﻿/* 
+﻿/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 
 #include <set>
@@ -24,7 +24,6 @@
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
-#include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
@@ -35,12 +34,10 @@
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
 using communicator_type = context_type::communicator_type;
 using domain_id_type = int;
 using global_index_type = int;
@@ -448,7 +445,7 @@ std::size_t init_inner_sizes(const domain_id_type domain_id) {
 /** @brief Test domain descriptor and halo generator concepts */
 TEST(unstructured_user_concepts, domain_descriptor_and_halos) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -467,7 +464,7 @@ TEST(unstructured_user_concepts, domain_descriptor_and_halos) {
 /** @brief Test pattern setup */
 TEST(unstructured_user_concepts, pattern_setup) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -497,7 +494,7 @@ TEST(unstructured_user_concepts, pattern_setup) {
 /** @brief Test data descriptor concept*/
 TEST(unstructured_user_concepts, data_descriptor) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -511,7 +508,7 @@ TEST(unstructured_user_concepts, data_descriptor) {
 
     // communication object
     using pattern_container_type = decltype(patterns);
-    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator());
 
     // application data
     std::vector<int> field(d.size(), 0);
@@ -531,7 +528,7 @@ TEST(unstructured_user_concepts, data_descriptor) {
 /** @brief Test in place receive*/
 TEST(unstructured_user_concepts, in_place_receive) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -544,7 +541,7 @@ TEST(unstructured_user_concepts, in_place_receive) {
 
     // communication object
     using pattern_container_type = decltype(patterns);
-    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator());
 
     // application data
     std::vector<int> field(d.size(), 0);
@@ -562,7 +559,7 @@ TEST(unstructured_user_concepts, in_place_receive) {
 /** @brief Test in place receive with multiple fields*/
 TEST(unstructured_user_concepts, in_place_receive_multi) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -575,7 +572,7 @@ TEST(unstructured_user_concepts, in_place_receive_multi) {
 
     // communication object
     using pattern_container_type = decltype(patterns);
-    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator());
 
     // application data
 
@@ -608,7 +605,7 @@ TEST(unstructured_user_concepts, in_place_receive_multi) {
 /** @brief Test pattern setup with multiple domains per rank */
 TEST(unstructured_user_concepts, pattern_setup_oversubscribe) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -640,7 +637,7 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe) {
 /** @brief Test pattern setup with multiple domains per rank, oddly distributed */
 TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -721,7 +718,7 @@ TEST(unstructured_user_concepts, pattern_setup_oversubscribe_asymm) {
 /** @brief Test data descriptor concept*/
 TEST(unstructured_user_concepts, data_descriptor_oversubscribe) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -740,7 +737,7 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe) {
 
     // communication object
     using pattern_container_type = decltype(patterns);
-    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator());
 
     // application data
     std::vector<int> field_1(d_1.size(), 0);
@@ -764,7 +761,7 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe) {
 /** @brief Test data descriptor concept with in-place receive*/
 TEST(unstructured_user_concepts, data_descriptor_oversubscribe_ipr) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -779,7 +776,7 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe_ipr) {
 
     // communication object
     using pattern_container_type = decltype(patterns);
-    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator());
 
     // application data
     std::vector<int> field_1(d_1.size(), 0);
