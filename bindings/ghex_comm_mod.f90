@@ -64,10 +64,11 @@ MODULE ghex_comm_mod
        type(ghex_communicator), value :: comm
      end function ghex_comm_progress
 
-     subroutine ghex_comm_barrier(comm) bind(c)
+     subroutine ghex_comm_barrier(comm, type) bind(c)
        use iso_c_binding
        import ghex_communicator
        type(ghex_communicator), value :: comm
+       integer, value:: type
      end subroutine ghex_comm_barrier
 
 

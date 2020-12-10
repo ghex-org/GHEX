@@ -2,6 +2,7 @@
 #include "request_bind.hpp"
 #include "future_bind.hpp"
 #include "obj_wrapper.hpp"
+#include "ghex_defs.hpp"
 #include <iostream>
 #include <vector>
 
@@ -54,12 +55,21 @@ progress_status_type ghex_comm_progress(ghex::bindings::obj_wrapper *wrapper)
 }
 
 extern "C"
-void ghex_comm_barrier(ghex::bindings::obj_wrapper *wrapper)
+void ghex_comm_barrier(ghex::bindings::obj_wrapper *wrapper, int type)
 {
     communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper);
-    (*barrier)(*comm);
+    switch(type){
+    case(BarrierThread):
+        barrier->in_node(*comm);
+        break;
+    case(BarrierRank):
+        barrier->rank_barrier(*comm);
+        break;
+    default:
+        (*barrier)(*comm);
+        break;
+    }
 }
-
 
 /*
    SEND requests

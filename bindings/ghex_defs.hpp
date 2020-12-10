@@ -12,4 +12,9 @@ using fp_type                   = float;
 #define LayoutFieldLast  1
 #define LayoutFieldFirst 2
 
+/* barrier types */
+#define BarrierGlobal 1
+#define BarrierThread 2
+#define BarrierRank   3
+
 #endif /* GHEX_FORTRAN_DEFS_INCLUDED_HPP */

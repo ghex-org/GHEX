@@ -17,5 +17,9 @@ MODULE ghex_defs
   integer, public, parameter :: CartOrderZXY = 5
   integer, public, parameter :: CartOrderYXZ = 6
   integer, public, parameter :: CartOrderDefault = 1
+
+  integer, public, parameter :: GhexBarrierGlobal = 1
+  integer, public, parameter :: GhexBarrierThread = 2
+  integer, public, parameter :: GhexBarrierRank   = 3
   
 END MODULE ghex_defs
