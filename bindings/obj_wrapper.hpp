@@ -44,7 +44,7 @@ namespace bindings {
 	friend T get_object(obj_wrapper *src);
 
 	template <class T>
-	friend T get_object_safe(obj_wrapper *src);
+	friend T get_object_unsafe(obj_wrapper *src);
 
 	template <class T>
 	friend T* get_object_ptr(obj_wrapper *src);
@@ -61,7 +61,7 @@ namespace bindings {
     /** get the object without performing type checks:
      *	assume that has already been done and the cast is legal */
     template <class T>
-    T get_object_safe(obj_wrapper *src) {
+    T get_object_unsafe(obj_wrapper *src) {
 	return reinterpret_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
     }
     
@@ -74,7 +74,7 @@ namespace bindings {
     }
 
     template <class T>
-    T* get_object_ptr_safe(obj_wrapper *src) {
+    T* get_object_ptr_unsafe(obj_wrapper *src) {
         return &reinterpret_cast<obj_wrapper::obj_storage<T> *>(src->m_obj_storage.get())->m_obj;
     }
     

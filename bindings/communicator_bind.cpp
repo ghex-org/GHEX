@@ -39,25 +39,25 @@ void* ghex_comm_new()
 extern "C"
 int ghex_comm_rank(ghex::bindings::obj_wrapper *wrapper)
 {
-    return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->rank();
+    return ghex::bindings::get_object_ptr_unsafe<communicator_type>(wrapper)->rank();
 }
 
 extern "C"
 int ghex_comm_size(ghex::bindings::obj_wrapper *wrapper)
 {
-    return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->size();
+    return ghex::bindings::get_object_ptr_unsafe<communicator_type>(wrapper)->size();
 }
 
 extern "C"
 progress_status_type ghex_comm_progress(ghex::bindings::obj_wrapper *wrapper)
 {
-    return ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper)->progress();
+    return ghex::bindings::get_object_ptr_unsafe<communicator_type>(wrapper)->progress();
 }
 
 extern "C"
 void ghex_comm_barrier(ghex::bindings::obj_wrapper *wrapper, int type)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wrapper);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wrapper);
     switch(type){
     case(BarrierThread):
         barrier->in_node(*comm);
@@ -78,7 +78,7 @@ void ghex_comm_barrier(ghex::bindings::obj_wrapper *wrapper, int type)
 extern "C"
 void ghex_comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *ffut)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
@@ -90,7 +90,7 @@ void ghex_comm_post_send(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_m
 extern "C"
 void ghex_comm_post_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
@@ -104,7 +104,7 @@ extern "C"
 void ghex_comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
     ghex::tl::cb::any_message *wmessage;
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     wmessage = *wmessage_ref;
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
@@ -124,7 +124,7 @@ void ghex_comm_send_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_mes
 extern "C"
 void ghex_comm_post_send_multi(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int *ranks, int nranks, int tag, frequest_type *ffut)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
@@ -138,7 +138,7 @@ void ghex_comm_post_send_multi(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb:
 extern "C"
 void ghex_comm_post_send_multi_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
@@ -153,7 +153,7 @@ extern "C"
 void ghex_comm_send_multi_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
     ghex::tl::cb::any_message *wmessage;
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     std::vector<int> ranks_array(nranks);
     ranks_array.assign(ranks, ranks+nranks);
     wmessage = *wmessage_ref;
@@ -175,7 +175,7 @@ void ghex_comm_send_multi_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::a
 extern "C"
 void ghex_comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, ffuture_type *ffut)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
@@ -187,7 +187,7 @@ void ghex_comm_post_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_m
 extern "C"
 void ghex_comm_post_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
@@ -201,7 +201,7 @@ extern "C"
 void ghex_comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int rank, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
     ghex::tl::cb::any_message *wmessage;
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     wmessage = *wmessage_ref;
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
@@ -221,7 +221,7 @@ void ghex_comm_recv_cb(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_mes
 extern "C"
 void ghex_comm_resubmit_recv(ghex::bindings::obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
-    communicator_type *comm = ghex::bindings::get_object_ptr_safe<communicator_type>(wcomm);
+    communicator_type *comm = ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
     if(NULL==wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();

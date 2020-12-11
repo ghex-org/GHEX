@@ -196,14 +196,14 @@ extern "C"
 void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
     if(nullptr == ewrapper) return nullptr;
-    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr_safe<bco_type>(ewrapper)->exchange());
+    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr_unsafe<bco_type>(ewrapper)->exchange());
 }
 
 extern "C"
 void ghex_struct_exchange_handle_wait(ghex::bindings::obj_wrapper **ehwrapper)
 {
     if(nullptr == *ehwrapper) return;
-    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_safe<exchange_handle_type>(*ehwrapper);
+    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
     hex.wait();
     *ehwrapper = nullptr;
 }

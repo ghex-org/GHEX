@@ -173,8 +173,8 @@ extern "C"
 void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
     if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
-    communication_obj_type    &co             = *ghex::bindings::get_object_ptr_safe<communication_obj_type>(cowrapper);
-    pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_safe<pattern_field_vector_type>(ewrapper);
+    communication_obj_type    &co             = *ghex::bindings::get_object_ptr_unsafe<communication_obj_type>(cowrapper);
+    pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_unsafe<pattern_field_vector_type>(ewrapper);
     return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.second.begin(), pattern_fields.second.end()));
 }
 
@@ -182,7 +182,7 @@ extern "C"
 void ghex_struct_exchange_handle_wait(ghex::bindings::obj_wrapper **ehwrapper)
 {
     if(nullptr == *ehwrapper) return;
-    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_safe<exchange_handle_type>(*ehwrapper);
+    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
     hex.wait();
     *ehwrapper = nullptr;
 }
