@@ -47,12 +47,13 @@ PROGRAM test_halo_exchange
   type(hptr) :: data_ptr(nfields_max)
 
   ! GHEX stuff
-  type(ghex_struct_field)                :: field_desc
+  type(ghex_communicator)                :: comm         ! communicator
+  type(ghex_struct_field)                :: field_desc   ! field descriptor
 
   ! single domain, multiple fields
-  type(ghex_struct_domain)               :: domain_desc
-  type(ghex_struct_communication_object) :: co
-  type(ghex_struct_exchange_descriptor)  :: ed
+  type(ghex_struct_domain)               :: domain_desc  ! domain descriptor
+  type(ghex_struct_communication_object) :: co           ! communication object
+  type(ghex_struct_exchange_descriptor)  :: ed           ! exchange descriptor
 
   ! one field per domain, multiple domains
   type(ghex_struct_domain),               dimension(:) :: domain_descs(nfields_max)
@@ -61,7 +62,7 @@ PROGRAM test_halo_exchange
   type(ghex_struct_exchange_handle)      :: eh
 
   if (command_argument_count() < 6) then
-     print *, "Usage: <benchmark> [grid size] [niters] [halo size] [rank dims :3] <node dims :3> <cart_order=[1,2,3]>"
+     print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] [rank dims :3] <node dims :3> <cart_order=[1,2,3]>"
      call exit(1)
   end if
 
@@ -195,6 +196,9 @@ PROGRAM test_halo_exchange
   ! init ghex
   call ghex_init(nthreads, C_CART)
 
+  ! create ghex communicator
+  comm = ghex_comm_new()
+  
   ! halo information
   halo(:) = 0
   halo(1:2) = mb
@@ -322,7 +326,7 @@ PROGRAM test_halo_exchange
   ed = ghex_exchange_desc_new(domain_desc)
 
   ! create communication object
-  call ghex_co_init(co)
+  call ghex_co_init(co, comm)
 
   ! warmup
   ! exchange halos

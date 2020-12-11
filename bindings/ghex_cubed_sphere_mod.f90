@@ -1,6 +1,7 @@
 MODULE ghex_cubed_sphere_mod
   use iso_c_binding
   use ghex_defs
+  use ghex_comm_mod
 
   implicit none
 
@@ -100,9 +101,10 @@ MODULE ghex_cubed_sphere_mod
   end interface ghex_field_init
 
   interface ghex_co_init
-     subroutine ghex_cubed_sphere_co_init(co) bind(c)
-       import ghex_cubed_sphere_communication_object
+     subroutine ghex_cubed_sphere_co_init(co, comm) bind(c)
+       import ghex_cubed_sphere_communication_object, ghex_communicator
        type(ghex_cubed_sphere_communication_object) :: co
+       type(ghex_communicator), value :: comm
      end subroutine ghex_cubed_sphere_co_init
   end interface ghex_co_init
 

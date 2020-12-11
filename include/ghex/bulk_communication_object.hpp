@@ -391,6 +391,12 @@ public:
             }
         }
     }
+
+    // is co initialized
+    bool initialized()
+    {
+        return m_initialized;
+    }
     
     // add multiple fields at once
     template<typename... F>

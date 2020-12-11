@@ -76,15 +76,17 @@ struct pattern_field_data {
 static pattern_map_type field_to_pattern;
 
 extern "C"
-void ghex_cubed_sphere_co_init(ghex::bindings::obj_wrapper **wrapper_ref)
+void ghex_cubed_sphere_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::obj_wrapper *wcomm)
 {
-    auto comm  = context->get_communicator();
-    *wrapper_ref = new ghex::bindings::obj_wrapper(ghex::make_communication_object<pattern_type>(comm));
+    if(nullptr == wcomm) return;   
+    auto &comm = *ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
+    *wco_ref = new ghex::bindings::obj_wrapper(ghex::make_communication_object<pattern_type>(comm));
 }
 
 extern "C"
 void ghex_cubed_sphere_domain_add_field(cubed_sphere_domain_descriptor *domain_desc, cubed_sphere_field_descriptor *field_desc)
 {
+    if(nullptr == domain_desc || nullptr == field_desc) return;
     if(nullptr == domain_desc->fields){
         domain_desc->fields = new field_vector_type();
     }
@@ -94,6 +96,7 @@ void ghex_cubed_sphere_domain_add_field(cubed_sphere_domain_descriptor *domain_d
 extern "C"
 void ghex_cubed_sphere_domain_free(cubed_sphere_domain_descriptor *domain_desc)
 {
+    if(nullptr == domain_desc) return;
     delete domain_desc->fields;
     domain_desc->fields = nullptr;
     domain_desc->tile = -1;

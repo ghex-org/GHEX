@@ -68,6 +68,8 @@ using domain_descriptor_type    = ghex::structured::regular::domain_descriptor<d
 using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
 using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
 using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type,2,1,0>;
+using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
+using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
 using pattern_map_type          = std::map<struct_field_descriptor, pattern_type, field_compare>;
 using bco_type                  = ghex::bulk_communication_object<ghex::structured::rma_range_generator, pattern_type, field_descriptor_type>;
 using exchange_handle_type      = bco_type::handle;
@@ -78,18 +80,22 @@ using halo_generator_type       = ghex::structured::regular::halo_generator<doma
 static pattern_map_type field_to_pattern;
 
 extern "C"
-void ghex_struct_co_init(ghex::bindings::obj_wrapper **wrapper_ref)
+void ghex_struct_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::obj_wrapper *wcomm)
 {
-    // TODO: is this still relevant? tokens..
-    // auto token = context->get_token();
-    // auto comm  = context->get_communicator(token);
-    // *wrapper_ref = new ghex::bindings::obj_wrapper(ghex::make_communication_object<pattern_type>(comm));
-    *wrapper_ref = NULL;
+    if(nullptr == wcomm) return;   
+    auto &comm = *ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
+    auto bco = gridtools::ghex::bulk_communication_object<
+        gridtools::ghex::structured::rma_range_generator,
+        pattern_type,
+        field_descriptor_type
+        > (comm);
+    *wco_ref = new ghex::bindings::obj_wrapper(std::move(bco));
 }
 
 extern "C"
 void ghex_struct_domain_add_field(struct_domain_descriptor *domain_desc, struct_field_descriptor *field_desc)
 {
+    if(nullptr == domain_desc || nullptr == field_desc) return;
     if(nullptr == domain_desc->fields){
         domain_desc->fields = new field_vector_type();
     } else {
@@ -112,6 +118,7 @@ void ghex_struct_domain_add_field(struct_domain_descriptor *domain_desc, struct_
 extern "C"
 void ghex_struct_domain_free(struct_domain_descriptor *domain_desc)
 {
+    if(nullptr == domain_desc) return;
     delete domain_desc->fields;
     domain_desc->fields = nullptr;
     domain_desc->id = -1;
@@ -157,14 +164,8 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
         local_domains.emplace_back(domains_desc[i].id, first, last);
     }
    
-    // TODO: is this still relevant? or do I need comm as argument?
-    auto comm  = context->get_communicator();
-    
-    auto bco = gridtools::ghex::bulk_communication_object<
-	gridtools::ghex::structured::rma_range_generator,
-	pattern_type,
-	field_descriptor_type
-	> (comm);
+    // a vector of `pattern(field)` objects
+    pattern_field_vector_type pattern_fields;
 
     for(int i=0; i<n_domains; i++){
         field_vector_type &fields = *(domains_desc[i].fields);
@@ -181,22 +182,34 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
             pattern_type &pattern = (*pit).second;
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
-	    auto f = field_descriptor_type(local_domains[i], field.data, offset, extents, field.n_components, false, 
-					   domains_desc[i].device_id);
-	    bco.add_field(pattern(f));
+            std::unique_ptr<field_descriptor_type> field_desc_uptr(
+                new field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(local_domains[i], field.data, offset, extents)));
+            auto ptr = field_desc_uptr.get();
+            pattern_fields.first.push_back(std::move(field_desc_uptr));
+            pattern_fields.second.push_back(pattern(*ptr));
         }
     }
 
-    // exchange the RMA handles before any other BCO can be created
-    // bco.init();
-    return new ghex::bindings::obj_wrapper(std::move(bco));
+    return new ghex::bindings::obj_wrapper(std::move(pattern_fields));
 }
 
 extern "C"
 void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
-    if(nullptr == ewrapper) return nullptr;
-    return new ghex::bindings::obj_wrapper(ghex::bindings::get_object_ptr_unsafe<bco_type>(ewrapper)->exchange());
+    if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
+    bco_type    &bco                          = *ghex::bindings::get_object_ptr_unsafe<bco_type>(cowrapper);
+    pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_unsafe<pattern_field_vector_type>(ewrapper);
+
+    // first time call: build the bco
+    if(!bco.initialized()) {
+        for (auto it=pattern_fields.second.begin(); it!=pattern_fields.second.end(); ++it) {
+            bco.add_field(*it);
+        }
+        // exchange the RMA handles before any other BCO can be created
+        bco.init();
+    }
+    
+    return new ghex::bindings::obj_wrapper(bco.exchange());
 }
 
 extern "C"
