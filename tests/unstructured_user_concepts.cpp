@@ -802,7 +802,7 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe_ipr) {
 /** @brief Test data descriptor concept with multiple threads*/
 TEST(unstructured_user_concepts, data_descriptor_oversubscribe_threads) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(2, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -828,7 +828,7 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe_threads) {
     data_descriptor_cpu_int_type data_2{d_2, field_2};
 
     auto func = [&context](auto bi) {
-        auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator(context.get_token()));
+        auto co = gridtools::ghex::make_communication_object<pattern_container_type>(context.get_communicator());
         auto h = co.exchange(bi);
         h.wait();
     };
@@ -847,7 +847,7 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe_threads) {
 /** @brief Test data descriptor concept with in-place receive and multiple threads*/
 TEST(unstructured_user_concepts, data_descriptor_oversubscribe_ipr_threads) {
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(2, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -869,7 +869,7 @@ TEST(unstructured_user_concepts, data_descriptor_oversubscribe_ipr_threads) {
     data_descriptor_cpu_int_type data_2{d_2, field_2};
 
     auto func = [&context](auto bi) {
-        auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator(context.get_token()));
+        auto co = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(context.get_communicator());
         auto h = co.exchange(bi);
         h.wait();
     };
