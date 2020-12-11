@@ -31,7 +31,7 @@ PROGRAM test_f_barrier
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world);
 
-  !$omp parallel
+  !$omp parallel private(comm)
 
   ! per-thread communicators
   comm = ghex_comm_new()
