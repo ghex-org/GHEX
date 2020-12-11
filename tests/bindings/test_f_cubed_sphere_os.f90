@@ -28,8 +28,9 @@ PROGRAM test_f_cubed_sphere
   integer :: n_components = 3
 
   ! GHEX stuff
+  type(ghex_communicator)                      :: comm         ! communicator
   type(ghex_cubed_sphere_domain), dimension(:), pointer :: domain_desc
-  type(ghex_cubed_sphere_field)     :: field_desc
+  type(ghex_cubed_sphere_field)                :: field_desc
   type(ghex_cubed_sphere_communication_object) :: co
   type(ghex_cubed_sphere_exchange_descriptor)  :: ed
   type(ghex_cubed_sphere_exchange_handle)      :: eh
@@ -42,6 +43,9 @@ PROGRAM test_f_cubed_sphere
 
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world)
+  
+  ! create ghex communicator
+  comm = ghex_comm_new()
 
   ! halo width
   halo(:) = 1
@@ -100,7 +104,7 @@ PROGRAM test_f_cubed_sphere
   ed = ghex_exchange_desc_new(domain_desc)
 
   ! create communication object
-  call ghex_co_init(co)
+  call ghex_co_init(co, comm)
 
   ! exchange halos
   eh = ghex_exchange(co, ed)

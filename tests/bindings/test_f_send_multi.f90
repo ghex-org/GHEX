@@ -99,7 +99,7 @@ PROGRAM test_send_multi
     !$omp end master
 
     ! have to wait for master to init the arrays
-    !$omp barrier
+    call ghex_comm_barrier(comm, GhexBarrierThread)
     
     ! create list of peers (exclude self)
     allocate (peers(1:mpi_size-1))
@@ -143,7 +143,7 @@ PROGRAM test_send_multi
 
     ! wait for all threads and ranks to complete the recv.
     ! ghex_comm_barrier is safe as it progresses all communication: MPI and GHEX
-    call ghex_comm_barrier(comm)
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
     ! cancel all outstanding recv requests
     !$omp master

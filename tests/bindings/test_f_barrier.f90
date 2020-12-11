@@ -37,7 +37,7 @@ PROGRAM test_f_barrier
   comm = ghex_comm_new()
 
   ! call MT barrier
-  call ghex_comm_barrier(comm)
+  call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
   ! cleanup per-thread.
   call ghex_free(comm)

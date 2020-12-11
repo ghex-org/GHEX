@@ -34,6 +34,7 @@ PROGRAM test_halo_exchange
   type(hptr) :: data_ptr
 
   ! GHEX stuff
+  type(ghex_communicator)                :: comm         ! communicator
   type(ghex_struct_field)                :: field_desc
 
   ! single domain, multiple fields
@@ -82,6 +83,9 @@ PROGRAM test_halo_exchange
   ! init ghex
   call ghex_init(nthreads, mpi_comm_world)
   
+  ! create ghex communicator
+  comm = ghex_comm_new()
+
   ! halo information
   halo(:) = 0
   halo(1:2) = mb
@@ -125,7 +129,7 @@ PROGRAM test_halo_exchange
   zeb = ze + halo(6)
 
   ! ! create communication object
-  call ghex_co_init(co)
+  call ghex_co_init(co, comm)
 
   ! ---- field last ----
   ! allocate and initialize data cubes

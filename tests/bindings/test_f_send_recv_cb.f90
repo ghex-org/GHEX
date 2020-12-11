@@ -99,7 +99,7 @@ PROGRAM test_send_recv_cb
 
   ! wait for all while progressing the communication
   print *, mpi_rank, thrid, "finished"
-  call ghex_comm_barrier(comm)
+  call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
   ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
   call ghex_free(comm)
