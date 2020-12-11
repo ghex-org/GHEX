@@ -62,7 +62,7 @@ PROGRAM test_halo_exchange
   type(ghex_struct_exchange_handle)      :: eh
 
   if (command_argument_count() < 6) then
-     print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] [rank dims :3] <node dims :3> <cart_order=[1,2,3]>"
+     print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] [rank dims :3] <node dims :3> <cart_order=[1,2,3,4,5,6]>"
      call exit(1)
   end if
 
@@ -160,44 +160,20 @@ PROGRAM test_halo_exchange
   end if
 
   if (world_rank==0) then
-     print *, "C_CART rank placement --------------------------"
+     print *, "----- communicator rank placement --------------------------"
   end if
   call ghex_print_rank2node(C_CART)
 
   call mpi_comm_rank(C_CART, rank, mpi_err)
-
-  ! it = 0
-  ! call cpu_time(tic)
-  ! do while (it < niters)
-  !    call mpi_barrier(mpi_comm_world, ierr)
-  !   it = it+1
-  ! end do
-  ! call cpu_time(toc)
-  ! if (rank == 0) then
-  !    print *, rank, " barrier mpi_comm_world:      ", (toc-tic)
-  ! end if
-
-  ! it = 0
-  ! call cpu_time(tic)
-  ! do while (it < niters)
-  !    call mpi_barrier(C_CART, ierr)
-  !   it = it+1
-  ! end do
-  ! call cpu_time(toc)
-  ! if (rank == 0) then
-  !    print *, rank, " barrier C_CART:      ", (toc-tic)
-  ! end if
-
-  ! call mpi_barrier(mpi_comm_world, mpi_err)
-  ! call ghex_finalize()
-  ! call mpi_finalize(mpi_err)
-  ! call exit
 
   ! init ghex
   call ghex_init(nthreads, C_CART)
 
   ! create ghex communicator
   comm = ghex_comm_new()
+
+  ! create communication object
+  call ghex_co_init(co, comm)
   
   ! halo information
   halo(:) = 0
@@ -225,20 +201,17 @@ PROGRAM test_halo_exchange
   ! local indices in the rank index space
   call ghex_cart_rank2coord(C_CART, gdim, rank, rank_coord, cart_order)
 
-  ! compute neighbor information
-  ! call init_mpi_nbors(rank_coord)
-
-  ! ! define the local domain
+  ! define the local domain
   first = (rank_coord) * ldim + 1
   last  = first + ldim - 1
   call ghex_domain_init(domain_desc, rank, first, last, gfirst, glast)
 
-  ! ! make individual copies for sequenced comm
-  ! i = 1
-  ! do while (i <= nfields)
-  !   call ghex_domain_init(domain_descs(i), rank, first, last, gfirst, glast)
-  !   i = i+1
-  ! end do
+  ! make individual copies for sequenced comm
+  i = 1
+  do while (i <= nfields)
+    call ghex_domain_init(domain_descs(i), rank, first, last, gfirst, glast)
+    i = i+1
+  end do
 
   ! define local index ranges
   xs  = first(1)
@@ -270,16 +243,6 @@ PROGRAM test_halo_exchange
     i = i+1
   end do
 
-  ! allocate(v1(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  ! allocate(v2(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  ! allocate(v3(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  ! allocate(v4(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  ! allocate(v5(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  ! allocate(v6(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  ! allocate(v7(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-  ! allocate(v8(xsb:xeb, ysb:yeb, zsb:zeb), source=-1.0);
-
-
   ! ---- COMPACT tests ----
   ! initialize the field datastructure
   i = 1
@@ -290,43 +253,8 @@ PROGRAM test_halo_exchange
     i = i+1
   end do
 
-  ! call ghex_field_init(field_desc, v1, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
-  ! call ghex_field_init(field_desc, v2, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
-  ! call ghex_field_init(field_desc, v3, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
-  ! call ghex_field_init(field_desc, v4, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
-  ! call ghex_field_init(field_desc, v5, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
-  ! call ghex_field_init(field_desc, v6, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
-  ! call ghex_field_init(field_desc, v7, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
-  ! call ghex_field_init(field_desc, v8, halo, periodic=periodic)
-  ! call ghex_domain_add_field(domain_desc, field_desc)
-  ! call ghex_free(field_desc)
-
   ! compute the halo information for all domains and fields
   ed = ghex_exchange_desc_new(domain_desc)
-
-  ! create communication object
-  call ghex_co_init(co, comm)
 
   ! warmup
   ! exchange halos
@@ -340,152 +268,154 @@ PROGRAM test_halo_exchange
   
   it = 0
   do while (it < niters)
-  call cpu_time(tic)
-
-    ! schedule the exchange
+    call cpu_time(tic)
     eh = ghex_exchange(co, ed)
     call ghex_wait(eh)
     call ghex_free(eh)
-
-  call cpu_time(toc)
-  if (rank == 0) then
-     print *, rank, " exchange compact:      ", (toc-tic)
-  end if
+    call cpu_time(toc)
+    if (rank == 0) then
+      print *, rank, " exchange compact:      ", (toc-tic)
+    end if
     it = it+1
   end do
 
-  ! ! ---- SEQUENCE tests ----
-  ! ! initialize the field datastructure
-  ! ! compute the halo information for all domains and fields
-  ! i = 1
-  ! do while (i <= nfields)
-  !   call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=[1,1,1])
-  !   call ghex_domain_add_field(domain_descs(i), field_desc)
-  !   call ghex_free(field_desc)
-  !   eds(i) = ghex_exchange_desc_new(domain_descs(i))
-  !   i = i+1
-  ! end do
+  if (.false.) then
+    ! ---- SEQUENCE tests ----
+    ! initialize the field datastructure
+    ! compute the halo information for all domains and fields
+    i = 1
+    do while (i <= nfields)
+      call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=periodic)
+      call ghex_domain_add_field(domain_descs(i), field_desc)
+      call ghex_free(field_desc)
+      eds(i) = ghex_exchange_desc_new(domain_descs(i))
+      i = i+1
+    end do
 
-  ! ! create communication objects
-  ! i = 1
-  ! do while (i <= nfields)
-  !   call ghex_co_init(cos(i))
-  !   i = i+1
-  ! end do
+    ! create communication objects
+    i = 1
+    do while (i <= nfields)
+      call ghex_co_init(cos(i), comm)
+      i = i+1
+    end do
 
-  ! ! exchange halos
-  ! i = 1
-  ! do while (i <= nfields)
-  !   eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
-  !   i = i+1
-  ! end do
+    ! exchange halos
+    i = 1
+    do while (i <= nfields)
+      eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
+      i = i+1
+    end do
 
-  ! call cpu_time(tic)
-  ! it = 0
-  ! do while (it < niters)
-  !   i = 1
-  !   do while (i <= nfields)
-  !     eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
-  !     i = i+1
-  !   end do
-  !   it = it+1
-  ! end do
-  ! call cpu_time(toc)
-  ! if (rank == 0) then
-  !    print *, rank, " exchange sequenced (multiple COs):      ", (toc-tic);
-  ! end if
+    it = 0
+    do while (it < niters)
+      i = 1
+      call cpu_time(tic)
+      do while (i <= nfields)
+        eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
+        i = i+1
+      end do
+      call cpu_time(toc)
+      if (rank == 0) then
+        print *, rank, " exchange sequenced (multiple COs):      ", (toc-tic);
+      end if
+      it = it+1
+    end do
 
+    ! ---- SEQUENCE tests, single CO ----
+    ! exchange halos - SEQUENCE
+    i = 1
+    do while (i <= nfields)
+      eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
+      i = i+1
+    end do
 
-  ! ! ---- SEQUENCE tests, single CO ----
-  ! ! exchange halos - SEQUENCE
-  ! i = 1
-  ! do while (i <= nfields)
-  !   eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
-  !   i = i+1
-  ! end do
-
-  ! call cpu_time(tic)
-  ! it = 0
-  ! do while (it < niters)
-  !   i = 1
-  !   do while (i <= nfields)
-  !     eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
-  !     i = i+1
-  !   end do
-  !   it = it+1
-  ! end do
-  ! call cpu_time(toc)
-  ! if (rank == 0) then
-  !    print *, rank, " exchange sequenced (single CO):      ", (toc-tic);
-  ! end if
-
+    it = 0
+    do while (it < niters)
+      i = 1
+      call cpu_time(tic)
+      do while (i <= nfields)
+        eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
+        i = i+1
+      end do
+      call cpu_time(toc)
+      if (rank == 0) then
+        print *, rank, " exchange sequenced (single CO):      ", (toc-tic);
+      end if
+      it = it+1
+    end do
+  end if
   ! ---- BIFROST-like comm ----
 
-  ! call exchange_subarray_init
+  if (.false.) then
+    ! compute neighbor information
+    ! call init_mpi_nbors(rank_coord)
 
-  ! i = 1
-  ! do while (i <= nfields)
-  !    call exchange_subarray(data_ptr(i)%ptr)
-  !   i = i+1
-  ! end do
+    ! call exchange_subarray_init
+    
+    ! i = 1
+    ! do while (i <= nfields)
+    !   call exchange_subarray(data_ptr(i)%ptr)
+    !   i = i+1
+    ! end do
+    
+    ! call cpu_time(tic)
+    ! it = 0
+    ! do while (it < niters)
+    !   i = 1
+    !   do while (i <= nfields)
+    !     call exchange_subarray(data_ptr(i)%ptr)
+    !     i = i+1
+    !   end do
+    !   it = it+1
+    ! end do
+    ! call cpu_time(toc)
+    ! if (rank == 0) then
+    !    print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)
+    ! end if
+    
+    i = 1
+    do while (i <= nfields)
+      call update_sendrecv(data_ptr(i)%ptr)
+      i = i+1
+    end do
 
-  ! ! call cpu_time(tic)
-  ! ! it = 0
-  ! ! do while (it < niters)
-  ! !   i = 1
-  ! !   do while (i <= nfields)
-  ! !     call exchange_subarray(data_ptr(i)%ptr)
-  ! !     i = i+1
-  ! !   end do
-  ! !   it = it+1
-  ! ! end do
-  ! ! call cpu_time(toc)
-  ! ! if (rank == 0) then
-  ! !    print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)
-  ! ! end if
+    it = 0
+    do while (it < niters)
+      i = 1
+      call cpu_time(tic)
+      do while (i <= nfields)
+        call update_sendrecv(data_ptr(i)%ptr)
+        i = i+1
+      end do
+      call cpu_time(toc)
+      if (rank == 0) then
+        print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)
+      end if
+      it = it+1
+    end do
 
-  ! i = 1
-  ! do while (i <= nfields)
-  !   call update_sendrecv(data_ptr(i)%ptr)
-  !   i = i+1
-  ! end do
+    i = 1
+    do while (i <= nfields)
+      call update_sendrecv_2(data_ptr(i)%ptr)
+      i = i+1
+    end do
 
-  ! it = 0
-  ! do while (it < niters)
-  !   i = 1
-  ! call cpu_time(tic)
-  !   do while (i <= nfields)
-  !     call update_sendrecv(data_ptr(i)%ptr)
-  !     i = i+1
-  !   end do
-  ! call cpu_time(toc)
-  ! if (rank == 0) then
-  !    print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)
-  ! end if
-  !   it = it+1
-  ! end do
-
-  ! i = 1
-  ! do while (i <= nfields)
-  !   call update_sendrecv_2(data_ptr(i)%ptr)
-  !   i = i+1
-  ! end do
-
-  ! call cpu_time(tic)
-  ! it = 0
-  ! do while (it < niters)
-  !   i = 1
-  !   do while (i <= nfields)
-  !     call update_sendrecv_2(data_ptr(i)%ptr)
-  !     i = i+1
-  !   end do
-  !   it = it+1
-  ! end do
-  ! call cpu_time(toc)
-  ! if (rank == 0) then
-  !    print *, rank, " bifrost exchange 2 (sendrecv):      ", (toc-tic)
-  ! end if
-
+    call cpu_time(tic)
+    it = 0
+    do while (it < niters)
+      i = 1
+      do while (i <= nfields)
+        call update_sendrecv_2(data_ptr(i)%ptr)
+        i = i+1
+      end do
+      it = it+1
+    end do
+    call cpu_time(toc)
+    if (rank == 0) then
+      print *, rank, " bifrost exchange 2 (sendrecv):      ", (toc-tic)
+    end if
+  end if
+  
   call mpi_barrier(mpi_comm_world, mpi_err)
 
   ! cleanup

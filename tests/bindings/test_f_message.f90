@@ -1,10 +1,9 @@
 PROGRAM test_message
+  use mpi
   use ghex_mod
   use ghex_message_mod
 
   implicit none  
-
-  include 'mpif.h'  
 
   integer(8) :: msg_size = 16, i
   type(ghex_message) :: msg

@@ -9,9 +9,8 @@ PROGRAM test_context
 
   integer :: mpi_err
   integer :: mpi_threading
-  integer :: nthreads = 0, thrid
+  integer :: nthreads = 0
   type(ghex_progress_status) :: ps
-  type(ghex_communicator), dimension(:), pointer :: communicators
   type(ghex_communicator) :: comm
 
   !$omp parallel shared(nthreads)
@@ -24,32 +23,16 @@ PROGRAM test_context
   call ghex_init(nthreads, mpi_comm_world);
 
   ! make per-thread communicators
-  !$omp parallel private(thrid, comm, ps)
+  !$omp parallel private(comm, ps)
 
-  ! make thread id 1-based
-  thrid = omp_get_thread_num()+1
-
-  ! initialize shared datastructures
-  !$omp master
-  allocate(communicators(nthreads))  
-  !$omp end master
-  !$omp barrier
-
-  ! allocate a communicator per thread and store in a shared array
-  communicators(thrid) = ghex_comm_new()
-  comm = communicators(thrid)
+  ! allocate a communicator per thread and store it
+  comm = ghex_comm_new()
 
   ! do some work
   ps = ghex_comm_progress(comm)
 
   ! cleanup per-thread
-  call ghex_free(communicators(thrid))
-
-  ! cleanup shared
-  !$omp barrier
-  !$omp master
-  deallocate(communicators)
-  !$omp end master
+  call ghex_free(comm)
 
   !$omp end parallel
 
