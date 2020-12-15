@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDE_GHEX_UNSTRUCTURED_UTIL_TEST_UTIL_HPP
-#define INCLUDE_GHEX_UNSTRUCTURED_UTIL_TEST_UTIL_HPP
+#ifndef TESTS_UTIL_UNSTRUCTURED_TEST_CASE_HPP
+#define TESTS_UTIL_UNSTRUCTURED_TEST_CASE_HPP
 
 #include <set>
 #include <vector>
@@ -436,4 +436,4 @@ std::size_t init_inner_sizes(const domain_id_type domain_id) {
     }
 }
 
-#endif /* INCLUDE_GHEX_UNSTRUCTURED_UTIL_TEST_UTIL_HPP */
+#endif /* TESTS_UTIL_UNSTRUCTURED_TEST_CASE_HPP */

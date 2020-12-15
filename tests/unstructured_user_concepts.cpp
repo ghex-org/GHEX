@@ -23,7 +23,7 @@
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/communication_object_2.hpp>
 #include <ghex/unstructured/communication_object_ipr.hpp>
-#include <ghex/unstructured/util/test_util.hpp>
+#include "./util/unstructured_test_case.hpp"
 
 
 using data_descriptor_cpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, int>;
