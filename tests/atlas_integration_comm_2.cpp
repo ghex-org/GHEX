@@ -130,7 +130,7 @@ TEST(atlas_integration, halo_exchange) {
             GHEX_field_1_gpu_data(node, level) = value;
         }
     }
-    fields["GHEX_field_1_gpu"].cloneToDevice();
+    fields["GHEX_field_1_gpu"].updateDevice();
 
     // Additional data descriptor for GPU halo exchange
     gpu_data_descriptor_t data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
@@ -140,7 +140,7 @@ TEST(atlas_integration, halo_exchange) {
     h_gpu.wait();
 
     // Test for correctness
-    fields["GHEX_field_1_gpu"].cloneFromDevice();
+    fields["GHEX_field_1_gpu"].updateHost();
     fields["GHEX_field_1_gpu"].reactivateHostWriteViews();
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
@@ -284,8 +284,8 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
             gpu_multi_field_2_data(node, level) = value;
         }
     }
-    fields_1["gpu_multi_field_1"].cloneToDevice();
-    fields_2["gpu_multi_field_2"].cloneToDevice();
+    fields_1["gpu_multi_field_1"].updateDevice();
+    fields_2["gpu_multi_field_2"].updateDevice();
 
     // Additional data descriptors for GPU halo exchange
     gpu_int_data_descriptor_t gpu_multi_data_1{local_domains_1.front(), 0, fields_1["gpu_multi_field_1"]};
@@ -296,8 +296,8 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     h_m_gpu.wait();
 
     // Test for correctness
-    fields_1["gpu_multi_field_1"].cloneFromDevice();
-    fields_2["gpu_multi_field_2"].cloneFromDevice();
+    fields_1["gpu_multi_field_1"].updateHost();
+    fields_2["gpu_multi_field_2"].updateHost();
     fields_1["gpu_multi_field_1"].reactivateHostWriteViews();
     fields_2["gpu_multi_field_2"].reactivateHostWriteViews();
     for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
