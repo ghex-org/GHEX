@@ -70,7 +70,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     // Timers
     timer_type t_atlas_cpu_local, t_atlas_cpu_global; // Atlas on CPU
     timer_type t_ghex_cpu_local, t_ghex_cpu_global; // GHEX on CPU
-    // timer_type t_atlas_gpu_local, t_atlas_gpu_global; // Atlas on GPU
+    timer_type t_atlas_gpu_local, t_atlas_gpu_global; // Atlas on GPU
     timer_type t_ghex_gpu_local, t_ghex_gpu_global; // GHEX on GPU
 
     // Global octahedral Gaussian grid
@@ -176,36 +176,38 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     using gpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
 
     // Additional fields for GPU halo exchange
-    // fields.add(fs_nodes.createField<int>(atlas::option::name("atlas_field_1_gpu")));
+    fields.add(fs_nodes.createField<int>(atlas::option::name("atlas_field_1_gpu")));
     fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1_gpu")));
-    // auto atlas_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["atlas_field_1_gpu"]);
+    auto atlas_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["atlas_field_1_gpu"]);
     auto GHEX_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["GHEX_field_1_gpu"]);
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
             auto value = (rank << 15) + (node << 7) + level;
-            // atlas_field_1_gpu_data(node, level) = value;
+            atlas_field_1_gpu_data(node, level) = value;
             GHEX_field_1_gpu_data(node, level) = value;
         }
     }
-    // fields["atlas_field_1_gpu"].cloneToDevice();
-    fields["GHEX_field_1_gpu"].cloneToDevice();
+    fields["atlas_field_1_gpu"].updateDevice();
+    fields["GHEX_field_1_gpu"].updateDevice();
 
     // Additional data descriptor for GPU halo exchange
     gpu_data_descriptor_t data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
 
     // Atlas halo exchange on GPU
-    // fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true); // first iteration
-    // for (auto i = 0; i < n_iter; ++i) { // benchmark
-    //     timer_type t_local;
-    //     MPI_Barrier(context.mpi_comm());
-    //     t_local.tic();
-    //     fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true);
-    //     t_local.toc();
-    //     t_atlas_gpu_local(t_local);
-    //     MPI_Barrier(context.mpi_comm());
-    //     auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
-    //     t_atlas_gpu_global(t_global);
-    // }
+    fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true); // first iteration
+    for (auto i = 0; i < n_iter; ++i) { // benchmark
+        timer_type t_local;
+        MPI_Barrier(context.mpi_comm());
+        t_local.tic();
+        fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true);
+        t_local.toc();
+        t_atlas_gpu_local(t_local);
+        MPI_Barrier(context.mpi_comm());
+        auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
+        t_atlas_gpu_global(t_global);
+    }
+
+    // HERE
 
     // GHEX halo exchange on GPU
     auto h_gpu = co.exchange(patterns(data_1_gpu)); // first iteration
@@ -224,22 +226,22 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     }
 
     // Test for correctness
-    // fields["atlas_field_1_gpu"].cloneFromDevice();
-    fields["GHEX_field_1_gpu"].cloneFromDevice();
-    // fields["atlas_field_1_gpu"].reactivateHostWriteViews();
+    fields["atlas_field_1_gpu"].updateHost();
+    fields["GHEX_field_1_gpu"].updateHost();
+    fields["atlas_field_1_gpu"].reactivateHostWriteViews();
     fields["GHEX_field_1_gpu"].reactivateHostWriteViews();
     for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
         for (auto level = 0; level < fs_nodes.levels(); ++level) {
             EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_data(node, level));
             // Not strictly needed, just double check Atlas on GPU
-            // EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_gpu_data(node, level));
+            EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_gpu_data(node, level));
         }
     }
 
     // Write timings
-    // file << "- Atlas GPU benchmark\n"
-    //     << "\tlocal time = " << t_atlas_gpu_local.mean() / 1000.0 << "+/-" << t_atlas_gpu_local.stddev() / 1000.0 << "s\n"
-    //     << "\tglobal time = " << t_atlas_gpu_global.mean() / 1000.0 << "+/-" << t_atlas_gpu_global.stddev() / 1000.0 << "s\n";
+    file << "- Atlas GPU benchmark\n"
+        << "\tlocal time = " << t_atlas_gpu_local.mean() / 1000.0 << "+/-" << t_atlas_gpu_local.stddev() / 1000.0 << "s\n"
+        << "\tglobal time = " << t_atlas_gpu_global.mean() / 1000.0 << "+/-" << t_atlas_gpu_global.stddev() / 1000.0 << "s\n";
 
     file << "- GHEX GPU benchmark\n"
         << "\tlocal time = " << t_ghex_gpu_local.mean() / 1000.0 << "+/-" << t_ghex_gpu_local.stddev() / 1000.0 << "s\n"
