@@ -434,6 +434,8 @@ namespace gridtools {
 
                 device_id_type device_id() const { return m_device_id; };
 
+                int num_components() const noexcept { return 1; }
+
                 template<typename IndexContainer>
                 void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr) {
                     for (const auto& is : c) {
