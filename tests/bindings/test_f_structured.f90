@@ -12,8 +12,18 @@ PROGRAM test_halo_exchange
   integer :: tmp, i, it
   integer :: gfirst(3), glast(3)       ! global index space
   integer :: first(3), last(3)
-  integer :: gdim(3) = [1, 1, 1]       ! number of domains
-  integer :: nodedim(3) = [1, 1, 1]    ! (NUMA) node space dimensions
+
+  ! hierarchical decomposition:
+  ! 1. L3 cache block (lowest level, actual ranks)
+  ! 2. numa blocks (composition of L3 blocks)
+  ! 3. socket blocks (composition of numa blocks)
+  ! 4. node blocks (...)
+  ! 5. global grid composed of node blocks  
+  integer :: domain(5) = 0
+  integer :: topology(3,5) = 1
+  integer :: level_rank(5) = -1
+  integer :: gdim(3) = 1
+
   logical :: remap = .false.           ! remap MPI ranks
   integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
   integer :: periodic(3) = [1,1,1]
@@ -61,8 +71,17 @@ PROGRAM test_halo_exchange
   type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
   type(ghex_struct_exchange_handle)      :: eh
 
-  if (command_argument_count() < 6) then
-     print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] [rank dims :3] <node dims :3> <cart_order=[1,2,3,4,5,6]>"
+  ! init mpi
+  call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
+  call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
+  call mpi_comm_size(mpi_comm_world, size, mpi_err)
+
+  if (command_argument_count() < 4) then
+     if (world_rank==0) then
+        print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] <l3 dims :3> <numa dims :3> <socket dims :3> <node dims :3> <global dims :3> <cart_order=[1,2,3,4,5,6]>"
+     end if
+     call mpi_barrier(mpi_comm_world, mpi_err)
+     call mpi_finalize(mpi_err)
      call exit(1)
   end if
 
@@ -84,46 +103,105 @@ PROGRAM test_halo_exchange
   call get_command_argument(4, arg)
   read(arg,*) nfields
 
-  ! rank grid dimensions
-  call get_command_argument(5, arg)
-  read(arg,*) gdim(1)
-  call get_command_argument(6, arg)
-  read(arg,*) gdim(2)
-  call get_command_argument(7, arg)
-  read(arg,*) gdim(3)
+  ! hierarchical decomposition:
+  ! 1. L3 cache block (lowest level, actual ranks)
+  ! 2. numa blocks (composition of L3 blocks)
+  ! 3. socket blocks (composition of numa blocks)
+  ! 4. node blocks (...)
+  ! 5. global grid composed of node blocks  
 
-  if (command_argument_count() > 7) then
-
-     ! node grid dimensions
-     call get_command_argument(8, arg)
-     read(arg,*) nodedim(1)
-     call get_command_argument(9, arg)
-     read(arg,*) nodedim(2)
-     call get_command_argument(10, arg)
-     read(arg,*) nodedim(3)
-     remap = .true.
+  ! global dimensions
+  if (command_argument_count() > 4) then
+     call get_command_argument(5, arg)
+     read(arg,*) topology(1,5)
+     call get_command_argument(6, arg)
+     read(arg,*) topology(2,5)
+     call get_command_argument(7, arg)
+     read(arg,*) topology(3,5)
   end if
 
+  ! rank L3 block dimensions
+  if (command_argument_count() > 7) then
+     remap = .true.
+     call get_command_argument(8, arg)
+     read(arg,*) topology(1,1)
+     call get_command_argument(9, arg)
+     read(arg,*) topology(2,1)
+     call get_command_argument(10, arg)
+     read(arg,*) topology(3,1)
+  end if
+
+  ! numa node block dimensions
   if (command_argument_count() > 10) then
      call get_command_argument(11, arg)
+     read(arg,*) topology(1,2)
+     call get_command_argument(12, arg)
+     read(arg,*) topology(2,2)
+     call get_command_argument(13, arg)
+     read(arg,*) topology(3,2)
+  end if
+
+  ! socket block dimensions
+  if (command_argument_count() > 13) then
+     call get_command_argument(14, arg)
+     read(arg,*) topology(1,3)
+     call get_command_argument(15, arg)
+     read(arg,*) topology(2,3)
+     call get_command_argument(16, arg)
+     read(arg,*) topology(3,3)
+  end if
+
+  ! compute node block dimensions
+  if (command_argument_count() > 16) then
+     call get_command_argument(17, arg)
+     read(arg,*) topology(1,4)
+     call get_command_argument(18, arg)
+     read(arg,*) topology(2,4)
+     call get_command_argument(19, arg)
+     read(arg,*) topology(3,4)
+  end if
+
+  if (command_argument_count() > 19) then
+     call get_command_argument(20, arg)
      read(arg,*) cart_order
   end if
 
-  ! init mpi
-  call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
-  call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
-  call mpi_comm_size(mpi_comm_world, size, mpi_err)
-
-  if (world_rank==0) then
-     print *, "original rank placement --------------------------"
+  if (world_rank==1) then
+     write (*,*) "   global block:", topology(:,5)
+     if (remap) then
+        write (*,*) "       L3 block:", topology(:,1)
+        write (*,*) "NUMA node block:", topology(:,2)
+        write (*,*) "   socket block:", topology(:,3)
+        write (*,*) " shm node block:", topology(:,4)
+     end if
+     
+     ! check if correct number of ranks
+     tmp = product(topology(:,1))*product(topology(:,2))*product(topology(:,3))*product(topology(:,4))*product(topology(:,5))
+     if (tmp /= size) then
+        write (*,"(a, i4, a, i4, a)") "Number of ranks (", size, ") doesn't match the domain decomposition (", tmp, ")"
+        call exit(1)
+     end if
   end if
-  call ghex_print_rank2node(mpi_comm_world)
+
+  gdim = topology(:,1)*topology(:,2)*topology(:,3)*topology(:,4)*topology(:,5);
 
   if (world_rank==0) then
      print *, "--------------------------"
   end if
   if (remap) then
+
+     ! construct topology info to reorder the ranks
+     ! domain(1) = OMPI_COMM_TYPE_HWTHREAD
+     domain(1) = OMPI_COMM_TYPE_L3CACHE
+     domain(2) = OMPI_COMM_TYPE_NUMA
+     domain(3) = OMPI_COMM_TYPE_SOCKET
+     domain(4) = OMPI_COMM_TYPE_NODE
+     domain(5) = OMPI_COMM_TYPE_CLUSTER
+     call ghex_cart_topology(mpi_comm_world, domain, topology, level_rank)
+     call ghex_cart_remap_ranks_2(mpi_comm_world, domain, topology, level_rank, C_CART, cart_order)
+
      if (world_rank==0) then
+
         write (*,*)
         write (*,"(A)",ADVANCE='NO') "Using rank remapping with cartesian communicator order "
         select case (cart_order)
@@ -150,21 +228,19 @@ PROGRAM test_halo_exchange
              call exit
           end select
      end if
-     call ghex_cart_remap_ranks(mpi_comm_world, gdim, nodedim, C_CART, cart_order)
+
+     ! print rank topology
+     call ghex_cart_print_rank_topology(C_CART, domain, topology, cart_order)
   else
      if (world_rank==0) then
         print *, "Using standard MPI cartesian communicator"
      end if
      call mpi_dims_create(size, 3, gdim, mpi_err)
      call mpi_cart_create(mpi_comm_world, 3, gdim, lperiodic, .true., C_CART, ierr)
-  end if
 
-  if (world_rank==0) then
-     print *, "----- communicator rank placement --------------------------"
+     ! print rank topology
+     call ghex_cart_print_rank2node(C_CART, gdim)
   end if
-  call ghex_print_rank2node(C_CART)
-
-  call mpi_comm_rank(C_CART, rank, mpi_err)
 
   ! init ghex
   call ghex_init(nthreads, C_CART)
@@ -181,6 +257,7 @@ PROGRAM test_halo_exchange
   halo(3:4) = mb
   halo(5:6) = mb
 
+  call mpi_comm_rank(C_CART, rank, mpi_err)
   if (rank==0) then
      print *, "halos: ", halo
      print *, "domain dist: ", gdim
@@ -191,8 +268,6 @@ PROGRAM test_halo_exchange
     print *, "Usage: this test must be executed with ", product(gdim), " mpi ranks"
     call exit(1)
   end if
-
-  call ghex_cart_print_rank2node(C_CART, gdim, cart_order)
 
   ! define the global index domain
   gfirst = [1, 1, 1]
@@ -267,17 +342,17 @@ PROGRAM test_halo_exchange
   end do
   
   it = 0
-  do while (it < niters)
     call cpu_time(tic)
+  do while (it < niters)
     eh = ghex_exchange(co, ed)
     call ghex_wait(eh)
     call ghex_free(eh)
+    it = it+1
+  end do
     call cpu_time(toc)
     if (rank == 0) then
       print *, rank, " exchange compact:      ", (toc-tic)
     end if
-    it = it+1
-  end do
 
   if (.false.) then
     ! ---- SEQUENCE tests ----

@@ -1,6 +1,7 @@
 #include "context_bind.hpp"
 #include <mpi.h>
 #include <sched.h>
+#include <sys/sysinfo.h>
 
 context_uptr_type context;
 int __GHEX_nthreads = 1;
@@ -41,4 +42,10 @@ extern "C"
 int ghex_get_current_cpu()
 {
     return sched_getcpu();
+}
+
+extern "C"
+int ghex_get_ncpus()
+{
+    return get_nprocs_conf();
 }

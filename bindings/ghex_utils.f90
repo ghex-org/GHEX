@@ -11,17 +11,142 @@ MODULE ghex_utils
        use iso_c_binding
      end function ghex_get_current_cpu
 
+     integer(c_int) function ghex_get_ncpus() bind(c)
+       use iso_c_binding
+     end function ghex_get_ncpus
+
   end interface
 contains
 
+
   ! obtain compute node ID of the calling rank
-  subroutine ghex_get_noderank(comm, noderank)
+  recursive subroutine ghex_cart_topology(comm, domain, topo, level_rank, ilevel)
+    implicit none
+    integer(kind=4), intent(in)  :: comm
+    integer(kind=4), intent(in)  :: domain(:)
+    integer(kind=4), intent(in)  :: topo(:,:)
+    integer(kind=4), intent(out) :: level_rank(:)
+    integer(kind=4), intent(in), optional  :: ilevel
+    
+    integer(kind=4) :: level
+    integer(kind=4), dimension(:), allocatable :: sbuff, rbuff, group
+    integer(kind=4) :: buffer(1)
+    integer(kind=4) :: ierr, comm_rank, comm_size, nodeid, noderank, color, ii
+    integer(kind=4) :: split_comm, split_type, split_rank, split_size
+    integer(kind=4) :: master_comm, master_size
+
+    level = size(level_rank)
+    if (present(ilevel)) level = ilevel
+
+    ! parent communicator
+    call MPI_Comm_rank(comm, comm_rank, ierr)
+    call MPI_Comm_size(comm, comm_size, ierr)
+
+    if (level == 1) then
+       ! we've reached the bottom of the topology
+       ! verify topology validity on this level
+       if (comm_size /= product(topo(:,level))) then
+          write (*,"(a,a,i4,a,i4)") "ERROR: wrong topology on botton level", \
+          ": expected", product(topo(:,level)), " domains (config), but found", comm_size, " (hardware)"
+          call exit(1)
+       end if
+       level_rank(level) = comm_rank
+       return
+    end if
+
+    ! split the current communicator to a lower level
+    split_type = domain(level-1)
+
+    ! create communicator for this topology level
+    call MPI_Comm_split_type(comm, split_type, 0, MPI_INFO_NULL, split_comm, ierr)
+    call MPI_Comm_rank(split_comm, split_rank, ierr)
+    call MPI_Comm_size(split_comm, split_size, ierr)
+
+    ! no split on this topology level
+    if (split_size == comm_size) then
+       if (1 /= product(topo(:,level))) then
+          write (*,"(a,i4,a,i4,a,i4)") "ERROR (2): wrong topology on level", level, \
+          ": expected", product(topo(:,level)), " domains (config), but found", comm_size, " (hardware)"
+          call exit(1)
+       end if
+       level_rank(level) = 0
+       call ghex_cart_topology(split_comm, domain, topo, level_rank, level-1)
+       return
+    end if
+    
+    
+    ! make a master-rank communicator: masters from each split comm join
+    color = 0
+    if (split_rank /= 0) then
+       ! non-masters
+       call MPI_Comm_split(comm, color, 0, master_comm, ierr)
+    else
+       ! masters
+       ! temporary nodeid identifier: rank of the split master
+       nodeid = comm_rank+1
+       color = 1
+       call MPI_Comm_split(comm, color, 0, master_comm, ierr)
+       call MPI_Comm_size(master_comm, master_size, ierr)
+
+       ! verify topology validity on this level
+       if (master_size /= product(topo(:,level))) then
+          write (*,"(a,i4,a,i4,a,i4,a)") "ERROR (3): wrong topology on level", level, \
+          ": expected", product(topo(:,level)), " domains (config), but found", master_size, " (hardware)"
+          call exit(1)
+       end if
+
+       ! comm buffers to establish unique node id's for each master
+       allocate(sbuff(1:comm_size), rbuff(1:comm_size), Source=0)
+
+       ! find node rank based on unique node id from above
+       sbuff(:) = nodeid
+       call MPI_Alltoall(sbuff, 1, MPI_INT, rbuff, 1, MPI_INT, master_comm, ierr)
+       
+       ! mark each unique node id with a 1
+       sbuff(:) = 0
+       sbuff(pack(rbuff, rbuff/=0)) = 1
+
+       ! cumsum: finds node rank for each unique node id
+       ii = 1
+       do while(ii<comm_size)
+          sbuff(ii+1) = sbuff(ii+1) + sbuff(ii)
+          ii = ii+1
+       end do
+       noderank = sbuff(nodeid) - 1
+
+       ! cleanup
+       deallocate(sbuff, rbuff)
+    end  if
+    
+    call MPI_Comm_Disconnect(master_comm, ierr)
+
+    ! distribute the node id to all split ranks
+    buffer(1) = noderank
+    call MPI_Bcast(buffer, 1, MPI_INT, 0, split_comm, ierr)
+
+    ! save our level rank
+    level_rank(level) = buffer(1)
+    
+    ! sub-divide lower levels
+    call ghex_cart_topology(split_comm, domain, topo, level_rank, level-1)
+
+    ! cleanup
+    call MPI_Comm_Disconnect(split_comm, ierr)
+  end subroutine ghex_cart_topology
+
+
+  ! obtain compute node ID of the calling rank
+  subroutine ghex_get_noderank(comm, noderank, isplit_type)
     implicit none
     integer(kind=4), intent(in)  :: comm
     integer(kind=4), intent(out) :: noderank
+    integer(kind=4), intent(in), optional  :: isplit_type
     integer(kind=4), dimension(:), allocatable :: sbuff, rbuff
-    integer(kind=4) :: nodeid, rank, size, ierr, ii
+    integer(kind=4) :: nodeid, rank, size, ierr, ii, split_type
     integer(kind=4) :: shmcomm
+
+    split_type = MPI_COMM_TYPE_SHARED
+    if (present(isplit_type)) split_type = isplit_type
 
     ! old rank
     call MPI_Comm_rank(comm, rank, ierr)
@@ -30,10 +155,11 @@ contains
     ! communication buffers
     allocate(sbuff(1:size), rbuff(1:size), Source=0)
 
-    ! create local communicator
 #ifdef OPEN_MPI
-    call MPI_Comm_split_type(comm, OMPI_COMM_TYPE_NUMA, 0, MPI_INFO_NULL, shmcomm, ierr)
+    ! create local communicator
+    call MPI_Comm_split_type(comm, split_type, 0, MPI_INFO_NULL, shmcomm, ierr)
 #else
+    ! create local communicator
     call MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, shmcomm, ierr)
 #endif
 
@@ -285,11 +411,7 @@ contains
     call MPI_Comm_size(comm, size, ierr)
 
     ! node-local communicator and node-local rank
-#ifdef OPEN_MPI
-    call MPI_Comm_split_type(comm, OMPI_COMM_TYPE_NUMA, 0, MPI_INFO_NULL, shmcomm, ierr)
-#else
     call MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, shmcomm, ierr)
-#endif
     call MPI_Comm_rank(shmcomm, shmrank, ierr)
     call MPI_Comm_size(shmcomm, shmsize, ierr)
     call MPI_Comm_Disconnect(shmcomm, ierr)
@@ -327,6 +449,63 @@ contains
 
   end subroutine ghex_cart_remap_ranks
 
+
+  subroutine ghex_cart_remap_ranks_2(comm, domain, topo, level_rank, newcomm, iorder)
+    implicit none
+    integer(kind=4), intent(in)  :: comm
+    integer(kind=4), intent(in)  :: domain(:)
+    integer(kind=4), intent(in)  :: topo(:,:)
+    integer(kind=4), intent(in) :: level_rank(:)
+    integer(kind=4), intent(out) :: newcomm
+    integer(kind=4), optional :: iorder
+
+    integer(kind=4) ::          topo_coord(3), gdim(3)
+    integer(kind=4) ::          newrank, newcoord(3)
+    integer(kind=4) :: shmcomm, shmrank, shmcoord(3), shmdims(3), shmsize, rank, size
+    integer(kind=4) ::         noderank, nodecoord(3)
+    integer(kind=4) :: ierr, order, ii, comm_rank
+    integer(kind=4), allocatable, dimension(:,:) :: cartXYZ
+    integer(kind=4), allocatable, dimension(:,:) :: dims
+
+    call MPI_Comm_rank(comm, comm_rank, ierr)
+
+    if (present(iorder)) then
+       order = iorder
+    else
+       order = CartOrderDefault
+    endif    
+
+    allocate(cartXYZ(1:3,1:size(domain)))
+    allocate(dims(1:3,1:size(domain)))
+
+    ! compute rank cartesian coordinates for each level topological level
+    ii = 1
+    do while(ii<=size(domain))
+       call ghex_cart_rank2coord(MPI_COMM_NULL, topo(:,ii), level_rank(ii), cartXYZ(:,ii), order)
+       ii = ii+1
+    end do
+
+    ! assemble to global cartesian coordinates
+    dims = cshift(topo, -1, dim=2)
+    dims(:,1) = 1
+    ii = 2
+    do while(ii<=size(domain))
+       dims(:,ii) = dims(:,ii)*dims(:,ii-1)
+       ii = ii+1
+    end do
+    topo_coord = sum(dims*cartXYZ, 2)
+
+    ! compute global grid dimensions
+    gdim = product(topo, dim=2)
+
+    ! compute rank id in global ranks apce
+    call ghex_cart_coord2rank(comm, gdim, (/.false., .false., .false./), topo_coord, newrank, order)
+    
+    ! create the new communicator with remapped ranks
+    call MPI_Comm_split(comm, 0, newrank, newcomm, ierr)
+  end subroutine ghex_cart_remap_ranks_2
+
+
   subroutine ghex_print_rank2node(comm)
     integer(kind=4), intent(in) :: comm
     integer(kind=4), dimension(:,:), allocatable :: buff
@@ -347,14 +526,19 @@ contains
     call MPI_Gather(sbuff, 3, MPI_INT, buff, 3, MPI_INT, 0, comm, ierr)
 
     if (rank==0) then       
+       write (*,"(a)",ADVANCE='NO') "node rank: "
        do i=0,size-1
           write (*,"(I3)",ADVANCE='NO') buff(1,i)
        end do
        write (*,*)
+
+       write (*,"(a)",ADVANCE='NO') "     rank: "
        do i=0,size-1
           write (*,"(I3)",ADVANCE='NO') buff(2,i)
        end do
        write (*,*)
+
+       write (*,"(a)",ADVANCE='NO') " old rank: "
        do i=0,size-1
           write (*,"(I3)",ADVANCE='NO') buff(3,i)
        end do
@@ -368,8 +552,8 @@ contains
     implicit none
     integer(kind=4), intent(in) :: comm, dims(3)
     integer(kind=4), dimension(:,:), allocatable :: buff
-    integer(kind=4) :: sbuff(4), ierr, k, j, i, kk, n
-    integer(kind=4) :: rank, size, noderank, order, orank
+    integer(kind=4) :: sbuff(4), ierr
+    integer(kind=4) :: rank, size, noderank, order, orank, ncpus
     character(len=20) :: fmt, fmti
     integer(kind=4), optional :: iorder
 
@@ -386,12 +570,15 @@ contains
     call MPI_Comm_rank(comm, rank, ierr)
     call MPI_Comm_size(comm, size, ierr)
     allocate(buff(1:4,0:size-1), Source=0)
-    sbuff(1) = noderank
-    sbuff(2) = rank
-    sbuff(3) = orank
-    sbuff(4) = ghex_get_current_cpu()
-    if (sbuff(4) >= 36) then
-       sbuff(4) = sbuff(4) - 36
+    sbuff(1) = rank
+    sbuff(2) = orank
+    sbuff(3) = ghex_get_current_cpu()
+    sbuff(4) = noderank
+
+    ! assuming HT is enabled, use the lower core ID
+    ncpus = ghex_get_ncpus()/2
+    if (sbuff(3) >= ncpus) then
+       sbuff(3) = sbuff(3) - ncpus
     end if
     call MPI_Gather(sbuff, 4, MPI_INT, buff, 4, MPI_INT, 0, comm, ierr)
 
@@ -399,102 +586,22 @@ contains
        write (*,*) ' '
        write (*,*) ' Rank to node mapping '
        write (*,*) ' '
-
-       if(size < 1000) then
-          fmti="($' ',I3)"
-       else
-          fmti="($' ',I4)"
-       endif
-       do k=dims(3)-1,0,-1
-          do j=dims(2)-1,0,-1
-             fmt="(A1)"
-             do kk=0,(j-1)*2+5
-                write (*,fmt,ADVANCE='NO') " "
-             end do
-             fmt=fmti
-             do i=0,dims(1)-1
-                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
-                write (*,fmt,ADVANCE='NO') buff(1,n)
-             end do
-             write (*,"(A1)",ADVANCE='NO') new_line(" ")
-          end do
-          write (*,"(A1)",ADVANCE='NO') new_line(" ")
-       end do
+       call print_cube(comm, dims, 4, buff, order)
 
        write (*,*) ' '
        write (*,*) ' Rank layout '
        write (*,*) ' '
-
-       if(size < 1000) then
-          fmti="($' ',I3)"
-       else
-          fmti="($' ',I4)"
-       endif
-       do k=dims(3)-1,0,-1
-          do j=dims(2)-1,0,-1
-             fmt="(A1)"
-             do kk=0,(j-1)*2+5
-                write (*,fmt,ADVANCE='NO') " "
-             end do
-             fmt=fmti
-             do i=0,dims(1)-1
-                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
-                write (*,fmt,ADVANCE='NO') buff(2,n)
-             end do
-             write (*,"(A1)",ADVANCE='NO') new_line(" ")
-          end do
-          write (*,"(A1)",ADVANCE='NO') new_line(" ")
-       end do
+       call print_cube(comm, dims, 1, buff, order)
 
        write (*,*) ' '
        write (*,*) ' MPI_COMM_WORLD layout '
        write (*,*) ' '
-
-       if(size < 1000) then
-          fmti="($' ',I3)"
-       else
-          fmti="($' ',I4)"
-       endif
-       do k=dims(3)-1,0,-1
-          do j=dims(2)-1,0,-1
-             fmt="(A1)"
-             do kk=0,(j-1)*2+5
-                write (*,fmt,ADVANCE='NO') " "
-             end do
-             fmt=fmti
-             do i=0,dims(1)-1
-                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
-                write (*,fmt,ADVANCE='NO') buff(3,n)
-             end do
-             write (*,"(A1)",ADVANCE='NO') new_line(" ")
-          end do
-          write (*,"(A1)",ADVANCE='NO') new_line(" ")
-       end do
+       call print_cube(comm, dims, 2, buff, order)
 
        write (*,*) ' '
        write (*,*) ' CPU '
        write (*,*) ' '
-
-       if(size < 1000) then
-          fmti="($' ',I3)"
-       else
-          fmti="($' ',I4)"
-       endif
-       do k=dims(3)-1,0,-1
-          do j=dims(2)-1,0,-1
-             fmt="(A1)"
-             do kk=0,(j-1)*2+5
-                write (*,fmt,ADVANCE='NO') " "
-             end do
-             fmt=fmti
-             do i=0,dims(1)-1
-                call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
-                write (*,fmt,ADVANCE='NO') buff(4,n)
-             end do
-             write (*,"(A1)",ADVANCE='NO') new_line(" ")
-          end do
-          write (*,"(A1)",ADVANCE='NO') new_line(" ")
-       end do
+       call print_cube(comm, dims, 3, buff, order)
 
        write (*,*) ' '
        write (*,*) 'Z |    / Y'
@@ -508,5 +615,163 @@ contains
     deallocate(buff)
 
   end subroutine ghex_cart_print_rank2node
+
+
+  subroutine ghex_cart_print_rank_topology(comm, domain, topo, iorder)
+    implicit none
+    integer(kind=4), intent(in) :: comm
+    integer(kind=4), intent(in) :: domain(:), topo(:,:)
+    integer(kind=4), optional :: iorder
+
+    integer(kind=4), dimension(:,:), allocatable :: buff
+    integer(kind=4) :: ierr, li, dims(3), nlevels
+    integer(kind=4) :: comm_rank, comm_size, order, orank, ncpus
+    integer(kind=4), dimension(:), allocatable :: sbuff, level_rank
+    character(len=32) :: name
+
+    ! compute global grid dimensions
+    dims = product(topo, dim=2)
+
+    if (present(iorder)) then
+       order = iorder
+    else
+       order = CartOrderDefault
+    endif    
+
+    nlevels = size(domain)-1
+    allocate(sbuff(1:nlevels+3), level_rank(1:nlevels), source=0)
+
+    li = 1
+    do while (li<nlevels)
+       call ghex_get_noderank(comm, level_rank(li), domain(li))
+       li = li+1
+    end do
+
+    ! obtain all values at master
+    call MPI_Comm_rank(mpi_comm_world, orank, ierr)
+    call MPI_Comm_rank(comm, comm_rank, ierr)
+    call MPI_Comm_size(comm, comm_size, ierr)
+    allocate(buff(1:size(sbuff),0:comm_size-1), source=0)
+    sbuff(1) = comm_rank
+    sbuff(2) = orank
+    sbuff(3) = ghex_get_current_cpu()
+    sbuff(4:) = level_rank
+
+    ! assuming HT is enabled, use the lower core ID
+    ncpus = ghex_get_ncpus()/2
+    if (sbuff(3) >= ncpus) then
+       sbuff(3) = sbuff(3) - ncpus
+    end if
+    call MPI_Gather(sbuff, size(sbuff), MPI_INT, buff, size(sbuff), MPI_INT, 0, comm, ierr)
+
+    if (comm_rank==0) then
+       write (*,*) ' '
+       write (*,*) ' Rank to node mapping '
+       write (*,*) ' '
+
+       li = 1
+       do while(li<=nlevels)
+          call split_type_to_name(domain(li), name)
+          write (*,*) ' '
+          write (*,'(a,i4,a,a)') ' Level ', li, ' ', name
+          write (*,*) ' '
+          call print_cube(comm, dims, 3+li, buff, order)
+          li = li+1
+       end do
+
+       write (*,*) ' '
+       write (*,*) ' Rank layout '
+       write (*,*) ' '
+       call print_cube(comm, dims, 1, buff, order)
+
+       write (*,*) ' '
+       write (*,*) ' MPI_COMM_WORLD layout '
+       write (*,*) ' '
+       call print_cube(comm, dims, 2, buff, order)
+
+       write (*,*) ' '
+       write (*,*) ' CPU '
+       write (*,*) ' '
+       call print_cube(comm, dims, 3, buff, order)
+
+       write (*,*) ' '
+       write (*,*) 'Z |    / Y'
+       write (*,*) '  |   /'
+       write (*,*) '  |  /'
+       write (*,*) '  | /'
+       write (*,*) '  |_______ X'
+       write (*,*) ' '
+    end if
+
+    ! cleanup
+    deallocate(buff)
+    deallocate(sbuff, level_rank)
+
+  end subroutine ghex_cart_print_rank_topology
+
+  subroutine print_cube(comm, dims, id, buff, order)
+    integer(kind=4), intent(in) :: comm
+    integer(kind=4), intent(in) :: dims(3), id, order
+    integer(kind=4), intent(in), dimension(:,:), allocatable :: buff
+    
+    integer(kind=4) :: ierr, k, j, i, kk, n
+    integer(kind=4) :: comm_size
+    character(len=20) :: fmt, fmti
+
+    call MPI_Comm_size(comm, comm_size, ierr)
+
+    if(comm_size < 1000) then
+       fmti="($' ',I3)"
+    else
+       fmti="($' ',I4)"
+    endif
+    do k=dims(3)-1,0,-1
+       do j=dims(2)-1,0,-1
+          fmt="(A1)"
+          do kk=0,(j-1)*2+5
+             write (*,fmt,ADVANCE='NO') " "
+          end do
+          fmt=fmti
+          do i=0,dims(1)-1
+             call ghex_cart_coord2rank(comm, dims, (/.false., .false., .false./), (/i, j, k/), n, order)
+             write (*,fmt,ADVANCE='NO') buff(id,n)
+          end do
+          write (*,"(A1)",ADVANCE='NO') new_line(" ")
+       end do
+       write (*,"(A1)",ADVANCE='NO') new_line(" ")
+    end do
+  end subroutine print_cube
+  
+  subroutine split_type_to_name(split_type, name)
+    integer(kind=4), intent(in) :: split_type
+    character(len=32), intent(out) :: name
+    
+    select case (split_type)
+    case (MPI_COMM_TYPE_SHARED)
+       name = 'MPI_COMM_TYPE_SHARED'
+    case (OMPI_COMM_TYPE_HWTHREAD)
+       name = 'OMPI_COMM_TYPE_HWTHREAD'
+    case (OMPI_COMM_TYPE_CORE)
+       name = 'OMPI_COMM_TYPE_CORE'
+    case (OMPI_COMM_TYPE_L1CACHE)
+       name = 'OMPI_COMM_TYPE_L1CACHE'
+    case (OMPI_COMM_TYPE_L2CACHE)
+       name = 'OMPI_COMM_TYPE_L2CACHE'
+    case (OMPI_COMM_TYPE_L3CACHE)
+       name = 'OMPI_COMM_TYPE_L3CACHE'
+    case (OMPI_COMM_TYPE_SOCKET)
+       name = 'OMPI_COMM_TYPE_SOCKET'
+    case (OMPI_COMM_TYPE_NUMA)
+       name = 'OMPI_COMM_TYPE_NUMA'
+    case (OMPI_COMM_TYPE_BOARD)
+       name = 'OMPI_COMM_TYPE_BOARD'
+    case (OMPI_COMM_TYPE_HOST)
+       name = 'OMPI_COMM_TYPE_HOST'
+    case (OMPI_COMM_TYPE_CU)
+       name = 'OMPI_COMM_TYPE_CU'
+    case (OMPI_COMM_TYPE_CLUSTER)
+       name = 'OMPI_COMM_TYPE_CLUSTER'
+    end select
+  end subroutine split_type_to_name
 
 END MODULE ghex_utils
