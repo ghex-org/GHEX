@@ -1,12 +1,12 @@
-﻿/* 
+﻿/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #include <vector>
 
@@ -24,7 +24,6 @@
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
-#include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
@@ -37,12 +36,10 @@
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = gridtools::ghex::tl::context<transport>;
 
 
 TEST(atlas_integration, halo_exchange) {
@@ -52,7 +49,7 @@ TEST(atlas_integration, halo_exchange) {
     using grid_type = gridtools::ghex::unstructured::grid;
     using cpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -87,7 +84,7 @@ TEST(atlas_integration, halo_exchange) {
     auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
 
     // Make communication object
-    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator());
 
     // Fields creation and initialization
     atlas::FieldSet fields;
@@ -163,7 +160,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     using cpu_int_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
     using cpu_double_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, double>;
 
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int rank = context.rank();
 
@@ -210,7 +207,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains_2);
 
     // Make communication object
-    auto co = gridtools::ghex::make_communication_object<decltype(patterns_1)>(context.get_communicator(context.get_token()));
+    auto co = gridtools::ghex::make_communication_object<decltype(patterns_1)>(context.get_communicator());
 
     // Fields creation and initialization
     atlas::FieldSet fields_1, fields_2;

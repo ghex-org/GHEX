@@ -208,6 +208,8 @@ public: // ctors
 public: // member functions
     /** @brief returns the device id */
     typename arch_traits<arch_type>::device_id_type device_id() const { return m_device_id; }
+    /** @brief returns the domain */
+    const domain_descriptor_type& domain() const { return m_dom; }
     /** @brief returns the domain id */
     domain_id_type domain_id() const noexcept { return m_dom.domain_id(); }
     /** @brief returns the field 4-D extents (c,x,y,z) */

@@ -1,29 +1,26 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #include <iostream>
 #include <vector>
 #include <atomic>
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
 
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
+#include <ghex/transport_layer/util/barrier.hpp>
 
 namespace ghex = gridtools::ghex;
 
-#ifdef USE_OPENMP
-#include <ghex/threads/omp/primitives.hpp>
-using threading    = ghex::threads::omp::primitives;
-#else
-#include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
-#endif
 
 #ifdef USE_UCP
 // UCX backend
@@ -36,12 +33,17 @@ using transport    = ghex::tl::mpi_tag;
 #endif
 
 #include <ghex/transport_layer/message_buffer.hpp>
-using context_type = ghex::tl::context<transport, threading>;
+using context_type = typename ghex::tl::context_factory<transport>::context_type;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::future<void>;
 
 using MsgType = gridtools::ghex::tl::message_buffer<>;
 
+#ifdef USE_OPENMP
+#define THREADID omp_get_thread_num()
+#else
+#define THREADID 0
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -51,15 +53,16 @@ int main(int argc, char *argv[])
     gridtools::ghex::timer timer, ttimer;
 
     if(argc != 4)
-    {
-        std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
-        std::terminate();
-    }
+	{
+	    std::cerr << "Usage: bench [niter] [msg_size] [inflight]" << "\n";
+	    std::terminate();
+	}
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
 
     int num_threads = 1;
+    gridtools::ghex::tl::barrier_t barrier;
 
 #ifdef USE_OPENMP
 #pragma omp parallel
@@ -80,19 +83,17 @@ int main(int argc, char *argv[])
 #endif
 
     {
-        auto context_ptr = ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+        auto context_ptr = ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
         auto& context = *context_ptr;
 
 #ifdef USE_OPENMP
 #pragma omp parallel
 #endif
         {
-            auto token             = context.get_token();
-            auto comm              = context.get_communicator(token);
+            auto comm              = context.get_communicator();
             const auto rank        = comm.rank();
             const auto size        = comm.size();
-            const auto thread_id   = token.id();
-            const auto num_threads = context.thread_primitives().size();
+            const auto thread_id   = THREADID;
             const auto peer_rank   = (rank+1)%2;
 
             bool using_mt = false;
@@ -101,31 +102,36 @@ int main(int argc, char *argv[])
 #endif
 
             if (thread_id==0 && rank==0)
-            {
-                std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
-            };
+		{
+		    std::cout << "\n\nrunning test " << __FILE__ << " with communicator " << typeid(comm).name() << "\n\n";
+		};
 
             std::vector<MsgType> smsgs(inflight);
             std::vector<MsgType> rmsgs(inflight);
             std::vector<future_type> sreqs(inflight);
             std::vector<future_type> rreqs(inflight);
             for(int j=0; j<inflight; j++)
-            {
-                smsgs[j].resize(buff_size);
-                rmsgs[j].resize(buff_size);
-                make_zero(smsgs[j]);
-                make_zero(rmsgs[j]);
-            }
+		{
+		    smsgs[j].resize(buff_size);
+		    rmsgs[j].resize(buff_size);
+		    make_zero(smsgs[j]);
+		    make_zero(rmsgs[j]);
+		}
 
-            comm.barrier();
-
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            barrier.rank_barrier(comm);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
             if(thread_id == 0)
-            {
-                timer.tic();
-                ttimer.tic();
-                if(rank == 1)
-                    std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
-            }
+		{
+		    timer.tic();
+		    ttimer.tic();
+		    if(rank == 1)
+			std::cout << "number of threads: " << num_threads << ", multi-threaded: " << using_mt << "\n";
+		}
 
             int dbg = 0;
             int sent = 0, received = 0;
@@ -160,7 +166,13 @@ int main(int argc, char *argv[])
                 }
             }
 
-            comm.barrier();
+#ifdef USE_OPENMP
+#pragma omp single
+#endif
+            barrier.rank_barrier(comm);
+#ifdef USE_OPENMP
+#pragma omp barrier
+#endif
             if(thread_id == 0 && rank == 0){
                 const auto t = ttimer.toc();
                 std::cout << "time:       " << t/1000000 << "s\n";

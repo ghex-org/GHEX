@@ -13,7 +13,11 @@
 
 #include "./locality.hpp"
 #include "./thread/access_guard.hpp"
+#ifdef GHEX_USE_XPMEM
+#include "./xpmem/access_guard.hpp"
+#else
 #include "./shmem/access_guard.hpp"
+#endif
 
 namespace gridtools {
 namespace ghex {
@@ -33,17 +37,24 @@ struct local_access_guard
 {
     locality m_locality;
     thread::local_access_guard m_thread_guard;
-    shmem::local_access_guard m_process_guard;
+#ifdef GHEX_USE_XPMEM
+    using process_guard_type = xpmem::local_access_guard;
+#else
+    using process_guard_type = shmem::local_access_guard;
+#endif
+     process_guard_type m_process_guard;
 
     struct info
     {
         locality m_locality;
         thread::local_access_guard::info m_thread_guard_info;
-        shmem::local_access_guard::info m_process_guard_info;
+        typename process_guard_type::info m_process_guard_info;
     };
 
-    local_access_guard(locality loc)
+    local_access_guard(locality loc, access_mode m = access_mode::local)
     : m_locality{loc}
+    , m_thread_guard(m)
+    , m_process_guard(m)
     {}
 
     local_access_guard(local_access_guard&&) = default;
@@ -62,6 +73,13 @@ struct local_access_guard
     {
         if (m_locality == locality::thread) m_thread_guard.start_target_epoch();
         if (m_locality == locality::process) m_process_guard.start_target_epoch();
+    }
+
+    bool try_start_target_epoch()
+    {
+        if (m_locality == locality::thread) return m_thread_guard.try_start_target_epoch();
+        if (m_locality == locality::process) return m_process_guard.try_start_target_epoch();
+        return true;
     }
 
     void end_target_epoch()
@@ -84,7 +102,11 @@ struct remote_access_guard
 {
     locality m_locality;
     thread::remote_access_guard m_thread_guard;
+#ifdef GHEX_USE_XPMEM
+    xpmem::remote_access_guard m_process_guard;
+#else
     shmem::remote_access_guard m_process_guard;
+#endif
 
     remote_access_guard(typename local_access_guard::info info_, int rank)
     : m_locality(info_.m_locality)
@@ -100,6 +122,13 @@ struct remote_access_guard
     {
         if (m_locality == locality::thread) m_thread_guard.start_source_epoch();
         if (m_locality == locality::process) m_process_guard.start_source_epoch();
+    }
+
+    bool try_start_source_epoch()
+    {
+        if (m_locality == locality::thread) return m_thread_guard.try_start_source_epoch();
+        if (m_locality == locality::process) return m_process_guard.try_start_source_epoch();
+        return true;
     }
     
     void end_source_epoch()

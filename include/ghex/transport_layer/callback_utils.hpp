@@ -13,6 +13,7 @@
 
 #include <boost/callable_traits.hpp>
 #include <functional>
+#include <memory>
 
 /** @brief checks the arguments of callback function object */
 #define GHEX_CHECK_CALLBACK_F(MESSAGE_TYPE, RANK_TYPE, TAG_TYPE)                              \
@@ -194,6 +195,8 @@ namespace gridtools {
                                              m_req});
                         return m_req;
                     }
+
+                    auto size() const noexcept { return m_queue.size(); }
 
                     /** @brief progress the queue and call the callbacks if the futures are ready. Note, that the order
                       * of progression is not defined.

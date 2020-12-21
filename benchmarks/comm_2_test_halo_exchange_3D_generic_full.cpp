@@ -26,7 +26,6 @@
 #include <ghex/structured/regular/halo_generator.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
-#include <ghex/threads/atomic/primitives.hpp>
 #include <ghex/common/timer.hpp>
 
 #include <gridtools/common/array.hpp>
@@ -36,8 +35,7 @@
 #endif
 
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::atomic::primitives;
-using context_type = gridtools::ghex::tl::context<transport, threading>;
+using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
 
 namespace halo_exchange_3D_generic_full {
 
@@ -117,7 +115,7 @@ namespace halo_exchange_3D_generic_full {
         int H3p3,
         triple_t<USE_DOUBLE, T1> *_a,
         triple_t<USE_DOUBLE, T2> *_b,
-        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu) 
+        triple_t<USE_DOUBLE, T3> *_c, bool use_gpu)
     {
         // compute total domain
         const std::array<int,3> g_first{             0,              0,              0};
@@ -252,11 +250,11 @@ namespace halo_exchange_3D_generic_full {
             gpu_b = new triple_t<USE_DOUBLE, T2>[(DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2)];
             gpu_c = new triple_t<USE_DOUBLE, T3>[(DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3)];
 
-            std::memcpy((void*)gpu_a, (const void*)a.data(), 
+            std::memcpy((void*)gpu_a, (const void*)a.data(),
                 (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) * sizeof(triple_t<USE_DOUBLE, T1>::data_type));
-            std::memcpy((void*)gpu_b, (const void*)b.data(), 
+            std::memcpy((void*)gpu_b, (const void*)b.data(),
                 (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) * sizeof(triple_t<USE_DOUBLE, T2>::data_type));
-            std::memcpy((void*)gpu_c, (const void*)c.data(), 
+            std::memcpy((void*)gpu_c, (const void*)c.data(),
                 (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) * sizeof(triple_t<USE_DOUBLE, T3>::data_type));
 #endif
 
@@ -320,25 +318,25 @@ namespace halo_exchange_3D_generic_full {
                     t_global(t_all);
                 }
 
-                file << "TIME PACK/POST:   " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0 
+                file << "TIME PACK/POST:   "
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.mean()/1000.0
                     << " ±"
                     << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_all.stddev()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.min()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.max()/1000.0
                     << std::endl;
-                file << "TIME WAIT/UNPACK: " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0 
+                file << "TIME WAIT/UNPACK: "
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0
                     << " ±"
                     << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_all.stddev()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.min()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.max()/1000.0
                     << std::endl;
-                file << "TIME ALL:         " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0 
+                file << "TIME ALL:         "
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0
                     << " ±"
                     << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_all.stddev()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.min()/1000.0
@@ -348,24 +346,24 @@ namespace halo_exchange_3D_generic_full {
             }
 
             file << std::endl << "-----------------" << std::endl;
-            file << "TIME PACK/POST:   " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0 
+            file << "TIME PACK/POST:   "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.mean()/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_global.stddev()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.min()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.max()/1000.0
                 << std::endl;
-            file << "TIME WAIT/UNPACK: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0 
+            file << "TIME WAIT/UNPACK: "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.mean()/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_global.stddev()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.min()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.max()/1000.0
                 << std::endl;
-            file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0 
+            file << "TIME ALL:         "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.mean()/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_global.stddev()/1000.0
@@ -396,13 +394,13 @@ namespace halo_exchange_3D_generic_full {
             GT_CUDA_CHECK(cudaFree(gpu_b));
             GT_CUDA_CHECK(cudaFree(gpu_c));
 #else
-            std::memcpy((void*)a.data(), (const void*)gpu_a, 
+            std::memcpy((void*)a.data(), (const void*)gpu_a,
                 (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) * sizeof(triple_t<USE_DOUBLE, T1>::data_type));
-            std::memcpy((void*)b.data(), (const void*)gpu_b, 
+            std::memcpy((void*)b.data(), (const void*)gpu_b,
                 (DIM1 + H1m2 + H1p2) * (DIM2 + H2m2 + H2p2) * (DIM3 + H3m2 + H3p2) * sizeof(triple_t<USE_DOUBLE, T2>::data_type));
-            std::memcpy((void*)c.data(), (const void*)gpu_c, 
+            std::memcpy((void*)c.data(), (const void*)gpu_c,
                 (DIM1 + H1m3 + H1p3) * (DIM2 + H2m3 + H2p3) * (DIM3 + H3m3 + H3p3) * sizeof(triple_t<USE_DOUBLE, T3>::data_type));
-            
+
             delete[] gpu_a;
             delete[] gpu_b;
             delete[] gpu_c;
@@ -464,25 +462,25 @@ namespace halo_exchange_3D_generic_full {
                     t_global(t_all);
                 }
 
-                file << "TIME PACK/POST:   " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0 
+                file << "TIME PACK/POST:   "
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0.mean()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.mean()/1000.0
                     << " ±"
                     << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_all.stddev()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.min()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_all.max()/1000.0
                     << std::endl;
-                file << "TIME WAIT/UNPACK: " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0 
+                file << "TIME WAIT/UNPACK: "
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1.mean()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.mean()/1000.0
                     << " ±"
                     << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_all.stddev()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.min()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_all.max()/1000.0
                     << std::endl;
-                file << "TIME ALL:         " 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0 
-                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0 
+                file << "TIME ALL:         "
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t.mean()/1000.0
+                    << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.mean()/1000.0
                     << " ±"
                     << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_all.stddev()/1000.0
                     << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_all.min()/1000.0
@@ -492,24 +490,24 @@ namespace halo_exchange_3D_generic_full {
             }
 
             file << std::endl << "-----------------" << std::endl;
-            file << "TIME PACK/POST:   " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0 
+            file << "TIME PACK/POST:   "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_local.mean()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.mean()/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_0_global.stddev()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.min()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_0_global.max()/1000.0
                 << std::endl;
-            file << "TIME WAIT/UNPACK: " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0 
+            file << "TIME WAIT/UNPACK: "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_local.mean()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.mean()/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_1_global.stddev()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.min()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_1_global.max()/1000.0
                 << std::endl;
-            file << "TIME ALL:         " 
-                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0 
+            file << "TIME ALL:         "
+                << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_local.mean()/1000.0
                 << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.mean()/1000.0
                 << " ±"
                 << std::scientific << std::setprecision(4) << std::right << std::setw(11) << t_global.stddev()/1000.0
@@ -520,7 +518,7 @@ namespace halo_exchange_3D_generic_full {
 
             MPI_Barrier(context.mpi_comm());
         }
-        
+
 
         file << "\n********************************************************************************\n";
 
@@ -664,7 +662,7 @@ namespace halo_exchange_3D_generic_full {
 
         return passed;
     }
-    
+
     bool test(bool use_gpu,
         int DIM1,
         int DIM2,
@@ -707,10 +705,10 @@ namespace halo_exchange_3D_generic_full {
         MPI_Cart_create(world, 3, dims, period, false, &CartComm);
 
         MPI_Cart_get(CartComm, 3, dims, period, coords);
-        
-        auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, CartComm);
+
+        auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(CartComm);
         auto& context = *context_ptr;
-        auto comm = context.get_communicator(context.get_token());
+        auto comm = context.get_communicator();
 
         /* Each process will hold a tile of size
            (DIM1+2*H)x(DIM2+2*H)x(DIM3+2*H). The DIM1xDIM2xDIM3 area inside
@@ -2262,7 +2260,7 @@ TEST(Communication, comm_2_test_halo_exchange_3D_generic_full) {
     gridtools::ghex::tl::mpi::communicator_base local_comm(raw_local_comm, gridtools::ghex::tl::mpi::comm_take_ownership);
     if (local_comm.rank()<num_devices_per_node)
     {
-        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU " 
+        std::cout << "I am rank " << mpi_comm.rank() << " and I own GPU "
         << (mpi_comm.rank()/local_comm.size())*num_devices_per_node + local_comm.rank() << std::endl;
         GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
 #ifndef GHEX_1_PATTERN_BENCHMARK
