@@ -198,7 +198,7 @@ PROGRAM test_halo_exchange
      domain(4) = OMPI_COMM_TYPE_NODE
      domain(5) = OMPI_COMM_TYPE_CLUSTER
      call ghex_cart_topology(mpi_comm_world, domain, topology, level_rank)
-     call ghex_cart_remap_ranks_2(mpi_comm_world, domain, topology, level_rank, C_CART, cart_order)
+     call ghex_cart_remap_ranks(mpi_comm_world, domain, topology, level_rank, C_CART, cart_order)
 
      if (world_rank==0) then
 
@@ -239,7 +239,13 @@ PROGRAM test_halo_exchange
      call mpi_cart_create(mpi_comm_world, 3, gdim, lperiodic, .true., C_CART, ierr)
 
      ! print rank topology
-     call ghex_cart_print_rank2node(C_CART, gdim)
+     ! call ghex_cart_print_rank_topology(C_CART, domain, topology, cart_order)
+     block
+       integer(4) :: domain(2) = 0, topology(3,2) = 1
+       domain(1) = MPI_COMM_TYPE_SHARED
+       topology(:,1) = gdim
+       call ghex_cart_print_rank_topology(C_CART, domain, topology, cart_order)
+     end block
   end if
 
   ! init ghex

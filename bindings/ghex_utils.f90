@@ -1,12 +1,9 @@
 MODULE ghex_utils
   use mpi
   use ghex_defs
-
-#define OPEN_MPI
   implicit none
 
   interface
-
      integer(c_int) function ghex_get_current_cpu() bind(c)
        use iso_c_binding
      end function ghex_get_current_cpu
@@ -14,12 +11,12 @@ MODULE ghex_utils
      integer(c_int) function ghex_get_ncpus() bind(c)
        use iso_c_binding
      end function ghex_get_ncpus
-
   end interface
+
 contains
 
 
-  ! obtain compute node ID of the calling rank
+  ! obtain cartesian coordinates of the calling rank for all topological levels
   recursive subroutine ghex_cart_topology(comm, domain, topo, level_rank, ilevel)
     implicit none
     integer(kind=4), intent(in)  :: comm
@@ -144,6 +141,8 @@ contains
     integer(kind=4), dimension(:), allocatable :: sbuff, rbuff
     integer(kind=4) :: nodeid, rank, size, ierr, ii, split_type
     integer(kind=4) :: shmcomm
+    character(len=MPI_MAX_LIBRARY_VERSION_STRING) :: version
+    integer :: resultlen
 
     split_type = MPI_COMM_TYPE_SHARED
     if (present(isplit_type)) split_type = isplit_type
@@ -155,13 +154,18 @@ contains
     ! communication buffers
     allocate(sbuff(1:size), rbuff(1:size), Source=0)
 
-#ifdef OPEN_MPI
-    ! create local communicator
-    call MPI_Comm_split_type(comm, split_type, 0, MPI_INFO_NULL, shmcomm, ierr)
-#else
-    ! create local communicator
-    call MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, shmcomm, ierr)
-#endif
+    ! check for OpenMPI to use fine-grain hwloc domains
+    call MPI_Get_library_version(version, resultlen, ierr)
+    ii = index(version, 'Open MPI')
+    if (ii /= 0) then
+
+       ! create local communicator
+       call MPI_Comm_split_type(comm, split_type, 0, MPI_INFO_NULL, shmcomm, ierr)
+    else
+       
+       ! create local communicator
+       call MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, shmcomm, ierr)
+    end if
 
     ! figure out unique compute node id = max rank id on each compute node
     sbuff(1) = rank+1
@@ -377,80 +381,13 @@ contains
 
   end subroutine ghex_cart_create_subcomm
 
-
-  ! Renumber the MPI ranks so that node-local ranks form
-  ! compact boxes. Assuming the compute nodes are arranged
-  ! into nodedims(3) dimensions, the per-compute node domain
-  ! grid will be dims/nodedims.
+  ! Renumber the MPI ranks according to user-specified memory domain topology.
+  !  - domain: specifies OPENMPI locality domains
   !
   ! A new communicator is created with this rank numbering.
   ! It can then be used as usual with rank2coord, coord2rank,
   ! and create_subcomm.
-  !
-  ! TODO : find a good automatic way to compute nodedims: split the grid into compact sub-grids,
-  ! which fit into a single compute node. Or use Z-curves instead.
-  subroutine ghex_cart_remap_ranks(comm, dims, nodedims, newcomm, iorder)
-    implicit none
-    integer(kind=4), intent(in)  :: comm, dims(3), nodedims(3)
-    integer(kind=4), intent(out) :: newcomm
-    integer(kind=4) ::          newrank, newcoord(3)
-    integer(kind=4) :: shmcomm, shmrank, shmcoord(3), shmdims(3), shmsize, rank, size
-    integer(kind=4) ::         noderank, nodecoord(3)
-    integer(kind=4) :: ierr, order
-    character(len=20) :: fmti
-    integer(kind=4), optional :: iorder
-
-    if (present(iorder)) then
-       order = iorder
-    else
-       order = CartOrderDefault
-    endif    
-
-    ! total number of ranks
-    call MPI_Comm_rank(comm, rank, ierr)
-    call MPI_Comm_size(comm, size, ierr)
-
-    ! node-local communicator and node-local rank
-    call MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, shmcomm, ierr)
-    call MPI_Comm_rank(shmcomm, shmrank, ierr)
-    call MPI_Comm_size(shmcomm, shmsize, ierr)
-    call MPI_Comm_Disconnect(shmcomm, ierr)
-
-    if (shmsize*product(nodedims) /= size) then
-       if (rank == 0) then
-          if (size>1000) then
-             fmti="(A,I5,A,I5,A,I5)"
-          else
-             fmti="(A,I3,A,I3,A,I3)"
-          end if
-          write (*,*) ' ERROR: Wrong node space dimensions: number of ranks doesnt match.'
-          write (*,fmti) '  There is ', product(nodedims), ' nodes and ', shmsize, ' ranks per node, but the total number of ranks is ', size
-       end if
-       call MPI_Finalize(ierr)
-       call exit
-    end if
-
-    ! which compute node are we on
-    call ghex_get_noderank(comm, noderank)
-
-    ! cartesian node coordinates in the node space
-    call ghex_cart_rank2coord(MPI_COMM_NULL, nodedims, noderank, nodecoord, order)
-
-    ! cartesian shmrank coordinates in node-local rank space
-    shmdims = dims/nodedims
-    call ghex_cart_rank2coord(MPI_COMM_NULL, shmdims, shmrank, shmcoord, order)
-
-    ! new rank coordinates in remapped global rank space
-    newcoord = nodecoord*shmdims + shmcoord
-    call ghex_cart_coord2rank(MPI_COMM_NULL, dims, (/.false., .false., .false./), newcoord, newrank, order)
-
-    ! create the new communicator with remapped ranks
-    call MPI_Comm_split(comm, 0, newrank, newcomm, ierr)
-
-  end subroutine ghex_cart_remap_ranks
-
-
-  subroutine ghex_cart_remap_ranks_2(comm, domain, topo, level_rank, newcomm, iorder)
+  subroutine ghex_cart_remap_ranks(comm, domain, topo, level_rank, newcomm, iorder)
     implicit none
     integer(kind=4), intent(in)  :: comm
     integer(kind=4), intent(in)  :: domain(:)
@@ -478,7 +415,7 @@ contains
     allocate(cartXYZ(1:3,1:size(domain)))
     allocate(dims(1:3,1:size(domain)))
 
-    ! compute rank cartesian coordinates for each level topological level
+    ! compute rank cartesian coordinates for each topological level
     ii = 1
     do while(ii<=size(domain))
        call ghex_cart_rank2coord(MPI_COMM_NULL, topo(:,ii), level_rank(ii), cartXYZ(:,ii), order)
@@ -498,55 +435,13 @@ contains
     ! compute global grid dimensions
     gdim = product(topo, dim=2)
 
-    ! compute rank id in global ranks apce
+    ! compute rank id in global ranks space
     call ghex_cart_coord2rank(comm, gdim, (/.false., .false., .false./), topo_coord, newrank, order)
     
     ! create the new communicator with remapped ranks
     call MPI_Comm_split(comm, 0, newrank, newcomm, ierr)
-  end subroutine ghex_cart_remap_ranks_2
-
-
-  subroutine ghex_print_rank2node(comm)
-    integer(kind=4), intent(in) :: comm
-    integer(kind=4), dimension(:,:), allocatable :: buff
-    integer(kind=4) :: sbuff(3), ierr, i
-    integer(kind=4) :: rank, size, noderank, orank
-
-    call ghex_get_noderank(comm, noderank)
-
-    ! obtain all values at master
-    call MPI_Comm_rank(mpi_comm_world, orank, ierr)
-    call MPI_Comm_rank(comm, rank, ierr)
-    call MPI_Comm_size(comm, size, ierr)
-
-    allocate(buff(1:3,0:size-1), Source=0)
-    sbuff(1) = noderank
-    sbuff(2) = rank
-    sbuff(3) = orank
-    call MPI_Gather(sbuff, 3, MPI_INT, buff, 3, MPI_INT, 0, comm, ierr)
-
-    if (rank==0) then       
-       write (*,"(a)",ADVANCE='NO') "node rank: "
-       do i=0,size-1
-          write (*,"(I3)",ADVANCE='NO') buff(1,i)
-       end do
-       write (*,*)
-
-       write (*,"(a)",ADVANCE='NO') "     rank: "
-       do i=0,size-1
-          write (*,"(I3)",ADVANCE='NO') buff(2,i)
-       end do
-       write (*,*)
-
-       write (*,"(a)",ADVANCE='NO') " old rank: "
-       do i=0,size-1
-          write (*,"(I3)",ADVANCE='NO') buff(3,i)
-       end do
-       write (*,*)
-    end if
-
-    deallocate(buff)    
-  end subroutine ghex_print_rank2node
+  end subroutine ghex_cart_remap_ranks
+  
 
   subroutine ghex_cart_print_rank2node(comm, dims, iorder)
     implicit none
