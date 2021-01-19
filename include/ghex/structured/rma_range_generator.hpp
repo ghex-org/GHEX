@@ -11,7 +11,6 @@
 #ifndef INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 #define INCLUDED_GHEX_STRUCTURED_RMA_RANGE_GENERATOR_HPP
 
-//#include <thread>
 #include "../arch_list.hpp"
 #include "../rma/access_guard.hpp"
 #include "../rma/event.hpp"
