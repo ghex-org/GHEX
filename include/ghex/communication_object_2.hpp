@@ -22,21 +22,6 @@
 #include <stdio.h>
 #include <functional>
 
-// Define this macro to use optimizations for same type fields
-// Improves performance for gpu, but only when solely same field types are passed to an exhange
-//#define GHEX_COMM_OBJ_USE_U
-
-// Define this macro for fat callbacks
-// Description: Fat callbacks take advantage of the capability of the underlying communicator to
-//   receive messages with a callback function. This callback function is then used to unpack data.
-//   A similar mechanism is used otherwise - but implemented within this class independently of the
-//   communicator.
-// Note: May not yet work optimally with the current ucx implementation because the ucx receive
-//   worker will be locked for the entire duration of the callback execution which may lead to
-//   performance issues.
-// TODO: Performance tests are needed to determine which option is better.
-//#define GHEX_COMM_OBJ_USE_FAT_CALLBACKS
-
 namespace gridtools {
 
     namespace ghex {

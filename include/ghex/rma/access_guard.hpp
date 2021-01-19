@@ -11,8 +11,6 @@
 #ifndef INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP
 #define INCLUDED_GHEX_RMA_ACCESS_GUARD_HPP
 
-//#define GHEX_USE_XPMEM_ACCESS_GUARD
-
 #include "./locality.hpp"
 #include "./thread/access_guard.hpp"
 #if defined(GHEX_USE_XPMEM_ACCESS_GUARD) && defined(GHEX_USE_XPMEM)

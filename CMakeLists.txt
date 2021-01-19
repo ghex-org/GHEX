@@ -110,6 +110,32 @@ target_link_libraries(ghexlib INTERFACE ${LIBRT})
 
 target_compile_features(ghexlib INTERFACE cxx_std_14)
 
+# Define this macro to use optimizations for same type fields
+# Improves performance for gpu, but only when solely same field types are passed to an exhange
+set(GHEX_COMM_OBJ_U_PACK OFF CACHE BOOL "Set to true to use optimizations for same type fields (gpus only)")
+if (GHEX_COMM_OBJ_U_PACK)
+    target_compile_definitions(ghexlib INTERFACE GHEX_COMM_OBJ_USE_U)
+endif()
+
+# Define this macro for fat callbacks
+# Description: Fat callbacks take advantage of the capability of the underlying communicator to
+#   receive messages with a callback function. This callback function is then used to unpack data.
+#   A similar mechanism is used otherwise - but implemented within this class independently of the
+#   communicator.
+# Note: May not yet work optimally with the current ucx implementation because the ucx receive
+#   worker will be locked for the entire duration of the callback execution which may lead to
+#   performance issues.
+# TODO: Performance tests are needed to determine which option is better.
+set(GHEX_COMM_OBJ_FAT_CALLBACKS OFF CACHE BOOL "Use communicator to execute callbacks instead off comm object")
+if (GHEX_COMM_OBJ_FAT_CALLBACKS)
+    target_compile_definitions(ghexlib INTERFACE GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
+endif()
+
+set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma access")
+if (GHEX_USE_XPMEM_ACCESS_GUARD)
+    target_compile_definitions(ghexlib INTERFACE GHEX_USE_XPMEM_ACCESS_GUARD)
+endif()
+
 # Enable adding of tests etc
 enable_testing()
 
