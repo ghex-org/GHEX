@@ -63,7 +63,7 @@ namespace gridtools{
                     inline size_type size() const noexcept { return m_size; }
 
                     static void initialize() {}
-		      static void finalize() {}
+		            static void finalize() {}
 
                     void barrier()
                     {

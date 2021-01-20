@@ -15,7 +15,8 @@ TEST(all_gather, all_gather_fixed)
 {
     using T = double;
     gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::mpi::setup_communicator comm{mpi_comm};
+    gridtools::ghex::tl::mpi::rank_topology t{mpi_comm};
+    gridtools::ghex::tl::mpi::setup_communicator comm{t};
 
     std::vector<T> values = comm.all_gather( static_cast<T>(comm.address()) );
     bool passed = true;
@@ -33,7 +34,8 @@ TEST(all_gather, all_gather_vector)
 {
     using T = double;
     gridtools::ghex::tl::mpi::communicator_base mpi_comm;
-    gridtools::ghex::tl::mpi::setup_communicator comm{mpi_comm};
+    gridtools::ghex::tl::mpi::rank_topology t{mpi_comm};
+    gridtools::ghex::tl::mpi::setup_communicator comm{t};
 
     int my_num_values = (comm.address()+1)*2;
     std::vector<T> my_values(my_num_values);

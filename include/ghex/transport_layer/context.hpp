@@ -80,6 +80,7 @@ namespace gridtools {
 
             public: // member functions
                 MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
+                const mpi::rank_topology&  rank_topology() const noexcept { return m_rank_topology; }
                 int rank() const noexcept { return m_rank; }
                 int size() const noexcept { return m_size; }
 
