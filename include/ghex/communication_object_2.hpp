@@ -22,17 +22,6 @@
 #include <stdio.h>
 #include <functional>
 
-// Define this macro for fat callbacks
-// Description: Fat callbacks take advantage of the capability of the underlying communicator to
-//   receive messages with a callback function. This callback function is then used to unpack data.
-//   A similar mechanism is used otherwise - but implemented within this class independently of the
-//   communicator.
-// Note: May not yet work optimally with the current ucx implementation because the ucx receive
-//   worker will be locked for the entire duration of the callback execution which may lead to
-//   performance issues.
-// TODO: Performance tests are needed to determine which option is better.
-//#define GHEX_COMM_OBJ_USE_FAT_CALLBACKS
-
 namespace gridtools {
 
     namespace ghex {
@@ -318,15 +307,20 @@ namespace gridtools {
             
             // special function to handle one iterator pair (optimization for gpus below)
             template<typename Iterator>
+#ifdef GHEX_COMM_OBJ_USE_U
             [[nodiscard]] std::enable_if_t<
                 !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
                 handle_type>
+#else
+            [[nodiscard]] handle_type
+#endif
             exchange_u(Iterator first, Iterator last)
             {
                 // call exchange with a pair of iterators
                 return exchange(std::make_pair(first, last)); 
             }
 
+#ifdef GHEX_COMM_OBJ_USE_U
 #ifdef __CUDACC__
             // optimized exchange for regular grids and a range of same-type fields
             template<typename Iterator>
@@ -357,7 +351,7 @@ namespace gridtools {
                                    typename communicator_type::rank_type,
                                    typename communicator_type::tag_type)
                                 {
-                                    packer<gpu>::template unpack_u<value_type, field_type>(*ptr, m.data());
+                                    packer<gpu>::unpack(*ptr, m.data());
                                 }));
                         }
                     }
@@ -374,7 +368,7 @@ namespace gridtools {
                         if (p1.second.size > 0u)
                         {
                             p1.second.buffer.resize(p1.second.size);
-                            m.m_recv_futures.emplace_back(
+                            gpu_mem.m_recv_futures.emplace_back(
                                 typename gpu_mem_t::hook_future_type{
                                     &p1.second,
                                     m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
@@ -387,6 +381,7 @@ namespace gridtools {
                 return handle_type(m_comm, [this](){this->template wait_u_gpu<field_type>();});
 #endif
             }
+#endif
 #endif
             
             // helper function to set up communicaton buffers (run-time case)
@@ -553,6 +548,7 @@ namespace gridtools {
                 clear();
             }
 
+#ifdef GHEX_COMM_OBJ_USE_U
 #if defined(__CUDACC__) && !defined(GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
             template<typename FieldType>
             void wait_u_gpu()
@@ -560,25 +556,15 @@ namespace gridtools {
                 if (!m_valid) return;
                 using field_type = FieldType;
                 using value_type = typename field_type::value_type;
-                using gpu_mem_t  = buffer_memory<gpu>;
-                auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
-                // wait for data to arrive (unpack callback will be invoked)
-                await_futures(
-                    gpu_mem.m_recv_futures,
-                    [](typename gpu_mem_t::hook_type hook)
-                    {
-                        packer<gpu>::template unpack_u<value_type, field_type>(*hook, hook->buffer.data());
-                    });
+                using memory_t   = buffer_memory<gpu>;
+                // unpack
+                memory_t& mem = std::get<memory_t>(m_mem);
+                packer<gpu>::template unpack_u<value_type,field_type>(mem);
                 // wait for data to be sent
                 await_requests(m_send_futures);
-                // wait for the unpack kernels to finish
-                auto& m = std::get<buffer_memory<gpu>>(m_mem);
-                for (auto& p0 : m.recv_memory)
-                    for (auto& p1: p0.second)
-                        if (p1.second.size > 0u)
-                            p1.second.m_cuda_stream.sync();
                 clear();
             }
+#endif
 #endif
 
         private: // reset

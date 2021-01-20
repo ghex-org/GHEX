@@ -174,6 +174,19 @@ namespace gridtools {
                     fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
             }
 
+            template<typename BufferMem>
+            static void unpack(BufferMem& m)
+            {
+                await_futures(
+                    m.m_recv_futures,
+                    [](typename BufferMem::hook_type hook)
+                    {
+                        for (const auto& fb : hook->field_infos)
+                                fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(&hook->m_cuda_stream.get()));
+
+                    });
+            }
+
             template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
             static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
             {
@@ -229,7 +242,7 @@ namespace gridtools {
                                 }
                             }
                             const int num_blocks_x = (max_size+block_size-1)/block_size;
-                            // unroll kernels: can fit at most 36 arguments as pack kernel argument
+                            // unroll kernels: can fit at most 34 arguments as pack kernel argument
                             // invoke new kernels until all data is packed
                             unsigned int count = 0;
                             while (num_blocks_y)
@@ -288,11 +301,12 @@ namespace gridtools {
                         send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
                     });
             }
-
-            template<typename T, typename FieldType, typename Buffer>
-            static void unpack_u(Buffer& buffer, unsigned char* data)
+            
+            template<typename T, typename FieldType, typename BufferMem>
+            static void unpack_u(BufferMem& m)
             {
-                using field_info_type      = typename Buffer::field_info_type;
+                using recv_buffer_type     = typename BufferMem::recv_buffer_type;
+                using field_info_type      = typename recv_buffer_type::field_info_type;
                 using index_container_type = typename field_info_type::index_container_type;
                 using dimension            = typename index_container_type::value_type::dimension;
                 using array_t              = ::gridtools::array<int, dimension::value>;
@@ -302,69 +316,82 @@ namespace gridtools {
                 std::vector<arg_t> args;
                 args.reserve(64);
 
-                auto& stream = buffer.m_cuda_stream;
-                int num_blocks_y = 0;
-                int max_size = 0;
-                for (const auto& fb :  buffer.field_infos)
-                {
-                    T* buffer_address = reinterpret_cast<T*>(data+fb.offset);
-                    auto& f = *reinterpret_cast<FieldType*>(fb.field_ptr);
-                    for (const auto& it_space_pair : *fb.index_container)
+                std::vector<cudaStream_t*> stream_ptrs;
+                stream_ptrs.reserve(m.m_recv_futures.size());
+                await_futures(
+                    m.m_recv_futures,
+                    [&block_size,&stream_ptrs,&args](typename BufferMem::hook_type hook)
                     {
-                        ++num_blocks_y;
-                        const int size = it_space_pair.size() * f.num_components();
-                        max_size = std::max(size,max_size);
-                        args.push_back( f.make_unpack_is(it_space_pair, buffer_address, size) );
-                        buffer_address += size;
-                    }
-                    const int num_blocks_x = (max_size+block_size-1)/block_size;
-                    // unroll kernels: can fit at most 36 arguments as unpack kernel argument
-                    // invoke new kernels until all data is unpacked
-                    unsigned int count = 0;
-                    while (num_blocks_y)
-                    {
-                        if (num_blocks_y > 34)
+                        auto stream_ptr = &hook->m_cuda_stream.get();
+                        args.resize(0);
+                        int num_blocks_y = 0;
+                        int max_size = 0;
+                        for (const auto& fb : hook->field_infos)
                         {
-                            dim3 dimBlock(block_size, 1);
-                            dim3 dimGrid(num_blocks_x, 34);
-                            unpack_kernel_u<<<dimGrid, dimBlock, 0, stream.get()>>>(
-                                cuda::make_kernel_arg<34>(args.data()+count, 34)
-                            );
-                            count += 34;
-                            num_blocks_y -= 34;
+                            T* buffer_address = reinterpret_cast<T*>(hook->buffer.data()+fb.offset);
+                            auto& f = *reinterpret_cast<FieldType*>(fb.field_ptr);
+                            for (const auto& it_space_pair : *fb.index_container)
+                            {
+                                ++num_blocks_y;
+                                const int size = it_space_pair.size() * f.num_components();
+                                max_size = std::max(size,max_size);
+                                args.push_back(f.make_unpack_is(it_space_pair, buffer_address, size));
+                                buffer_address += size;
+                            }
                         }
-                        else
+                        const int num_blocks_x = (max_size+block_size-1)/block_size;
+                        // unroll kernels: can fit at most 34 arguments as unpack kernel argument
+                        // invoke new kernels until all data is unpacked
+                        unsigned int count = 0;
+                        while (num_blocks_y)
                         {
-                            dim3 dimBlock(block_size, 1);
-                            dim3 dimGrid(num_blocks_x, num_blocks_y);
-                            if (num_blocks_y < 7)
+                            if (num_blocks_y > 34)
                             {
-                                unpack_kernel_u<<<dimGrid, dimBlock, 0, stream.get()>>>(
-                                    cuda::make_kernel_arg<6>(args.data()+count, num_blocks_y)
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, 34);
+                                unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    cuda::make_kernel_arg<34>(args.data()+count, 34)
                                 );
-                            }
-                            else if (num_blocks_y < 13)
-                            {
-                                unpack_kernel_u<<<dimGrid, dimBlock, 0, stream.get()>>>(
-                                    cuda::make_kernel_arg<12>(args.data()+count, num_blocks_y)
-                                );
-                            }
-                            else if (num_blocks_y < 25)
-                            {
-                                unpack_kernel_u<<<dimGrid, dimBlock, 0, stream.get()>>>(
-                                    cuda::make_kernel_arg<24>(args.data()+count, num_blocks_y)
-                                );
+                                count += 34;
+                                num_blocks_y -= 34;
                             }
                             else
                             {
-                                unpack_kernel_u<<<dimGrid, dimBlock, 0, stream.get()>>>(
-                                    cuda::make_kernel_arg<34>(args.data()+count, num_blocks_y)
-                                );
+                                dim3 dimBlock(block_size, 1);
+                                dim3 dimGrid(num_blocks_x, num_blocks_y);
+                                if (num_blocks_y < 7)
+                                {
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                        cuda::make_kernel_arg<6>(args.data()+count, num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 13)
+                                {
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                        cuda::make_kernel_arg<12>(args.data()+count, num_blocks_y)
+                                    );
+                                }
+                                else if (num_blocks_y < 25)
+                                {
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                        cuda::make_kernel_arg<24>(args.data()+count, num_blocks_y)
+                                    );
+                                }
+                                else
+                                {
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                        cuda::make_kernel_arg<34>(args.data()+count, num_blocks_y)
+                                    );
+                                }
+                                count += num_blocks_y;
+                                num_blocks_y = 0;
                             }
-                            count += num_blocks_y;
-                            num_blocks_y = 0;
                         }
-                    }
+                        stream_ptrs.push_back(stream_ptr);
+                    });
+                for (auto x : stream_ptrs)
+                {
+                    cudaStreamSynchronize(*x);
                 }
             }
         };

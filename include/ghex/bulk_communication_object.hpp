@@ -468,17 +468,36 @@ public:
                 // get the field Index 
                 using I = decltype(i);
                 // get source and target ranges
-                auto& t_range = std::get<I::value>(m_target_ranges_tuple);
-                auto& s_range = std::get<I::value>(m_source_ranges_tuple);
                 auto& bi_cont = std::get<I::value>(m_buffer_info_container_tuple);
                 auto& f_cont  = std::get<I::value>(m_field_container_tuple);
                 // add remote exchange
                 for (auto& f : f_cont)
                     bi_cont.push_back( f.m_remote_pattern(f.m_field) );
+            });
+        }
+        for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
+        {
+            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
+            [this](auto i) {
+                // get the field Index 
+                using I = decltype(i);
+                // get source and target ranges
+                auto& s_range = std::get<I::value>(m_source_ranges_tuple);
                 // complete the handshake
                 for (auto& s_vec : s_range.m_ranges)
                     for (auto& r : s_vec)
                         r.recv();
+            });
+        }
+        for (std::size_t i=0; i<boost::mp11::mp_size<field_types>::value; ++i)
+        {
+            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
+            [this](auto i) {
+                // get the field Index 
+                using I = decltype(i);
+                // get source and target ranges
+                auto& t_range = std::get<I::value>(m_target_ranges_tuple);
+                // complete the handshake
                 for (auto& t_vec : t_range.m_ranges)
                     for (auto& r : t_vec)
                         r.send();

@@ -13,7 +13,7 @@
 
 #include "./locality.hpp"
 #include "./thread/access_guard.hpp"
-#ifdef GHEX_USE_XPMEM
+#if defined(GHEX_USE_XPMEM_ACCESS_GUARD) && defined(GHEX_USE_XPMEM)
 #include "./xpmem/access_guard.hpp"
 #else
 #include "./shmem/access_guard.hpp"
@@ -37,7 +37,7 @@ struct local_access_guard
 {
     locality m_locality;
     thread::local_access_guard m_thread_guard;
-#ifdef GHEX_USE_XPMEM
+#if defined(GHEX_USE_XPMEM_ACCESS_GUARD) && defined(GHEX_USE_XPMEM)
     using process_guard_type = xpmem::local_access_guard;
 #else
     using process_guard_type = shmem::local_access_guard;
@@ -102,7 +102,7 @@ struct remote_access_guard
 {
     locality m_locality;
     thread::remote_access_guard m_thread_guard;
-#ifdef GHEX_USE_XPMEM
+#if defined(GHEX_USE_XPMEM_ACCESS_GUARD) && defined(GHEX_USE_XPMEM)
     xpmem::remote_access_guard m_process_guard;
 #else
     shmem::remote_access_guard m_process_guard;
