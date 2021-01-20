@@ -59,6 +59,7 @@ TEST(locality, enumerate) {
             comm.recv(local_ranks, r, 0).wait();
             comm.recv(other_host_name, r, 1).wait();
             EXPECT_EQ(is_neighbor, local_ranks[comm.rank()]);
+            if (is_neighbor)
             for (int rr=0; rr<comm.size(); ++rr) {
                 EXPECT_EQ((comm.is_local(rr) ? 1 : 0), local_ranks[rr]);
             }
