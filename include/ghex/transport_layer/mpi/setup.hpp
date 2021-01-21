@@ -11,14 +11,16 @@
 #ifndef INCLUDED_GHEX_TL_MPI_SETUP_HPP
 #define INCLUDED_GHEX_TL_MPI_SETUP_HPP
 
-#include "./rank_topology.hpp"
-#include "./communicator_base.hpp"
-#include "./status.hpp"
-#include "./future.hpp"
 #include <vector>
 #include <cassert>
 #include <algorithm>
 #include <iostream>
+#include <numeric>
+
+#include "./rank_topology.hpp"
+#include "./communicator_base.hpp"
+#include "./status.hpp"
+#include "./future.hpp"
 
 namespace gridtools{
     namespace ghex {
@@ -92,146 +94,151 @@ namespace gridtools{
                     GHEX_CHECK_MPI_RESULT(MPI_Bcast(values, sizeof(T)*n, MPI_BYTE, root, *this));
                 }
 
-#ifdef GHEX_EMULATE_ALLGATHERV
-                template<typename T>
-                std::vector<std::vector<T>> all_gather(const std::vector<T>& payload, const std::vector<int>& sizes) const
-                {
-                    std::vector<std::vector<T>> res(size());
-                    for (int neigh=0; neigh<size(); ++neigh)
-                    {
-                        res[neigh].resize(sizes[neigh]);
-                    }
-                    std::vector<handle_type> m_reqs;
-                    m_reqs.reserve((size())*2);
-                    for (int neigh=0; neigh<size(); ++neigh)
-                    {
-                        m_reqs.push_back( handle_type{} );
-                        GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(res[neigh].data()), sizeof(T)*sizes[neigh], MPI_BYTE, neigh, 99, *this, &m_reqs.back().get()));
-                    }
-                    for (int neigh=0; neigh<size(); ++neigh)
-                    {
-                        m_reqs.push_back( handle_type{} );
-                        GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(payload.data()), sizeof(T)*payload.size(), MPI_BYTE, neigh, 99, *this, &m_reqs.back().get()));
-                    }
-                    for (auto& r : m_reqs)
-                        r.wait();
-
-                    return res;
-                }
-#else
                 struct all_gather_sizes_t
                 {
-                    bool m_master;
                     int m_this_size;
-                    std::vector<int> m_local_sizes;
                     int m_node_size;
+                    int m_all_size;
+                    std::vector<int> m_local_sizes;
+                    std::vector<int> m_local_displs;
+                    std::vector<int> m_all_sizes;
+                    std::vector<int> m_all_displs;
                     std::vector<int> m_node_sizes;
+                    std::vector<int> m_node_displs;
+
+                    int size() const noexcept { return m_all_size; }
+                    auto begin() noexcept { return m_all_sizes.begin(); }
+                    auto begin() const noexcept { return m_all_sizes.cbegin(); }
+                    auto end() noexcept { return m_all_sizes.end(); }
+                    auto end() const noexcept { return m_all_sizes.cend(); }
+                    auto& operator[](unsigned int i) noexcept { return m_all_sizes[i]; }
+                    const auto& operator[](unsigned int i) const noexcept { return m_all_sizes[i]; }
                 };
 
                 all_gather_sizes_t all_gather_sizes(int size)
                 {
                     all_gather_sizes_t s;
-                    if (m_rank_topology.is_node_master())
-                        s.m_master = true;
-                    else
-                        s.m_master = false;
+                    s.m_all_sizes = all_gather(size);
+                    s.m_all_displs.resize(s.m_all_sizes.size(),0);
+                    std::partial_sum(s.m_all_sizes.begin(),s.m_all_sizes.end()-1,
+                        s.m_all_displs.begin()+1);
+                    s.m_all_size = s.m_all_displs.back()+s.m_all_sizes.back();
+                    s.m_node_sizes.reserve(m_rank_topology.num_nodes());
+                    s.m_local_sizes.reserve(m_rank_topology.local_size());
+                    s.m_local_displs.resize(m_rank_topology.local_size(),0);
+                    int last_offset = 0;
+                    int n = 0;
+                    for (auto offset : m_rank_topology.node_offsets())
+                    {
+                        if (n==m_rank_topology.node_rank())
+                        {
+                            s.m_local_sizes.push_back(s.m_all_sizes[last_offset]);
+                            for (int i=last_offset+1; i<offset; ++i)
+                            {
+                                s.m_local_sizes.push_back(s.m_all_sizes[i]);
+                                s.m_local_displs[i-last_offset] = s.m_local_displs[i-last_offset-1]
+                                    + s.m_local_sizes[i-last_offset-1]; 
+                            }
+                        }
+                        s.m_node_sizes.push_back(s.m_all_sizes[last_offset]);
+                        for (int i=last_offset+1; i<offset; ++i)
+                            s.m_node_sizes.back() += s.m_all_sizes[i];
+                        last_offset = offset;
+                        ++n;
+                    }
+                    s.m_node_displs.resize(m_rank_topology.num_nodes(),0);
+                    std::partial_sum(s.m_node_sizes.begin(),s.m_node_sizes.end()-1,
+                        s.m_node_displs.begin()+1);
                     s.m_this_size = size;
-                    if (m_rank_topology.local_size() > 1)
-                    {
-                        if (m_rank_topology.is_node_master())
-                            s.m_local_sizes.resize(m_rank_topology.local_size());
-                        GHEX_CHECK_MPI_RESULT(
-                            MPI_Gather(&size, 1, MPI_INT,
-                            &s.m_local_sizes[0], 1, MPI_INT,
-                            m_rank_topology.local_master_rank(), m_rank_topology.mpi_shared_comm()));
-                    }
-                    else
-                    {
-                        s.m_local_sizes.push_back(size);
-                    }
-                    if (m_rank_topology.is_node_master())
-                    {
-                        s.m_node_size = std::accumulate(s.m_local_sizes.begin(), s.m_local_sizes.end(),0);
-                        s.m_node_sizes.resize(m_rank_topology.num_nodes());
-                        GHEX_CHECK_MPI_RESULT(
-                            MPI_Allgather(&s.m_node_size, 1, MPI_INT,
-                            &s.m_node_sizes[0], 1, MPI_INT, m_rank_topology.mpi_master_comm()));
-                    }
+                    s.m_node_size = s.m_node_sizes[m_rank_topology.node_rank()];
                     return s;
                 }
 
                 template<typename T>
                 struct all_gather_skeleton_t
                 {
+                    std::vector<T> m_elements;
                     std::vector<T> m_node_elements;
-                    std::vector<T> m_all_elements;
+                    std::vector<int> m_local_sizes;
+                    std::vector<int> m_local_displs;
+                    std::vector<int> m_node_sizes;
+                    std::vector<int> m_node_displs;
                 };
 
                 template<typename T>
-                all_gather_skeleton_t all_gather_skeleton(const all_gather_sizes_t& sizes)
+                all_gather_skeleton_t<T> all_gather_skeleton(const all_gather_sizes_t& sizes)
                 {
-
+                    all_gather_skeleton_t<T> s{
+                        std::vector<T>(sizes.m_all_size),
+                        std::vector<T>(sizes.m_node_size),
+                        sizes.m_local_sizes,
+                        sizes.m_local_displs,
+                        sizes.m_node_sizes,
+                        sizes.m_node_displs};
+                    for (auto& x : s.m_local_sizes) x*= sizeof(T);
+                    for (auto& x : s.m_local_displs) x*= sizeof(T);
+                    for (auto& x : s.m_node_sizes) x*= sizeof(T);
+                    for (auto& x : s.m_node_displs) x*= sizeof(T);
+                    return s;
                 }
                 
-                template<typename T>
-                void all_gather(const std::vector<T>& payload,
-                    const all_gather_skeleton_t<T>& skeleton, std::vector<std::vector<T>>& result)
-                {
-
-                }
-
-                template<typename T>
-                std::vector<std::vector<T>> all_gather(const std::vector<T>& payload,
-                    const all_gather_skeleton_t<T>& skeleton)
-                {
-
-                }
-
                 //template<typename T>
-                //std::vector<std::vector<T>> local_gather(const std::vector<T>& payload, const std::vector<int>& sizes) const
+                //void all_gather(const std::vector<T>& payload,
+                //    const all_gather_skeleton_t<T>& skeleton, std::vector<std::vector<T>>& result)
                 //{
-                //    if (m_rank_topology.is_node_master())
-                //    {
-
-                //    }
-                //    GHEX_CHECK_MPI_RESULT(MPI_Gatherv(
-                //        payload.data(), payload.size()*sizeof(T), MPI_BYTE,
-                //        void *recvbuf, const int *recvcounts, const int *displs, MPI_BYTE,
-                //        m_rank_topology.local_master_rank(), m_rank_topology.mpi_shared_comm()));
 
                 //}
 
                 template<typename T>
+                std::vector<std::vector<T>> all_gather(const std::vector<T>& payload,
+                    const all_gather_sizes_t& sizes)
+                {
+                    auto skeleton = all_gather_skeleton<T>(sizes);
+                    return all_gather(payload, skeleton, sizes);
+                }
+
+                template<typename T>
+                std::vector<std::vector<T>> all_gather(const std::vector<T>& payload,
+                    all_gather_skeleton_t<T>& skeleton, const all_gather_sizes_t& sizes)
+                {
+                    std::vector<std::vector<T>> res(size());
+
+                    // gather to node master
+                    GHEX_CHECK_MPI_RESULT(MPI_Gatherv(
+                        payload.data(), payload.size()*sizeof(T), MPI_BYTE,
+                        skeleton.m_node_elements.data(), 
+                        skeleton.m_local_sizes.data(),
+                        skeleton.m_local_displs.data(),
+                        MPI_BYTE,
+                        m_rank_topology.local_master_rank(), m_rank_topology.mpi_shared_comm()));
+
+                    // all gather among masters
+                    if (m_rank_topology.is_master())
+                    {
+                        GHEX_CHECK_MPI_RESULT(MPI_Allgatherv(        
+                            skeleton.m_node_elements.data(), skeleton.m_node_elements.size()*sizeof(T),
+                            MPI_BYTE, skeleton.m_elements.data(), skeleton.m_node_sizes.data(),
+                            skeleton.m_node_displs.data(), MPI_BYTE, m_rank_topology.mpi_gather_comm()));
+                    }
+
+                    // broadcast
+                    GHEX_CHECK_MPI_RESULT(MPI_Bcast(skeleton.m_elements.data(),
+                        skeleton.m_elements.size()*sizeof(T), MPI_BYTE,
+                        m_rank_topology.local_master_rank(), m_rank_topology.mpi_shared_comm()));
+
+                    // reshuffle data
+                    for (int i = 0; i<size(); ++i)
+                    {
+                        res[i].insert(res[i].end(),
+                        skeleton.m_elements.begin()+sizes.m_all_displs[i],
+                        skeleton.m_elements.begin()+sizes.m_all_displs[i]+sizes.m_all_sizes[i]);
+                    }
+                    return res;
+                }
+
+                template<typename T>
                 std::vector<std::vector<T>> all_gather(const std::vector<T>& payload, const std::vector<int>& sizes) const
                 {
-                    if (m_rank_topology.local_size() > 1)
-                    {
-                        if (m_rank_topology.is_node_master())
-                        {
-                            std::cout << "do gather within rank first" << std::endl;
-                            std::vector<int> local_sizes;
-                            local_sizes.reserve(m_rank_topology.local_size());
-                            for (auto r : m_rank_topology.local_ranks())
-                                local_sizes.push_back(sizes[r]);
-
-
-                            //GHEX_CHECK_MPI_RESULT(
-                            //    MPI_Gatherv(
-                            //        payload.data(), payload.size()*sizeof(T), MPI_BYTE,
-                            //        void *recvbuf, const int *recvcounts, const int *displs,
-                            //        m_rank_topology.local_master_rank(), m_rank_topology.mpi_shared_comm())
-                            //);
-                        }
-                        else
-                        {
-                            GHEX_CHECK_MPI_RESULT(
-                                MPI_Gatherv(
-                                    payload.data(), payload.size()*sizeof(T), MPI_BYTE,
-                                    (void*)0, 0, (const int *)0, MPI_BYTE,
-                                    m_rank_topology.local_master_rank(), m_rank_topology.mpi_shared_comm())
-                            );
-                        }
-                    }
                     std::vector<T> recvbuf;
                     std::vector<int> recvcounts(size());
                     std::vector<int> displs(size());
@@ -261,7 +268,6 @@ namespace gridtools{
                     }
                     return res;
                 }
-#endif
 
                 template<typename T>
                 std::vector<T> all_gather(const T& payload) const

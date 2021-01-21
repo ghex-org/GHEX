@@ -263,12 +263,19 @@ namespace gridtools {
                     }
                 }
 
+                int my_num_domains           = my_domain_ids.size();
                 // find all domains and their extents by all_gather operations
-                int my_num_domains   = my_domain_ids.size();
-                auto num_domain_ids  = comm.all_gather(my_num_domains);
-                auto domain_ids      = comm.all_gather(my_domain_ids, num_domain_ids);
-                auto domain_extents  = comm.all_gather(my_domain_extents, num_domain_ids);
-                const int world_size = num_domain_ids.size();
+                //auto num_domain_ids  = comm.all_gather(my_num_domains);
+                //auto domain_ids      = comm.all_gather(my_domain_ids, num_domain_ids);
+                //auto domain_extents  = comm.all_gather(my_domain_extents, num_domain_ids);
+                //const int world_size = num_domain_ids.size();
+
+                const auto num_domain_ids_s    = comm.all_gather_sizes(my_num_domains);
+                //auto domain_ids_skeleton = comm.all_gather_skeleton<extended_domain_id_type>(num_domain_ids);
+                //auto domain_extents_skeleton = comm.all_gather_skeleton<iteration_space_pair>(num_domain_ids);
+                auto domain_ids              = comm.all_gather(my_domain_ids, num_domain_ids_s);
+                auto domain_extents          = comm.all_gather(my_domain_extents, num_domain_ids_s);
+                const int world_size         = domain_ids.size();
 
                 // find global extents
                 auto global_min = my_domain_extents[0].global().first();
