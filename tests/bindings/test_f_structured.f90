@@ -324,41 +324,43 @@ PROGRAM test_halo_exchange
     i = i+1
   end do
 
-  ! ---- COMPACT tests ----
-  ! initialize the field datastructure
-  i = 1
-  do while (i <= nfields)
-    call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=periodic)
-    call ghex_domain_add_field(domain_desc, field_desc)
-    call ghex_free(field_desc)
-    i = i+1
-  end do
+  if (.true.) then
+     ! ---- COMPACT tests ----
+     ! initialize the field datastructure
+     i = 1
+     do while (i <= nfields)
+        call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=periodic)
+        call ghex_domain_add_field(domain_desc, field_desc)
+        call ghex_free(field_desc)
+        i = i+1
+     end do
 
-  ! compute the halo information for all domains and fields
-  ed = ghex_exchange_desc_new(domain_desc)
+     ! compute the halo information for all domains and fields
+     ed = ghex_exchange_desc_new(domain_desc)
 
-  ! warmup
-  ! exchange halos
-  it = 0
-  do while (it < 10)
-     eh = ghex_exchange(co, ed)
-     call ghex_wait(eh)
-     call ghex_free(eh)
-     it = it+1;
-  end do
-  
-  it = 0
-    call cpu_time(tic)
-  do while (it < niters)
-    eh = ghex_exchange(co, ed)
-    call ghex_wait(eh)
-    call ghex_free(eh)
-    it = it+1
-  end do
-    call cpu_time(toc)
-    if (rank == 0) then
-      print *, rank, " exchange compact:      ", (toc-tic)
-    end if
+     ! warmup
+     ! exchange halos
+     it = 0
+     do while (it < 10)
+        eh = ghex_exchange(co, ed)
+        call ghex_wait(eh)
+        call ghex_free(eh)
+        it = it+1;
+     end do
+
+     it = 0
+     call cpu_time(tic)
+     do while (it < niters)
+        eh = ghex_exchange(co, ed)
+        call ghex_wait(eh)
+        call ghex_free(eh)
+        it = it+1
+     end do
+     call cpu_time(toc)
+     if (rank == 0) then
+        print *, rank, " exchange compact:      ", (toc-tic)
+     end if
+  end if
 
   if (.false.) then
     ! ---- SEQUENCE tests ----
@@ -425,34 +427,49 @@ PROGRAM test_halo_exchange
       it = it+1
     end do
   end if
+
+  ! cleanup
+  call ghex_free(domain_desc)
+  call ghex_free(co)
+  call ghex_free(ed)
+  i = 1
+  do while (i <= nfields)
+    call ghex_free(domain_descs(i))
+    call ghex_free(cos(i))
+    call ghex_free(eds(i))
+    ! deallocate(data_ptr(i)%ptr)
+    i = i+1
+  end do
+
+  call ghex_finalize()
+
   ! ---- BIFROST-like comm ----
-
-  if (.false.) then
+  if (.true.) then
     ! compute neighbor information
-    ! call init_mpi_nbors(rank_coord)
+    call init_mpi_nbors(rank_coord)
 
-    ! call exchange_subarray_init
+    call exchange_subarray_init
     
-    ! i = 1
-    ! do while (i <= nfields)
-    !   call exchange_subarray(data_ptr(i)%ptr)
-    !   i = i+1
-    ! end do
+    i = 1
+    do while (i <= nfields)
+      call exchange_subarray(data_ptr(i)%ptr)
+      i = i+1
+    end do
     
-    ! call cpu_time(tic)
-    ! it = 0
-    ! do while (it < niters)
-    !   i = 1
-    !   do while (i <= nfields)
-    !     call exchange_subarray(data_ptr(i)%ptr)
-    !     i = i+1
-    !   end do
-    !   it = it+1
-    ! end do
-    ! call cpu_time(toc)
-    ! if (rank == 0) then
-    !    print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)
-    ! end if
+    call cpu_time(tic)
+    it = 0
+    do while (it < niters)
+      i = 1
+      do while (i <= nfields)
+        call exchange_subarray(data_ptr(i)%ptr)
+        i = i+1
+      end do
+      it = it+1
+    end do
+    call cpu_time(toc)
+    if (rank == 0) then
+       print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)
+    end if
     
     i = 1
     do while (i <= nfields)
@@ -461,19 +478,19 @@ PROGRAM test_halo_exchange
     end do
 
     it = 0
+    call cpu_time(tic)
     do while (it < niters)
       i = 1
-      call cpu_time(tic)
       do while (i <= nfields)
         call update_sendrecv(data_ptr(i)%ptr)
         i = i+1
       end do
-      call cpu_time(toc)
-      if (rank == 0) then
-        print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)
-      end if
       it = it+1
     end do
+    call cpu_time(toc)
+    if (rank == 0) then
+       print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)
+    end if
 
     i = 1
     do while (i <= nfields)
@@ -498,53 +515,9 @@ PROGRAM test_halo_exchange
   end if
   
   call mpi_barrier(mpi_comm_world, mpi_err)
-
-  ! cleanup
-  call ghex_free(domain_desc)
-  call ghex_free(co)
-  call ghex_free(ed)
-  i = 1
-  do while (i <= nfields)
-    call ghex_free(domain_descs(i))
-    call ghex_free(cos(i))
-    call ghex_free(eds(i))
-    ! deallocate(data_ptr(i)%ptr)
-    i = i+1
-  end do
-
-  call ghex_finalize()
   call mpi_finalize(mpi_err)
 
 contains
-
-  ! -------------------------------------------------------------
-  ! cartesian coordinates computations
-  ! -------------------------------------------------------------
-  subroutine rank2coord(rank, coord)
-    integer :: rank, tmp, ierr
-    integer :: coord(3)
-
-    if (C_CART == mpi_comm_world) then
-       tmp = rank;        coord(1) = modulo(tmp, gdim(1))
-       tmp = tmp/gdim(1); coord(2) = modulo(tmp, gdim(2))
-       tmp = tmp/gdim(2); coord(3) = tmp
-    else
-       call mpi_cart_coords(C_CART, rank, 3, coord, ierr)
-    end if
-    coord = coord + 1
-  end subroutine rank2coord
-
-  subroutine coord2rank(icoord, rank)
-    integer :: icoord(3), coord(3), ierr
-    integer :: rank
-
-    coord = icoord - 1
-    if (C_CART == mpi_comm_world) then
-       rank = (coord(3)*gdim(2) + coord(2))*gdim(1) + coord(1)
-    else
-       call mpi_cart_rank(C_CART, coord, rank, ierr)
-    end if
-  end subroutine coord2rank
 
   function get_nbor(icoord, shift, idx)
     integer, intent(in) :: icoord(3)
@@ -555,14 +528,10 @@ contains
     coord = icoord
     coord(idx) = coord(idx)+shift
     if (C_CART == mpi_comm_world) then
-       if (coord(idx) > gdim(idx)) then
-          coord(idx) = 1
-       end if
-       if (coord(idx) == 0) then
-          coord(idx) = gdim(idx)
-       end if
+       call mpi_cart_rank(C_CART, coord, get_nbor, ierr)
+    else
+       call ghex_cart_coord2rank(C_CART, gdim, lperiodic, coord, get_nbor, cart_order)
     end if
-    call coord2rank(coord, get_nbor)
   end function get_nbor
 
   subroutine init_mpi_nbors(rank_coord)
