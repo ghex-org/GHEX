@@ -19,7 +19,7 @@ using transport    = ghex::tl::ucx_tag;
 using transport    = ghex::tl::mpi_tag;
 #endif
 
-using context_type      = ghex::tl::context<transport>;
+using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
 using context_uptr_type = std::unique_ptr<context_type>;
 using communicator_type = context_type::communicator_type;
 
