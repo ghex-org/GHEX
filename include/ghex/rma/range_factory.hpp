@@ -57,7 +57,7 @@ struct range_factory
         return res;
     }
 
-    static range deserialize(unsigned char* buffer, int rank)
+    static range deserialize(unsigned char* buffer, int rank, bool on_gpu)
     {
         int id;
         std::memcpy(&id, buffer, sizeof(int));
@@ -72,11 +72,11 @@ struct range_factory
         std::memcpy(&e_info_, buffer, sizeof(event_info));
         buffer += a16(sizeof(event_info));
         return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id, 
-        [buffer, field_info, info_, e_info_, rank] (auto Id)
+        [buffer, field_info, info_, e_info_, rank, on_gpu] (auto Id)
         {
             using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
             return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value,
-                field_info, info_, e_info_, rank);
+                field_info, info_, e_info_, rank, on_gpu);
         });
     }
 

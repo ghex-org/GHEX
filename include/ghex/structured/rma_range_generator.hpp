@@ -60,13 +60,12 @@ struct rma_range_generator
         target_range(const Communicator& comm, const Field& f, rma::info field_info,
             const IterationSpace& is, rank_type dst, tag_type tag, rma::locality loc)
         : m_comm{comm}
-        , m_local_guard{loc}
+        , m_local_guard{loc, rma::access_mode::remote}
         , m_local_range{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_dst{dst}
         , m_tag{tag}
         , m_event{m_on_gpu, loc}
         {
-            m_archive.resize(RangeFactory::serial_size);
             m_archive = RangeFactory::serialize(field_info, m_local_guard, m_event, m_local_range);
             m_request = m_comm.send(m_archive, m_dst, m_tag);
         }
@@ -77,6 +76,7 @@ struct rma_range_generator
         void send()
         {
             m_request.wait();
+            m_local_guard.start_target_epoch();
         }
 
         void start_target_epoch()
@@ -85,6 +85,17 @@ struct rma_range_generator
             // wait for event
             m_event.wait();
         }
+
+        bool try_start_target_epoch()
+        {
+            if (m_local_guard.try_start_target_epoch())
+            {
+                // wait for event
+                m_event.wait();
+                return true;
+            }
+            else return false;
+        } 
 
         void end_target_epoch()
         {
@@ -113,6 +124,7 @@ struct rma_range_generator
         typename RangeFactory::range_type m_remote_range;
         rank_type m_src;
         tag_type m_tag;
+        bool m_on_gpu;
         typename Communicator::template future<void> m_request;
         std::vector<unsigned char> m_archive;
 
@@ -123,6 +135,7 @@ struct rma_range_generator
         , m_local_range{f, is.local().first(), is.local().last()-is.local().first()+1}
         , m_src{src}
         , m_tag{tag}
+        , m_on_gpu{std::is_same<typename Field::arch_type, gridtools::ghex::gpu>::value}
         {
             m_archive.resize(RangeFactory::serial_size);
             m_request = m_comm.recv(m_archive, m_src, m_tag);
@@ -135,11 +148,12 @@ struct rma_range_generator
         {
             m_request.wait();
             // creates a traget range
-            m_remote_range = RangeFactory::deserialize(m_archive.data(), m_src);
+            m_remote_range = RangeFactory::deserialize(m_archive.data(), m_src, m_on_gpu);
             RangeFactory::call_back_with_type(m_remote_range, [this] (auto& r)
             {
                 init(r, m_remote_range);
             });
+            m_remote_range.end_source_epoch();
         }
 
         void start_source_epoch()
@@ -147,9 +161,13 @@ struct rma_range_generator
             m_remote_range.start_source_epoch();
         }
 
+        bool try_start_source_epoch()
+        {
+            return m_remote_range.try_start_source_epoch();
+        }
+
         void end_source_epoch()
         {
-            // record event
             m_remote_range.m_event.record();
             m_remote_range.end_source_epoch();
         }
@@ -165,9 +183,9 @@ struct rma_range_generator
         template<typename TargetRange>
         void put(TargetRange& tr)
         {
-            ::gridtools::ghex::structured::put(m_local_range, tr
+            ::gridtools::ghex::structured::put(m_local_range, tr, m_remote_range.m_loc
 #ifdef __CUDACC__
-                    , m_remote_range.m_event.get_stream()
+                , m_remote_range.m_event.get_stream()
 #endif
             );
         }

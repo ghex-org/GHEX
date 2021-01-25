@@ -20,7 +20,6 @@
 namespace gridtools {
     namespace ghex {
         namespace tl {
-
             namespace ucx {
 
 #define GHEX_TAG_BITS                       32
@@ -71,11 +70,10 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_rank; }
                     rank_type size() const noexcept { return m_size; }
                     address_type address() const { return rank(); }
-                    typename worker_type::transport_context_type const& context() const noexcept { return m_send_worker->context(); }
-
 
                     bool is_local(rank_type r) const noexcept { return m_recv_worker->rank_topology().is_local(r); }
                     rank_type local_rank() const noexcept { return m_recv_worker->rank_topology().local_rank(); }
+                    auto mpi_comm() const noexcept { return m_recv_worker->rank_topology().mpi_comm(); }
 
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.

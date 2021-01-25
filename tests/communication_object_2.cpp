@@ -43,11 +43,8 @@ __global__ void print_kernel() {
 
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-//using threading = gridtools::ghex::threads::atomic::primitives;
-using threading = gridtools::ghex::threads::pthread::primitives;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
-//using threading = gridtools::ghex::threads::atomic::primitives;
 #endif
 using context_type = gridtools::ghex::tl::context<transport>;
 

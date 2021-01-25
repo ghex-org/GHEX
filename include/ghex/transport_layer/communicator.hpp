@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_TL_COMMUNICATOR_HPP
 #define INCLUDED_GHEX_TL_COMMUNICATOR_HPP
 
+#include <atomic>
 #include "callback_utils.hpp"
 #include "message_buffer.hpp"
 #include "shared_message_buffer.hpp"

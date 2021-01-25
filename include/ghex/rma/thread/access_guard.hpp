@@ -40,8 +40,8 @@ struct local_access_guard
         access_state m_state;
         local_data_holder m_handle;
         
-        impl()
-        : m_state{}
+        impl(access_mode m)
+        : m_state{m,{},{}}
         , m_handle(&m_state, sizeof(access_state), false)    
         {}
     };
@@ -53,8 +53,8 @@ struct local_access_guard
 
     std::unique_ptr<impl> m_impl;
 
-    local_access_guard()
-    : m_impl{std::make_unique<impl>()}
+    local_access_guard(access_mode m = access_mode::local)
+    : m_impl{std::make_unique<impl>(m)}
     {}
     
     local_access_guard(local_access_guard&&) = default;
@@ -68,6 +68,12 @@ struct local_access_guard
     {
         std::unique_lock<std::mutex> lk{m_impl->m_state.m_mtx};
         m_impl->m_state.m_cv.wait(lk, [this] { return m_impl->m_state.m_mode == access_mode::local; });
+    }
+
+    bool try_start_target_epoch()
+    {
+        std::unique_lock<std::mutex> lk{m_impl->m_state.m_mtx};
+        return m_impl->m_state.m_mode == access_mode::local;
     }
 
     void end_target_epoch()
@@ -101,6 +107,12 @@ struct remote_access_guard
     {
         std::unique_lock<std::mutex> lk{get_ptr()->m_mtx};
         get_ptr()->m_cv.wait(lk, [this] { return get_ptr()->m_mode == access_mode::remote; });
+    }
+
+    bool try_start_source_epoch()
+    {
+        std::unique_lock<std::mutex> lk{get_ptr()->m_mtx};
+        return get_ptr()->m_mode == access_mode::remote;
     }
 
     void end_source_epoch()

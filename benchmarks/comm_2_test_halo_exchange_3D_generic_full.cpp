@@ -35,7 +35,7 @@
 #endif
 
 using transport = gridtools::ghex::tl::mpi_tag;
-using context_type = gridtools::ghex::tl::context<transport>;
+using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
 
 namespace halo_exchange_3D_generic_full {
 

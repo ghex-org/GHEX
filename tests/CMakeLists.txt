@@ -1,4 +1,4 @@
-set(_serial_tests aligned_allocator unified_memory_allocator)
+set(_serial_tests aligned_allocator unified_memory_allocator decomposition)
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
@@ -245,6 +245,17 @@ foreach (_t ${_tests_unstructured_oversubscription})
     add_test(
         NAME ${_t}_oversubscription.cpp
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_oversubscription> ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+
+set(_tests_unstructured_threads unstructured_user_concepts)
+foreach (_t ${_tests_unstructured_threads})
+    add_executable(${_t}_threads ${_t}.cpp)
+    target_compile_definitions(${_t}_threads PUBLIC GHEX_TEST_UNSTRUCTURED_OVERSUBSCRIPTION GHEX_TEST_UNSTRUCTURED_THREADS)
+    target_link_libraries(${_t}_threads gtest_main_mt)
+    add_test(
+        NAME ${_t}_threads.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_threads> ${MPIEXEC_POSTFLAGS}
     )
 endforeach()
 

@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_DISTRIBUTION_HPP
-#define INCLUDED_GHEX_DISTRIBUTION_HPP
+#ifndef INCLUDED_GHEX_UTIL_DISTRIBUTION_HPP
+#define INCLUDED_GHEX_UTIL_DISTRIBUTION_HPP
 
 #include <array>
 #include <cassert>
@@ -17,6 +17,9 @@
 namespace gridtools {
 namespace ghex {
 
+/** @brief Stores the extents of an N-dimensional hypercube
+  * Given a scalar index it computes the coordinates within this cube
+  * @tparam N dimension*/
 template<unsigned int N>
 class dims_map
 {
@@ -31,6 +34,7 @@ private:
     array_type m_partial_product;
 
 public:
+    /** @brief Default constructor: cube has unit extents */
     dims_map() noexcept
     {
         m_size = 1;
@@ -41,6 +45,9 @@ public:
         }
     }
 
+    /** @brief Construct from extents
+      * @param dims_ extents of the hypercube
+      * @param reverse indicates the stride: if true, the last dimension changes fastest. */
     dims_map(const array_type& dims_, bool reverse) noexcept
     : m_reverse{reverse}
     , m_dims{dims_}
@@ -73,6 +80,9 @@ public:
     const array_type& dims() const noexcept { return m_dims; }
 
 public:
+    /** @brief Computes the coordinate within the hypercube
+      * @param idx Scalar index (enumerator)
+      * @return Coordinates according to the given index */
     array_type operator()(size_type idx) const noexcept
     {
         assert(idx < m_size);
@@ -93,10 +103,11 @@ public:
     }
 };
 
+// alias definition used for a hierarchical, regular domain decomposition
 template<unsigned int Levels>
 using hierarchical_distribution = dims_map<Levels>;
 
 } // namespace ghex
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_DISTRIBUTION_HPP */
+#endif /* INCLUDED_GHEX_UTIL_DISTRIBUTION_HPP */

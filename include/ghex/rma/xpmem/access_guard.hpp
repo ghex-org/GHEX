@@ -33,20 +33,20 @@ struct local_access_guard
             std::uintptr_t m_page_size;
             unsigned char volatile* m_ptr;
 
-            mem()
+            mem(access_mode m)
             : m_page_size{(unsigned)getpagesize()}
             {
                 if(0 != posix_memalign((void**)&m_ptr, m_page_size, m_page_size))
                     throw std::runtime_error("cannot allocate xpmem access_guard\n");
-                m_ptr[0] = static_cast<unsigned char>(access_mode::local);
+                m_ptr[0] = static_cast<unsigned char>(m);
             }
         };
     
         mem m_mem;
         local_data_holder m_handle;
         
-        impl()
-        : m_mem{}
+        impl(access_mode m)
+        : m_mem{m}
         , m_handle((void*)m_mem.m_ptr, m_mem.m_page_size, false)    
         {}
     };
@@ -58,8 +58,8 @@ struct local_access_guard
 
     std::unique_ptr<impl> m_impl;
 
-    local_access_guard()
-    : m_impl{std::make_unique<impl>()}
+    local_access_guard(access_mode m = access_mode::local)
+    : m_impl{std::make_unique<impl>(m)}
     {}
     
     local_access_guard(local_access_guard&&) = default;
@@ -73,9 +73,14 @@ struct local_access_guard
     {
         while(static_cast<unsigned char>(access_mode::local) != m_impl->m_mem.m_ptr[0])
         {
-            // TODO call comm.progress()
+            // test if call to comm.progress() is beneficial for performance
             sched_yield();
         }
+    }
+
+    bool try_start_target_epoch()
+    {
+        return static_cast<unsigned char>(access_mode::local) == m_impl->m_mem.m_ptr[0];
     }
     
     void end_target_epoch()
@@ -109,6 +114,11 @@ struct remote_access_guard
             // TODO call comm.progress()
             sched_yield();
         }
+    }
+
+    bool try_start_source_epoch()
+    {
+        return static_cast<unsigned char>(access_mode::remote) == get_ptr()[0];
     }
 
     void end_source_epoch()

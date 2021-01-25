@@ -39,36 +39,15 @@ using gpu_to_gpu = std::integral_constant<bool,
     std::is_same<typename SourceField::arch_type, gridtools::ghex::gpu>::value &&
     std::is_same<typename TargetField::arch_type, gridtools::ghex::gpu>::value>;
 
-//template<typename SourceField, typename TargetField>
-//inline std::enable_if_t<
-//    cpu_to_cpu<SourceField,TargetField>::value && !rma_range<SourceField>::fuse_components::value>
-//put(rma_range<SourceField>& s, rma_range<TargetField>& t
-//#ifdef __CUDACC__
-//    , cudaStream_t
-//#endif
-//)
-//{
-//    using sv_t = rma_range<SourceField>;
-//    using coordinate = typename sv_t::coordinate;
-//    gridtools::ghex::detail::for_loop<
-//        sv_t::dimension::value,
-//        sv_t::dimension::value,
-//        typename sv_t::layout, 0>::
-//    apply([&s,&t](auto... c)
-//    {
-//        //std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
-//        const auto coord = coordinate{c...};
-//        const auto v = s(coord);
-//        t(coord) = v;
-//    },
-//    s.m_begin, s.m_end);
-//}
+// attributes needed for gcc to produce optimized code
 template<typename SourceField, typename TargetField>
+#ifdef __GNUG__
 __attribute__ ((optimize ("no-tree-loop-distribute-patterns")))
 __attribute__ ((target ("sse2")))
+#endif
 std::enable_if_t<
     cpu_to_cpu<SourceField,TargetField>::value && !rma_range<SourceField>::fuse_components::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t
+put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 #ifdef __CUDACC__
     , cudaStream_t
 #endif
@@ -82,7 +61,6 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
         typename sv_t::layout, 1>::
     apply([&s,&t](auto... c)
     {
-        // std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size);
         auto dst = t.ptr(coordinate{c...});
         auto src = s.ptr(coordinate{c...});
         for (unsigned int i=0; i<s.m_chunk_size_; ++i)
@@ -96,7 +74,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_cpu<SourceField,TargetField>::value && rma_range<SourceField>::fuse_components::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t
+put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 #ifdef __CUDACC__
     , cudaStream_t
 #endif
@@ -125,7 +103,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_gpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t
+put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 #ifdef __CUDACC__
     , cudaStream_t st
 #endif
@@ -140,8 +118,8 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
         typename sv_t::layout, 1>::
     apply([&s,&t,&st](auto... c)
     {
-        cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size, 
-            cudaMemcpyHostToDevice, st);
+        GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size, 
+            cudaMemcpyHostToDevice, st));
     },
     s.m_begin, s.m_end);
 #endif
@@ -150,7 +128,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     gpu_to_cpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t
+put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
 #ifdef __CUDACC__
     , cudaStream_t st
 #endif
@@ -159,16 +137,65 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t
 #ifdef __CUDACC__
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
+#ifndef GHEX_USE_XPMEM
     gridtools::ghex::detail::for_loop<
         sv_t::dimension::value,
         sv_t::dimension::value,
         typename sv_t::layout, 1>::
     apply([&s,&t,&st](auto... c)
     {
-        cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size, 
-            cudaMemcpyDeviceToHost, st);
+        GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size, 
+            cudaMemcpyDeviceToHost, st));
     },
     s.m_begin, s.m_end);
+#else
+    if (loc != rma::locality::process)
+    {
+        gridtools::ghex::detail::for_loop<
+            sv_t::dimension::value,
+            sv_t::dimension::value,
+            typename sv_t::layout, 1>::
+        apply([&s,&t,&st](auto... c)
+        {
+            GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size, 
+                cudaMemcpyDeviceToHost, st));
+        },
+        s.m_begin, s.m_end);
+    }
+    else
+    {
+        // workaround for cuda device to host across 2 processes when XPMEM is enabled
+        // for some reason direct copy does not work properly but an additional indirection via cpu works fine
+        static thread_local std::vector<std::vector<unsigned char>> data;
+        cuda::stream st2;
+        unsigned int i = 0;
+        gridtools::ghex::detail::for_loop<
+            sv_t::dimension::value,
+            sv_t::dimension::value,
+            typename sv_t::layout, 1>::
+        apply([&s,&t,&st,&i, &st2](auto... c)
+        {
+            if (data.size() < i+1)
+                data.push_back(std::vector<unsigned char>(s.m_chunk_size));
+            else
+                data[i].resize(s.m_chunk_size);
+            GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(data[i++].data(), s.ptr(coordinate{c...}), s.m_chunk_size, 
+                cudaMemcpyDeviceToHost,st2));
+        },
+        s.m_begin, s.m_end);
+        st2.sync();
+        i = 0;
+        gridtools::ghex::detail::for_loop<
+            sv_t::dimension::value,
+            sv_t::dimension::value,
+            typename sv_t::layout, 1>::
+        apply([&s,&t,&i](auto... c)
+        {
+            std::memcpy(t.ptr(coordinate{c...}), data[i++].data(), s.m_chunk_size);
+        },
+        s.m_begin, s.m_end);
+    }
+#endif
 #endif
 }
 
@@ -198,7 +225,7 @@ __global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     gpu_to_gpu<SourceField,TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t
+put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
 #ifdef __CUDACC__
     , cudaStream_t st
 #endif

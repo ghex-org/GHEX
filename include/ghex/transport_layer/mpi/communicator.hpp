@@ -17,7 +17,6 @@
 #include "../tags.hpp"
 #include "./future.hpp"
 #include "./request_cb.hpp"
-#include "../context.hpp"
 #include "./communicator_state.hpp"
 
 namespace gridtools {
@@ -25,8 +24,6 @@ namespace gridtools {
     namespace ghex {
 
         namespace tl {
-
-            struct transport_context<mpi_tag>;
 
             namespace mpi {
 
@@ -37,7 +34,6 @@ namespace gridtools {
                 class communicator {
                   public: // member types
                     using shared_state_type = shared_communicator_state;
-                    using transport_context_type = typename shared_state_type::transport_context_type;
                     using state_type = communicator_state;
                     using rank_type = typename state_type::rank_type;
                     using tag_type = typename state_type::tag_type;
@@ -68,10 +64,9 @@ namespace gridtools {
                     rank_type rank() const noexcept { return m_shared_state->rank(); }
                     rank_type size() const noexcept { return m_shared_state->size(); }
                     address_type address() const noexcept { return rank(); }
-                    transport_context_type const& context() const noexcept { return m_shared_state->context(); }
-
-                    bool is_local(rank_type r) const noexcept; // implementation in mpi/context.hpp
-                    rank_type local_rank() const noexcept; // implementation in mpi/context.hpp
+                    bool is_local(rank_type r) const noexcept { return m_shared_state->m_rank_topology.is_local(r); }
+                    rank_type local_rank() const noexcept { return m_shared_state->m_rank_topology.local_rank(); }
+                    auto mpi_comm() const noexcept { return m_shared_state->m_comm; }
 
                     /** @brief send a message. The message must be kept alive by the caller until the communication is
                      * finished.

@@ -53,7 +53,7 @@ struct simulation_1
     using TT2 = array_type<T2,3>;
     using TT3 = array_type<T3,3>;
 
-    using context_type = gridtools::ghex::tl::context<transport>;
+    using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
     using context_ptr_type = std::unique_ptr<context_type>;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
@@ -202,6 +202,7 @@ struct simulation_1
         if (!mt)
         {
             comms.push_back(context.get_communicator());
+            basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[0]));
 #ifndef __CUDACC__
             auto bco =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,
@@ -238,6 +239,8 @@ struct simulation_1
         } else {
             comms.push_back(context.get_communicator());
             comms.push_back(context.get_communicator());
+            basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[0]));
+            basic_cos.push_back(gridtools::ghex::make_communication_object<pattern_type>(comms[1]));
 #ifndef __CUDACC__
             auto bco0 =  gridtools::ghex::bulk_communication_object<
                 gridtools::ghex::structured::rma_range_generator,

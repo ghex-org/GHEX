@@ -32,7 +32,7 @@ using transport    = ghex::tl::mpi_tag;
 #endif
 
 #include <ghex/transport_layer/shared_message_buffer.hpp>
-using context_type = ghex::tl::context<transport>;
+using context_type = typename ghex::tl::context_factory<transport>::context_type;
 using communicator_type = typename context_type::communicator_type;
 using future_type = typename communicator_type::request_cb_type;
 

@@ -23,11 +23,9 @@
 #include <vector>
 
 #ifndef GHEX_TEST_USE_UCX
-#include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/transport_layer/mpi/context.hpp>
 using transport = gridtools::ghex::tl::mpi_tag;
 #else
-#include <ghex/threads/pthread/primitives.hpp>
 #include <ghex/transport_layer/ucx/context.hpp>
 using transport = gridtools::ghex::tl::ucx_tag;
 #endif
@@ -38,7 +36,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
-#include <ghex/structured/regular/decomposition.hpp>
+#include <ghex/util/decomposition.hpp>
 #include <ghex/common/timer.hpp>
 
 using clock_type = std::chrono::high_resolution_clock;
@@ -58,7 +56,7 @@ struct simulation
 
     using T = GHEX_FLOAT_TYPE;
 
-    using context_type = gridtools::ghex::tl::context<transport>;
+    using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
     using context_ptr_type = std::unique_ptr<context_type>;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
@@ -69,7 +67,7 @@ struct simulation
 #ifdef __CUDACC__
     using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, 2, 1, 0>;
 #endif
-    using decomp_type = gridtools::ghex::structured::regular::hierarchical_decomposition<3>;
+    using decomp_type = gridtools::ghex::hierarchical_decomposition<3>;
 
     int num_reps;
     decomp_type decomp;
@@ -84,8 +82,6 @@ struct simulation
     const std::array<int,3> g_first;
     const std::array<int,3> g_last;
     const std::array<int,3> offset;
-    const std::array<int,3> local_ext_buffer;
-
     std::array<int,6> halos;
     const std::array<int,3> local_ext_buffer;
     halo_generator_type halo_gen;
@@ -140,11 +136,6 @@ struct simulation
     , comm{ context.get_serial_communicator() }
     , timer_vec(num_threads)
     {
-        // compute decomposition
-        int pz = comm.rank() / (pd[0]*pd[1]);
-        int py = (comm.rank() - pz*pd[0]*pd[1]) / pd[0];
-        int px = comm.rank() - pz*pd[0]*pd[1] - py*pd[0];
-
         cos.resize(num_threads);
         local_domains.reserve(num_threads);
         fields_raw.resize(num_threads);
@@ -161,7 +152,6 @@ struct simulation
             int x = coord[0]*local_ext[0];
             int y = coord[1]*local_ext[1];
             int z = coord[2]*local_ext[2];
-                
             local_domains.push_back(domain_descriptor_type{
                 context.rank()*num_threads+j,
                 std::array<int,3>{x,y,z},
@@ -204,24 +194,13 @@ struct simulation
             }
             for (auto& t : threads) t.join();
         }
-
-        //for (int j=1; j<num_threads; ++j)
-        //    timer_vec[0](timer_vec[j]);
-        //auto tt = gridtools::ghex::reduce(timer_vec[0], context.mpi_comm());
-        //if (comm.rank() == 0)
-        //{
-        //    std::cout << "sdev overall t: " << std::setprecision(12) << tt.stddev()/1000000.0 << "\n";
-        //}
     }
 
     void exchange(int j)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        {
-            std::lock_guard<std::mutex> io_lock(io_mutex);
-            std::cout << "Thread #" << j << ": on CPU " << sched_getcpu() << std::endl;
-        }
         comms[j] = context.get_communicator();
+        auto basic_co = gridtools::ghex::make_communication_object<pattern_type>(comms[j]);
         for (int i=0; i<num_fields; ++i)
         {
             fields_raw[j].push_back( std::vector<T>(max_memory) );
@@ -280,8 +259,8 @@ struct simulation
         if (comm.rank() == 0 && j == 0)
         {
             const auto num_elements =
-                (ext+halos[0]+halos[1]) * (ext+halos[2]+halos[3]) * (ext+halos[2]+halos[3]) -
-                ext * ext * ext;
+                local_ext_buffer[0] * local_ext_buffer[1] * local_ext_buffer[2]
+                - local_ext[0] * local_ext[1] * local_ext[2];
             const auto   num_bytes = num_elements * sizeof(T);
             const double load = 2 * comm.size() * num_threads * num_fields * num_bytes;
             const auto   GB_per_s = num_reps * load / (elapsed_seconds.count() * 1.0e9);
@@ -344,6 +323,9 @@ int main(int argc, char** argv)
         num_threads *= thread_decomposition[i];
     }
 
+    typename simulation::decomp_type decomp(node_decomposition, numa_decomposition,
+        rank_decomposition, thread_decomposition);
+
     int required = num_threads>1 ?  MPI_THREAD_MULTIPLE :  MPI_THREAD_SINGLE;
     int provided;
     int init_result = MPI_Init_thread(&argc, &argv, required, &provided);
@@ -372,10 +354,9 @@ int main(int argc, char** argv)
     {
         simulation sim(num_repetitions, domain_size, halo, num_fields, decomp);
 
-    sim.exchange();
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
+        sim.exchange();
+    
+        MPI_Barrier(MPI_COMM_WORLD);
     }
     MPI_Finalize();
 
