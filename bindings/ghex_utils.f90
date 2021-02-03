@@ -537,7 +537,7 @@ contains
     allocate(sbuff(1:nlevels+3), level_rank(1:nlevels), source=0)
 
     li = 1
-    do while (li<nlevels)
+    do while (li<=nlevels)
        call ghex_get_noderank(comm, level_rank(li), domain(li))
        li = li+1
     end do
