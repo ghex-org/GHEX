@@ -297,5 +297,7 @@ if (USE_GPU)
 endif()
 
 add_subdirectory(transport)
-add_subdirectory(bindings)
+if (GHEX_BUILD_FORTRAN)
+   add_subdirectory(bindings)
+endif()
 add_subdirectory(cubed_sphere)

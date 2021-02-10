@@ -62,6 +62,7 @@ struct field_compare {
     }
 };
 
+
 using grid_type                 = ghex::structured::grid;
 using grid_detail_type          = ghex::structured::detail::grid<std::array<int, GHEX_DIMS>>;
 using domain_descriptor_type    = ghex::structured::regular::domain_descriptor<domain_id_type, GHEX_DIMS>;
@@ -79,6 +80,15 @@ using halo_generator_type       = ghex::structured::regular::halo_generator<doma
 // a map of field descriptors to patterns
 static pattern_map_type field_to_pattern;
 
+// each bulk communication object can only be used with
+// one set of domains / fields. Since the fortran API
+// allows passing different exchange handles to the ghex_exchange
+// function, we have to check if the BCO and EH match.
+struct bco_wrapper {
+  bco_type bco;
+  void *eh;
+};
+
 extern "C"
 void ghex_struct_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::obj_wrapper *wcomm)
 {
@@ -89,7 +99,7 @@ void ghex_struct_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::
         pattern_type,
         field_descriptor_type
         > (comm);
-    *wco_ref = new ghex::bindings::obj_wrapper(std::move(bco));
+    *wco_ref = new ghex::bindings::obj_wrapper(bco_wrapper{std::move(bco),NULL});
 }
 
 extern "C"
@@ -197,16 +207,23 @@ extern "C"
 void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
     if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
-    bco_type    &bco                          = *ghex::bindings::get_object_ptr_unsafe<bco_type>(cowrapper);
+    bco_wrapper &bcowr                        = *ghex::bindings::get_object_ptr_unsafe<bco_wrapper>(cowrapper);
+    bco_type    &bco                          = bcowr.bco;
     pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_unsafe<pattern_field_vector_type>(ewrapper);
 
     // first time call: build the bco
-    if(!bco.initialized()) {
+    if(!bcowr.eh) {
         for (auto it=pattern_fields.second.begin(); it!=pattern_fields.second.end(); ++it) {
             bco.add_field(*it);
         }
         // exchange the RMA handles before any other BCO can be created
         bco.init();
+	bcowr.eh = ewrapper;
+    } else {
+        if(bcowr.eh != ewrapper){
+	  std::cerr << "This RMA communication object was previously initialized and used with different fields. You have to create a new communication object for this new set of fields." << std::endl;
+	  std::terminate();
+        }
     }
     
     return new ghex::bindings::obj_wrapper(bco.exchange());
