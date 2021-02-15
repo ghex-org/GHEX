@@ -1,4 +1,4 @@
-set(_serial_tests aligned_allocator unified_memory_allocator)
+set(_serial_tests aligned_allocator unified_memory_allocator decomposition)
 foreach (_t ${_serial_tests})
     add_executable(${_t} ${_t}.cpp)
     target_link_libraries(${_t} gtest_main_mt)
@@ -32,7 +32,6 @@ foreach (_t ${_tests})
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
     )
 endforeach()
-
 
 if (GHEX_USE_UCP)
     set(_variants_ucx serial serial_split threads async_async async_deferred)
@@ -127,6 +126,97 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
+set(_tests_rma local_rma simple_regular_exchange)
+foreach (_t ${_tests_rma})
+
+    set(t ${_t})
+    add_executable(${t} ${_t}.cpp)
+    target_link_libraries(${t} gtest_main_mt)
+    add_test(
+        NAME ${t}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+    )
+
+    if (GHEX_USE_XPMEM)
+        set(t ${_t}_xpmem)
+        add_executable(${t} ${_t}.cpp)
+        target_link_libraries(${t} gtest_main_mt)
+        target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+        add_test(
+            NAME ${t}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+        )
+    endif()
+
+    if (USE_GPU)
+        set(t ${_t}_gpu)
+        add_executable(${t} ${_t}.cu)
+        target_link_libraries(${t} gtest_main_mt)
+        add_test(
+            NAME ${t}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+        )
+        
+        if (GHEX_USE_XPMEM)
+            set(t ${_t}_gpu_xpmem)
+            add_executable(${t} ${_t}.cu)
+            target_link_libraries(${t} gtest_main_mt)
+            target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+            add_test(
+                NAME ${t}
+                COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+            )
+        endif()
+    endif()
+
+    if (GHEX_USE_UCP)
+
+        set(t ${_t}_ucx)
+        add_executable(${t} ${_t}.cpp)
+        target_link_libraries(${t} gtest_main_mt)
+        target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+        add_test(
+            NAME ${t}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+        )
+
+        if (GHEX_USE_XPMEM)
+            set(t ${_t}_ucx_xpmem)
+            add_executable(${t} ${_t}.cpp)
+            target_link_libraries(${t} gtest_main_mt)
+            target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+            target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+            add_test(
+                NAME ${t}
+                COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+            )
+        endif()
+
+        if (USE_GPU)
+            set(t ${_t}_ucx_gpu)
+            add_executable(${t} ${_t}.cu)
+            target_link_libraries(${t} gtest_main_mt)
+            target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+            add_test(
+                NAME ${t}
+                COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+            )
+            
+            if (GHEX_USE_XPMEM)
+                set(t ${_t}_ucx_gpu_xpmem)
+                add_executable(${t} ${_t}.cu)
+                target_link_libraries(${t} gtest_main_mt)
+                target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+                target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
+                add_test(
+                    NAME ${t}
+                    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS}
+                )
+            endif()
+        endif()
+    endif()
+endforeach()
+
 set(_tests_gt data_store_test)
 foreach (_t ${_tests_gt})
     add_executable(${_t} ${_t}.cpp)
@@ -134,6 +224,38 @@ foreach (_t ${_tests_gt})
     add_test(
         NAME ${_t}.cpp
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+
+set(_tests_unstructured unstructured_user_concepts)
+foreach (_t ${_tests_unstructured})
+    add_executable(${_t} ${_t}.cpp)
+    target_link_libraries(${_t} gtest_main_mt)
+    add_test(
+        NAME ${_t}.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+
+set(_tests_unstructured_oversubscription unstructured_user_concepts)
+foreach (_t ${_tests_unstructured_oversubscription})
+    add_executable(${_t}_oversubscription ${_t}.cpp)
+    target_compile_definitions(${_t}_oversubscription PUBLIC GHEX_TEST_UNSTRUCTURED_OVERSUBSCRIPTION)
+    target_link_libraries(${_t}_oversubscription gtest_main_mt)
+    add_test(
+        NAME ${_t}_oversubscription.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_oversubscription> ${MPIEXEC_POSTFLAGS}
+    )
+endforeach()
+
+set(_tests_unstructured_threads unstructured_user_concepts)
+foreach (_t ${_tests_unstructured_threads})
+    add_executable(${_t}_threads ${_t}.cpp)
+    target_compile_definitions(${_t}_threads PUBLIC GHEX_TEST_UNSTRUCTURED_OVERSUBSCRIPTION GHEX_TEST_UNSTRUCTURED_THREADS)
+    target_link_libraries(${_t}_threads gtest_main_mt)
+    add_test(
+        NAME ${_t}_threads.cpp
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}_threads> ${MPIEXEC_POSTFLAGS}
     )
 endforeach()
 
@@ -175,3 +297,4 @@ if (USE_GPU)
 endif()
 
 add_subdirectory(transport)
+add_subdirectory(cubed_sphere)

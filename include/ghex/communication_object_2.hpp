@@ -17,7 +17,6 @@
 #include "./common/test_eq.hpp"
 #include "./buffer_info.hpp"
 #include "./transport_layer/tags.hpp"
-#include "./structured/simple_field_wrapper.hpp"
 #include "./arch_traits.hpp"
 #include <map>
 #include <stdio.h>
@@ -26,6 +25,28 @@
 namespace gridtools {
 
     namespace ghex {
+        
+        // forward declaration for optimization on regular grids
+        namespace structured {
+            namespace regular {
+                template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+                class field_descriptor;
+            } // namespace structured
+        } // namespace regular
+
+        // traits class for optimization on regular grids
+        namespace detail{
+            template<typename T>
+            struct is_regular_gpu : public std::false_type {};
+            template<typename P, typename T, typename D, int... Order>
+            struct is_regular_gpu<buffer_info<P,gpu,structured::regular::field_descriptor<T,gpu,D,Order...>>>
+            : public std::true_type {};
+        } // namespace detail
+
+        // forward declaration
+        struct generic_bulk_communication_object;
+        template<template <typename> class RangeGen, typename Pattern, typename... Fields>
+        class bulk_communication_object;
 
         // forward declaration
         template<typename Communicator, typename GridType, typename DomainIdType>
@@ -40,28 +61,24 @@ namespace gridtools {
         class communication_handle
         {
         private: // friend class
-
             friend class communication_object<Communicator,GridType,DomainIdType>;
+            friend struct generic_bulk_communication_object;
 
         private: // member types
-
             using co_t              = communication_object<Communicator,GridType,DomainIdType>;
             using communicator_type = Communicator;
 
         private: // members
-
             communicator_type m_comm;
             std::function<void()> m_wait_fct;
 
         public: // public constructor
-
             /** @brief construct a ready handle
               * @param comm communicator */
             communication_handle(const communicator_type& comm) 
             : m_comm{comm} {}
 
         private: // private constructor
-
             /** @brief construct a handle with a wait function
               * @tparam Func function type with signature void()
               * @param comm communicator
@@ -71,16 +88,15 @@ namespace gridtools {
             : m_comm{comm}, m_wait_fct(std::forward<Func>(wait_fct)) {}
 
         public: // copy and move ctors
-
             communication_handle(communication_handle&&) = default;
             communication_handle(const communication_handle&) = delete;
             communication_handle& operator=(communication_handle&&) = default;
             communication_handle& operator=(const communication_handle&) = delete;
 
         public: // member functions
-
             /** @brief  wait for communication to be finished*/
             void wait() { if (m_wait_fct) m_wait_fct(); }
+            void progress() { m_comm.progress(); }
         };
 
      
@@ -92,15 +108,9 @@ namespace gridtools {
         template<typename Communicator, typename GridType, typename DomainIdType>
         class communication_object
         {
-        private: // friend class
-
-            friend class communication_handle<Communicator,GridType,DomainIdType>;
-
         public: // member types
-
             /** @brief handle type returned by exhange operation */
             using handle_type             = communication_handle<Communicator,GridType,DomainIdType>;
-            //using transport_type          = Transport;
             using grid_type               = GridType;
             using domain_id_type          = DomainIdType;
             using pattern_type            = pattern<Communicator,GridType,DomainIdType>;
@@ -110,13 +120,19 @@ namespace gridtools {
             template<typename D, typename F>
             using buffer_info_type        = buffer_info<pattern_type,D,F>;
 
-        private: // member types
+        private: // friend class
+            friend class communication_handle<Communicator,GridType,DomainIdType>;
+            template<template <typename> class RangeGen, typename Pattern, typename... Fields>
+            friend class bulk_communication_object;
 
-            using communicator_type       = Communicator; //typename handle_type::communicator_type;
+        private: // member types
+            using communicator_type       = Communicator;
             using address_type            = typename communicator_type::address_type;
             using index_container_type    = typename pattern_type::index_container_type;
             using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;
             using unpack_function_type    = std::function<void(const void*,const index_container_type&, void*)>;
+            using future_type             = typename communicator_type::template future<void>;
+            using request_cb_type         = typename communicator_type::request_cb_type;
 
             /** @brief pair of domain ids with ordering */
             struct domain_id_pair
@@ -178,34 +194,37 @@ namespace gridtools {
                 send_memory_type send_memory;
                 recv_memory_type recv_memory;
 
+#ifndef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
                 // additional members needed for receive operations used for scheduling calls to unpack
-                using hook_type       = recv_buffer_type*;
-                using future_type     = typename communicator_type::template future<hook_type>;
-                std::vector<future_type> m_recv_futures;
-
+                using hook_type = recv_buffer_type*;
+                using hook_future_type = typename communicator_type::template future<hook_type>;
+                std::vector<hook_future_type> m_recv_futures;
+#endif
             };
             
             /** tuple type of buffer_memory (one element for each device in arch_list) */
             using memory_type = detail::transform<arch_list>::with<buffer_memory>;
 
-        private: // members
+            template<typename T, typename R>
+            using disable_if_buffer_info = std::enable_if_t< !is_buffer_info<T>::value, R>;
 
+        private: // members
             bool m_valid;
             communicator_type m_comm;
             memory_type m_mem;
-            std::vector<typename communicator_type::template future<void>> m_send_futures;
+            std::vector<future_type> m_send_futures;
+#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+            std::vector<request_cb_type> m_recv_reqs;
+#endif
 
         public: // ctors
-
-            communication_object(communicator_type comm)
-            : m_valid(false) 
-            , m_comm(comm)
-            {}
+            communication_object(communicator_type comm) : m_valid(false) , m_comm(comm) {}
             communication_object(const communication_object&) = delete;
             communication_object(communication_object&&) = default;
 
-        public: // exchange arbitrary field-device-pattern combinations
+            communicator_type communicator() const { return m_comm; }
 
+        public: // exchange arbitrary field-device-pattern combinations
             /** @brief blocking variant of halo exchange
               * @tparam Archs list of device types
               * @tparam Fields list of field types
@@ -223,6 +242,188 @@ namespace gridtools {
               * @return handle to await communication */
             template<typename... Archs, typename... Fields>
             [[nodiscard]] handle_type exchange(buffer_info_type<Archs,Fields>... buffer_infos)
+            {
+                exchange_impl(buffer_infos...);
+                handle_type h(m_comm, [this](){this->wait();});
+                post_recvs();
+                pack();
+                return h; 
+            }
+
+            /** @brief  non-blocking exchange of halo data
+              * @tparam Iterator Iterator type to range of buffer_info objects
+              * @param first points to the begin of the range
+              * @param last points to the end of the range
+              * @return handle to await communication */
+            template<typename Iterator>
+            [[nodiscard]] disable_if_buffer_info<Iterator,handle_type>
+            exchange(Iterator first, Iterator last)
+            {
+                // call special function for a single range
+                return exchange_u(first, last); 
+            }
+
+            /** @brief  non-blocking exchange of halo data
+              * @tparam Iterator0 Iterator type to range of buffer_info objects
+              * @tparam Iterator1 Iterator type to range of buffer_info objects
+              * @tparam Iterators Iterator types to ranges of buffer_info objects
+              * @param first0 points to the begin of the range0
+              * @param last0 points to the end of the range0
+              * @param first1 points to the begin of the range1
+              * @param last1 points to the end of the range1
+              * @param iters first and last iterators for further ranges
+              * @return handle to await communication */
+            template<typename Iterator0, typename Iterator1, typename... Iterators>
+            [[nodiscard]] disable_if_buffer_info<Iterator0,handle_type>
+            exchange(Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
+            {
+                static_assert(sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
+                // call helper function to turn iterators into pairs of iterators
+                return exchange_make_pairs(std::make_index_sequence<2+sizeof...(iters)/2>(),
+                    first0, last0, first1, last1, iters...); 
+            }
+
+        private: // implementation
+            // overload for pairs of iterators
+            template<typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange(std::pair<Iterators,Iterators>... iter_pairs)
+            {
+                exchange_impl(iter_pairs...);
+                post_recvs();
+                pack();
+                return handle_type(m_comm, [this](){this->wait();});
+            }
+            
+            // helper function to turn iterators into pairs of iterators
+            template<std::size_t... Is, typename... Iterators>
+            [[nodiscard]]
+            handle_type exchange_make_pairs(std::index_sequence<Is...>, Iterators... iters)
+            {
+                const std::tuple<Iterators...> iter_t{iters...};
+                // call exchange with pairs of iterators
+                return exchange(std::make_pair(std::get<2*Is>(iter_t), std::get<2*Is+1>(iter_t))...);
+            }
+            
+            // special function to handle one iterator pair (optimization for gpus below)
+            template<typename Iterator>
+#ifdef GHEX_COMM_OBJ_USE_U
+            [[nodiscard]] std::enable_if_t<
+                !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
+                handle_type>
+#else
+            [[nodiscard]] handle_type
+#endif
+            exchange_u(Iterator first, Iterator last)
+            {
+                // call exchange with a pair of iterators
+                return exchange(std::make_pair(first, last)); 
+            }
+
+#ifdef GHEX_COMM_OBJ_USE_U
+#ifdef __CUDACC__
+            // optimized exchange for regular grids and a range of same-type fields
+            template<typename Iterator>
+            [[nodiscard]] std::enable_if_t<
+                detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
+                handle_type>
+            exchange_u(Iterator first, Iterator last)
+            {
+                using gpu_mem_t  = buffer_memory<gpu>;
+                using field_type = std::remove_reference_t<decltype(first->get_field())>;
+                using value_type = typename field_type::value_type;
+                exchange_impl(std::make_pair(first, last));
+                // post recvs
+                auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
+#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+                for (auto& p0 : gpu_mem.recv_memory)
+                {
+                    for (auto& p1: p0.second)
+                    {
+                        if (p1.second.size > 0u)
+                        {
+                            p1.second.buffer.resize(p1.second.size);
+                            // use callbacks for unpacking
+                            auto ptr = &p1.second;
+                            m_recv_reqs.push_back(
+                                m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
+                                [ptr](typename communicator_type::message_type m, 
+                                   typename communicator_type::rank_type,
+                                   typename communicator_type::tag_type)
+                                {
+                                    packer<gpu>::unpack(*ptr, m.data());
+                                }));
+                        }
+                    }
+                }
+                // pack
+                packer<gpu>::template pack_u<value_type, field_type>(gpu_mem,m_send_futures,m_comm);
+                // return handle
+                return handle_type(m_comm, [this](){this->wait();});
+#else
+                for (auto& p0 : gpu_mem.recv_memory)
+                {
+                    for (auto& p1: p0.second)
+                    {
+                        if (p1.second.size > 0u)
+                        {
+                            p1.second.buffer.resize(p1.second.size);
+                            gpu_mem.m_recv_futures.emplace_back(
+                                typename gpu_mem_t::hook_future_type{
+                                    &p1.second,
+                                    m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
+                        }
+                    }
+                }
+                // pack
+                packer<gpu>::template pack_u<value_type, field_type>(gpu_mem,m_send_futures,m_comm);
+                // return handle
+                return handle_type(m_comm, [this](){this->template wait_u_gpu<field_type>();});
+#endif
+            }
+#endif
+#endif
+            
+            // helper function to set up communicaton buffers (run-time case)
+            template<typename... Iterators>
+            void exchange_impl(std::pair<Iterators,Iterators>... iter_pairs)
+            {
+                const std::tuple<std::pair<Iterators,Iterators>...> iter_pairs_t{iter_pairs...};
+
+                if (m_valid)
+                    throw std::runtime_error("earlier exchange operation was not finished");
+                m_valid = true;
+
+                // build a tag map
+                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
+                std::map<const test_t*,int> pat_ptr_map;
+                int max_tag = 0;
+                detail::for_each(iter_pairs_t, [&pat_ptr_map,&max_tag](auto iter_pair) {
+                    for (auto it=iter_pair.first; it!=iter_pair.second; ++it) {
+                        auto ptr = &(it->get_pattern_container());
+                        auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptr, max_tag) );
+                        if (p_it_bool.second == true)
+                            max_tag += ptr->max_tag()+1;
+                    }
+                });
+                detail::for_each(iter_pairs_t, [this,&pat_ptr_map](auto iter_pair) {
+                    using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
+                    using arch_t = typename buffer_info_t::arch_type;
+                    using value_t = typename buffer_info_t::value_type;
+                    auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
+                    for (auto it=iter_pair.first; it!=iter_pair.second; ++it) {
+                        auto field_ptr = &(it->get_field());
+                        auto tag_offset = pat_ptr_map[ &(it->get_pattern_container()) ];
+                        const auto my_dom_id = it->get_field().domain_id();
+                        allocate<arch_t,value_t>(mem, it->get_pattern(), field_ptr, my_dom_id,
+                            it->device_id(), tag_offset);
+                    }
+                });
+            }
+
+            // helper function to set up communicaton buffers (compile-time case)
+            template<typename... Archs, typename... Fields>
+            void exchange_impl(buffer_info_type<Archs,Fields>... buffer_infos)
             {
                 // check that arguments are compatible
                 using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
@@ -261,98 +462,36 @@ namespace gridtools {
                     allocate<arch_type,value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
                     ++i;
                 });
-                handle_type h(m_comm, [this](){this->wait();});
-                post_recvs();
-                pack();
-                return h; 
-            }
-
-        public: // exchange a number of buffer_infos with identical type (same field, device and pattern type)
-
-            /** @brief non-blocking exchange of data, vector interface
-              * @tparam Arch device type
-              * @tparam Field field type
-              * @param first pointer to first buffer_info object
-              * @param length number of buffer_infos
-              * @return handle to await exchange */
-            template<typename Arch, typename Field>
-            [[nodiscard]] handle_type exchange(buffer_info_type<Arch,Field>* first, std::size_t length)
-            {
-                auto h = exchange_impl(first, length);
-                post_recvs();
-                pack();
-                return h;
-            }
-
-        public: // exchange a number of buffer_infos with Field = simple_field_wrapper (optimization for gpu below)
-
-#ifdef __CUDACC__
-            template<typename Arch, typename T, int... Order>
-            [[nodiscard]] std::enable_if_t<std::is_same<Arch,gpu>::value, handle_type>
-            exchange_u(
-                buffer_info_type<Arch,structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
-                std::size_t length)
-            {
-                using memory_t   = buffer_memory<gpu>;
-                using field_type = std::remove_reference_t<decltype(first->get_field())>;
-                using value_type = typename field_type::value_type;
-                auto h = exchange_impl(first, length);
-                post_recvs();
-                h.m_wait_fct = [this](){this->wait_u<value_type,field_type>();};
-                memory_t& mem = std::get<memory_t>(m_mem);
-                packer<gpu>::template pack_u<value_type,field_type>(mem, m_send_futures, m_comm);
-                return h;
-            }
-#endif
-
-            template<typename Arch, typename T, int... Order>
-            [[nodiscard]] std::enable_if_t<std::is_same<Arch,cpu>::value, handle_type>
-            exchange_u(
-                buffer_info_type<Arch,structured::simple_field_wrapper<T,Arch,structured::domain_descriptor<domain_id_type,sizeof...(Order)>,Order...>>* first, 
-                std::size_t length)
-            {
-                return exchange(first, length);
-            }
-
-        private: // implementation
-
-            template<typename Arch, typename Field>
-            [[nodiscard]] handle_type exchange_impl(buffer_info_type<Arch,Field>* first, std::size_t length)
-            {
-                // check that arguments are compatible
-                using test_t = pattern_container<communicator_type,grid_type,domain_id_type>;
-                static_assert(std::is_same<test_t, typename buffer_info_type<Arch,Field>::pattern_container_type>::value,
-                        "patterns are not compatible with this communication object");
-                if (m_valid)
-                    throw std::runtime_error("earlier exchange operation was not finished");
-                m_valid = true;
-
-                // build a tag map
-                std::map<const test_t*,int> pat_ptr_map;
-                int max_tag = 0;
-                for (unsigned int k=0; k<length; ++k)
-                {
-                    const test_t* ptr = &((first+k)->get_pattern_container());
-                    auto p_it_bool = pat_ptr_map.insert( std::make_pair(ptr, max_tag) );
-                    if (p_it_bool.second == true)
-                        max_tag += ptr->max_tag()+1;
-                }
-                // loop over buffer_infos/memory and compute required space
-                using memory_t               = buffer_memory<Arch>*;
-                using value_type             = typename buffer_info_type<Arch,Field>::value_type;
-                memory_t mem{&(std::get<buffer_memory<Arch>>(m_mem))};
-                for (std::size_t k=0; k<length; ++k)
-                {
-                    auto field_ptr = &((first+k)->get_field());
-                    auto tag_offset = pat_ptr_map[&((first+k)->get_pattern_container())];
-                    const auto my_dom_id  =(first+k)->get_field().domain_id();
-                    allocate<Arch,value_type>(mem, (first+k)->get_pattern(), field_ptr, my_dom_id, (first+k)->device_id(), tag_offset);
-                }
-                return handle_type(m_comm, [this](){this->wait();});
             }
 
             void post_recvs()
             {
+#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+                detail::for_each(m_mem, [this](auto& m)
+                {
+                    using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                    for (auto& p0 : m.recv_memory)
+                    {
+                        for (auto& p1: p0.second)
+                        {
+                            if (p1.second.size > 0u)
+                            {
+                                p1.second.buffer.resize(p1.second.size);
+                                auto ptr = &p1.second;
+                                // use callbacks for unpacking
+                                m_recv_reqs.push_back(
+                                    m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
+                                    [ptr](typename communicator_type::message_type m, 
+                                       typename communicator_type::rank_type,
+                                       typename communicator_type::tag_type)
+                                    {
+                                        packer<arch_type>::unpack(*ptr, m.data());
+                                    }));
+                            }
+                        }
+                    }
+                });
+#else
                 detail::for_each(m_mem, [this](auto& m)
                 {
                     for (auto& p0 : m.recv_memory)
@@ -363,13 +502,14 @@ namespace gridtools {
                             {
                                 p1.second.buffer.resize(p1.second.size);
                                 m.m_recv_futures.emplace_back(
-                                    typename std::remove_reference_t<decltype(m)>::future_type{
+                                    typename std::remove_reference_t<decltype(m)>::hook_future_type{
                                         &p1.second,
                                         m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
                             }
                         }
                     }
                 });
+#endif
             }
 
             void pack()
@@ -382,45 +522,67 @@ namespace gridtools {
             }
 
         private: // wait functions
-
             void wait()
             {
                 if (!m_valid) return;
+                // wait for data to arrive (unpack callback will be invoked)
+#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+                await_requests(m_recv_reqs, [comm = m_comm]() mutable {comm.progress();});
+#else
                 detail::for_each(m_mem, [this](auto& m)
                 {
                     using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
                     packer<arch_type>::unpack(m);
                 });
-                for (auto& f : m_send_futures) 
-                    f.wait();
+#endif
+                // wait for data to be sent
+                await_requests(m_send_futures);
+#ifdef __CUDACC__
+                // wait for the unpack kernels to finish
+                auto& m = std::get<buffer_memory<gpu>>(m_mem);
+                for (auto& p0 : m.recv_memory)
+                    for (auto& p1: p0.second)
+                        if (p1.second.size > 0u)
+                            p1.second.m_cuda_stream.sync();
+#endif
                 clear();
             }
 
-#ifdef __CUDACC__
-            template<typename T, typename Field>
-            void wait_u()
+#ifdef GHEX_COMM_OBJ_USE_U
+#if defined(__CUDACC__) && !defined(GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
+            template<typename FieldType>
+            void wait_u_gpu()
             {
                 if (!m_valid) return;
+                using field_type = FieldType;
+                using value_type = typename field_type::value_type;
                 using memory_t   = buffer_memory<gpu>;
+                // unpack
                 memory_t& mem = std::get<memory_t>(m_mem);
-                packer<gpu>::template unpack_u<T,Field>(mem);
-                for (auto& f : m_send_futures) 
-                    f.wait();
+                packer<gpu>::template unpack_u<value_type,field_type>(mem);
+                // wait for data to be sent
+                await_requests(m_send_futures);
                 clear();
             }
 #endif
-        
-        private: // reset
+#endif
 
+        private: // reset
             // clear the internal flags so that a new exchange can be started
             // important: does not deallocate
             void clear()
             {
                 m_valid = false;
                 m_send_futures.clear();
+#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+                m_recv_reqs.clear();
+                detail::for_each(m_mem, [this](auto& m)
+                {
+#else
                 detail::for_each(m_mem, [this](auto& m)
                 {
                     m.m_recv_futures.clear();
+#endif
                     for (auto& p0 : m.send_memory)
                         for (auto& p1 : p0.second)
                         {
@@ -439,7 +601,6 @@ namespace gridtools {
             }
 
         private: // allocation member functions
-
             template<typename Arch, typename T, typename Memory, typename Field, typename O>
             void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id, typename arch_traits<Arch>::device_id_type device_id, O tag_offset)
             {
@@ -484,7 +645,8 @@ namespace gridtools {
             {
                 for (const auto& p_id_c : halos)
                 {
-                    const auto num_elements   = pattern_type::num_elements(p_id_c.second);
+                    const auto num_elements = pattern_type::num_elements(p_id_c.second)*
+                        field_ptr->num_components();
                     if (num_elements < 1) continue;
                     const auto remote_address = p_id_c.first.address;
                     const auto remote_dom_id  = p_id_c.first.id;
@@ -535,7 +697,6 @@ namespace gridtools {
         template<typename PatternContainer>
         auto make_communication_object(typename PatternContainer::value_type::communicator_type comm)
         {
-            //using transport_type   = typename PatternContainer::value_type::communicator_type::transport_type;
             using communicator_type = typename PatternContainer::value_type::communicator_type;
             using grid_type         = typename PatternContainer::value_type::grid_type;
             using domain_id_type    = typename PatternContainer::value_type::domain_id_type;
@@ -547,4 +708,3 @@ namespace gridtools {
 } // namespace gridtools
 
 #endif /* INCLUDED_GHEX_COMMUNICATION_OBJECT_2_HPP */
-
