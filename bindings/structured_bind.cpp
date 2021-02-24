@@ -186,5 +186,4 @@ void ghex_struct_exchange_handle_wait(ghex::bindings::obj_wrapper **ehwrapper)
     if(nullptr == *ehwrapper) return;
     exchange_handle_type &hex = *ghex::bindings::get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
     hex.wait();
-    *ehwrapper = nullptr;
 }

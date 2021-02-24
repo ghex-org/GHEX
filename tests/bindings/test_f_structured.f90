@@ -8,21 +8,17 @@ PROGRAM test_halo_exchange
   character(len=512) :: arg
   real    :: tic, toc
   integer :: ierr, mpi_err, mpi_threading
-  integer :: nthreads = 1, rank, size, world_rank
+  integer :: nthreads = 1, world_size, world_rank
   integer :: tmp, i, it
   integer :: gfirst(3), glast(3)       ! global index space
-  integer :: first(3), last(3)
+  integer :: first(3), last(3)         ! local index space
 
-  ! hierarchical decomposition:
-  ! 1. L3 cache block (lowest level, actual ranks)
-  ! 2. numa blocks (composition of L3 blocks)
-  ! 3. socket blocks (composition of numa blocks)
-  ! 4. node blocks (...)
-  ! 5. global grid composed of node blocks  
+  ! hierarchical decomposition
   integer :: domain(5) = 0
   integer :: topology(3,5) = 1
   integer :: level_rank(5) = -1
-  integer :: rank_dim(3) = 1
+  integer :: cart_dim(3) = 1
+  integer :: cart_order = HWCartOrderZYX
 
   logical :: remap = .false.           ! remap MPI ranks
   integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
@@ -32,7 +28,6 @@ PROGRAM test_halo_exchange
   integer :: halo(6)                   ! halo definition
   integer :: mb = 5                    ! halo width
   integer :: niters = 1000
-  integer :: cart_order = CartOrderXYZ
   integer, parameter :: nfields_max = 8
   integer :: nfields
 
@@ -53,7 +48,7 @@ PROGRAM test_halo_exchange
 
   real,dimension(:,:,:),allocatable, target :: v1, v2, v3, v4, v5, v6, v7, v8
 
-  ! ! exchange 8 data cubes
+  ! exchange 8 data cubes
   type(hptr) :: data_ptr(nfields_max)
 
   ! HWCART stuff
@@ -67,25 +62,25 @@ PROGRAM test_halo_exchange
   type(ghex_struct_domain)               :: domain_desc  ! domain descriptor
   type(ghex_struct_communication_object) :: co           ! communication object
   type(ghex_struct_exchange_descriptor)  :: ed           ! exchange descriptor
+  type(ghex_struct_exchange_handle)      :: eh           ! exchange handle
 
   ! one field per domain, multiple domains
   type(ghex_struct_domain),               dimension(:) :: domain_descs(nfields_max)
   type(ghex_struct_communication_object), dimension(:) :: cos(nfields_max)
   type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
-  type(ghex_struct_exchange_handle)      :: eh
 
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
   call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
-  call mpi_comm_size(mpi_comm_world, size, mpi_err)
+  call mpi_comm_size(mpi_comm_world, world_size, mpi_err)
 
   if (command_argument_count() < 4) then
-     if (world_rank==0) then
-        print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] <l3 dims :3> <numa dims :3> <socket dims :3> <node dims :3> <global dims :3> <cart_order=[1,2,3,4,5,6]>"
-     end if
-     call mpi_barrier(mpi_comm_world, mpi_err)
-     call mpi_finalize(mpi_err)
-     call exit(1)
+    if (world_rank==0) then
+      print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] <l3 dims :3> <numa dims :3> <socket dims :3> <node dims :3> <global dims :3> <cart_order=[1,2,3,4,5,6]>"
+    end if
+    call mpi_barrier(mpi_comm_world, mpi_err)
+    call mpi_finalize(mpi_err)
+    call exit(1)
   end if
 
   ! init HWCART
@@ -122,187 +117,163 @@ PROGRAM test_halo_exchange
 
   ! global dimensions
   if (command_argument_count() > 4) then
-     call get_command_argument(5, arg)
-     read(arg,*) topology(1,5)
-     call get_command_argument(6, arg)
-     read(arg,*) topology(2,5)
-     call get_command_argument(7, arg)
-     read(arg,*) topology(3,5)
+    call get_command_argument(5, arg)
+    read(arg,*) topology(1,5)
+    call get_command_argument(6, arg)
+    read(arg,*) topology(2,5)
+    call get_command_argument(7, arg)
+    read(arg,*) topology(3,5)
   end if
 
   ! rank L3 block dimensions
   if (command_argument_count() > 7) then
-     remap = .true.
-     call get_command_argument(8, arg)
-     read(arg,*) topology(1,1)
-     call get_command_argument(9, arg)
-     read(arg,*) topology(2,1)
-     call get_command_argument(10, arg)
-     read(arg,*) topology(3,1)
+    remap = .true.
+    call get_command_argument(8, arg)
+    read(arg,*) topology(1,1)
+    call get_command_argument(9, arg)
+    read(arg,*) topology(2,1)
+    call get_command_argument(10, arg)
+    read(arg,*) topology(3,1)
   end if
 
   ! numa node block dimensions
   if (command_argument_count() > 10) then
-     call get_command_argument(11, arg)
-     read(arg,*) topology(1,2)
-     call get_command_argument(12, arg)
-     read(arg,*) topology(2,2)
-     call get_command_argument(13, arg)
-     read(arg,*) topology(3,2)
+    call get_command_argument(11, arg)
+    read(arg,*) topology(1,2)
+    call get_command_argument(12, arg)
+    read(arg,*) topology(2,2)
+    call get_command_argument(13, arg)
+    read(arg,*) topology(3,2)
   end if
 
   ! socket block dimensions
   if (command_argument_count() > 13) then
-     call get_command_argument(14, arg)
-     read(arg,*) topology(1,3)
-     call get_command_argument(15, arg)
-     read(arg,*) topology(2,3)
-     call get_command_argument(16, arg)
-     read(arg,*) topology(3,3)
+    call get_command_argument(14, arg)
+    read(arg,*) topology(1,3)
+    call get_command_argument(15, arg)
+    read(arg,*) topology(2,3)
+    call get_command_argument(16, arg)
+    read(arg,*) topology(3,3)
   end if
 
   ! compute node block dimensions
   if (command_argument_count() > 16) then
-     call get_command_argument(17, arg)
-     read(arg,*) topology(1,4)
-     call get_command_argument(18, arg)
-     read(arg,*) topology(2,4)
-     call get_command_argument(19, arg)
-     read(arg,*) topology(3,4)
+    call get_command_argument(17, arg)
+    read(arg,*) topology(1,4)
+    call get_command_argument(18, arg)
+    read(arg,*) topology(2,4)
+    call get_command_argument(19, arg)
+    read(arg,*) topology(3,4)
   end if
 
   if (command_argument_count() > 19) then
-     call get_command_argument(20, arg)
-     read(arg,*) cart_order
-  end if
-
-  if (world_rank==1) then
-     write (*,*) "   global block:", topology(:,5)
-     if (remap) then
-        write (*,*) "       L3 block:", topology(:,1)
-        write (*,*) "NUMA node block:", topology(:,2)
-        write (*,*) "   socket block:", topology(:,3)
-        write (*,*) " shm node block:", topology(:,4)
-     end if
-     
-     ! check if correct number of ranks
-     tmp = product(topology(:,1))*product(topology(:,2))*product(topology(:,3))*product(topology(:,4))*product(topology(:,5))
-     if (tmp /= size) then
-        write (*,"(a, i4, a, i4, a)") "Number of ranks (", size, ") doesn't match the domain decomposition (", tmp, ")"
-        call exit(1)
-     end if
+    call get_command_argument(20, arg)
+    read(arg,*) cart_order
   end if
 
   ! global cartesian rank space dimensions
-  rank_dim = product(topology, 2)
+  cart_dim = product(topology, 2)
 
-  if (world_rank==0) then
-     print *, "--------------------------"
+  if (world_rank == 0) then
+    write (*,*) "   global block:", topology(:,5)
+    if (remap) then
+      write (*,*) "       L3 block:", topology(:,1)
+      write (*,*) "NUMA node block:", topology(:,2)
+      write (*,*) "   socket block:", topology(:,3)
+      write (*,*) " shm node block:", topology(:,4)
+    end if
+
+    ! check if correct number of ranks
+    if (product(cart_dim) /= world_size) then
+      write (*,"(a, i4, a, i4, a)") "Number of ranks (", world_size, ") doesn't match the domain decomposition (", product(cart_dim), ")"
+      call exit(1)
+    end if
+  end if
+
+  if (world_rank == 0) then
+    print *, "--------------------------"
   end if
   if (remap) then
 
-     ! construct topology info to reorder the ranks
-     domain(1) = HWCART_MD_CORE
-     domain(2) = HWCART_MD_L3CACHE
-     domain(3) = HWCART_MD_NUMA
-     domain(4) = HWCART_MD_SOCKET
-     domain(5) = HWCART_MD_NODE
+    ! construct topology info to reorder the ranks
+    domain(1) = HWCART_MD_CORE
+    domain(2) = HWCART_MD_L3CACHE
+    domain(3) = HWCART_MD_NUMA
+    domain(4) = HWCART_MD_SOCKET
+    domain(5) = HWCART_MD_NODE
 
-     ierr = hwcart_create(hwcart_topo, MPI_COMM_WORLD, domain, topology, cart_order, C_CART)
+    ierr = hwcart_create(hwcart_topo, MPI_COMM_WORLD, domain, topology, cart_order, C_CART)
 
-     if (world_rank==0) then
+    if (world_rank == 0) then
 
-        write (*,*)
-        write (*,"(A)",ADVANCE='NO') "Using rank remapping with cartesian communicator order "
-        select case (cart_order)
-          case (CartOrderXYZ)
-             print *, "XYZ"
+      write (*,*)
+      write (*,"(A)",ADVANCE='NO') "Using rank remapping with cartesian communicator order "
+      select case (cart_order)
+      case (CartOrderXYZ)
+        print *, "XYZ"
 
-          case (CartOrderXZY)
-             print *, "XZY"
+      case (CartOrderXZY)
+        print *, "XZY"
 
-          case (CartOrderZYX)
-             print *, "ZYX"
+      case (CartOrderZYX)
+        print *, "ZYX"
 
-          case (CartOrderYZX)
-             print *, "YZX"
+      case (CartOrderYZX)
+        print *, "YZX"
 
-          case (CartOrderZXY)
-             print *, "ZXY"
+      case (CartOrderZXY)
+        print *, "ZXY"
 
-          case (CartOrderYXZ)
-             print *, "YXZ"
+      case (CartOrderYXZ)
+        print *, "YXZ"
 
-          case default
-             print *, "unknown value of argument 'cart_order': ", cart_order
-             call exit
-          end select
-     end if
+      case default
+        print *, "unknown value of argument 'cart_order': ", cart_order
+        call exit
+      end select
+    end if
 
-     ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
+    ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
 
   else
-     if (world_rank==0) then
-        print *, "Using standard MPI cartesian communicator"
-     end if
-     call mpi_dims_create(size, 3, rank_dim, mpi_err)
-     call mpi_cart_create(mpi_comm_world, 3, rank_dim, lperiodic, .true., C_CART, ierr)
-
-     ! print rank topology
-     ! call ghex_cart_print_rank_topology(C_CART, domain, topology, cart_order)
-     block
-       integer(4) :: domain(2) = 0, topology(3,2) = 1
-       domain(1) = MPI_COMM_TYPE_SHARED
-       topology(:,1) = rank_dim
-       ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
-     end block
+    if (world_rank==0) then
+      print *, "Using standard MPI cartesian communicator"
+    end if
+    call mpi_dims_create(world_size, 3, cart_dim, mpi_err)
+    call mpi_cart_create(mpi_comm_world, 3, cart_dim, lperiodic, .true., C_CART, ierr)
+    block
+      integer(4) :: domain(2) = 0, topology(3,2) = 1
+      domain(1) = MPI_COMM_TYPE_SHARED
+      topology(:,1) = cart_dim
+      ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
+    end block
   end if
 
-  ! init ghex
-  call ghex_init(nthreads, C_CART)
+  ! ------------- common init
 
-  ! create ghex communicator
-  comm = ghex_comm_new()
-
-  ! create communication object
-  call ghex_co_init(co, comm)
-  
   ! halo information
   halo(:) = 0
   halo(1:2) = mb
   halo(3:4) = mb
   halo(5:6) = mb
 
-  call mpi_comm_rank(C_CART, rank, mpi_err)
-  if (rank==0) then
-     print *, "halos: ", halo
-     print *, "domain dist: ", rank_dim
-     print *, "domain size: ", ldim
-  end if
-
-  if (size /= product(rank_dim)) then
-    print *, "Usage: this test must be executed with ", product(rank_dim), " mpi ranks"
-    call exit(1)
+  call mpi_comm_rank(C_CART, world_rank, mpi_err)
+  if (world_rank==0) then
+    print *, "halos: ", halo
+    print *, "domain dist: ", cart_dim
+    print *, "domain size: ", ldim
   end if
 
   ! local indices in the rank index space
-  ierr = hwcart_rank2coord(C_CART, rank_dim, rank, cart_order, rank_coord)
+  ierr = hwcart_rank2coord(C_CART, cart_dim, world_rank, cart_order, rank_coord)
 
   ! define the global index domain
   gfirst = [1, 1, 1]
-  glast = rank_dim * ldim
+  glast = cart_dim * ldim
 
   ! define the local domain
   first = (rank_coord) * ldim + 1
   last  = first + ldim - 1
-  call ghex_domain_init(domain_desc, rank, first, last, gfirst, glast, C_CART, rank_dim)
-
-  ! make individual copies for sequenced comm
-  i = 1
-  do while (i <= nfields)
-    call ghex_domain_init(domain_descs(i), rank, first, last, gfirst, glast, C_CART, rank_dim)
-    i = i+1
-  end do
 
   ! define local index ranges
   xs  = first(1)
@@ -329,275 +300,215 @@ PROGRAM test_halo_exchange
   ! allocate and initialize data cubes
   i = 1
   do while (i <= nfields)
-     allocate(data_ptr(i)%ptr(xsb:xeb, ysb:yeb, zsb:zeb), source=0.0)
-     i = i+1
+    allocate(data_ptr(i)%ptr(xsb:xeb, ysb:yeb, zsb:zeb), source=0.0)
+    i = i+1
   end do
-  
+
   if (.true.) then
 
-     ! ------ ghex
-     call ghex_init(nthreads, C_CART)
+    ! ------ ghex
+    call ghex_init(nthreads, C_CART)
 
-     ! create ghex communicator
-     comm = ghex_comm_new()
+    ! create ghex communicator
+    comm = ghex_comm_new()
 
-     ! create communication object
-     call ghex_co_init(co, comm)
+    ! create communication object
+    call ghex_co_init(co, comm)
 
-     call ghex_domain_init(domain_desc, rank, first, last, gfirst, glast)
+    call ghex_domain_init(domain_desc, world_rank, first, last, gfirst, glast, C_CART, cart_order, cart_dim)
 
-     ! make individual copies for sequenced comm
-     i = 1
-     do while (i <= nfields)
-        call ghex_domain_init(domain_descs(i), rank, first, last, gfirst, glast)
-        i = i+1
-     end do
+    ! make individual copies for sequenced comm
+    i = 1
+    do while (i <= nfields)
+      call ghex_domain_init(domain_descs(i), world_rank, first, last, gfirst, glast, C_CART, cart_order, cart_dim)
+      i = i+1
+    end do
 
-     ! ---- GHEX tests ----
-     ! initialize the field datastructure
-     i = 1
-     do while (i <= nfields)
+    ! ---- GHEX tests ----
+    ! initialize the field datastructure
+    i = 1
+    do while (i <= nfields)
+      call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=periodic)
+      call ghex_domain_add_field(domain_desc, field_desc)
+      call ghex_free(field_desc)
+      i = i+1
+    end do
+
+    ! compute the halo information for all domains and fields
+    ed = ghex_exchange_desc_new(domain_desc)
+
+    ! initialize data cubes
+    i = 1
+    do while (i <= nfields)
+      data_ptr(i)%ptr(:,:,:) = -1
+      data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = world_rank+i
+      i = i+1
+    end do
+
+    ! warmup
+    it = 0
+    do while (it < 10)
+      eh = ghex_exchange(co, ed)
+      call ghex_wait(eh)
+      call ghex_free(eh)
+      it = it+1;
+    end do
+    call test_exchange(data_ptr, rank_coord)
+
+    ! time loop
+    it = 0
+    call cpu_time(tic)
+    do while (it < niters)
+      eh = ghex_exchange(co, ed)
+      call ghex_wait(eh)
+      call ghex_free(eh)
+      it = it+1
+    end do
+    call cpu_time(toc)
+    if (world_rank == 0) then
+      print *, "exchange GHEX:      ", (toc-tic)
+    end if
+
+    call ghex_free(co)
+    call ghex_free(domain_desc)
+    call ghex_free(ed)
+
+    ! sequenced tests
+    if(.true.) then
+
+      ! initialize the field datastructure
+      ! compute the halo information for all domains and fields
+      i = 1
+      do while (i <= nfields)
         call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=periodic)
-        call ghex_domain_add_field(domain_desc, field_desc)
+        call ghex_domain_add_field(domain_descs(i), field_desc)
         call ghex_free(field_desc)
+        eds(i) = ghex_exchange_desc_new(domain_descs(i))
         i = i+1
-     end do
+      end do
 
-     ! compute the halo information for all domains and fields
-     ed = ghex_exchange_desc_new(domain_desc)
-     
-     ! warmup
-     ! exchange halos
-     it = 0
-     do while (it < 10)
-        eh = ghex_exchange(co, ed)
-        call ghex_wait(eh)
-        call ghex_free(eh)
-        it = it+1;
-     end do
+      ! create communication objects
+      i = 1
+      do while (i <= nfields)
+        call ghex_co_init(cos(i), comm)
+        i = i+1
+      end do
 
-     it = 0
-     call cpu_time(tic)
-     do while (it < niters)
-        eh = ghex_exchange(co, ed)
-        call ghex_wait(eh)
-        call ghex_free(eh)
+      ! initialize data cubes
+      i = 1
+      do while (i <= nfields)
+        data_ptr(i)%ptr(:,:,:) = -1
+        data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = world_rank+i
+        i = i+1
+      end do
+
+      ! exchange halos
+      it = 0
+      do while (it < 10)
+        i = 1
+        do while (i <= nfields)
+          eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
+          i = i+1
+        end do
         it = it+1
-     end do
-     call cpu_time(toc)
-     if (rank == 0) then
-        print *, rank, " exchange compact:      ", (toc-tic)
-     end if
+      end do
+      call test_exchange(data_ptr, rank_coord)
 
-     call ghex_free(co)
-     call ghex_free(domain_desc)
-     call ghex_free(ed)
-
-     ! sequenced tests
-     if(.false.) then
-        
-        ! initialize the field datastructure
-        ! compute the halo information for all domains and fields
+      it = 0
+      call cpu_time(tic)
+      do while (it < niters)
         i = 1
         do while (i <= nfields)
-           call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=periodic)
-           call ghex_domain_add_field(domain_descs(i), field_desc)
-           call ghex_free(field_desc)
-           eds(i) = ghex_exchange_desc_new(domain_descs(i))
-           i = i+1
+          eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
+          i = i+1
         end do
+        it = it+1
+      end do
+      call cpu_time(toc)
+      if (world_rank == 0) then
+        print *, "exchange sequenced (multiple COs):      ", (toc-tic);
+      end if
 
-        ! create communication objects
-        i = 1
-        do while (i <= nfields)
-           call ghex_co_init(cos(i), comm)
-           i = i+1
-        end do
+      ! WARNING: the below cannot be run for bulk communicatio objects
+      if(.true.) then
+        call ghex_co_init(co, comm)
 
         ! initialize data cubes
         i = 1
         do while (i <= nfields)
-           data_ptr(i)%ptr(:,:,:) = -1
-           data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = rank+i
-           i = i+1
+          data_ptr(i)%ptr(:,:,:) = -1
+          data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = world_rank+i
+          i = i+1
         end do
 
         ! exchange halos
         it = 0
         do while (it < 10)
-           i = 1
-           do while (i <= nfields)
-              eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
-              i = i+1
-           end do
-           it = it+1
+          i = 1
+          do while (i <= nfields)
+            eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
+            i = i+1
+          end do
+          it = it+1
         end do
         call test_exchange(data_ptr, rank_coord)
 
         it = 0
         call cpu_time(tic)
         do while (it < niters)
-           i = 1
-           do while (i <= nfields)
-              eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
-              i = i+1
-           end do
-           it = it+1
+          i = 1
+          do while (i <= nfields)
+            eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
+            i = i+1
+          end do
+          it = it+1
         end do
         call cpu_time(toc)
-        if (rank == 0) then
-           print *, "exchange sequenced (multiple COs):      ", (toc-tic);
+        if (world_rank == 0) then
+          print *, "exchange sequenced (single CO):      ", (toc-tic);
         end if
+      end if
 
-
-        if(.false.) then
-           ! WARNING: the below cannot be run for bulk communicatio objects
-           call ghex_co_init(co, comm)
-
-           ! initialize data cubes
-           i = 1
-           do while (i <= nfields)
-              data_ptr(i)%ptr(:,:,:) = -1
-              data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = rank+i
-              i = i+1
-           end do
-
-           ! exchange halos
-           it = 0
-           do while (it < 10)
-              i = 1
-              do while (i <= nfields)
-                 eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
-                 i = i+1
-              end do
-              it = it+1
-           end do
-           call test_exchange(data_ptr, rank_coord)
-
-           it = 0
-           call cpu_time(tic)
-           do while (it < niters)
-              i = 1
-              do while (i <= nfields)
-                 eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
-                 i = i+1
-              end do
-              it = it+1
-           end do
-           call cpu_time(toc)
-           if (rank == 0) then
-              print *, "exchange sequenced (single CO):      ", (toc-tic);
-           end if
-        end if
-
-        i = 1
-        do while (i <= nfields)
-           call ghex_free(domain_descs(i))
-           call ghex_free(cos(i))
-           call ghex_free(eds(i))
-           i = i+1
-        end do
-     end if
-
-     ! cleanup GHEX
-     call ghex_finalize()
-
-  end if
-
-  if (.false.) then
-    ! ---- SEQUENCE tests ----
-    ! initialize the field datastructure
-    ! compute the halo information for all domains and fields
-    i = 1
-    do while (i <= nfields)
-      call ghex_field_init(field_desc, data_ptr(i)%ptr, halo, periodic=periodic)
-      call ghex_domain_add_field(domain_descs(i), field_desc)
-      call ghex_free(field_desc)
-      eds(i) = ghex_exchange_desc_new(domain_descs(i))
-      i = i+1
-    end do
-
-    ! create communication objects
-    i = 1
-    do while (i <= nfields)
-      call ghex_co_init(cos(i), comm)
-      i = i+1
-    end do
-
-    ! exchange halos
-    i = 1
-    do while (i <= nfields)
-      eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
-      i = i+1
-    end do
-
-    it = 0
-    do while (it < niters)
       i = 1
-      call cpu_time(tic)
       do while (i <= nfields)
-        eh = ghex_exchange(cos(i), eds(i)); call ghex_wait(eh)
+        call ghex_free(domain_descs(i))
+        call ghex_free(cos(i))
+        call ghex_free(eds(i))
         i = i+1
       end do
-      call cpu_time(toc)
-      if (rank == 0) then
-        print *, rank, " exchange sequenced (multiple COs):      ", (toc-tic);
-      end if
-      it = it+1
-    end do
+    end if
 
-    ! ---- SEQUENCE tests, single CO ----
-    ! exchange halos - SEQUENCE
-    i = 1
-    do while (i <= nfields)
-      eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
-      i = i+1
-    end do
+    ! cleanup GHEX
+    call ghex_finalize()
 
-    it = 0
-    do while (it < niters)
-      i = 1
-      call cpu_time(tic)
-      do while (i <= nfields)
-        eh = ghex_exchange(co, eds(i)); call ghex_wait(eh)
-        i = i+1
-      end do
-      call cpu_time(toc)
-      if (rank == 0) then
-        print *, rank, " exchange sequenced (single CO):      ", (toc-tic);
-      end if
-      it = it+1
-    end do
   end if
-
-  ! cleanup
-  call ghex_free(domain_desc)
-  call ghex_free(co)
-  call ghex_free(ed)
-  i = 1
-  do while (i <= nfields)
-    call ghex_free(domain_descs(i))
-    call ghex_free(cos(i))
-    call ghex_free(eds(i))
-    ! deallocate(data_ptr(i)%ptr)
-    i = i+1
-  end do
-
-  call ghex_finalize()
 
   ! ---- BIFROST-like comm ----
   if (.true.) then
+
     ! compute neighbor information
     call init_mpi_nbors(rank_coord)
-
     call exchange_subarray_init
-    
+
+
+    ! MPI EXCHANGE (1)
+    ! initialize data cubes
+    i = 1
+    do while (i <= nfields)
+      data_ptr(i)%ptr(:,:,:) = -1
+      data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = world_rank+i
+      i = i+1
+    end do
+
+    ! warmup
     i = 1
     do while (i <= nfields)
       call exchange_subarray(data_ptr(i)%ptr)
       i = i+1
     end do
-    
+    call test_exchange(data_ptr, rank_coord)
+
+    ! time loop
     call cpu_time(tic)
     it = 0
     do while (it < niters)
@@ -609,16 +520,29 @@ PROGRAM test_halo_exchange
       it = it+1
     end do
     call cpu_time(toc)
-    if (rank == 0) then
-       print *, rank, " subarray exchange (sendrecv):      ", (toc-tic)
+    if (world_rank == 0) then
+      print *, "subarray exchange:      ", (toc-tic)
     end if
-    
+
+
+    ! MPI EXCHANGE (2)
+    ! initialize data cubes
+    i = 1
+    do while (i <= nfields)
+      data_ptr(i)%ptr(:,:,:) = -1
+      data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = world_rank+i
+      i = i+1
+    end do
+
+    ! warmup
     i = 1
     do while (i <= nfields)
       call update_sendrecv(data_ptr(i)%ptr)
       i = i+1
     end do
+    call test_exchange(data_ptr, rank_coord)
 
+    ! time loop
     it = 0
     call cpu_time(tic)
     do while (it < niters)
@@ -630,16 +554,29 @@ PROGRAM test_halo_exchange
       it = it+1
     end do
     call cpu_time(toc)
-    if (rank == 0) then
-       print *, rank, " bifrost exchange (sendrecv):      ", (toc-tic)
+    if (world_rank == 0) then
+      print *, "bifrost exchange 1:      ", (toc-tic)
     end if
 
+
+    ! MPI EXCHANGE (3)
+    ! initialize data cubes
+    i = 1
+    do while (i <= nfields)
+      data_ptr(i)%ptr(:,:,:) = -1
+      data_ptr(i)%ptr(xs:xe, ys:ye, zs:ze) = world_rank+i
+      i = i+1
+    end do
+
+    ! warmup
     i = 1
     do while (i <= nfields)
       call update_sendrecv_2(data_ptr(i)%ptr)
       i = i+1
     end do
+    call test_exchange(data_ptr, rank_coord)
 
+    ! time loop
     call cpu_time(tic)
     it = 0
     do while (it < niters)
@@ -651,11 +588,11 @@ PROGRAM test_halo_exchange
       it = it+1
     end do
     call cpu_time(toc)
-    if (rank == 0) then
-      print *, rank, " bifrost exchange 2 (sendrecv):      ", (toc-tic)
+    if (world_rank == 0) then
+      print *, "bifrost exchange 2:      ", (toc-tic)
     end if
   end if
-  
+
   call mpi_barrier(mpi_comm_world, mpi_err)
   call mpi_finalize(mpi_err)
 
@@ -670,9 +607,9 @@ contains
     coord = icoord
     coord(idx) = coord(idx)+shift
     if (C_CART == mpi_comm_world) then
-       call mpi_cart_rank(C_CART, coord, get_nbor, ierr)
+      call mpi_cart_rank(C_CART, coord, get_nbor, ierr)
     else
-       ierr = hwcart_coord2rank(C_CART, rank_dim, periodic, coord, cart_order, get_nbor)
+      ierr = hwcart_coord2rank(C_CART, cart_dim, periodic, coord, cart_order, get_nbor)
     end if
   end function get_nbor
 
@@ -710,24 +647,24 @@ contains
     real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
 
     call MPI_SENDRECV(f(xe-(mb-1) :xe         , &
-         ys        :ye         , &
-         zs        :ze        ), &
-         mb*yr*zr,MPI_REAL4,R_XUP,1  , &
-         f(xsb     :xsb+(mb-1) , &
-         ys        :ye         , &
-         zs        :ze        ), &
-         mb*yr*zr,MPI_REAL4,R_XDN,1  , &
-         C_CART,status,ierr)
+      ys        :ye         , &
+      zs        :ze        ), &
+      mb*yr*zr,MPI_REAL4,R_XUP,1  , &
+      f(xsb     :xsb+(mb-1) , &
+      ys        :ye         , &
+      zs        :ze        ), &
+      mb*yr*zr,MPI_REAL4,R_XDN,1  , &
+      C_CART,status,ierr)
 
     call MPI_SENDRECV(f(xs        :xs+(mb-1)  , &
-         ys        :ye         , &
-         zs        :ze        ), &
-         mb*yr*zr,MPI_REAL4,R_XDN,2  , &
-         f(xeb-(mb-1):xeb        , &
-         ys        :ye         , &
-         zs        :ze        ), &
-         mb*yr*zr,MPI_REAL4,R_XUP,2  , &
-         C_CART,status,ierr)
+      ys        :ye         , &
+      zs        :ze        ), &
+      mb*yr*zr,MPI_REAL4,R_XDN,2  , &
+      f(xeb-(mb-1):xeb        , &
+      ys        :ye         , &
+      zs        :ze        ), &
+      mb*yr*zr,MPI_REAL4,R_XUP,2  , &
+      C_CART,status,ierr)
 
   end subroutine comm_x
 
@@ -737,24 +674,24 @@ contains
     real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
 
     call MPI_SENDRECV(f(xsb       :xeb              , &
-         ye-(mb-1):ye              , &
-         zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL4,R_YUP,3, &
-         f(xsb       :xeb              , &
-         ysb         :ysb+(mb-1)         , &
-         zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL4,R_YDN,3, &
-         C_CART,status,ierr)
+      ye-(mb-1):ye              , &
+      zs       :ze       )      , &
+      xrb*mb*zr,MPI_REAL4,R_YUP,3, &
+      f(xsb       :xeb              , &
+      ysb         :ysb+(mb-1)         , &
+      zs       :ze       )      , &
+      xrb*mb*zr,MPI_REAL4,R_YDN,3, &
+      C_CART,status,ierr)
 
     call MPI_SENDRECV(f(xsb       :xeb              , &
-         ys       :ys+(mb-1)       , &
-         zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL4,R_YDN,4          , &
-         f(xsb       :xeb              , &
-         yeb-(mb-1)  :yeb                , &
-         zs       :ze       )      , &
-         xrb*mb*zr,MPI_REAL4,R_YUP,4           , &
-         C_CART,status,ierr)
+      ys       :ys+(mb-1)       , &
+      zs       :ze       )      , &
+      xrb*mb*zr,MPI_REAL4,R_YDN,4          , &
+      f(xsb       :xeb              , &
+      yeb-(mb-1)  :yeb                , &
+      zs       :ze       )      , &
+      xrb*mb*zr,MPI_REAL4,R_YUP,4           , &
+      C_CART,status,ierr)
 
   end subroutine comm_y
 
@@ -764,26 +701,26 @@ contains
     real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
 
     call MPI_SENDRECV( &
-         f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         ze-(mb-1) :ze          )   , &
-         xrb*yrb*mb,MPI_REAL4,R_ZUP,5, &
-         f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         zsb       :zsb+(mb-1)  )   , &
-         xrb*yrb*mb,MPI_REAL4,R_ZDN,5, &
-         C_CART,status,ierr)
+      f(xsb        :xeb              , &
+      ysb        :yeb              , &
+      ze-(mb-1) :ze          )   , &
+      xrb*yrb*mb,MPI_REAL4,R_ZUP,5, &
+      f(xsb        :xeb              , &
+      ysb        :yeb              , &
+      zsb       :zsb+(mb-1)  )   , &
+      xrb*yrb*mb,MPI_REAL4,R_ZDN,5, &
+      C_CART,status,ierr)
 
     call MPI_SENDRECV( &
-         f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         zs        :zs+(mb-1))      , &
-         xrb*yrb*mb,MPI_REAL4,R_ZDN,6, &
-         f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         zeb-(mb-1):zeb         )   , &
-         xrb*yrb*mb,MPI_REAL4,R_ZUP,6, &
-         C_CART,status,ierr)
+      f(xsb        :xeb              , &
+      ysb        :yeb              , &
+      zs        :zs+(mb-1))      , &
+      xrb*yrb*mb,MPI_REAL4,R_ZDN,6, &
+      f(xsb        :xeb              , &
+      ysb        :yeb              , &
+      zeb-(mb-1):zeb         )   , &
+      xrb*yrb*mb,MPI_REAL4,R_ZUP,6, &
+      C_CART,status,ierr)
   end subroutine comm_z
 
 
@@ -805,28 +742,28 @@ contains
     real(kind=4),dimension(mb*yr*zr) :: sbuff, rbuff
 
     sbuff(:) = reshape(f(xe-(mb-1) :xe , &
-         ys        :ye         , &
-         zs        :ze         ), (/mb*yr*zr/))
+      ys        :ye         , &
+      zs        :ze         ), (/mb*yr*zr/))
     call MPI_SENDRECV( sbuff,         &
-         mb*yr*zr,MPI_REAL4,R_XUP,1  , &
-         rbuff,                       &
-         mb*yr*zr,MPI_REAL4,R_XDN,1  , &
-         C_CART,status,ierr)
+      mb*yr*zr,MPI_REAL4,R_XUP,1  , &
+      rbuff,                       &
+      mb*yr*zr,MPI_REAL4,R_XDN,1  , &
+      C_CART,status,ierr)
     f(xsb     :xsb+(mb-1) , &
-         ys        :ye         , &
-         zs        :ze        ) = reshape(rbuff, (/mb, yr, zr/));
+      ys        :ye         , &
+      zs        :ze        ) = reshape(rbuff, (/mb, yr, zr/));
 
     sbuff(:) = reshape(f(xs        :xs+(mb-1)  , &
-         ys        :ye         , &
-         zs        :ze         ), (/mb*yr*zr/))
+      ys        :ye         , &
+      zs        :ze         ), (/mb*yr*zr/))
     call MPI_SENDRECV(sbuff,          &
-         mb*yr*zr,MPI_REAL4,R_XDN,2  , &
-         rbuff,                       &
-         mb*yr*zr,MPI_REAL4,R_XUP,2  , &
-         C_CART,status,ierr)
+      mb*yr*zr,MPI_REAL4,R_XDN,2  , &
+      rbuff,                       &
+      mb*yr*zr,MPI_REAL4,R_XUP,2  , &
+      C_CART,status,ierr)
     f(xeb-(mb-1):xeb        , &
-         ys        :ye         , &
-         zs        :ze        ) = reshape(rbuff, (/mb, yr, zr/));
+      ys        :ye         , &
+      zs        :ze        ) = reshape(rbuff, (/mb, yr, zr/));
 
   end subroutine comm_x_2
 
@@ -837,30 +774,30 @@ contains
     real(kind=4),dimension(xrb*mb*zr) :: sbuff, rbuff
 
     sbuff = reshape(f(xsb       :xeb              , &
-         ye-(mb-1):ye              , &
-         zs       :ze       )      , &
-         (/xrb*mb*zr/));
+      ye-(mb-1):ye              , &
+      zs       :ze       )      , &
+      (/xrb*mb*zr/));
     call MPI_SENDRECV( sbuff,        &
-         xrb*mb*zr,MPI_REAL4,R_YUP,3, &
-         rbuff,                      &
-         xrb*mb*zr,MPI_REAL4,R_YDN,3, &
-         C_CART,status,ierr)
+      xrb*mb*zr,MPI_REAL4,R_YUP,3, &
+      rbuff,                      &
+      xrb*mb*zr,MPI_REAL4,R_YDN,3, &
+      C_CART,status,ierr)
     f(xsb       :xeb          , &
-         ysb         :ysb+(mb-1)   , &
-         zs       :ze       ) = reshape(rbuff, (/xrb, mb, zr/));
+      ysb         :ysb+(mb-1)   , &
+      zs       :ze       ) = reshape(rbuff, (/xrb, mb, zr/));
 
     sbuff = reshape(f(xsb       :xeb              , &
-         ys       :ys+(mb-1)       , &
-         zs       :ze       )      , &
-         (/xrb*mb*zr/));
+      ys       :ys+(mb-1)       , &
+      zs       :ze       )      , &
+      (/xrb*mb*zr/));
     call MPI_SENDRECV(sbuff,         &
-         xrb*mb*zr,MPI_REAL4,R_YDN,4, &
-         rbuff,                      &
-         xrb*mb*zr,MPI_REAL4,R_YUP,4, &
-         C_CART,status,ierr)
+      xrb*mb*zr,MPI_REAL4,R_YDN,4, &
+      rbuff,                      &
+      xrb*mb*zr,MPI_REAL4,R_YUP,4, &
+      C_CART,status,ierr)
     f(xsb       :xeb          , &
-         yeb-(mb-1)  :yeb          , &
-         zs       :ze       ) = reshape(rbuff, (/xrb, mb, zr/));
+      yeb-(mb-1)  :yeb          , &
+      zs       :ze       ) = reshape(rbuff, (/xrb, mb, zr/));
   end subroutine comm_y_2
 
   subroutine comm_z_2(f)
@@ -870,30 +807,30 @@ contains
     real(kind=4),dimension(xrb*yrb*mb) :: sbuff, rbuff
 
     sbuff = reshape(f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         ze-(mb-1) :ze          )   , &
-         (/xrb*yrb*mb/))
+      ysb        :yeb              , &
+      ze-(mb-1) :ze          )   , &
+      (/xrb*yrb*mb/))
     call MPI_SENDRECV( sbuff, &
-         xrb*yrb*mb,MPI_REAL4,R_ZUP,5, &
-         rbuff, &
-         xrb*yrb*mb,MPI_REAL4,R_ZDN,5, &
-         C_CART,status,ierr)
+      xrb*yrb*mb,MPI_REAL4,R_ZUP,5, &
+      rbuff, &
+      xrb*yrb*mb,MPI_REAL4,R_ZDN,5, &
+      C_CART,status,ierr)
     f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         zsb       :zsb+(mb-1)  ) = reshape(rbuff, (/xrb,yrb,mb/))
+      ysb        :yeb              , &
+      zsb       :zsb+(mb-1)  ) = reshape(rbuff, (/xrb,yrb,mb/))
 
     sbuff = reshape(f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         zs        :zs+(mb-1))      , &
-         (/xrb*yrb*mb/));
+      ysb        :yeb              , &
+      zs        :zs+(mb-1))      , &
+      (/xrb*yrb*mb/));
     call MPI_SENDRECV( sbuff, &
-         xrb*yrb*mb,MPI_REAL4,R_ZDN,6, &
-         rbuff, &
-         xrb*yrb*mb,MPI_REAL4,R_ZUP,6, &
-         C_CART,status,ierr)
+      xrb*yrb*mb,MPI_REAL4,R_ZDN,6, &
+      rbuff, &
+      xrb*yrb*mb,MPI_REAL4,R_ZUP,6, &
+      C_CART,status,ierr)
     f(xsb        :xeb              , &
-         ysb        :yeb              , &
-         zeb-(mb-1):zeb         ) = reshape(rbuff, (/xrb,yrb,mb/))
+      ysb        :yeb              , &
+      zeb-(mb-1):zeb         ) = reshape(rbuff, (/xrb,yrb,mb/))
   end subroutine comm_z_2
 
 
@@ -989,16 +926,16 @@ contains
     real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
 
     call MPI_SENDRECV(f,                &
-         1, T_SENDXUP_REAL4, R_XUP, 1 , &
-         f,                             &
-         1, T_RECVXDN_REAL4, R_XDN, 1 , &
-         C_CART,status,ierr)
+      1, T_SENDXUP_REAL4, R_XUP, 1 , &
+      f,                             &
+      1, T_RECVXDN_REAL4, R_XDN, 1 , &
+      C_CART,status,ierr)
 
     call MPI_SENDRECV(f,                &
-         1, T_SENDXDN_REAL4, R_XDN, 1 , &
-         f,                             &
-         1, T_RECVXUP_REAL4, R_XUP, 1 , &
-         C_CART,status,ierr)
+      1, T_SENDXDN_REAL4, R_XDN, 1 , &
+      f,                             &
+      1, T_RECVXUP_REAL4, R_XUP, 1 , &
+      C_CART,status,ierr)
   end subroutine comm_x_subarray
 
   subroutine comm_y_subarray(f)
@@ -1007,16 +944,16 @@ contains
     real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
 
     call MPI_SENDRECV(f,                &
-         1, T_SENDYUP_REAL4, R_YUP, 1 , &
-         f,                             &
-         1, T_RECVYDN_REAL4, R_YDN, 1 , &
-         C_CART,status,ierr)
+      1, T_SENDYUP_REAL4, R_YUP, 1 , &
+      f,                             &
+      1, T_RECVYDN_REAL4, R_YDN, 1 , &
+      C_CART,status,ierr)
 
     call MPI_SENDRECV(f,                &
-         1, T_SENDYDN_REAL4, R_YDN, 1 , &
-         f,                             &
-         1, T_RECVYUP_REAL4, R_YUP, 1 , &
-         C_CART,status,ierr)
+      1, T_SENDYDN_REAL4, R_YDN, 1 , &
+      f,                             &
+      1, T_RECVYUP_REAL4, R_YUP, 1 , &
+      C_CART,status,ierr)
   end subroutine comm_y_subarray
 
   subroutine comm_z_subarray(f)
@@ -1025,16 +962,16 @@ contains
     real(kind=4),dimension(xsb:xeb,ysb:yeb,zsb:zeb) :: f
 
     call MPI_SENDRECV(f,                &
-         1, T_SENDZUP_REAL4, R_ZUP, 1 , &
-         f,                             &
-         1, T_RECVZDN_REAL4, R_ZDN, 1 , &
-         C_CART,status,ierr)
+      1, T_SENDZUP_REAL4, R_ZUP, 1 , &
+      f,                             &
+      1, T_RECVZDN_REAL4, R_ZDN, 1 , &
+      C_CART,status,ierr)
 
     call MPI_SENDRECV(f,                &
-         1, T_SENDZDN_REAL4, R_ZDN, 1 , &
-         f,                             &
-         1, T_RECVZUP_REAL4, R_ZUP, 1 , &
-         C_CART,status,ierr)
+      1, T_SENDZDN_REAL4, R_ZDN, 1 , &
+      f,                             &
+      1, T_RECVZUP_REAL4, R_ZUP, 1 , &
+      C_CART,status,ierr)
   end subroutine comm_z_subarray
 
   subroutine test_exchange(data_ptr, rank_coord)
@@ -1060,29 +997,29 @@ contains
 
     did = 1
     do while(did<=nfields)
-       i = -1
-       do while (i<=1)
-          j = -1
-          do while (j<=1)
-             k = -1
-             do while (k<=1)
+      i = -1
+      do while (i<=1)
+        j = -1
+        do while (j<=1)
+          k = -1
+          do while (k<=1)
 
-                ! get nbor rank
-                nbor_coord = rank_coord + (/i,j,k/);
-                ierr = hwcart_coord2rank(C_CART, rank_dim, periodic, nbor_coord, cart_order, nbor_rank)
+            ! get nbor rank
+            nbor_coord = rank_coord + (/i,j,k/);
+            ierr = hwcart_coord2rank(C_CART, cart_dim, periodic, nbor_coord, cart_order, nbor_rank)
 
-                ! check cube values
-                if (.not.all(data_ptr(did)%ptr(isx(i):iex(i), isy(j):iey(j), isz(k):iez(k))==nbor_rank+did)) then
-                   print *, "wrong halo ", i, j, k
-                   err = .true.
-                end if
-                k = k+1
-             end do
-             j = j+1
+            ! check cube values
+            if (.not.all(data_ptr(did)%ptr(isx(i):iex(i), isy(j):iey(j), isz(k):iez(k))==nbor_rank+did)) then
+              print *, "wrong halo ", i, j, k
+              err = .true.
+            end if
+            k = k+1
           end do
-          i = i+1
-       end do
-       did = did+1
+          j = j+1
+        end do
+        i = i+1
+      end do
+      did = did+1
     end do
   end subroutine test_exchange
 
@@ -1092,12 +1029,12 @@ contains
 
     do i=xsb,xeb
       do j=ysb,yeb
-         do k=zsb,zeb
-            write (*, fmt="(f3.0)", advance="no") data(j,i,k)
-         end do
-         write(*,*)
+        do k=zsb,zeb
+          write (*, fmt="(f3.0)", advance="no") data(j,i,k)
+        end do
+        write(*,*)
       end do
       write(*,*)
     end do
   end subroutine print_cube_3d
-END PROGRAM
+END PROGRAM test_halo_exchange

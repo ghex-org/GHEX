@@ -65,7 +65,7 @@ namespace gridtools {
                     p.m_container = this;
             }
 
-        private: // private constructor called through make_pattern
+        //private: // private constructor called through make_pattern
             pattern_container(data_type&& d, int mt) noexcept : m_patterns(d), m_max_tag(mt)
             {
                 for (auto& p : m_patterns)

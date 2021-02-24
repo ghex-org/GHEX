@@ -17,6 +17,7 @@
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
+#include <ghex/structured/regular/make_pattern.hpp>
 #include <ghex/cuda_utils/error.hpp>
 #include <gridtools/common/array.hpp>
 
@@ -185,8 +186,35 @@ auto make_domain(int rank, int id, std::array<int,2> coord)
     return domain{rank*2+id, arr{x, y}, arr{x+DIM-1, y+DIM/2-1}};
 }
 
-template<typename Context, typename Pattern, typename Domains, typename Barrier>
-bool run(Context& context, const Pattern& pattern, const Domains& domains, const arr& dims, int thread_id, Barrier& barrier)
+struct domain_lu
+{
+    struct neighbor
+    {
+        int m_rank;
+        int m_id;
+        int rank() const noexcept { return m_rank; }
+        int id() const noexcept { return m_id; }
+    };
+    
+    arr m_dims;
+
+    neighbor operator()(int id, arr const & offset) const noexcept
+    {
+        auto rank = id/2;
+        auto y_ = id - 2*rank;
+        auto y = rank/m_dims[0];
+        auto x = rank - y*m_dims[0];
+        y = ((2*y+y_ + offset[1]) + m_dims[1]*2)%(m_dims[1]*2);
+        x = (x + offset[0] + m_dims[0])%m_dims[0];
+
+        int n_rank = (y/2)*m_dims[0] + x;
+        int n_id = 2*n_rank + (y%2);
+        return {n_rank, n_id};
+    }
+};
+
+template<typename Context, typename Pattern, typename SPattern, typename Domains, typename Barrier>
+bool run(Context& context, const Pattern& pattern, const SPattern& spattern, const Domains& domains, const arr& dims, int thread_id, Barrier& barrier)
 {
     bool res = true;
     // field
@@ -204,6 +232,10 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
     // general exchange
     // ================
     auto co = make_communication_object<Pattern>(comm);
+
+    // classical
+    // ---------
+
 #ifdef __CUDACC__
     if (thread_id == 0)
         co.exchange(pattern(field)).wait();
@@ -229,8 +261,48 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 
     barrier(comm);
 
+    // using stages
+    // ------------
+
+#ifdef __CUDACC__
+    if (thread_id == 0)
+    {
+        co.exchange(spattern[0]->operator()(field)).wait();
+        co.exchange(spattern[1]->operator()(field)).wait();
+    }
+    else
+    {
+        co.exchange(spattern[0]->operator(field_gpu)).wait();
+        co.exchange(spattern[1]->operator(field_gpu)).wait();
+    }
+#else
+    co.exchange(spattern[0]->operator()(field)).wait();
+    co.exchange(spattern[1]->operator()(field)).wait();
+#endif
+
+    // check field
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_host();
+#endif
+    res = res && check(field, dims);
+
+    // reset field
+    reset(field);
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_device();
+#endif
+
+    barrier(comm);
+
+
     // bulk exchange (rma)
     // ===================
+
+    // classical
+    // ---------
+
 #ifdef __CUDACC__
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field), decltype(field_gpu)>(co);
     if (thread_id == 0)
@@ -251,11 +323,55 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
         raw_field.clone_to_host();
 #endif
     res = res && check(field, dims);
+
+    // reset field
+    reset(field);
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_device();
+#endif
+
+    barrier(comm);
+
+    // using stages
+    // ------------
+
+#ifdef __CUDACC__
+    auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field), decltype(field_gpu)>(co);
+    auto bco_y = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field), decltype(field_gpu)>(co);
+    if (thread_id == 0)
+    {
+        bco_x.add_field(spattern[0]->operator()(field));
+        bco_y.add_field(spattern[1]->operator()(field));
+    }
+    else
+    {
+        bco_x.add_field(spattern[0]->operator()(field_gpu));
+        bco_y.add_field(spattern[1]->operator()(field_gpu));
+    }
+#else
+    auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field)>(co);
+    auto bco_y = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field)>(co);
+    bco_x.add_field(spattern[0]->operator()(field));
+    bco_y.add_field(spattern[1]->operator()(field));
+#endif
+    //bco.exchange().wait();
+    generic_bulk_communication_object gbco_x(std::move(bco_x));
+    generic_bulk_communication_object gbco_y(std::move(bco_y));
+    gbco_x.exchange().wait();
+    gbco_y.exchange().wait();
+
+    // check field
+#ifdef __CUDACC__
+    if (thread_id != 0)
+        raw_field.clone_to_host();
+#endif
+    res = res && check(field, dims);
     return res;
 }
 
-template<typename Context, typename Pattern, typename Domains, typename Barrier>
-bool run(Context& context, const Pattern& pattern, const Domains& domains, const arr& dims, Barrier& barrier)
+template<typename Context, typename Pattern, typename SPattern, typename Domains, typename Barrier>
+bool run(Context& context, const Pattern& pattern, const SPattern& spattern, const Domains& domains, const arr& dims, Barrier& barrier)
 {
     bool res = true;
     // fields
@@ -273,6 +389,10 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
     // general exchange
     // ================
     auto co = make_communication_object<Pattern>(comm);
+
+    // classical
+    // ---------
+
 #ifdef __CUDACC__
     co.exchange(pattern(field_a), pattern(field_b_gpu)).wait();
 #else
@@ -295,8 +415,39 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 
     barrier(comm);
 
+    // using stages
+    // ------------
+
+#ifdef __CUDACC__
+    co.exchange(spattern[0]->operator()(field_a), spattern[0]->operator()(field_b_gpu)).wait();
+    co.exchange(spattern[1]->operator()(field_a), spattern[1]->operator()(field_b_gpu)).wait();
+#else
+    co.exchange(spattern[0]->operator()(field_a), spattern[0]->operator()(field_b)).wait();
+    co.exchange(spattern[1]->operator()(field_a), spattern[1]->operator()(field_b)).wait();
+#endif
+
+    // check fields
+#ifdef __CUDACC__
+    raw_field_b.clone_to_host();
+#endif
+    res = res && check(field_a, dims);
+    res = res && check(field_b, dims);
+
+    // reset fields
+    reset(field_a);
+    reset(field_b);
+#ifdef __CUDACC__
+    raw_field_b.clone_to_device();
+#endif
+
+    barrier(comm);
+
     // bulk exchange (rma)
     // ===================
+    
+    // classical
+    // ---------
+    
 #ifdef __CUDACC__
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a), decltype(field_b_gpu)>(co);
     bco.add_field(pattern(field_a));
@@ -316,6 +467,47 @@ bool run(Context& context, const Pattern& pattern, const Domains& domains, const
 #endif
     res = res && check(field_a, dims);
     res = res && check(field_b, dims);
+
+    // reset fields
+    reset(field_a);
+    reset(field_b);
+#ifdef __CUDACC__
+    raw_field_b.clone_to_device();
+#endif
+
+    barrier(comm);
+
+    // using stages
+    // ------------
+
+#ifdef __CUDACC__
+    auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a), decltype(field_b_gpu)>(co);
+    bco_x.add_field(spattern[0]->operator()(field_a));
+    bco_x.add_field(spattern[0]->operator()(field_b_gpu));
+    auto bco_y = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a), decltype(field_b_gpu)>(co);
+    bco_y.add_field(spattern[1]->operator()(field_a));
+    bco_y.add_field(spattern[1]->operator()(field_b_gpu));
+#else
+    auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a)>(co,true);
+    bco_x.add_field(spattern[0]->operator()(field_a));
+    bco_x.add_field(spattern[0]->operator()(field_b));
+    auto bco_y = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a)>(co,true);
+    bco_y.add_field(spattern[1]->operator()(field_a));
+    bco_y.add_field(spattern[1]->operator()(field_b));
+#endif
+    bco_x.init();
+    bco_y.init();
+    barrier(comm);
+    bco_x.exchange().wait();
+    bco_y.exchange().wait();
+
+    // check fields
+#ifdef __CUDACC__
+    raw_field_b.clone_to_host();
+#endif
+    res = res && check(field_a, dims);
+    res = res && check(field_b, dims);
+
     return res;
 }
 
@@ -333,6 +525,54 @@ void sim(bool multi_threaded)
     std::vector<domain> domains{
         make_domain(context.rank(), 0, coords),
         make_domain(context.rank(), 1, coords)};
+    // neighbor lookup
+    domain_lu d_lu{dims};
+    //if (context.rank()==2)
+    //{
+    //    {
+    //    auto n_0 = d_lu(context.rank()*2+1, {0,-1});
+    //    std::cout << n_0.rank() << ", " << n_0.id() << std::endl;
+    //    std::cout << domains[0].domain_id() << std::endl;
+    //    }
+    //    {
+    //    auto n_0 = d_lu(context.rank()*2, {0,1});
+    //    std::cout << n_0.rank() << ", " << n_0.id() << std::endl;
+    //    std::cout << domains[1].domain_id() << std::endl;
+    //    }
+    //}
+
+    auto staged_pattern = structured::regular::make_staged_pattern(context, domains, d_lu,
+        arr{0,0}, arr{dims[0]*DIM-1,dims[1]*DIM-1}, halos, periodic);
+
+    //if (context.rank()==1)
+    //{
+    //int i = 0;
+    //for (auto& p_cont_ptr : staged_pattern)
+    //{
+    //    std::cout << "i = " << i << std::endl;
+    //    ++i;
+    //    for (auto& p : *p_cont_ptr)
+    //    {
+    //        std::cout << "pattern domain id = " << p.domain_id() << std::endl;
+    //        std::cout << "recv halos: " << std::endl;
+    //        for (auto& r : p.recv_halos())
+    //        {
+    //            std::cout << r.first << ": " << std::endl;
+    //            for (auto& h : r.second)
+    //                std::cout << "  " << h << std::endl;
+    //        }
+    //        std::cout << "send halos: " << std::endl;
+    //        for (auto& r : p.send_halos())
+    //        {
+    //            std::cout << r.first << ": " << std::endl;
+    //            for (auto& h : r.second)
+    //                std::cout << "  " << h << std::endl;
+    //        }
+    //        std::cout << std::endl;
+    //    }
+    //}
+    //}
+
     // make halo generator
     halo_gen gen{arr{0,0}, arr{dims[0]*DIM-1,dims[1]*DIM-1}, halos, periodic};
     // create a pattern for communication
@@ -342,8 +582,8 @@ void sim(bool multi_threaded)
     if (multi_threaded)
     {
         tl::barrier_t barrier(2);
-        auto run_fct = [&context,&pattern,&domains,&dims,&barrier](int id)
-            { return run(context, pattern, domains, dims, id, barrier); };
+        auto run_fct = [&context,&pattern,&staged_pattern,&domains,&dims,&barrier](int id)
+            { return run(context, pattern, staged_pattern, domains, dims, id, barrier); };
         auto f1 = std::async(std::launch::async, run_fct, 0);
         auto f2 = std::async(std::launch::async, run_fct, 1);
         res = res && f1.get();
@@ -352,7 +592,7 @@ void sim(bool multi_threaded)
     else
     {
         tl::barrier_t barrier(1);
-        res = res && run(context, pattern, domains, dims, barrier);
+        res = res && run(context, pattern, staged_pattern, domains, dims, barrier);
     }
     // reduce res
     bool all_res = false;

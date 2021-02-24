@@ -6,7 +6,12 @@
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
+#include <ghex/structured/regular/make_pattern.hpp>
 #include <ghex/structured/pattern.hpp>
+
+extern "C" {
+#include <hwcart/hwcart.h>
+}
 
 // those are configurable at compile time
 #include "ghex_defs.hpp"
@@ -32,8 +37,11 @@ struct struct_domain_descriptor {
     int   last[3];   // indices of the last LOCAL grid point, in global index space
     int gfirst[3];   // indices of the first GLOBAL grid point, (1,1,1) by default
     int  glast[3];   // indices of the last GLOBAL grid point (model dimensions)
-    int cart_comm;   // Fortran-side cartesian communicator
-    int rank_dim[3]; // global rank space dimensions
+
+    // cartesian communicator info
+    int cart_comm;   // Fortran-side cartesian communicator (either hwcart, or mpi_cart)
+    hwcart_order_t cart_order;  // dimension order for rank2coord and coord2rank calculations (for hwcart only)
+    int cart_dim[3]; // global rank space dimensions
 };
 
 // compare two fields to establish, if the same pattern can be used for both
@@ -73,7 +81,8 @@ using communication_obj_type    = ghex::communication_object<communicator_type, 
 using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type,2,1,0>;
 using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
 using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
-using pattern_map_type          = std::map<struct_field_descriptor, pattern_type, field_compare>;
+using stage_patterns_type       = std::array<std::unique_ptr<pattern_type>, 3>;
+using pattern_map_type          = std::map<struct_field_descriptor, stage_patterns_type, field_compare>;
 using bco_type                  = ghex::bulk_communication_object<ghex::structured::rma_range_generator, pattern_type, field_descriptor_type>;
 using exchange_handle_type      = bco_type::handle;
 using buffer_info_type          = bco_type::buffer_info_type<field_descriptor_type>;
@@ -154,8 +163,7 @@ void ghex_struct_domain_free(struct_domain_descriptor *domain_desc)
 extern "C"
 void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains)
 {
-
-    if(0 == n_domains) return NULL;
+    if(0 == n_domains || nullptr == domains_desc) return NULL;
 
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors
@@ -177,6 +185,11 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     std::vector<domain_descriptor_type> local_domains;
     for(int i=0; i<n_domains; i++){
 
+        if(0 == domains_desc[i].cart_comm){
+            std::cerr << "The staged communicator requires cart_comm, cart_order, and cart_dim info in the domain descriptor." << std::endl;
+            std::terminate();
+        }
+
         std::array<int, 3> first;
         first[0] = domains_desc[i].first[0]-1;
         first[1] = domains_desc[i].first[1]-1;
@@ -191,27 +204,39 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     }
    
     // a vector of `pattern(field)` objects
-    pattern_field_vector_type pattern_fields;
+    std::array<pattern_field_vector_type,3> pattern_fields_array;
 
     for(int i=0; i<n_domains; i++){
         field_vector_type &fields = *(domains_desc[i].fields);
+        auto &domain_desc = domains_desc[i];
+        std::array<int, 3> &cart_dim = *((std::array<int, 3>*)domain_desc.cart_dim);
+        MPI_Comm cart_comm = MPI_Comm_f2c(domain_desc.cart_comm);
+        if (MPI_COMM_NULL == cart_comm){
+            std::cerr << "Illegal cartesian communicator " << domain_desc.cart_comm << std::endl;
+            std::terminate();
+        }
         for(auto field: fields){
             auto pit = field_to_pattern.find(field);
             if (pit == field_to_pattern.end()) {
-                std::array<int, 3> &periodic = *((std::array<int, 3>*)field.periodic);
+                std::array<bool, 3> periodic;
+                periodic[0] = field.periodic[0]!=0;
+                periodic[1] = field.periodic[1]!=0;
+                periodic[2] = field.periodic[2]!=0;
+                
                 std::array<int, 6> &halo = *((std::array<int, 6>*)field.halo);
-                std::array<int, 3> &rank_dim = *((std::array<int, 3>*)domains_desc[i].rank_dim);
                 auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
 
                 auto pattern = ghex::structured::regular::make_staged_pattern(
-                    *context, local_domains,
-                    
-                    [](auto id, auto const& offset) {
-                        // const auto n = base.m_decomposition.neighbor(
-                        //    std::find_if(base.m_domains.begin(), base.m_domains.end(),
-                        //                 [id](auto const& x) { return x.id == id; })
-                        //    ->thread,
-                        //    offset[0], offset[1], offset[2]);
+                    *context, local_domains,                    
+                    [&domain_desc,&cart_comm,&field](auto id, auto const& offset) {
+                        int coord[3], nbrank;
+                        
+                        // NOTE: we assume domain id is the same as rank
+                        hwcart_rank2coord(cart_comm, domain_desc.cart_dim, id, domain_desc.cart_order, coord);
+                        coord[0] += offset[0];
+                        coord[1] += offset[1];
+                        coord[2] += offset[2];
+                        hwcart_coord2rank(cart_comm, domain_desc.cart_dim, field.periodic, coord, domain_desc.cart_order, &nbrank);
                         struct _neighbor
                         {
                             int m_id;
@@ -219,45 +244,57 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                             int id() const noexcept { return m_id; }
                             int rank() const noexcept { return m_rank; }
                         };
-                        return _neighbor{n.id, n.rank};
+                        return _neighbor{nbrank, nbrank};
                     },
                     std::array<int, 3>{0, 0, 0},
-                    rank_dim,
+                    cart_dim,
                     halo,
                     periodic);
 
-                pit = field_to_pattern.emplace(std::make_pair(std::move(field), 
-                    ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;
+                pit = field_to_pattern.emplace(std::make_pair(std::move(field), std::move(pattern))).first;
             } 
             
-            pattern_type &pattern = (*pit).second;
+            stage_patterns_type &pattern = (*pit).second;
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
-            std::unique_ptr<field_descriptor_type> field_desc_uptr(
-                new field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(local_domains[i], field.data, offset, extents)));
+            std::unique_ptr<field_descriptor_type>
+                field_desc_uptr(new field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(local_domains[i], field.data, offset, extents)));
             auto ptr = field_desc_uptr.get();
-            pattern_fields.first.push_back(std::move(field_desc_uptr));
-            pattern_fields.second.push_back(pattern(*ptr));
+
+            // keep pointer around
+            pattern_fields_array[0].first.push_back(std::move(field_desc_uptr));
+
+            // apply stage patterns to the field
+            pattern_fields_array[0].second.push_back(pattern[0]->operator()(*ptr));
+            pattern_fields_array[1].second.push_back(pattern[1]->operator()(*ptr));
+            pattern_fields_array[2].second.push_back(pattern[2]->operator()(*ptr));            
         }
     }
 
-    return new ghex::bindings::obj_wrapper(std::move(pattern_fields));
+    return new ghex::bindings::obj_wrapper(std::move(pattern_fields_array));
 }
 
 extern "C"
 void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
 {
     if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
-    bco_wrapper &bcowr                        = *ghex::bindings::get_object_ptr_unsafe<bco_wrapper>(cowrapper);
-    pattern_field_vector_type &pattern_fields = *ghex::bindings::get_object_ptr_unsafe<pattern_field_vector_type>(ewrapper);
+    
+    bco_wrapper &bcowr = *ghex::bindings::get_object_ptr_unsafe<bco_wrapper>(cowrapper);
+    std::array<pattern_field_vector_type,3> &pattern_fields_array =
+        *ghex::bindings::get_object_ptr_unsafe<std::array<pattern_field_vector_type,3>>(ewrapper);
 
     // first time call: build the bco
     if(!bcowr.eh) {
-        for (auto it=pattern_fields.second.begin(); it!=pattern_fields.second.end(); ++it) {
+        for (auto it=pattern_fields_array[0].second.begin(); it!=pattern_fields_array[0].second.end(); ++it) {
             bcowr.bco_x.add_field(*it);
+        }
+        for (auto it=pattern_fields_array[1].second.begin(); it!=pattern_fields_array[1].second.end(); ++it) {
             bcowr.bco_y.add_field(*it);
+        }
+        for (auto it=pattern_fields_array[2].second.begin(); it!=pattern_fields_array[2].second.end(); ++it) {
             bcowr.bco_z.add_field(*it);
         }
+
         // exchange the RMA handles before any other BCO can be created
         bcowr.bco_x.init();
         bcowr.bco_y.init();
@@ -281,5 +318,4 @@ void ghex_struct_exchange_handle_wait(ghex::bindings::obj_wrapper **ehwrapper)
     if(nullptr == *ehwrapper) return;
     exchange_handle_type &hex = *ghex::bindings::get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
     hex.wait();
-    *ehwrapper = nullptr;
 }
