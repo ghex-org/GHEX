@@ -1,0 +1,30 @@
+find_package(PkgConfig QUIET)
+pkg_check_modules(PC_HWLOC QUIET hwloc)
+
+find_path(HWLOC_INCLUDE_DIR hwloc.h
+    HINTS
+    ${HWLOC_ROOT}  ENV HWLOC_ROOT
+    ${HWLOC_DIR}   ENV HWLOC_DIR
+    PATH_SUFFIXES include)
+
+find_library(HWLOC_LIBRARY HINT ${PMIX_DIR} NAMES hwloc
+    HINTS
+    ${HWLOC_ROOT} ENV HWLOC_ROOT
+    ${HWLOC_DIR}  ENV HWLOC_DIR
+    PATH_SUFFIXES lib lib64)
+
+set(HWLOC_LIBRARIES    ${HWLOC_LIBRARY} CACHE INTERNAL "")
+set(HWLOC_INCLUDE_DIRS ${HWLOC_INCLUDE_DIR} CACHE INTERNAL "")
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(HWLOC DEFAULT_MSG HWLOC_LIBRARY HWLOC_INCLUDE_DIR)
+
+mark_as_advanced(HWLOC_ROOT HWLOC_LIBRARY HWLOC_INCLUDE_DIR)
+
+if(NOT TARGET HWLOC::libhwloc AND HWLOC_FOUND)
+    add_library(HWLOC::libhwloc SHARED IMPORTED)
+    set_target_properties(HWLOC::libhwloc PROPERTIES
+        IMPORTED_LOCATION ${HWLOC_LIBRARY}
+        INTERFACE_INCLUDE_DIRECTORIES ${HWLOC_INCLUDE_DIR})
+endif()
+

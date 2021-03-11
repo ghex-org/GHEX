@@ -1,7 +1,7 @@
 PROGRAM test_halo_exchange
   use omp_lib
   use ghex_mod
-  use ghex_utils
+  use hwcart_mod
 
   implicit none
 
@@ -56,6 +56,9 @@ PROGRAM test_halo_exchange
   ! ! exchange 8 data cubes
   type(hptr) :: data_ptr(nfields_max)
 
+  ! HWCART stuff
+  type(hwcart_topo_t) :: hwcart_topo
+
   ! GHEX stuff
   type(ghex_communicator)                :: comm         ! communicator
   type(ghex_struct_field)                :: field_desc   ! field descriptor
@@ -71,11 +74,6 @@ PROGRAM test_halo_exchange
   type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
   type(ghex_struct_exchange_handle)      :: eh
 
-  ! one field per domain, multiple domains
-  type(ghex_struct_domain),               dimension(:) :: domain_descs(nfields_max)
-  type(ghex_struct_communication_object), dimension(:) :: cos(nfields_max)
-  type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
-  
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
   call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
@@ -88,6 +86,13 @@ PROGRAM test_halo_exchange
      call mpi_barrier(mpi_comm_world, mpi_err)
      call mpi_finalize(mpi_err)
      call exit(1)
+  end if
+
+  ! init HWCART
+  ierr = hwcart_init(hwcart_topo)
+  if (ierr /= 0) then
+    call MPI_Finalize(ierr);
+    call exit(1)
   end if
 
   ! domain grid dimensions
@@ -196,14 +201,13 @@ PROGRAM test_halo_exchange
   if (remap) then
 
      ! construct topology info to reorder the ranks
-     ! domain(1) = OMPI_COMM_TYPE_HWTHREAD
-     domain(1) = OMPI_COMM_TYPE_L3CACHE
-     domain(2) = OMPI_COMM_TYPE_NUMA
-     domain(3) = OMPI_COMM_TYPE_SOCKET
-     domain(4) = OMPI_COMM_TYPE_NODE
-     domain(5) = OMPI_COMM_TYPE_CLUSTER
-     call ghex_cart_topology(mpi_comm_world, domain, topology, level_rank)
-     call ghex_cart_remap_ranks(mpi_comm_world, domain, topology, level_rank, C_CART, cart_order)
+     domain(1) = HWCART_MD_CORE
+     domain(2) = HWCART_MD_L3CACHE
+     domain(3) = HWCART_MD_NUMA
+     domain(4) = HWCART_MD_SOCKET
+     domain(5) = HWCART_MD_NODE
+
+     ierr = hwcart_create(hwcart_topo, MPI_COMM_WORLD, domain, topology, cart_order, C_CART)
 
      if (world_rank==0) then
 
@@ -234,8 +238,8 @@ PROGRAM test_halo_exchange
           end select
      end if
 
-     ! print rank topology
-     call ghex_cart_print_rank_topology(C_CART, domain, topology, cart_order)
+     ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
+
   else
      if (world_rank==0) then
         print *, "Using standard MPI cartesian communicator"
@@ -249,7 +253,7 @@ PROGRAM test_halo_exchange
        integer(4) :: domain(2) = 0, topology(3,2) = 1
        domain(1) = MPI_COMM_TYPE_SHARED
        topology(:,1) = gdim
-       call ghex_cart_print_rank_topology(C_CART, domain, topology, cart_order)
+       ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
      end block
   end if
 
@@ -280,12 +284,12 @@ PROGRAM test_halo_exchange
     call exit(1)
   end if
 
+  ! local indices in the rank index space
+  ierr = hwcart_rank2coord(C_CART, gdim, rank, cart_order, rank_coord)
+
   ! define the global index domain
   gfirst = [1, 1, 1]
   glast = gdim * ldim
-
-  ! local indices in the rank index space
-  call ghex_cart_rank2coord(C_CART, gdim, rank, rank_coord, cart_order)
 
   ! define the local domain
   first = (rank_coord) * ldim + 1
@@ -667,7 +671,7 @@ contains
     if (C_CART == mpi_comm_world) then
        call mpi_cart_rank(C_CART, coord, get_nbor, ierr)
     else
-       call ghex_cart_coord2rank(C_CART, gdim, lperiodic, coord, get_nbor, cart_order)
+       ierr = hwcart_coord2rank(C_CART, gdim, periodic, coord, cart_order, get_nbor)
     end if
   end function get_nbor
 
@@ -1064,7 +1068,7 @@ contains
 
                 ! get nbor rank
                 nbor_coord = rank_coord + (/i,j,k/);
-                call ghex_cart_coord2rank(C_CART, gdim, lperiodic, nbor_coord, nbor_rank, cart_order)
+                ierr = hwcart_coord2rank(C_CART, gdim, periodic, nbor_coord, cart_order, nbor_rank)
 
                 ! check cube values
                 if (.not.all(data_ptr(did)%ptr(isx(i):iex(i), isy(j):iey(j), isz(k):iez(k))==nbor_rank+did)) then
