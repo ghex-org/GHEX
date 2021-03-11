@@ -22,7 +22,7 @@ PROGRAM test_halo_exchange
   integer :: domain(5) = 0
   integer :: topology(3,5) = 1
   integer :: level_rank(5) = -1
-  integer :: gdim(3) = 1
+  integer :: rank_dim(3) = 1
 
   logical :: remap = .false.           ! remap MPI ranks
   integer :: ldim(3) = [128, 128, 128] ! dimensions of the local domains
@@ -193,7 +193,8 @@ PROGRAM test_halo_exchange
      end if
   end if
 
-  gdim = topology(:,1)*topology(:,2)*topology(:,3)*topology(:,4)*topology(:,5);
+  ! global cartesian rank space dimensions
+  rank_dim = product(topology, 2)
 
   if (world_rank==0) then
      print *, "--------------------------"
@@ -244,15 +245,15 @@ PROGRAM test_halo_exchange
      if (world_rank==0) then
         print *, "Using standard MPI cartesian communicator"
      end if
-     call mpi_dims_create(size, 3, gdim, mpi_err)
-     call mpi_cart_create(mpi_comm_world, 3, gdim, lperiodic, .true., C_CART, ierr)
+     call mpi_dims_create(size, 3, rank_dim, mpi_err)
+     call mpi_cart_create(mpi_comm_world, 3, rank_dim, lperiodic, .true., C_CART, ierr)
 
      ! print rank topology
      ! call ghex_cart_print_rank_topology(C_CART, domain, topology, cart_order)
      block
        integer(4) :: domain(2) = 0, topology(3,2) = 1
        domain(1) = MPI_COMM_TYPE_SHARED
-       topology(:,1) = gdim
+       topology(:,1) = rank_dim
        ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
      end block
   end if
@@ -275,31 +276,31 @@ PROGRAM test_halo_exchange
   call mpi_comm_rank(C_CART, rank, mpi_err)
   if (rank==0) then
      print *, "halos: ", halo
-     print *, "domain dist: ", gdim
+     print *, "domain dist: ", rank_dim
      print *, "domain size: ", ldim
   end if
 
-  if (size /= product(gdim)) then
-    print *, "Usage: this test must be executed with ", product(gdim), " mpi ranks"
+  if (size /= product(rank_dim)) then
+    print *, "Usage: this test must be executed with ", product(rank_dim), " mpi ranks"
     call exit(1)
   end if
 
   ! local indices in the rank index space
-  ierr = hwcart_rank2coord(C_CART, gdim, rank, cart_order, rank_coord)
+  ierr = hwcart_rank2coord(C_CART, rank_dim, rank, cart_order, rank_coord)
 
   ! define the global index domain
   gfirst = [1, 1, 1]
-  glast = gdim * ldim
+  glast = rank_dim * ldim
 
   ! define the local domain
   first = (rank_coord) * ldim + 1
   last  = first + ldim - 1
-  call ghex_domain_init(domain_desc, rank, first, last, gfirst, glast)
+  call ghex_domain_init(domain_desc, rank, first, last, gfirst, glast, C_CART, rank_dim)
 
   ! make individual copies for sequenced comm
   i = 1
   do while (i <= nfields)
-    call ghex_domain_init(domain_descs(i), rank, first, last, gfirst, glast)
+    call ghex_domain_init(domain_descs(i), rank, first, last, gfirst, glast, C_CART, rank_dim)
     i = i+1
   end do
 
@@ -364,7 +365,7 @@ PROGRAM test_halo_exchange
 
      ! compute the halo information for all domains and fields
      ed = ghex_exchange_desc_new(domain_desc)
-
+     
      ! warmup
      ! exchange halos
      it = 0
@@ -671,7 +672,7 @@ contains
     if (C_CART == mpi_comm_world) then
        call mpi_cart_rank(C_CART, coord, get_nbor, ierr)
     else
-       ierr = hwcart_coord2rank(C_CART, gdim, periodic, coord, cart_order, get_nbor)
+       ierr = hwcart_coord2rank(C_CART, rank_dim, periodic, coord, cart_order, get_nbor)
     end if
   end function get_nbor
 
@@ -1068,7 +1069,7 @@ contains
 
                 ! get nbor rank
                 nbor_coord = rank_coord + (/i,j,k/);
-                ierr = hwcart_coord2rank(C_CART, gdim, periodic, nbor_coord, cart_order, nbor_rank)
+                ierr = hwcart_coord2rank(C_CART, rank_dim, periodic, nbor_coord, cart_order, nbor_rank)
 
                 ! check cube values
                 if (.not.all(data_ptr(did)%ptr(isx(i):iex(i), isy(j):iey(j), isz(k):iez(k))==nbor_rank+did)) then

@@ -28,10 +28,12 @@ struct struct_domain_descriptor {
     field_vector_type *fields;
     int id;
     int device_id;
-    int  first[3];  // indices of the first LOCAL grid point, in global index space
-    int   last[3];  // indices of the last LOCAL grid point, in global index space
-    int gfirst[3];  // indices of the first GLOBAL grid point, (1,1,1) by default
-    int  glast[3];  // indices of the last GLOBAL grid point (model dimensions)
+    int  first[3];   // indices of the first LOCAL grid point, in global index space
+    int   last[3];   // indices of the last LOCAL grid point, in global index space
+    int gfirst[3];   // indices of the first GLOBAL grid point, (1,1,1) by default
+    int  glast[3];   // indices of the last GLOBAL grid point (model dimensions)
+    int cart_comm;   // Fortran-side cartesian communicator
+    int rank_dim[3]; // global rank space dimensions
 };
 
 // compare two fields to establish, if the same pattern can be used for both
@@ -198,17 +200,18 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
             if (pit == field_to_pattern.end()) {
                 std::array<int, 3> &periodic = *((std::array<int, 3>*)field.periodic);
                 std::array<int, 6> &halo = *((std::array<int, 6>*)field.halo);
+                std::array<int, 3> &rank_dim = *((std::array<int, 3>*)domains_desc[i].rank_dim);
                 auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
 
-                m_pattern = structured::regular::make_staged_pattern(
+                auto pattern = ghex::structured::regular::make_staged_pattern(
                     *context, local_domains,
                     
-                    [&base](auto id, auto const& offset) {
-                        const auto n = base.m_decomposition.neighbor(
-                           std::find_if(base.m_domains.begin(), base.m_domains.end(),
-                                        [id](auto const& x) { return x.id == id; })
-                           ->thread,
-                           offset[0], offset[1], offset[2]);
+                    [](auto id, auto const& offset) {
+                        // const auto n = base.m_decomposition.neighbor(
+                        //    std::find_if(base.m_domains.begin(), base.m_domains.end(),
+                        //                 [id](auto const& x) { return x.id == id; })
+                        //    ->thread,
+                        //    offset[0], offset[1], offset[2]);
                         struct _neighbor
                         {
                             int m_id;
@@ -219,8 +222,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                         return _neighbor{n.id, n.rank};
                     },
                     std::array<int, 3>{0, 0, 0},
-                    base.m_decomposition.last_domain_coord(),
-                    
+                    rank_dim,
                     halo,
                     periodic);
 
