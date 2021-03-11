@@ -1,7 +1,7 @@
 find_package(OpenMP REQUIRED)
 enable_language(Fortran)
 
-set(_tests test_f_context test_f_communicator test_f_message test_f_barrier test_f_send_recv_ft test_f_send_multi test_f_send_recv_cb test_f_structured test_f_structured_components test_f_cubed_sphere test_f_cubed_sphere_os)
+set(_tests test_f_context test_f_communicator test_f_message test_f_barrier test_f_send_recv_ft test_f_send_multi test_f_send_recv_cb test_f_cubed_sphere)
 
 foreach (_t ${_tests})
   add_executable(${_t} ${_t}.f90)

@@ -74,11 +74,6 @@ PROGRAM test_halo_exchange
   type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
   type(ghex_struct_exchange_handle)      :: eh
 
-  ! one field per domain, multiple domains
-  type(ghex_struct_domain),               dimension(:) :: domain_descs(nfields_max)
-  type(ghex_struct_communication_object), dimension(:) :: cos(nfields_max)
-  type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
-  
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
   call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
@@ -295,9 +290,6 @@ PROGRAM test_halo_exchange
   ! define the global index domain
   gfirst = [1, 1, 1]
   glast = gdim * ldim
-
-  ! local indices in the rank index space
-  call ghex_cart_rank2coord(C_CART, gdim, rank, rank_coord, cart_order)
 
   ! define the local domain
   first = (rank_coord) * ldim + 1
