@@ -18,6 +18,7 @@ PROGRAM test_halo_exchange
   integer :: topology(3,5) = 1
   integer :: level_rank(5) = -1
   integer :: cart_dim(3) = 1
+  character(len=3) :: cart_order_arg
   integer :: cart_order = HWCartOrderZYX
 
   logical :: remap = .false.           ! remap MPI ranks
@@ -76,7 +77,7 @@ PROGRAM test_halo_exchange
 
   if (command_argument_count() < 4) then
     if (world_rank==0) then
-      print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] <l3 dims :3> <numa dims :3> <socket dims :3> <node dims :3> <global dims :3> <cart_order=[1,2,3,4,5,6]>"
+      print *, "Usage: <benchmark> [grid size] [niters] [halo size] [num fields] <l3 dims :3> <numa dims :3> <socket dims :3> <node dims :3> <global dims :3> <cart_order>"
     end if
     call mpi_barrier(mpi_comm_world, mpi_err)
     call mpi_finalize(mpi_err)
@@ -168,7 +169,25 @@ PROGRAM test_halo_exchange
 
   if (command_argument_count() > 19) then
     call get_command_argument(20, arg)
-    read(arg,*) cart_order
+    read(arg,*) cart_order_arg
+
+    select case (cart_order_arg)
+    case ("XYZ")
+      cart_order = HWCartOrderXYZ
+    case ("XZY")
+      cart_order = HWCartOrderXZY
+    case ("ZYX")
+      cart_order = HWCartOrderZYX
+    case ("YZX")
+      cart_order = HWCartOrderYZX
+    case ("ZXY")
+      cart_order = HWCartOrderZXY
+    case ("YXZ")
+      cart_order = HWCartOrderYXZ
+    case default
+      print *, "unknown value of argument 'cart_order': ", cart_order
+      call exit
+    end select   
   end if
 
   ! global cartesian rank space dimensions
@@ -203,36 +222,6 @@ PROGRAM test_halo_exchange
     domain(5) = HWCART_MD_NODE
 
     ierr = hwcart_create(hwcart_topo, MPI_COMM_WORLD, domain, topology, cart_order, C_CART)
-
-    if (world_rank == 0) then
-
-      write (*,*)
-      write (*,"(A)",ADVANCE='NO') "Using rank remapping with cartesian communicator order "
-      select case (cart_order)
-      case (CartOrderXYZ)
-        print *, "XYZ"
-
-      case (CartOrderXZY)
-        print *, "XZY"
-
-      case (CartOrderZYX)
-        print *, "ZYX"
-
-      case (CartOrderYZX)
-        print *, "YZX"
-
-      case (CartOrderZXY)
-        print *, "ZXY"
-
-      case (CartOrderYXZ)
-        print *, "YXZ"
-
-      case default
-        print *, "unknown value of argument 'cart_order': ", cart_order
-        call exit
-      end select
-    end if
-
     ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
 
   else
