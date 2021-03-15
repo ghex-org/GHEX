@@ -3,11 +3,16 @@ MODULE ghex_future_mod
 
   ! should be established and defined by cmake, also for request_bind.hpp
 #define GHEX_FUTURE_SIZE 8
+#define GHEX_FUTURE_MULTI_SIZE 24
   implicit none
 
   type, bind(c) :: ghex_future
-     integer(c_int8_t) :: data(GHEX_FUTURE_SIZE) = [0]
+     integer(c_int8_t) :: data(GHEX_FUTURE_SIZE) = 0
   end type ghex_future
+  
+  type, bind(c) :: ghex_future_multi
+     integer(c_int8_t) :: data(GHEX_FUTURE_MULTI_SIZE) = 0
+  end type ghex_future_multi
   
   interface
      
@@ -22,6 +27,12 @@ MODULE ghex_future_mod
        import ghex_future
        type(ghex_future) :: future
      end function ghex_future_ready
+     
+     logical(c_bool) function ghex_future_multi_ready(future) bind(c)
+       use iso_c_binding
+       import ghex_future_multi
+       type(ghex_future_multi) :: future
+     end function ghex_future_multi_ready
      
      integer(c_int) function ghex_future_test_any_wrapped(futures, n_futures) bind(c, name="ghex_future_test_any")
        use iso_c_binding

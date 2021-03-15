@@ -35,7 +35,7 @@ void *ghex_message_new(std::size_t size, int allocator_type)
 }
 
 extern "C"
-void ghex_message_delete(ghex::tl::cb::any_message **wmessage_ref)
+void ghex_message_free(ghex::tl::cb::any_message **wmessage_ref)
 {
     ghex::tl::cb::any_message *wmessage = *wmessage_ref;
 

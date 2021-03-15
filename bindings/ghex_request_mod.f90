@@ -6,7 +6,7 @@ MODULE ghex_request_mod
   implicit none
 
   type, bind(c) :: ghex_request
-     integer(c_int8_t) :: data(GHEX_REQUEST_SIZE) = [0]
+     integer(c_int8_t) :: data(GHEX_REQUEST_SIZE) = 0
   end type ghex_request
   
   interface

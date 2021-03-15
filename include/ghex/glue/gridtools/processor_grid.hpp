@@ -14,7 +14,7 @@
 #include <mpi.h>
 #include <array>
 
-#include "../../structured/domain_descriptor.hpp"
+#include "../../structured/regular/domain_descriptor.hpp"
 #include "../../transport_layer/mpi/communicator.hpp"
 
 #include <numeric>
@@ -26,11 +26,9 @@ namespace gridtools {
         template<typename Context>
         struct gt_grid
         {
-            using domain_descriptor_type = structured::domain_descriptor<int,3>;
+            using domain_descriptor_type = structured::regular::domain_descriptor<int,3>;
             using domain_id_type         = typename domain_descriptor_type::domain_id_type;
             Context& m_context;
-            //MPI_Comm m_setup_comm;
-            //tl::communicator<Transport> m_comm;
             std::vector<domain_descriptor_type> m_domains;
             std::array<int, 3> m_global_extents;
             std::array<bool, 3> m_periodic;
@@ -128,22 +126,8 @@ namespace gridtools {
                 global_first[1] + local_extents[1] -1,
                 global_first[2] + local_extents[2] -1};
 
-            /*const std::array<int, 3> global_extents = {
-                local_extents[0]*dims[Layout::template at<0>()],
-                local_extents[1]*dims[Layout::template at<1>()],
-                local_extents[2]*dims[Layout::template at<2>()]};
-            const std::array<int, 3> global_first = {
-                local_extents[0]*coords[Layout::template at<0>()],
-                local_extents[1]*coords[Layout::template at<1>()],
-                local_extents[2]*coords[Layout::template at<2>()]};
-            const std::array<int, 3> global_last = {
-                local_extents[0]*(coords[Layout::template at<0>()]+1)-1,
-                local_extents[1]*(coords[Layout::template at<1>()]+1)-1,
-                local_extents[2]*(coords[Layout::template at<2>()]+1)-1};*/
+            structured::regular::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
 
-            structured::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
-
-            //return {cart_comm, tl::communicator<tl::mpi_tag>{cart_comm}, {local_domain}, global_extents, periodic}; 
             return {context, {local_domain}, global_extents, periodic}; 
 
         }

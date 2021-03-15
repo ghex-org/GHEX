@@ -3,21 +3,9 @@
 
 #include "obj_wrapper.hpp"
 #include <vector>
+#include <ghex/transport_layer/util/barrier.hpp>
 
 namespace ghex = gridtools::ghex;
-
-#ifdef GHEX_USE_OPENMP
-
-/* OpenMP */
-#include <ghex/threads/omp/primitives.hpp>
-using threading    = ghex::threads::omp::primitives;
-#else
-
-/* no multithreading */
-#include <ghex/threads/none/primitives.hpp>
-using threading    = ghex::threads::none::primitives;
-#endif
-
 
 #ifdef GHEX_USE_UCP
 
@@ -31,10 +19,12 @@ using transport    = ghex::tl::ucx_tag;
 using transport    = ghex::tl::mpi_tag;
 #endif
 
-using context_type      = ghex::tl::context<transport, threading>;
+using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
 using context_uptr_type = std::unique_ptr<context_type>;
 using communicator_type = context_type::communicator_type;
 
 extern context_uptr_type context;
+extern int __GHEX_nthreads;
+extern gridtools::ghex::tl::barrier_t *barrier;
 
 #endif /* GHEX_FORTRAN_CONTEXT_BIND_INCLUDED_HPP */

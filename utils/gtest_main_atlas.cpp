@@ -18,7 +18,7 @@
 
 #include <atlas/library/Library.h>
 
-#include <gridtools/tools/mpi_unit_test_driver/mpi_listener.hpp>
+#include "mpi_listener.hpp"
 
 
 GTEST_API_ int main(int argc, char** argv) {

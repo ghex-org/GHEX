@@ -43,6 +43,13 @@ namespace gridtools {
                     }
                 }
             }
+            
+            template<typename Buffer>
+            static void unpack(Buffer& buffer, unsigned char* data)
+            {
+                for (const auto& fb :  buffer.field_infos)
+                    fb.call_back(data + fb.offset, *fb.index_container, nullptr);
+            }
 
             template<typename BufferMem>
             static void unpack(BufferMem& m)
@@ -60,57 +67,55 @@ namespace gridtools {
         
 #ifdef __CUDACC__
         
-        template<typename T, typename Array, typename Field>
-        struct kernel_args
-        {
-            int   size;
-            T* buffer;
-            Array first;
-            Array strides;
-            Field field;
-        };
-
-        template<typename T, typename Array, typename Field, unsigned int N>
+        template<typename PackIterationSpace, unsigned int N>
         __global__ void pack_kernel_u(
-            cuda::kernel_argument<kernel_args<T,Array,Field>, N> args)
+            cuda::kernel_argument<PackIterationSpace, N> args)
         {
-            using layout_t = typename Field::layout_map;
+            using layout_t = typename PackIterationSpace::layout_map;
+            using value_type = typename PackIterationSpace::value_t;
+            using coordinate_type = typename PackIterationSpace::coordinate_t;
+            static constexpr auto D = coordinate_type::size();
             const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
             const int data_lu_index = blockIdx.y;
 
-            const auto& arg = args[data_lu_index];
-            const int size = arg.size;
+            auto& arg = args[data_lu_index];
+            const int size = arg.m_buffer_desc.m_size;
             if (thread_index < size)
             {
-                Array local_coordinate;
-                structured::detail::compute_coordinate<Array::size()>::template apply<layout_t>(arg.strides,local_coordinate,thread_index);
+                // compute local coordinate
+                coordinate_type local_coordinate;
+                ::gridtools::ghex::structured::detail::compute_coordinate<D>::template apply<layout_t>(
+                    arg.m_data_is.m_local_strides, local_coordinate, thread_index);
                 // add offset
-                const auto memory_coordinate = local_coordinate + arg.first + arg.field.offsets();
-                // multiply with memory strides
-                const auto idx = dot(memory_coordinate, arg.field.byte_strides());
-                arg.buffer[thread_index] = *reinterpret_cast<const T*>((const char*)arg.field.data() + idx);
+                const coordinate_type x = local_coordinate + arg.m_data_is.m_first;
+                // assign
+                arg.buffer(x) = arg.data(x);
             }
         }
 
-        template<typename T, typename Array, typename Field, unsigned int N>
+        template<typename UnPackIterationSpace, unsigned int N>
         __global__ void unpack_kernel_u(
-            cuda::kernel_argument<kernel_args<T,Array,Field>, N> args)
+            cuda::kernel_argument<UnPackIterationSpace, N> args)
         {
-            using layout_t = typename Field::layout_map;
+            using layout_t = typename UnPackIterationSpace::layout_map;
+            using value_type = typename UnPackIterationSpace::value_t;
+            using coordinate_type = typename UnPackIterationSpace::coordinate_t;
+            static constexpr auto D = coordinate_type::size();
             const int thread_index = blockIdx.x*blockDim.x + threadIdx.x;
             const int data_lu_index = blockIdx.y;
 
-            const auto& arg = args[data_lu_index];
-            const int size = arg.size;
+            auto& arg = args[data_lu_index];
+            const int size = arg.m_buffer_desc.m_size;
             if (thread_index < size)
             {
-                Array local_coordinate;
-                structured::detail::compute_coordinate<Array::size()>::template apply<layout_t>(arg.strides,local_coordinate,thread_index);
+                // compute local coordinate
+                coordinate_type local_coordinate;
+                ::gridtools::ghex::structured::detail::compute_coordinate<D>::template apply<layout_t>(
+                    arg.m_data_is.m_local_strides, local_coordinate, thread_index);
                 // add offset
-                const auto memory_coordinate = local_coordinate + arg.first + arg.field.offsets();
-                // multiply with memory strides
-                const auto idx = dot(memory_coordinate, arg.field.byte_strides());
-                *reinterpret_cast<T*>((char*)arg.field.data() + idx) = arg.buffer[thread_index];
+                const coordinate_type x = local_coordinate + arg.m_data_is.m_first;
+                // assign
+                arg.data(x) = arg.buffer(x);
             }
         }
 
@@ -160,26 +165,26 @@ namespace gridtools {
                         send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
                     });
             }
+            
+            template<typename Buffer>
+            static void unpack(Buffer& buffer, unsigned char* data)
+            {
+                auto& stream = buffer.m_cuda_stream;
+                for (const auto& fb :  buffer.field_infos)
+                    fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
+            }
 
             template<typename BufferMem>
             static void unpack(BufferMem& m)
             {
-                std::vector<cudaStream_t*> stream_ptrs;
-                stream_ptrs.reserve(m.m_recv_futures.size());
                 await_futures(
                     m.m_recv_futures,
-                    [&stream_ptrs](typename BufferMem::hook_type hook)
+                    [](typename BufferMem::hook_type hook)
                     {
-                        auto stream_ptr = &hook->m_cuda_stream.get();
                         for (const auto& fb : hook->field_infos)
-                                fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(stream_ptr));
-                        stream_ptrs.push_back(stream_ptr);
+                                fb.call_back(hook->buffer.data() + fb.offset, *fb.index_container, (void*)(&hook->m_cuda_stream.get()));
 
                     });
-                for (auto x : stream_ptrs) 
-                {
-                    cudaStreamSynchronize(*x);
-                }
             }
 
             template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
@@ -190,8 +195,9 @@ namespace gridtools {
                 using index_container_type = typename field_info_type::index_container_type;
                 using dimension            = typename index_container_type::value_type::dimension;
                 using array_t              = array<int, dimension::value>;
+                using arg_t                = typename FieldType::pack_iteration_space;
+                constexpr int block_size   = 128;
 
-                using arg_t = kernel_args<T,array_t,FieldType>;
                 std::vector<arg_t> args;
                 args.reserve(64);
 
@@ -212,7 +218,6 @@ namespace gridtools {
                 std::vector<future_type> stream_futures;
                 stream_futures.reserve(num_streams);
 
-                const int block_size = 128;
                 num_streams = 0;
                 for (auto& p0 : map.send_memory)
                 {
@@ -220,43 +225,37 @@ namespace gridtools {
                     {
                         if (p1.second.size > 0u)
                         {
-                            args.resize(0);
+                            args.clear();
                             int num_blocks_y = 0;
                             int max_size = 0;
                             for (const auto& fb : p1.second.field_infos)
                             {
                                 T* buffer_address = reinterpret_cast<T*>(p1.second.buffer.data()+fb.offset);
+                                auto& f = *reinterpret_cast<FieldType*>(fb.field_ptr);
                                 for (const auto& it_space_pair : *fb.index_container)
                                 {
                                     ++num_blocks_y;
-                                    const int size = it_space_pair.size();
+                                    const int size = it_space_pair.size() * f.num_components();
                                     max_size = std::max(size,max_size);
-                                    array_t first, last;
-                                    std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
-                                    std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
-                                    array_t local_extents, local_strides;
-                                    for (std::size_t i=0; i<dimension::value; ++i)  
-                                        local_extents[i] = 1 + last[i] - first[i];
-                                    structured::detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
-                                    args.push_back( arg_t{size, buffer_address, first, local_strides, *reinterpret_cast<FieldType*>(fb.field_ptr)} );
+                                    args.push_back( f.make_pack_is(it_space_pair, buffer_address, size) );
                                     buffer_address += size;
                                 }
                             }
                             const int num_blocks_x = (max_size+block_size-1)/block_size;
-                            // unroll kernels: can fit at most 36 arguments as pack kernel argument
+                            // unroll kernels: can fit at most 34 arguments as pack kernel argument
                             // invoke new kernels until all data is packed
                             unsigned int count = 0;
                             while (num_blocks_y)
                             {
-                                if (num_blocks_y > 36)
+                                if (num_blocks_y > 34)
                                 {
                                     dim3 dimBlock(block_size, 1);
-                                    dim3 dimGrid(num_blocks_x, 36);
-                                    pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
-                                        cuda::make_kernel_arg<36>(args.data()+count, 36)
+                                    dim3 dimGrid(num_blocks_x, 34);
+                                    pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
+                                        cuda::make_kernel_arg<34>(args.data()+count, 34)
                                     );
-                                    count += 36;
-                                    num_blocks_y -= 36;
+                                    count += 34;
+                                    num_blocks_y -= 34;
                                 }
                                 else 
                                 {
@@ -264,26 +263,26 @@ namespace gridtools {
                                     dim3 dimGrid(num_blocks_x, num_blocks_y);
                                     if (num_blocks_y < 7)
                                     {
-                                        pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
+                                        pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
                                             cuda::make_kernel_arg< 6>(args.data()+count, num_blocks_y)
                                         );
                                     }
                                     else if (num_blocks_y < 13)
                                     {
-                                        pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
+                                        pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
                                             cuda::make_kernel_arg<12>(args.data()+count, num_blocks_y)
                                         );
                                     }
                                     else if (num_blocks_y < 25)
                                     {
-                                        pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
+                                        pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
                                             cuda::make_kernel_arg<24>(args.data()+count, num_blocks_y)
                                         );
                                     }
                                     else
                                     {
-                                        pack_kernel_u<T><<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
-                                            cuda::make_kernel_arg<36>(args.data()+count, num_blocks_y)
+                                        pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
+                                            cuda::make_kernel_arg<34>(args.data()+count, num_blocks_y)
                                         );
                                     }
                                     count += num_blocks_y;
@@ -302,7 +301,7 @@ namespace gridtools {
                         send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
                     });
             }
-
+            
             template<typename T, typename FieldType, typename BufferMem>
             static void unpack_u(BufferMem& m)
             {
@@ -311,8 +310,8 @@ namespace gridtools {
                 using index_container_type = typename field_info_type::index_container_type;
                 using dimension            = typename index_container_type::value_type::dimension;
                 using array_t              = ::gridtools::array<int, dimension::value>;
-                using arg_t = kernel_args<T,array_t,FieldType>;
-                const int block_size = 128;
+                using arg_t                = typename FieldType::unpack_iteration_space;
+                constexpr int block_size   = 128;
 
                 std::vector<arg_t> args;
                 args.reserve(64);
@@ -330,64 +329,58 @@ namespace gridtools {
                         for (const auto& fb : hook->field_infos)
                         {
                             T* buffer_address = reinterpret_cast<T*>(hook->buffer.data()+fb.offset);
+                            auto& f = *reinterpret_cast<FieldType*>(fb.field_ptr);
                             for (const auto& it_space_pair : *fb.index_container)
                             {
                                 ++num_blocks_y;
-                                const int size = it_space_pair.size();
+                                const int size = it_space_pair.size() * f.num_components();
                                 max_size = std::max(size,max_size);
-                                array_t first, last;
-                                std::copy(&it_space_pair.local().first()[0], &it_space_pair.local().first()[dimension::value], first.data());
-                                std::copy(&it_space_pair.local().last()[0],  &it_space_pair.local().last() [dimension::value], last.data());
-                                array_t local_extents, local_strides;
-                                for (std::size_t i=0; i<dimension::value; ++i)  
-                                    local_extents[i] = 1 + last[i] - first[i];
-                                structured::detail::compute_strides<dimension::value>::template apply<typename FieldType::layout_map>(local_extents, local_strides);
-                                args.push_back( arg_t{size, buffer_address, first, local_strides, *reinterpret_cast<FieldType*>(fb.field_ptr)} );
+                                args.push_back(f.make_unpack_is(it_space_pair, buffer_address, size));
                                 buffer_address += size;
                             }
                         }
                         const int num_blocks_x = (max_size+block_size-1)/block_size;
-                        // unroll kernels: can fit at most 36 arguments as unpack kernel argument
+                        // unroll kernels: can fit at most 34 arguments as unpack kernel argument
                         // invoke new kernels until all data is unpacked
                         unsigned int count = 0;
                         while (num_blocks_y)
                         {
-                            if (num_blocks_y > 36)
+                            if (num_blocks_y > 34)
                             {
                                 dim3 dimBlock(block_size, 1);
-                                dim3 dimGrid(num_blocks_x, 36);
-                                unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
-                                    cuda::make_kernel_arg<36>(args.data()+count, 36)
+                                dim3 dimGrid(num_blocks_x, 34);
+                                unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    cuda::make_kernel_arg<34>(args.data()+count, 34)
                                 );
-                                count += 36;
-                                num_blocks_y -= 36;
+                                count += 34;
+                                num_blocks_y -= 34;
                             }
-                            else 
+                            else
                             {
                                 dim3 dimBlock(block_size, 1);
                                 dim3 dimGrid(num_blocks_x, num_blocks_y);
                                 if (num_blocks_y < 7)
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
                                         cuda::make_kernel_arg<6>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 13)
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
                                         cuda::make_kernel_arg<12>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else if (num_blocks_y < 25)
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
                                         cuda::make_kernel_arg<24>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 else
                                 {
-                                    unpack_kernel_u<T><<<dimGrid, dimBlock, 0, *stream_ptr>>>(
-                                        cuda::make_kernel_arg<36>(args.data()+count, num_blocks_y)
+                                    unpack_kernel_u<<<dimGrid, dimBlock, 0, *stream_ptr>>>(
+                                        cuda::make_kernel_arg<34>(args.data()+count, num_blocks_y)
                                     );
                                 }
                                 count += num_blocks_y;
@@ -396,7 +389,7 @@ namespace gridtools {
                         }
                         stream_ptrs.push_back(stream_ptr);
                     });
-                for (auto x : stream_ptrs) 
+                for (auto x : stream_ptrs)
                 {
                     cudaStreamSynchronize(*x);
                 }

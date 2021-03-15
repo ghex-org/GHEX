@@ -9,10 +9,17 @@ MODULE ghex_message_mod
   integer, public, parameter :: ALLOCATOR_GPU             = 5
   integer, public, parameter :: ALLOCATOR_PERSISTENT_GPU  = 6
 
+  ! ---------------------
+  ! --- module types
+  ! ---------------------
   type, bind(c) :: ghex_message
      type(c_ptr) :: ptr = c_null_ptr
   end type ghex_message
 
+
+  ! ---------------------
+  ! --- module C interfaces
+  ! ---------------------
   interface
 
      type(ghex_message) function ghex_message_new(size, allocator) bind(c)
@@ -35,6 +42,19 @@ MODULE ghex_message_mod
        integer(c_size_t), intent(out) :: size
      end function ghex_message_data_wrapped
   end interface
+
+
+  ! ---------------------
+  ! --- generic ghex interfaces
+  ! ---------------------
+  interface ghex_free
+     subroutine ghex_message_free(message) bind(c)
+       use iso_c_binding
+       import ghex_message
+       ! reference, not a value - fortran variable is reset to null 
+       type(ghex_message) :: message
+     end subroutine ghex_message_free
+  end interface ghex_free
 
 CONTAINS
 
