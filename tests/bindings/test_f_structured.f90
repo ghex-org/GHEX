@@ -419,7 +419,7 @@ PROGRAM test_halo_exchange
       end if
 
       ! WARNING: the below cannot be run for bulk communicatio objects
-      if(.true.) then
+      if(.false.) then
         call ghex_co_init(co, comm)
 
         ! initialize data cubes
