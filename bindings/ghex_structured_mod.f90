@@ -15,7 +15,7 @@ MODULE ghex_structured_mod
      integer(c_int) ::  offset(3) = -1         ! by default - values from the halo
      integer(c_int) :: extents(3) = -1         ! by default - size of the local extents + halos
      integer(c_int) ::    halo(6) = -1         ! halo to be used for this field
-     integer(c_int) :: periodic(3) = 0
+     integer(c_int) :: periodic(3) = .false.
      integer(c_int) :: n_components = 1        ! number of field components
      integer(c_int) ::     layout = LayoutFieldLast
   end type ghex_struct_field
@@ -187,7 +187,7 @@ CONTAINS
     real(ghex_fp_kind), dimension(:,:,:), target :: data
     integer :: halo(6)
     integer, optional :: offset(3)
-    integer, optional :: periodic(3)
+    logical, optional :: periodic(3)
 
     field_desc%data = c_loc(data)
     field_desc%halo = halo
@@ -211,7 +211,7 @@ CONTAINS
     real(ghex_fp_kind), dimension(:,:,:,:), target :: data
     integer :: halo(6)
     integer, optional :: offset(3)
-    integer, optional :: periodic(3)
+    logical, optional :: periodic(3)
     integer, optional :: layout
     integer(4) :: extents(4)
 
@@ -250,7 +250,7 @@ CONTAINS
     field_desc%offset(:)    = -1
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
-    field_desc%periodic(:)  = 0
+    field_desc%periodic(:)  = .false.
     field_desc%layout       = LayoutFieldLast
   end subroutine ghex_struct_field_free
 
