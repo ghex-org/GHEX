@@ -342,6 +342,7 @@ PROGRAM test_halo_exchange
       call ghex_free(eh)
       it = it+1;
     end do
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
     call test_exchange(data_ptr, rank_coord)
 
     ! time loop
@@ -353,6 +354,7 @@ PROGRAM test_halo_exchange
       call ghex_free(eh)
       it = it+1
     end do
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
     call cpu_time(toc)
     if (world_rank == 0) then
       print *, "exchange GHEX:      ", (toc-tic)
@@ -401,6 +403,7 @@ PROGRAM test_halo_exchange
         end do
         it = it+1
       end do
+      call ghex_comm_barrier(comm, GhexBarrierGlobal)
       call test_exchange(data_ptr, rank_coord)
 
       it = 0
@@ -413,6 +416,7 @@ PROGRAM test_halo_exchange
         end do
         it = it+1
       end do
+      call ghex_comm_barrier(comm, GhexBarrierGlobal)
       call cpu_time(toc)
       if (world_rank == 0) then
         print *, "exchange sequenced (multiple COs):      ", (toc-tic);
@@ -440,6 +444,7 @@ PROGRAM test_halo_exchange
           end do
           it = it+1
         end do
+        call ghex_comm_barrier(comm, GhexBarrierGlobal)
         call test_exchange(data_ptr, rank_coord)
 
         it = 0
@@ -452,6 +457,7 @@ PROGRAM test_halo_exchange
           end do
           it = it+1
         end do
+        call ghex_comm_barrier(comm, GhexBarrierGlobal)
         call cpu_time(toc)
         if (world_rank == 0) then
           print *, "exchange sequenced (single CO):      ", (toc-tic);
@@ -468,6 +474,7 @@ PROGRAM test_halo_exchange
     end if
 
     ! cleanup GHEX
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
     call ghex_finalize()
 
   end if
@@ -495,6 +502,7 @@ PROGRAM test_halo_exchange
       call exchange_subarray(data_ptr(i)%ptr)
       i = i+1
     end do
+    call mpi_barrier(mpi_comm_world, mpi_err)
     call test_exchange(data_ptr, rank_coord)
 
     ! time loop
@@ -508,6 +516,7 @@ PROGRAM test_halo_exchange
       end do
       it = it+1
     end do
+    call mpi_barrier(mpi_comm_world, mpi_err)
     call cpu_time(toc)
     if (world_rank == 0) then
       print *, "subarray exchange:      ", (toc-tic)
@@ -529,6 +538,7 @@ PROGRAM test_halo_exchange
       call update_sendrecv(data_ptr(i)%ptr)
       i = i+1
     end do
+    call mpi_barrier(mpi_comm_world, mpi_err)
     call test_exchange(data_ptr, rank_coord)
 
     ! time loop
@@ -542,6 +552,7 @@ PROGRAM test_halo_exchange
       end do
       it = it+1
     end do
+    call mpi_barrier(mpi_comm_world, mpi_err)
     call cpu_time(toc)
     if (world_rank == 0) then
       print *, "bifrost exchange 1:      ", (toc-tic)
@@ -563,6 +574,7 @@ PROGRAM test_halo_exchange
       call update_sendrecv_2(data_ptr(i)%ptr)
       i = i+1
     end do
+    call mpi_barrier(mpi_comm_world, mpi_err)
     call test_exchange(data_ptr, rank_coord)
 
     ! time loop
@@ -576,6 +588,7 @@ PROGRAM test_halo_exchange
       end do
       it = it+1
     end do
+    call mpi_barrier(mpi_comm_world, mpi_err)
     call cpu_time(toc)
     if (world_rank == 0) then
       print *, "bifrost exchange 2:      ", (toc-tic)
