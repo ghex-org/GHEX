@@ -231,7 +231,8 @@ PROGRAM test_halo_exchange
     call mpi_cart_create(mpi_comm_world, 3, cart_dim, periodic, .true., C_CART, ierr)
     block
       integer(4) :: domain(2) = 0, topology(3,2) = 1
-      domain(1) = MPI_COMM_TYPE_SHARED
+      domain(1) = HWCART_MD_CORE
+      domain(2) = HWCART_MD_NODE
       topology(:,1) = cart_dim
       ierr = hwcart_print_rank_topology(hwcart_topo, C_CART, domain, topology, cart_order);
     end block

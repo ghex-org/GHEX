@@ -246,8 +246,8 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                         };
                         return _neighbor{nbrank, nbrank};
                     },
-                    std::array<int, 3>{0, 0, 0},
-                    cart_dim,
+                    gfirst,
+                    glast,
                     halo,
                     periodic);
 
