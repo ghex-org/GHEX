@@ -52,6 +52,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     using timer_type = gridtools::ghex::timer;
     using domain_id_t = int;
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
+    using local_index_t = domain_descriptor_t::local_index_type;
     using cpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
 
     const int n_iter = 50;
@@ -161,6 +162,9 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
         }
     }
 
+    // TO DO: compute bandwidth here
+
+    // TO DO: fix error computation here
     // Write timings
     file << "- Atlas CPU benchmark\n"
         << "\tlocal time = " << t_atlas_cpu_local.mean() / 1000.0 << "+/-" << t_atlas_cpu_local.stddev() / 1000.0 << "s\n"
@@ -207,8 +211,6 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
         t_atlas_gpu_global(t_global);
     }
 
-    // HERE
-
     // GHEX halo exchange on GPU
     auto h_gpu = co.exchange(patterns(data_1_gpu)); // first iteration
     h_gpu.wait();
@@ -237,6 +239,11 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
             EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_gpu_data(node, level));
         }
     }
+
+    local_index_t n_halo_vertices_local{local_domains.front().size() - local_domains.front().inner_size()}, n_halo_vertices_global;
+    MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT, MPI_SUM, context.mpi_comm()); // MPI type set according to atlas::idx_t; TO DO: generalize
+    file << "total exchanged size in GB: "
+         << static_cast<double>(n_halo_vertices_global * nb_levels * sizeof(gpu_data_descriptor_t::value_type) * 2) / (1024.0 * 1024.0 * 1024.0) << "\n\n"; // TO DO: define value_type
 
     // Write timings
     file << "- Atlas GPU benchmark\n"
