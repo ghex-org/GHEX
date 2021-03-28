@@ -247,12 +247,16 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     // Write timings
     file << "- Atlas GPU benchmark\n"
-        << "\tlocal time = " << t_atlas_gpu_local.mean() / 1000.0 << "+/-" << t_atlas_gpu_local.stddev() / 1000.0 << "s\n"
-        << "\tglobal time = " << t_atlas_gpu_global.mean() / 1000.0 << "+/-" << t_atlas_gpu_global.stddev() / 1000.0 << "s\n";
+        << "\tlocal time = " << t_atlas_gpu_local.mean() / 1000.0
+        << "+/-" << t_atlas_gpu_local.stddev() / (std::sqrt(t_atlas_gpu_local.num_samples()) * 1000.0) << "s\n"
+        << "\tglobal time = " << t_atlas_gpu_global.mean() / 1000.0
+        << "+/-" << t_atlas_gpu_global.stddev() / (std::sqrt(t_atlas_gpu_global.num_samples()) * 1000.0) << "s\n";
 
     file << "- GHEX GPU benchmark\n"
-        << "\tlocal time = " << t_ghex_gpu_local.mean() / 1000.0 << "+/-" << t_ghex_gpu_local.stddev() / 1000.0 << "s\n"
-        << "\tglobal time = " << t_ghex_gpu_global.mean() / 1000.0 << "+/-" << t_ghex_gpu_global.stddev() / 1000.0 << "s\n";
+        << "\tlocal time = " << t_ghex_gpu_local.mean() / 1000.0
+        << "+/-" << t_ghex_gpu_local.stddev() / (std::sqrt(t_ghex_gpu_local.num_samples()) * 1000.0) << "s\n"
+        << "\tglobal time = " << t_ghex_gpu_global.mean() / 1000.0
+        << "+/-" << t_ghex_gpu_global.stddev() / (std::sqrt(t_ghex_gpu_global.num_samples()) * 1000.0) << "s\n";
 #endif
 
 }
