@@ -1,12 +1,12 @@
-/* 
+/*
  * GridTools
- * 
+ *
  * Copyright (c) 2014-2020, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
+ *
  */
 #ifndef INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
 #define INCLUDED_GHEX_UNSTRUCTURED_PATTERN_HPP
@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iosfwd>
 
+#include "../transport_layer/mpi/setup.hpp"
 #include "../transport_layer/context.hpp"
 #include "../allocator/unified_memory_allocator.hpp"
 #include "../pattern.hpp"
@@ -188,12 +189,12 @@ namespace gridtools {
                  *   which becomes receive indices on the receive side (2 all to all communications in total,
                  *   one for the send / recv elements counters and one for the send / recv indices);
                  * - reconstruct recv halos on the receive side and set up receive halos in pattern.*/
-                template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename DomainRange>
-                static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
+                template<typename Transport, typename HaloGenerator, typename DomainRange>
+                static auto apply(tl::context<Transport>& context, HaloGenerator&& hgen, DomainRange&& d_range) {
 
                     // typedefs
                     using grid_type = unstructured::detail::grid<Index>;
-                    using context_type = tl::context<Transport, ThreadPrimitives>;
+                    using context_type = tl::context<Transport>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
                     using communicator_type = typename context_type::communicator_type;
                     using domain_id_type = typename domain_type::domain_id_type;
@@ -207,7 +208,7 @@ namespace gridtools {
                     using vertices_map_type = std::map<global_index_type, index_type>;
 
                     // get setup comm and new comm, and then this rank, this address and size from new comm
-                    auto comm = context.get_setup_communicator();
+                    auto comm = tl::mpi::setup_communicator(context.mpi_comm());
                     auto new_comm = context.get_serial_communicator();
                     auto my_rank = new_comm.rank();
                     auto my_address = new_comm.address();
@@ -449,12 +450,12 @@ namespace gridtools {
                  *   which becomes send indices on the send side (2 all to all communications in total,
                  *   one for the recv / send elements counters and one for the recv / send indices);
                  * - reconstruct send halos on the send side and set up send halos in pattern.*/
-                template<typename Transport, typename ThreadPrimitives, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
-                static auto apply(tl::context<Transport, ThreadPrimitives>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range) {
+                template<typename Transport, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
+                static auto apply(tl::context<Transport>& context, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range) {
 
                     // typedefs
                     using grid_type = unstructured::detail::grid<Index>;
-                    using context_type = tl::context<Transport, ThreadPrimitives>;
+                    using context_type = tl::context<Transport>;
                     using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
                     using communicator_type = typename context_type::communicator_type;
                     using domain_id_type = typename domain_type::domain_id_type;
@@ -469,7 +470,7 @@ namespace gridtools {
                     using all_recv_indices_type = std::vector<std::map<domain_id_type, std::vector<index_type>>>;
 
                     // get setup comm and new comm, and then this rank, this address and size from new comm
-                    auto comm = context.get_setup_communicator();
+                    auto comm = tl::mpi::setup_communicator(context.mpi_comm());
                     auto new_comm = context.get_serial_communicator();
                     auto my_rank = new_comm.rank();
                     auto my_address = new_comm.address();

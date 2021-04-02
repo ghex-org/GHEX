@@ -12,6 +12,7 @@
 #define INCLUDED_GHEX_STRUCTURED_CUBED_SPHERE_TRANSFORM_HPP
 
 #include <array>
+#include <gridtools/common/host_device.hpp>
 
 namespace gridtools {
     namespace ghex {
@@ -54,6 +55,7 @@ namespace gridtools {
                       * @param y y coordinate
                       * @param c number of cells along the cube edges
                       * @return transformed coordinate array */
+                    GT_FUNCTION
                     constexpr std::array<int,2> operator()(int x, int y, int c) const noexcept {
                         return { m_rotation[0]*x + m_rotation[1]*y + m_translation[0]*c + m_offset[0],
                                  m_rotation[2]*x + m_rotation[3]*y + m_translation[1]*c + m_offset[1]};
