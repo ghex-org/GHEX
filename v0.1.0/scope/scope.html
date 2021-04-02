@@ -172,7 +172,7 @@
   <div class="section" id="scope-and-objectives-of-ghex">
 <span id="scope"></span><h1>Scope and objectives of GHEX<a class="headerlink" href="#scope-and-objectives-of-ghex" title="Permalink to this headline">¶</a></h1>
 <p><cite>GHEX</cite> is a C++ library to perform halo-update operations in mesh/grid applications in modern HPC
-architecures. Domain decomposition refers to the technique that applications use to distribute the
+architectures. Domain decomposition refers to the technique that applications use to distribute the
 work across different processes when numerically solving differential equations. For instance, see
 the next figure for a schematic depiction of this idea.</p>
 <div class="align-center figure" id="id1">
@@ -230,9 +230,9 @@ exchange. In particular, the following features are available:</p>
 <blockquote>
 <div><ul class="simple">
 <li><p>off-node access: use of a buffered communication for remote neighbors and reduction of the
-amount of messages by coallescing data with the same destination into larger chunks</p></li>
+amount of messages by coalescing data with the same destination into larger chunks</p></li>
 <li><p>in-node access: taking advantage of direct memory access within a shared memory region when
-run with multiple threads (native) or when run with multiple processes (through <em>xpmem</em>)</p></li>
+run with multiple threads (native) or when run with multiple processes (through <em>XPMEM</em>)</p></li>
 <li><p>latency hiding: computation - communication overlap is possible through an explicit
 future-like API</p></li>
 <li><p>cache friendliness: structured grids are traversed in a cache-friendly way to avoid cache
@@ -243,17 +243,17 @@ serialization on one side of the communication can be avoided</p></li>
 <li><p>heterogeneity of data: different types of data (with different neighbor regions) may be
 exchanged in one go</p></li>
 <li><p>GPU accelerators: carefully tuned serialization kernels which exploit the bandwidth and
-asynchronicity of execution</p></li>
+asynchronous execution</p></li>
 </ul>
 </div></blockquote>
 </div>
 <div class="section" id="type-of-interfaces">
 <h2>Type of interfaces<a class="headerlink" href="#type-of-interfaces" title="Permalink to this headline">¶</a></h2>
-<p><cite>GHEX</cite> has a layered strctured. The user can enter at different layers, depending on their needs.
+<p><cite>GHEX</cite> has a layered structured. The user can enter at different layers, depending on their needs.
 The highest level is the <code class="docutils literal notranslate"><span class="pre">halo</span> <span class="pre">exchange</span></code> level, where the user instructs <cite>GHEX</cite> to take a mesh or
 grid representation and produce a <code class="docutils literal notranslate"><span class="pre">communication</span> <span class="pre">pattern</span></code> to then perform the halo update
 operations.</p>
-<p>In order to enable all the previously mentioned features, like oversusubscription, alternate
+<p>In order to enable all the previously mentioned features, like oversubscription, alternate
 transport layers and hybrid computations, the steps to create a pattern and use it to communicate
 can seem overly complicated. While we are working on shortening the number of steps to take for
 simple cases, more complex cases seem to require these complications, and hence they cannot be
@@ -268,8 +268,8 @@ node, that can be identified with a process (or an MPI rank, for instance) needs
 information about how it is connected to other processes.</p></li>
 <li><p><strong>Communicator</strong>: Represents an end-point of a communication, and is obtained from the
 context (this are hidden when using the halo-exchange facilities, this is why the description
-is placed ath the end of the chapter).</p></li>
-<li><p><strong>Communication Pattern</strong>: Provides application-specific neighbor conntectivity information
+is placed at the end of the chapter).</p></li>
+<li><p><strong>Communication Pattern</strong>: Provides application-specific neighbor connectivity information
 (encodes exposed halos for sending and receiving, for instance)</p></li>
 <li><p><strong>Communication Object</strong>: Is responsible for executing communications by tying together
 <em>Communication Pattern</em>, <em>Communicator</em>, and user-data.</p></li>
@@ -278,13 +278,14 @@ is placed ath the end of the chapter).</p></li>
 <p>The following figure depicts the different components and their interactions:</p>
 <div class="align-center figure" id="id6">
 <a class="reference internal image-reference" href="../_images/GHEXSWARCH.png"><img alt="This should not be visible" src="../_images/GHEXSWARCH.png" style="width: 300px;" /></a>
-<p class="caption"><span class="caption-number">Fig. 6 </span><span class="caption-text">Traditional distributed memory data distribution: one process (MPI rank) is responsible for one
-sub-domain of the decomposed domain.</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+<p class="caption"><span class="caption-number">Fig. 6 </span><span class="caption-text"><cite>GHEX</cite> Software architecture. On the right the main libraru components to set up the halo update
+operations, on the bottom the main components to perform the exchanges, on the right the user
+input required by GHEX.</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
 </div>
 <p>Domains, halo-generators, and data descriptors are provided by the users, while the light-blue boxes
 are provided by the GHEX library. Some user provided components are also provided by GHEX if
 their implementation is found on common infrastructures, for instance, in Cartesian grids, or
-parmeteis partitioned graphs, or the Atlas library for meshing and domain decomposition by ECMWF.</p>
+ParMeTis partitioned graphs, or the Atlas library for meshing and domain decomposition by ECMWF.</p>
 <p>All these components live in <strong>contexts</strong>, that are the only platform specific interfaces of GHEX.
 This allows for the GHEX codes to be portable across architectures in the sense that the sections
 of the code impacted by the different characteristics of the architectures are confined in limited
@@ -301,19 +302,19 @@ since different transport layers require different information in the setup phas
 that MPI is already initialized at the time of initialization. An MPI communicator is passed to it as
 first argument, while subsequent arguments may be required for non-MPI transport layers, such as UCX
 and Libfabric.</p>
-<p><cite>GHEX</cite> assumes the availabilty of an MPI library implementation on the platform.
+<p><cite>GHEX</cite> assumes the availability of an MPI library implementation on the platform.
 While this is not strictly needed conceptually, the vast majority of HPC applications rely on MPI
 (for instance by using PGAS languages or runtime-systems such as HPX) and, thus, we can take
-advantage of the infrastructre provided through MPI for our implementation. This simplifies creation
+advantage of the infrastructure provided through MPI for our implementation. This simplifies creation
 of contexts and collection of information about which processes participate in the computation.
 Therefore, the context requires an MPI Communicator as runtime argument, in addition to other
 possible transport specific arguments.  The passed MPI Communicator will be cloned by the context.
 For this reason the context should be destroyed before the call to <code class="docutils literal notranslate"><span class="pre">MPI_Finalize</span></code>.</p>
-<p>Contexts are constructed for a specific <em>transport layer</em>. The available tranport layers are: MPI,
+<p>Contexts are constructed for a specific <em>transport layer</em>. The available transport layers are: MPI,
 UCX, and Libfabric. The transport layer is represented by a <em>tag</em> passed as template argument to the
 context type.</p>
-<p>In order to guarantee uniform initilization of the contexts, which are highly platform dependent,
-the user should not call the constructor of the context direcly, but instead the use should use a
+<p>In order to guarantee uniform initialization of the contexts, which are highly platform dependent,
+the user should not call the constructor of the context directly, but instead the use should use a
 factory, which returns a <code class="docutils literal notranslate"><span class="pre">std::unique_ptr</span></code> to context object instantiated with the proper
 transport layer. The syntax looks like this:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#ifdef USE_UCX</span>
@@ -331,7 +332,7 @@ use of macros, and a recompilation.</p>
 <code class="docutils literal notranslate"><span class="pre">context&lt;TransportTag&gt;::rank()</span></code>, which is the unique ID of the process in the parallel execution,
 and ranges from 0 to <code class="docutils literal notranslate"><span class="pre">context&lt;TransportTag&gt;::size()</span> <span class="pre">-</span> <span class="pre">1</span></code>.</p>
 <p>A context object is instantiated by the processes, but different processes in a computation should
-instantiate contexts in the same order. The contexts instatiated, one per process, form a kind of
+instantiate contexts in the same order. The contexts instantiated, one per process, form a kind of
 <em>distributed context</em>, since they are <em>connected</em> to one another. Suppose we have the following
 code, executed by a certain number <cite>P</cite> of processes:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span> <span class="n">context_ptrA</span> <span class="o">=</span> <span class="n">gridtools</span><span class="o">::</span><span class="n">ghex</span><span class="o">::</span><span class="n">tl</span><span class="o">::</span><span class="n">context_factory</span><span class="o">&lt;</span><span class="n">transport</span><span class="o">&gt;::</span><span class="n">create</span><span class="p">(</span><span class="n">MPI_COMM_WORLD</span><span class="p">);</span>
@@ -339,8 +340,8 @@ code, executed by a certain number <cite>P</cite> of processes:</p>
 </pre></div>
 </div>
 <p>The instances of <code class="docutils literal notranslate"><span class="pre">context_ptrA</span></code> in the <cite>P</cite> processes form a distributed context, those instances
-are connected to one another. The communicators (see below) obtained from it can communcate to one
-another directly. The same for the communicators obtianed from <code class="docutils literal notranslate"><span class="pre">context_ptrB</span></code>. Communicators from
+are connected to one another. The communicators (see below) obtained from it can communicate to one
+another directly. The same for the communicators obtained from <code class="docutils literal notranslate"><span class="pre">context_ptrB</span></code>. Communicators from
 <code class="docutils literal notranslate"><span class="pre">context_ptrA</span></code> cannot communicate directly to communicators from <code class="docutils literal notranslate"><span class="pre">context_ptrB</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -365,7 +366,7 @@ facilitate the interfacing in the most common cases and showcase the approach.</
 <p>The <em>communication pattern</em> itself encodes the neighbor information with respect to a
 domain decomposition and halo shapes.
 The way <cite>GHEX</cite> digests user input is through adaptor classes. Since structured and unstructured
-grids are rather different, we have decieded to specialize all concepts and classes for either case. Let us
+grids are rather different, we have decided to specialize all concepts and classes for either case. Let us
 first look at the structured grids.</p>
 <p>For a given application, the following concepts need to be implemented:</p>
 <ul class="simple">
@@ -476,10 +477,10 @@ the duration needed by the computation. <code class="docutils literal notranslat
 communicator instance needed.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If an application is only concerned with avaialble high-level halo-exchange facilities
+<p>If an application is only concerned with available high-level halo-exchange facilities
 (implemented in the <em>patterns</em> and <em>communication objects</em>, see below), a communicator is never
 directly used by the application.  The API of the communicator explained below may however be
-used to implement more complex scenarios where the applcation does not follow the typical bulk
+used to implement more complex scenarios where the application does not follow the typical bulk
 halo exchange strategy.</p>
 </div>
 <p>Once a communicator is obtained, it can be used to send messages to, and receive from, other
@@ -487,7 +488,7 @@ communicators obtained from the same distributed context, as explained in the pr
 <p>Communicators can communicate with one-another by sending messages with tags. There are two types of
 message exchanges: <cite>future based</cite> and <cite>call-back based</cite>. The destination of a message is a <code class="docutils literal notranslate"><span class="pre">rank</span></code>,
 that identifies a process/context, and a <code class="docutils literal notranslate"><span class="pre">tag</span></code> is used to match a receive on that rank.</p>
-<p>Communicators do not direcly communicate to one-another, they rather send a message to a <em>context</em>
+<p>Communicators do not directly communicate to one-another, they rather send a message to a <em>context</em>
 and by using tag-matching the messages are delivered to the proper communicator requesting a particular tag. Communicators are
 mostly needed to increase concurrency, since different channels can be multiplexed or demultiplexed,
 depending on the characteristics of the transport layer.</p>
@@ -521,12 +522,12 @@ the future.</p>
 <p>The first function sends a message to a given rank with a given tag. The message can be any class
 with <code class="docutils literal notranslate"><span class="pre">.data()</span></code> member function returning a pointer to a region of <em>contiguous</em> memory of
 <code class="docutils literal notranslate"><span class="pre">.size()</span></code> elements. Additionally, the message type has to expose a typedef <code class="docutils literal notranslate"><span class="pre">value_type</span></code>
-identifiying the type of element that is sent. The function returns a future-like value that can be
+identifying the type of element that is sent. The function returns a future-like value that can be
 checked using <code class="docutils literal notranslate"><span class="pre">.wait()</span></code> to check that the message has been sent (the future does not guarantee the
 message has been delivered). This variant <strong>does not take ownership of the message</strong> (but refers to
 the address of the memory only) and the user is responsible to keep the message alive until the
 communication has finished.</p>
-<p>Similarly, the second function reveives into a message, with the same requirements as before, and
+<p>Similarly, the second function receives into a message, with the same requirements as before, and
 returns a future that, when <code class="docutils literal notranslate"><span class="pre">.wait()</span></code> returns guarantee the message has been received.</p>
 <p>The third function conveniently allows to send the same message to multiple neighbors, and returns a
 vector of futures to wait on.</p>
@@ -577,7 +578,7 @@ re-allocate memory during move construction and the memory address of the data m
 constant during the communication.</p>
 </div>
 <p>The send/recv functions accepting call-backs, also return request values that can be used to check
-if an operation succeded. However, these requests may not be used like futures: they cannot be
+if an operation succeeded. However, these requests may not be used like futures: they cannot be
 waited upon. Instead, to progress the communication and ensure the completion, the communicator has
 to be progressed explicitly:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">progress_status</span> <span class="nf">progress</span><span class="p">();</span>
@@ -593,7 +594,7 @@ queried for the number of progressed send and receive callbacks.</p>
 <span class="n">request_cb</span> <span class="n">recv</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">Message</span><span class="o">&gt;</span> <span class="n">shared_msg_ptr</span><span class="p">,</span> <span class="n">rank_type</span> <span class="n">src</span><span class="p">,</span> <span class="n">tag_type</span> <span class="n">tag</span><span class="p">,</span> <span class="n">CallBack</span><span class="o">&amp;&amp;</span> <span class="n">callback</span><span class="p">);</span>
 </pre></div>
 </div>
-<p>Here, the owenership is obviously shared between the user and <cite>GHEX</cite>.</p>
+<p>Here, the ownership is obviously shared between the user and <cite>GHEX</cite>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><strong>Thread safety:</strong> A communicator is thread-compatible, i.e. it is created per thread. One must
