@@ -41,6 +41,9 @@ CMakeFiles
 .vscode
 build
 bin
-lib
-_build
+lib/
 pyvenv.cfg
+doc_src/__pycache__
+doc_src/_build/
+__pycache__
+_build
