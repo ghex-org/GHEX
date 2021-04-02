@@ -7,7 +7,7 @@ Scope and objectives of GHEX
 ============================
 
 |GHEX| is a C++ library to perform halo-update operations in mesh/grid applications in modern HPC
-architecures. Domain decomposition refers to the technique that applications use to distribute the
+architectures. Domain decomposition refers to the technique that applications use to distribute the
 work across different processes when numerically solving differential equations. For instance, see
 the next figure for a schematic depiction of this idea.
 
@@ -90,10 +90,10 @@ Features
 exchange. In particular, the following features are available:
 
     - off-node access: use of a buffered communication for remote neighbors and reduction of the
-      amount of messages by coallescing data with the same destination into larger chunks
+      amount of messages by coalescing data with the same destination into larger chunks
 
     - in-node access: taking advantage of direct memory access within a shared memory region when
-      run with multiple threads (native) or when run with multiple processes (through *xpmem*)
+      run with multiple threads (native) or when run with multiple processes (through *XPMEM*)
 
     - latency hiding: computation - communication overlap is possible through an explicit
       future-like API
@@ -109,19 +109,19 @@ exchange. In particular, the following features are available:
       exchanged in one go
 
     - GPU accelerators: carefully tuned serialization kernels which exploit the bandwidth and
-      asynchronicity of execution
+      asynchronous execution
 
 
 --------------------------
 Type of interfaces
 --------------------------
 
-|GHEX| has a layered strctured. The user can enter at different layers, depending on their needs.
+|GHEX| has a layered structured. The user can enter at different layers, depending on their needs.
 The highest level is the ``halo exchange`` level, where the user instructs |GHEX| to take a mesh or
 grid representation and produce a ``communication pattern`` to then perform the halo update
 operations.
 
-In order to enable all the previously mentioned features, like oversusubscription, alternate
+In order to enable all the previously mentioned features, like oversubscription, alternate
 transport layers and hybrid computations, the steps to create a pattern and use it to communicate
 can seem overly complicated. While we are working on shortening the number of steps to take for
 simple cases, more complex cases seem to require these complications, and hence they cannot be
@@ -137,9 +137,9 @@ The main concepts needed by |GHEX| are:
 
     - **Communicator**: Represents an end-point of a communication, and is obtained from the
       context (this are hidden when using the halo-exchange facilities, this is why the description
-      is placed ath the end of the chapter).
+      is placed at the end of the chapter).
 
-    - **Communication Pattern**: Provides application-specific neighbor conntectivity information
+    - **Communication Pattern**: Provides application-specific neighbor connectivity information
       (encodes exposed halos for sending and receiving, for instance)
 
     - **Communication Object**: Is responsible for executing communications by tying together
@@ -153,13 +153,14 @@ The following figure depicts the different components and their interactions:
     :alt: This should not be visible
     :figclass: align-center
 
-    Traditional distributed memory data distribution: one process (MPI rank) is responsible for one
-    sub-domain of the decomposed domain.
+    |GHEX| Software architecture. On the right the main libraru components to set up the halo update 
+    operations, on the bottom the main components to perform the exchanges, on the right the user
+    input required by GHEX.
 
 Domains, halo-generators, and data descriptors are provided by the users, while the light-blue boxes
 are provided by the GHEX library. Some user provided components are also provided by GHEX if
 their implementation is found on common infrastructures, for instance, in Cartesian grids, or
-parmeteis partitioned graphs, or the Atlas library for meshing and domain decomposition by ECMWF.
+ParMeTis partitioned graphs, or the Atlas library for meshing and domain decomposition by ECMWF.
 
 All these components live in **contexts**, that are the only platform specific interfaces of GHEX.
 This allows for the GHEX codes to be portable across architectures in the sense that the sections
@@ -181,21 +182,21 @@ that MPI is already initialized at the time of initialization. An MPI communicat
 first argument, while subsequent arguments may be required for non-MPI transport layers, such as UCX
 and Libfabric.
 
-|GHEX| assumes the availabilty of an MPI library implementation on the platform.
+|GHEX| assumes the availability of an MPI library implementation on the platform.
 While this is not strictly needed conceptually, the vast majority of HPC applications rely on MPI
 (for instance by using PGAS languages or runtime-systems such as HPX) and, thus, we can take
-advantage of the infrastructre provided through MPI for our implementation. This simplifies creation
+advantage of the infrastructure provided through MPI for our implementation. This simplifies creation
 of contexts and collection of information about which processes participate in the computation.
 Therefore, the context requires an MPI Communicator as runtime argument, in addition to other
 possible transport specific arguments.  The passed MPI Communicator will be cloned by the context.
 For this reason the context should be destroyed before the call to ``MPI_Finalize``.
 
-Contexts are constructed for a specific *transport layer*. The available tranport layers are: MPI,
+Contexts are constructed for a specific *transport layer*. The available transport layers are: MPI,
 UCX, and Libfabric. The transport layer is represented by a *tag* passed as template argument to the
 context type.
 
-In order to guarantee uniform initilization of the contexts, which are highly platform dependent,
-the user should not call the constructor of the context direcly, but instead the use should use a
+In order to guarantee uniform initialization of the contexts, which are highly platform dependent,
+the user should not call the constructor of the context directly, but instead the use should use a
 factory, which returns a ``std::unique_ptr`` to context object instantiated with the proper
 transport layer. The syntax looks like this:
 
@@ -217,7 +218,7 @@ From the context, additional information can be obtained, such as the
 and ranges from 0 to ``context<TransportTag>::size() - 1``.
 
 A context object is instantiated by the processes, but different processes in a computation should
-instantiate contexts in the same order. The contexts instatiated, one per process, form a kind of
+instantiate contexts in the same order. The contexts instantiated, one per process, form a kind of
 *distributed context*, since they are *connected* to one another. Suppose we have the following
 code, executed by a certain number `P` of processes:
 
@@ -227,8 +228,8 @@ code, executed by a certain number `P` of processes:
     auto context_ptrB = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
 
 The instances of ``context_ptrA`` in the `P` processes form a distributed context, those instances
-are connected to one another. The communicators (see below) obtained from it can communcate to one
-another directly. The same for the communicators obtianed from ``context_ptrB``. Communicators from
+are connected to one another. The communicators (see below) obtained from it can communicate to one
+another directly. The same for the communicators obtained from ``context_ptrB``. Communicators from
 ``context_ptrA`` cannot communicate directly to communicators from ``context_ptrB``.
 
 .. note::
@@ -256,7 +257,7 @@ facilitate the interfacing in the most common cases and showcase the approach.
 The *communication pattern* itself encodes the neighbor information with respect to a
 domain decomposition and halo shapes.
 The way |GHEX| digests user input is through adaptor classes. Since structured and unstructured
-grids are rather different, we have decieded to specialize all concepts and classes for either case. Let us
+grids are rather different, we have decided to specialize all concepts and classes for either case. Let us
 first look at the structured grids.
 
 For a given application, the following concepts need to be implemented:
@@ -382,10 +383,10 @@ communicator instance needed.
 
 .. note::
 
-   If an application is only concerned with avaialble high-level halo-exchange facilities
+   If an application is only concerned with available high-level halo-exchange facilities
    (implemented in the *patterns* and *communication objects*, see below), a communicator is never
    directly used by the application.  The API of the communicator explained below may however be
-   used to implement more complex scenarios where the applcation does not follow the typical bulk
+   used to implement more complex scenarios where the application does not follow the typical bulk
    halo exchange strategy.
 
 Once a communicator is obtained, it can be used to send messages to, and receive from, other
@@ -395,7 +396,7 @@ Communicators can communicate with one-another by sending messages with tags. Th
 message exchanges: `future based` and `call-back based`. The destination of a message is a ``rank``,
 that identifies a process/context, and a ``tag`` is used to match a receive on that rank.
 
-Communicators do not direcly communicate to one-another, they rather send a message to a *context*
+Communicators do not directly communicate to one-another, they rather send a message to a *context*
 and by using tag-matching the messages are delivered to the proper communicator requesting a particular tag. Communicators are
 mostly needed to increase concurrency, since different channels can be multiplexed or demultiplexed,
 depending on the characteristics of the transport layer.
@@ -433,13 +434,13 @@ Let's take a look at the main interfaces to exchange messages using communicator
 The first function sends a message to a given rank with a given tag. The message can be any class
 with ``.data()`` member function returning a pointer to a region of *contiguous* memory of
 ``.size()`` elements. Additionally, the message type has to expose a typedef ``value_type``
-identifiying the type of element that is sent. The function returns a future-like value that can be
+identifying the type of element that is sent. The function returns a future-like value that can be
 checked using ``.wait()`` to check that the message has been sent (the future does not guarantee the
 message has been delivered). This variant **does not take ownership of the message** (but refers to
 the address of the memory only) and the user is responsible to keep the message alive until the
 communication has finished.
 
-Similarly, the second function reveives into a message, with the same requirements as before, and
+Similarly, the second function receives into a message, with the same requirements as before, and
 returns a future that, when ``.wait()`` returns guarantee the message has been received.
 
 The third function conveniently allows to send the same message to multiple neighbors, and returns a
@@ -497,7 +498,7 @@ message passed to |GHEX| originally, reinterpreted as raw memory.
    constant during the communication.
 
 The send/recv functions accepting call-backs, also return request values that can be used to check
-if an operation succeded. However, these requests may not be used like futures: they cannot be
+if an operation succeeded. However, these requests may not be used like futures: they cannot be
 waited upon. Instead, to progress the communication and ensure the completion, the communicator has
 to be progressed explicitly:
 
@@ -518,7 +519,7 @@ A third API is provided for messages wrapped in a ``shared_ptr``:
     template<typename Message, typename CallBack>
     request_cb recv(std::shared_ptr<Message> shared_msg_ptr, rank_type src, tag_type tag, CallBack&& callback);
 
-Here, the owenership is obviously shared between the user and |GHEX|.
+Here, the ownership is obviously shared between the user and |GHEX|.
 
 
 .. note::
