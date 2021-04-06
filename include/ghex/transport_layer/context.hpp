@@ -51,8 +51,17 @@ namespace gridtools {
 
                 friend class context_factory<tag>;
 
+                struct mpi_comm_holder
+                {
+                    MPI_Comm m;
+                    mpi_comm_holder(MPI_Comm comm) noexcept : m{comm} {}
+                    mpi_comm_holder(mpi_comm_holder const &) = delete;
+                    mpi_comm_holder(mpi_comm_holder &&) = delete;
+                    ~mpi_comm_holder() { MPI_Comm_free(&m); }
+                };
+
             private: // members
-                MPI_Comm m_mpi_comm;
+                mpi_comm_holder m_mpi_comm;
                 mpi::rank_topology m_rank_topology;
                 transport_context_type m_transport_context;
                 int m_rank;
@@ -72,14 +81,8 @@ namespace gridtools {
                 context(const context&) = delete;
                 context(context&&) = delete;
 
-                ~context()
-                {
-                    MPI_Comm_free(&m_mpi_comm);
-                }
-
-
             public: // member functions
-                MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
+                MPI_Comm mpi_comm() const noexcept { return m_mpi_comm.m; }
                 int rank() const noexcept { return m_rank; }
                 int size() const noexcept { return m_size; }
 
