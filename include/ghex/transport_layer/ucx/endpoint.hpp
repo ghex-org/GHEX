@@ -20,6 +20,8 @@ namespace gridtools {
         namespace tl {
             namespace ucx {
 
+#define GHEX_ANY_SOURCE (int)-1
+		
                 struct endpoint_t
                 {
                     using rank_type = int;

@@ -18,6 +18,28 @@ namespace gridtools{
         namespace tl {
             namespace ucx {
 
+                template<typename RandomAccessIterator>
+                static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
+                    const auto count = last-first;
+                    if (count == 0) return last;
+                    for (auto it = first; it!=last; ++it)
+                        if (it->test())
+                            return it;
+                    return last;
+                }
+
+                template<typename RandomAccessIterator, typename Func>
+                static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last,
+                    Func&& get)
+                {
+                    const auto count = last-first;
+                    if (count == 0) return last;
+                    for (auto it = first; it!=last; ++it)
+                        if (get(*it).test())
+                            return it;
+                    return last;
+                }
+
                 /** @brief future template for non-blocking communication */
                 template<typename T>
                 struct future_t
@@ -64,6 +86,17 @@ namespace gridtools{
                     {
                         return m_handle.cancel();
                     }
+
+                    template<typename RandomAccessIterator>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
+                        return ::gridtools::ghex::tl::ucx::test_any(first,last);
+                    }
+
+                    template<typename RandomAccessIterator, typename Func>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last,
+                        Func&& get) {
+                        return ::gridtools::ghex::tl::ucx::test_any(first,last,std::forward<Func>(get));
+                    }
                 };
 
                 template<>
@@ -105,6 +138,17 @@ namespace gridtools{
                     bool cancel()
                     {
                         return m_handle.cancel();
+                    }
+
+                    template<typename RandomAccessIterator>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
+                        return ::gridtools::ghex::tl::ucx::test_any(first,last);
+                    }
+
+                    template<typename RandomAccessIterator, typename Func>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last,
+                        Func&& get) {
+                        return ::gridtools::ghex::tl::ucx::test_any(first,last,std::forward<Func>(get));
                     }
                 };
 
