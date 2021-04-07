@@ -138,7 +138,7 @@ PROGRAM test_halo_exchange
 
   ! initialize the domain and field datastructures
   call ghex_domain_init(domain_desc, rank, first, last, gfirst, glast)
-  call ghex_field_init(field_desc, data_ptr%ptr, halo, periodic=[1,1,1], layout=LayoutFieldLast)
+  call ghex_field_init(field_desc, data_ptr%ptr, halo, periodic=[.true.,.true.,.true.], layout=LayoutFieldLast)
   call ghex_domain_add_field(domain_desc, field_desc)
   call ghex_free(field_desc)
 

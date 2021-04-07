@@ -1,6 +1,8 @@
 PROGRAM fhex_bench
   use iso_fortran_env
+#ifdef USE_OPENMP
   use omp_lib
+#endif
   use ghex_mod
   use ghex_comm_mod
   use ghex_message_mod
@@ -122,8 +124,13 @@ contains
 
     rank        = ghex_comm_rank(comm);
     size        = ghex_comm_size(comm);
-    thread_id   = omp_get_thread_num();
-    num_threads = omp_get_num_threads();
+#ifdef USE_OPENMP
+    thread_id   = omp_get_thread_num()
+    num_threads = omp_get_num_threads()
+#else
+    thread_id   = 0
+    num_threads = 1
+#endif
     peer_rank   = modulo(rank+1, 2)
 
 #ifdef USE_OPENMP
@@ -151,7 +158,7 @@ contains
        call ghex_request_init(rreqs(j))
     end do
 
-    call ghex_comm_barrier(comm)
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
     if (thread_id == 0) then
        call cpu_time(ttic)
@@ -206,7 +213,7 @@ contains
        end do
     end do
 
-    call ghex_comm_barrier(comm)
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
     ! ---------------------------------------
     ! Timing and statistics output
@@ -218,7 +225,7 @@ contains
     end if
 
     ! stop here to help produce a nice std output
-    call ghex_comm_barrier(comm)
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
 #ifdef USE_OPENMP
     !$omp critical
 #endif
@@ -310,20 +317,21 @@ contains
     ! cleanup
     ! ---------------------------------------
     do j = 1, inflight
-       call ghex_message_delete(smsgs(j))
-       call ghex_message_delete(rmsgs(j))
+       call ghex_free(smsgs(j))
+       call ghex_free(rmsgs(j))
     end do
     deallocate(smsgs, rmsgs, sreqs, rreqs)
 
-    call ghex_comm_delete(comm)
+    call ghex_free(comm)
   end subroutine run
 
   ! ---------------------------------------
   ! callbacks
   ! ---------------------------------------
-  subroutine send_callback (mesg, rank, tag)
+  subroutine send_callback (mesg, rank, tag, user_data)
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
+    type(ghex_cb_user_data), value :: user_data
     integer(1), dimension(:), pointer, save :: msg_data
 
     if(tag/inflight /= thread_id) nlsend_cnt = nlsend_cnt + 1;
@@ -331,9 +339,10 @@ contains
     call atomic_add(sent, 1);
   end subroutine send_callback
 
-  subroutine recv_callback (mesg, rank, tag)
+  subroutine recv_callback (mesg, rank, tag, user_data)
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
+    type(ghex_cb_user_data), value :: user_data
     
     if(tag/inflight /= thread_id) nlrecv_cnt = nlrecv_cnt + 1;
     comm_cnt = comm_cnt + 1;
