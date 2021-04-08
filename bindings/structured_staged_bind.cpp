@@ -9,9 +9,13 @@
 #include <ghex/structured/regular/make_pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 
+#ifdef USE_HWCART
 extern "C" {
 #include <hwcart/hwcart.h>
 }
+#else
+#include <mpi.h>
+#endif     
 
 // those are configurable at compile time
 #include "ghex_defs.hpp"
@@ -40,8 +44,10 @@ struct struct_domain_descriptor {
 
     // cartesian communicator info
     int cart_comm;   // Fortran-side cartesian communicator (either hwcart, or mpi_cart)
-    hwcart_order_t cart_order;  // dimension order for rank2coord and coord2rank calculations (for hwcart only)
     int cart_dim[3]; // global rank space dimensions
+#ifdef USE_HWCART
+    hwcart_order_t cart_order;  // dimension order for rank2coord and coord2rank calculations (for hwcart only)
+#endif
 };
 
 // compare two fields to establish, if the same pattern can be used for both
@@ -207,6 +213,9 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     std::array<pattern_field_vector_type,3> pattern_fields_array;
 
     for(int i=0; i<n_domains; i++){
+
+        if(nullptr == domains_desc[i].fields) continue;
+        
         field_vector_type &fields = *(domains_desc[i].fields);
         auto &domain_desc = domains_desc[i];
         std::array<int, 3> &cart_dim = *((std::array<int, 3>*)domain_desc.cart_dim);
@@ -231,12 +240,20 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                     [&domain_desc,&cart_comm,&field](auto id, auto const& offset) {
                         int coord[3], nbrank;
                         
+#ifdef USE_HWCART
                         // NOTE: we assume domain id is the same as rank
                         hwcart_rank2coord(cart_comm, domain_desc.cart_dim, id, domain_desc.cart_order, coord);
                         coord[0] += offset[0];
                         coord[1] += offset[1];
                         coord[2] += offset[2];
                         hwcart_coord2rank(cart_comm, domain_desc.cart_dim, field.periodic, coord, domain_desc.cart_order, &nbrank);
+#else
+                        MPI_Cart_coords(cart_comm, id, 3, coord);
+                        coord[0] += offset[0];
+                        coord[1] += offset[1];
+                        coord[2] += offset[2];
+                        MPI_Cart_rank(cart_comm, coord, &nbrank);
+#endif                        
                         struct _neighbor
                         {
                             int m_id;

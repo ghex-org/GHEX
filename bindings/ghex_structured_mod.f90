@@ -15,7 +15,7 @@ MODULE ghex_structured_mod
      integer(c_int) ::  offset(3) = -1         ! by default - values from the halo
      integer(c_int) :: extents(3) = -1         ! by default - size of the local extents + halos
      integer(c_int) ::    halo(6) = -1         ! halo to be used for this field
-     integer(c_int) :: periodic(3) = .false.
+     integer(c_int) :: periodic(3) = 0
      integer(c_int) :: n_components = 1        ! number of field components
      integer(c_int) ::     layout = LayoutFieldLast
   end type ghex_struct_field
@@ -32,8 +32,10 @@ MODULE ghex_structured_mod
 
      ! optional, used by the staged communication object
      integer(c_int) :: cart_comm = 0        ! cartesian communicator
-     integer(c_int) :: cart_order = 0       ! cartesian communicator
      integer(c_int) :: cart_dim(3) = [0,0,0]! rank dimensions in the cartesian communicator
+#ifdef USE_HWCART
+     integer(c_int) :: cart_order = 0       ! cartesian communicator
+#endif
   end type ghex_struct_domain
 
   ! structured grid communication object
@@ -147,7 +149,7 @@ MODULE ghex_structured_mod
 
 CONTAINS
 
-  subroutine ghex_struct_domain_init(domain_desc, id, first, last, gfirst, glast, cart_comm, cart_order, cart_dim, device_id)
+  subroutine ghex_struct_domain_init(domain_desc, id, first, last, gfirst, glast, cart_comm, cart_dim, cart_order, device_id)
     type(ghex_struct_domain) :: domain_desc
     integer :: id
     integer :: first(3)
@@ -159,6 +161,7 @@ CONTAINS
     integer, optional :: cart_dim(3)
     integer, optional :: device_id
 
+#ifdef USE_HWCART
     if (present(cart_comm).or.present(cart_dim).or.present(cart_order)) then
       if (.not.(present(cart_dim).and.present(cart_comm).and.present(cart_order))) then
         write (*,*) "ERROR: cart_comm, cart_order, and cart_dim arguments must ALL be present"
@@ -168,6 +171,16 @@ CONTAINS
       domain_desc%cart_comm = cart_comm
       domain_desc%cart_order = cart_order
     end if
+#else
+    if (present(cart_comm).or.present(cart_dim)) then
+      if (.not.(present(cart_dim).and.present(cart_comm))) then
+        write (*,*) "ERROR: cart_comm and cart_dim arguments must ALL be present"
+        call exit(1)
+      end if
+      domain_desc%cart_dim = cart_dim
+      domain_desc%cart_comm = cart_comm
+    end if
+#endif
     
     if (present(device_id)) then
       domain_desc%device_id = device_id
@@ -250,7 +263,7 @@ CONTAINS
     field_desc%offset(:)    = -1
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
-    field_desc%periodic(:)  = .false.
+    field_desc%periodic(:)  = 0
     field_desc%layout       = LayoutFieldLast
   end subroutine ghex_struct_field_free
 

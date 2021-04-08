@@ -107,7 +107,7 @@ extern "C"
 void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domains_desc, int n_domains)
 {
 
-    if(0 == n_domains) return NULL;
+    if(0 == n_domains || nullptr == domains_desc) return NULL;
 
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors
@@ -128,6 +128,9 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
     pattern_field_data pattern_fields;
 
     for(int i=0; i<n_domains; i++){
+
+        if(nullptr == domains_desc[i].fields) continue;
+        
         field_vector_type &fields = *(domains_desc[i].fields);
         for(auto field: fields){
             auto pit = field_to_pattern.find(field);

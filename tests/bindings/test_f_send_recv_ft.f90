@@ -32,7 +32,7 @@ PROGRAM test_send_recv_ft
         print *, "Usage: this test can only be executed for 2 ranks"
      end if
      call mpi_finalize(mpi_err)
-     call exit(0)
+     call exit(1)
   end if
   mpi_peer = modulo(mpi_rank+1, 2)
 
@@ -58,8 +58,8 @@ PROGRAM test_send_recv_ft
   msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
 
   ! send / recv with a request, tag 1
-  call ghex_comm_post_send(comm, smsg, mpi_peer, 1, sreq)
-  call ghex_comm_post_recv(comm, rmsg, mpi_peer, 1, rreq)
+  call ghex_comm_post_send(comm, smsg, mpi_peer, thrid, sreq)
+  call ghex_comm_post_recv(comm, rmsg, mpi_peer, thrid, rreq)
 
   ! wait for comm
   do while( .not.ghex_future_ready(sreq) .or. .not.ghex_future_ready(rreq) )
@@ -67,19 +67,11 @@ PROGRAM test_send_recv_ft
 
   ! what have we received?
   msg_data => ghex_message_data(rmsg)
-  print *, mpi_rank, ": ", thrid, ": ", msg_data
-
-  ! send / recv with a request, tag 2
-  call ghex_comm_post_send(comm, smsg, mpi_peer, 2, sreq)
-  call ghex_comm_post_recv(comm, rmsg, mpi_peer, 2, rreq)
-
-  ! wait for comm
-  do while( .not.ghex_future_ready(sreq) .or. .not.ghex_future_ready(rreq) )
-  end do
-
-  ! what have we received?
-  msg_data => ghex_message_data(rmsg)
-  print *, mpi_rank, ": ", thrid, ": ", msg_data
+  if (any(msg_data /= (mpi_peer+1)*nthreads + thrid)) then
+    print *, "wrong data received"
+    print *, mpi_rank, ": ", thrid, ": ", msg_data
+    call exit(1)
+  end if
 
   ! cleanup per-thread
   call ghex_free(rmsg)

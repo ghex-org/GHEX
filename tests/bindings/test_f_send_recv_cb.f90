@@ -40,7 +40,7 @@ PROGRAM test_send_recv_cb
       print *, "Usage: this test can only be executed for 2 ranks"
     end if
     call mpi_finalize(mpi_err)
-    call exit(0)
+    call exit(1)
   end if
   mpi_peer = modulo(mpi_rank+1, 2)
 
@@ -69,9 +69,11 @@ PROGRAM test_send_recv_cb
 
   ! initialize send data
   msg_data => ghex_message_data(smsg)
-  msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
+  msg_data(1:msg_size) = (mpi_rank+1)*nthreads;
 
-  ! pre-post a recv. subsequent recv are posted inside the callback
+  ! pre-post a recv. subsequent recv are posted inside the callback.
+  ! rmsg can not be accessed after this point (use post_recv_cb variant
+  ! to keep ownership of the message)
   ! user_data is used to count completed receive requests. 
   ! This per-thread integer is updated inside the callback by any thread.
   ! Lock is not needed, because only thread can write to it at the same time
@@ -98,7 +100,6 @@ PROGRAM test_send_recv_cb
   end do
 
   ! wait for all while progressing the communication
-  print *, mpi_rank, thrid, "finished"
   call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
   ! cleanup per-thread. messages are freed by ghex if comm_recv_cb and comm_send_cb
@@ -129,8 +130,13 @@ contains
     thrid = omp_get_thread_num()+1
 
     ! what have we received?
-    ! msg_data => ghex_message_data(mesg)
-
+    msg_data => ghex_message_data(mesg)
+    if (any(msg_data /= (mpi_peer+1)*nthreads)) then
+      print *, "wrong data received"
+      print *, mpi_rank, ": ", thrid, ": ", msg_data
+      call exit(1)
+    end if
+    
     ! mark receipt in the user data
     call c_f_pointer(user_data%data, received)
     received = received + 1

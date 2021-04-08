@@ -53,6 +53,8 @@ PROGRAM test_f_cubed_sphere
   ! check if we have the right number of ranks
   if (size /= ntiles) then
     print *, "Usage: this test must be executed with ", ntiles, " mpi ranks"
+    call ghex_finalize()
+    call mpi_finalize(mpi_err)
     call exit(1)
   end if
 
@@ -76,6 +78,8 @@ PROGRAM test_f_cubed_sphere
       blky = cube(1)/tile_dims(2)
       if (blkx*tile_dims(1) /= cube(1) .or. blkx*tile_dims(1) /= cube(1)) then
         print *, "The per-tile grid dimensions are not divisible by the rank dimensions."
+        call ghex_finalize()
+        call mpi_finalize(mpi_err)
         call exit(1)
       end if
 
