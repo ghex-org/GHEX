@@ -20,6 +20,7 @@
 #endif
 #ifdef __CUDACC__
 #include "./cuda/handle.hpp"
+#include "../common/cuda_runtime.hpp"
 #endif
 
 namespace gridtools {

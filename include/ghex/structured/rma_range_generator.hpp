@@ -17,6 +17,10 @@
 #include "./rma_range.hpp"
 #include "./rma_put.hpp"
 
+#ifdef __CUDACC__
+#include "../common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 namespace ghex {
 namespace structured {

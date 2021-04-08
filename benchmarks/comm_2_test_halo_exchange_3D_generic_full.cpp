@@ -32,6 +32,7 @@
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
 #include <gridtools/common/host_device.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 using transport = gridtools::ghex::tl::mpi_tag;

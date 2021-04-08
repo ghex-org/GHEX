@@ -32,6 +32,7 @@
 
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 #ifndef GHEX_TEST_USE_UCX

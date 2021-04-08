@@ -24,6 +24,10 @@
 #include "./rma/range_factory.hpp"
 #include "./rma/handle.hpp"
 
+#ifdef __CUDACC__
+#include "./common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 namespace ghex {
 

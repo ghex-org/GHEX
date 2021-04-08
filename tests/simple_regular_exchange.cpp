@@ -20,6 +20,10 @@
 #include <ghex/cuda_utils/error.hpp>
 #include <gridtools/common/array.hpp>
 
+#ifdef __CUDACC__
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 using namespace gridtools::ghex;
 using arr       = std::array<int,2>;
 using transport = TRANSPORT;

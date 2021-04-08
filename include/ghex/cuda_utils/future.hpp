@@ -16,6 +16,10 @@
 #include <memory>
 
 #ifdef __CUDACC__
+#include "../common/cuda_runtime.hpp"
+#endif
+
+#ifdef __CUDACC__
 
 namespace gridtools {
 

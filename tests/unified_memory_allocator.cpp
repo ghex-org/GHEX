@@ -12,6 +12,10 @@
 #include <gtest/gtest.h>
 #include <ghex/allocator/unified_memory_allocator.hpp>
 
+#ifdef __CUDACC__
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 
 #ifdef __CUDACC__
 template <typename T>

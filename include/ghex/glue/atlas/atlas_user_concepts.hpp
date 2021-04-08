@@ -27,6 +27,7 @@
 
 #ifdef __CUDACC__
 #include "../../cuda_utils/error.hpp"
+#include "../../common/cuda_runtime.hpp"
 #endif
 
 

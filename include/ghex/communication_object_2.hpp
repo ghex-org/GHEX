@@ -22,6 +22,10 @@
 #include <stdio.h>
 #include <functional>
 
+#ifdef __CUDACC__
+#include "./common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 
     namespace ghex {

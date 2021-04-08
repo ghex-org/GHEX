@@ -16,6 +16,10 @@
 #include "../common/utils.hpp"
 #include "../arch_traits.hpp"
 
+#ifdef __CUDACC__
+#include "../common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 namespace ghex {
 namespace structured {

@@ -39,6 +39,10 @@ using transport = gridtools::ghex::tl::ucx_tag;
 #include <ghex/util/decomposition.hpp>
 #include <ghex/common/timer.hpp>
 
+#ifdef __CUDACC__
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 using clock_type = std::chrono::high_resolution_clock;
 
 struct simulation

@@ -31,6 +31,7 @@
 
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 namespace halo_exchange_3D_generic_full {

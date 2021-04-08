@@ -17,7 +17,7 @@
 #include <limits>
 
 #ifdef __CUDACC__
-#include <cuda_runtime.h>
+#include "../common/cuda_runtime.hpp"
 #endif
 
 namespace gridtools {

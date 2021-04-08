@@ -17,6 +17,10 @@
 #include "./transport_layer/message_buffer.hpp"
 #include "./arch_list.hpp"
 
+#ifdef __CUDACC__
+#include "./common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
     namespace ghex {
 

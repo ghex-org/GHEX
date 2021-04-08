@@ -31,6 +31,7 @@
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
 #include <gridtools/common/host_device.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 // stupid kernel to test whether cuda is working

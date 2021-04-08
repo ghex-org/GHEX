@@ -29,6 +29,10 @@ using context_type = gridtools::ghex::tl::context<transport>;
 
 #include <gtest/gtest.h>
 
+#ifdef __CUDACC__
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 // cubed sphere tiles and coordinate system
 //
 //            +----------+

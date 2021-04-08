@@ -19,6 +19,7 @@
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <gridtools/common/cuda_util.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 
