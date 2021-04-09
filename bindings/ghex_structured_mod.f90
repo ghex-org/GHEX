@@ -5,6 +5,14 @@ MODULE ghex_structured_mod
 
   implicit none
 
+  interface
+     ! callback type
+     subroutine f_cart_rank_neighbor (id, offset_x, offset_y, offset_z, nbid_out, nbrank_out)
+       use iso_c_binding
+       integer(c_int), value, intent(in) :: id, offset_x, offset_y, offset_z
+       integer(c_int), intent(out) :: nbid_out, nbrank_out
+     end subroutine f_cart_rank_neighbor
+  end interface
 
   ! ---------------------
   ! --- module types
@@ -15,7 +23,7 @@ MODULE ghex_structured_mod
      integer(c_int) ::  offset(3) = -1         ! by default - values from the halo
      integer(c_int) :: extents(3) = -1         ! by default - size of the local extents + halos
      integer(c_int) ::    halo(6) = -1         ! halo to be used for this field
-     integer(c_int) :: periodic(3) = .false.
+     integer(c_int) :: periodic(3) = 0
      integer(c_int) :: n_components = 1        ! number of field components
      integer(c_int) ::     layout = LayoutFieldLast
   end type ghex_struct_field
@@ -31,9 +39,7 @@ MODULE ghex_structured_mod
      integer(c_int) :: glast(3)             ! indices of the last GLOBAL grid point (model dimensions)
 
      ! optional, used by the staged communication object
-     integer(c_int) :: cart_comm = 0        ! cartesian communicator
-     integer(c_int) :: cart_order = 0       ! cartesian communicator
-     integer(c_int) :: cart_dim(3) = [0,0,0]! rank dimensions in the cartesian communicator
+     type(c_funptr) :: cart_nbor
   end type ghex_struct_domain
 
   ! structured grid communication object
@@ -147,26 +153,20 @@ MODULE ghex_structured_mod
 
 CONTAINS
 
-  subroutine ghex_struct_domain_init(domain_desc, id, first, last, gfirst, glast, cart_comm, cart_order, cart_dim, device_id)
+  subroutine ghex_struct_domain_init(domain_desc, id, first, last, gfirst, glast, cart_nbor, device_id)
+    use iso_c_binding
     type(ghex_struct_domain) :: domain_desc
     integer :: id
     integer :: first(3)
     integer :: last(3)
     integer :: gfirst(3)
     integer :: glast(3)
-    integer, optional :: cart_comm
-    integer, optional :: cart_order
-    integer, optional :: cart_dim(3)
+    procedure(f_cart_rank_neighbor), optional :: cart_nbor
     integer, optional :: device_id
+    type(c_funptr) :: ptest
 
-    if (present(cart_comm).or.present(cart_dim).or.present(cart_order)) then
-      if (.not.(present(cart_dim).and.present(cart_comm).and.present(cart_order))) then
-        write (*,*) "ERROR: cart_comm, cart_order, and cart_dim arguments must ALL be present"
-        call exit(1)
-      end if
-      domain_desc%cart_dim = cart_dim
-      domain_desc%cart_comm = cart_comm
-      domain_desc%cart_order = cart_order
+    if (present(cart_nbor)) then
+      domain_desc%cart_nbor = c_funloc(cart_nbor)
     end if
     
     if (present(device_id)) then
@@ -250,7 +250,7 @@ CONTAINS
     field_desc%offset(:)    = -1
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
-    field_desc%periodic(:)  = .false.
+    field_desc%periodic(:)  = 0
     field_desc%layout       = LayoutFieldLast
   end subroutine ghex_struct_field_free
 

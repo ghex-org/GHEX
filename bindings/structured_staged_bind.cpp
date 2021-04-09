@@ -9,10 +9,6 @@
 #include <ghex/structured/regular/make_pattern.hpp>
 #include <ghex/structured/pattern.hpp>
 
-extern "C" {
-#include <hwcart/hwcart.h>
-}
-
 // those are configurable at compile time
 #include "ghex_defs.hpp"
 using arch_type                 = ghex::cpu;
@@ -28,6 +24,9 @@ struct struct_field_descriptor {
     int layout;
 };
 
+/* fortran-side user callback */
+typedef void (*f_cart_rank_neighbor)(int, int, int, int, int *, int *);
+
 using field_vector_type = std::vector<struct_field_descriptor>;
 struct struct_domain_descriptor {
     field_vector_type *fields;
@@ -38,10 +37,8 @@ struct struct_domain_descriptor {
     int gfirst[3];   // indices of the first GLOBAL grid point, (1,1,1) by default
     int  glast[3];   // indices of the last GLOBAL grid point (model dimensions)
 
-    // cartesian communicator info
-    int cart_comm;   // Fortran-side cartesian communicator (either hwcart, or mpi_cart)
-    hwcart_order_t cart_order;  // dimension order for rank2coord and coord2rank calculations (for hwcart only)
-    int cart_dim[3]; // global rank space dimensions
+    // resolve cartesian rank neighborhood
+    f_cart_rank_neighbor cart_nbor;
 };
 
 // compare two fields to establish, if the same pattern can be used for both
@@ -161,10 +158,10 @@ void ghex_struct_domain_free(struct_domain_descriptor *domain_desc)
 }
 
 extern "C"
-void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains)
+void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains, f_cart_rank_neighbor cart_nbor)
 {
     if(0 == n_domains || nullptr == domains_desc) return NULL;
-
+    
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors
     //  2. identify unique <halo, periodic> pairs
@@ -185,8 +182,8 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     std::vector<domain_descriptor_type> local_domains;
     for(int i=0; i<n_domains; i++){
 
-        if(0 == domains_desc[i].cart_comm){
-            std::cerr << "The staged communicator requires cart_comm, cart_order, and cart_dim info in the domain descriptor." << std::endl;
+        if(NULL == domains_desc[i].cart_nbor){
+            std::cerr << "The staged communicator requires cart_nbor in the domain descriptor." << std::endl;
             std::terminate();
         }
 
@@ -207,14 +204,12 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     std::array<pattern_field_vector_type,3> pattern_fields_array;
 
     for(int i=0; i<n_domains; i++){
+
+        if(nullptr == domains_desc[i].fields) continue;
+        
         field_vector_type &fields = *(domains_desc[i].fields);
         auto &domain_desc = domains_desc[i];
-        std::array<int, 3> &cart_dim = *((std::array<int, 3>*)domain_desc.cart_dim);
-        MPI_Comm cart_comm = MPI_Comm_f2c(domain_desc.cart_comm);
-        if (MPI_COMM_NULL == cart_comm){
-            std::cerr << "Illegal cartesian communicator " << domain_desc.cart_comm << std::endl;
-            std::terminate();
-        }
+        f_cart_rank_neighbor cart_nbor = domains_desc[i].cart_nbor;
         for(auto field: fields){
             auto pit = field_to_pattern.find(field);
             if (pit == field_to_pattern.end()) {
@@ -228,15 +223,9 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
 
                 auto pattern = ghex::structured::regular::make_staged_pattern(
                     *context, local_domains,                    
-                    [&domain_desc,&cart_comm,&field](auto id, auto const& offset) {
-                        int coord[3], nbrank;
-                        
-                        // NOTE: we assume domain id is the same as rank
-                        hwcart_rank2coord(cart_comm, domain_desc.cart_dim, id, domain_desc.cart_order, coord);
-                        coord[0] += offset[0];
-                        coord[1] += offset[1];
-                        coord[2] += offset[2];
-                        hwcart_coord2rank(cart_comm, domain_desc.cart_dim, field.periodic, coord, domain_desc.cart_order, &nbrank);
+                    [&domain_desc,&cart_nbor,&field](auto id, auto const& offset) {
+                        int nbid, nbrank;
+                        cart_nbor(id, offset[0], offset[1], offset[2], &nbid, &nbrank);
                         struct _neighbor
                         {
                             int m_id;
@@ -244,7 +233,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                             int id() const noexcept { return m_id; }
                             int rank() const noexcept { return m_rank; }
                         };
-                        return _neighbor{nbrank, nbrank};
+                        return _neighbor{nbid, nbrank};
                     },
                     gfirst,
                     glast,

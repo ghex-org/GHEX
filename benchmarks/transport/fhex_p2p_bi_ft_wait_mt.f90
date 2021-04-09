@@ -1,6 +1,8 @@
 PROGRAM fhex_bench
   use iso_fortran_env
+#ifdef USE_OPENMP
   use omp_lib
+#endif
   use ghex_mod
   use ghex_comm_mod
   use ghex_message_mod
@@ -113,8 +115,13 @@ contains
 
     rank        = ghex_comm_rank(comm);
     size        = ghex_comm_size(comm);
-    thread_id   = omp_get_thread_num();
-    num_threads = omp_get_num_threads();
+#ifdef USE_OPENMP
+    thread_id   = omp_get_thread_num()
+    num_threads = omp_get_num_threads()
+#else
+    thread_id   = 0
+    num_threads = 1
+#endif
     peer_rank   = modulo(rank+1, 2)
 
 #ifdef USE_OPENMP
@@ -139,7 +146,7 @@ contains
        call ghex_future_init(rreqs(j))
     end do
 
-    call ghex_comm_barrier(comm)
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
     if (thread_id == 0) then
        call cpu_time(ttic)
@@ -176,7 +183,7 @@ contains
        end do
     end do
 
-    call ghex_comm_barrier(comm)
+    call ghex_comm_barrier(comm, GhexBarrierGlobal)
 
     ! ---------------------------------------
     ! Timing and statistics output
@@ -193,12 +200,12 @@ contains
     ! cleanup
     ! ---------------------------------------
     do j = 1, inflight
-       call ghex_message_delete(smsgs(j))
-       call ghex_message_delete(rmsgs(j))
+       call ghex_free(smsgs(j))
+       call ghex_free(rmsgs(j))
     end do
     deallocate(smsgs, rmsgs, sreqs, rreqs)
 
-    call ghex_comm_delete(comm)
+    call ghex_free(comm)
 
   end subroutine run
 
