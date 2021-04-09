@@ -35,7 +35,4 @@ endif()
 
 # TODO: choose threading
 target_compile_definitions(fhex PRIVATE GHEX_USE_OPENMP)
-
-find_package(HWCART)
-target_link_libraries(fhex ghexlib HWCART::libhwcart)
 target_include_directories(fhex PRIVATE ${CMAKE_SOURCE_DIR}/include)
