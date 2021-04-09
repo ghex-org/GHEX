@@ -61,6 +61,7 @@ foreach (_t ${_benchmarks_mt})
 endforeach()
 
 # RMA benchmark
+if (NOT cxx_name STREQUAL "hipcc") # TO DO: to be refined
 set(_rma_benchmarks simple_rma)
 foreach (_t ${_rma_benchmarks})
     
@@ -310,6 +311,7 @@ foreach (_t ${_rma_benchmarks})
     endif()
     endif()
 endforeach()
+endif()
 
 
 add_subdirectory(transport)
