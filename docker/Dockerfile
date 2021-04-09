@@ -1,5 +1,5 @@
 FROM ubuntu:latest
-LABEL maintainer="Felix Thaler <thaler@cscs.ch>"
+LABEL maintainer="Mauro Bianco <mbianco@cscs.ch>"
 
 SHELL ["/bin/bash", "-lc"]
 
@@ -35,10 +35,68 @@ RUN cd /tmp && \
     rm -rf *
 
 RUN  apt-get update -qq && \
-     apt-get install -qq -y openmpi-bin libopenmpi-dev && \
+     apt-get install -qq -y mpich && \
      rm -rf /var/lib/apt/lists/*
+     
 
-ENV OMPI_ALLOW_RUN_AS_ROOT=1
-ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+ARG GCC_VERSION=9
+ENV GCC_VERSION ${GCC_VERSION}
 
-CMD ["/bin/bash", "-l"]
+RUN apt-get update -qq && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get install -qq -y \
+        g++-${GCC_VERSION} \
+        gcc-${GCC_VERSION} \
+        gfortran-${GCC_VERSION} && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV CXX=g++-${GCC_VERSION} CC=gcc-${GCC_VERSION} FC=gfortran-${GCC_VERSION}
+
+RUN git clone https://github.com/ecmwf/ecbuild
+
+RUN git clone https://github.com/ecmwf/eckit && \
+    cd eckit && \
+    git checkout master && \
+    mkdir -p build && cd build && \
+    /ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/eckit -- ../ && \
+    make install
+
+RUN git clone https://github.com/ecmwf/atlas && \
+    pwd && \
+    cd atlas && \
+    git checkout master && \
+    mkdir -p build && cd build && \
+    export ECKIT_PATH=/opt/eckit && \
+    /ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/atlas -- ../ && \
+    make install
+
+RUN apt-get update -qq && \
+    apt-get install -y libtool automake  autoconf && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update -qq && \
+    apt-get install -y libnuma-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/openucx/ucx.git && \
+    cd ucx && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr/local --enable-mt --disable-numa && \
+    make && make install 
+
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+ENV UCX_TLS=self,tcp
+
+RUN cp /etc/apt/sources.list /etc/apt/sources.list~ && \
+    sed -Ei 's/^# deb-src /deb-src /' /etc/apt/sources.list && \
+    apt-get update -qq && \
+    apt-get source linux-image-$(uname -r) && \
+    git clone https://gitlab.com/hjelmn/xpmem.git && \
+    cd xpmem && \
+    ./autogen.sh && \
+    ./configure --prefix=/opt/xpmem --with-default-prefix=/opt/xpmem --with-module=/opt/xpmem/share/modules/xpmem && \
+    make install && \
+    insmod /opt/xpmem/lib/modules/4.14.123-111.109.amzn2.x86_64/xpmem.ko && \
+    chmod 666 /dev/xpmem && \
+    lsmod | grep xpmem
+    
