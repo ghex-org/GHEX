@@ -18,7 +18,6 @@
 
 #include <ghex/common/defs.hpp>
 #ifdef GHEX_CUDACC
-#include <cuda_runtime.h>
 #include <gridtools/common/cuda_util.hpp>
 #include <ghex/common/cuda_runtime.hpp>
 #endif
