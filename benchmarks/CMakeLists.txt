@@ -32,7 +32,7 @@ foreach (_t ${_benchmarks})
     target_compile_definitions(${_t}_1_pattern PUBLIC GHEX_1_PATTERN_BENCHMARK GCL_MPI) 
     target_link_libraries(${_t}_1_pattern gtest_main_bench)
 
-    if(USE_GPU)
+    if (ghex_gpu_mode STREQUAL "cuda")
         add_executable(${_t}_gpu ${_t}.cu)
         target_link_libraries(${_t}_gpu gtest_main_bench)
 
@@ -50,7 +50,7 @@ foreach (_t ${_benchmarks_mt})
     target_compile_definitions(${_t}_1_pattern_mt PUBLIC GHEX_1_PATTERN_BENCHMARK)
     target_link_libraries(${_t}_1_pattern_mt gtest_main_bench_mt)
 
-    if(USE_GPU)
+    if (ghex_gpu_mode STREQUAL "cuda")
         add_executable(${_t}_gpu_mt ${_t}.cu)
         target_link_libraries(${_t}_gpu_mt gtest_main_bench_mt)
 
@@ -180,7 +180,7 @@ foreach (_t ${_rma_benchmarks})
     endif()
     endif()
 
-    if(USE_GPU)
+    if (ghex_gpu_mode STREQUAL "cuda")
     # MPI, no rma, float, gpu
     # ========================
     set(t ${_t}_mpi_none_float_gpu)
@@ -326,7 +326,7 @@ if (GHEX_ENABLE_ATLAS_BINDINGS)
         add_executable(${_t} ${_t}.cpp)
         target_link_libraries(${_t} gtest_main_bench_atlas)
 
-        if(USE_GPU)
+        if (ghex_gpu_mode STREQUAL "cuda")
             add_executable(${_t}_gpu ${_t}.cu)
             target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
             target_link_libraries(${_t}_gpu gtest_main_bench_atlas)
