@@ -18,6 +18,7 @@
 #ifdef GHEX_USE_XPMEM
 #include "./xpmem/handle.hpp"
 #endif
+#include "../common/defs.hpp"
 #ifdef __CUDACC__
 #include "./cuda/handle.hpp"
 #include "../common/cuda_runtime.hpp"

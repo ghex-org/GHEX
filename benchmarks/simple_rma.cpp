@@ -39,6 +39,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 #include <ghex/util/decomposition.hpp>
 #include <ghex/common/timer.hpp>
 
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <ghex/common/cuda_runtime.hpp>
 #endif

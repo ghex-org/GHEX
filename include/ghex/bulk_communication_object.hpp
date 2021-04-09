@@ -24,6 +24,7 @@
 #include "./rma/range_factory.hpp"
 #include "./rma/handle.hpp"
 
+#include "./common/defs.hpp"
 #ifdef __CUDACC__
 #include "./common/cuda_runtime.hpp"
 #endif

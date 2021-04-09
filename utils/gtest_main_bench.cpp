@@ -16,6 +16,7 @@
 #include "gtest/gtest.h"
 #include "mpi_listener.hpp"
 
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <gridtools/common/cuda_util.hpp>

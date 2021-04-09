@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include <ghex/allocator/unified_memory_allocator.hpp>
 
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <ghex/common/cuda_runtime.hpp>
 #endif

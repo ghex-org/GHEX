@@ -29,6 +29,7 @@
 #include <ghex/common/timer.hpp>
 
 #include <gridtools/common/array.hpp>
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
 #include <gridtools/common/host_device.hpp>

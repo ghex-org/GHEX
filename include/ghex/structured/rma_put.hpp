@@ -15,6 +15,7 @@
 #include "../cuda_utils/stream.hpp"
 #include "./rma_range.hpp"
 
+#include "../common/defs.hpp"
 #ifdef __CUDACC__
 #include "../common/cuda_runtime.hpp"
 #endif

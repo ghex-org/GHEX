@@ -29,6 +29,7 @@ using context_type = gridtools::ghex::tl::context<transport>;
 
 #include <gtest/gtest.h>
 
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <ghex/common/cuda_runtime.hpp>
 #endif

@@ -20,6 +20,7 @@
 #include <ghex/cuda_utils/error.hpp>
 #include <gridtools/common/array.hpp>
 
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <ghex/common/cuda_runtime.hpp>
 #endif

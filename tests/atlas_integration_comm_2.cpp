@@ -30,6 +30,7 @@
 #include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
 
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <gridtools/common/cuda_util.hpp>
 #include <ghex/common/cuda_runtime.hpp>

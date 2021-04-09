@@ -18,6 +18,7 @@
 #include "./cuda_utils/future.hpp"
 #include <gridtools/common/array.hpp>
 
+#include "./common/defs.hpp"
 #ifdef __CUDACC__
 #include "./common/cuda_runtime.hpp"
 #endif

@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <functional>
 
+#include "./common/defs.hpp"
 #ifdef __CUDACC__
 #include "./common/cuda_runtime.hpp"
 #endif

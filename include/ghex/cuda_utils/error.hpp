@@ -11,6 +11,7 @@
 #ifndef INCLUDED_GHEX_CUDA_ERROR_HPP
 #define INCLUDED_GHEX_CUDA_ERROR_HPP
 
+#include "../common/defs.hpp"
 #ifdef __CUDACC__
 
 #include <string>

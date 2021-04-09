@@ -25,6 +25,7 @@
 #include "../../arch_traits.hpp"
 #include "../../allocator/unified_memory_allocator.hpp"
 
+#include "../../common/defs.hpp"
 #ifdef __CUDACC__
 #include "../../cuda_utils/error.hpp"
 #include "../../common/cuda_runtime.hpp"

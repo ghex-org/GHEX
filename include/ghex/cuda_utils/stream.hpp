@@ -15,6 +15,7 @@
 #include "./error.hpp"
 #include <memory>
 
+#include "../common/defs.hpp"
 #ifdef __CUDACC__
 #include "../common/cuda_runtime.hpp"
 #endif

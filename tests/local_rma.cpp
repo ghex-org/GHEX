@@ -29,6 +29,7 @@ using transport = gridtools::ghex::tl::ucx_tag;
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/halo_generator.hpp>
 
+#include <ghex/common/defs.hpp>
 #ifdef __CUDACC__
 #include <ghex/common/cuda_runtime.hpp>
 #endif
