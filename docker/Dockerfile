@@ -35,7 +35,7 @@ RUN cd /tmp && \
     rm -rf *
 
 RUN  apt-get update -qq && \
-     apt-get install -qq -y mpich && \
+     apt-get install -qq -y openmpi-bin libopenmpi-dev && \
      rm -rf /var/lib/apt/lists/*
      
 
@@ -87,4 +87,23 @@ RUN git clone https://github.com/openucx/ucx.git && \
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ENV UCX_TLS=self,tcp
 
-    
+RUN apt-get update -qq && \
+    wget -q -O- https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub | apt-key add - && \
+    echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64 /" > /etc/apt/sources.list.d/cuda.list && \
+    echo "deb https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64 /" > /etc/apt/sources.list.d/nvidia-ml.list && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update -qq && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qq -y cuda-minimal-build-11-1 && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV CUDACXX=/usr/local/cuda-11.1/bin/nvcc CUDAHOSTCXX=${CXX}
+
+RUN wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add - && \
+    echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ xenial main' | tee /etc/apt/sources.list.d/rocm.list && \
+    apt-get update -qq && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qq -y rocm-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV ROCM_PATH=/opt/rocm
+ENV PATH=${ROCM_PATH}/bin:${PATH} CXX=${ROCM_PATH}/bin/hipcc
