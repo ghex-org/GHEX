@@ -57,12 +57,12 @@ struct local_event
 #ifdef GHEX_CUDACC
             if (m_loc == locality::thread)
             {
-                GHEX_CHECK_CUDA_RESULT(cudaEventCreate(&m_event, cudaEventDisableTiming));
+                GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming));
             }
             if (m_loc == locality::process)
             {
                 GHEX_CHECK_CUDA_RESULT(
-                    cudaEventCreate(&m_event, cudaEventDisableTiming | cudaEventInterprocess));
+                    cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming | cudaEventInterprocess));
                 GHEX_CHECK_CUDA_RESULT(cudaIpcGetEventHandle(&m_event_handle, m_event));
             }
 #endif
