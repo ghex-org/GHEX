@@ -13,6 +13,21 @@
 
 #include <gridtools/common/cuda_runtime.hpp>
 
-// TO DO: add missing cuda -> hip translations when necessary
+/* additional cuda -> hip translations */
+#define cudaEventCreateWithFlags hipEventCreateWithFlags
+#define cudaEventDisableTiming hipEventDisableTiming
+#define cudaEventInterprocess hipEventInterprocess
+#define cudaEventQuery hipEventQuery
+#define cudaIpcCloseMemHandle hipIpcCloseMemHandle
+#define cudaIpcEventHandle_t hipIpcEventHandle_t
+#define cudaIpcGetEventHandle hipIpcGetEventHandle
+#define cudaIpcGetMemHandle hipIpcGetMemHandle
+#define cudaIpcMemHandle_t hipIpcMemHandle_t
+#define cudaIpcMemLazyEnablePeerAccess hipIpcMemLazyEnablePeerAccess
+#define cudaIpcOpenEventHandle hipIpcOpenEventHandle
+#define cudaIpcOpenMemHandle hipIpcOpenMemHandle
+#define cudaMemcpyAsync hipMemcpyAsync
+#define cudaStreamCreateWithFlags hipStreamCreateWithFlags
+#define cudaStreamNonBlocking hipStreamNonBlocking
 
 #endif /* INCLUDED_GHEX_COMMON_CUDA_RUNTIME_HPP */
