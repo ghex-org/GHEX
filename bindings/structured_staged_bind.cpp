@@ -4,7 +4,6 @@
 #include <ghex/structured/rma_range.hpp>
 #include <ghex/structured/rma_range_generator.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
-#include <ghex/structured/regular/halo_generator.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/make_pattern.hpp>
 #include <ghex/structured/pattern.hpp>
@@ -83,7 +82,6 @@ using pattern_map_type          = std::map<struct_field_descriptor, stage_patter
 using bco_type                  = ghex::bulk_communication_object<ghex::structured::rma_range_generator, pattern_type, field_descriptor_type>;
 using exchange_handle_type      = bco_type::handle;
 using buffer_info_type          = bco_type::buffer_info_type<field_descriptor_type>;
-using halo_generator_type       = ghex::structured::regular::halo_generator<domain_id_type, GHEX_DIMS>;
 
 // a map of field descriptors to patterns
 static pattern_map_type field_to_pattern;
@@ -158,7 +156,7 @@ void ghex_struct_domain_free(struct_domain_descriptor *domain_desc)
 }
 
 extern "C"
-void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains, f_cart_rank_neighbor cart_nbor)
+void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains)
 {
     if(0 == n_domains || nullptr == domains_desc) return NULL;
     
@@ -219,7 +217,6 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                 periodic[2] = field.periodic[2]!=0;
                 
                 std::array<int, 6> &halo = *((std::array<int, 6>*)field.halo);
-                auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
 
                 auto pattern = ghex::structured::regular::make_staged_pattern(
                     *context, local_domains,                    

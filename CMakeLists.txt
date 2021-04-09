@@ -190,6 +190,13 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
 endif()
 
 if (GHEX_BUILD_FORTRAN)
+   if (CMAKE_Fortran_COMPILER_ID STREQUAL "Clang")
+     set(CMAKE_Fortran_FLAGS "-cpp")
+   elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+     set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none -fcoarray=single")
+   elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+     set(CMAKE_Fortran_FLAGS "-cpp")
+   endif()
    add_subdirectory(bindings)
 endif()
 
