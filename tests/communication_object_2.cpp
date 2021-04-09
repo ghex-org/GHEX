@@ -39,7 +39,9 @@
 #ifdef GHEX_CUDACC
 #include <stdio.h>
 __global__ void print_kernel() {
-    printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
+    int b_idx = blockIdx.x;
+    int t_idx = threadIdx.x;
+    printf("Hello from block %d, thread %d\n", b_idx, t_idx);
 }
 #endif
 
