@@ -42,15 +42,16 @@ foreach (_t ${_tests_np24})
     )
 endforeach ()
 
-set(_tests_bench test_f_structured test_f_structured_components)
-
-find_package(HWLOC)
-find_package(HWCART)
+set(_tests_bench test_f_structured)
 
 foreach (_t ${_tests_bench})
   add_executable(${_t} ${_t}.f90)
   target_compile_options(${_t} PRIVATE ${OpenMP_CXX_FLAGS})
   target_compile_options(${_t} PRIVATE ${GHEX_FORTRAN_FLAGS})
   target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/bindings/ ${MPI_Fortran_INCLUDE_DIRS})
-  target_link_libraries(${_t} fhex OpenMP::OpenMP_CXX HWCART::libhwcart HWLOC::libhwloc)
+  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_CXX)
+    add_test(
+        NAME ${_t}.fort
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> 64 10 1 8 ${MPIEXEC_POSTFLAGS}
+    )
 endforeach ()

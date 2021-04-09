@@ -1,4 +1,5 @@
 PROGRAM test_halo_exchange
+  use iso_c_binding
   use omp_lib
   use ghex_mod
 
@@ -58,7 +59,9 @@ PROGRAM test_halo_exchange
   type(ghex_struct_domain),               dimension(:) :: domain_descs(nfields_max)
   type(ghex_struct_communication_object), dimension(:) :: cos(nfields_max)
   type(ghex_struct_exchange_descriptor),  dimension(:) :: eds(nfields_max)
-
+  procedure(f_cart_rank_neighbor), pointer :: p_cart_nbor
+  p_cart_nbor => cart_rank_neighbor
+  
   ! init mpi
   call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
   call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
@@ -179,12 +182,12 @@ PROGRAM test_halo_exchange
     ! create communication object
     call ghex_co_init(co, comm)
 
-    call ghex_domain_init(domain_desc, world_rank, first, last, gfirst, glast, C_CART, cart_dim)
+    call ghex_domain_init(domain_desc, world_rank, first, last, gfirst, glast, p_cart_nbor)
 
     ! make individual copies for sequenced comm
     i = 1
     do while (i <= nfields)
-      call ghex_domain_init(domain_descs(i), world_rank, first, last, gfirst, glast, C_CART, cart_dim)
+      call ghex_domain_init(domain_descs(i), world_rank, first, last, gfirst, glast, p_cart_nbor)
       i = i+1
     end do
 
@@ -900,4 +903,18 @@ contains
       write(*,*)
     end do
   end subroutine print_cube_3d
+
+  subroutine cart_rank_neighbor (id, offset_x, offset_y, offset_z, nbid_out, nbrank_out)
+    integer(c_int), value, intent(in) :: id, offset_x, offset_y, offset_z
+    integer(c_int), intent(out) :: nbid_out, nbrank_out
+    integer :: coord(3)
+
+    call mpi_cart_coords(C_CART, id, 3, coord, mpi_err);
+    coord(1) = coord(1) + offset_x;
+    coord(2) = coord(2) + offset_y;
+    coord(3) = coord(3) + offset_z;
+    call mpi_cart_rank(C_CART, coord, nbrank_out, mpi_err);
+    nbid_out = nbrank_out;
+  end subroutine cart_rank_neighbor
+
 END PROGRAM test_halo_exchange

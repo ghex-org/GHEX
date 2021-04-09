@@ -79,9 +79,6 @@ PROGRAM test_send_multi
 
     ! these are recv requests - one per peer (mpi_size-1).
     ! could be done outside of the parallel block, but comm is required
-    if (mpi_rank==0) then
-      call sleep(5)
-    end if
     !$omp master
 
     ! initialize shared datastructures
