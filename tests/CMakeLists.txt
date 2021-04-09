@@ -126,6 +126,7 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
+if (NOT cxx_name STREQUAL "hipcc") # TO DO: to be refined
 set(_tests_rma local_rma simple_regular_exchange)
 foreach (_t ${_tests_rma})
 
@@ -216,6 +217,7 @@ foreach (_t ${_tests_rma})
         endif()
     endif()
 endforeach()
+endif()
 
 set(_tests_gt data_store_test)
 foreach (_t ${_tests_gt})
