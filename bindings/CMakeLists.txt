@@ -29,4 +29,4 @@ endif()
 
 target_compile_definitions(fhex PRIVATE GHEX_USE_OPENMP)
 target_include_directories(fhex PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(fhex PRIVATE Boost::boost GridTools::gridtools)
+target_link_libraries(fhex PRIVATE Boost::boost GridTools::gridtools ghexlib)
