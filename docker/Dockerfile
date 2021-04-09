@@ -87,16 +87,4 @@ RUN git clone https://github.com/openucx/ucx.git && \
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ENV UCX_TLS=self,tcp
 
-RUN cp /etc/apt/sources.list /etc/apt/sources.list~ && \
-    sed -Ei 's/^# deb-src /deb-src /' /etc/apt/sources.list && \
-    apt-get update -qq && \
-    apt-get source linux-image-$(uname -r) && \
-    git clone https://gitlab.com/hjelmn/xpmem.git && \
-    cd xpmem && \
-    ./autogen.sh && \
-    ./configure --prefix=/opt/xpmem --with-default-prefix=/opt/xpmem --with-module=/opt/xpmem/share/modules/xpmem && \
-    make install && \
-    insmod /opt/xpmem/lib/modules/4.14.123-111.109.amzn2.x86_64/xpmem.ko && \
-    chmod 666 /dev/xpmem && \
-    lsmod | grep xpmem
     
