@@ -30,7 +30,7 @@ using context_type = gridtools::ghex::tl::context<transport>;
 #include <gtest/gtest.h>
 
 #include <ghex/common/defs.hpp>
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 #include <ghex/common/cuda_runtime.hpp>
 #endif
 
@@ -923,7 +923,7 @@ TEST(cubed_sphere, domain)
                              1*z;
                 }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     using arch_t = gridtools::ghex::gpu;
     float* data_ptr_0 = nullptr;
     float* data_ptr_1 = nullptr;
@@ -987,7 +987,7 @@ TEST(cubed_sphere, domain)
         pattern1(field_dom_2),
         pattern1(field_dom_3)).wait();
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     cudaMemcpy(data_dom_0.data(), data_ptr_0, data_dom_0.size()*sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(data_dom_1.data(), data_ptr_1, data_dom_1.size()*sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(data_dom_2.data(), data_ptr_2, data_dom_2.size()*sizeof(float), cudaMemcpyDeviceToHost);
@@ -1079,7 +1079,7 @@ TEST(cubed_sphere, domain_vector)
                              1*z;
                 }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     using arch_t = gridtools::ghex::gpu;
     float* data_ptr_0 = nullptr;
     float* data_ptr_1 = nullptr;
@@ -1143,7 +1143,7 @@ TEST(cubed_sphere, domain_vector)
         pattern1(field_dom_2),
         pattern1(field_dom_3)).wait();
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     cudaMemcpy(data_dom_0.data(), data_ptr_0, data_dom_0.size()*sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(data_dom_1.data(), data_ptr_1, data_dom_1.size()*sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(data_dom_2.data(), data_ptr_2, data_dom_2.size()*sizeof(float), cudaMemcpyDeviceToHost);

@@ -19,7 +19,7 @@
 #include <gridtools/common/array.hpp>
 
 #include "./common/defs.hpp"
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 #include "./common/cuda_runtime.hpp"
 #endif
 
@@ -70,7 +70,7 @@ namespace gridtools {
         };
 
         
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         
         template<typename PackIterationSpace, unsigned int N>
         __global__ void pack_kernel_u(

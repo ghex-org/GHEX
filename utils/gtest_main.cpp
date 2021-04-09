@@ -17,7 +17,7 @@
 #include "mpi_listener.hpp"
 
 #include <ghex/common/defs.hpp>
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 #include <cuda_runtime.h>
 #include <gridtools/common/cuda_util.hpp>
 #include <ghex/common/cuda_runtime.hpp>

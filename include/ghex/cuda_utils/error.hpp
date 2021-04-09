@@ -12,7 +12,7 @@
 #define INCLUDED_GHEX_CUDA_ERROR_HPP
 
 #include "../common/defs.hpp"
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 
 #include <string>
 #include "../common/cuda_runtime.hpp"

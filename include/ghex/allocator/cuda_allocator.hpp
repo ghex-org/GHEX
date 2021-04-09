@@ -15,11 +15,11 @@
 #include "../cuda_utils/error.hpp"
 
 #include "../common/defs.hpp"
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 #include "../common/cuda_runtime.hpp"
 #endif
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 namespace gridtools {
     namespace ghex {
         namespace allocator {

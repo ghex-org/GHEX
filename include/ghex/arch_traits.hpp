@@ -18,7 +18,7 @@
 #include "./arch_list.hpp"
 
 #include "./common/defs.hpp"
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 #include "./common/cuda_runtime.hpp"
 #endif
 
@@ -52,7 +52,7 @@ namespace gridtools {
             }
         };
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         template<>
         struct arch_traits<gpu>
         {
