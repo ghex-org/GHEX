@@ -6,9 +6,8 @@ set(_tests test_f_context test_f_communicator test_f_message test_f_barrier test
 
 foreach (_t ${_tests})
   add_executable(${_t} ${_t}.f90)
-  target_compile_options(${_t} PRIVATE ${OpenMP_CXX_FLAGS})
   target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/bindings/)
-  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_CXX MPI::MPI_Fortran)
+  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_Fortran MPI::MPI_Fortran ghexlib)
     add_test(
         NAME ${_t}.fort
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
@@ -19,10 +18,8 @@ set(_tests_np6 test_f_cubed_sphere_os)
 
 foreach (_t ${_tests_np6})
   add_executable(${_t} ${_t}.f90)
-  target_compile_options(${_t} PRIVATE ${OpenMP_CXX_FLAGS})
-  target_compile_options(${_t} PRIVATE ${GHEX_FORTRAN_FLAGS})
   target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/bindings/)
-  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_CXX MPI::MPI_Fortran)
+  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_Fortran MPI::MPI_Fortran ghexlib)
     add_test(
         NAME ${_t}.fort
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 6 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
@@ -33,10 +30,8 @@ endforeach ()
 set(_tests_np24 test_f_cubed_sphere)
 foreach (_t ${_tests_np24})
   add_executable(${_t} ${_t}.f90)
-  target_compile_options(${_t} PRIVATE ${OpenMP_CXX_FLAGS})
-  target_compile_options(${_t} PRIVATE ${GHEX_FORTRAN_FLAGS})
   target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/bindings/)
-  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_CXX MPI::MPI_Fortran)
+  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_Fortran MPI::MPI_Fortran ghexlib)
     add_test(
         NAME ${_t}.fort
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 24 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
@@ -47,10 +42,8 @@ set(_tests_bench test_f_structured)
 
 foreach (_t ${_tests_bench})
   add_executable(${_t} ${_t}.f90)
-  target_compile_options(${_t} PRIVATE ${OpenMP_CXX_FLAGS})
-  target_compile_options(${_t} PRIVATE ${GHEX_FORTRAN_FLAGS})
   target_include_directories(${_t} PRIVATE ${CMAKE_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/bindings/)
-  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_CXX MPI::MPI_Fortran)
+  target_link_libraries(${_t} PRIVATE fhex OpenMP::OpenMP_Fortran MPI::MPI_Fortran ghexlib)
     add_test(
         NAME ${_t}.fort
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> 64 10 1 8 ${MPIEXEC_POSTFLAGS}

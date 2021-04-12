@@ -14,11 +14,12 @@ cmake_policy(SET CMP0048 NEW)
 set(USE_GPU "OFF" CACHE BOOL "use cuda")
 set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 
+set(default_build_type "Debug")
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wno-unknown-pragmas")
 
-set(default_build_type "Debug")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
     set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
@@ -136,6 +137,19 @@ if (GHEX_USE_XPMEM_ACCESS_GUARD)
     target_compile_definitions(ghexlib INTERFACE GHEX_USE_XPMEM_ACCESS_GUARD)
 endif()
 
+# setup fortran compiler and arguments
+if (GHEX_BUILD_FORTRAN)
+   enable_language(Fortran)
+   if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+     message(STATUS "Fortran compiler is GNU.")
+     set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none -fcoarray=single")
+   else ()
+     set(CMAKE_Fortran_FLAGS "-cpp")
+   endif()
+   message(STATUS "Fortran flags: ${CMAKE_Fortran_FLAGS}.")
+   add_subdirectory(bindings)
+endif()
+
 # Enable adding of tests etc
 enable_testing()
 
@@ -187,17 +201,6 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
         add_library(gtest_main_bench_atlas ./utils/gtest_main_bench_atlas.cpp)
         target_link_libraries(gtest_main_bench_atlas GTest::gtest ghexlib)
     endif()
-endif()
-
-if (GHEX_BUILD_FORTRAN)
-   if (CMAKE_Fortran_COMPILER_ID STREQUAL "Clang")
-     set(CMAKE_Fortran_FLAGS "-cpp")
-   elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-     set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none -fcoarray=single")
-   elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-     set(CMAKE_Fortran_FLAGS "-cpp")
-   endif()
-   add_subdirectory(bindings)
 endif()
 
 include(GNUInstallDirs)
