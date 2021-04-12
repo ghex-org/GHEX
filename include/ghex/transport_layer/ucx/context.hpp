@@ -61,6 +61,20 @@ namespace gridtools {
 
                     friend class worker_t;
 
+                public: // dtor
+
+                    ~transport_context()
+                    {
+                        // ucp_worker_destroy should be called after a barrier
+                        MPI_Barrier(m_mpi_comm);
+                        {
+                            for (auto& w_ptr : m_workers)
+                                w_ptr->m_endpoint_cache.clear();
+                            m_worker->m_endpoint_cache.clear();
+                        }
+                        MPI_Barrier(m_mpi_comm);
+                    }
+
                 public: // ctors
                     template<typename DB>
                     transport_context(const mpi::rank_topology& t, DB&& db)
