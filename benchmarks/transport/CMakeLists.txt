@@ -6,7 +6,6 @@ set(_benchmarks_mt ghex_p2p_bi_cb_avail ghex_p2p_bi_cb_wait ghex_p2p_bi_ft_avail
 
 foreach (_t ${_benchmarks})
     add_executable(${_t} ${_t}_mt.cpp )
-    target_compile_definitions(${_t} PRIVATE)
     target_link_libraries(${_t} ghexlib)
 endforeach()
 
