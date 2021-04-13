@@ -1,6 +1,6 @@
 PROGRAM fhex_bench
   use iso_fortran_env
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
   use omp_lib
 #endif
   use ghex_mod
@@ -16,11 +16,11 @@ PROGRAM fhex_bench
   ! threadprivate variables
   integer :: comm_cnt = 0, nlsend_cnt = 0, nlrecv_cnt = 0, submit_cnt = 0, submit_recv_cnt = 0
   integer :: thread_id = 0
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
   !$omp threadprivate(comm_cnt, nlsend_cnt, nlrecv_cnt, submit_cnt, submit_recv_cnt, thread_id)
 #endif
 
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
   integer(atomic_int_kind) :: sent[*] = 0, received[*] = 0, tail_send[*] = 0, tail_recv[*] = 0
 #else
   integer :: sent = 0, received = 0, tail_send = 0, tail_recv = 0
@@ -45,7 +45,7 @@ PROGRAM fhex_bench
   call getarg(3, arg);
   read(arg,*) inflight
 
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
   !$omp parallel
   num_threads = omp_get_num_threads()
   !$omp end parallel
@@ -61,13 +61,13 @@ PROGRAM fhex_bench
   ! init ghex
   call ghex_init(num_threads, mpi_comm_world);
 
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
   !$omp parallel
 #endif
 
   call run()
 
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
   !$omp end parallel
 #endif
 
@@ -118,7 +118,7 @@ contains
 
     rank        = ghex_comm_rank(comm);
     size        = ghex_comm_size(comm);
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
     thread_id   = omp_get_thread_num()
     num_threads = omp_get_num_threads()
 #else
@@ -127,7 +127,7 @@ contains
 #endif
     peer_rank   = modulo(rank+1, 2)
 
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
     using_mt = .true.
 #endif
 
@@ -211,13 +211,13 @@ contains
 
     ! stop here to help produce a nice std output
     call ghex_comm_barrier(comm, GhexBarrierGlobal)
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
     !$omp critical
 #endif
 101 format ("rank ", I0, " thread " , I0 , " sends submitted " , I0,  &
           " serviced " , I0 , ", non-local sends " ,  I0 , " non-local recvs " , I0)
     write (*, 101) rank, thread_id , submit_cnt/num_threads , comm_cnt, nlsend_cnt , nlrecv_cnt
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
     !$omp end critical
 #endif    
 
@@ -259,7 +259,7 @@ contains
     call atomic_add(received, 1);
   end subroutine recv_callback
 
-#ifndef USE_OPENMP
+#ifndef GHEX_USE_OPENMP
 subroutine atomic_add(var, val)
   integer :: var, val
   var = var + val
