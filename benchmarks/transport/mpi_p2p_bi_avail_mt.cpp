@@ -16,7 +16,7 @@
 #include <ghex/common/timer.hpp>
 #include "utils.hpp"
 
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
 #include <omp.h>
 #define DO_PRAGMA(x) _Pragma(#x)
 
@@ -43,7 +43,7 @@
 #define THREAD_PARALLEL_END() 
 #define THREAD_IS_MT 0
 
-#endif /* USE_OPENMP */
+#endif /* GHEX_USE_OPENMP */
 
 std::atomic<int> sent(0);
 std::atomic<int> received(0);
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     inflight = atoi(argv[3]);
     
     int mode;
-#ifdef USE_OPENMP
+#ifdef GHEX_USE_OPENMP
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mode);
     if(mode != MPI_THREAD_MULTIPLE){
         std::cerr << "MPI_THREAD_MULTIPLE not supported by MPI, aborting\n";
