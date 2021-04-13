@@ -9,6 +9,18 @@ if(USE_GPU)
     set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
 
+# setup fortran compiler and arguments
+if (GHEX_BUILD_FORTRAN)
+   enable_language(Fortran)
+   if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+     message(STATUS "Fortran compiler is GNU.")
+     set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none -fcoarray=single")
+   else ()
+     set(CMAKE_Fortran_FLAGS "-cpp")
+   endif()
+   message(STATUS "Fortran flags: ${CMAKE_Fortran_FLAGS}.")
+endif()
+
 cmake_policy(SET CMP0048 NEW)
 
 set(USE_GPU "OFF" CACHE BOOL "use cuda")
@@ -140,14 +152,6 @@ endif()
 
 # setup fortran compiler and arguments
 if (GHEX_BUILD_FORTRAN)
-   enable_language(Fortran)
-   if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-     message(STATUS "Fortran compiler is GNU.")
-     set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none -fcoarray=single")
-   else ()
-     set(CMAKE_Fortran_FLAGS "-cpp")
-   endif()
-   message(STATUS "Fortran flags: ${CMAKE_Fortran_FLAGS}.")
    add_subdirectory(bindings)
 endif()
 
