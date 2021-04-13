@@ -19,10 +19,11 @@ if (OpenMP_FOUND)
 endif()
 
 if (GHEX_USE_UCP)
+    find_package(Threads REQUIRED)
     foreach (_t ${_benchmarks})
         add_executable(${_t}_ucx ${_t}_mt.cpp )
         target_compile_definitions(${_t}_ucx PRIVATE GHEX_USE_UCP)
-        target_link_libraries(${_t}_ucx ghexlib OpenMP::OpenMP_CXX)
+        target_link_libraries(${_t}_ucx ghexlib Threads::Threads)
     endforeach()
 
     if (OpenMP_FOUND)
