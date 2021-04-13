@@ -35,7 +35,6 @@ if (GHEX_USE_UCP)
 endif()
 
 if (GHEX_BUILD_FORTRAN)
-    enable_language(Fortran)
     find_package(OpenMP REQUIRED)
     set(_benchmarks_f fhex_p2p_bi_cb_avail fhex_p2p_bi_cb_wait fhex_p2p_bi_ft_avail fhex_p2p_bi_ft_wait)
     set(_benchmarks_f_mt fhex_p2p_bi_cb_avail fhex_p2p_bi_cb_wait fhex_p2p_bi_ft_avail fhex_p2p_bi_ft_wait)
