@@ -10,6 +10,8 @@
 
 // those are configurable at compile time
 #include "ghex_defs.hpp"
+
+using namespace gridtools::ghex::fhex;
 using arch_type                 = ghex::cpu;
 using domain_id_type            = int;
 
@@ -189,7 +191,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                 std::array<int, 6> &halo = *((std::array<int, 6>*)field.halo);
                 auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
                 pit = field_to_pattern.emplace(std::make_pair(std::move(field), 
-                        ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;
+                        ghex::make_pattern<grid_type>(*ghex_context, halo_generator, local_domains))).first;
             } 
             
             pattern_type &pattern = (*pit).second;

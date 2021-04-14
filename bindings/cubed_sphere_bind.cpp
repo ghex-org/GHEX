@@ -8,6 +8,8 @@
 
 // those are configurable at compile time
 #include "ghex_defs.hpp"
+
+using namespace gridtools::ghex::fhex;
 using arch_type                 = ghex::cpu;
 using domain_id_type            = ghex::structured::cubed_sphere::domain_id_type;
 
@@ -76,11 +78,11 @@ struct pattern_field_data {
 static pattern_map_type field_to_pattern;
 
 extern "C"
-void ghex_cubed_sphere_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::obj_wrapper *wcomm)
+void ghex_cubed_sphere_co_init(obj_wrapper **wco_ref, obj_wrapper *wcomm)
 {
     if(nullptr == wcomm) return;   
-    auto &comm = *ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
-    *wco_ref = new ghex::bindings::obj_wrapper(ghex::make_communication_object<pattern_type>(comm));
+    auto &comm = *get_object_ptr_unsafe<communicator_type>(wcomm);
+    *wco_ref = new obj_wrapper(ghex::make_communication_object<pattern_type>(comm));
 }
 
 extern "C"
@@ -138,7 +140,7 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
                 std::array<int, 4> &halo = *((std::array<int, 4>*)(field.halo));
                 auto halo_generator = halo_generator_type(halo);
                 pit = field_to_pattern.emplace(std::make_pair(std::move(field),
-                        ghex::make_pattern<grid_type>(*context, halo_generator, local_domains))).first;
+                        ghex::make_pattern<grid_type>(*ghex_context, halo_generator, local_domains))).first;
             }
 
             pattern_type &pattern = (*pit).second;
@@ -160,26 +162,26 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
         }
     }
 
-    return new ghex::bindings::obj_wrapper(std::move(pattern_fields));
+    return new obj_wrapper(std::move(pattern_fields));
 }
 
 extern "C"
-void *ghex_cubed_sphere_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
+void *ghex_cubed_sphere_exchange(obj_wrapper *cowrapper, obj_wrapper *ewrapper)
 {
     if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
-    communication_obj_type    &co      = *ghex::bindings::get_object_ptr_unsafe<communication_obj_type>(cowrapper);
-    pattern_field_data &pattern_fields = *ghex::bindings::get_object_ptr_unsafe<pattern_field_data>(ewrapper);
-    return new ghex::bindings::obj_wrapper(co.exchange(pattern_fields.row_major.second.begin(),
+    communication_obj_type    &co      = *get_object_ptr_unsafe<communication_obj_type>(cowrapper);
+    pattern_field_data &pattern_fields = *get_object_ptr_unsafe<pattern_field_data>(ewrapper);
+    return new obj_wrapper(co.exchange(pattern_fields.row_major.second.begin(),
 						       pattern_fields.row_major.second.end(),
 						       pattern_fields.field_major.second.begin(),
 						       pattern_fields.field_major.second.end()));
 }
 
 extern "C"
-void ghex_cubed_sphere_exchange_handle_wait(ghex::bindings::obj_wrapper **ehwrapper)
+void ghex_cubed_sphere_exchange_handle_wait(obj_wrapper **ehwrapper)
 {
     if(nullptr == *ehwrapper) return;
-    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
+    exchange_handle_type &hex = *get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
     hex.wait();
     *ehwrapper = nullptr;
 }

@@ -1,7 +1,19 @@
 #ifndef GHEX_FORTRAN_DEFS_INCLUDED_HPP
 #define GHEX_FORTRAN_DEFS_INCLUDED_HPP
 
-using fp_type                   = float;
+namespace gridtools {
+    namespace ghex {
+        namespace fhex {
+            
+#ifdef GHEX_FORTRAN_FP_DOUBLE
+            using fp_type                   = double;
+#else
+            using fp_type                   = float;
+#endif
+            
+        }
+    }
+}
 
 #define GHEX_DIMS                 3
 

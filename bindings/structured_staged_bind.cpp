@@ -10,6 +10,8 @@
 
 // those are configurable at compile time
 #include "ghex_defs.hpp"
+
+using namespace gridtools::ghex::fhex;
 using arch_type                 = ghex::cpu;
 using domain_id_type            = int;
 
@@ -98,10 +100,10 @@ struct bco_wrapper {
 };
 
 extern "C"
-void ghex_struct_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::obj_wrapper *wcomm)
+void ghex_struct_co_init(obj_wrapper **wco_ref, obj_wrapper *wcomm)
 {
     if(nullptr == wcomm) return;   
-    auto &comm = *ghex::bindings::get_object_ptr_unsafe<communicator_type>(wcomm);
+    auto &comm = *get_object_ptr_unsafe<communicator_type>(wcomm);
 
     auto bco_x = gridtools::ghex::bulk_communication_object<
         gridtools::ghex::structured::rma_range_generator,
@@ -119,7 +121,7 @@ void ghex_struct_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::
         field_descriptor_type
         > (comm);
     
-    *wco_ref = new ghex::bindings::obj_wrapper(bco_wrapper{std::move(bco_x),std::move(bco_y),std::move(bco_z),nullptr});
+    *wco_ref = new obj_wrapper(bco_wrapper{std::move(bco_x),std::move(bco_y),std::move(bco_z),nullptr});
 }
 
 extern "C"
@@ -219,7 +221,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
                 std::array<int, 6> &halo = *((std::array<int, 6>*)field.halo);
 
                 auto pattern = ghex::structured::regular::make_staged_pattern(
-                    *context, local_domains,                    
+                    *ghex_context, local_domains,                    
                     [&domain_desc,&cart_nbor,&field](auto id, auto const& offset) {
                         int nbid, nbrank;
                         cart_nbor(id, offset[0], offset[1], offset[2], &nbid, &nbrank);
@@ -257,17 +259,17 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
         }
     }
 
-    return new ghex::bindings::obj_wrapper(std::move(pattern_fields_array));
+    return new obj_wrapper(std::move(pattern_fields_array));
 }
 
 extern "C"
-void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::bindings::obj_wrapper *ewrapper)
+void *ghex_struct_exchange(obj_wrapper *cowrapper, obj_wrapper *ewrapper)
 {
     if(nullptr == cowrapper || nullptr == ewrapper) return nullptr;
     
-    bco_wrapper &bcowr = *ghex::bindings::get_object_ptr_unsafe<bco_wrapper>(cowrapper);
+    bco_wrapper &bcowr = *get_object_ptr_unsafe<bco_wrapper>(cowrapper);
     std::array<pattern_field_vector_type,3> &pattern_fields_array =
-        *ghex::bindings::get_object_ptr_unsafe<std::array<pattern_field_vector_type,3>>(ewrapper);
+        *get_object_ptr_unsafe<std::array<pattern_field_vector_type,3>>(ewrapper);
 
     // first time call: build the bco
     if(!bcowr.eh) {
@@ -295,13 +297,13 @@ void *ghex_struct_exchange(ghex::bindings::obj_wrapper *cowrapper, ghex::binding
 
     bcowr.bco_x.exchange().wait();
     bcowr.bco_y.exchange().wait();
-    return new ghex::bindings::obj_wrapper(bcowr.bco_z.exchange());
+    return new obj_wrapper(bcowr.bco_z.exchange());
 }
 
 extern "C"
-void ghex_struct_exchange_handle_wait(ghex::bindings::obj_wrapper **ehwrapper)
+void ghex_struct_exchange_handle_wait(obj_wrapper **ehwrapper)
 {
     if(nullptr == *ehwrapper) return;
-    exchange_handle_type &hex = *ghex::bindings::get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
+    exchange_handle_type &hex = *get_object_ptr_unsafe<exchange_handle_type>(*ehwrapper);
     hex.wait();
 }

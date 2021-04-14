@@ -8,7 +8,7 @@
 
 namespace gridtools {
     namespace ghex {
-        namespace bindings {
+        namespace fhex {
 
             class obj_wrapper {
 	

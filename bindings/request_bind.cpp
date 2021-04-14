@@ -4,6 +4,8 @@
 
 #include <vector>
 
+using namespace gridtools::ghex::fhex;
+
 extern "C"
 bool ghex_request_test(frequest_type *freq)
 {

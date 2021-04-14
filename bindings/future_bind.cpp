@@ -6,6 +6,8 @@
 #include <iostream>
 #include <algorithm>
 
+using namespace gridtools::ghex::fhex;
+
 extern "C"
 void ghex_future_wait(ffuture_type *ffut)
 {
