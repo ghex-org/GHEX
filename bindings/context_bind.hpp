@@ -20,7 +20,6 @@ namespace gridtools {
         namespace fhex {           
 
 #ifdef GHEX_USE_UCP
-            /* UCX backend */
             using transport    = gridtools::ghex::tl::ucx_tag;
 #else
             using transport    = gridtools::ghex::tl::mpi_tag;
