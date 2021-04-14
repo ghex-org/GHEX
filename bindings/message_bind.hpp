@@ -1,5 +1,5 @@
-#ifndef GHEX_FORTRAN_MESSAGE_BIND_INCLUDED_HPP
-#define GHEX_FORTRAN_MESSAGE_BIND_INCLUDED_HPP
+#ifndef INCLUDED_GHEX_FORTRAN_MESSAGE_BIND_HPP
+#define INCLUDED_GHEX_FORTRAN_MESSAGE_BIND_HPP
 
 #include "obj_wrapper.hpp"
 
@@ -12,4 +12,4 @@
 
 using std_allocator_type = std::allocator<unsigned char>;
 	
-#endif /* GHEX_FORTRAN_MESSAGE_BIND_INCLUDED_HPP */
+#endif /* INCLUDED_GHEX_FORTRAN_MESSAGE_BIND_HPP */

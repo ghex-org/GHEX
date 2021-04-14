@@ -1,5 +1,5 @@
-#ifndef GHEX_FORTRAN_DEFS_INCLUDED_HPP
-#define GHEX_FORTRAN_DEFS_INCLUDED_HPP
+#ifndef INCLUDED_GHEX_FORTRAN_DEFS_HPP
+#define INCLUDED_GHEX_FORTRAN_DEFS_HPP
 
 namespace gridtools {
     namespace ghex {
@@ -29,4 +29,4 @@ namespace gridtools {
 #define BarrierThread 2
 #define BarrierRank   3
 
-#endif /* GHEX_FORTRAN_DEFS_INCLUDED_HPP */
+#endif /* INCLUDED_GHEX_FORTRAN_DEFS_HPP */
