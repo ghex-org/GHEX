@@ -7,7 +7,7 @@ context_uptr_type context;
 int __GHEX_nthreads = 1;
 
 /* barrier has to be shared between the threads */
-gridtools::ghex::tl::barrier_t *barrier = NULL;
+gridtools::ghex::tl::barrier_t *barrier = nullptr;
 
 extern "C"
 void ghex_init(int nthreads, MPI_Fint fcomm)
@@ -24,7 +24,7 @@ void ghex_finalize()
 {
     context.reset();
     delete barrier;
-    barrier = NULL;
+    barrier = nullptr;
     __GHEX_nthreads = 1;
 }
 

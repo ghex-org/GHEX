@@ -119,7 +119,7 @@ void ghex_struct_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::
         field_descriptor_type
         > (comm);
     
-    *wco_ref = new ghex::bindings::obj_wrapper(bco_wrapper{std::move(bco_x),std::move(bco_y),std::move(bco_z),NULL});
+    *wco_ref = new ghex::bindings::obj_wrapper(bco_wrapper{std::move(bco_x),std::move(bco_y),std::move(bco_z),nullptr});
 }
 
 extern "C"
@@ -158,7 +158,7 @@ void ghex_struct_domain_free(struct_domain_descriptor *domain_desc)
 extern "C"
 void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains)
 {
-    if(0 == n_domains || nullptr == domains_desc) return NULL;
+    if(0 == n_domains || nullptr == domains_desc) return nullptr;
     
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors
@@ -180,7 +180,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
     std::vector<domain_descriptor_type> local_domains;
     for(int i=0; i<n_domains; i++){
 
-        if(NULL == domains_desc[i].cart_nbor){
+        if(nullptr == domains_desc[i].cart_nbor){
             std::cerr << "The staged communicator requires cart_nbor in the domain descriptor." << std::endl;
             std::terminate();
         }

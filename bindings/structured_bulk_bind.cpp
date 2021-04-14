@@ -99,7 +99,7 @@ void ghex_struct_co_init(ghex::bindings::obj_wrapper **wco_ref, ghex::bindings::
         pattern_type,
         field_descriptor_type
         > (comm);
-    *wco_ref = new ghex::bindings::obj_wrapper(bco_wrapper{std::move(bco),NULL});
+    *wco_ref = new ghex::bindings::obj_wrapper(bco_wrapper{std::move(bco),nullptr});
 }
 
 extern "C"
@@ -139,7 +139,7 @@ extern "C"
 void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains)
 {
 
-    if(0 == n_domains || nullptr == domains_desc) return NULL;
+    if(0 == n_domains || nullptr == domains_desc) return nullptr;
 
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors

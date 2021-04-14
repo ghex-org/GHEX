@@ -107,7 +107,7 @@ extern "C"
 void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int n_domains)
 {
 
-    if(0 == n_domains || nullptr == domains_desc) return NULL;
+    if(0 == n_domains || nullptr == domains_desc) return nullptr;
 
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors
