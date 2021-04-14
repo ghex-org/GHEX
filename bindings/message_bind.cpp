@@ -2,14 +2,21 @@
 #include <iostream>
 #include <cstring> 
 #include <vector>
-
 #include <ghex/transport_layer/message_buffer.hpp>
 #include <ghex/transport_layer/callback_utils.hpp>
 
 namespace ghex = gridtools::ghex;
 
-// TODO how to construct the (per-thread) allocators
-std_allocator_type std_allocator;
+using namespace gridtools::ghex::fhex;
+
+namespace gridtools {
+    namespace ghex {
+        namespace fhex {
+            // TODO how to construct the (per-thread) allocators
+            std_allocator_type std_allocator;
+        }
+    }
+}
 
 extern "C"
 void *ghex_message_new(std::size_t size, int allocator_type)

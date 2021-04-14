@@ -8,29 +8,36 @@
 
 using namespace gridtools::ghex::fhex;
 
-/* fortran-side user callback */
-typedef void (*f_callback)(void *mesg, int rank, int tag, void *user_data);
+namespace gridtools {
+    namespace ghex {
+        namespace fhex {
 
-struct callback {
-    f_callback cb;
-    void *user_data = nullptr;
-    callback(f_callback pcb, void *puser_data = nullptr) : cb{pcb}, user_data{puser_data} {}
-    void operator() (communicator_type::message_type message, int rank, int tag) const {
-        if(cb) cb(&message, rank, tag, user_data);
+            /* fortran-side user callback */
+            typedef void (*f_callback)(void *mesg, int rank, int tag, void *user_data);
+
+            struct callback {
+                f_callback cb;
+                void *user_data = nullptr;
+                callback(f_callback pcb, void *puser_data = nullptr) : cb{pcb}, user_data{puser_data} {}
+                void operator() (communicator_type::message_type message, int rank, int tag) const {
+                    if(cb) cb(&message, rank, tag, user_data);
+                }
+            };
+
+            struct progress_status_type {
+                int num_sends = 0;
+                int num_recvs = 0;
+                int num_cancels = 0;
+                
+                progress_status_type(const ghex::tl::cb::progress_status &ps) :
+                    num_sends{ps.m_num_sends},
+                    num_recvs{ps.m_num_recvs},
+                    num_cancels{ps.m_num_cancels} 
+                {}
+            };
+        }
     }
-};
-
-struct progress_status_type {
-    int num_sends = 0;
-    int num_recvs = 0;
-    int num_cancels = 0;
-
-    progress_status_type(const ghex::tl::cb::progress_status &ps) :
-        num_sends{ps.m_num_sends},
-        num_recvs{ps.m_num_recvs},
-        num_cancels{ps.m_num_cancels} 
-    {}
-};
+}
 
 extern "C"
 void* ghex_comm_new()

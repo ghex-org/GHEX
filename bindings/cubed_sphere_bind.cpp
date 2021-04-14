@@ -13,69 +13,76 @@ using namespace gridtools::ghex::fhex;
 using arch_type                 = ghex::cpu;
 using domain_id_type            = ghex::structured::cubed_sphere::domain_id_type;
 
-struct cubed_sphere_field_descriptor {
-    fp_type *data;
-    int   offset[3];
-    int  extents[3];
-    int     halo[4];
-    int n_components;
-    int layout;
-    bool is_vector;
-};
+namespace gridtools {
+    namespace ghex {
+        namespace fhex {
 
-using field_vector_type = std::vector<cubed_sphere_field_descriptor>;
-struct cubed_sphere_domain_descriptor {
-    field_vector_type *fields = nullptr;
-    int tile;
-    int device_id;
-    int   cube[2];  // local grid dimensions
-    int  first[2];  // indices of the first LOCAL grid point, in global index space
-    int   last[2];  // indices of the last LOCAL grid point, in global index space
-};
+            struct cubed_sphere_field_descriptor {
+                fp_type *data;
+                int   offset[3];
+                int  extents[3];
+                int     halo[4];
+                int n_components;
+                int layout;
+                bool is_vector;
+            };
 
-// compare two fields to establish, if the same pattern can be used for both
-struct field_compare {
-    bool operator()( const cubed_sphere_field_descriptor& lhs, const cubed_sphere_field_descriptor& rhs ) const
-    {
-        if(lhs.halo[0] < rhs.halo[0]) return true;
-        if(lhs.halo[0] > rhs.halo[0]) return false;
-        if(lhs.halo[1] < rhs.halo[1]) return true;
-        if(lhs.halo[1] > rhs.halo[1]) return false;
-        if(lhs.halo[2] < rhs.halo[2]) return true;
-        if(lhs.halo[2] > rhs.halo[2]) return false;
-        if(lhs.halo[3] < rhs.halo[3]) return true;
-        if(lhs.halo[3] > rhs.halo[3]) return false;
+            using field_vector_type = std::vector<cubed_sphere_field_descriptor>;
+            struct cubed_sphere_domain_descriptor {
+                field_vector_type *fields = nullptr;
+                int tile;
+                int device_id;
+                int   cube[2];  // local grid dimensions
+                int  first[2];  // indices of the first LOCAL grid point, in global index space
+                int   last[2];  // indices of the last LOCAL grid point, in global index space
+            };
 
-        return false;
+            // compare two fields to establish, if the same pattern can be used for both
+            struct field_compare {
+                bool operator()( const cubed_sphere_field_descriptor& lhs, const cubed_sphere_field_descriptor& rhs ) const
+                {
+                    if(lhs.halo[0] < rhs.halo[0]) return true;
+                    if(lhs.halo[0] > rhs.halo[0]) return false;
+                    if(lhs.halo[1] < rhs.halo[1]) return true;
+                    if(lhs.halo[1] > rhs.halo[1]) return false;
+                    if(lhs.halo[2] < rhs.halo[2]) return true;
+                    if(lhs.halo[2] > rhs.halo[2]) return false;
+                    if(lhs.halo[3] < rhs.halo[3]) return true;
+                    if(lhs.halo[3] > rhs.halo[3]) return false;
+
+                    return false;
+                }
+            };
+
+            using grid_type                 = ghex::structured::grid;
+            using grid_detail_type          = ghex::structured::detail::grid<ghex::coordinate<std::array<int, 4>>>; // only 3D grids
+            using domain_descriptor_type    = ghex::structured::cubed_sphere::domain_descriptor;
+            using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
+            using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
+            using pattern_map_type          = std::map<cubed_sphere_field_descriptor, pattern_type, field_compare>;
+            using exchange_handle_type      = communication_obj_type::handle_type;
+            using halo_generator_type       = ghex::structured::cubed_sphere::halo_generator;
+
+            // row-major storage
+            using field_descriptor_type_1     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,3,2,1,0>;
+            using pattern_field_type_1        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_1>;
+            using pattern_field_vector_type_1 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_1>>, std::vector<pattern_field_type_1>>;
+
+            // field-major storage
+            using field_descriptor_type_2     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,2,1,0,3>;
+            using pattern_field_type_2        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_2>;
+            using pattern_field_vector_type_2 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_2>>, std::vector<pattern_field_type_2>>;
+
+            struct pattern_field_data {
+                pattern_field_vector_type_1 row_major;
+                pattern_field_vector_type_2 field_major;
+            };
+
+            // a map of field descriptors to patterns
+            static pattern_map_type field_to_pattern;
+        }
     }
-};
-
-using grid_type                 = ghex::structured::grid;
-using grid_detail_type          = ghex::structured::detail::grid<ghex::coordinate<std::array<int, 4>>>; // only 3D grids
-using domain_descriptor_type    = ghex::structured::cubed_sphere::domain_descriptor;
-using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
-using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
-using pattern_map_type          = std::map<cubed_sphere_field_descriptor, pattern_type, field_compare>;
-using exchange_handle_type      = communication_obj_type::handle_type;
-using halo_generator_type       = ghex::structured::cubed_sphere::halo_generator;
-
-// row-major storage
-using field_descriptor_type_1     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,3,2,1,0>;
-using pattern_field_type_1        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_1>;
-using pattern_field_vector_type_1 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_1>>, std::vector<pattern_field_type_1>>;
-
-// field-major storage
-using field_descriptor_type_2     = ghex::structured::cubed_sphere::field_descriptor<fp_type, arch_type,2,1,0,3>;
-using pattern_field_type_2        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type_2>;
-using pattern_field_vector_type_2 = std::pair<std::vector<std::unique_ptr<field_descriptor_type_2>>, std::vector<pattern_field_type_2>>;
-
-struct pattern_field_data {
-    pattern_field_vector_type_1 row_major;
-    pattern_field_vector_type_2 field_major;
-};
-
-// a map of field descriptors to patterns
-static pattern_map_type field_to_pattern;
+}
 
 extern "C"
 void ghex_cubed_sphere_co_init(obj_wrapper **wco_ref, obj_wrapper *wcomm)

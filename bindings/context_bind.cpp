@@ -3,6 +3,8 @@
 #include <sched.h>
 #include <sys/sysinfo.h>
 
+using namespace gridtools::ghex::fhex;
+
 namespace gridtools {
     namespace ghex {
         namespace fhex {
@@ -14,8 +16,6 @@ namespace gridtools {
         }
     }
 }
-
-using namespace gridtools::ghex::fhex;
 
 extern "C"
 void ghex_init(int nthreads, MPI_Fint fcomm)
