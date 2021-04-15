@@ -166,7 +166,7 @@ void ghex_comm_send_multi_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message **wme
     std::vector<int> ranks_array(nranks);
     ranks_array.assign(ranks, ranks+nranks);
     wmessage = *wmessage_ref;
-    if(nullptr==wmessage){
+    if(!wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
     }
