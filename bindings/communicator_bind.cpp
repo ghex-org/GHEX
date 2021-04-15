@@ -231,7 +231,7 @@ extern "C"
 void ghex_comm_resubmit_recv(obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, f_callback cb, frequest_type *freq, void *user_data)
 {
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
-    if(nullptr==wmessage){
+    if(!wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
     }
