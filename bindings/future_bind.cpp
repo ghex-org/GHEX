@@ -49,9 +49,6 @@ int ghex_future_test_any(ffuture_type *ffut, int n_futures)
     }
     i = 0;
     return n_futures+1;
-    // communicator_type::future<void> *pfut = (communicator_type::future<void>*)ffut;
-    // auto r_it = communicator_type::future<void>::test_any(pfut, pfut+n_futures);
-    // return (r_it-pfut)+1;
 }
 
 extern "C"
