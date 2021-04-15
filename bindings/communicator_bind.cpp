@@ -212,7 +212,7 @@ void ghex_comm_recv_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_
     ghex::tl::cb::any_message *wmessage;
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     wmessage = *wmessage_ref;
-    if(nullptr==wmessage){
+    if(!wmessage){
 	std::cerr << "ERROR: trying to submit a NULL message in " << __FUNCTION__ << ". Terminating.\n";
 	std::terminate();
     }
