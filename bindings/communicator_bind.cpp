@@ -68,10 +68,10 @@ void ghex_comm_barrier(obj_wrapper *wrapper, int type)
 {
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wrapper);
     switch(type){
-    case(BarrierThread):
+    case(GhexBarrierThread):
         ghex_barrier->in_node(*comm);
         break;
-    case(BarrierRank):
+    case(GhexBarrierRank):
         ghex_barrier->rank_barrier(*comm);
         break;
     default:

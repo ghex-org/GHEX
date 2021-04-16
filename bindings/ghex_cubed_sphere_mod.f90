@@ -16,7 +16,7 @@ MODULE ghex_cubed_sphere_mod
      integer(c_int) :: extents(3) = -1         ! by default - size of the local extents + halos
      integer(c_int) ::    halo(4) = -1         ! halo to be used for this field
      integer(c_int) :: n_components = 1        ! number of field components
-     integer(c_int) ::     layout = LayoutFieldLast
+     integer(c_int) ::     layout = GhexLayoutFieldLast
      logical(c_bool) :: is_vector = .false.    ! is this a vector field
   end type ghex_cubed_sphere_field
 
@@ -24,7 +24,7 @@ MODULE ghex_cubed_sphere_mod
   type, bind(c) :: ghex_cubed_sphere_domain
      type(c_ptr)    :: fields = c_null_ptr  ! computational field data, opaque field not to be accessed by the user
      integer(c_int) :: tile = -1
-     integer(c_int) :: device_id = DeviceUnknown
+     integer(c_int) :: device_id = GhexDeviceUnknown
      integer(c_int) :: cube(2)              ! local grid dimensions
      integer(c_int) :: first(2)             ! indices of the first LOCAL grid point, in global index space
      integer(c_int) :: last(2)              ! indices of the last LOCAL grid point, in global index space
@@ -148,7 +148,7 @@ CONTAINS
     if (present(device_id)) then
       domain_desc%device_id = device_id
     else
-      domain_desc%device_id = DeviceCPU
+      domain_desc%device_id = GhexDeviceCPU
     end if
 
     domain_desc%tile  = tile
@@ -168,7 +168,7 @@ CONTAINS
     field_desc%extents = shape(data, 4)
     field_desc%n_components = 1
     field_desc%is_vector = .false.
-    field_desc%layout = LayoutFieldLast
+    field_desc%layout = GhexLayoutFieldLast
 
     if (present(offset)) then
        field_desc%offset = offset
@@ -198,11 +198,11 @@ CONTAINS
     if (present(layout)) then
        field_desc%layout = layout
     else
-       field_desc%layout = LayoutFieldLast
+       field_desc%layout = GhexLayoutFieldLast
     endif
 
     extents = shape(data, 4)
-    if (field_desc%layout == LayoutFieldLast) then
+    if (field_desc%layout == GhexLayoutFieldLast) then
       field_desc%extents = extents(1:3)
       field_desc%n_components = size(data, 4)
     else
@@ -224,7 +224,7 @@ CONTAINS
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
     field_desc%n_components = 1
-    field_desc%layout       = LayoutFieldLast
+    field_desc%layout       = GhexLayoutFieldLast
     field_desc%is_vector    = .false.
   end subroutine ghex_cubed_sphere_field_free
 

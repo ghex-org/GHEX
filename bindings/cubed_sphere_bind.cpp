@@ -155,7 +155,7 @@ void* ghex_cubed_sphere_exchange_desc_new(cubed_sphere_domain_descriptor *domain
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
             // ASYMETRY
 
-	    if(LayoutFieldLast == field.layout){
+	    if(GhexLayoutFieldLast == field.layout){
 		std::unique_ptr<field_descriptor_type_1> field_desc_uptr(new field_descriptor_type_1(local_domains[i], field.data, offset, extents, field.n_components, field.is_vector));
 		auto ptr = field_desc_uptr.get();
 		pattern_fields.row_major.first.push_back(std::move(field_desc_uptr));

@@ -9,18 +9,18 @@ namespace gridtools {
     }
 }
 
-#define GHEX_DIMS                 3
+#define GHEX_DIMS         3
 
-#define DeviceUnknown 0
-#define DeviceCPU     1
-#define DeviceGPU     2
+#define GhexDeviceUnknown 0
+#define GhexDeviceCPU     1
+#define GhexDeviceGPU     2
 
-#define LayoutFieldLast  1
-#define LayoutFieldFirst 2
+#define GhexLayoutFieldLast  1
+#define GhexLayoutFieldFirst 2
 
 /* barrier types */
-#define BarrierGlobal 1
-#define BarrierThread 2
-#define BarrierRank   3
+#define GhexBarrierGlobal 1
+#define GhexBarrierThread 2
+#define GhexBarrierRank   3
 
 #endif /* INCLUDED_GHEX_FORTRAN_DEFS_HPP */

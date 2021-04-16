@@ -25,14 +25,14 @@ MODULE ghex_structured_mod
      integer(c_int) ::    halo(6) = -1         ! halo to be used for this field
      logical(c_bool) :: periodic(3) = .false.
      integer(c_int) :: n_components = 1        ! number of field components
-     integer(c_int) ::     layout = LayoutFieldLast
+     integer(c_int) ::     layout = GhexLayoutFieldLast
   end type ghex_struct_field
 
   ! computational domain: defines the iteration space, and the fields with their halos
   type, bind(c) :: ghex_struct_domain
      type(c_ptr)    :: fields = c_null_ptr  ! computational field data, opaque field not to be accessed by the user
      integer(c_int) :: id = -1
-     integer(c_int) :: device_id = DeviceUnknown
+     integer(c_int) :: device_id = GhexDeviceUnknown
      integer(c_int) :: first(3)             ! indices of the first LOCAL grid point, in global index space
      integer(c_int) :: last(3)              ! indices of the last LOCAL grid point, in global index space
      integer(c_int) :: gfirst(3) = [1,1,1]  ! indices of the first GLOBAL grid point, (1,1,1) by default
@@ -172,7 +172,7 @@ CONTAINS
     if (present(device_id)) then
       domain_desc%device_id = device_id
     else
-      domain_desc%device_id = DeviceCPU
+      domain_desc%device_id = GhexDeviceCPU
     end if
 
     domain_desc%id = id
@@ -193,7 +193,7 @@ CONTAINS
     field_desc%halo = halo
     field_desc%extents = shape(data, 4)
     field_desc%n_components = 1
-    field_desc%layout = LayoutFieldLast
+    field_desc%layout = GhexLayoutFieldLast
 
     if (present(offset)) then
       field_desc%offset = offset
@@ -231,11 +231,11 @@ CONTAINS
     if (present(layout)) then
       field_desc%layout = layout
     else
-      field_desc%layout = LayoutFieldLast
+      field_desc%layout = GhexLayoutFieldLast
     endif
 
     extents = shape(data, 4)
-    if (field_desc%layout == LayoutFieldLast) then
+    if (field_desc%layout == GhexLayoutFieldLast) then
       field_desc%extents = extents(1:3)
       field_desc%n_components = size(data, 4)
     else
@@ -251,7 +251,7 @@ CONTAINS
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
     field_desc%periodic(:)  = .false.
-    field_desc%layout       = LayoutFieldLast
+    field_desc%layout       = GhexLayoutFieldLast
   end subroutine ghex_struct_field_free
 
   type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_array_new(domains_desc)
