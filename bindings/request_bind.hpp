@@ -2,6 +2,7 @@
 #define INCLUDED_GHEX_FORTRAN_REQUEST_BIND_HPP
 
 #include <cstdint>
+#include "ghex_config.h"
 
 namespace gridtools {
     namespace ghex {

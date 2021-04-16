@@ -3,6 +3,7 @@ MODULE ghex_future_mod
 
   ! should be established and defined by cmake, also for request_bind.hpp
   implicit none
+#include "ghex_config.h"
 
   type, bind(c) :: ghex_future
      integer(c_int8_t) :: data(GHEX_FUTURE_SIZE) = 0

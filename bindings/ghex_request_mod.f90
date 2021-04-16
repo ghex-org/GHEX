@@ -3,6 +3,7 @@ MODULE ghex_request_mod
 
   ! should be established and defined by cmake, also for request_bind.hpp
   implicit none
+#include "ghex_config.h"
 
   type, bind(c) :: ghex_request
      integer(c_int8_t) :: data(GHEX_REQUEST_SIZE) = 0
