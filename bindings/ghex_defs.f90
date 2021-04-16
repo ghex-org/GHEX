@@ -1,7 +1,7 @@
 MODULE ghex_defs
   integer, public, parameter :: GHEX_ANY_SOURCE = -1
 
-  integer, public, parameter :: ghex_fp_kind = 4
+  integer, public, parameter :: ghex_fp_kind = GHEX_FORTRAN_FP_KIND
 
   integer, public, parameter :: GhexDeviceUnknown = 0
   integer, public, parameter :: GhexDeviceCPU = 1
