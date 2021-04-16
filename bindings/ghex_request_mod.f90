@@ -2,7 +2,6 @@ MODULE ghex_request_mod
   use iso_c_binding
 
   ! should be established and defined by cmake, also for request_bind.hpp
-#define GHEX_REQUEST_SIZE 24
   implicit none
 
   type, bind(c) :: ghex_request

@@ -3,8 +3,6 @@
 
 #include <cstdint>
 
-#define GHEX_REQUEST_SIZE 24
-
 namespace gridtools {
     namespace ghex {
         namespace fhex {

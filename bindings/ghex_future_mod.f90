@@ -2,8 +2,6 @@ MODULE ghex_future_mod
   use iso_c_binding
 
   ! should be established and defined by cmake, also for request_bind.hpp
-#define GHEX_FUTURE_SIZE 24
-#define GHEX_FUTURE_MULTI_SIZE 24
   implicit none
 
   type, bind(c) :: ghex_future

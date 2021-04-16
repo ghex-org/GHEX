@@ -3,9 +3,6 @@
 
 #include <cstdint>
 
-#define GHEX_FUTURE_SIZE 24
-#define GHEX_FUTURE_MULTI_SIZE 24
-
 namespace gridtools {
     namespace ghex {
         namespace fhex {
