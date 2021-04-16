@@ -12,6 +12,8 @@ endif()
 # setup fortran compiler and arguments
 if (GHEX_BUILD_FORTRAN)
    enable_language(Fortran)
+   set(GHEX_FORTRAN_FP "float" CACHE STRING "Floating-point type")
+   set_property(CACHE GHEX_FORTRAN_FP PROPERTY STRINGS "float" "double")
    if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
      message(STATUS "Fortran compiler is GNU.")
      set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none -fcoarray=single")

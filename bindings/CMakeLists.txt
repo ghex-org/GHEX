@@ -10,6 +10,7 @@ if (GHEX_USE_XPMEM)
   target_compile_definitions(fhex PRIVATE GHEX_USE_XPMEM)
 endif()
 
+target_compile_definitions(fhex PRIVATE GHEX_FORTRAN_FP=${GHEX_FORTRAN_FP})
 target_include_directories(fhex PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(fhex PRIVATE ghexlib)
 target_link_libraries(fhex INTERFACE MPI::MPI_Fortran)
