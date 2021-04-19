@@ -12,12 +12,13 @@ RUN apt-get update -qq && \
         wget \
         git \
         tar \
-        python3 \
-        python3-pip \
         software-properties-common \
+        lsb-release \
         cowsay && \
     ln -s /usr/games/cowsay /usr/bin/cowsay && \
     rm -rf /var/lib/apt/lists/*
+
+# OK UP TO HERE
 
 ARG CMAKE_VERSION=3.14.5
 RUN cd /tmp && \
