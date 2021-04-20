@@ -126,7 +126,7 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
-if (NOT cxx_name STREQUAL "hipcc") # TO DO: to be refined
+if (NOT ghex_gpu_mode STREQUAL "hip") # TO DO: could be more fine-grained
 set(_tests_rma local_rma simple_regular_exchange)
 foreach (_t ${_tests_rma})
 

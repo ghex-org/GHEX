@@ -61,7 +61,7 @@ foreach (_t ${_benchmarks_mt})
 endforeach()
 
 # RMA benchmark
-if (NOT cxx_name STREQUAL "hipcc") # TO DO: to be refined
+if (NOT ghex_gpu_mode STREQUAL "hip") # TO DO: could be more fine-grained
 set(_rma_benchmarks simple_rma)
 foreach (_t ${_rma_benchmarks})
     

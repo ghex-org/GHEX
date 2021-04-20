@@ -13,6 +13,8 @@ if(USE_GPU)
         set(CMAKE_CUDA_STANDARD 14)
         set(CMAKE_CUDA_EXTENSIONS OFF)
     endif()
+else()
+    set(ghex_gpu_mode "none")
 endif()
 
 cmake_policy(SET CMP0048 NEW)
