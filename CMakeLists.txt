@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.14.5)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
-    get_filename_component(cxx_name ${CMAKE_CXX_COMPILER} NAME)
-    if(cxx_name STREQUAL "hipcc")
-        set(ghex_gpu_mode "hipcc")
-    else() # assume cuda; TO DO: might be refined
+    find_package(hip)
+    if(hip_FOUND)
+        set(ghex_gpu_mode "hip")
+    else() # assume cuda elsewhere; TO DO: might be refined
         set(ghex_gpu_mode "cuda")
         set(CMAKE_CUDA_FLAGS "" CACHE STRING "")
         string(APPEND CMAKE_CUDA_FLAGS " --cudart shared --expt-relaxed-constexpr")
