@@ -11,7 +11,7 @@
 #ifndef INCLUDED_GHEX_COMMON_DEFS_HPP
 #define INCLUDED_GHEX_COMMON_DEFS_HPP
 
-#if (defined(__CUDACC__) || defined(__HIP__))
+#if (defined(__CUDACC__) || defined(__HIP_PLATFORM_HCC__))
 #define GHEX_CUDACC
 #endif
 
