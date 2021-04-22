@@ -84,6 +84,8 @@ RUN git clone https://github.com/openucx/ucx.git && \
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ENV UCX_TLS=self,tcp
 
+# HERE
+
 #RUN apt-get update -qq && \
 #    wget -q -O- https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub | apt-key add - && \
 #    echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64 /" > /etc/apt/sources.list.d/cuda.list && \
@@ -96,13 +98,11 @@ ENV UCX_TLS=self,tcp
 
 #ENV CUDACXX=/usr/local/cuda-11.1/bin/nvcc CUDAHOSTCXX=${CXX}
 
-# HERE
+#RUN wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add - && \
+#    echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ xenial main' | tee /etc/apt/sources.list.d/rocm.list && \
+#    apt-get update -qq && \
+#    DEBIAN_FRONTEND=noninteractive apt-get install -qq -y rocm-dev && \
+#    rm -rf /var/lib/apt/lists/*
 
-RUN wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | apt-key add - && \
-    echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ xenial main' | tee /etc/apt/sources.list.d/rocm.list && \
-    apt-get update -qq && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -qq -y rocm-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-ENV ROCM_PATH=/opt/rocm
-ENV PATH=${ROCM_PATH}/bin:${PATH} CXX=${ROCM_PATH}/bin/hipcc
+#ENV ROCM_PATH=/opt/rocm
+#ENV PATH=${ROCM_PATH}/bin:${PATH} CXX=${ROCM_PATH}/bin/hipcc
