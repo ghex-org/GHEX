@@ -57,7 +57,7 @@ RUN git clone https://github.com/ecmwf/eckit.git && \
     git checkout master && \
     mkdir -p build && cd build && \
     /ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/eckit -- ../ && \
-    make install
+    make -j$(nproc) install
 
 RUN git clone https://github.com/ecmwf/atlas.git && \
     cd atlas && \
@@ -65,7 +65,7 @@ RUN git clone https://github.com/ecmwf/atlas.git && \
     mkdir -p build && cd build && \
     export ECKIT_PATH=/opt/eckit && \
     /ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/atlas -- ../ && \
-    make install
+    make -j$(nproc) install
 
 RUN apt-get update -qq && \
     apt-get install -qq -y libtool automake autoconf && \
@@ -79,7 +79,7 @@ RUN git clone https://github.com/openucx/ucx.git && \
     cd ucx && \
     ./autogen.sh && \
     ./configure --prefix=/usr/local --enable-mt --disable-numa && \
-    make && make install
+    make -j$(nproc) && make install
 
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ENV UCX_TLS=self,tcp
