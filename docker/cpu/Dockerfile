@@ -63,7 +63,7 @@ RUN cd /tmp && \
     cd eckit && \
     git checkout master && \
     mkdir -p build && cd build && \
-    /ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/eckit -- ../ && \
+    /opt/ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/eckit -- ../ && \
     make -j$(nproc) install && \
     cd /tmp && \
     rm -rf eckit
@@ -74,7 +74,7 @@ RUN cd /tmp && \
     git checkout master && \
     mkdir -p build && cd build && \
     export ECKIT_PATH=/opt/eckit && \
-    /ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/atlas -- ../ && \
+    /opt/ecbuild/bin/ecbuild --build=RELEASE --prefix=/opt/atlas -- ../ && \
     make -j$(nproc) install && \
     cd /tmp && \
     rm -rf atlas
