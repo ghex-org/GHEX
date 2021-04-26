@@ -25,13 +25,18 @@ RUN cd /tmp && \
     cp -r cmake-${CMAKE_VERSION}-Linux-x86_64/bin cmake-${CMAKE_VERSION}-Linux-x86_64/share /usr/local/ && \
     rm -rf *
 
-ARG BOOST_VERSION=1.70.0
-RUN cd /tmp && \
-    export BOOST_VERSION_UNDERLINE=$(echo ${BOOST_VERSION} | sed 's/\./_/g') && \
-    wget -q https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERLINE}.tar.gz && \
-    tar xzf boost_${BOOST_VERSION_UNDERLINE}.tar.gz && \
-    cp -r boost_${BOOST_VERSION_UNDERLINE}/boost /usr/local/include/ && \
-    rm -rf *
+# Boost temporarily installed from ubuntu repositories
+# due to bintray repository unavailable (403 - forbidden)
+#ARG BOOST_VERSION=1.70.0
+#RUN cd /tmp && \
+#    export BOOST_VERSION_UNDERLINE=$(echo ${BOOST_VERSION} | sed 's/\./_/g') && \
+#    wget -q https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERLINE}.tar.gz && \
+#    tar xzf boost_${BOOST_VERSION_UNDERLINE}.tar.gz && \
+#    cp -r boost_${BOOST_VERSION_UNDERLINE}/boost /usr/local/include/ && \
+#    rm -rf *
+RUN apt-get update -qq && \
+    apt-get install -qq -y libboost-all-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update -qq && \
     apt-get install -qq -y openmpi-bin libopenmpi-dev && \
