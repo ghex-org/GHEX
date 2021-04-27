@@ -35,7 +35,7 @@ Simple Script
 ^^^^^^^^^^^^^
 
 We first provide a sample of the commands needed to enable the multicore and CUDA backends, install them in ``/usr/local``,
-and run the gridtools tests.
+and run the |GT| tests.
 
 .. code-block:: shell
 
