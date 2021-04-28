@@ -31,6 +31,7 @@
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
+#include <ghex/transport_layer/util/barrier.hpp>
 #include <ghex/arch_list.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/pattern.hpp>
@@ -381,6 +382,9 @@ TEST(unstructured_parmetis, receive_type) {
     auto& context = *context_ptr;
     int gh_rank = context.rank();
 
+    // barrier
+    gridtools::ghex::tl::barrier_t gh_barrier{num_threads};
+
     // timers (local = rank local)
 #ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
     timer_type t_buf_local; // 1 - unordered halos - buffered receive
@@ -442,7 +446,7 @@ TEST(unstructured_parmetis, receive_type) {
     }
 
     // thread function
-    auto thread_func = [&context, &t_buf_local, &t_buf_local_mutex](auto bi){
+    auto thread_func = [&context, &gh_barrier, &t_buf_local, &t_buf_local_mutex](auto bi){
         auto th_comm = context.get_communicator();
         timer_type t_buf_local_th;
         auto co = gridtools::ghex::make_communication_object<pattern_container_type>(th_comm);
@@ -452,7 +456,7 @@ TEST(unstructured_parmetis, receive_type) {
         }
         for (int i = 0; i < n_iters; ++i) { // benchmark
             timer_type t_local;
-            th_comm.barrier();
+            gh_barrier(th_comm);
             t_local.tic();
             auto h = co.exchange(bi);
             h.wait();
@@ -517,7 +521,7 @@ TEST(unstructured_parmetis, receive_type) {
     }
 
     // thread function
-    auto thread_func_ord = [&context, &t_ord_buf_local, &t_ord_buf_local_mutex](auto bi){
+    auto thread_func_ord = [&context, &gh_barrier, &t_ord_buf_local, &t_ord_buf_local_mutex](auto bi){
         auto th_comm = context.get_communicator();
         timer_type t_ord_buf_local_th;
         auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(th_comm);
@@ -527,7 +531,7 @@ TEST(unstructured_parmetis, receive_type) {
         }
         for (int i = 0; i < n_iters; ++i) { // benchmark
             timer_type t_local;
-            th_comm.barrier();
+            gh_barrier(th_comm);
             t_local.tic();
             auto h_ord = co_ord.exchange(bi);
             h_ord.wait();
@@ -575,7 +579,7 @@ TEST(unstructured_parmetis, receive_type) {
     }
 
     // thread function
-    auto thread_func_ipr = [&context, &t_ord_ipr_local, &t_ord_ipr_local_mutex](auto bi){
+    auto thread_func_ipr = [&context, &gh_barrier, &t_ord_ipr_local, &t_ord_ipr_local_mutex](auto bi){
         auto th_comm = context.get_communicator();
         timer_type t_ord_ipr_local_th;
         auto co_ipr = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(th_comm);
@@ -585,7 +589,7 @@ TEST(unstructured_parmetis, receive_type) {
         }
         for (int i = 0; i < n_iters; ++i) { // benchmark
             timer_type t_local;
-            th_comm.barrier();
+            gh_barrier(th_comm);
             t_local.tic();
             auto h_ipr = co_ipr.exchange(bi);
             h_ipr.wait();
