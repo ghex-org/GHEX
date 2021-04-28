@@ -31,7 +31,6 @@
 #else
 #include <ghex/transport_layer/ucx/context.hpp>
 #endif
-#include <ghex/threads/std_thread/primitives.hpp>
 #include <ghex/arch_list.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/pattern.hpp>
@@ -49,10 +48,8 @@
 // GHEX type definitions
 #ifndef GHEX_TEST_USE_UCX
 using transport = gridtools::ghex::tl::mpi_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #else
 using transport = gridtools::ghex::tl::ucx_tag;
-using threading = gridtools::ghex::threads::std_thread::primitives;
 #endif
 using domain_id_type = int;
 using global_index_type = idx_t;
@@ -380,10 +377,9 @@ TEST(unstructured_parmetis, receive_type) {
 #ifndef __CUDACC__
 
     // GHEX context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(num_threads, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int gh_rank = context.rank();
-    int gh_size = context.size();
 
     // timers (local = rank local)
 #ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
@@ -447,8 +443,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // thread function
     auto thread_func = [&context, &t_buf_local, &t_buf_local_mutex](auto bi){
-        auto th_token = context.get_token();
-        auto th_comm = context.get_communicator(th_token);
+        auto th_comm = context.get_communicator();
         timer_type t_buf_local_th;
         auto co = gridtools::ghex::make_communication_object<pattern_container_type>(th_comm);
         for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -523,8 +518,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // thread function
     auto thread_func_ord = [&context, &t_ord_buf_local, &t_ord_buf_local_mutex](auto bi){
-        auto th_token = context.get_token();
-        auto th_comm = context.get_communicator(th_token);
+        auto th_comm = context.get_communicator();
         timer_type t_ord_buf_local_th;
         auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(th_comm);
         for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -582,8 +576,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // thread function
     auto thread_func_ipr = [&context, &t_ord_ipr_local, &t_ord_ipr_local_mutex](auto bi){
-        auto th_token = context.get_token();
-        auto th_comm = context.get_communicator(th_token);
+        auto th_comm = context.get_communicator();
         timer_type t_ord_ipr_local_th;
         auto co_ipr = gridtools::ghex::make_communication_object_ipr<pattern_container_type>(th_comm);
         for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -629,11 +622,10 @@ TEST(unstructured_parmetis, receive_type) {
 #else
 
     // GHEX context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport,threading>::create(1, MPI_COMM_WORLD);
+    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
     auto& context = *context_ptr;
     int gh_rank = context.rank();
-    int gh_size = context.size();
-    auto gh_comm = context.get_communicator(context.get_token());
+    auto gh_comm = context.get_communicator();
 
     // timers
     timer_type t_buf_local_gpu, t_buf_global_gpu; // 1 - unordered halos - buffered receive
