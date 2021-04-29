@@ -303,7 +303,7 @@ namespace gridtools {
 
                     static void empty_recv_callback(void *, ucs_status_t, ucp_tag_recv_info_t*) {}
 
-                    inline static void send_callback(void * __restrict ucx_req, ucs_status_t __restrict status)
+                    inline static void send_callback(void * __restrict ucx_req, ucs_status_t status)
                     {
                         auto& req = request_cb_data_type::get(ucx_req);
                         if (status == UCS_OK) {
@@ -322,7 +322,7 @@ namespace gridtools {
                     }
 
                     // this function must be called from within a locked region
-                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t __restrict status, ucp_tag_recv_info_t*info /*info*/)
+                    inline static void recv_callback(void * __restrict ucx_req, ucs_status_t status, ucp_tag_recv_info_t*info /*info*/)
                     {
                         auto& req = request_cb_data_type::get(ucx_req);
 
