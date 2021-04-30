@@ -32,8 +32,7 @@ void *ghex_message_new(std::size_t size, int allocator_type)
     switch(allocator_type){
     case GhexAllocatorHost:
 	{
-	    ghex::tl::message_buffer<host_allocator_type> msg{size, host_allocator_type{}};
-            wmessage = new ghex::tl::cb::any_message{std::move(msg)};
+            wmessage = new ghex::tl::cb::any_message{ghex::tl::message_buffer<host_allocator_type>{size, host_allocator_type{}}};
 	    break;
 	}
     case GhexAllocatorDevice:
