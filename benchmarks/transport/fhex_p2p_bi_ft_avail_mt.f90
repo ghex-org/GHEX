@@ -139,8 +139,8 @@ contains
     ! ---------------------------------------
     allocate(smsgs(inflight), rmsgs(inflight), sreqs(inflight), rreqs(inflight))
     do j = 1, inflight
-       smsgs(j) = ghex_message_new(buff_size, ALLOCATOR_STD);
-       rmsgs(j) = ghex_message_new(buff_size, ALLOCATOR_STD);
+       smsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost);
+       rmsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost);
        call ghex_message_zero(smsgs(j))
        call ghex_message_zero(rmsgs(j))
        call ghex_future_init(sreqs(j))
@@ -276,8 +276,8 @@ contains
 #if GHEX_USE_OPENMP
     !$omp master
 #endif
-    bsmsg = ghex_message_new(1_8, ALLOCATOR_STD);
-    brmsg = ghex_message_new(1_8, ALLOCATOR_STD);
+    bsmsg = ghex_message_new(1_8, GhexAllocatorHost);
+    brmsg = ghex_message_new(1_8, GhexAllocatorHost);
     call ghex_comm_post_send(comm, bsmsg, peer_rank, 800000, bsreq);
     call ghex_comm_post_recv(comm, brmsg, peer_rank, 800000, brreq);
 #if GHEX_USE_OPENMP

@@ -138,8 +138,8 @@ contains
     ! ---------------------------------------
     allocate(smsgs(inflight), rmsgs(inflight), sreqs(inflight), rreqs(inflight))
     do j = 1, inflight
-       smsgs(j) = ghex_message_new(buff_size, ALLOCATOR_STD);
-       rmsgs(j) = ghex_message_new(buff_size, ALLOCATOR_STD);
+       smsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost);
+       rmsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost);
        call ghex_message_zero(smsgs(j))
        call ghex_message_zero(rmsgs(j))
        call ghex_future_init(sreqs(j))
