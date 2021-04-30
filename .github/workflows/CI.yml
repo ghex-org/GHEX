@@ -23,9 +23,9 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          CXX=/usr/bin/g++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/usr/local -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_BENCHMARKS=ON
+          CXX=/usr/bin/g++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/usr/local -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_BENCHMARKS=ON -DMPIEXEC_PREFLAGS=-oversubscribe
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
-        run: cd build && export SHLVL=1 && env &&  ctest 
+        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && env &&  ctest 
 
