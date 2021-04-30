@@ -2,13 +2,6 @@ MODULE ghex_message_mod
   use iso_c_binding
   implicit none
 
-  integer, public, parameter :: ALLOCATOR_STD             = 1
-  integer, public, parameter :: ALLOCATOR_PERSISTENT_STD  = 2
-  integer, public, parameter :: ALLOCATOR_HOST            = 3
-  integer, public, parameter :: ALLOCATOR_PERSISTENT_HOST = 4
-  integer, public, parameter :: ALLOCATOR_GPU             = 5
-  integer, public, parameter :: ALLOCATOR_PERSISTENT_GPU  = 6
-
   ! ---------------------
   ! --- module types
   ! ---------------------

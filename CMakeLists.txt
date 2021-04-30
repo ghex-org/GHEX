@@ -154,7 +154,7 @@ endif()
 
 # setup fortran compiler and arguments
 if (GHEX_BUILD_FORTRAN)
-   add_subdirectory(bindings)
+   add_subdirectory(bindings/fhex)
 endif()
 
 # Enable adding of tests etc

@@ -52,8 +52,8 @@ PROGRAM test_send_recv_ft
   comm = ghex_comm_new()
 
   ! create a message per thread
-  rmsg = ghex_message_new(msg_size, ALLOCATOR_STD)
-  smsg = ghex_message_new(msg_size, ALLOCATOR_STD)
+  rmsg = ghex_message_new(msg_size, GhexAllocatorHost)
+  smsg = ghex_message_new(msg_size, GhexAllocatorHost)
   msg_data => ghex_message_data(smsg)
   msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
 

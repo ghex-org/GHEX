@@ -13,5 +13,8 @@ MODULE ghex_defs
   integer, public, parameter :: GhexBarrierGlobal = 1
   integer, public, parameter :: GhexBarrierThread = 2
   integer, public, parameter :: GhexBarrierRank   = 3
+
+  integer, public, parameter :: GhexAllocatorHost    = 1
+  integer, public, parameter :: GhexAllocatorDevice  = 2
   
 END MODULE ghex_defs

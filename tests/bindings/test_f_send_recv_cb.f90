@@ -64,8 +64,8 @@ PROGRAM test_send_recv_cb
   comm = communicators(thrid)
 
   ! create messages
-  rmsg = ghex_message_new(msg_size, ALLOCATOR_STD)
-  smsg = ghex_message_new(msg_size, ALLOCATOR_STD)
+  rmsg = ghex_message_new(msg_size, GhexAllocatorHost)
+  smsg = ghex_message_new(msg_size, GhexAllocatorHost)
 
   ! initialize send data
   msg_data => ghex_message_data(smsg)

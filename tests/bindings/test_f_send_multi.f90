@@ -92,7 +92,7 @@ PROGRAM test_send_multi
     user_data%data = c_loc(rank_received)
     do while (it<mpi_size)
       if (it/=mpi_rank) then
-        rmsg(it) = ghex_message_new(msg_size, ALLOCATOR_STD)
+        rmsg(it) = ghex_message_new(msg_size, GhexAllocatorHost)
         call ghex_comm_recv_cb(comm, rmsg(it), it, it, pcb, user_data=user_data, req=rreq)
 
         ! NOTE: we have to use a local rreq variable, because rrequests(it)
@@ -123,7 +123,7 @@ PROGRAM test_send_multi
     end do
 
     ! initialize send data
-    smsg = ghex_message_new(msg_size, ALLOCATOR_STD)
+    smsg = ghex_message_new(msg_size, GhexAllocatorHost)
     msg_data => ghex_message_data(smsg)
     msg_data(1:msg_size) = (mpi_rank+1)*nthreads + thrid;
 
