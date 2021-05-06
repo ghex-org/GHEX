@@ -4,7 +4,6 @@
 #include <vector>
 #include <ghex/transport_layer/message_buffer.hpp>
 #include <ghex/transport_layer/callback_utils.hpp>
-#include <ghex/allocator/unified_memory_allocator.hpp>
 
 namespace ghex = gridtools::ghex;
 using namespace gridtools::ghex::fhex;
@@ -19,7 +18,7 @@ namespace gridtools {
                  GhexAllocatorDevice=2
             } ghex_allocator_type;
 
-            using host_allocator_type = ghex::allocator::cuda::unified_memory_allocator<unsigned char>;
+            using host_allocator_type = std::allocator<unsigned char>;
         }
     }
 }
