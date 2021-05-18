@@ -20,12 +20,15 @@ namespace gridtools {
 
     /** @brief halo generator for structured domains
      * @tparam DomainIdType domain id type
-     * @tparam Dimension dimension of domain*/
+     * @tparam Dimension_t dimension type of domain*/
+    template<typename DomainIdType, typename Dimension_t>
+    class halo_generator;
+
     template<typename DomainIdType, int Dimension>
-    class halo_generator
+    class halo_generator<DomainIdType, std::integral_constant<int, Dimension>>
     {
     public: // member types
-        using domain_type     = domain_descriptor<DomainIdType,Dimension>;
+        using domain_type     = domain_descriptor<DomainIdType,std::integral_constant<int, Dimension>>;
         using dimension       = typename domain_type::dimension;
         using coordinate_type = typename grid::template type<domain_type>::coordinate_type;
 

@@ -26,7 +26,7 @@ namespace gridtools {
         template<typename Context>
         struct gt_grid
         {
-            using domain_descriptor_type = structured::regular::domain_descriptor<int,3>;
+            using domain_descriptor_type = structured::regular::domain_descriptor<int,std::integral_constant<int, 3>>;
             using domain_id_type         = typename domain_descriptor_type::domain_id_type;
             Context& m_context;
             std::vector<domain_descriptor_type> m_domains;
@@ -126,7 +126,7 @@ namespace gridtools {
                 global_first[1] + local_extents[1] -1,
                 global_first[2] + local_extents[2] -1};
 
-            structured::regular::domain_descriptor<int,3> local_domain{rank, global_first, global_last};
+            structured::regular::domain_descriptor<int,std::integral_constant<int, 3>> local_domain{rank, global_first, global_last};
 
             return {context, {local_domain}, global_extents, periodic}; 
 

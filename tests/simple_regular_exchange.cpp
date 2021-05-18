@@ -24,8 +24,8 @@ using namespace gridtools::ghex;
 using arr       = std::array<int,2>;
 using transport = TRANSPORT;
 using factory   = tl::context_factory<transport>;
-using domain    = structured::regular::domain_descriptor<int,2>;
-using halo_gen  = structured::regular::halo_generator<int,2>;
+using domain    = structured::regular::domain_descriptor<int,std::integral_constant<int, 2>>;
+using halo_gen  = structured::regular::halo_generator<int,std::integral_constant<int, 2>>;
 
 #define DIM 8
 #define HALO 3
@@ -107,14 +107,14 @@ memory<gridtools::array<int,2>> allocate_field()
 template<typename RawField>
 auto wrap_cpu_field(RawField& raw_field, const domain& d)
 {
-    return wrap_field<cpu,1,0>(d, raw_field.data(), arr{HALO, HALO}, arr{HALO*2+DIM, HALO*2+DIM/2});
+    return wrap_field<cpu,::gridtools::layout_map<1,0>>(d, raw_field.data(), arr{HALO, HALO}, arr{HALO*2+DIM, HALO*2+DIM/2});
 }
 
 #ifdef __CUDACC__
 template<typename RawField>
 auto wrap_gpu_field(RawField& raw_field, const domain& d)
 {
-    return wrap_field<gpu,1,0>(d, raw_field.device_data(), arr{HALO, HALO}, arr{HALO*2+DIM, HALO*2+DIM/2});
+    return wrap_field<gpu,::gridtools::layout_map<1,0>>(d, raw_field.device_data(), arr{HALO, HALO}, arr{HALO*2+DIM, HALO*2+DIM/2});
 }
 #endif
 

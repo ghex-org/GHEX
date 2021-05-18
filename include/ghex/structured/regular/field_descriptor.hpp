@@ -26,12 +26,12 @@ namespace ghex {
 namespace structured {    
 namespace regular {
 
-template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+template<typename T, typename Arch, typename DomainDescriptor, typename Layout>
 class field_descriptor
-: public gridtools::ghex::structured::field_descriptor<T,Arch,DomainDescriptor,Order...>
+: public gridtools::ghex::structured::field_descriptor<T,Arch,DomainDescriptor,Layout>
 {
 public: // member types
-    using base = gridtools::ghex::structured::field_descriptor<T,Arch,DomainDescriptor,Order...>;
+    using base = gridtools::ghex::structured::field_descriptor<T,Arch,DomainDescriptor,Layout>;
     
     using value_type               = typename base::value_type;
     using arch_type                = typename base::arch_type;
@@ -49,7 +49,7 @@ public: // member types
     using unpack_iteration_space   = typename base::unpack_iteration_space;
 
     template<typename OtherArch>
-    using rebind_arch = field_descriptor<T,OtherArch,DomainDescriptor,Order...>;
+    using rebind_arch = field_descriptor<T,OtherArch,DomainDescriptor,Layout>;
 
 public: // ctors
     template<typename ExtentArray, typename OffsetArray>
@@ -158,7 +158,7 @@ private: // implementation
 
     /** @brief wrap a N-dimensional array (field) of contiguous memory 
      * @tparam Arch device type the data lives on
-     * @tparam Order permutation of the set {0,...,N-1} indicating storage layout (N-1 -> stride=1)
+     * @tparam Layout storage layout (N-1 -> stride=1)
      * @tparam DomainDescriptor domain type
      * @tparam T field value type
      * @tparam Array coordinate-like type
@@ -167,8 +167,8 @@ private: // implementation
      * @param offsets coordinate of first physical coordinate (not buffer) from the orign of the wrapped N-dimensional array
      * @param extents extent of the wrapped N-dimensional array (including buffer regions)
      * @return wrapped field*/
-    template<typename Arch, int... Order, typename DomainDescriptor, typename T, typename Array>
-    structured::regular::field_descriptor<T,Arch,DomainDescriptor, Order...>
+    template<typename Arch, typename Layout, typename DomainDescriptor, typename T, typename Array>
+    structured::regular::field_descriptor<T,Arch,DomainDescriptor, Layout>
     wrap_field(const DomainDescriptor& dom, T* data, const Array& offsets, const Array& extents, typename arch_traits<Arch>::device_id_type device_id = 0)
     {
         return {dom, data, offsets, extents, 1, false, device_id};     
