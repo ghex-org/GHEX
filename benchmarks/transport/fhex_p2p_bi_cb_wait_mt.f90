@@ -163,7 +163,9 @@ contains
     ! ---------------------------------------   
     do while(i < niter)
 
-       call ghex_comm_barrier(comm, GhexBarrierThread)
+       ! ghex barrier not needed here (all comm finished), and VERY SLOW
+       !call ghex_comm_barrier(comm, GhexBarrierThread)
+       !$omp barrier
        
        if (thread_id == 0 .and. dbg >= (niter/10)) then
           dbg = 0
@@ -187,8 +189,8 @@ contains
           np = ghex_comm_progress(comm)
        end do       
 
-       call ghex_comm_barrier(comm, GhexBarrierThread)
-       
+       ! ghex barrier not needed here (all comm finished), and VERY SLOW
+       !$omp barrier
        sent = 0
        received = 0
     end do

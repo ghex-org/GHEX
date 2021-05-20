@@ -163,7 +163,10 @@ int main(int argc, char *argv[])
             int last_i = 0;
             while(i<niter){
 
-	        barrier.in_node(comm);
+	        // ghex barrier not needed here (all comm finished), and VERY SLOW
+	        // barrier.in_node(comm);
+#pragma omp barrier
+
                 if(thread_id == 0 && dbg >= (niter/10)) {
                     dbg = 0;
                     std::cout << rank << " total bwdt MB/s:      "
@@ -186,7 +189,9 @@ int main(int argc, char *argv[])
                     comm.progress();
                 }
 
-	        barrier.in_node(comm);
+	        // ghex barrier not needed here (all comm finished), and VERY SLOW
+	        // barrier.in_node(comm);
+#pragma omp barrier
                 sent = 0;
                 received = 0;
             }
