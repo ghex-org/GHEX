@@ -20,11 +20,7 @@ PROGRAM fhex_bench
   !$omp threadprivate(comm_cnt, nlsend_cnt, nlrecv_cnt, submit_cnt, submit_recv_cnt, thread_id)
 #endif
 
-#ifdef GHEX_USE_OPENMP
-  integer(atomic_int_kind) :: sent[*] = 0, received[*] = 0, tail_send[*] = 0, tail_recv[*] = 0
-#else
   integer :: sent = 0, received = 0, tail_send = 0, tail_recv = 0
-#endif
 
   ! local variables
   integer :: mpi_err, mpi_threading
@@ -34,15 +30,15 @@ PROGRAM fhex_bench
   integer :: inflight
   
   if( iargc() /= 3) then
-     print *, "Usage: bench [niter] [msg_size] [inflight]";
+     print *, "Usage: bench [niter] [msg_size] [inflight]"
      call exit(1)
   end if
 
-  call getarg(1, arg);
+  call getarg(1, arg)
   read(arg,*) niter
-  call getarg(2, arg);
+  call getarg(2, arg)
   read(arg,*) buff_size
-  call getarg(3, arg);
+  call getarg(3, arg)
   read(arg,*) inflight
 
 #ifdef GHEX_USE_OPENMP
@@ -57,7 +53,7 @@ PROGRAM fhex_bench
   !$omp end parallel
   call mpi_init_thread (MPI_THREAD_MULTIPLE, mpi_threading, mpi_err)
   if (mpi_threading /= MPI_THREAD_MULTIPLE) then
-     print *, "MPI_THREAD_MULTIPLE not supported by MPI, aborting";
+     print *, "MPI_THREAD_MULTIPLE not supported by MPI, aborting"
      call exit(1)
   end if
 #else
@@ -65,7 +61,7 @@ PROGRAM fhex_bench
 #endif
 
   ! init ghex
-  call ghex_init(num_threads, mpi_comm_world);
+  call ghex_init(num_threads, mpi_comm_world)
 
 #ifdef GHEX_USE_OPENMP
   !$omp parallel
@@ -94,7 +90,7 @@ contains
 
     integer :: last_received = 0
     integer :: last_sent = 0
-    integer :: dbg = 0, sdbg = 0, rdbg = 0;
+    integer :: dbg = 0, sdbg = 0, rdbg = 0
     integer :: j = 0
     integer :: incomplete_sends = 0, send_complete = 0
     type(ghex_progress_status), save :: np
@@ -122,8 +118,8 @@ contains
     ! obtain a communicator
     comm = ghex_comm_new()
 
-    rank        = ghex_comm_rank(comm);
-    size        = ghex_comm_size(comm);
+    rank        = ghex_comm_rank(comm)
+    size        = ghex_comm_size(comm)
 #ifdef GHEX_USE_OPENMP
     thread_id   = omp_get_thread_num()
     num_threads = omp_get_num_threads()
@@ -150,8 +146,8 @@ contains
 
     allocate(smsgs(inflight), rmsgs(inflight), sreqs(inflight), rreqs(inflight))
     do j = 1, inflight
-       smsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost);
-       rmsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost);
+       smsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost)
+       rmsgs(j) = ghex_message_new(buff_size, GhexAllocatorHost)
        call ghex_message_zero(smsgs(j))
        call ghex_message_zero(rmsgs(j))
        call ghex_request_init(sreqs(j))
@@ -178,8 +174,8 @@ contains
           print *, rank, " total bwdt MB/s:      ", &
                (received-last_received + sent-last_sent)*size*buff_size/2/(toc-tic)*num_threads/1e6
           tic = toc
-          last_received = received;
-          last_sent = sent;
+          last_received = received
+          last_sent = sent
        end if
 
        if (rank==0 .and. thread_id==0 .and. rdbg >= (niter/10)) then
@@ -250,7 +246,7 @@ contains
 
        ! check if we have completed all our posted sends
        if(send_complete == 0) then
-          incomplete_sends = 0;
+          incomplete_sends = 0
           do j = 1, inflight
              if(.not. ghex_request_test(sreqs(j))) then
                 incomplete_sends = incomplete_sends + 1
@@ -259,7 +255,8 @@ contains
 
           if (incomplete_sends == 0) then
              ! increase thread counter of threads that are done with the sends
-             call atomic_add(tail_send, 1)
+             !$omp atomic
+             tail_send = tail_send+1
              send_complete = 1
           end if
        end if
@@ -278,10 +275,10 @@ contains
 #if GHEX_USE_OPENMP
     !$omp master
 #endif
-    bsmsg = ghex_message_new(1_8, GhexAllocatorHost);
-    brmsg = ghex_message_new(1_8, GhexAllocatorHost);
-    call ghex_comm_post_send(comm, bsmsg, peer_rank, 800000, bsreq);
-    call ghex_comm_post_recv(comm, brmsg, peer_rank, 800000, brreq);
+    bsmsg = ghex_message_new(1_8, GhexAllocatorHost)
+    brmsg = ghex_message_new(1_8, GhexAllocatorHost)
+    call ghex_comm_post_send(comm, bsmsg, peer_rank, 800000, bsreq)
+    call ghex_comm_post_recv(comm, brmsg, peer_rank, 800000, brreq)
 #if GHEX_USE_OPENMP
     !$omp end master
 #endif
@@ -328,32 +325,28 @@ contains
   ! ---------------------------------------
   ! callbacks
   ! ---------------------------------------
-  subroutine send_callback (mesg, rank, tag, user_data)
+  subroutine send_callback (mesg, rank, tag, user_data) bind(C)
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
     type(ghex_cb_user_data), value :: user_data
     integer(1), dimension(:), pointer, save :: msg_data
 
-    if(tag/inflight /= thread_id) nlsend_cnt = nlsend_cnt + 1;
-    comm_cnt = comm_cnt + 1;
-    call atomic_add(sent, 1);
+    if(tag/inflight /= thread_id) nlsend_cnt = nlsend_cnt + 1
+    comm_cnt = comm_cnt + 1
+    !$omp atomic
+    sent = sent+1
   end subroutine send_callback
 
-  subroutine recv_callback (mesg, rank, tag, user_data)
+  subroutine recv_callback (mesg, rank, tag, user_data) bind(C)
     type(ghex_message), value :: mesg
     integer(c_int), value :: rank, tag
     type(ghex_cb_user_data), value :: user_data
     
-    if(tag/inflight /= thread_id) nlrecv_cnt = nlrecv_cnt + 1;
-    comm_cnt = comm_cnt + 1;
-    call atomic_add(received, 1);
+    !print *, "rank", rank, "thrid", thread_id, "tag", tag, "pthr", tag/inflight
+    if(tag/inflight /= thread_id) nlrecv_cnt = nlrecv_cnt + 1
+    comm_cnt = comm_cnt + 1
+    !$omp atomic
+    received = received+1
   end subroutine recv_callback
-
-#ifndef GHEX_USE_OPENMP
-subroutine atomic_add(var, val)
-  integer :: var, val
-  var = var + val
-end subroutine atomic_add
-#endif
 
 END PROGRAM fhex_bench

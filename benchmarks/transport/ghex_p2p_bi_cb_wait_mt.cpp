@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
     inflight = atoi(argv[3]);
 
     int num_threads = 1;
-    gridtools::ghex::tl::barrier_t barrier;
 #ifdef GHEX_USE_OPENMP
 #pragma omp parallel
     {
@@ -78,6 +77,8 @@ int main(int argc, char *argv[])
         num_threads = omp_get_num_threads();
     }
 #endif
+
+    gridtools::ghex::tl::barrier_t barrier(num_threads);
 
 #ifdef GHEX_USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
@@ -147,13 +148,7 @@ int main(int argc, char *argv[])
             sreqs.resize(inflight);
             rreqs.resize(inflight);
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+            barrier(comm);
 
             if (thread_id == 0)
 		{
@@ -168,9 +163,7 @@ int main(int argc, char *argv[])
             int last_i = 0;
             while(i<niter){
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+	        barrier.in_node(comm);
                 if(thread_id == 0 && dbg >= (niter/10)) {
                     dbg = 0;
                     std::cout << rank << " total bwdt MB/s:      "
@@ -193,20 +186,13 @@ int main(int argc, char *argv[])
                     comm.progress();
                 }
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+	        barrier.in_node(comm);
                 sent = 0;
                 received = 0;
             }
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+            barrier(comm);
+	    
             if(thread_id==0 && rank == 0)
 		{
 		    const auto t = ttimer.stoc();
@@ -215,13 +201,7 @@ int main(int argc, char *argv[])
 		}
 
             // stop here to help produce a nice std output
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+            barrier(comm);
 
 #ifdef GHEX_USE_OPENMP
 #pragma omp critical

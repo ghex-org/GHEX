@@ -72,7 +72,6 @@ int main(int argc, char *argv[])
     niter = atoi(argv[1]);
     buff_size = atoi(argv[2]);
     inflight = atoi(argv[3]);
-    gridtools::ghex::tl::barrier_t barrier;
 
     int num_threads = 1;
 
@@ -83,6 +82,8 @@ int main(int argc, char *argv[])
         num_threads = omp_get_num_threads();
     }
 #endif
+
+    gridtools::ghex::tl::barrier_t barrier(num_threads);
 
 #ifdef GHEX_USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
@@ -130,6 +131,7 @@ int main(int argc, char *argv[])
 				 {
 				     int pthr = tag/inflight;
 				     if(pthr != thread_id) nlrecv_cnt++;
+				     //printf("rank %d thrid %d tag %d pthr %d\n", rank, thread_id, tag, pthr);
 				     comm_cnt++;
 				     received++;
 				 };
@@ -151,13 +153,7 @@ int main(int argc, char *argv[])
 		    make_zero(rmsgs[j]);
 		}
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+            barrier(comm);
 
             if (thread_id == 0)
 		{
@@ -196,8 +192,8 @@ int main(int argc, char *argv[])
 
 		    for(int j=0; j<inflight; j++)
 			{
-			    if(rmsgs[j].use_count() == 1)
-				//if (rreqs[j].test())
+			    //if(rmsgs[j].use_count() == 1)
+			    if (rreqs[j].test())
 				{
 				    submit_recv_cnt += num_threads;
 				    rdbg += num_threads;
@@ -208,9 +204,9 @@ int main(int argc, char *argv[])
 			    else
 				comm.progress();
 
-			    if(lsent < lrecv+2*inflight){
-				if(sent < niter && smsgs[j].use_count() == 1)
-				    //if(sent < niter && sreqs[j].test())
+			    // if(lsent < lrecv+2*inflight){
+			      //if(sent < niter && smsgs[j].use_count() == 1)
+			      if(sent < niter && sreqs[j].test())
 				    {
 					submit_cnt += num_threads;
 					sdbg += num_threads;
@@ -220,17 +216,11 @@ int main(int argc, char *argv[])
 				    }
 				else
 				    comm.progress();
-			    }
+			    // }
 			}
 		}
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+	    barrier(comm);
 
             if(thread_id==0 && rank == 0)
 		{
@@ -240,13 +230,7 @@ int main(int argc, char *argv[])
 		}
 
             // stop here to help produce a nice std output
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+	    barrier(comm);
 
 #ifdef GHEX_USE_OPENMP
 #pragma omp critical

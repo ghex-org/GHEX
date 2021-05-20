@@ -74,7 +74,6 @@ int main(int argc, char *argv[])
     inflight = atoi(argv[3]);
 
     int num_threads = 1;
-    gridtools::ghex::tl::barrier_t barrier;
 
 #ifdef GHEX_USE_OPENMP
 #pragma omp parallel
@@ -83,6 +82,8 @@ int main(int argc, char *argv[])
         num_threads = omp_get_num_threads();
     }
 #endif
+
+    gridtools::ghex::tl::barrier_t barrier(num_threads);
 
 #ifdef GHEX_USE_OPENMP
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &mode);
@@ -130,13 +131,7 @@ int main(int argc, char *argv[])
 		    make_zero(rmsgs[j]);
 		}
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+            barrier(comm);
 
             if(thread_id == 0)
 		{
@@ -198,13 +193,7 @@ int main(int argc, char *argv[])
 			}
 		}
 
-#ifdef GHEX_USE_OPENMP
-#pragma omp single
-#endif
-            barrier.rank_barrier(comm);
-#ifdef GHEX_USE_OPENMP
-#pragma omp barrier
-#endif
+            barrier(comm);
 
             if(thread_id == 0 && rank == 0){
                 const auto t = ttimer.toc();
