@@ -204,19 +204,17 @@ int main(int argc, char *argv[])
 			    else
 				comm.progress();
 
-			    // if(lsent < lrecv+2*inflight){
-			      //if(sent < niter && smsgs[j].use_count() == 1)
-			      if(sent < niter && sreqs[j].test())
-				    {
-					submit_cnt += num_threads;
-					sdbg += num_threads;
-					dbg += num_threads;
-					sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
-					lsent++;
-				    }
-				else
-				    comm.progress();
-			    // }
+			    // if(lsent < lrecv+2*inflight && sent < niter && smsgs[j].use_count() == 1)
+			    if(lsent < lrecv+2*inflight && sent < niter && sreqs[j].test())
+			        {
+				    submit_cnt += num_threads;
+				    sdbg += num_threads;
+				    dbg += num_threads;
+				    sreqs[j] = comm.send(smsgs[j], peer_rank, thread_id*inflight+j, send_callback);
+				    lsent++;
+				}
+			    else
+			        comm.progress();
 			}
 		}
 

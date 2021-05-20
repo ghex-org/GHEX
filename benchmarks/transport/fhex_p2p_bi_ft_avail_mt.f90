@@ -84,6 +84,7 @@ contains
 
     integer :: last_received = 0
     integer :: last_sent = 0
+    integer :: lsent = 0, lrecv = 0
     integer :: dbg = 0, sdbg = 0, rdbg = 0
     integer :: j = 0
     integer :: incomplete_sends = 0, send_complete = 0
@@ -190,14 +191,16 @@ contains
              rdbg = rdbg + num_threads
              dbg = dbg + num_threads
              call ghex_comm_post_recv(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rreqs(j))
+             lrecv = lrecv+1
           end if
 
-          if (sent < niter .and. ghex_future_ready(sreqs(j))) then
+          if (lsent < lrecv+2*inflight .and. sent < niter .and. ghex_future_ready(sreqs(j))) then
              !$omp atomic
              sent = sent+1
              sdbg = sdbg + num_threads
              dbg = dbg + num_threads
              call ghex_comm_post_send(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, sreqs(j))
+             lsent = lsent+1
           end if
        end do
 

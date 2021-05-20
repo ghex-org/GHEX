@@ -90,6 +90,7 @@ contains
 
     integer :: last_received = 0
     integer :: last_sent = 0
+    integer :: lsent = 0, lrecv = 0
     integer :: dbg = 0, sdbg = 0, rdbg = 0
     integer :: j = 0
     integer :: incomplete_sends = 0, send_complete = 0
@@ -194,15 +195,17 @@ contains
              rdbg = rdbg + num_threads
              dbg = dbg + num_threads
              call ghex_comm_post_recv_cb(comm, rmsgs(j), peer_rank, thread_id*inflight+j-1, rcb, rreqs(j))
+             lrecv = lrecv+1
           else
              np = ghex_comm_progress(comm)
           end if
 
-          if (sent < niter .and. ghex_request_test(sreqs(j))) then
+          if (lsent < lrecv+2*inflight .and. sent < niter .and. ghex_request_test(sreqs(j))) then
              submit_cnt = submit_cnt + num_threads
              sdbg = sdbg + num_threads
              dbg = dbg + num_threads
              call ghex_comm_post_send_cb(comm, smsgs(j), peer_rank, thread_id*inflight+j-1, scb, sreqs(j))
+             lsent = lsent+1
           else
              np = ghex_comm_progress(comm)
           end if
