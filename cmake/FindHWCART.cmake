@@ -1,0 +1,29 @@
+find_package(PkgConfig QUIET)
+pkg_check_modules(PC_HWCART QUIET hwcart)
+
+find_path(HWCART_INCLUDE_DIR hwcart.h
+    HINTS
+    ${HWCART_ROOT}  ENV HWCART_ROOT
+    ${HWCART_DIR}   ENV HWCART_DIR
+    PATH_SUFFIXES include)
+
+find_library(HWCART_LIBRARY HINT ${PMIX_DIR} NAMES hwcart
+    HINTS
+    ${HWCART_ROOT} ENV HWCART_ROOT
+    ${HWCART_DIR}  ENV HWCART_DIR
+    PATH_SUFFIXES lib lib64)
+
+set(HWCART_LIBRARIES    ${HWCART_LIBRARY} CACHE INTERNAL "")
+set(HWCART_INCLUDE_DIRS ${HWCART_INCLUDE_DIR} CACHE INTERNAL "")
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(HWCART DEFAULT_MSG HWCART_LIBRARY HWCART_INCLUDE_DIR)
+
+mark_as_advanced(HWCART_ROOT HWCART_LIBRARY HWCART_INCLUDE_DIR)
+
+if(NOT TARGET HWCART::libhwcart AND HWCART_FOUND)
+    add_library(HWCART::libhwcart SHARED IMPORTED)
+    set_target_properties(HWCART::libhwcart PROPERTIES
+        IMPORTED_LOCATION ${HWCART_LIBRARY}
+        INTERFACE_INCLUDE_DIRECTORIES ${HWCART_INCLUDE_DIR})
+endif()

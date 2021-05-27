@@ -11,12 +11,62 @@
 #ifndef INCLUDED_GHEX_TL_MPI_FUTURE_HPP
 #define INCLUDED_GHEX_TL_MPI_FUTURE_HPP
 
+#include <vector>
+#include <iterator>
+#include <algorithm>
 #include "./request.hpp"
 
 namespace gridtools{
     namespace ghex {
         namespace tl {
             namespace mpi {
+
+                template<typename RandomAccessIterator>
+                static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
+                    const auto count = last-first;
+                    if (count == 0) return last;
+                    // should we handle null requests ourselves?
+                    //for (auto it = first; it!=last; ++it)
+                    //    if (*it==MPI_REQUEST_NULL)
+                    //        return it;
+                    // maybe static needed to avoid unnecessary allocations
+                    static thread_local std::vector<MPI_Request> reqs;
+                    reqs.resize(0);
+                    reqs.reserve(count);
+                    //std::vector<MPI_Request> reqs;
+                    reqs.reserve(count);
+                    int indx, flag;
+                    std::transform(first, last, std::back_inserter(reqs), [](auto& fut){
+                        return fut.m_handle.m_req.m_struct; });
+                    GHEX_CHECK_MPI_RESULT(
+                        MPI_Testany(count, reqs.data(), &indx, &flag, MPI_STATUS_IGNORE));
+                    if (flag && indx != MPI_UNDEFINED) return first+indx;
+                    else return last;
+                }
+
+                template<typename RandomAccessIterator, typename Func>
+                static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last,
+                    Func&& get)
+                {
+                    const auto count = last-first;
+                    if (count == 0) return last;
+                    // should we handle null requests ourselves?
+                    //for (auto it = first; it!=last; ++it)
+                    //    if (get(*it)==MPI_REQUEST_NULL)
+                    //        return it;
+                    // maybe static needed to avoid unnecessary allocations
+                    static thread_local std::vector<MPI_Request> reqs;
+                    reqs.resize(0);
+                    reqs.reserve(count);
+                    //std::vector<MPI_Request> reqs;
+                    int indx, flag;
+                    std::transform(first, last, std::back_inserter(reqs),
+                        [&get](auto& x) { return get(x).m_handle.m_req.m_struct; });
+                    GHEX_CHECK_MPI_RESULT(
+                        MPI_Testany(count, reqs.data(), &indx, &flag, MPI_STATUS_IGNORE));
+                    if (flag && indx != MPI_UNDEFINED) return first+indx;
+                    else return last;
+                }
 
                 /** @brief future template for non-blocking communication */
                 template<typename T>
@@ -76,6 +126,17 @@ namespace gridtools{
                         else
                             return false;
                     }
+
+                    template<typename RandomAccessIterator>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
+                        return ::gridtools::ghex::tl::mpi::test_any(first,last);
+                    }
+
+                    template<typename RandomAccessIterator, typename Func>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last,
+                        Func&& get) {
+                        return ::gridtools::ghex::tl::mpi::test_any(first,last,std::forward<Func>(get));
+                    }
                 };
 
                 template<>
@@ -129,6 +190,17 @@ namespace gridtools{
                         }
                         else
                             return false;
+                    }
+
+                    template<typename RandomAccessIterator>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last) {
+                        return ::gridtools::ghex::tl::mpi::test_any(first,last);
+                    }
+
+                    template<typename RandomAccessIterator, typename Func>
+                    static RandomAccessIterator test_any(RandomAccessIterator first, RandomAccessIterator last,
+                        Func&& get) {
+                        return ::gridtools::ghex::tl::mpi::test_any(first,last,std::forward<Func>(get));
                     }
                 };
 
