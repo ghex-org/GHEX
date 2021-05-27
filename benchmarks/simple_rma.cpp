@@ -250,6 +250,8 @@ struct simulation
             timer_vec[j].tic();
             cos[j].exchange().wait();
             timer_vec[j].toc();
+            std::cout << "mean time:    " << comm.rank() << ":" << j << " " << std::setprecision(12) << timer_vec[j].mean()/1000000.0 << "\n";
+            timer_vec[j].clear();
         }
         auto end = clock_type::now();
         std::chrono::duration<double> elapsed_seconds = end - start;

@@ -90,6 +90,12 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
     apply([&s,&t,nc](auto... c)
     {
         std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size*nc);
+        // auto dst = t.ptr(coordinate{c...});
+        // auto src = s.ptr(coordinate{c...});
+        // for (unsigned int i=0; i<s.m_chunk_size_*nc; ++i)
+        // {
+        //     dst[i] = src[i]; 
+        // }
     },
     s.m_begin, s.m_end);
 }
