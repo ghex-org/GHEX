@@ -65,7 +65,7 @@ struct simulation
 
     using field_type     = field_descriptor_type<gridtools::ghex::cpu, ::gridtools::layout_map<2, 1, 0>>;
 #ifdef __CUDACC__
-    using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, 2, 1, 0>;
+    using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, ::gridtools::layout_map<2, 1, 0>>;
 #endif
     using decomp_type = gridtools::ghex::hierarchical_decomposition<3>;
 
