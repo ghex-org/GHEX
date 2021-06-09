@@ -9,16 +9,31 @@ if(USE_GPU)
     set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
 
+# setup fortran compiler and arguments
+if (GHEX_BUILD_FORTRAN)
+   enable_language(Fortran)
+   set(GHEX_FORTRAN_FP "float" CACHE STRING "Floating-point type")
+   set_property(CACHE GHEX_FORTRAN_FP PROPERTY STRINGS "float" "double")
+   if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+     message(STATUS "Fortran compiler is GNU.")
+     set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none")
+   else ()
+     set(CMAKE_Fortran_FLAGS "-cpp")
+   endif()
+   message(STATUS "Fortran flags: ${CMAKE_Fortran_FLAGS}.")
+endif()
+
 cmake_policy(SET CMP0048 NEW)
 
 set(USE_GPU "OFF" CACHE BOOL "use cuda")
 set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
 
+set(default_build_type "Debug")
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wno-unknown-pragmas")
 
-set(default_build_type "Debug")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
     set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
@@ -31,7 +46,6 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
-find_package(OpenMP)
 find_library(LIBRT rt REQUIRED)
 
 set(_required_gridtools_version "2.0.0")
@@ -94,6 +108,7 @@ endif()
 
 set(GHEX_BUILD_TESTS OFF CACHE BOOL "True if tests shall be built")
 set(GHEX_BUILD_BENCHMARKS OFF CACHE BOOL "True if benchmarks shall be built")
+set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
 
 add_library(ghexlib INTERFACE)
 add_library(GHEX::ghexlib ALIAS ghexlib)
@@ -143,6 +158,11 @@ endif()
 set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma access")
 if (GHEX_USE_XPMEM_ACCESS_GUARD)
     target_compile_definitions(ghexlib INTERFACE GHEX_USE_XPMEM_ACCESS_GUARD)
+endif()
+
+# setup fortran compiler and arguments
+if (GHEX_BUILD_FORTRAN)
+   add_subdirectory(bindings/fhex)
 endif()
 
 # Enable adding of tests etc

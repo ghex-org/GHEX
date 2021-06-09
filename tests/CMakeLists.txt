@@ -126,7 +126,7 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
-set(_tests_rma local_rma simple_regular_exchange)
+set(_tests_rma local_rma)
 foreach (_t ${_tests_rma})
 
     set(t ${_t})
@@ -307,4 +307,7 @@ if (USE_GPU)
 endif()
 
 add_subdirectory(transport)
+if (GHEX_BUILD_FORTRAN)
+   add_subdirectory(bindings)
+endif()
 add_subdirectory(cubed_sphere)

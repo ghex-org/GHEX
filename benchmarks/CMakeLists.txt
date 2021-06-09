@@ -1,5 +1,6 @@
 # simple benchmarks
 # -----------------
+find_package(OpenMP REQUIRED)
 
 # Variable used for benchmarks that DO NOT require multithreading support
 set(_benchmarks_simple simple_comm_test_halo_exchange_3D_generic_full)

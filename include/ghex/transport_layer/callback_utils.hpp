@@ -98,7 +98,7 @@ namespace gridtools {
                         std::size_t size() const noexcept override { return sizeof(value_type)*m_message.size(); }
                     };
 
-                    unsigned char* __restrict m_data;
+                    unsigned char* __restrict m_data = nullptr;
                     std::size_t m_size;
                     std::unique_ptr<iface> m_ptr;
                     std::shared_ptr<char> m_ptr2;
@@ -203,19 +203,23 @@ namespace gridtools {
                       * @return number of progressed elements */
                     int progress() {
                         int completed = 0;
-                        for (unsigned int i = 0; i < m_queue.size(); ++i) {
-                            auto& element = m_queue[i];
-                            if (element.m_future.ready()) {
+                        while (true) {
+                            auto it = future_type::test_any(m_queue.begin(), m_queue.end(),
+                                [](auto& x) -> future_type& { return x.m_future; });
+                            if (it != m_queue.end()) {
+                                auto& element = *it;
+                                const std::size_t i = it-m_queue.begin();
                                 element.m_cb(std::move(element.m_msg), element.m_rank, element.m_tag);
                                 ++completed;
                                 element.m_request.m_request_state->m_ready = true;
                                 if (i + 1 < m_queue.size()) {
                                     element = std::move(m_queue.back());
                                     element.m_request.m_request_state->m_index = i;
-                                    --i;
                                 }
                                 m_queue.pop_back();
                             }
+                            else
+                                break;
                         }
                         return completed;
                     }

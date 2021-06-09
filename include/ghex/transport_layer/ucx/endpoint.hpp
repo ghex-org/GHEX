@@ -11,6 +11,10 @@
 #ifndef INCLUDED_GHEX_TL_UCX_ENDPOINT_HPP
 #define INCLUDED_GHEX_TL_UCX_ENDPOINT_HPP
 
+#include <chrono>
+#ifndef NDEBUG
+#include <iostream>
+#endif
 #include "../../common/moved_bit.hpp"
 #include "./error.hpp"
 #include "./address.hpp"
@@ -69,8 +73,21 @@ namespace gridtools {
                             if(UCS_PTR_IS_ERR(ret)) return;
                             
                             // wait untile the ep is destroyed, free the request
+                            const auto t0 = std::chrono::system_clock::now();
+                            double elapsed = 0.0;
+                            static constexpr double t_timeout = 2000;
                             while(UCS_OK != ucp_request_check_status(ret))
+                            {
+                                elapsed = std::chrono::duration<double, std::milli>(
+                                    std::chrono::system_clock::now() - t0).count();
+                                if (elapsed > t_timeout) break;
                                 ucp_worker_progress(m_worker);
+                            }
+#ifndef NDEBUG
+                            if (elapsed > t_timeout)
+                                std::cerr << "WARNING: timeout waiting for UCX endpoint close"
+                                    << std::endl;
+#endif
                             ucp_request_free(ret);
                         }
                     }
