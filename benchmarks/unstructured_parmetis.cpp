@@ -70,7 +70,7 @@ using data_descriptor_gpu_type = gridtools::ghex::unstructured::data_descriptor<
 
 template<typename T>
 char* as_bytes(T& i) {
-    return reinterpret_cast<char*>(&i); // TO DO: really, is it safe?
+    return reinterpret_cast<char*>(&i);
 }
 
 template<typename T, typename C>
