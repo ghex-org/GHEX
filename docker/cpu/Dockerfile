@@ -18,6 +18,19 @@ RUN apt-get update -qq && \
     ln -s /usr/games/cowsay /usr/bin/cowsay && \
     rm -rf /var/lib/apt/lists/*
 
+ARG GCC_VERSION=9
+ENV GCC_VERSION ${GCC_VERSION}
+
+RUN apt-get update -qq && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get install -qq -y \
+        g++-${GCC_VERSION} \
+        gcc-${GCC_VERSION} \
+        gfortran-${GCC_VERSION} && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV CXX=g++-${GCC_VERSION} CC=gcc-${GCC_VERSION} FC=gfortran-${GCC_VERSION}
+
 ARG CMAKE_VERSION=3.14.5
 RUN cd /tmp && \
     wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz && \
@@ -39,21 +52,36 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update -qq && \
-    apt-get install -qq -y openmpi-bin libopenmpi-dev && \
+    apt-get install -qq -y libtool automake autoconf && \
     rm -rf /var/lib/apt/lists/*
-
-ARG GCC_VERSION=9
-ENV GCC_VERSION ${GCC_VERSION}
 
 RUN apt-get update -qq && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
-    apt-get install -qq -y \
-        g++-${GCC_VERSION} \
-        gcc-${GCC_VERSION} \
-        gfortran-${GCC_VERSION} && \
+    apt-get install -qq -y libnuma-dev && \
     rm -rf /var/lib/apt/lists/*
 
-ENV CXX=g++-${GCC_VERSION} CC=gcc-${GCC_VERSION} FC=gfortran-${GCC_VERSION}
+RUN cd /tmp && \
+    git clone https://github.com/openucx/ucx.git && \
+    cd ucx && \
+    git checkout v1.10.1 && \
+    ./autogen.sh && \
+    ./configure --disable-logging --disable-debug --disable-assertions --disable-params-check --enable-optimizations --enable-compiler-opt=3 --enable-mt --enable-devel-headers --without-java --prefix=/opt/ucx && \
+    make -j$(nproc) && make install && \
+    cd /tmp && \
+    rm -rf ucx
+
+ENV UCX_TLS=self,tcp
+
+RUN cd /tmp && \
+    wget -q https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.1.tar.gz && \
+    tar xzf openmpi-4.1.1.tar.gz && \
+    cd openmpi-4.1.1 && \
+    ./configure --with-hwloc=internal --with-ucx=/opt/ucx --prefix=/opt/openmpi_ucx && \
+    make all install && \
+    cd /tmp && \
+    rm -rf openmpi-4.1.1.tar.gz openmpi-4.1.1
+
+ENV MPIROOT=/opt/openmpi_ucx
+ENV PATH=${MPIROOT}/bin:${PATH} LD_LIBRARY_PATH=${MPIROOT}/lib:${LD_LIBRARY_PATH} PKG_CONFIG_PATH=${MPIROOT}/lib/pkgconfig:${PKG_CONFIG_PATH}
 
 RUN cd /opt && \
     git clone https://github.com/ecmwf/ecbuild.git
@@ -79,26 +107,6 @@ RUN cd /tmp && \
     cd /tmp && \
     rm -rf atlas
 
-RUN apt-get update -qq && \
-    apt-get install -qq -y libtool automake autoconf && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update -qq && \
-    apt-get install -qq -y libnuma-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN cd /tmp && \
-    git clone https://github.com/openucx/ucx.git && \
-    cd ucx && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr/local --enable-mt --disable-numa && \
-    make -j$(nproc) && make install && \
-    cd /tmp && \
-    rm -rf ucx
-
-ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-ENV UCX_TLS=self,tcp
-
 RUN cd /tmp && \
     wget -q http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz && \
     tar xzf parmetis-4.0.3.tar.gz && \
@@ -112,3 +120,8 @@ RUN cd /tmp && \
     make install && \
     cd /tmp && \
     rm -rf parmetis-4.0.3.tar.gz parmetis-4.0.3
+
+#RUN useradd -ms /bin/bash github
+#
+#USER github
+#WORKDIR /home/github
