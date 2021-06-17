@@ -29,12 +29,15 @@ namespace gridtools {
     /** @brief implements domain descriptor concept for structured domains
      * @tparam DomainIdType domain id type
      * @tparam Dimension dimension of domain*/
+    template<typename DomainIdType, typename Dimension_t>
+    class domain_descriptor;
+
     template<typename DomainIdType, int Dimension>
-    class domain_descriptor
+    class domain_descriptor<DomainIdType, std::integral_constant<int, Dimension>>
     {
     public: // member types
         using domain_id_type      = DomainIdType;
-        using dimension           = std::integral_constant<int,Dimension>;
+        using dimension           = std::integral_constant<int, Dimension>;
         using coordinate_type     = std::array<int,dimension::value>;
 
     public: // ctors

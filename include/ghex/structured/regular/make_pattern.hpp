@@ -40,7 +40,7 @@ struct domain_traits
     using halo_type = std::array<int, dimension::value*2>;
     using periodic = std::array<bool, dimension::value>;
     using domain_id_type = typename domain_type::domain_id_type;
-    using halo_gen_type = regular::halo_generator<domain_id_type, dimension::value>;
+    using halo_gen_type = regular::halo_generator<domain_id_type, std::integral_constant<int, dimension::value>>;
 };
 } // namespace detail
 

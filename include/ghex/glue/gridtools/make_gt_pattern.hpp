@@ -24,7 +24,7 @@ namespace gridtools {
         {
             const std::array<int,3> first{0,0,0};
             const std::array<int,3> last{grid.m_global_extents[0]-1, grid.m_global_extents[1]-1, grid.m_global_extents[2]-1};
-            using halo_gen_type = structured::regular::halo_generator<typename Grid::domain_id_type,3>;
+            using halo_gen_type = structured::regular::halo_generator<typename Grid::domain_id_type,std::integral_constant<int, 3>>;
             auto halo_gen = halo_gen_type(first,last, std::forward<Halos>(halos), grid.m_periodic);
 
             return make_pattern<structured::grid>(grid.m_context, halo_gen, grid.m_domains);

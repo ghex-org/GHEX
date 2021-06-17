@@ -24,11 +24,14 @@ namespace ghex {
 namespace structured {
 namespace cubed_sphere {
 
-template<typename T, typename Arch, int X=3, int Y=2, int Z=1, int C=0>
-class field_descriptor : public structured::field_descriptor<T,Arch,domain_descriptor,X,Y,Z,C>
+template<typename T, typename Arch, typename Layout=::gridtools::layout_map<3,2,1,0>>
+class field_descriptor;
+
+template<typename T, typename Arch, int X, int Y, int Z, int C>
+class field_descriptor<T,Arch,::gridtools::layout_map<X,Y,Z,C>> : public structured::field_descriptor<T,Arch,domain_descriptor,::gridtools::layout_map<X,Y,Z,C>>
 {
 public: // member types
-    using base = structured::field_descriptor<T,Arch,domain_descriptor,X,Y,Z,C>;
+    using base = structured::field_descriptor<T,Arch,domain_descriptor,::gridtools::layout_map<X,Y,Z,C>>;
 
     using value_type               = typename base::value_type;
     using arch_type                = typename base::arch_type;
@@ -45,7 +48,7 @@ public: // member types
     using pack_iteration_space     = typename base::pack_iteration_space;
 
     template<typename OtherArch>
-    using rebind_arch = field_descriptor<T,OtherArch,X,Y,Z,C>;
+    using rebind_arch = field_descriptor<T,OtherArch,::gridtools::layout_map<X,Y,Z,C>>;
     
     struct unpack_iteration_space : public base::unpack_iteration_space {
         using base_is = typename base::unpack_iteration_space;

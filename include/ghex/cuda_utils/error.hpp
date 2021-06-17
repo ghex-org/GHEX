@@ -13,6 +13,7 @@
 
 #ifdef __CUDACC__
 
+#include <stdexcept>
 #include <string>
 
 #ifdef NDEBUG
