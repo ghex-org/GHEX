@@ -51,17 +51,6 @@ namespace gridtools {
                 using type          = typename get_layout_map<integer_seq>::type;
             };
 
-            /*
-            template<typename T, typename Arch, typename DomainDescriptor, typename Seq>
-            struct get_field_descriptor_type;
-
-            template<typename T, typename Arch, typename DomainDescriptor, template <class J, J...> class Seq, typename I, I... Is>
-            struct get_field_descriptor_type<T,Arch,DomainDescriptor, Seq<I, Is...>>
-            {
-                using type = structured::regular::field_descriptor<T,Arch,DomainDescriptor,Is...>;
-            };
-            */
-
         } // namespace _impl
 
         template <typename Arch, typename DomainDescriptor, typename DataStore>
