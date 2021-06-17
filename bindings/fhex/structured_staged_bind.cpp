@@ -77,10 +77,10 @@ namespace gridtools {
 
             using grid_type                 = ghex::structured::grid;
             using grid_detail_type          = ghex::structured::detail::grid<std::array<int, GHEX_DIMS>>;
-            using domain_descriptor_type    = ghex::structured::regular::domain_descriptor<domain_id_type, GHEX_DIMS>;
+            using domain_descriptor_type    = ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, GHEX_DIMS>>;
             using pattern_type              = ghex::pattern_container<communicator_type, grid_detail_type, domain_id_type>;
             using communication_obj_type    = ghex::communication_object<communicator_type, grid_detail_type, domain_id_type>;
-            using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type,2,1,0>;
+            using field_descriptor_type     = ghex::structured::regular::field_descriptor<fp_type, arch_type, domain_descriptor_type, ::gridtools::layout_map<2,1,0>>;
             using pattern_field_type        = ghex::buffer_info<pattern_type::value_type, arch_type, field_descriptor_type>;
             using pattern_field_vector_type = std::pair<std::vector<std::unique_ptr<field_descriptor_type>>, std::vector<pattern_field_type>>;
             using stage_patterns_type       = std::array<std::unique_ptr<pattern_type>, 3>;
@@ -253,7 +253,7 @@ void* ghex_struct_exchange_desc_new(struct_domain_descriptor *domains_desc, int 
             std::array<int, 3> &offset  = *((std::array<int, 3>*)field.offset);
             std::array<int, 3> &extents = *((std::array<int, 3>*)field.extents);
             std::unique_ptr<field_descriptor_type>
-                field_desc_uptr(new field_descriptor_type(ghex::wrap_field<arch_type,2,1,0>(local_domains[i], field.data, offset, extents)));
+                field_desc_uptr(new field_descriptor_type(ghex::wrap_field<arch_type, ::gridtools::layout_map<2,1,0>>(local_domains[i], field.data, offset, extents)));
             auto ptr = field_desc_uptr.get();
 
             // keep pointer around

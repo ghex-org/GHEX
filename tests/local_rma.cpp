@@ -55,10 +55,10 @@ struct simulation_1
 
     using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
     using context_ptr_type = std::unique_ptr<context_type>;
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
-    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,std::integral_constant<int, 3>>;
+    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,std::integral_constant<int, 3>>;
     template<typename T, typename Arch, int... Is>
-    using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
+    using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, ::gridtools::layout_map<Is...>>;
 
     // decomposition: 4 domains in x-direction, 1 domain in z-direction, rest in y-direction
     //                each MPI rank owns two domains: either first or last two domains in x-direction
@@ -167,19 +167,19 @@ struct simulation_1
     , halos{2,2,2,2,2,2}
     , halo_gen(g_first, g_last, halos, periodic)
     , pattern{gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(context, halo_gen, local_domains)}
-    , field_1a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0], field_1a_raw.data(), offset, local_ext_buffer)}
-    , field_1b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_1b_raw.data(), offset, local_ext_buffer)}
-    , field_2a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0], field_2a_raw.data(), offset, local_ext_buffer)}
-    , field_2b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_2b_raw.data(), offset, local_ext_buffer)}
-    , field_3a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[0], field_3a_raw.data(), offset, local_ext_buffer)}
-    , field_3b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(local_domains[1], field_3b_raw.data(), offset, local_ext_buffer)}
+    , field_1a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,::gridtools::layout_map<2,1,0>>(local_domains[0], field_1a_raw.data(), offset, local_ext_buffer)}
+    , field_1b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,::gridtools::layout_map<2,1,0>>(local_domains[1], field_1b_raw.data(), offset, local_ext_buffer)}
+    , field_2a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,::gridtools::layout_map<2,1,0>>(local_domains[0], field_2a_raw.data(), offset, local_ext_buffer)}
+    , field_2b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,::gridtools::layout_map<2,1,0>>(local_domains[1], field_2b_raw.data(), offset, local_ext_buffer)}
+    , field_3a{gridtools::ghex::wrap_field<gridtools::ghex::cpu,::gridtools::layout_map<2,1,0>>(local_domains[0], field_3a_raw.data(), offset, local_ext_buffer)}
+    , field_3b{gridtools::ghex::wrap_field<gridtools::ghex::cpu,::gridtools::layout_map<2,1,0>>(local_domains[1], field_3b_raw.data(), offset, local_ext_buffer)}
 #ifdef __CUDACC__
-    , field_1a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[0], field_1a_raw_gpu.get(), offset, local_ext_buffer)}
-    , field_1b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[1], field_1b_raw_gpu.get(), offset, local_ext_buffer)}
-    , field_2a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[0], field_2a_raw_gpu.get(), offset, local_ext_buffer)}
-    , field_2b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[1], field_2b_raw_gpu.get(), offset, local_ext_buffer)}
-    , field_3a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[0], field_3a_raw_gpu.get(), offset, local_ext_buffer)}
-    , field_3b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(local_domains[1], field_3b_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_1a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(local_domains[0], field_1a_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_1b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(local_domains[1], field_1b_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_2a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(local_domains[0], field_2a_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_2b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(local_domains[1], field_2b_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_3a_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(local_domains[0], field_3a_raw_gpu.get(), offset, local_ext_buffer)}
+    , field_3b_gpu{gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(local_domains[1], field_3b_raw_gpu.get(), offset, local_ext_buffer)}
 #endif /* __CUDACC__ */
     , comm{ context.get_serial_communicator() }
     , mt{multithread}
