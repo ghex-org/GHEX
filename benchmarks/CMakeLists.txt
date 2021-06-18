@@ -320,7 +320,7 @@ add_subdirectory(transport)
 # ----------------
 
 if (GHEX_ENABLE_PARMETIS_BINDINGS)
-    # Variable used for benchmarks that require multithreading support
+    # ParMeTiS benchmarks require also multithreading support
     set(_benchmarks unstructured_parmetis)
 
     foreach (_t ${_benchmarks})
