@@ -459,10 +459,10 @@ TEST(communication_object_2, exchange)
 #endif
 
 #ifdef GHEX_TEST_THREADS
-    auto func = [&context, &local_comm](auto... bis)
+    auto func = [&context, device_id=local_comm.rank()](auto... bis)
     {
 #ifdef __CUDACC__
-        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
         co_.bexchange(bis...);
@@ -490,10 +490,10 @@ TEST(communication_object_2, exchange)
 #endif
 #ifdef GHEX_TEST_THREADS_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func = [&context, &local_comm](field_vec_type& vec)
+    auto func = [&context, device_id=local_comm.rank()](field_vec_type& vec)
     {
 #ifdef __CUDACC__
-        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
         co_.exchange(vec.begin(), vec.end()).wait();
@@ -516,10 +516,10 @@ TEST(communication_object_2, exchange)
 #endif
 
 #ifdef GHEX_TEST_ASYNC_ASYNC
-    auto func = [&context, &local_comm](auto... bis)
+    auto func = [&context, device_id=local_comm.rank()](auto... bis)
     {
 #ifdef __CUDACC__
-        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
         co_.bexchange(bis...);
@@ -548,10 +548,10 @@ TEST(communication_object_2, exchange)
 #endif
 #ifdef GHEX_TEST_ASYNC_ASYNC_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func = [&context, &local_comm](field_vec_type& vec)
+    auto func = [&context, device_id=local_comm.rank()](field_vec_type& vec)
     {
 #ifdef __CUDACC__
-        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
         co_.exchange(vec.begin(), vec.end()).wait();
@@ -575,10 +575,10 @@ TEST(communication_object_2, exchange)
 #endif
 
 #ifdef GHEX_TEST_ASYNC_DEFERRED
-    auto func_h = [&local_comm](auto co_, auto... bis)
+    auto func_h = [device_id=local_comm.rank()](auto co_, auto... bis)
     {
 #ifdef __CUDACC__
-        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         return co_->exchange(bis...);
     };
@@ -612,10 +612,10 @@ TEST(communication_object_2, exchange)
 #endif
 #ifdef GHEX_TEST_ASYNC_DEFERRED_VECTOR
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
-    auto func_h = [&local_comm](auto co_, field_vec_type& vec)
+    auto func_h = [device_id=local_comm.rank()](auto co_, field_vec_type& vec)
     {
 #ifdef __CUDACC__
-        GT_CUDA_CHECK(cudaSetDevice(local_comm.rank()));
+        GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         return co_->exchange(vec.begin(), vec.end());
     };
