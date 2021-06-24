@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: mbianco/ghex:gcc-9
+    container: mbianco/ghex-cpu:gcc-9
 
     steps:
       - uses: actions/checkout@v1
