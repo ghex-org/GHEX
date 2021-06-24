@@ -160,6 +160,8 @@ namespace gridtools {
 
                     MPI_Comm mpi_comm() const noexcept { return m_mpi_comm; }
 
+                    ucp_context_h get_transport_context() const noexcept { return m_context.m_context; }
+
                     communicator_type get_serial_communicator()
                     {
                         return {m_worker.get(),m_worker.get()};

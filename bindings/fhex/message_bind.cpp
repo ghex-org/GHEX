@@ -1,4 +1,5 @@
 #include "obj_wrapper.hpp"
+#include "context_bind.hpp"
 #include <iostream>
 #include <cstring> 
 #include <vector>
@@ -17,8 +18,6 @@ namespace gridtools {
                  GhexAllocatorHost=1,
                  GhexAllocatorDevice=2
             } ghex_allocator_type;
-
-            using host_allocator_type = std::allocator<unsigned char>;
         }
     }
 }
@@ -31,7 +30,7 @@ void *ghex_message_new(std::size_t size, int allocator_type)
     switch(allocator_type){
     case GhexAllocatorHost:
 	{
-            wmessage = new ghex::tl::cb::any_message{ghex::tl::message_buffer<host_allocator_type>{size, host_allocator_type{}}};
+            wmessage = new ghex::tl::cb::any_message{ghex::tl::message_buffer<host_allocator_type>{size, h->get_allocator<unsigned char>(hwmalloc::numa().local_node())}};
 	    break;
 	}
     case GhexAllocatorDevice:

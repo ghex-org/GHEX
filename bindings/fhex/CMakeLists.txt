@@ -1,5 +1,7 @@
+find_package(HWMALLOC REQUIRED)
+
 add_executable(sizes sizes.cpp)
-target_link_libraries(sizes PRIVATE ghexlib)
+target_link_libraries(sizes PRIVATE ghexlib  HWMALLOC::hwmalloc)
 
 add_library(fhex SHARED communicator_bind.cpp context_bind.cpp message_bind.cpp future_bind.cpp request_bind.cpp structured_staged_bind.cpp cubed_sphere_bind.cpp ghex_comm_mod.f90 ghex_message_mod.f90 ghex_future_mod.f90 ghex_request_mod.f90 ghex_structured_mod.f90 ghex_cubed_sphere_mod.f90 ghex_defs.f90 ghex_mod.f90 ghex_config.h)
 
@@ -22,7 +24,7 @@ endif()
 message(STATUS "GHEX_FORTRAN_FP_KIND ${GHEX_FORTRAN_FP_KIND}")
 target_compile_definitions(fhex PRIVATE GHEX_FORTRAN_FP=${GHEX_FORTRAN_FP} GHEX_FORTRAN_FP_KIND=${GHEX_FORTRAN_FP_KIND})
 target_include_directories(fhex PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(fhex PRIVATE ghexlib)
+target_link_libraries(fhex PRIVATE ghexlib HWMALLOC::hwmalloc)
 target_link_libraries(fhex INTERFACE MPI::MPI_Fortran)
 
 add_custom_command(OUTPUT ghex_config.h

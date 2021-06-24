@@ -13,6 +13,14 @@ namespace gridtools {
             
             /* barrier has to be shared between the threads */
             gridtools::ghex::tl::barrier_t *ghex_barrier = nullptr;
+
+#ifdef GHEX_USE_UCP
+            hwmalloc::ucx::context *c = nullptr;
+            hwmalloc::heap<hwmalloc::ucx::context> *h = nullptr;
+#else
+            hwmalloc::mpi::context *c = nullptr;
+            hwmalloc::heap<hwmalloc::mpi::context> *h = nullptr;
+#endif
         }
     }
 }
@@ -21,10 +29,18 @@ extern "C"
 void ghex_init(int nthreads, MPI_Fint fcomm)
 {
     /* the fortran-side mpi communicator must be translated to C */
-    MPI_Comm ccomm = MPI_Comm_f2c(fcomm);    
+    MPI_Comm ccomm = MPI_Comm_f2c(fcomm);
     gridtools::ghex::fhex::ghex_context = ghex::tl::context_factory<transport>::create(ccomm);
     gridtools::ghex::fhex::ghex_nthreads = nthreads;    
     gridtools::ghex::fhex::ghex_barrier = new gridtools::ghex::tl::barrier_t(nthreads);
+
+#ifdef GHEX_USE_UCP
+    c = new hwmalloc::ucx::context{gridtools::ghex::fhex::ghex_context->get_transport_context()};
+    h = new hwmalloc::heap<hwmalloc::ucx::context>(c);
+#else
+    c = new hwmalloc::mpi::context{ccomm};
+    h = new hwmalloc::heap<hwmalloc::mpi::context>(c);
+#endif
 }
 
 extern "C"

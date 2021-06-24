@@ -86,6 +86,10 @@ namespace gridtools {
                 int rank() const noexcept { return m_rank; }
                 int size() const noexcept { return m_size; }
 
+                /** @brief return the underlying transport context.
+                  * */
+                auto get_transport_context() const noexcept { return m_transport_context.get_transport_context(); }
+                
                 /** @brief return a per-rank communicator.
                   * This function is not thread-safe and should only be used in the serial part of the code. */
                 communicator_type get_serial_communicator()
