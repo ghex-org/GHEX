@@ -38,7 +38,7 @@ void ghex_init(int nthreads, MPI_Fint fcomm)
     c = new hwmalloc::ucx::context{gridtools::ghex::fhex::ghex_context->get_transport_context()};
     h = new hwmalloc::heap<hwmalloc::ucx::context>(c);
 #else
-    c = new hwmalloc::mpi::context{ccomm};
+    c = new hwmalloc::mpi::context{gridtools::ghex::fhex::ghex_context->get_transport_context()};
     h = new hwmalloc::heap<hwmalloc::mpi::context>(c);
 #endif
 }
