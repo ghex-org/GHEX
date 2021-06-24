@@ -45,7 +45,7 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
+          cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
       - name: Build
         run: cmake --build build --parallel 2
 
@@ -65,6 +65,6 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
+          cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
       - name: Build
         run: cmake --build build --parallel 2
