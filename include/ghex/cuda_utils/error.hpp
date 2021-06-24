@@ -14,6 +14,7 @@
 #include "../common/defs.hpp"
 #ifdef GHEX_CUDACC
 
+#include <stdexcept>
 #include <string>
 #include "../common/cuda_runtime.hpp"
 

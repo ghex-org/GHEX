@@ -34,7 +34,7 @@ namespace gridtools {
         // forward declaration for optimization on regular grids
         namespace structured {
             namespace regular {
-                template<typename T, typename Arch, typename DomainDescriptor, int... Order>
+                template<typename T, typename Arch, typename DomainDescriptor, typename Layout>
                 class field_descriptor;
             } // namespace structured
         } // namespace regular
@@ -44,7 +44,7 @@ namespace gridtools {
             template<typename T>
             struct is_regular_gpu : public std::false_type {};
             template<typename P, typename T, typename D, int... Order>
-            struct is_regular_gpu<buffer_info<P,gpu,structured::regular::field_descriptor<T,gpu,D,Order...>>>
+            struct is_regular_gpu<buffer_info<P,gpu,structured::regular::field_descriptor<T,gpu,D,::gridtools::layout_map<Order...>>>>
             : public std::true_type {};
         } // namespace detail
 

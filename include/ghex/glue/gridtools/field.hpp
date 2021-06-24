@@ -51,14 +51,6 @@ namespace gridtools {
                 using type          = typename get_layout_map<integer_seq>::type;
             };
 
-            template<typename T, typename Arch, typename DomainDescriptor, typename Seq>
-            struct get_field_descriptor_type;
-
-            template<typename T, typename Arch, typename DomainDescriptor, template <class J, J...> class Seq, typename I, I... Is>
-            struct get_field_descriptor_type<T,Arch,DomainDescriptor, Seq<I, Is...>>
-            {
-                using type = structured::regular::field_descriptor<T,Arch,DomainDescriptor,Is...>;
-            };
         } // namespace _impl
 
         template <typename Arch, typename DomainDescriptor, typename DataStore>
@@ -69,11 +61,10 @@ namespace gridtools {
         {
             using value_t           = typename DataStore::data_t;
             using layout_t          = typename DataStore::layout_t;
-            using integer_seq       = typename _impl::get_unmasked_layout_map<layout_t>::integer_seq;
+            using unmasked_layout_t = typename _impl::get_unmasked_layout_map<layout_t>::type;
             using uint_t            = decltype(layout_t::masked_length);
             using dimension         = std::integral_constant<uint_t, layout_t::masked_length>;
-            using field_desc_t      = typename _impl::get_field_descriptor_type<
-                value_t, Arch, DomainDescriptor, integer_seq>::type;
+            using field_desc_t      = structured::regular::field_descriptor<value_t, Arch, DomainDescriptor, unmasked_layout_t>;
 
             auto strides = ds->strides();
             for (unsigned int i=0u; i<dimension::value; ++i)

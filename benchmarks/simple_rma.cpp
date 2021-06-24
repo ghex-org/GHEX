@@ -63,14 +63,14 @@ struct simulation
 
     using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
     using context_ptr_type = std::unique_ptr<context_type>;
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
-    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
-    template<typename Arch, int... Is>
-    using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,std::integral_constant<int, 3>>;
+    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,std::integral_constant<int, 3>>;
+    template<typename Arch, typename Layout>
+    using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type,Layout>;
 
-    using field_type     = field_descriptor_type<gridtools::ghex::cpu, 2, 1, 0>;
+    using field_type     = field_descriptor_type<gridtools::ghex::cpu, ::gridtools::layout_map<2, 1, 0>>;
 #ifdef GHEX_CUDACC
-    using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, 2, 1, 0>;
+    using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, ::gridtools::layout_map<2, 1, 0>>;
 #endif
     using decomp_type = gridtools::ghex::hierarchical_decomposition<3>;
 
@@ -209,7 +209,7 @@ struct simulation
         for (int i=0; i<num_fields; ++i)
         {
             fields_raw[j].push_back( std::vector<T>(max_memory) );
-            fields[j].push_back(gridtools::ghex::wrap_field<gridtools::ghex::cpu,2,1,0>(
+            fields[j].push_back(gridtools::ghex::wrap_field<gridtools::ghex::cpu,::gridtools::layout_map<2,1,0>>(
                 local_domains[j],
                 fields_raw[j].back().data(),
                 offset,
@@ -217,7 +217,7 @@ struct simulation
 #ifdef GHEX_CUDACC
             fields_raw_gpu[j].push_back( std::unique_ptr<T,cuda_deleter<T>>{
                 [this](){ void* ptr; cudaMalloc(&ptr, max_memory*sizeof(T)); return (T*)ptr; }()});
-            fields_gpu[j].push_back(gridtools::ghex::wrap_field<gridtools::ghex::gpu,2,1,0>(
+            fields_gpu[j].push_back(gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(
                 local_domains[j],
                 fields_raw_gpu[j].back().get(),
                 offset,
