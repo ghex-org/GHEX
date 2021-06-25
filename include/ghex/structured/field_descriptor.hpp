@@ -22,8 +22,11 @@ namespace gridtools {
 namespace ghex {
 namespace structured {
 
+template<typename T, typename Arch, typename DomainDescriptor, typename Layout>
+class field_descriptor;
+
 template<typename T, typename Arch, typename DomainDescriptor, int... Order>
-class field_descriptor
+class field_descriptor<T, Arch, DomainDescriptor, ::gridtools::layout_map<Order...>>
 {
 public: // member types
     using value_type             = T;

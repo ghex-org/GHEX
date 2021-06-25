@@ -104,10 +104,10 @@ public:
 
 namespace halo_exchange_3D_generic_full {
 
-    using domain_descriptor_t = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
+    using domain_descriptor_t = gridtools::ghex::structured::regular::domain_descriptor<int,std::integral_constant<int, 3>>;
     using domain_id_t = domain_descriptor_t::domain_id_type;
     using coordinate_t = domain_descriptor_t::coordinate_type;
-    using halo_generator_t = gridtools::ghex::structured::regular::halo_generator<domain_id_t,3>;
+    using halo_generator_t = gridtools::ghex::structured::regular::halo_generator<domain_id_t,std::integral_constant<int, 3>>;
 
     int pid;
     int nprocs;
