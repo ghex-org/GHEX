@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14.5)
 
 project(GHEX VERSION 0.1 LANGUAGES CXX)
 if(USE_GPU)
-    set(GHEX_GPU_TYPE "AUTO" CACHE STRING "Choose the GPU type: AMD | NVIDIA | AUTO (environment-based)" FORCE)
+    set(GHEX_GPU_TYPE "AUTO" CACHE STRING "Choose the GPU type: AMD | NVIDIA | AUTO (environment-based)")
     # Set the possible values of GPU type for cmake-gui
     set_property(CACHE GHEX_GPU_TYPE PROPERTY STRINGS "AMD" "NVIDIA" "AUTO")
     if (GHEX_GPU_TYPE STREQUAL "AMD")
