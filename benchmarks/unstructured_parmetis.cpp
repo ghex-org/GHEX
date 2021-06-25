@@ -164,6 +164,115 @@ struct d_v_pair {
 
 };
 
+using vertices_dist_type = std::map<int, std::map<d_v_pair<domain_id_type, idx_t>, std::vector<idx_t>>>;
+using domain_vertices_dist_type = std::map<domain_id_type, std::map<idx_t, std::vector<idx_t>>>;
+domain_vertices_dist_type distribute_parmetis(vertices_dist_type& vertices_dist, std::size_t n_vertices, MPI_Comm comm) { // TO DO: vertices_dist should be const ref
+    
+    int size;
+    MPI_Comm_size(comm, &size);
+
+    // 1) all-to-all: number of vertices per rank
+    std::vector<int> s_n_vertices_rank(size);
+    for (int i = 0; i < size; ++i) {
+        s_n_vertices_rank[i] = vertices_dist[i].size(); // TO DO: any missing rank gets actually inserted into the map here
+    };
+    std::vector<int> r_n_vertices_rank(size);
+    MPI_Alltoall(s_n_vertices_rank.data(), sizeof(int), MPI_BYTE,
+                 r_n_vertices_rank.data(), sizeof(int), MPI_BYTE,
+                 comm);
+
+    // 2) all-to-all: vertex ids
+    std::vector<idx_t> s_v_ids_rank{};
+    s_v_ids_rank.reserve(n_vertices);
+    for (const auto& r_m_pair : vertices_dist) {
+        for (const auto& v_a_pair : r_m_pair.second) {
+            s_v_ids_rank.push_back(v_a_pair.first.v_id);
+        }
+    }
+    std::vector<int> s_v_ids_rank_counts = counts_as_bytes<idx_t>(s_n_vertices_rank);
+    std::vector<int> s_v_ids_rank_displs = counts_to_displs(s_v_ids_rank_counts);
+    std::vector<idx_t> r_v_ids_rank(std::accumulate(r_n_vertices_rank.begin(), r_n_vertices_rank.end(), 0));
+    std::vector<int> r_v_ids_rank_counts = counts_as_bytes<idx_t>(r_n_vertices_rank);
+    std::vector<int> r_v_ids_rank_displs = counts_to_displs(r_v_ids_rank_counts);
+    MPI_Alltoallv(s_v_ids_rank.data(), s_v_ids_rank_counts.data(), s_v_ids_rank_displs.data(), MPI_BYTE,
+                  r_v_ids_rank.data(), r_v_ids_rank_counts.data(), r_v_ids_rank_displs.data(), MPI_BYTE,
+                  comm);
+
+    // 3) all-to-all: domain ids
+    std::vector<domain_id_type> s_d_ids_rank{};
+    s_d_ids_rank.reserve(n_vertices);
+    for (const auto& r_m_pair : vertices_dist) {
+        for (const auto& v_a_pair : r_m_pair.second) {
+            s_d_ids_rank.push_back(v_a_pair.first.d_id);
+        }
+    }
+    std::vector<int> s_d_ids_rank_counts = counts_as_bytes<domain_id_type>(s_n_vertices_rank);
+    std::vector<int> s_d_ids_rank_displs = counts_to_displs(s_d_ids_rank_counts);
+    std::vector<domain_id_type> r_d_ids_rank(std::accumulate(r_n_vertices_rank.begin(), r_n_vertices_rank.end(), 0));
+    std::vector<int> r_d_ids_rank_counts = counts_as_bytes<domain_id_type>(r_n_vertices_rank);
+    std::vector<int> r_d_ids_rank_displs = counts_to_displs(r_d_ids_rank_counts);
+    MPI_Alltoallv(s_d_ids_rank.data(), s_d_ids_rank_counts.data(), s_d_ids_rank_displs.data(), MPI_BYTE,
+                  r_d_ids_rank.data(), r_d_ids_rank_counts.data(), r_d_ids_rank_displs.data(), MPI_BYTE,
+                  comm);
+
+    // 4) all-to-all: adjacency size per vertex per rank
+    std::vector<int> s_adjncy_size_vertex_rank{};
+    s_adjncy_size_vertex_rank.reserve(n_vertices);
+    for (const auto& r_m_pair : vertices_dist) {
+        for (const auto& v_a_pair : r_m_pair.second) {
+            s_adjncy_size_vertex_rank.push_back(v_a_pair.second.size());
+        }
+    }
+    std::vector<int> s_adjncy_size_vertex_rank_counts = counts_as_bytes<int>(s_n_vertices_rank);
+    std::vector<int> s_adjncy_size_vertex_rank_displs = counts_to_displs(s_adjncy_size_vertex_rank_counts);
+    std::vector<int> r_adjncy_size_vertex_rank(std::accumulate(r_n_vertices_rank.begin(), r_n_vertices_rank.end(), 0));
+    std::vector<int> r_adjncy_size_vertex_rank_counts = counts_as_bytes<int>(r_n_vertices_rank);
+    std::vector<int> r_adjncy_size_vertex_rank_displs = counts_to_displs(r_adjncy_size_vertex_rank_counts);
+    MPI_Alltoallv(s_adjncy_size_vertex_rank.data(), s_adjncy_size_vertex_rank_counts.data(), s_adjncy_size_vertex_rank_displs.data(), MPI_BYTE,
+                  r_adjncy_size_vertex_rank.data(), r_adjncy_size_vertex_rank_counts.data(), r_adjncy_size_vertex_rank_displs.data(), MPI_BYTE,
+                  comm);
+
+    // 5) all-to-all: adjacency per rank
+    std::vector<idx_t> s_adjncy_rank{};
+    s_adjncy_rank.reserve(std::accumulate(s_adjncy_size_vertex_rank.begin(), s_adjncy_size_vertex_rank.end(), 0));
+    for (const auto& r_m_pair : vertices_dist) {
+        for (const auto& v_a_pair : r_m_pair.second) {
+            s_adjncy_rank.insert(s_adjncy_rank.end(), v_a_pair.second.begin(), v_a_pair.second.end());
+        }
+    }
+    std::vector<int> s_adjncy_rank_counts{};
+    s_adjncy_rank_counts.reserve(size);
+    for (auto a_it = s_adjncy_size_vertex_rank.begin(), r_it = s_n_vertices_rank.begin(); r_it < s_n_vertices_rank.end(); ++r_it) {
+        s_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(idx_t));
+        a_it += *r_it;
+    }
+    std::vector<int> s_adjncy_rank_displs = counts_to_displs(s_adjncy_rank_counts);
+    std::vector<idx_t> r_adjncy_rank(std::accumulate(r_adjncy_size_vertex_rank.begin(), r_adjncy_size_vertex_rank.end(), 0));
+    std::vector<int> r_adjncy_rank_counts{};
+    r_adjncy_rank_counts.reserve(size);
+    for (auto a_it = r_adjncy_size_vertex_rank.begin(), r_it = r_n_vertices_rank.begin(); r_it < r_n_vertices_rank.end(); ++r_it) {
+        r_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(idx_t));
+        a_it += *r_it;
+    }
+    std::vector<int> r_adjncy_rank_displs = counts_to_displs(r_adjncy_rank_counts);
+    MPI_Alltoallv(s_adjncy_rank.data(), s_adjncy_rank_counts.data(), s_adjncy_rank_displs.data(), MPI_BYTE,
+                  r_adjncy_rank.data(), r_adjncy_rank_counts.data(), r_adjncy_rank_displs.data(), MPI_BYTE,
+                  comm);
+
+    // 6) per-domain vertices distribution map
+    domain_vertices_dist_type domain_vertices_dist{};
+    for (std::size_t i = 0, a_idx = 0; i < r_v_ids_rank.size(); ++i) {
+        auto a_begin = r_adjncy_rank.begin() + a_idx;
+        auto a_end = a_begin + r_adjncy_size_vertex_rank[i];
+        domain_vertices_dist[r_d_ids_rank[i]]
+                .insert(std::make_pair(r_v_ids_rank[i], std::vector<idx_t>{a_begin, a_end}));
+        a_idx += r_adjncy_size_vertex_rank[i];
+    }
+
+    return domain_vertices_dist;
+
+}
+
 template<typename C>
 void debug_print(const C& c) {
     std::cout << "Size = " << c.size() << "; elements = [ ";
@@ -258,116 +367,13 @@ TEST(unstructured_parmetis, receive_type) {
                          part_v.data(),
                          &comm);
 
-    // ========== repartition output according to parmetis labeling ========== // TO DO: wrap it into a function
-
-    // 1) vertices distribution map
-    using vertices_dist_type = std::map<int, std::map<d_v_pair<domain_id_type, idx_t>, std::vector<idx_t>>>;
+    // repartition output according to parmetis labeling
     vertices_dist_type vertices_dist{};
     for (idx_t v_id = vtxdist_v[rank], i = 0; i < static_cast<idx_t>(ap_n.size() - 1); ++v_id, ++i) {
         vertices_dist[domain_to_rank(part_v[i], num_threads)]
                 .insert(std::make_pair(d_v_pair<domain_id_type, idx_t>{part_v[i], v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
     }
-
-    // 2) all-to-all: number of vertices per rank
-    std::vector<int> s_n_vertices_rank(size);
-    for (int i = 0; i < size; ++i) {
-        s_n_vertices_rank[i] = vertices_dist[i].size(); // any missing rank gets actually inserted into the map here
-    };
-    std::vector<int> r_n_vertices_rank(size);
-    MPI_Alltoall(s_n_vertices_rank.data(), sizeof(int), MPI_BYTE,
-                 r_n_vertices_rank.data(), sizeof(int), MPI_BYTE,
-                 comm);
-
-    // 3) all-to-all: vertex ids
-    std::vector<idx_t> s_v_ids_rank{};
-    s_v_ids_rank.reserve(ap_n.size() - 1);
-    for (const auto& r_m_pair : vertices_dist) {
-        for (const auto& v_a_pair : r_m_pair.second) {
-            s_v_ids_rank.push_back(v_a_pair.first.v_id);
-        }
-    }
-    std::vector<int> s_v_ids_rank_counts = counts_as_bytes<idx_t>(s_n_vertices_rank);
-    std::vector<int> s_v_ids_rank_displs = counts_to_displs(s_v_ids_rank_counts);
-    std::vector<idx_t> r_v_ids_rank(std::accumulate(r_n_vertices_rank.begin(), r_n_vertices_rank.end(), 0));
-    std::vector<int> r_v_ids_rank_counts = counts_as_bytes<idx_t>(r_n_vertices_rank);
-    std::vector<int> r_v_ids_rank_displs = counts_to_displs(r_v_ids_rank_counts);
-    MPI_Alltoallv(s_v_ids_rank.data(), s_v_ids_rank_counts.data(), s_v_ids_rank_displs.data(), MPI_BYTE,
-                  r_v_ids_rank.data(), r_v_ids_rank_counts.data(), r_v_ids_rank_displs.data(), MPI_BYTE,
-                  comm);
-
-    // 4) all-to-all: domain ids
-    std::vector<domain_id_type> s_d_ids_rank{};
-    s_d_ids_rank.reserve(ap_n.size() - 1);
-    for (const auto& r_m_pair : vertices_dist) {
-        for (const auto& v_a_pair : r_m_pair.second) {
-            s_d_ids_rank.push_back(v_a_pair.first.d_id);
-        }
-    }
-    std::vector<int> s_d_ids_rank_counts = counts_as_bytes<domain_id_type>(s_n_vertices_rank);
-    std::vector<int> s_d_ids_rank_displs = counts_to_displs(s_d_ids_rank_counts);
-    std::vector<domain_id_type> r_d_ids_rank(std::accumulate(r_n_vertices_rank.begin(), r_n_vertices_rank.end(), 0));
-    std::vector<int> r_d_ids_rank_counts = counts_as_bytes<domain_id_type>(r_n_vertices_rank);
-    std::vector<int> r_d_ids_rank_displs = counts_to_displs(r_d_ids_rank_counts);
-    MPI_Alltoallv(s_d_ids_rank.data(), s_d_ids_rank_counts.data(), s_d_ids_rank_displs.data(), MPI_BYTE,
-                  r_d_ids_rank.data(), r_d_ids_rank_counts.data(), r_d_ids_rank_displs.data(), MPI_BYTE,
-                  comm);
-
-    // 5) all-to-all: adjacency size per vertex per rank
-    std::vector<int> s_adjncy_size_vertex_rank{};
-    s_adjncy_size_vertex_rank.reserve(ap_n.size() - 1);
-    for (const auto& r_m_pair : vertices_dist) {
-        for (const auto& v_a_pair : r_m_pair.second) {
-            s_adjncy_size_vertex_rank.push_back(v_a_pair.second.size());
-        }
-    }
-    std::vector<int> s_adjncy_size_vertex_rank_counts = counts_as_bytes<int>(s_n_vertices_rank);
-    std::vector<int> s_adjncy_size_vertex_rank_displs = counts_to_displs(s_adjncy_size_vertex_rank_counts);
-    std::vector<int> r_adjncy_size_vertex_rank(std::accumulate(r_n_vertices_rank.begin(), r_n_vertices_rank.end(), 0));
-    std::vector<int> r_adjncy_size_vertex_rank_counts = counts_as_bytes<int>(r_n_vertices_rank);
-    std::vector<int> r_adjncy_size_vertex_rank_displs = counts_to_displs(r_adjncy_size_vertex_rank_counts);
-    MPI_Alltoallv(s_adjncy_size_vertex_rank.data(), s_adjncy_size_vertex_rank_counts.data(), s_adjncy_size_vertex_rank_displs.data(), MPI_BYTE,
-                  r_adjncy_size_vertex_rank.data(), r_adjncy_size_vertex_rank_counts.data(), r_adjncy_size_vertex_rank_displs.data(), MPI_BYTE,
-                  comm);
-
-    // 6) all-to-all: adjacency per rank
-    std::vector<idx_t> s_adjncy_rank{};
-    s_adjncy_rank.reserve(std::accumulate(s_adjncy_size_vertex_rank.begin(), s_adjncy_size_vertex_rank.end(), 0));
-    for (const auto& r_m_pair : vertices_dist) {
-        for (const auto& v_a_pair : r_m_pair.second) {
-            s_adjncy_rank.insert(s_adjncy_rank.end(), v_a_pair.second.begin(), v_a_pair.second.end());
-        }
-    }
-    std::vector<int> s_adjncy_rank_counts{};
-    s_adjncy_rank_counts.reserve(size);
-    for (auto a_it = s_adjncy_size_vertex_rank.begin(), r_it = s_n_vertices_rank.begin(); r_it < s_n_vertices_rank.end(); ++r_it) {
-        s_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(idx_t));
-        a_it += *r_it;
-    }
-    std::vector<int> s_adjncy_rank_displs = counts_to_displs(s_adjncy_rank_counts);
-    std::vector<idx_t> r_adjncy_rank(std::accumulate(r_adjncy_size_vertex_rank.begin(), r_adjncy_size_vertex_rank.end(), 0));
-    std::vector<int> r_adjncy_rank_counts{};
-    r_adjncy_rank_counts.reserve(size);
-    for (auto a_it = r_adjncy_size_vertex_rank.begin(), r_it = r_n_vertices_rank.begin(); r_it < r_n_vertices_rank.end(); ++r_it) {
-        r_adjncy_rank_counts.push_back(std::accumulate(a_it, a_it + *r_it, 0) * sizeof(idx_t));
-        a_it += *r_it;
-    }
-    std::vector<int> r_adjncy_rank_displs = counts_to_displs(r_adjncy_rank_counts);
-    MPI_Alltoallv(s_adjncy_rank.data(), s_adjncy_rank_counts.data(), s_adjncy_rank_displs.data(), MPI_BYTE,
-                  r_adjncy_rank.data(), r_adjncy_rank_counts.data(), r_adjncy_rank_displs.data(), MPI_BYTE,
-                  comm);
-
-    // 7) per-domain vertices distribution map
-    using domain_vertices_dist_type = std::map<domain_id_type, std::map<idx_t, std::vector<idx_t>>>;
-    domain_vertices_dist_type domain_vertices_dist{};
-    for (std::size_t i = 0, a_idx = 0; i < r_v_ids_rank.size(); ++i) {
-        auto a_begin = r_adjncy_rank.begin() + a_idx;
-        auto a_end = a_begin + r_adjncy_size_vertex_rank[i];
-        domain_vertices_dist[r_d_ids_rank[i]]
-                .insert(std::make_pair(r_v_ids_rank[i], std::vector<idx_t>{a_begin, a_end}));
-        a_idx += r_adjncy_size_vertex_rank[i];
-    }
-
-    // =======================================================================
+    auto domain_vertices_dist = distribute_parmetis(vertices_dist, ap_n.size() - 1, comm);
 
     // GHEX constants
     const std::size_t levels = 100;
