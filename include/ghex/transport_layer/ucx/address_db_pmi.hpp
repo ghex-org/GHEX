@@ -37,6 +37,7 @@ namespace gridtools {
                     using value_t   = address_t;
 
                     MPI_Comm m_mpi_comm;
+                    std::vector<key_t> m_rank_map;
 
                     // these should be PMIx ranks. might need remaping to MPI ranks
                     key_t m_rank;
@@ -63,10 +64,18 @@ namespace gridtools {
 
                         int mpi_rank{ [](MPI_Comm c){ int r; GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(c,&r)); return r; }(comm) };
                         int mpi_size{ [](MPI_Comm c){ int s; GHEX_CHECK_MPI_RESULT(MPI_Comm_size(c,&s)); return s; }(comm) };
+                        
+                        if(m_size != mpi_size){
+                            throw std::runtime_error("PMIx and MPI sizes are different. Bailing out.");
+                        }
 
-                        // TODO: m_mpi_comm should be use to obtain MPI rank to PMIx rank map
-                        if(m_rank != mpi_rank || m_size != mpi_size)
-                            throw std::runtime_error("PMIx and MPI ranks are different. Mapping not implemented yet.");
+                        // map MPI communicator ranks to PMIx ranks
+                        m_rank_map.resize(mpi_size);
+                        for(int i=0; i<mpi_size; i++) m_rank_map[i] = m_rank;
+                        MPI_Alltoall(MPI_IN_PLACE, 0, MPI_INT, m_rank_map.data(), 1, MPI_INT, comm);
+                        
+                        // from now on use the MPI communicator rank outsize, and remap for internal use
+                        m_rank = mpi_rank;
                     }
 
                     address_db_pmi(const address_db_pmi&) = delete;
@@ -78,6 +87,8 @@ namespace gridtools {
 
                     value_t find(key_t k)
                     {
+                        // ranks coming from outside are MPI ranks - remap to PMIx
+                        k = m_rank_map[k];
                         try {
                             return pmi_impl.get(k, m_key);
                         } catch(std::runtime_error &err) {
