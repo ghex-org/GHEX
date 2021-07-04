@@ -29,22 +29,23 @@ namespace detail {
                         gridtools::ghex::bindings::python::type_list::domain_id_types,
                         gridtools::meta::list<std::integral_constant<int, 3>>>;
 
-    template<typename DomainIdType, typename Dimension>
-    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension::value>;
+    template<typename DomainIdType, typename Dimension_t>
+    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension_t>;
 
     using specializations = gridtools::meta::transform<gridtools::meta::rename<halo_generator_type>::template apply, args>;
 }
 
-template<typename DomainIdType, int Dimension>
-struct type_exporter<gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension>> {
-    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension>;
+template<typename DomainIdType, typename Dimension_t>
+struct type_exporter<gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension_t>> {
+    static constexpr int dimension = Dimension_t::value;
+    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension_t>;
 
     void operator() (pybind11::module_& m, py::class_<halo_generator_type> halo_gen_cls) {
         static_assert(std::is_same<DomainIdType, int>::value, "Not implemented. Only integer domain types allowed for now.");
 
-        using dim_array_t = std::array<int, Dimension>;
-        using halo_array_t = std::array<int, 2*Dimension>;
-        using periodic_array_t  = std::array<bool, Dimension>;
+        using dim_array_t = std::array<int, dimension>;
+        using halo_array_t = std::array<int, 2*dimension>;
+        using periodic_array_t  = std::array<bool, dimension>;
 
         // halo_generator
         halo_gen_cls.def(py::init<dim_array_t, dim_array_t, halo_array_t, periodic_array_t>())

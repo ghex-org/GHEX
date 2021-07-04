@@ -37,8 +37,8 @@ struct type_list {
     using transport = gridtools::ghex::tl::mpi_tag;
     using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
 
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,3>;
-    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,3>;
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,std::integral_constant<int, 3>>;
+    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,std::integral_constant<int, 3>>;
     //template<typename T, typename Arch, int... Is>
     //using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
 };

@@ -34,21 +34,20 @@ namespace detail {
     using args = gridtools::meta::cartesian_product<
         gridtools::ghex::bindings::python::type_list::data_types,
         gridtools::meta::list<gridtools::ghex::cpu>,
-        gridtools::meta::list<gridtools::ghex::structured::regular::domain_descriptor<int, 3>>,
-        gridtools::meta::list<int_tuple_constant<0, 1, 2>, int_tuple_constant<2, 1, 0>>>;
+        gridtools::meta::list<gridtools::ghex::structured::regular::domain_descriptor<int, std::integral_constant<int, 3>>>,
+        gridtools::meta::list< ::gridtools::layout_map<0,1,2>,  ::gridtools::layout_map<2,1,0>>>;
 
-    template<typename T, typename Arch, typename DomainDescriptor, typename Order>
+    template<typename T, typename Arch, typename DomainDescriptor, typename Layout>
     using field_descriptor_type = gridtools::ghex::structured::regular::field_descriptor<
-        T, Arch, DomainDescriptor, gridtools::meta::at_c<Order, 0>::value, gridtools::meta::at_c<Order, 1>::value, gridtools::meta::at_c<Order, 2>::value
-    >;
+        T, Arch, DomainDescriptor, Layout>;
 
     using field_descriptor_specializations = gridtools::meta::transform<gridtools::meta::rename<field_descriptor_type>::template apply, args>;
 }
 
 // todo: dim independent
-template<typename T, typename Arch, typename DomainDescriptor, int I, int J, int K>
-struct type_exporter<gridtools::ghex::structured::regular::field_descriptor<T, Arch, DomainDescriptor, I, J, K>> {
-    using field_descriptor_type = gridtools::ghex::structured::regular::field_descriptor<T, Arch, DomainDescriptor, I, J, K>;
+template<typename T, typename Arch, typename DomainDescriptor, typename Layout>
+struct type_exporter<gridtools::ghex::structured::regular::field_descriptor<T, Arch, DomainDescriptor, Layout>> {
+    using field_descriptor_type = gridtools::ghex::structured::regular::field_descriptor<T, Arch, DomainDescriptor, Layout>;
 
     void operator() (pybind11::module_&, py::class_<field_descriptor_type> cls) {
         constexpr std::size_t dim = 3;
@@ -63,19 +62,20 @@ struct type_exporter<gridtools::ghex::structured::regular::field_descriptor<T, A
                 error << "Incompatible format: expected a " << typeid(T).name() << " buffer.";
                 throw pybind11::type_error(error.str());
             }
-
-            std::array<int, 3> order = {0, 1, 2};
-            std::sort(order.begin(), order.end(), [&info](int a, int b) {
+            std::array<int, 3> buffer_order = {0, 1, 2};
+            std::sort(buffer_order.begin(), buffer_order.end(), [&info](int a, int b) {
                 return info.strides[a] > info.strides[b];
             });
-            if (I != order[0] || J != order[1] || K != order[2]) {
-                throw pybind11::type_error("Buffer has a different layout than specified.");
+            for (size_t i=0; i<3; ++i) {
+                if (buffer_order[i] != Layout::at(i)) {
+                    throw pybind11::type_error("Buffer has a different layout than specified.");
+                }
             }
 
             if (info.ndim != 3)
                 throw std::runtime_error("Incompatible buffer dimension.");
 
-            return gridtools::ghex::wrap_field<Arch, I, J, K>(dom, static_cast<T*>(info.ptr), offsets, extents);
+            return gridtools::ghex::wrap_field<Arch, Layout>(dom, static_cast<T*>(info.ptr), offsets, extents);
         };
 
         cls.def(py::init(wrapper));

@@ -28,7 +28,7 @@ class HaloContainer:
 class DomainDescriptor(CppWrapper):
     def __init__(self, id_: int, sub_domain_indices: ProductSet):
         super(DomainDescriptor, self).__init__(
-            ("gridtools::ghex::structured::regular::domain_descriptor", "int", "3"),
+            ("gridtools::ghex::structured::regular::domain_descriptor", "int", 3),
             id_, sub_domain_indices[0, 0, 0], sub_domain_indices[-1, -1, -1])
 
 class HaloGenerator(CppWrapper):
@@ -41,7 +41,7 @@ class HaloGenerator(CppWrapper):
         flattened_halos = tuple(h for halo in halos for h in halo)
 
         super(HaloGenerator, self).__init__(
-            ("gridtools::ghex::structured::regular::halo_generator", "int", "3"),
+            ("gridtools::ghex::structured::regular::halo_generator", "int", 3),
             glob_domain_indices[0, 0, 0], glob_domain_indices[-1, -1, -1], flattened_halos, periodicity)
 
     def __call__(self, domain: DomainDescriptor):
@@ -66,7 +66,7 @@ class FieldDescriptor(CppWrapper):
     def __init__(self, domain_desc: DomainDescriptor, field: np.ndarray, offsets: Tuple[int, ...], extents: Tuple[int, ...]):
         type_spec = ("gridtools::ghex::structured::regular::field_descriptor",
                      dtype_to_cpp(field.dtype), "gridtools::ghex::cpu", domain_desc.__cpp_type__,
-                     *map(str, _layout_order(field)))
+                     f"gridtools::layout_map<{', '.join(map(str, _layout_order(field)))}> ")
         super(FieldDescriptor, self).__init__(type_spec, domain_desc, field, offsets, extents)
 
 def wrap_field(*args):

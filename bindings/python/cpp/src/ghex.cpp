@@ -53,10 +53,10 @@ void register_make_pattern(pybind11::module& m) {
     // todo: move + cleanup
     using arch = gridtools::ghex::cpu;
     using domain_id_type = int;
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, 3>;
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, 3>>;
     using array_type = std::array<int, 3>;
     auto wrapper = [] (const domain_descriptor_type& dom, double* data, const array_type& offsets, const array_type& extents) {
-        return gridtools::ghex::wrap_field<arch, 0, 1, 2>(dom, data, offsets, extents);
+        return gridtools::ghex::wrap_field<arch, ::gridtools::layout_map<0,1,2>>(dom, data, offsets, extents);
     };
     using field_t = decltype(wrapper(std::declval<const domain_descriptor_type&>(), std::declval<double*>(), std::declval<const array_type&>(), std::declval<const array_type&>()));
 
@@ -82,10 +82,10 @@ void register_make_communication_object(pybind11::module& m) {
 
     // todo: just for getting something runnable
     using arch = gridtools::ghex::cpu;
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, 3>;
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, 3>>;
     using array_type = std::array<int, 3>;
     auto wrapper = [] (const domain_descriptor_type& dom, double* data, const array_type& offsets, const array_type& extents) {
-        return gridtools::ghex::wrap_field<arch, 0, 1, 2>(dom, data, offsets, extents);
+        return gridtools::ghex::wrap_field<arch, ::gridtools::layout_map<0,1,2>>(dom, data, offsets, extents);
     };
     using field_t = decltype(wrapper(std::declval<const domain_descriptor_type&>(), std::declval<double*>(), std::declval<const array_type&>(), std::declval<const array_type&>()));
 
@@ -111,7 +111,7 @@ PYBIND11_MODULE(ghex_py_bindings, m) {
     m.def_submodule("utils").def("hash_str", [] (const std::string& val) { return std::hash<std::string>()(val); });
 
     using domain_id_type = int;
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, 3>;
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, 3>>;
 
     pybind11::class_<mpi_comm_shim> mpi_comm(m, "mpi_comm");
     mpi_comm.def(pybind11::init<>());

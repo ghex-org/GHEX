@@ -40,17 +40,19 @@ namespace detail {
                         gridtools::meta::list<std::integral_constant<int, 3>>>;
 
     template<typename DomainIdType, typename Dimension>
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<DomainIdType, Dimension::value>;
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<DomainIdType, Dimension>;
 
     using specializations = gridtools::meta::transform<gridtools::meta::rename<domain_descriptor_type>::template apply, args>;
 }
 
-template<typename DomainIdType, int Dimension>
-struct type_exporter<gridtools::ghex::structured::regular::domain_descriptor<DomainIdType, Dimension>> {
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<DomainIdType, Dimension>;
+template<typename DomainIdType, typename Dimension_t>
+struct type_exporter<gridtools::ghex::structured::regular::domain_descriptor<DomainIdType, Dimension_t>> {
+    static constexpr int dimension = Dimension_t::value;
+
+    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<DomainIdType, Dimension_t>;
 
     void operator() (pybind11::module_&, py::class_<domain_descriptor_type> cls) {
-        using dim_array_t = std::array<int, Dimension>;
+        using dim_array_t = std::array<int, dimension>;
 
         cls.def(py::init<DomainIdType, dim_array_t, dim_array_t>())
             .def("domain_id", &domain_descriptor_type::domain_id)
