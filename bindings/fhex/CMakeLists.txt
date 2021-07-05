@@ -3,6 +3,11 @@ target_link_libraries(sizes PRIVATE ghexlib)
 
 add_library(fhex SHARED communicator_bind.cpp context_bind.cpp message_bind.cpp future_bind.cpp request_bind.cpp structured_staged_bind.cpp cubed_sphere_bind.cpp ghex_comm_mod.f90 ghex_message_mod.f90 ghex_future_mod.f90 ghex_request_mod.f90 ghex_structured_mod.f90 ghex_cubed_sphere_mod.f90 ghex_defs.f90 ghex_mod.f90 ghex_config.h)
 
+if (GHEX_FORTRAN_OPENMP)
+   find_package(OpenMP REQUIRED)
+   target_link_libraries(fhex PRIVATE OpenMP::OpenMP_Fortran)
+endif ()
+
 if (GHEX_USE_UCP)
    target_compile_definitions(fhex PRIVATE GHEX_USE_UCP)
    find_package(Threads REQUIRED)

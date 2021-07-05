@@ -56,7 +56,7 @@ CONTAINS
     type(ghex_message), value :: message
     integer(1), dimension(:), pointer :: ghex_message_data
 
-    type(c_ptr) :: c_data = c_null_ptr
+    type(c_ptr) :: c_data
     integer(c_size_t) :: size
 
     ! get the data pointer
