@@ -27,5 +27,5 @@ jobs:
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
-        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && env &&  ctest 
+        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env &&  ctest 
 
