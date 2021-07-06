@@ -163,10 +163,15 @@ CONTAINS
     integer :: glast(3)
     procedure(f_cart_rank_neighbor), pointer, optional :: cart_nbor
     integer, optional :: device_id
-
+    procedure(f_cart_rank_neighbor), pointer :: lcart_nbor
+    
+    ! This is needed for GCC. Otherwise c_funloc(cart_nbor) doesn't work correctly
+    ! This is a difference wrt. Intel compiler
+    lcart_nbor => NULL()
     if (present(cart_nbor)) then
-      domain_desc%cart_nbor = c_funloc(cart_nbor)
+       lcart_nbor => cart_nbor
     end if
+    domain_desc%cart_nbor = c_funloc(lcart_nbor)
     
     if (present(device_id)) then
       domain_desc%device_id = device_id
@@ -225,7 +230,7 @@ CONTAINS
     endif
 
     if (present(periodic)) then
-      field_desc%periodic = periodic
+      where(periodic) field_desc%periodic = 1
     endif
 
     if (present(layout)) then
@@ -250,7 +255,7 @@ CONTAINS
     field_desc%offset(:)    = -1
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
-    field_desc%periodic(:)  = .false.
+    field_desc%periodic(:)  = 0
     field_desc%layout       = GhexLayoutFieldLast
   end subroutine ghex_struct_field_free
 
