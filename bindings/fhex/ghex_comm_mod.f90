@@ -292,6 +292,8 @@ CONTAINS
     type(ghex_request) :: lreq
     type(ghex_cb_user_data) :: luser_data
 
+    ! This is needed for GCC. Otherwise c_funloc(cart_nbor) doesn't work correctly
+    ! This is a difference wrt. Intel compiler
     if (present(cb)) then
       lcb => cb
     else

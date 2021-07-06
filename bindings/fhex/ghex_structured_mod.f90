@@ -167,9 +167,10 @@ CONTAINS
     
     ! This is needed for GCC. Otherwise c_funloc(cart_nbor) doesn't work correctly
     ! This is a difference wrt. Intel compiler
-    lcart_nbor => NULL()
     if (present(cart_nbor)) then
        lcart_nbor => cart_nbor
+    else
+       lcart_nbor => null()
     end if
     domain_desc%cart_nbor = c_funloc(lcart_nbor)
     
