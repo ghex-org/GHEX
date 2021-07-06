@@ -72,7 +72,7 @@ namespace gridtools {
                         // map MPI communicator ranks to PMIx ranks
                         m_rank_map.resize(mpi_size);
                         for(int i=0; i<mpi_size; i++) m_rank_map[i] = m_rank;
-                        GHEX_CHECK_MPI_RESULT(MPI_Alltoall(MPI_IN_PLACE, 0, MPI_INT, m_rank_map.data(), sizeof(key_t), MPI_BYTE, comm));
+                        GHEX_CHECK_MPI_RESULT(MPI_Alltoall(MPI_IN_PLACE, 0, MPI_BYTE, m_rank_map.data(), sizeof(key_t), MPI_BYTE, comm));
                         
                         // from now on use the MPI communicator rank outsize, and remap for internal use
                         m_rank = mpi_rank;
