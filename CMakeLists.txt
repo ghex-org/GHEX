@@ -8,6 +8,7 @@ if(USE_GPU)
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
+include(GNUInstallDirs)
 
 # setup fortran compiler and arguments
 if (GHEX_BUILD_FORTRAN)
@@ -211,7 +212,6 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     endif()
 endif()
 
-include(GNUInstallDirs)
 install(TARGETS ghexlib EXPORT GHEX-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(EXPORT GHEX-targets
   FILE GHEX-targets.cmake

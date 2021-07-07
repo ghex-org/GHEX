@@ -122,9 +122,12 @@ contains
     type(ghex_cb_user_data), value :: user_data
     integer :: thrid
     integer(1), dimension(:), pointer :: msg_data
-    procedure(f_callback), pointer :: pcb
     integer, pointer :: received
-    pcb => recv_callback
+
+    ! NOTE: this segfaults in Intel compiler. It seems we have to use
+    ! the globally defined pcb from the main function. WHY??
+    ! procedure(f_callback), pointer :: pcb
+    ! pcb => recv_callback
 
     ! needed to know which communicator we can use. Communicators are bound to threads.
     thrid = omp_get_thread_num()+1

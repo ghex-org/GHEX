@@ -33,3 +33,19 @@ target_link_libraries(fhex INTERFACE MPI::MPI_Fortran)
 add_custom_command(OUTPUT ghex_config.h
   COMMAND "${CMAKE_CURRENT_BINARY_DIR}/sizes" ">ghex_config.h"
   DEPENDS sizes)
+
+install(TARGETS fhex
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_comm_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_cubed_sphere_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_defs.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_future_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_message_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_request_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_structured_mod.mod
+    DESTINATION
+        ${CMAKE_INSTALL_INCLUDEDIR}/)
