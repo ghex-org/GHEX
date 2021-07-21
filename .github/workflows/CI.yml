@@ -9,7 +9,7 @@ on:
 jobs:
   build-cpu:
     runs-on: ubuntu-latest
-    container: mbianco/ghex:gcc-9
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
 
     steps:
       - uses: actions/checkout@v1
@@ -31,7 +31,7 @@ jobs:
 
   build-gpu-amd:
     runs-on: ubuntu-latest
-    container: mbianco/ghex-gpu-amd:gcc-9
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
 
     steps:
       - uses: actions/checkout@v1
@@ -45,13 +45,13 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
+          CXX=/opt/rocm/llvm/bin/clang++ cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
       - name: Build
         run: cmake --build build --parallel 2
 
   build-gpu-nvidia:
     runs-on: ubuntu-latest
-    container: mbianco/ghex-gpu-nvidia:gcc-9
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
 
     steps:
       - uses: actions/checkout@v1
