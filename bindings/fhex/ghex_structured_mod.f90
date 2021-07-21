@@ -7,7 +7,7 @@ MODULE ghex_structured_mod
 
   interface
      ! callback type
-     subroutine f_cart_rank_neighbor (id, offset_x, offset_y, offset_z, nbid_out, nbrank_out)
+     subroutine f_cart_rank_neighbor (id, offset_x, offset_y, offset_z, nbid_out, nbrank_out) bind(c)
        use iso_c_binding
        integer(c_int), value, intent(in) :: id, offset_x, offset_y, offset_z
        integer(c_int), intent(out) :: nbid_out, nbrank_out
@@ -23,7 +23,7 @@ MODULE ghex_structured_mod
      integer(c_int) ::  offset(3) = -1         ! by default - values from the halo
      integer(c_int) :: extents(3) = -1         ! by default - size of the local extents + halos
      integer(c_int) ::    halo(6) = -1         ! halo to be used for this field
-     logical(c_bool) :: periodic(3) = .false.
+     integer(c_int) :: periodic(3) = 0
      integer(c_int) :: n_components = 1        ! number of field components
      integer(c_int) ::     layout = GhexLayoutFieldLast
   end type ghex_struct_field
@@ -161,13 +161,18 @@ CONTAINS
     integer :: last(3)
     integer :: gfirst(3)
     integer :: glast(3)
-    procedure(f_cart_rank_neighbor), optional :: cart_nbor
+    procedure(f_cart_rank_neighbor), pointer, optional :: cart_nbor
     integer, optional :: device_id
-    type(c_funptr) :: ptest
-
+    procedure(f_cart_rank_neighbor), pointer :: lcart_nbor
+    
+    ! This is needed for GCC. Otherwise c_funloc(cart_nbor) doesn't work correctly
+    ! This is a difference wrt. Intel compiler
     if (present(cart_nbor)) then
-      domain_desc%cart_nbor = c_funloc(cart_nbor)
+       lcart_nbor => cart_nbor
+    else
+       lcart_nbor => null()
     end if
+    domain_desc%cart_nbor = c_funloc(lcart_nbor)
     
     if (present(device_id)) then
       domain_desc%device_id = device_id
@@ -202,7 +207,8 @@ CONTAINS
     endif
 
     if (present(periodic)) then
-      field_desc%periodic = periodic
+      field_desc%periodic(:) = 0
+      where(periodic) field_desc%periodic = 1
     endif
   end subroutine ghex_struct_field_init
 
@@ -225,7 +231,7 @@ CONTAINS
     endif
 
     if (present(periodic)) then
-      field_desc%periodic = periodic
+      where(periodic) field_desc%periodic = 1
     endif
 
     if (present(layout)) then
@@ -250,7 +256,7 @@ CONTAINS
     field_desc%offset(:)    = -1
     field_desc%extents(:)   = -1
     field_desc%halo(:)      = -1
-    field_desc%periodic(:)  = .false.
+    field_desc%periodic(:)  = 0
     field_desc%layout       = GhexLayoutFieldLast
   end subroutine ghex_struct_field_free
 

@@ -1,6 +1,5 @@
 PROGRAM test_halo_exchange
   use iso_c_binding
-  use omp_lib
   use ghex_mod
 
   implicit none
@@ -917,7 +916,8 @@ contains
     end do
   end subroutine print_cube_3d
 
-  subroutine cart_rank_neighbor (id, offset_x, offset_y, offset_z, nbid_out, nbrank_out)
+  subroutine cart_rank_neighbor (id, offset_x, offset_y, offset_z, nbid_out, nbrank_out) bind(c)
+    use iso_c_binding
     integer(c_int), value, intent(in) :: id, offset_x, offset_y, offset_z
     integer(c_int), intent(out) :: nbid_out, nbrank_out
     integer :: coord(3)
