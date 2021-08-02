@@ -8,11 +8,13 @@ if(USE_GPU)
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
+include(GNUInstallDirs)
 
 # setup fortran compiler and arguments
 if (GHEX_BUILD_FORTRAN)
    enable_language(Fortran)
    set(GHEX_FORTRAN_FP "float" CACHE STRING "Floating-point type")
+   set(GHEX_FORTRAN_OPENMP "ON" CACHE BOOL "Compile Fortran bindings with OpenMP")
    set_property(CACHE GHEX_FORTRAN_FP PROPERTY STRINGS "float" "double")
    if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
      message(STATUS "Fortran compiler is GNU.")
@@ -210,7 +212,6 @@ if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
     endif()
 endif()
 
-include(GNUInstallDirs)
 install(TARGETS ghexlib EXPORT GHEX-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(EXPORT GHEX-targets
   FILE GHEX-targets.cmake

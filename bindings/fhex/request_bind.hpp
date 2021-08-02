@@ -11,6 +11,10 @@ namespace gridtools {
             struct frequest_type {
                 int8_t data[GHEX_REQUEST_SIZE];
             };
+
+            struct frequest_multi_type {
+                int8_t data[GHEX_REQUEST_MULTI_SIZE];
+            };
         }
     }
 }

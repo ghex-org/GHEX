@@ -85,7 +85,7 @@ void ghex_comm_barrier(obj_wrapper *wrapper, int type)
  */
 
 extern "C"
-void ghex_comm_post_send(obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, frequest_type *ffut)
+void ghex_comm_post_send(obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int rank, int tag, ffuture_type *ffut)
 {
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     if(nullptr==wmessage){
@@ -131,7 +131,7 @@ void ghex_comm_send_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_
  */
 
 extern "C"
-void ghex_comm_post_send_multi(obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int *ranks, int nranks, int tag, frequest_type *ffut)
+void ghex_comm_post_send_multi(obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int *ranks, int nranks, int tag, ffuture_multi_type *ffut)
 {
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     if(nullptr==wmessage){
@@ -145,7 +145,7 @@ void ghex_comm_post_send_multi(obj_wrapper *wcomm, ghex::tl::cb::any_message *wm
 }
 
 extern "C"
-void ghex_comm_post_send_multi_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
+void ghex_comm_post_send_multi_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message *wmessage, int *ranks, int nranks, int tag, f_callback cb, frequest_multi_type *freq, void *user_data)
 {
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);
     if(nullptr==wmessage){
@@ -159,7 +159,7 @@ void ghex_comm_post_send_multi_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message 
 }
 
 extern "C"
-void ghex_comm_send_multi_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int *ranks, int nranks, int tag, f_callback cb, frequest_type *freq, void *user_data)
+void ghex_comm_send_multi_cb(obj_wrapper *wcomm, ghex::tl::cb::any_message **wmessage_ref, int *ranks, int nranks, int tag, f_callback cb, frequest_multi_type *freq, void *user_data)
 {
     ghex::tl::cb::any_message *wmessage;
     communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wcomm);

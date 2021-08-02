@@ -9,21 +9,31 @@
 using namespace gridtools::ghex::fhex;
 
 extern "C"
-void ghex_future_wait(ffuture_type *ffut)
+void ghex_future_wait_single(ffuture_type *ffut)
 {
     communicator_type::future<void> *future = reinterpret_cast<communicator_type::future<void>*>(ffut->data);
     return future->wait();
 }
 
 extern "C"
-bool ghex_future_ready(ffuture_type *ffut)
+void ghex_future_wait_multi(ffuture_multi_type *ffut)
+{
+    using ftype = communicator_type::future<void>;
+    std::vector<ftype> &futures = reinterpret_cast<std::vector<ftype>&>(ffut->data);
+    for(long unsigned int i=0; i<futures.size(); i++){
+        futures[i].wait();
+    }
+}
+
+extern "C"
+bool ghex_future_ready_single(ffuture_type *ffut)
 {
     communicator_type::future<void> *future = reinterpret_cast<communicator_type::future<void>*>(ffut->data);
     return future->ready();
 }
 
 extern "C"
-bool ghex_future_multi_ready(ffuture_multi_type *ffut)
+bool ghex_future_ready_multi(ffuture_multi_type *ffut)
 {
     using ftype = communicator_type::future<void>;
     bool ret = true;
