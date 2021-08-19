@@ -12,6 +12,16 @@
 
 #include <gtest/gtest.h>
 
+#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST
+#include <gridtools/storage/cpu_kfirst.hpp>
+#endif
+#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST
+#include <gridtools/storage/cpu_ifirst.hpp>
+#endif
+#ifdef GHEX_ATLAS_GT_STORAGE_GPU_BACKEND
+#include <gridtools/storage/gpu.hpp>
+#endif
+
 #include <atlas/grid.h>
 #include <atlas/mesh.h>
 #include <atlas/meshgenerator.h>

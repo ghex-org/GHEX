@@ -13,15 +13,7 @@
 
 #include <utility>
 
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST
-#include <gridtools/storage/cpu_kfirst.hpp>
-#endif
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST
-#include <gridtools/storage/cpu_ifirst.hpp>
-#endif
-#ifdef GHEX_ATLAS_GT_STORAGE_GPU_BACKEND
-#include <gridtools/storage/gpu.hpp>
-#endif
+#include <gridtools/storage/builder.hpp>
 
 #include <atlas/functionspace/NodeColumns.h>
 
@@ -32,7 +24,7 @@ namespace gridtools {
 
         namespace atlas {
 
-            using idx_t = atlas::idx_t;
+            using idx_t = ::atlas::idx_t;
 
             template <std::size_t N>
             struct dims;
@@ -40,12 +32,12 @@ namespace gridtools {
             template <>
             struct dims<2> {
                 idx_t x, y;
-            }
+            };
 
             template <>
             struct dims<3> {
                 idx_t x, y, z;
-            }
+            };
 
             // TO DO: might be used in different implementations
             template <typename T, typename StorageTraits>
