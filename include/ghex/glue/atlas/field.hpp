@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_GLUE_ATLAS_USER_CONCEPTS_HPP
-#define INCLUDED_GHEX_GLUE_ATLAS_USER_CONCEPTS_HPP
+#ifndef INCLUDED_GHEX_GLUE_ATLAS_FIELD_HPP
+#define INCLUDED_GHEX_GLUE_ATLAS_FIELD_HPP
 
 #include <utility>
 
@@ -99,7 +99,7 @@ namespace gridtools {
                     }
 
                     idx_t components() const noexcept { return m_components; }
-                    
+
                     auto host_view() { return m_st->host_view(); }
                     auto const_host_view() { return m_st->const_host_view(); }
                     auto target_view() { return m_st->target_view(); }
@@ -113,4 +113,4 @@ namespace gridtools {
 
 } // namespace gridtools
 
-#endif /* INCLUDED_GHEX_GLUE_ATLAS_USER_CONCEPTS_HPP */
+#endif /* INCLUDED_GHEX_GLUE_ATLAS_FIELD_HPP */
