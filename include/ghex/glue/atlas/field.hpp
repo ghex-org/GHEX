@@ -86,10 +86,11 @@ namespace gridtools {
 
                     storage_type m_st;
                     const function_space_type& m_fs;
+                    idx_t m_components;
 
                 public:
 
-                    field(const function_space_type& fs, idx_t components = 1) : m_fs{fs} {
+                    field(const function_space_type& fs, idx_t components = 1) : m_fs{fs}, m_components{components} {
                         idx_t x{fs.nb_nodes()};
                         idx_t y{fs.levels()};
                         idx_t z{components};
@@ -97,6 +98,8 @@ namespace gridtools {
                         m_st = 3d_storage_builder<value_type, storage_traits>(d)();
                     }
 
+                    idx_t components() const noexcept { return m_components; }
+                    
                     auto host_view() { return m_st->host_view(); }
                     auto const_host_view() { return m_st->const_host_view(); }
                     auto target_view() { return m_st->target_view(); }

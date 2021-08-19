@@ -16,14 +16,16 @@
 #include <cstring>
 #include <cmath>
 #include <iosfwd>
+#include <utility>
 
-#include <atlas/field.h>
-#include <atlas/array.h>
+#include <atlas/field.h> // TO DO: should probably be removed
+#include <atlas/array.h> // TO DO: should probably be removed
 
 #include "../../unstructured/grid.hpp"
 #include "../../arch_list.hpp"
 #include "../../arch_traits.hpp"
 #include "../../allocator/unified_memory_allocator.hpp"
+#include "./field.hpp"
 
 #ifdef __CUDACC__
 #include "../../cuda_utils/error.hpp"
@@ -266,52 +268,58 @@ namespace gridtools {
          * @tparam Arch device type in which field storage is allocated
          * @tparam DomainId domain id type
          * @tparam T value type*/
-        template <typename Arch, typename DomainId, typename T>
+        template <typename Arch, typename DomainId, typename T, typename StorageTraits, typename FunctionSpace>
         class atlas_data_descriptor;
 
         /** @brief Atlas data descriptor (CPU specialization)*/
-        template <typename DomainId, typename T>
-        class atlas_data_descriptor<gridtools::ghex::cpu, DomainId, T> {
+        template <typename DomainId, typename T, typename StorageTraits, typename FunctionSpace>
+        class atlas_data_descriptor<gridtools::ghex::cpu, DomainId, T, StorageTraits, FunctionSpace> {
 
             public:
 
                 using arch_type = gridtools::ghex::cpu;
                 using domain_id_type = DomainId;
                 using value_type = T;
+                using storage_traits_type = StorageTraits;
+                using function_space_type = FunctionSpace;
                 using domain_descriptor_type = atlas_domain_descriptor<domain_id_type>;
                 using local_index_type = typename domain_descriptor_type::local_index_type;
                 using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
                 using byte_t = unsigned char;
+                using field_type = gridtools::ghex::atlas::field<value_type, storage_traits_type, function_space_type>;
+                using view_type = decltype(std::declval<field_type>().target_view());
 
             private:
 
                 domain_id_type m_domain_id;
-                atlas::array::ArrayView<value_type, 2> m_values;
+                view_type m_values;
+                int m_components; // TO DO: idx_t? Fix also usage in operator(), set() and get() below
 
             public:
 
                 /** @brief constructs a CPU data descriptor
                  * @param domain local domain instance
-                 * @param field Atlas field to be wrapped*/
+                 * @param field field to be wrapped*/
                 atlas_data_descriptor(const domain_descriptor_type& domain,
-                                      const atlas::Field& field) :
+                                      const field_type& field) : // TO DO: remove const?
                     m_domain_id{domain.domain_id()},
-                    m_values{atlas::array::make_view<value_type, 2>(field)} {}
+                    m_values{field.target_view()},
+                    m_components{field.components()} {}
 
                 domain_id_type domain_id() const { return m_domain_id; }
 
                 device_id_type device_id() const { return 0; }
 
-                int num_components() const noexcept { return 1; }
+                int num_components() const noexcept { return m_components; }
 
                 /** @brief single access operator, used by multiple access set function*/
-                value_type& operator()(const local_index_type idx, const local_index_type level) {
-                    return m_values(idx, level);
+                value_type& operator()(const local_index_type idx, const local_index_type level, const int component) {
+                    return m_values(idx, level, component);
                 }
 
                 /** @brief single access operator (const version), used by multiple access get function*/
-                const value_type& operator()(const local_index_type idx, const local_index_type level) const {
-                    return m_values(idx, level);
+                const value_type& operator()(const local_index_type idx, const local_index_type level, const int component) const {
+                    return m_values(idx, level, component);
                 }
 
                 /** @brief multiple access set function, needed by GHEX to perform the unpacking
@@ -322,8 +330,10 @@ namespace gridtools {
                 void set(const IterationSpace& is, const byte_t* buffer) {
                     for (local_index_type idx : is.local_indices()) {
                         for (std::size_t level = 0; level < is.levels(); ++level) {
-                            std::memcpy(&((*this)(idx, level)), buffer, sizeof(value_type)); // level: implicit cast to local_index_type
-                            buffer += sizeof(value_type);
+                            for (int component = 0; component < m_components; ++component) { // TO DO: iteration space should probably be fixed accordongly
+                                std::memcpy(&((*this)(idx, level, component)), buffer, sizeof(value_type)); // level: implicit cast to local_index_type
+                                buffer += sizeof(value_type);
+                            }
                         }
                     }
                 }
@@ -336,8 +346,10 @@ namespace gridtools {
                 void get(const IterationSpace& is, byte_t* buffer) const {
                     for (local_index_type idx : is.local_indices()) {
                         for (std::size_t level = 0; level < is.levels(); ++level) {
-                            std::memcpy(buffer, &((*this)(idx, level)), sizeof(value_type)); // level: implicit cast to local_index_type
-                            buffer += sizeof(value_type);
+                            for (int component = 0; component < m_components; ++component) { // TO DO: iteration space should probably be fixed accordongly
+                                std::memcpy(buffer, &((*this)(idx, level, component)), sizeof(value_type)); // level: implicit cast to local_index_type
+                                buffer += sizeof(value_type);
+                            }
                         }
                     }
                 }
