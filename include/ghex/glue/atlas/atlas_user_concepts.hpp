@@ -18,6 +18,9 @@
 #include <iosfwd>
 #include <utility>
 
+#include <atlas/field.h>
+#include <atlas/array.h>
+
 #include "../../unstructured/grid.hpp"
 #include "../../arch_list.hpp"
 #include "../../arch_traits.hpp"
@@ -47,14 +50,14 @@ namespace gridtools {
 
                 // member types
                 using domain_id_type = DomainId;
-                using local_index_type = atlas::idx_t;
+                using local_index_type = ::atlas::idx_t;
 
             private:
 
                 // members
                 domain_id_type m_id;
-                atlas::Field m_partition;
-                atlas::Field m_remote_index;
+                ::atlas::Field m_partition;
+                ::atlas::Field m_remote_index;
                 local_index_type m_size;
                 std::size_t m_levels;
 
@@ -67,8 +70,8 @@ namespace gridtools {
                  * @param remote_index local indices in remote partition for domain (+ halo) elements (Atlas field)
                  * @param size number of domain + halo points*/
                 atlas_domain_descriptor(const domain_id_type id,
-                                        const atlas::Field& partition,
-                                        const atlas::Field& remote_index,
+                                        const ::atlas::Field& partition,
+                                        const ::atlas::Field& remote_index,
                                         const std::size_t levels) :
                     m_id{id},
                     m_partition{partition},
@@ -83,8 +86,8 @@ namespace gridtools {
 
                 // member functions
                 domain_id_type domain_id() const noexcept { return m_id; }
-                const atlas::Field& partition() const noexcept { return m_partition; }
-                const atlas::Field& remote_index() const noexcept { return m_remote_index; }
+                const ::atlas::Field& partition() const noexcept { return m_partition; }
+                const ::atlas::Field& remote_index() const noexcept { return m_remote_index; }
                 local_index_type size() const noexcept { return m_size; }
                 std::size_t levels() const noexcept { return m_levels; }
 
@@ -157,8 +160,8 @@ namespace gridtools {
                  * @return receive halo*/
                 halo operator()(const domain_type& domain) const {
 
-                    auto partition = atlas::array::make_view<int, 1>(domain.partition());
-                    auto remote_index = atlas::array::make_view<local_index_type, 1>(domain.remote_index());
+                    auto partition = ::atlas::array::make_view<int, 1>(domain.partition());
+                    auto remote_index = ::atlas::array::make_view<local_index_type, 1>(domain.remote_index());
 
                     halo h{domain.levels()};
 
@@ -240,8 +243,8 @@ namespace gridtools {
                  * @return receive domain ids halo*/
                 halo operator()(const domain_type& domain) const {
 
-                    auto partition = atlas::array::make_view<int, 1>(domain.partition());
-                    auto remote_index = atlas::array::make_view<local_index_type, 1>(domain.remote_index());
+                    auto partition = ::atlas::array::make_view<int, 1>(domain.partition());
+                    auto remote_index = ::atlas::array::make_view<local_index_type, 1>(domain.remote_index());
 
                     halo h{};
 
@@ -298,7 +301,7 @@ namespace gridtools {
                  * @param domain local domain instance
                  * @param field field to be wrapped*/
                 atlas_data_descriptor(const domain_descriptor_type& domain,
-                                      const field_type& field) : // TO DO: remove const?
+                                      field_type& field) :
                     m_domain_id{domain.domain_id()},
                     m_values{field.target_view()},
                     m_components{field.components()} {}
