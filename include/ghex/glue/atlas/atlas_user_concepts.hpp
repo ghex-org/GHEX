@@ -18,9 +18,6 @@
 #include <iosfwd>
 #include <utility>
 
-#include <atlas/field.h> // TO DO: should probably be removed
-#include <atlas/array.h> // TO DO: should probably be removed
-
 #include "../../unstructured/grid.hpp"
 #include "../../arch_list.hpp"
 #include "../../arch_traits.hpp"

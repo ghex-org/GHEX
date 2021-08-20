@@ -82,7 +82,7 @@ namespace gridtools {
 
                 public:
 
-                    field(const function_space_type& fs, idx_t components = 1) : m_fs{fs}, m_components{components} {
+                    field(const function_space_type& fs, idx_t components) : m_fs{fs}, m_components{components} {
                         idx_t x{fs.nb_nodes()};
                         idx_t y{fs.levels()};
                         idx_t z{components};
@@ -98,6 +98,14 @@ namespace gridtools {
                     auto const_target_view() { return m_st->const_target_view(); }
 
             };
+
+            template <typename T, typename StorageTraits, typename FunctionSpace>
+            auto make_field(const FunctionSpace& fs, idx_t components = 1) {
+                using value_type = T;
+                using storage_traits = StorageTraits;
+                using function_space_type = FunctionSpace;
+                return field<value_type, storage_traits, function_space_type>(fs, components);
+            }
 
         } // namespace atlas
 
