@@ -374,87 +374,104 @@ namespace gridtools {
 
 #define GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK 32
 
-        template <typename T, typename local_index_type>
+        template <typename T, typename View, typename Index> // TO DO: in principle, Field would be enough 
         __global__ void pack_kernel(
-                const atlas::array::ArrayView<T, 2> values,
+                const View values,
                 const std::size_t local_indices_size,
-                const local_index_type* local_indices,
+                const Index* local_indices,
                 const std::size_t levels,
+                const int components,
                 T* buffer) {
             auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
             if (idx < local_indices_size) {
-                for(auto level = 0; level < levels; ++level) {
-                    buffer[idx * levels + level] = values(local_indices[idx], level);
+                for (std::size_t level = 0; level < levels; ++level) {
+                    for (int component = 0; component < components; ++component) {
+                        buffer[idx * levels * components + level * components + component] =
+                            values(local_indices[idx], level, component);
+                    }
                 }
             }
         }
 
-        template <typename T, typename local_index_type>
+        template <typename T, typename View, typename Index> // TO DO: in principle, Field would be enough 
         __global__ void unpack_kernel(
                 const T* buffer,
                 const std::size_t local_indices_size,
-                const local_index_type* local_indices,
+                const Index* local_indices,
                 const std::size_t levels,
-                atlas::array::ArrayView<T, 2> values) {
+                const int components,
+                View values) {
             auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
             if (idx < local_indices_size) {
-                for(auto level = 0; level < levels; ++level) {
-                    values(local_indices[idx], level) = buffer[idx * levels + level];
+                for (std::size_t level = 0; level < levels; ++level) {
+                    for (int component = 0; component < components; ++component) {
+                        values(local_indices[idx], level, component) =
+                            buffer[idx * levels * components + level * components + component];
+                    }
                 }
             }
         }
 
         /** @brief Atlas data descriptor (GPU specialization)*/
-        template <typename DomainId, typename T>
-        class atlas_data_descriptor<gridtools::ghex::gpu, DomainId, T> {
+        template <typename DomainId, typename T, typename StorageTraits, typename FunctionSpace>
+        class atlas_data_descriptor<gridtools::ghex::gpu, DomainId, T, StorageTraits, FunctionSpace> {
 
             public:
 
                 using arch_type = gridtools::ghex::gpu;
                 using domain_id_type = DomainId;
                 using value_type = T;
+                using storage_traits_type = StorageTraits;
+                using function_space_type = FunctionSpace;
                 using domain_descriptor_type = atlas_domain_descriptor<domain_id_type>;
                 using local_index_type = typename domain_descriptor_type::local_index_type;
                 using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
+                using field_type = gridtools::ghex::atlas::field<value_type, storage_traits_type, function_space_type>;
+                using view_type = decltype(std::declval<field_type>().target_view());
 
             private:
 
                 domain_id_type m_domain_id;
                 device_id_type m_device_id;
-                atlas::array::ArrayView<value_type, 2> m_values;
+                view_type m_values;
+                int m_components; // TO DO: idx_t? Fix also usage in operator(), set() and get() below
 
             public:
 
                 /** @brief constructs a GPU data descriptor
                  * @param domain local domain instance
                  * @param device_id device id
-                 * @param field Atlas field to be wrapped*/
+                 * @param field field to be wrapped*/
                 atlas_data_descriptor(
                         const domain_descriptor_type& domain,
                         const device_id_type device_id,
-                        const atlas::Field& field) :
+                        field_type& field) :
                     m_domain_id{domain.domain_id()},
                     m_device_id{device_id},
-                    m_values{atlas::array::make_device_view<value_type, 2>(field)} {}
+                    m_values{field.target_view()},
+                    m_components{field.components()} {}
 
                 /** @brief data type size, mandatory*/
                 std::size_t data_type_size() const {
                     return sizeof (value_type);
                 }
 
-                domain_id_type domain_id() const { return m_domain_id; }
+                domain_id_type domain_id() const noexcept { return m_domain_id; }
 
-                device_id_type device_id() const { return m_device_id; };
+                device_id_type device_id() const noexcept { return m_device_id; }
+
+                int num_components() const noexcept { return m_components; }
 
                 template<typename IndexContainer>
                 void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) / GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
-                        pack_kernel<value_type, local_index_type><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
+                        pack_kernel<<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
                                 m_values,
                                 is.local_indices().size(),
                                 &(is.local_indices()[0]),
                                 is.levels(),
+                                m_components,
                                 buffer);
                     }
                 }
@@ -463,11 +480,12 @@ namespace gridtools {
                 void unpack(const value_type* buffer, const IndexContainer& c, void* stream_ptr) {
                     for (const auto& is : c) {
                         int n_blocks = static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) / GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
-                        unpack_kernel<value_type, local_index_type><<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
+                        unpack_kernel<<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
                                 buffer,
                                 is.local_indices().size(),
                                 &(is.local_indices()[0]),
                                 is.levels(),
+                                m_components,
                                 m_values);
                     }
                 }

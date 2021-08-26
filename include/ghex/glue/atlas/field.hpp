@@ -27,6 +27,17 @@
 #include <atlas/functionspace/NodeColumns.h>
 
 
+#define storage_builder_spec(value_type, storage_traits) \
+template <> \
+struct storage_builder<value_type, storage_traits> { \
+    inline static auto apply(const dims<3>& d) { \
+        return gridtools::storage::builder<storage_traits> \
+            .type<value_type>() \
+            .dimensions(d.x, d.y, d.z); \
+    } \
+};
+
+
 namespace gridtools {
 
     namespace ghex {
@@ -45,16 +56,6 @@ namespace gridtools {
 
             template <typename T, typename StorageTraits>
             struct storage_builder;
-
-#define storage_builder_spec(value_type, storage_traits) \
-template <> \
-struct storage_builder<value_type, storage_traits> { \
-    inline static auto apply(const dims<3>& d) { \
-        return gridtools::storage::builder<storage_traits> \
-            .type<value_type>() \
-            .dimensions(d.x, d.y, d.z); \
-    } \
-};
             
 #ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST
             storage_builder_spec(int, gridtools::storage::cpu_kfirst)
