@@ -32,8 +32,10 @@
 #include <ghex/communication_object_2.hpp>
 #include <ghex/common/timer.hpp>
 
-#ifdef __CUDACC__
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
 #include <gridtools/common/cuda_util.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 #ifndef GHEX_TEST_USE_UCX
@@ -170,7 +172,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
         << "\tlocal time = " << t_ghex_cpu_local.mean() / 1000.0 << "+/-" << t_ghex_cpu_local.stddev() / 1000.0 << "s\n"
         << "\tglobal time = " << t_ghex_cpu_global.mean() / 1000.0 << "+/-" << t_ghex_cpu_global.stddev() / 1000.0 << "s\n";
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 
     // Additional data descriptor type for GPU
     using gpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;

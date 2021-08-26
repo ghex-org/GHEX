@@ -17,6 +17,11 @@
 #include "./rma_range.hpp"
 #include "./rma_put.hpp"
 
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "../common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 namespace ghex {
 namespace structured {
@@ -184,7 +189,7 @@ struct rma_range_generator
         void put(TargetRange& tr)
         {
             ::gridtools::ghex::structured::put(m_local_range, tr, m_remote_range.m_loc
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
                 , m_remote_range.m_event.get_stream()
 #endif
             );

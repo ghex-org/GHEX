@@ -22,6 +22,11 @@
 #include <stdio.h>
 #include <functional>
 
+#include "./common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "./common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 
     namespace ghex {
@@ -321,7 +326,7 @@ namespace gridtools {
             }
 
 #ifdef GHEX_COMM_OBJ_USE_U
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             // optimized exchange for regular grids and a range of same-type fields
             template<typename Iterator>
             [[nodiscard]] std::enable_if_t<
@@ -537,7 +542,7 @@ namespace gridtools {
 #endif
                 // wait for data to be sent
                 await_requests(m_send_futures);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
                 // wait for the unpack kernels to finish
                 auto& m = std::get<buffer_memory<gpu>>(m_mem);
                 for (auto& p0 : m.recv_memory)
@@ -549,7 +554,7 @@ namespace gridtools {
             }
 
 #ifdef GHEX_COMM_OBJ_USE_U
-#if defined(__CUDACC__) && !defined(GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
+#if defined(GHEX_CUDACC) && !defined(GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
             template<typename FieldType>
             void wait_u_gpu()
             {

@@ -33,11 +33,11 @@ foreach (_t ${_benchmarks})
     target_compile_definitions(${_t}_1_pattern PUBLIC GHEX_1_PATTERN_BENCHMARK GCL_MPI) 
     target_link_libraries(${_t}_1_pattern gtest_main_bench)
 
-    if(USE_GPU)
-        add_executable(${_t}_gpu ${_t}.cu)
+    if (USE_GPU)
+        add_ghex_gpu_executable(${_t}_gpu ${_t})
         target_link_libraries(${_t}_gpu gtest_main_bench)
 
-        add_executable(${_t}_1_pattern_gpu ${_t}.cu)
+        add_ghex_gpu_executable(${_t}_1_pattern_gpu ${_t})
         target_compile_definitions(${_t}_1_pattern_gpu PUBLIC GHEX_1_PATTERN_BENCHMARK)
         target_link_libraries(${_t}_1_pattern_gpu gtest_main_bench)
     endif()
@@ -51,17 +51,18 @@ foreach (_t ${_benchmarks_mt})
     target_compile_definitions(${_t}_1_pattern_mt PUBLIC GHEX_1_PATTERN_BENCHMARK)
     target_link_libraries(${_t}_1_pattern_mt gtest_main_bench_mt)
 
-    if(USE_GPU)
-        add_executable(${_t}_gpu_mt ${_t}.cu)
+    if (USE_GPU)
+        add_ghex_gpu_executable(${_t}_gpu_mt ${_t})
         target_link_libraries(${_t}_gpu_mt gtest_main_bench_mt)
 
-        add_executable(${_t}_1_pattern_gpu_mt ${_t}.cu)
+        add_ghex_gpu_executable(${_t}_1_pattern_gpu_mt ${_t})
         target_compile_definitions(${_t}_1_pattern_gpu_mt PUBLIC GHEX_1_PATTERN_BENCHMARK)
         target_link_libraries(${_t}_1_pattern_gpu_mt gtest_main_bench_mt)
     endif()
 endforeach()
 
 # RMA benchmark
+if (NOT ghex_gpu_mode STREQUAL "hip") # TO DO: could be more fine-grained
 set(_rma_benchmarks simple_rma)
 foreach (_t ${_rma_benchmarks})
     
@@ -181,11 +182,11 @@ foreach (_t ${_rma_benchmarks})
     endif()
     endif()
 
-    if(USE_GPU)
+    if (USE_GPU)
     # MPI, no rma, float, gpu
     # ========================
     set(t ${_t}_mpi_none_float_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
     target_link_libraries(${t} GTest::gtest )
@@ -195,7 +196,7 @@ foreach (_t ${_rma_benchmarks})
     # MPI, no rma, double, gpu
     # ========================
     set(t ${_t}_mpi_none_double_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
     target_link_libraries(${t} GTest::gtest )
@@ -205,7 +206,7 @@ foreach (_t ${_rma_benchmarks})
     # MPI, threads, float, gpu
     # ========================
     set(t ${_t}_mpi_threads_float_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_link_libraries(${t} GTest::gtest )
     target_link_libraries(${t} ghexlib)
@@ -214,7 +215,7 @@ foreach (_t ${_rma_benchmarks})
     # MPI, threads, double, gpu
     # ========================
     set(t ${_t}_mpi_threads_double_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_link_libraries(${t} GTest::gtest )
     target_link_libraries(${t} ghexlib)
@@ -224,7 +225,7 @@ foreach (_t ${_rma_benchmarks})
     # MPI, xpmem, float, gpu
     # ========================
     set(t ${_t}_mpi_xpmem_float_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_link_libraries(${t} GTest::gtest )
@@ -234,7 +235,7 @@ foreach (_t ${_rma_benchmarks})
     # MPI, xpmem, double, gpu
     # ========================
     set(t ${_t}_mpi_xpmem_double_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_link_libraries(${t} GTest::gtest )
@@ -246,7 +247,7 @@ foreach (_t ${_rma_benchmarks})
     # UCX, no rma, float, gpu
     # ========================
     set(t ${_t}_ucx_none_float_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
@@ -257,18 +258,18 @@ foreach (_t ${_rma_benchmarks})
     # UCX, no rma, double, gpu
     # ========================
     set(t ${_t}_ucx_none_double_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_compile_definitions(${t} PUBLIC GHEX_NO_RMA)
     target_link_libraries(${t} GTest::gtest )
     target_link_libraries(${t} ghexlib)
     target_link_libraries(${t} OpenMP::OpenMP_CXX)
-    
+   
     # UCX, threads, float, gpu
     # ========================
     set(t ${_t}_ucx_threads_float_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_link_libraries(${t} GTest::gtest )
@@ -278,7 +279,7 @@ foreach (_t ${_rma_benchmarks})
     # UCX, threads, double, gpu
     # ========================
     set(t ${_t}_ucx_threads_double_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
     target_link_libraries(${t} GTest::gtest )
@@ -289,7 +290,7 @@ foreach (_t ${_rma_benchmarks})
     # UCX, xpmem, float, gpu
     # ========================
     set(t ${_t}_ucx_xpmem_float_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=float)
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
@@ -300,7 +301,7 @@ foreach (_t ${_rma_benchmarks})
     # UCX, xpmem, double, gpu
     # ========================
     set(t ${_t}_ucx_xpmem_double_gpu)
-    add_executable(${t} ${_t}.cu)
+    add_ghex_gpu_executable(${t} ${_t})
     target_compile_definitions(${t} PUBLIC GHEX_FLOAT_TYPE=double)
     target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
     target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
@@ -311,6 +312,7 @@ foreach (_t ${_rma_benchmarks})
     endif()
     endif()
 endforeach()
+endif()
 
 
 add_subdirectory(transport)
@@ -327,8 +329,8 @@ if (GHEX_ENABLE_ATLAS_BINDINGS)
         add_executable(${_t} ${_t}.cpp)
         target_link_libraries(${_t} gtest_main_bench_atlas)
 
-        if(USE_GPU)
-            add_executable(${_t}_gpu ${_t}.cu)
+        if (USE_GPU)
+            add_ghex_gpu_executable(${_t}_gpu ${_t})
             target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
             target_link_libraries(${_t}_gpu gtest_main_bench_atlas)
         endif()

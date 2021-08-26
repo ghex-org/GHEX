@@ -11,7 +11,7 @@ endforeach()
 if (USE_GPU)
     set(_serial_tests_gpu unified_memory_allocator)
     foreach (_t ${_serial_tests_gpu})
-        add_executable(${_t}_gpu ${_t}.cu)
+        add_ghex_gpu_executable(${_t}_gpu ${_t})
         target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
         target_link_libraries(${_t}_gpu gtest_main_mt)
         add_test(
@@ -95,7 +95,7 @@ foreach(_var ${_variants})
 
     if (USE_GPU)
         set(_t communication_object_2_${_var}_gpu)
-        add_executable(${_t} communication_object_2.cu)
+        add_ghex_gpu_executable(${_t} communication_object_2)
         target_compile_definitions(${_t} PUBLIC GHEX_TEST_${define})
         target_link_libraries(${_t} gtest_main_mt)
         add_test(
@@ -104,7 +104,7 @@ foreach(_var ${_variants})
         )
 
         set(_t communication_object_2_${_var}_vector_gpu)
-        add_executable(${_t} communication_object_2.cu)
+        add_ghex_gpu_executable(${_t} communication_object_2)
         target_compile_definitions(${_t} PUBLIC GHEX_TEST_${define}_VECTOR)
         target_link_libraries(${_t} gtest_main_mt)
         add_test(
@@ -112,9 +112,9 @@ foreach(_var ${_variants})
             COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 8 ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${_t}> ${MPIEXEC_POSTFLAGS}
         )
 
-        if (USE_HYBRID_TESTS)
+    if (USE_HYBRID_TESTS)
             set(_t communication_object_2_${_var}_hybrid_gpu)
-            add_executable(${_t} communication_object_2.cu)
+            add_ghex_gpu_executable(${_t} communication_object_2)
             target_compile_definitions(${_t} PUBLIC GHEX_TEST_${define})
             target_compile_definitions(${_t} PUBLIC GHEX_HYBRID_TESTS)
             target_link_libraries(${_t} gtest_main_mt)
@@ -126,6 +126,7 @@ foreach(_var ${_variants})
     endif()
 endforeach(_var)
 
+if (NOT ghex_gpu_mode STREQUAL "hip") # TO DO: could be more fine-grained
 set(_tests_rma local_rma)
 foreach (_t ${_tests_rma})
 
@@ -150,7 +151,7 @@ foreach (_t ${_tests_rma})
 
     if (USE_GPU)
         set(t ${_t}_gpu)
-        add_executable(${t} ${_t}.cu)
+        add_ghex_gpu_executable(${t} ${_t})
         target_link_libraries(${t} gtest_main_mt)
         add_test(
             NAME ${t}
@@ -159,7 +160,7 @@ foreach (_t ${_tests_rma})
         
         if (GHEX_USE_XPMEM)
             set(t ${_t}_gpu_xpmem)
-            add_executable(${t} ${_t}.cu)
+            add_ghex_gpu_executable(${t} ${_t})
             target_link_libraries(${t} gtest_main_mt)
             target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
             add_test(
@@ -194,7 +195,7 @@ foreach (_t ${_tests_rma})
 
         if (USE_GPU)
             set(t ${_t}_ucx_gpu)
-            add_executable(${t} ${_t}.cu)
+            add_ghex_gpu_executable(${t} ${_t})
             target_link_libraries(${t} gtest_main_mt)
             target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
             add_test(
@@ -204,7 +205,7 @@ foreach (_t ${_tests_rma})
             
             if (GHEX_USE_XPMEM)
                 set(t ${_t}_ucx_gpu_xpmem)
-                add_executable(${t} ${_t}.cu)
+                add_ghex_gpu_executable(${t} ${_t})
                 target_link_libraries(${t} gtest_main_mt)
                 target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
                 target_compile_definitions(${t} PUBLIC GHEX_TEST_USE_UCX)
@@ -216,6 +217,7 @@ foreach (_t ${_tests_rma})
         endif()
     endif()
 endforeach()
+endif()
 
 set(_tests_gt data_store_test)
 foreach (_t ${_tests_gt})
@@ -273,7 +275,7 @@ endif()
 
 if (USE_GPU)
     foreach (_t ${_tests_gt})
-        add_executable(${_t}_gpu ${_t}.cu)
+        add_ghex_gpu_executable(${_t}_gpu ${_t})
         target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
         target_link_libraries(${_t}_gpu gtest_main_mt)
         add_test(
@@ -285,7 +287,7 @@ if (USE_GPU)
     if (GHEX_ENABLE_ATLAS_BINDINGS)
         set(_tests_atlas_gpu atlas_integration_comm_2)
         foreach (_t ${_tests_atlas_gpu})
-            add_executable(${_t}_gpu ${_t}.cu)
+            add_ghex_gpu_executable(${_t}_gpu ${_t})
             target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
             target_link_libraries(${_t}_gpu gtest_main_atlas)
             add_test(
