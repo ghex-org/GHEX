@@ -292,19 +292,21 @@ namespace gridtools {
             private:
 
                 domain_id_type m_domain_id;
-                view_type m_values;
+                view_type& m_values;
                 int m_components; // TO DO: idx_t? Fix also usage in operator(), set() and get() below
 
             public:
 
                 /** @brief constructs a CPU data descriptor
                  * @param domain local domain instance
-                 * @param field field to be wrapped*/
+                 * @param view field view to be wrapped
+                 * @param components number of field components */
                 atlas_data_descriptor(const domain_descriptor_type& domain,
-                                      field_type& field) :
+                                      view_type& values,
+                                      const int components) :
                     m_domain_id{domain.domain_id()},
-                    m_values{field.target_view()},
-                    m_components{field.components()} {}
+                    m_values{values},
+                    m_components{components} {}
 
                 domain_id_type domain_id() const { return m_domain_id; }
 
@@ -433,7 +435,7 @@ namespace gridtools {
 
                 domain_id_type m_domain_id;
                 device_id_type m_device_id;
-                view_type m_values;
+                view_type& m_values;
                 int m_components; // TO DO: idx_t? Fix also usage in operator(), set() and get() below
 
             public:
@@ -445,11 +447,12 @@ namespace gridtools {
                 atlas_data_descriptor(
                         const domain_descriptor_type& domain,
                         const device_id_type device_id,
-                        field_type& field) :
+                        view_type& values,
+                        const int components) :
                     m_domain_id{domain.domain_id()},
                     m_device_id{device_id},
-                    m_values{field.target_view()},
-                    m_components{field.components()} {}
+                    m_values{values},
+                    m_components{components} {}
 
                 /** @brief data type size, mandatory*/
                 std::size_t data_type_size() const {
