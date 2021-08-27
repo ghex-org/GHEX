@@ -20,7 +20,7 @@
 #ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST
 #include <gridtools/storage/cpu_ifirst.hpp>
 #endif
-#ifdef GHEX_ATLAS_GT_STORAGE_GPU_BACKEND
+#ifdef __CUDACC__
 #include <gridtools/storage/gpu.hpp>
 #endif
 
@@ -65,7 +65,7 @@ namespace gridtools {
             storage_builder_spec(int, gridtools::storage::cpu_ifirst)
             storage_builder_spec(double, gridtools::storage::cpu_ifirst)
 #endif
-#ifdef GHEX_ATLAS_GT_STORAGE_GPU_BACKEND
+#ifdef __CUDACC__
             storage_builder_spec(int, gridtools::storage::gpu)
             storage_builder_spec(double, gridtools::storage::gpu)
 #endif
