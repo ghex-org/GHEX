@@ -27,17 +27,6 @@
 #include <atlas/functionspace/NodeColumns.h>
 
 
-#define storage_builder_spec(value_type, storage_traits) \
-template <> \
-struct storage_builder<value_type, storage_traits> { \
-    inline static auto apply(const dims<3>& d) { \
-        return gridtools::storage::builder<storage_traits> \
-            .type<value_type>() \
-            .dimensions(d.x, d.y, d.z); \
-    } \
-};
-
-
 namespace gridtools {
 
     namespace ghex {
@@ -55,20 +44,13 @@ namespace gridtools {
             };
 
             template <typename T, typename StorageTraits>
-            struct storage_builder;
-            
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST
-            storage_builder_spec(int, gridtools::storage::cpu_kfirst)
-            storage_builder_spec(double, gridtools::storage::cpu_kfirst)
-#endif
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST
-            storage_builder_spec(int, gridtools::storage::cpu_ifirst)
-            storage_builder_spec(double, gridtools::storage::cpu_ifirst)
-#endif
-#ifdef __CUDACC__
-            storage_builder_spec(int, gridtools::storage::gpu)
-            storage_builder_spec(double, gridtools::storage::gpu)
-#endif
+            inline auto storage_builder(const dims<3>& d) {
+                using value_type = T;
+                using storage_traits = StorageTraits;
+                return gridtools::storage::builder<storage_traits>
+                    .template type<value_type>()
+                    .dimensions(d.x, d.y, d.z);
+            }
             
             template <typename T, typename StorageTraits, typename FunctionSpace>
             class field;
@@ -85,7 +67,7 @@ namespace gridtools {
                 private:
                     
                     // TO DO: 3d storage is hard-coded. That might not be optimal i.e. for scalar fields, or 2d fields (levels = 1)
-                    using storage_type = decltype(storage_builder<value_type, storage_traits>::apply(std::declval<dims<3>>())()); // TO DO: double check
+                    using storage_type = decltype(storage_builder<value_type, storage_traits>(std::declval<dims<3>>())()); // TO DO: double check
 
                     storage_type m_st;
                     const function_space_type& m_fs;
@@ -98,7 +80,7 @@ namespace gridtools {
                         idx_t y{fs.levels()};
                         idx_t z{components};
                         dims<3> d{x, y, z};
-                        m_st = storage_builder<value_type, storage_traits>::apply(d)(); // TO DO: double check
+                        m_st = storage_builder<value_type, storage_traits>(d)(); // TO DO: double check
                     }
 
                     idx_t components() const noexcept { return m_components; }
