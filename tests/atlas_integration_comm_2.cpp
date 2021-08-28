@@ -173,7 +173,7 @@ TEST(atlas_integration, halo_exchange) {
         auto GHEX_field_1_gpu_data = GHEX_field_1_gpu.const_host_view();
         for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
             for (auto level = 0; level < fs_nodes.levels(); ++level) {
-                EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_data(node, level));
+                EXPECT_TRUE(GHEX_field_1_gpu_data(node, level, 0) == atlas_field_1_data(node, level));
             }
         }
     }
