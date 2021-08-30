@@ -31,3 +31,16 @@ target_link_libraries(ghex INTERFACE GridTools::gridtools)
 # ---------------------------------------------------------------------
 include(ghex_oomph)
 target_link_libraries(ghex INTERFACE oomph::oomph)
+
+# ---------------------------------------------------------------------
+# xpmem setup
+# ---------------------------------------------------------------------
+set(GHEX_USE_XPMEM OFF CACHE BOOL "Set to true to use xpmem shared memory")
+if (GHEX_USE_XPMEM)
+    find_package(XPMEM REQUIRED)
+endif()
+set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma access")
+mark_as_advanced(GHEX_USE_XPMEM_ACCESS_GUARD)
+if (GHEX_USE_XPMEM_ACCESS_GUARD)
+    target_compile_definitions(ghex INTERFACE GHEX_USE_XPMEM_ACCESS_GUARD)
+endif()

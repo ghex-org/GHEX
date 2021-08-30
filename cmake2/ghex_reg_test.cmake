@@ -4,6 +4,12 @@ function(ghex_target_compile_options target)
     $<${c_cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic -Wno-unknown-pragmas>>
     # flags for CUDA builds
     $<${cuda_lang}:$<BUILD_INTERFACE:-Xcompiler=-Wall -Wextra -Wpedantic -Wno-unknown-pragmas>>)
+    if (GHEX_USE_XPMEM)
+        target_compile_definitions(${t} PUBLIC GHEX_USE_XPMEM)
+    endif()
+    if (GHEX_USE_XPMEM_ACCESS_GUARD)
+        target_compile_definitions(${t} INTERFACE GHEX_USE_XPMEM_ACCESS_GUARD)
+    endif()
 endfunction()
 
 function(ghex_compile_test t_)
@@ -12,6 +18,9 @@ function(ghex_compile_test t_)
     ghex_target_compile_options(${t})
     target_link_libraries(${t} PRIVATE GTest::gtest)
     target_link_libraries(${t} PUBLIC ghex)
+    if (GHEX_USE_XPMEM)
+        target_link_libraries(${t} PRIVATE XPMEM::libxpmem)
+    endif()
 endfunction()
 
 function(ghex_reg_test t_)
@@ -19,7 +28,6 @@ function(ghex_reg_test t_)
     add_executable(${t} $<TARGET_OBJECTS:${t_}_obj>)
     ghex_target_compile_options(${t})
     target_link_libraries(${t} PRIVATE gtest_main)
-    target_link_libraries(${t} PRIVATE ${LIBRT})
     add_test(
         NAME ${t}
         COMMAND $<TARGET_FILE:${t}>)
@@ -38,8 +46,11 @@ function(ghex_reg_parallel_test t_ lib n mt)
     else()
         target_link_libraries(${t} PRIVATE gtest_main_mpi)
     endif()
-    target_link_libraries(${t} PRIVATE oomph::${lib})
     target_link_libraries(${t} PRIVATE ${LIBRT})
+    if (GHEX_USE_XPMEM)
+        target_link_libraries(${t} PRIVATE XPMEM::libxpmem)
+    endif()
+    target_link_libraries(${t} PRIVATE oomph::${lib})
     add_test(
         NAME ${t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
