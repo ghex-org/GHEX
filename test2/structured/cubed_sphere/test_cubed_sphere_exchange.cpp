@@ -1,7 +1,7 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -9,25 +9,17 @@
  *
  */
 
+#include <gtest/gtest.h>
+#include "../../mpi_runner/mpi_test_fixture.hpp"
+
 #include <ghex/structured/pattern.hpp>
-#include <ghex/communication_object_2.hpp>
+#include <ghex/communication_object.hpp>
 #include <ghex/structured/cubed_sphere/halo_generator.hpp>
 #include <ghex/structured/cubed_sphere/field_descriptor.hpp>
 
-#ifndef GHEX_TEST_USE_UCX
-#include <ghex/transport_layer/mpi/context.hpp>
-using transport = gridtools::ghex::tl::mpi_tag;
-#else
-#include <ghex/transport_layer/ucx/context.hpp>
-using transport = gridtools::ghex::tl::ucx_tag;
-#endif
-
-using context_type = gridtools::ghex::tl::context<transport>;
-
+#include "../../util/memory.hpp"
 #include <iostream>
 #include <iomanip>
-
-#include <gtest/gtest.h>
 
 // cubed sphere tiles and coordinate system
 //
@@ -115,7 +107,7 @@ int id_to_int(const Id& id) {
 template<typename Field>
 void check_even_0(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -202,7 +194,7 @@ void check_even_0(const Field& field, int halo, int n) {
 template<typename Field>
 void check_even_1(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -287,7 +279,7 @@ void check_even_1(const Field& field, int halo, int n) {
 template<typename Field>
 void check_even_2(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -376,7 +368,7 @@ void check_even_2(const Field& field, int halo, int n) {
 template<typename Field>
 void check_even_3(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -466,7 +458,7 @@ void check_even_3(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_0(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -553,7 +545,7 @@ void check_odd_0(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_1(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -642,7 +634,7 @@ void check_odd_1(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_2(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -727,7 +719,7 @@ void check_odd_2(const Field& field, int halo, int n) {
 template<typename Field>
 void check_odd_3(const Field& field, int halo, int n) {
     GHEX_CS_CHECK_HEADER
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
     for (int c=0; c<field.num_components(); ++c)
         for (int z=0; z<field.extents()[2]; ++z) {
             for (int y=y_min; y<y_dom_min; ++y) {
@@ -848,13 +840,13 @@ void check_field(const Field& field, int halo, int n) {
     }
 }
 
-TEST(cubed_sphere, domain)
+TEST_F(mpi_test_fixture, cubed_sphere)
 {
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
+    EXPECT_TRUE(world_size == 6);
 
     // create context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
-    auto& context = *context_ptr;
+    ghex::context ctxt(world, thread_safe);
 
     // halo generator with 2 halo lines in x and y dimensions (on both sides)
     halo_generator halo_gen(2);
@@ -863,19 +855,19 @@ TEST(cubed_sphere, domain)
     cube c{10,6};
 
     // define 4 local domains
-    domain_descriptor domain0 (c, context.rank(), 0, 4, 0, 4);
-    domain_descriptor domain1 (c, context.rank(), 5, 9, 0, 4);
-    domain_descriptor domain2 (c, context.rank(), 0, 4, 5, 9);
-    domain_descriptor domain3 (c, context.rank(), 5, 9, 5, 9);
+    domain_descriptor domain0 (c, ctxt.rank(), 0, 4, 0, 4);
+    domain_descriptor domain1 (c, ctxt.rank(), 5, 9, 0, 4);
+    domain_descriptor domain2 (c, ctxt.rank(), 0, 4, 5, 9);
+    domain_descriptor domain3 (c, ctxt.rank(), 5, 9, 5, 9);
     std::vector<domain_descriptor> local_domains{ domain0, domain1, domain2, domain3 };
 
     // allocate large enough memory for fields, sufficient for 3 halo lines
     // use 8 components per field and 6 z-levels
     const int halo=3;
-    std::vector<float> data_dom_0((2*halo+5)*(2*halo+5)*6*8,-1); // fields
-    std::vector<float> data_dom_1((2*halo+5)*(2*halo+5)*6*8,-1); // fields
-    std::vector<float> data_dom_2((2*halo+5)*(2*halo+5)*6*8,-1); // fields
-    std::vector<float> data_dom_3((2*halo+5)*(2*halo+5)*6*8,-1); // fields
+    ghex::test::util::memory<float> data_dom_0((2*halo+5)*(2*halo+5)*6*8,-1); // fields
+    ghex::test::util::memory<float> data_dom_1((2*halo+5)*(2*halo+5)*6*8,-1); // fields
+    ghex::test::util::memory<float> data_dom_2((2*halo+5)*(2*halo+5)*6*8,-1); // fields
+    ghex::test::util::memory<float> data_dom_3((2*halo+5)*(2*halo+5)*6*8,-1); // fields
 
     // initialize physical domain (leave halos as they are)
     for (int comp=0; comp<8; ++comp)
@@ -918,26 +910,22 @@ TEST(cubed_sphere, domain)
                              1*z;
                 }
 
-#ifdef __CUDACC__
-    using arch_t = gridtools::ghex::gpu;
-    float* data_ptr_0 = nullptr;
-    float* data_ptr_1 = nullptr;
-    float* data_ptr_2 = nullptr;
-    float* data_ptr_3 = nullptr;
-    cudaMalloc((void**)&data_ptr_0, data_dom_0.size()*sizeof(float));
-    cudaMalloc((void**)&data_ptr_1, data_dom_1.size()*sizeof(float));
-    cudaMalloc((void**)&data_ptr_2, data_dom_2.size()*sizeof(float));
-    cudaMalloc((void**)&data_ptr_3, data_dom_3.size()*sizeof(float));
-    cudaMemcpy(data_ptr_0, data_dom_0.data(), data_dom_0.size()*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(data_ptr_1, data_dom_1.data(), data_dom_1.size()*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(data_ptr_2, data_dom_2.data(), data_dom_2.size()*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(data_ptr_3, data_dom_3.data(), data_dom_3.size()*sizeof(float), cudaMemcpyHostToDevice);
+#if defined(HWMALLOC_ENABLE_DEVICE)
+    using arch_t = ghex::gpu;
+    float* data_ptr_0 = data_dom_0.device_data();
+    float* data_ptr_1 = data_dom_1.device_data();
+    float* data_ptr_2 = data_dom_2.device_data();
+    float* data_ptr_3 = data_dom_3.device_data();
+    data_dom_0.clone_to_device();
+    data_dom_1.clone_to_device();
+    data_dom_2.clone_to_device();
+    data_dom_3.clone_to_device();
 #else
-    using arch_t = gridtools::ghex::cpu;
-    float* data_ptr_0 = data_dom_0.data();
-    float* data_ptr_1 = data_dom_1.data();
-    float* data_ptr_2 = data_dom_2.data();
-    float* data_ptr_3 = data_dom_3.data();
+    using arch_t = ghex::cpu;
+    float* data_ptr_0 = data_dom_0.host_data();
+    float* data_ptr_1 = data_dom_1.host_data();
+    float* data_ptr_2 = data_dom_2.host_data();
+    float* data_ptr_3 = data_dom_3.host_data();
 #endif
 
     // wrap field memory in a field_descriptor
@@ -967,13 +955,11 @@ TEST(cubed_sphere, domain)
         8);
 
     // create a structured pattern
-    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
-        context, halo_gen, local_domains);
+    auto pattern1 = ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains);
 
     // make a communication object
     using pattern_type = decltype(pattern1);
-    auto co = gridtools::ghex::make_communication_object<pattern_type>(
-        context.get_communicator());
+    auto co = ghex::make_communication_object<pattern_type>(ctxt);
 
     // exchange halo data
     co.exchange(
@@ -982,19 +968,15 @@ TEST(cubed_sphere, domain)
         pattern1(field_dom_2),
         pattern1(field_dom_3)).wait();
 
-#ifdef __CUDACC__
-    cudaMemcpy(data_dom_0.data(), data_ptr_0, data_dom_0.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(data_dom_1.data(), data_ptr_1, data_dom_1.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(data_dom_2.data(), data_ptr_2, data_dom_2.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(data_dom_3.data(), data_ptr_3, data_dom_3.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaFree(data_ptr_0);
-    cudaFree(data_ptr_1);
-    cudaFree(data_ptr_2);
-    cudaFree(data_ptr_3);
-    field_dom_0.set_data(data_dom_0.data());
-    field_dom_1.set_data(data_dom_1.data());
-    field_dom_2.set_data(data_dom_2.data());
-    field_dom_3.set_data(data_dom_3.data());
+#if defined(HWMALLOC_ENABLE_DEVICE)
+    data_dom_0.clone_to_host();
+    data_dom_1.clone_to_host();
+    data_dom_2.clone_to_host();
+    data_dom_3.clone_to_host();
+    field_dom_0.set_data(data_dom_0.host_data());
+    field_dom_1.set_data(data_dom_1.host_data());
+    field_dom_2.set_data(data_dom_2.host_data());
+    field_dom_3.set_data(data_dom_3.host_data());
 #endif
 
     // check results
@@ -1004,13 +986,13 @@ TEST(cubed_sphere, domain)
     check_field(field_dom_3, 2, 5);
 }
 
-TEST(cubed_sphere, domain_vector)
+TEST_F(mpi_test_fixture, cubed_sphere_vector)
 {
-    using namespace gridtools::ghex::structured::cubed_sphere;
+    using namespace ghex::structured::cubed_sphere;
+    EXPECT_TRUE(world_size == 6);
 
     // create context
-    auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
-    auto& context = *context_ptr;
+    ghex::context ctxt(world, thread_safe);
 
     // halo generator with 2 halo lines in x and y dimensions (on both sides)
     halo_generator halo_gen(2);
@@ -1019,19 +1001,19 @@ TEST(cubed_sphere, domain_vector)
     cube c{10,7};
 
     // define 4 local domains
-    domain_descriptor domain0 (c, context.rank(), 0, 4, 0, 4);
-    domain_descriptor domain1 (c, context.rank(), 5, 9, 0, 4);
-    domain_descriptor domain2 (c, context.rank(), 0, 4, 5, 9);
-    domain_descriptor domain3 (c, context.rank(), 5, 9, 5, 9);
+    domain_descriptor domain0 (c, ctxt.rank(), 0, 4, 0, 4);
+    domain_descriptor domain1 (c, ctxt.rank(), 5, 9, 0, 4);
+    domain_descriptor domain2 (c, ctxt.rank(), 0, 4, 5, 9);
+    domain_descriptor domain3 (c, ctxt.rank(), 5, 9, 5, 9);
     std::vector<domain_descriptor> local_domains{ domain0, domain1, domain2, domain3 };
 
     // allocate large enough memory for fields, sufficient for 3 halo lines
-    // use 3 components per field and 7 z-levels
+    // use 8 components per field and 6 z-levels
     const int halo=3;
-    std::vector<float> data_dom_0((2*halo+5)*(2*halo+5)*3*7,-1); // fields
-    std::vector<float> data_dom_1((2*halo+5)*(2*halo+5)*3*7,-1); // fields
-    std::vector<float> data_dom_2((2*halo+5)*(2*halo+5)*3*7,-1); // fields
-    std::vector<float> data_dom_3((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+    ghex::test::util::memory<float> data_dom_0((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+    ghex::test::util::memory<float> data_dom_1((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+    ghex::test::util::memory<float> data_dom_2((2*halo+5)*(2*halo+5)*3*7,-1); // fields
+    ghex::test::util::memory<float> data_dom_3((2*halo+5)*(2*halo+5)*3*7,-1); // fields
 
     // initialize physical domain (leave halos as they are)
     for (int comp=0; comp<3; ++comp)
@@ -1074,26 +1056,22 @@ TEST(cubed_sphere, domain_vector)
                              1*z;
                 }
 
-#ifdef __CUDACC__
-    using arch_t = gridtools::ghex::gpu;
-    float* data_ptr_0 = nullptr;
-    float* data_ptr_1 = nullptr;
-    float* data_ptr_2 = nullptr;
-    float* data_ptr_3 = nullptr;
-    cudaMalloc((void**)&data_ptr_0, data_dom_0.size()*sizeof(float));
-    cudaMalloc((void**)&data_ptr_1, data_dom_1.size()*sizeof(float));
-    cudaMalloc((void**)&data_ptr_2, data_dom_2.size()*sizeof(float));
-    cudaMalloc((void**)&data_ptr_3, data_dom_3.size()*sizeof(float));
-    cudaMemcpy(data_ptr_0, data_dom_0.data(), data_dom_0.size()*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(data_ptr_1, data_dom_1.data(), data_dom_1.size()*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(data_ptr_2, data_dom_2.data(), data_dom_2.size()*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(data_ptr_3, data_dom_3.data(), data_dom_3.size()*sizeof(float), cudaMemcpyHostToDevice);
+#if defined(HWMALLOC_ENABLE_DEVICE)
+    using arch_t = ghex::gpu;
+    float* data_ptr_0 = data_dom_0.device_data();
+    float* data_ptr_1 = data_dom_1.device_data();
+    float* data_ptr_2 = data_dom_2.device_data();
+    float* data_ptr_3 = data_dom_3.device_data();
+    data_dom_0.clone_to_device();
+    data_dom_1.clone_to_device();
+    data_dom_2.clone_to_device();
+    data_dom_3.clone_to_device();
 #else
-    using arch_t = gridtools::ghex::cpu;
-    float* data_ptr_0 = data_dom_0.data();
-    float* data_ptr_1 = data_dom_1.data();
-    float* data_ptr_2 = data_dom_2.data();
-    float* data_ptr_3 = data_dom_3.data();
+    using arch_t = ghex::cpu;
+    float* data_ptr_0 = data_dom_0.host_data();
+    float* data_ptr_1 = data_dom_1.host_data();
+    float* data_ptr_2 = data_dom_2.host_data();
+    float* data_ptr_3 = data_dom_3.host_data();
 #endif
 
     // wrap field memory in a field_descriptor
@@ -1123,13 +1101,11 @@ TEST(cubed_sphere, domain_vector)
         3, true);
 
     // create a structured pattern
-    auto pattern1 = gridtools::ghex::make_pattern<gridtools::ghex::structured::grid>(
-        context, halo_gen, local_domains);
+    auto pattern1 = ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains);
 
     // make a communication object
     using pattern_type = decltype(pattern1);
-    auto co = gridtools::ghex::make_communication_object<pattern_type>(
-        context.get_communicator());
+    auto co = ghex::make_communication_object<pattern_type>(ctxt);
 
     // exchange halo data
     co.exchange(
@@ -1138,19 +1114,15 @@ TEST(cubed_sphere, domain_vector)
         pattern1(field_dom_2),
         pattern1(field_dom_3)).wait();
 
-#ifdef __CUDACC__
-    cudaMemcpy(data_dom_0.data(), data_ptr_0, data_dom_0.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(data_dom_1.data(), data_ptr_1, data_dom_1.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(data_dom_2.data(), data_ptr_2, data_dom_2.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(data_dom_3.data(), data_ptr_3, data_dom_3.size()*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaFree(data_ptr_0);
-    cudaFree(data_ptr_1);
-    cudaFree(data_ptr_2);
-    cudaFree(data_ptr_3);
-    field_dom_0.set_data(data_dom_0.data());
-    field_dom_1.set_data(data_dom_1.data());
-    field_dom_2.set_data(data_dom_2.data());
-    field_dom_3.set_data(data_dom_3.data());
+#if defined(HWMALLOC_ENABLE_DEVICE)
+    data_dom_0.clone_to_host();
+    data_dom_1.clone_to_host();
+    data_dom_2.clone_to_host();
+    data_dom_3.clone_to_host();
+    field_dom_0.set_data(data_dom_0.host_data());
+    field_dom_1.set_data(data_dom_1.host_data());
+    field_dom_2.set_data(data_dom_2.host_data());
+    field_dom_3.set_data(data_dom_3.host_data());
 #endif
 
     // check results

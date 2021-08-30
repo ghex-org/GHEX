@@ -1,7 +1,7 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
@@ -14,35 +14,43 @@
 #include <iostream>
 
 template<typename T, unsigned long N>
-std::ostream& operator<<(std::ostream& os, const std::array<T, N>& arr) {
+std::ostream&
+operator<<(std::ostream& os, const std::array<T, N>& arr)
+{
     os << "[" << arr[0];
-    for (unsigned int n=1; n<N; ++n) os << ", " << arr[n];
+    for (unsigned int n = 1; n < N; ++n) os << ", " << arr[n];
     os << "]";
     return os;
 }
 
 template<typename T, unsigned long N>
-bool operator==(const std::array<T,N>& a, const std::array<T,N>& b) {
-    for (unsigned int n=0; n<N; ++n)
+bool
+operator==(const std::array<T, N>& a, const std::array<T, N>& b)
+{
+    for (unsigned int n = 0; n < N; ++n)
         if (a[n] != b[n]) return false;
     return true;
 }
 
 // helper function
-int reverse_idx_lu(int tile, int ntile) {
-    using namespace gridtools::ghex::structured::cubed_sphere;
-    int d=0;
-    for (auto d0 : tile_lu[ntile]) {
-        if (d0==tile)
-            break; 
+int
+reverse_idx_lu(int tile, int ntile)
+{
+    using namespace ghex::structured::cubed_sphere;
+    int d = 0;
+    for (auto d0 : tile_lu[ntile])
+    {
+        if (d0 == tile) break;
         ++d;
     }
     return d;
 }
 
 // check neighbour tiles
-void neighbor_test(int tile, int mx, int px, int my, int py) {
-    using namespace gridtools::ghex::structured::cubed_sphere;
+void
+neighbor_test(int tile, int mx, int px, int my, int py)
+{
+    using namespace ghex::structured::cubed_sphere;
     EXPECT_EQ(tile_lu[tile][0], mx);
     EXPECT_EQ(tile_lu[tile][1], px);
     EXPECT_EQ(tile_lu[tile][2], my);
@@ -50,37 +58,42 @@ void neighbor_test(int tile, int mx, int px, int my, int py) {
 }
 
 // check the transformed halo region
-void transform_test(int c, int b, int tile) {
-    using namespace gridtools::ghex::structured::cubed_sphere;
+void
+transform_test(int c, int b, int tile)
+{
+    using namespace ghex::structured::cubed_sphere;
 
     // halo regions along the 4 edges in tile coordinates
-    const std::array<std::pair<std::array<int,2>,std::array<int,2>>,4> halo_regions {
-        std::make_pair(std::array<int,2>{   -b,    0}, std::array<int,2>{   -1,  c-1}),
-        std::make_pair(std::array<int,2>{    c,    0}, std::array<int,2>{c+b-1,  c-1}),
-        std::make_pair(std::array<int,2>{    0,   -b}, std::array<int,2>{  c-1,   -1}),
-        std::make_pair(std::array<int,2>{    0,    c}, std::array<int,2>{  c-1,c+b-1})};
+    const std::array<std::pair<std::array<int, 2>, std::array<int, 2>>, 4> halo_regions{
+        std::make_pair(std::array<int, 2>{-b, 0}, std::array<int, 2>{-1, c - 1}),
+        std::make_pair(std::array<int, 2>{c, 0}, std::array<int, 2>{c + b - 1, c - 1}),
+        std::make_pair(std::array<int, 2>{0, -b}, std::array<int, 2>{c - 1, -1}),
+        std::make_pair(std::array<int, 2>{0, c}, std::array<int, 2>{c - 1, c + b - 1})};
 
     // expected halo regions along the 4 edges in respective neighbor tile coordinates
-    std::array<std::pair<std::array<int,2>,std::array<int,2>>,4> expected_halo_regions;
-    if (tile % 2 == 0) {
+    std::array<std::pair<std::array<int, 2>, std::array<int, 2>>, 4> expected_halo_regions;
+    if (tile % 2 == 0)
+    {
         // even tiles
-        expected_halo_regions = std::array<std::pair<std::array<int,2>,std::array<int,2>>,4>{
-            std::make_pair(std::array<int,2>{  c-1,  c-b}, std::array<int,2>{    0,  c-1}),
-            std::make_pair(std::array<int,2>{    0,    0}, std::array<int,2>{  b-1,  c-1}),
-            std::make_pair(std::array<int,2>{    0,  c-b}, std::array<int,2>{  c-1,  c-1}),
-            std::make_pair(std::array<int,2>{    0,  c-1}, std::array<int,2>{  b-1,    0})};
+        expected_halo_regions = std::array<std::pair<std::array<int, 2>, std::array<int, 2>>, 4>{
+            std::make_pair(std::array<int, 2>{c - 1, c - b}, std::array<int, 2>{0, c - 1}),
+            std::make_pair(std::array<int, 2>{0, 0}, std::array<int, 2>{b - 1, c - 1}),
+            std::make_pair(std::array<int, 2>{0, c - b}, std::array<int, 2>{c - 1, c - 1}),
+            std::make_pair(std::array<int, 2>{0, c - 1}, std::array<int, 2>{b - 1, 0})};
     }
-    else {
+    else
+    {
         // odd tiles
-        expected_halo_regions = std::array<std::pair<std::array<int,2>,std::array<int,2>>,4>{
-            std::make_pair(std::array<int,2>{  c-b,    0}, std::array<int,2>{  c-1,  c-1}),
-            std::make_pair(std::array<int,2>{  c-1,    0}, std::array<int,2>{    0,  b-1}),
-            std::make_pair(std::array<int,2>{  c-b,  c-1}, std::array<int,2>{  c-1,    0}),
-            std::make_pair(std::array<int,2>{    0,    0}, std::array<int,2>{  c-1,  b-1})};
+        expected_halo_regions = std::array<std::pair<std::array<int, 2>, std::array<int, 2>>, 4>{
+            std::make_pair(std::array<int, 2>{c - b, 0}, std::array<int, 2>{c - 1, c - 1}),
+            std::make_pair(std::array<int, 2>{c - 1, 0}, std::array<int, 2>{0, b - 1}),
+            std::make_pair(std::array<int, 2>{c - b, c - 1}, std::array<int, 2>{c - 1, 0}),
+            std::make_pair(std::array<int, 2>{0, 0}, std::array<int, 2>{c - 1, b - 1})};
     }
 
     // loop over neighbors
-    for (int n=0; n<4; ++n) {
+    for (int n = 0; n < 4; ++n)
+    {
         // get transform to neighbor n
         const auto& t = transform_lu[tile][n];
         // get original halo region
@@ -96,7 +109,7 @@ void transform_test(int c, int b, int tile) {
         EXPECT_EQ(t_min, e_min);
         EXPECT_EQ(t_max, e_max);
         // look up inverse transform
-        const auto d = reverse_idx_lu(tile, tile_lu[tile][n]);
+        const auto  d = reverse_idx_lu(tile, tile_lu[tile][n]);
         const auto& tr = transform_lu[tile_lu[tile][n]][d];
         // inverse-transform transformed coordinates
         const auto r_min = tr(t_min[0], t_min[1], c);
@@ -125,9 +138,11 @@ TEST(cubed_sphere, transform)
     neighbor_test(4, 2, 5, 3, 0);
     neighbor_test(5, 4, 1, 3, 0);
     // cube size c (number of cells along an edge of the cube)
-    for (int c=10; c<30; ++c) {
+    for (int c = 10; c < 30; ++c)
+    {
         // halo size b
-        for (int b=1; b<4; ++b) {
+        for (int b = 1; b < 4; ++b)
+        {
             transform_test(c, b, 0);
             transform_test(c, b, 1);
             transform_test(c, b, 2);
@@ -137,4 +152,3 @@ TEST(cubed_sphere, transform)
         }
     }
 }
-
