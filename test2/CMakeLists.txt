@@ -4,7 +4,7 @@ include(ghex_reg_test)
 
 add_subdirectory(mpi_runner)
 
-set(serial_tests aligned_allocator)
+set(serial_tests aligned_allocator decomposition)
 set(parallel_tests context mpi_communicator)
 set(parallel_mt_tests context)
 
