@@ -48,14 +48,14 @@ struct range_factory
                                                a16(sizeof(typename local_access_guard::info)) +
                                                a16(sizeof(event_info)) + max_range_size::value;
 
-    template<typename Range>
-    static std::vector<unsigned char> serialize(
-        info field_info, local_access_guard& g, local_event& e, const Range& r)
-    {
-        std::vector<unsigned char> res(serial_size);
-        serialize(field_info, g, e, r, res.data());
-        return res;
-    }
+    //template<typename Range>
+    //static std::vector<unsigned char> serialize(
+    //    info field_info, local_access_guard& g, local_event& e, const Range& r)
+    //{
+    //    std::vector<unsigned char> res(serial_size);
+    //    serialize(field_info, g, e, r, res.data());
+    //    return res;
+    //}
 
     static range deserialize(unsigned char* buffer, int rank, bool on_gpu)
     {
@@ -90,7 +90,7 @@ struct range_factory
             });
     }
 
-  private:
+  //private:
     template<typename Range>
     static void serialize(info field_info, local_access_guard& g, local_event& e, const Range& r,
         unsigned char* buffer)

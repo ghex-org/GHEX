@@ -35,14 +35,14 @@ enum class locality
 #ifdef GHEX_NO_RMA
 template<typename Communicator>
 static locality
-is_local(Communicator, int)
+is_local(Communicator&, int)
 {
     return locality::remote;
 }
 #else
 template<typename Communicator>
 static locality
-is_local(Communicator comm, int remote_rank)
+is_local(Communicator& comm, int remote_rank)
 {
     if (comm.rank() == remote_rank) return locality::thread;
 #ifdef GHEX_USE_XPMEM

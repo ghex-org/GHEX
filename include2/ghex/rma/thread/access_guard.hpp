@@ -49,7 +49,7 @@ struct local_access_guard
 
     struct info
     {
-        ::gridtools::ghex::rma::thread::info m_info;
+        ghex::rma::thread::info m_info;
     };
 
     std::unique_ptr<impl> m_impl;
