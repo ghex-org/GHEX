@@ -51,8 +51,9 @@ struct rma_range_generator
         tag_type                             m_tag;
         oomph::send_request                  m_request;
         oomph::message_buffer<unsigned char> m_archive;
-        bool             m_on_gpu = std::is_same<typename Field::arch_type, ghex::gpu>::value;
-        rma::local_event m_event;
+        bool                 m_on_gpu = std::is_same<typename Field::arch_type, ghex::gpu>::value;
+        rma::local_event     m_event;
+        oomph::communicator* m_comm;
 
         template<typename IterationSpace>
         target_range(oomph::communicator& comm, const Field& f, rma::info field_info,
@@ -63,6 +64,7 @@ struct rma_range_generator
         , m_tag{tag}
         , m_archive{comm.make_buffer<unsigned char>(RangeFactory::serial_size)}
         , m_event{m_on_gpu, loc}
+        , m_comm{&comm}
         {
             RangeFactory::serialize(
                 field_info, m_local_guard, m_event, m_local_range, m_archive.data());
@@ -75,7 +77,8 @@ struct rma_range_generator
         void send()
         {
             m_request.wait();
-            m_local_guard.start_target_epoch();
+            //m_local_guard.start_target_epoch();
+            while (!m_local_guard.try_start_target_epoch()) { m_comm->progress(); }
         }
 
         void start_target_epoch()

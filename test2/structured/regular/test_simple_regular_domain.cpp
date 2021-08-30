@@ -11,7 +11,6 @@
 
 #include <gtest/gtest.h>
 #include "../../mpi_runner/mpi_test_fixture.hpp"
-#include <gtest/gtest.h>
 
 #include <ghex/bulk_communication_object.hpp>
 #include <ghex/structured/pattern.hpp>
