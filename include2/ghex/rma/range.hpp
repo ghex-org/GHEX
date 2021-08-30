@@ -1,27 +1,26 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_RMA_RANGE_HPP
-#define INCLUDED_GHEX_RMA_RANGE_HPP
+#pragma once
 
+#include <ghex/rma/locality.hpp>
+#include <ghex/rma/handle.hpp>
+#include <ghex/rma/access_guard.hpp>
+#include <ghex/rma/event.hpp>
+#include <ghex/rma/range_iface.hpp>
 #include <memory>
-#include "./locality.hpp"
-#include "./handle.hpp"
-#include "./access_guard.hpp"
-#include "./event.hpp"
-#include "./range_iface.hpp"
 
-namespace gridtools {
-namespace ghex {
-namespace rma {
-
+namespace ghex
+{
+namespace rma
+{
 /** @brief generic range type which is created through de-serialization of a target range. Hence,
   * this range is created at the source side of a put operation and represents the remot target of
   * this operation. It exposes member functions to get read/write access to the remote resource.
@@ -30,14 +29,14 @@ namespace rma {
   * range_factory. */
 struct range
 {
-    int m_id = 0;
-    locality m_loc;
-    remote_handle m_handle;
+    int                          m_id = 0;
+    locality                     m_loc;
+    remote_handle                m_handle;
     std::unique_ptr<range_iface> m_impl;
-    remote_access_guard m_guard;
-    bool m_on_gpu;
-    remote_event m_event;
-    
+    remote_access_guard          m_guard;
+    bool                         m_on_gpu;
+    remote_event                 m_event;
+
     range() = default;
 
     template<typename Range>
@@ -54,13 +53,10 @@ struct range
     }
 
     range(range&&) = default;
-    
+
     range& operator=(range&&) = default;
 
-    void* get_ptr() const
-    {
-        return m_handle.get_ptr(m_loc);
-    }
+    void* get_ptr() const { return m_handle.get_ptr(m_loc); }
 
     void start_source_epoch() { m_guard.start_source_epoch(); }
     bool try_start_source_epoch() { return m_guard.try_start_source_epoch(); }
@@ -69,7 +65,3 @@ struct range
 
 } // namespace rma
 } // namespace ghex
-} // namespace gridtools
-
-#endif /* INCLUDED_GHEX_RMA_RANGE_HPP */
-

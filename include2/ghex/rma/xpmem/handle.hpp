@@ -1,75 +1,75 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_RMA_XPMEM_HANDLE_HPP
-#define INCLUDED_GHEX_RMA_XPMEM_HANDLE_HPP
+#pragma once
 
-#include "../locality.hpp"
+#include <ghex/rma/locality.hpp>
 
 #include <cstdint>
 #include <stdexcept>
-extern "C"{
+extern "C"
+{
 #include <xpmem.h>
 #include <unistd.h>
 }
 
-namespace gridtools {
-namespace ghex {
-namespace rma {
-namespace xpmem {
-
+namespace ghex
+{
+namespace rma
+{
+namespace xpmem
+{
 // Below are implementations of a handle in a multi-process setting using xpmem.
 // Please refer to the documentation in rma/handle.hpp for further explanations.
 
-#define align_down_pow2(_n, _alignment)		              \
-    ( (_n) & ~((_alignment) - 1) )
+#define align_down_pow2(_n, _alignment) ((_n) & ~((_alignment)-1))
 
-#define align_up_pow2(_n, _alignment)				      \
-    align_down_pow2((_n) + (_alignment) - 1, _alignment)
+#define align_up_pow2(_n, _alignment) align_down_pow2((_n) + (_alignment)-1, _alignment)
 
 struct info
 {
-    bool m_on_gpu;
+    bool           m_on_gpu;
     std::uintptr_t m_xpmem_start;
-    std::uintptr_t m_xpmem_size;  
-    std::uintptr_t m_xpmem_offset;  
+    std::uintptr_t m_xpmem_size;
+    std::uintptr_t m_xpmem_offset;
     xpmem_segid_t  m_xpmem_endpoint;
 };
 
 struct local_data_holder
 {
-    bool m_on_gpu;
+    bool           m_on_gpu;
     std::uintptr_t m_page_size;
     std::uintptr_t m_xpmem_start;
-    std::uintptr_t m_xpmem_end;  
-    std::uintptr_t m_xpmem_size;  
-    std::uintptr_t m_xpmem_offset;  
+    std::uintptr_t m_xpmem_end;
+    std::uintptr_t m_xpmem_size;
+    std::uintptr_t m_xpmem_offset;
     xpmem_segid_t  m_xpmem_endpoint;
-    
+
     local_data_holder(void* ptr, unsigned int size, bool on_gpu)
     : m_on_gpu{on_gpu}
     {
         // aquire the rma resource
         if (!m_on_gpu)
         {
-            m_page_size      = getpagesize();
-            m_xpmem_start    = align_down_pow2((reinterpret_cast<std::uintptr_t>(ptr)), m_page_size);
-            m_xpmem_end      = align_up_pow2((reinterpret_cast<std::uintptr_t>(ptr) + size), m_page_size);
-            m_xpmem_size     = m_xpmem_end - m_xpmem_start;
-            m_xpmem_offset   = reinterpret_cast<std::uintptr_t>(ptr)-m_xpmem_start;
-            m_xpmem_endpoint = xpmem_make((void*)m_xpmem_start, m_xpmem_size, XPMEM_PERMIT_MODE, (void*)0666);
-            if(m_xpmem_endpoint < 0)
-                throw std::runtime_error("could not register xpmem endpoint");
+            m_page_size = getpagesize();
+            m_xpmem_start = align_down_pow2((reinterpret_cast<std::uintptr_t>(ptr)), m_page_size);
+            m_xpmem_end =
+                align_up_pow2((reinterpret_cast<std::uintptr_t>(ptr) + size), m_page_size);
+            m_xpmem_size = m_xpmem_end - m_xpmem_start;
+            m_xpmem_offset = reinterpret_cast<std::uintptr_t>(ptr) - m_xpmem_start;
+            m_xpmem_endpoint =
+                xpmem_make((void*)m_xpmem_start, m_xpmem_size, XPMEM_PERMIT_MODE, (void*)0666);
+            if (m_xpmem_endpoint < 0) throw std::runtime_error("could not register xpmem endpoint");
         }
     }
-    
+
     ~local_data_holder()
     {
         if (!m_on_gpu) xpmem_remove(m_xpmem_endpoint);
@@ -83,15 +83,15 @@ struct local_data_holder
 
 struct remote_data_holder
 {
-    bool m_on_gpu;
-    locality m_loc;
+    bool           m_on_gpu;
+    locality       m_loc;
     std::uintptr_t m_xpmem_start;
-    std::uintptr_t m_xpmem_size;  
-    std::uintptr_t m_xpmem_offset;  
+    std::uintptr_t m_xpmem_size;
+    std::uintptr_t m_xpmem_offset;
     xpmem_segid_t  m_xpmem_endpoint;
     xpmem_addr     m_xpmem_addr;
     void*          m_xpmem_ptr = nullptr;
-        
+
     remote_data_holder(const info& info_, locality loc, int)
     : m_on_gpu{info_.m_on_gpu}
     , m_loc{loc}
@@ -105,7 +105,8 @@ struct remote_data_holder
         {
             m_xpmem_addr.offset = 0;
             m_xpmem_addr.apid = xpmem_get(m_xpmem_endpoint, XPMEM_RDWR, XPMEM_PERMIT_MODE, NULL);
-            m_xpmem_ptr = (unsigned char*)xpmem_attach(m_xpmem_addr, m_xpmem_size, NULL) + m_xpmem_offset;
+            m_xpmem_ptr =
+                (unsigned char*)xpmem_attach(m_xpmem_addr, m_xpmem_size, NULL) + m_xpmem_offset;
         }
     }
 
@@ -119,15 +120,9 @@ struct remote_data_holder
         }
     }
 
-    void* get_ptr() const
-    {
-        return m_xpmem_ptr;
-    }
+    void* get_ptr() const { return m_xpmem_ptr; }
 };
 
 } // namespace xpmem
 } // namespace rma
 } // namespace ghex
-} // namespace gridtools
-
-#endif /* INCLUDED_GHEX_RMA_XPMEM_HANDLE_HPP */
