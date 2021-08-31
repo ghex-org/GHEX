@@ -84,3 +84,7 @@ mark_as_advanced(GHEX_USE_XPMEM_ACCESS_GUARD)
 # device setup
 # ---------------------------------------------------------------------
 include(ghex_device)
+
+if (ghex_gpu_mode STREQUAL "hip")
+    target_link_libraries(ghex PUBLIC hip::device)
+endif()

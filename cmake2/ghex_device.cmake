@@ -1,7 +1,7 @@
 
 set(GHEX_USE_GPU "OFF" CACHE BOOL "use gpu")
 set(GHEX_EMULATE_GPU "OFF" CACHE BOOL "emulate gpu (for debugging)")
-mark_as_advanced(GHEX_EMULATE_GPU)
+#mark_as_advanced(GHEX_EMULATE_GPU)
 
 if(GHEX_USE_GPU)
     if (NOT ${HWMALLOC_ENABLE_DEVICE})
@@ -54,25 +54,11 @@ else()
         set(ghex_gpu_mode "emulate")
         set(GHEX_GPU_MODE_EMULATE "ON")
     else()
+        if (${HWMALLOC_ENABLE_DEVICE})
+            message(FATAL_ERROR "GPU backend is available - check hwmalloc configure options")
+        endif()
         set(ghex_gpu_mode "none")
         set(GHEX_GPU_MODE_EMULATE "OFF")
     endif()
 endif()
-
-message("emulate? " ${GHEX_GPU_MODE_EMULATE})
-
-function(compile_as_cuda)
-    if (ghex_gpu_mode STREQUAL "cuda")
-        set_source_files_properties(${ARGN} PROPERTIES LANGUAGE CUDA)
-    endif()
-endfunction()
-
-function(link_device_runtime target)
-    if (ghex_gpu_mode STREQUAL "hip")
-        target_link_libraries(${target} hip::device)
-    endif()
-endfunction()
-
-
-
 

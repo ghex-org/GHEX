@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <ghex/arch_traits.hpp>
 #include <ghex/common/utils.hpp>
 #include <ghex/structured/field_utils.hpp>
@@ -134,7 +135,7 @@ struct serialization
     }
 };
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 template<typename Layout, typename PackIterationSpace>
 __global__ void
 pack_kernel(PackIterationSpace pack_is, unsigned int num_elements)

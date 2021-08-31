@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <hwmalloc/device.hpp>
 #include <oomph/message_buffer.hpp>
 
@@ -28,7 +29,7 @@ struct guard
 
     guard(message& m)
     {
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
         if (m.on_device())
         {
             m_ptr = m.device_data();
@@ -48,7 +49,7 @@ struct guard
 
     ~guard()
     {
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
         if (m_new_device_id != m_current_device_id) hwmalloc::set_device_id(m_current_device_id);
 #endif
     }

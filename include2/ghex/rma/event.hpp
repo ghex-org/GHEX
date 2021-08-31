@@ -22,7 +22,7 @@ struct event_info
 {
     bool     m_target_on_gpu;
     locality m_loc;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     cudaIpcEventHandle_t m_event_handle;
     cudaEvent_t          m_event;
 #endif
@@ -40,7 +40,7 @@ struct local_event
     {
         bool     m_target_on_gpu;
         locality m_loc;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         cudaEvent_t          m_event;
         cudaIpcEventHandle_t m_event_handle;
 #endif
@@ -48,7 +48,7 @@ struct local_event
         : m_target_on_gpu{target_on_gpu}
         , m_loc{loc}
         {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             if (m_loc == locality::thread)
             { GHEX_CHECK_CUDA_RESULT(cudaEventCreate(&m_event, cudaEventDisableTiming)); }
             if (m_loc == locality::process)
@@ -62,7 +62,7 @@ struct local_event
 
         ~data_holder()
         {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             if (m_loc != locality::remote) { cudaEventDestroy(m_event); }
 #endif
         }
@@ -70,7 +70,7 @@ struct local_event
         event_info get_info() const
         {
             return {m_target_on_gpu, m_loc
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
                 ,
                 m_event_handle, m_event
 #endif
@@ -79,7 +79,7 @@ struct local_event
 
         void wait()
         {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
 #endif
         }
@@ -115,7 +115,7 @@ struct remote_event
         bool     m_source_on_gpu;
         bool     m_target_on_gpu;
         locality m_loc;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         cudaIpcEventHandle_t m_event_handle;
         cudaEvent_t          m_event;
         cudaStream_t         m_stream;
@@ -126,7 +126,7 @@ struct remote_event
         , m_target_on_gpu{info_.m_target_on_gpu}
         , m_loc{info_.m_loc}
         {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             if (m_source_on_gpu || m_target_on_gpu)
             {
                 GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking));
@@ -142,14 +142,14 @@ struct remote_event
 
         ~data_holder()
         {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             if (m_source_on_gpu || m_target_on_gpu) cudaStreamDestroy(m_stream);
 #endif
         }
 
         void record()
         {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             if (m_source_on_gpu || m_target_on_gpu)
                 GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, m_stream));
 #endif
@@ -170,7 +170,7 @@ struct remote_event
 
     void record() { m_impl->record(); }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     cudaStream_t get_stream() const { return m_impl->m_stream; }
 #endif
 };

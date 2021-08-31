@@ -64,7 +64,7 @@ class context
     //    return m_ctxt->template make_buffer<unsigned char>(size);
     //}
 
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     message_type make_device_buffer(std::size_t size, int id);
     //{
     //    return m_ctxt->template make_device_buffer<unsigned char>(size, id);

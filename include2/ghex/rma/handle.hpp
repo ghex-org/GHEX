@@ -16,7 +16,7 @@
 #ifdef GHEX_USE_XPMEM
 #include <ghex/rma/xpmem/handle.hpp>
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 #include <ghex/rma/cuda/handle.hpp>
 #endif
 #include <memory>
@@ -38,7 +38,7 @@ struct local_handle
 #ifdef GHEX_USE_XPMEM
         xpmem::local_data_holder m_xpmem_data_holder;
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         cuda::local_data_holder m_cuda_data_holder;
 #endif
         struct info
@@ -49,7 +49,7 @@ struct local_handle
 #ifdef GHEX_USE_XPMEM
             xpmem::info m_xpmem_info;
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             cuda::info m_cuda_info;
 #endif
         };
@@ -58,10 +58,12 @@ struct local_handle
         : m_size{size}
         , m_on_gpu{on_gpu}
         , m_thread_data_holder(ptr, size, on_gpu)
-#ifdef GHEX_USE_XPMEM
+#if defined(GHEX_GPU_MODE_EMULATE) && defined(GHEX_USE_XPMEM)
+        , m_xpmem_data_holder(ptr, size, false)
+#elif defined(GHEX_USE_XPMEM)
         , m_xpmem_data_holder(ptr, size, on_gpu)
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         , m_cuda_data_holder(ptr, size, on_gpu)
 #endif
         {
@@ -74,7 +76,7 @@ struct local_handle
                                           ,
                 m_xpmem_data_holder.get_info()
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
                     ,
                 m_cuda_data_holder.get_info()
 #endif
@@ -108,7 +110,7 @@ struct remote_handle
 #ifdef GHEX_USE_XPMEM
         xpmem::remote_data_holder m_xpmem_data_holder;
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         cuda::remote_data_holder m_cuda_data_holder;
 #endif
 
@@ -119,7 +121,7 @@ struct remote_handle
 #ifdef GHEX_USE_XPMEM
         , m_xpmem_data_holder(info_.m_xpmem_info, loc, rank)
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         , m_cuda_data_holder(info_.m_cuda_info, loc, rank)
 #endif
         {
@@ -129,10 +131,12 @@ struct remote_handle
         {
             static_assert(
                 std::is_same<decltype(loc), locality>::value, ""); // prevent compiler warning
-#ifdef GHEX_USE_XPMEM
+#if defined(GHEX_GPU_MODE_EMULATE) && defined(GHEX_USE_XPMEM)
+            if (loc == locality::process) return m_xpmem_data_holder.get_ptr();
+#elif defined(GHEX_USE_XPMEM)
             if (loc == locality::process && !m_on_gpu) return m_xpmem_data_holder.get_ptr();
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             if (loc == locality::process && m_on_gpu) return m_cuda_data_holder.get_ptr();
 #endif
             return m_thread_data_holder.get_ptr();

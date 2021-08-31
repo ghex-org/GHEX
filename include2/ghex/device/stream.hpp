@@ -12,10 +12,8 @@
 
 #include <ghex/config.hpp>
 
-#if defined(HWMALLOC_DEVICE_CUDA)
+#if defined(GHEX_USE_GPU)
 #include <ghex/device/cuda/stream.hpp>
-#elif defined(HWMALLOC_DEVICE_HIP)
-#include <ghex/device/hip/stream.hpp>
 #else
 namespace ghex
 {

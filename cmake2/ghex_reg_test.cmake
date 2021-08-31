@@ -1,7 +1,10 @@
 include(ghex_compile_options)
 
-function(ghex_compile_test t_)
+function(ghex_compile_test t_)# on_device)
     set(t ${t_}_obj)
+    #if (on_device)
+    compile_as_cuda(test_${t_}.cpp)
+    #endif()
     add_library(${t} OBJECT test_${t_}.cpp)
     ghex_target_compile_options(${t})
     target_link_libraries(${t} PRIVATE GTest::gtest)

@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 //#include "../common/utils.hpp"
 #include <ghex/device/stream.hpp>
 #include <ghex/structured/rma_range.hpp>
@@ -21,6 +22,16 @@ namespace structured
 // Here are different specializations of put functions. A put function takes 2 arguments (source and
 // target range) and performs the RMA put.
 
+#ifdef GHEX_GPU_MODE_EMULATE
+template<typename, typename>
+using cpu_to_cpu = std::true_type;
+template<typename, typename>
+using cpu_to_gpu = std::false_type;
+template<typename, typename>
+using gpu_to_cpu = std::false_type;
+template<typename, typename>
+using gpu_to_gpu = std::false_type;
+#else
 template<typename SourceField, typename TargetField>
 using cpu_to_cpu = std::integral_constant<bool,
     std::is_same<typename SourceField::arch_type, ghex::cpu>::value &&
@@ -37,6 +48,7 @@ template<typename SourceField, typename TargetField>
 using gpu_to_gpu = std::integral_constant<bool,
     std::is_same<typename SourceField::arch_type, ghex::gpu>::value &&
         std::is_same<typename TargetField::arch_type, ghex::gpu>::value>;
+#endif
 
 // attributes needed for gcc to produce optimized code
 template<typename SourceField, typename TargetField>
@@ -46,7 +58,8 @@ __attribute__((optimize("no-tree-loop-distribute-patterns"))) __attribute__((tar
 std::enable_if_t<cpu_to_cpu<SourceField, TargetField>::value &&
                  !rma_range<SourceField>::fuse_components::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     ,
     cudaStream_t
 #endif
@@ -67,7 +80,8 @@ template<typename SourceField, typename TargetField>
 inline std::enable_if_t<cpu_to_cpu<SourceField, TargetField>::value &&
                         rma_range<SourceField>::fuse_components::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     ,
     cudaStream_t
 #endif
@@ -92,13 +106,15 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<cpu_to_gpu<SourceField, TargetField>::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     ,
     cudaStream_t st
 #endif
 )
 {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
     for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
@@ -113,13 +129,15 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<gpu_to_cpu<SourceField, TargetField>::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     ,
     cudaStream_t st
 #endif
 )
 {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
 #ifndef GHEX_USE_XPMEM
@@ -167,7 +185,8 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
 #endif
 }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
 template<typename SourceRange, typename TargetRange>
 __global__ void
 put_device_to_device_kernel(SourceRange sr, TargetRange tr)
@@ -194,13 +213,15 @@ put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<gpu_to_gpu<SourceField, TargetField>::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     ,
     cudaStream_t st
 #endif
 )
 {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
+//#ifdef GHEX_USE_GPU
     static constexpr unsigned int block_dim = 128;
     const unsigned int            num_blocks = (s.m_num_elements + block_dim - 1) / block_dim;
     put_device_to_device_kernel<<<num_blocks, block_dim, 0, st>>>(s, t);

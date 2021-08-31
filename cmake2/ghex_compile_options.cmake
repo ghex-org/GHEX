@@ -9,3 +9,10 @@ function(ghex_target_compile_options target)
     # flags for CUDA builds
     $<${cuda_lang}:$<BUILD_INTERFACE:-Xcompiler=-Wall -Wextra -Wpedantic -Wno-unknown-pragmas>>)
 endfunction()
+
+function(compile_as_cuda)
+    if (ghex_gpu_mode STREQUAL "cuda")
+        set_source_files_properties(${ARGN} PROPERTIES LANGUAGE CUDA)
+    endif()
+endfunction()
+

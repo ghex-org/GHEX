@@ -90,7 +90,7 @@ struct parameters
             d, f.host_data(), o, ext);
     }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     template<typename U, typename Offsets, typename Extents>
     static field_type<U, ghex::gpu> wrap(ghex::test::util::memory<U>& f, domain_descriptor_type& d,
         Offsets const& o, Extents const& ext, ghex::gpu)
@@ -162,7 +162,7 @@ struct parameters
     void fill_values(
         ghex::test::util::memory<array_type<T, 3>>& m, domain_descriptor_type const& d, ghex::cpu);
 
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     template<typename T>
     void fill_values(
         ghex::test::util::memory<array_type<T, 3>>& m, domain_descriptor_type const& d, ghex::gpu)
@@ -182,7 +182,7 @@ struct parameters
     bool check_values(ghex::test::util::memory<array_type<T, 3>>& m,
         domain_descriptor_type const& d, std::array<int, 6> const& halos, ghex::cpu);
 
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     template<typename T>
     bool check_values(ghex::test::util::memory<array_type<T, 3>>& m,
         domain_descriptor_type const& d, std::array<int, 6> const& halos, ghex::gpu)
@@ -455,7 +455,7 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
     }
 }
 
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
 TEST_F(mpi_test_fixture, exchange_device_device)
 {
     using namespace ghex;

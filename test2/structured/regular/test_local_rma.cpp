@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include "../../mpi_runner/mpi_test_fixture.hpp"
 
+#include <ghex/config.hpp>
 #include <ghex/bulk_communication_object.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/rma_range_generator.hpp>
@@ -90,14 +91,14 @@ struct simulation_1
     field_descriptor_type<TT2, ghex::cpu, 2, 1, 0> field_2b;
     field_descriptor_type<TT3, ghex::cpu, 2, 1, 0> field_3a;
     field_descriptor_type<TT3, ghex::cpu, 2, 1, 0> field_3b;
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     field_descriptor_type<TT1, ghex::gpu, 2, 1, 0> field_1a_gpu;
     field_descriptor_type<TT1, ghex::gpu, 2, 1, 0> field_1b_gpu;
     field_descriptor_type<TT2, ghex::gpu, 2, 1, 0> field_2a_gpu;
     field_descriptor_type<TT2, ghex::gpu, 2, 1, 0> field_2b_gpu;
     field_descriptor_type<TT3, ghex::gpu, 2, 1, 0> field_3a_gpu;
     field_descriptor_type<TT3, ghex::gpu, 2, 1, 0> field_3b_gpu;
-#endif /* __CUDACC__ */
+#endif
     bool                                                 mt;
     std::vector<ghex::generic_bulk_communication_object> cos;
 
@@ -145,7 +146,7 @@ struct simulation_1
         ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
             local_domains[1], field_3b_raw.data(), offset, local_ext_buffer)
     }
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     , field_1a_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
           local_domains[0], field_1a_raw.device_data(), offset, local_ext_buffer)},
         field_1b_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
@@ -161,7 +162,7 @@ struct simulation_1
         ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
             local_domains[1], field_3b_raw.device_data(), offset, local_ext_buffer)
     }
-#endif /* __CUDACC__ */
+#endif
     , mt{multithread}
     {
         fill_values(local_domains[0], field_1a);
@@ -170,30 +171,18 @@ struct simulation_1
         fill_values(local_domains[1], field_2b);
         fill_values(local_domains[0], field_3a);
         fill_values(local_domains[1], field_3b);
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
         field_1a_raw.clone_to_device();
         field_1b_raw.clone_to_device();
         field_2a_raw.clone_to_device();
         field_2b_raw.clone_to_device();
         field_3a_raw.clone_to_device();
         field_3b_raw.clone_to_device();
-#endif /* __CUDACC__ */
+#endif
 
         if (!mt)
         {
-#ifndef __CUDACC__
-            auto bco = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
-                pattern_type, field_descriptor_type<TT1, ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT2, ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT3, ghex::cpu, 2, 1, 0>>(ctxt);
-
-            bco.add_field(pattern(field_1a));
-            bco.add_field(pattern(field_1b));
-            bco.add_field(pattern(field_2a));
-            bco.add_field(pattern(field_2b));
-            bco.add_field(pattern(field_3a));
-            bco.add_field(pattern(field_3b));
-#else
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
             auto bco = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
                 pattern_type, field_descriptor_type<TT1, ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT2, ghex::gpu, 2, 1, 0>,
@@ -205,28 +194,24 @@ struct simulation_1
             bco.add_field(pattern(field_2b_gpu));
             bco.add_field(pattern(field_3a_gpu));
             bco.add_field(pattern(field_3b_gpu));
+#else
+            auto bco = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
+                pattern_type, field_descriptor_type<TT1, ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT2, ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT3, ghex::cpu, 2, 1, 0>>(ctxt);
+
+            bco.add_field(pattern(field_1a));
+            bco.add_field(pattern(field_1b));
+            bco.add_field(pattern(field_2a));
+            bco.add_field(pattern(field_2b));
+            bco.add_field(pattern(field_3a));
+            bco.add_field(pattern(field_3b));
 #endif
             cos.emplace_back(std::move(bco));
         }
         else
         {
-#ifndef __CUDACC__
-            auto bco0 = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
-                pattern_type, field_descriptor_type<TT1, ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT2, ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT3, ghex::cpu, 2, 1, 0>>(ctxt);
-            bco0.add_field(pattern(field_1a));
-            bco0.add_field(pattern(field_2a));
-            bco0.add_field(pattern(field_3a));
-
-            auto bco1 = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
-                pattern_type, field_descriptor_type<TT1, ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT2, ghex::cpu, 2, 1, 0>,
-                field_descriptor_type<TT3, ghex::cpu, 2, 1, 0>>(ctxt);
-            bco1.add_field(pattern(field_1b));
-            bco1.add_field(pattern(field_2b));
-            bco1.add_field(pattern(field_3b));
-#else
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
             auto bco0 = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
                 pattern_type, field_descriptor_type<TT1, ghex::gpu, 2, 1, 0>,
                 field_descriptor_type<TT2, ghex::gpu, 2, 1, 0>,
@@ -242,6 +227,22 @@ struct simulation_1
             bco1.add_field(pattern(field_1b_gpu));
             bco1.add_field(pattern(field_2b_gpu));
             bco1.add_field(pattern(field_3b_gpu));
+#else
+            auto bco0 = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
+                pattern_type, field_descriptor_type<TT1, ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT2, ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT3, ghex::cpu, 2, 1, 0>>(ctxt);
+            bco0.add_field(pattern(field_1a));
+            bco0.add_field(pattern(field_2a));
+            bco0.add_field(pattern(field_3a));
+
+            auto bco1 = ghex::bulk_communication_object<ghex::structured::rma_range_generator,
+                pattern_type, field_descriptor_type<TT1, ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT2, ghex::cpu, 2, 1, 0>,
+                field_descriptor_type<TT3, ghex::cpu, 2, 1, 0>>(ctxt);
+            bco1.add_field(pattern(field_1b));
+            bco1.add_field(pattern(field_2b));
+            bco1.add_field(pattern(field_3b));
 #endif
             cos.emplace_back(std::move(bco0));
             cos.emplace_back(std::move(bco1));
@@ -262,14 +263,14 @@ struct simulation_1
 
     bool check()
     {
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
         field_1a_raw.clone_to_host();
         field_1b_raw.clone_to_host();
         field_2a_raw.clone_to_host();
         field_2b_raw.clone_to_host();
         field_3a_raw.clone_to_host();
         field_3b_raw.clone_to_host();
-#endif /* __CUDACC__ */
+#endif
         bool passed = true;
         passed = passed && test_values(local_domains[0], field_1a);
         passed = passed && test_values(local_domains[1], field_1b);

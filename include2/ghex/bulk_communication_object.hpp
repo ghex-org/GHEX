@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <ghex/util/moved_bit.hpp>
 #include <ghex/communication_object.hpp>
 #include <ghex/rma/locality.hpp>
@@ -208,7 +209,7 @@ class bulk_communication_object
     using buffer_info_types = boost::mp11::mp_transform<buffer_info_type, field_types>;
     // all possible cpu field types
     using cpu_fields = boost::mp11::mp_transform_q<select_arch_q<cpu>, field_types>;
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     // all possible gpu field types
     using gpu_fields = boost::mp11::mp_transform_q<select_arch_q<gpu>, field_types>;
     using all_fields = boost::mp11::mp_unique<boost::mp11::mp_append<cpu_fields, gpu_fields>>;

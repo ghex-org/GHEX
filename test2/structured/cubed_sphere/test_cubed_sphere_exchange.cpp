@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include "../../mpi_runner/mpi_test_fixture.hpp"
 
+#include <ghex/config.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object.hpp>
 #include <ghex/structured/cubed_sphere/halo_generator.hpp>
@@ -910,7 +911,7 @@ TEST_F(mpi_test_fixture, cubed_sphere)
                              1*z;
                 }
 
-#if defined(HWMALLOC_ENABLE_DEVICE)
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     using arch_t = ghex::gpu;
     float* data_ptr_0 = data_dom_0.device_data();
     float* data_ptr_1 = data_dom_1.device_data();
@@ -968,7 +969,7 @@ TEST_F(mpi_test_fixture, cubed_sphere)
         pattern1(field_dom_2),
         pattern1(field_dom_3)).wait();
 
-#if defined(HWMALLOC_ENABLE_DEVICE)
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     data_dom_0.clone_to_host();
     data_dom_1.clone_to_host();
     data_dom_2.clone_to_host();
@@ -1056,7 +1057,7 @@ TEST_F(mpi_test_fixture, cubed_sphere_vector)
                              1*z;
                 }
 
-#if defined(HWMALLOC_ENABLE_DEVICE)
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     using arch_t = ghex::gpu;
     float* data_ptr_0 = data_dom_0.device_data();
     float* data_ptr_1 = data_dom_1.device_data();
@@ -1114,7 +1115,7 @@ TEST_F(mpi_test_fixture, cubed_sphere_vector)
         pattern1(field_dom_2),
         pattern1(field_dom_3)).wait();
 
-#if defined(HWMALLOC_ENABLE_DEVICE)
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     data_dom_0.clone_to_host();
     data_dom_1.clone_to_host();
     data_dom_2.clone_to_host();

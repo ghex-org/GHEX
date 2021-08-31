@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include "../../mpi_runner/mpi_test_fixture.hpp"
 
+#include <ghex/config.hpp>
 #include <ghex/bulk_communication_object.hpp>
 #include <ghex/structured/pattern.hpp>
 #include <ghex/structured/rma_range_generator.hpp>
@@ -54,7 +55,7 @@ wrap_cpu_field(RawField& raw_field, const domain& d)
         d, raw_field.data(), arr{HALO, HALO}, arr{HALO * 2 + DIM, HALO * 2 + DIM / 2});
 }
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
 template<typename RawField>
 auto
 wrap_gpu_field(RawField& raw_field, const domain& d)
@@ -177,7 +178,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // field
     auto raw_field = allocate_field();
     auto field = fill(wrap_cpu_field(raw_field, domains[thread_id]));
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_device();
     auto field_gpu = wrap_gpu_field(raw_field, domains[thread_id]);
 #endif
@@ -189,7 +190,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // classical
     // ---------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id == 0) co.exchange(pattern(field)).wait();
     else
         co.exchange(pattern(field_gpu)).wait();
@@ -198,14 +199,14 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
 #endif
 
         // check field
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_host();
 #endif
     res = res && check(field, dims);
 
     // reset field
     reset(field);
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_device();
 #endif
 
@@ -214,7 +215,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
         // using stages
         // ------------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id == 0)
     {
         co.exchange(spattern[0]->operator()(field)).wait();
@@ -222,8 +223,8 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     }
     else
     {
-        co.exchange(spattern[0]->operator(field_gpu)).wait();
-        co.exchange(spattern[1]->operator(field_gpu)).wait();
+        co.exchange(spattern[0]->operator()(field_gpu)).wait();
+        co.exchange(spattern[1]->operator()(field_gpu)).wait();
     }
 #else
     co.exchange(spattern[0]->operator()(field)).wait();
@@ -231,14 +232,14 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
 #endif
 
     // check field
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_host();
 #endif
     res = res && check(field, dims);
 
     // reset field
     reset(field);
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_device();
 #endif
 
@@ -250,7 +251,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
         // classical
         // ---------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field),
         decltype(field_gpu)>(ctxt);
     if (thread_id == 0) bco.add_field(pattern(field));
@@ -266,14 +267,14 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     gbco.exchange().wait();
 
     // check field
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_host();
 #endif
     res = res && check(field, dims);
 
     // reset field
     reset(field);
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_device();
 #endif
 
@@ -282,7 +283,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
         // using stages
         // ------------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern,
         decltype(field), decltype(field_gpu)>(ctxt);
     auto bco_y = bulk_communication_object<structured::rma_range_generator, Pattern,
@@ -311,7 +312,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     gbco_y.exchange().wait();
 
     // check field
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_host();
 #endif
     res = res && check(field, dims);
@@ -329,7 +330,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     auto raw_field_b = allocate_field();
     auto field_a = fill(wrap_cpu_field(raw_field_a, domains[0]));
     auto field_b = fill(wrap_cpu_field(raw_field_b, domains[1]));
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_device();
     auto field_b_gpu = wrap_gpu_field(raw_field_b, domains[1]);
 #endif
@@ -341,14 +342,14 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // classical
     // ---------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     co.exchange(pattern(field_a), pattern(field_b_gpu)).wait();
 #else
     co.exchange(pattern(field_a), pattern(field_b)).wait();
 #endif
 
     // check fields
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);
@@ -357,7 +358,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // reset fields
     reset(field_a);
     reset(field_b);
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_device();
 #endif
 
@@ -366,7 +367,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // using stages
     // ------------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     co.exchange(spattern[0]->operator()(field_a), spattern[0]->operator()(field_b_gpu)).wait();
     co.exchange(spattern[1]->operator()(field_a), spattern[1]->operator()(field_b_gpu)).wait();
 #else
@@ -375,7 +376,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
 #endif
 
     // check fields
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);
@@ -384,7 +385,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // reset fields
     reset(field_a);
     reset(field_b);
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_device();
 #endif
 
@@ -396,7 +397,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // classical
     // ---------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern,
         decltype(field_a), decltype(field_b_gpu)>(ctxt);
     bco.add_field(pattern(field_a));
@@ -413,7 +414,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     bco.exchange().wait();
 
     // check fields
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);
@@ -422,7 +423,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // reset fields
     reset(field_a);
     reset(field_b);
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_device();
 #endif
 
@@ -431,7 +432,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     // using stages
     // ------------
 
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern,
         decltype(field_a), decltype(field_b_gpu)>(ctxt);
     bco_x.add_field(spattern[0]->operator()(field_a));
@@ -459,7 +460,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     bco_y.exchange().wait();
 
     // check fields
-#ifdef __CUDACC__
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);

@@ -50,7 +50,7 @@ struct arch_traits<cpu>
     }
 };
 
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
 template<>
 struct arch_traits<gpu>
 {
