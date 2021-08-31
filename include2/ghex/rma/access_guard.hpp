@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <ghex/rma/locality.hpp>
 #include <ghex/rma/thread/access_guard.hpp>
 #if defined(GHEX_USE_XPMEM_ACCESS_GUARD) && defined(GHEX_USE_XPMEM)

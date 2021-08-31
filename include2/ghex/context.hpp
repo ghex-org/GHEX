@@ -44,12 +44,12 @@ class context
     rank_type                       m_size;
 
   public:
-    context(MPI_Comm comm, bool thread_safe = true)
-    : m_ctxt{std::make_unique<oomph::context>(comm, thread_safe)}
-    {
-        GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(mpi_comm(), &m_rank));
-        GHEX_CHECK_MPI_RESULT(MPI_Comm_size(mpi_comm(), &m_size));
-    }
+    context(MPI_Comm comm, bool thread_safe = true);
+    //: m_ctxt{std::make_unique<oomph::context>(comm, thread_safe)}
+    //{
+    //    GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(mpi_comm(), &m_rank));
+    //    GHEX_CHECK_MPI_RESULT(MPI_Comm_size(mpi_comm(), &m_size));
+    //}
 
   public:
     auto      transport_context() const noexcept { return m_ctxt.get(); }
@@ -59,16 +59,16 @@ class context
 
     communicator_type get_communicator() { return m_ctxt->get_communicator(); }
 
-    message_type make_buffer(std::size_t size)
-    {
-        return m_ctxt->template make_buffer<unsigned char>(size);
-    }
+    message_type make_buffer(std::size_t size);
+    //{
+    //    return m_ctxt->template make_buffer<unsigned char>(size);
+    //}
 
 #if HWMALLOC_ENABLE_DEVICE
-    message_type make_device_buffer(std::size_t size, int id)
-    {
-        return m_ctxt->template make_device_buffer<unsigned char>(size, id);
-    }
+    message_type make_device_buffer(std::size_t size, int id);
+    //{
+    //    return m_ctxt->template make_device_buffer<unsigned char>(size, id);
+    //}
 #endif
 };
 

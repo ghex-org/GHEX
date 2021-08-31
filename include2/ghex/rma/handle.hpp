@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <ghex/rma/locality.hpp>
 #include <ghex/rma/thread/handle.hpp>
 #ifdef GHEX_USE_XPMEM

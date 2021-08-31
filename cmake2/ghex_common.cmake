@@ -1,36 +1,71 @@
+# ---------------------------------------------------------------------
+# interface library
+# ---------------------------------------------------------------------
+add_library(ghex_common INTERFACE)
+add_library(GHEX::ghex ALIAS ghex_common)
 
-set(c_cxx_lang "$<COMPILE_LANGUAGE:C,CXX>")
-set(cuda_lang "$<COMPILE_LANGUAGE:CUDA>")
+# ---------------------------------------------------------------------
+# shared library
+# ---------------------------------------------------------------------
+add_library(ghex SHARED)
+add_library(GHEX::lib ALIAS ghex)
+target_link_libraries(ghex PUBLIC ghex_common)
+include(ghex_compile_options)
+ghex_target_compile_options(ghex)
 
 # ---------------------------------------------------------------------
 # MPI setup
 # ---------------------------------------------------------------------
 find_package(MPI REQUIRED)
-target_link_libraries(ghex INTERFACE MPI::MPI_CXX)
+target_link_libraries(ghex_common INTERFACE MPI::MPI_CXX)
+target_link_libraries(ghex PRIVATE MPI::MPI_CXX)
 
 # ---------------------------------------------------------------------
 # Boost setup
 # ---------------------------------------------------------------------
 find_package(Boost REQUIRED)
-target_link_libraries(ghex INTERFACE Boost::boost)
+target_link_libraries(ghex_common INTERFACE Boost::boost)
 
 # ---------------------------------------------------------------------
 # LibRt setup
 # ---------------------------------------------------------------------
 find_library(LIBRT rt REQUIRED)
-target_link_libraries(ghex INTERFACE ${LIBRT})
+target_link_libraries(ghex PUBLIC ${LIBRT})
 
 # ---------------------------------------------------------------------
 # GridTools setup
 # ---------------------------------------------------------------------
 include(ghex_gridtools)
-target_link_libraries(ghex INTERFACE GridTools::gridtools)
+target_link_libraries(ghex_common INTERFACE GridTools::gridtools)
 
 # ---------------------------------------------------------------------
 # oomph setup
 # ---------------------------------------------------------------------
 include(ghex_oomph)
-target_link_libraries(ghex INTERFACE oomph::oomph)
+target_link_libraries(ghex_common INTERFACE oomph::oomph)
+#TODO: make some sort of plugin loader to avoid linking to hwmalloc, oomph_<backend> and ghex
+#      and instead only link to libghex
+set(GHEX_TRANSPORT_BACKEND "MPI" CACHE STRING "Choose the backend type: MPI | UCX | LIBFABRIC")
+set_property(CACHE GHEX_TRANSPORT_BACKEND PROPERTY STRINGS "MPI" "UCX" "LIBFABRIC")
+if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
+    if (${OOMPH_WITH_LIBFABRIC})
+        target_link_libraries(ghex PUBLIC oomph::libfabric)
+    else()
+        message( FATAL_ERROR "LIBFABRIC backend is not available - check oomph configure options" )
+    endif()
+elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
+    if (${OOMPH_WITH_UCX})
+        target_link_libraries(ghex PUBLIC oomph::ucx)
+    else()
+        message( FATAL_ERROR "UCX backend is not available - check oomph configure options" )
+    endif()
+else()
+    if (${OOMPH_WITH_MPI})
+        target_link_libraries(ghex PUBLIC oomph::mpi)
+    else()
+        message( FATAL_ERROR "MPI backend is not available - check oomph configure options" )
+    endif()
+endif()
 
 # ---------------------------------------------------------------------
 # xpmem setup
@@ -38,9 +73,8 @@ target_link_libraries(ghex INTERFACE oomph::oomph)
 set(GHEX_USE_XPMEM OFF CACHE BOOL "Set to true to use xpmem shared memory")
 if (GHEX_USE_XPMEM)
     find_package(XPMEM REQUIRED)
+    target_link_libraries(ghex_common INTERFACE XPMEM::libxpmem)
+    target_link_libraries(ghex PRIVATE XPMEM::libxpmem)
 endif()
 set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma access")
 mark_as_advanced(GHEX_USE_XPMEM_ACCESS_GUARD)
-if (GHEX_USE_XPMEM_ACCESS_GUARD)
-    target_compile_definitions(ghex INTERFACE GHEX_USE_XPMEM_ACCESS_GUARD)
-endif()

@@ -18,16 +18,28 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 # ---------------------------------------------------------------------
 # Define main library
 # ---------------------------------------------------------------------
-add_library(ghex INTERFACE)
-add_library(GHEX::ghex ALIAS ghex)
 include(ghex_common)
 
 # ---------------------------------------------------------------------
 # include paths
 # ---------------------------------------------------------------------
-target_include_directories(ghex INTERFACE
+target_include_directories(ghex_common INTERFACE
     $<INSTALL_INTERFACE:include2>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include2>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include2>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include2>)
+
+# ---------------------------------------------------------------------
+# main src subdir
+# ---------------------------------------------------------------------
+add_subdirectory(src)
+
+# ---------------------------------------------------------------------
+# generate config file
+# ---------------------------------------------------------------------
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake2/config.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include2/ghex/config.hpp @ONLY)
+install(FILES ${PROJECT_BINARY_DIR}/include2/ghex/config.hpp
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ghex)
 
 # ---------------------------------------------------------------------
 # testing

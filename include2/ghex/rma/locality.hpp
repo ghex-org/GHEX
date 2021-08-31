@@ -10,6 +10,8 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
+
 namespace ghex
 {
 namespace rma

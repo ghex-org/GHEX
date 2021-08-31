@@ -20,13 +20,11 @@ foreach (t ${serial_tests})
 endforeach()
 
 foreach (t ${parallel_tests})
-    ghex_reg_parallel_test(${t} mpi 4 false)
-    ghex_reg_parallel_test(${t} ucx 4 false)
+    ghex_reg_parallel_test(${t} 4 false)
 endforeach()
 
 foreach (t ${parallel_mt_tests})
-    ghex_reg_parallel_test(${t} mpi 4 true)
-    ghex_reg_parallel_test(${t} ucx 4 true)
+    ghex_reg_parallel_test(${t} 4 true)
 endforeach()
 
 add_subdirectory(structured)
