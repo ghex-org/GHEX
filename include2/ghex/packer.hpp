@@ -10,6 +10,7 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <ghex/arch_traits.hpp>
 #include <ghex/device/guard.hpp>
 //#include "./common/await_futures.hpp"
@@ -17,6 +18,7 @@
 //#include "./structured/field_utils.hpp"
 //#include "./cuda_utils/kernel_argument.hpp"
 //#include "./cuda_utils/future.hpp"
+#include <ghex/device/cuda/future.hpp>
 //#include <gridtools/common/array.hpp>
 
 namespace ghex
@@ -66,8 +68,31 @@ struct packer
     //}
 };
 
-//#ifdef __CUDACC__
-//
+#ifdef GHEX_CUDACC
+
+/** @brief wait for all futures in a range to finish and call 
+  * a continuation with the future's value as argument. */
+template<typename Future, typename Continuation>
+inline void await_futures(std::vector<Future>& range, Continuation&& cont)
+{
+    static thread_local std::vector<int> index_list;
+    index_list.resize(range.size());
+    std::iota(index_list.begin(), index_list.end(), 0);
+    const auto begin = index_list.begin();
+    auto end = index_list.end();
+    while (begin != end)
+    {
+        end = std::remove_if(begin, end, [&range, cont = std::forward<Continuation>(cont)](int idx)
+        {
+            if (range[idx].test())
+            {
+                cont(range[idx].get());
+                return true;
+            } else return false;
+        });
+    }
+}
+
 //template<typename PackIterationSpace, unsigned int N>
 //__global__ void
 //pack_kernel_u(cuda::kernel_argument<PackIterationSpace, N> args)
@@ -120,59 +145,65 @@ struct packer
 //    }
 //}
 //
-///** @brief specialization for gpus, including vector interface special functions */
-//template<>
-//struct packer<gpu>
-//{
-//    template<typename Map, typename Futures, typename Communicator>
-//    static void pack(Map& map, Futures& send_futures, Communicator& comm)
-//    {
-//        using send_buffer_type = typename Map::send_buffer_type;
-//        using future_type = cuda::future<send_buffer_type*>;
-//        std::size_t num_streams = 0;
-//        for (auto& p0 : map.send_memory)
-//        {
-//            for (auto& p1 : p0.second)
-//            {
-//                if (p1.second.size > 0u)
-//                {
+/** @brief specialization for gpus, including vector interface special functions */
+template<>
+struct packer<gpu>
+{
+    template<typename Map, typename Requests, typename Communicator>
+    static void pack(Map& map, Requests& send_reqs, Communicator& comm)
+    {
+        using send_buffer_type = typename Map::send_buffer_type;
+        using future_type = device::future<send_buffer_type*>;
+        std::size_t num_streams = 0;
+        for (auto& p0 : map.send_memory)
+        {
+            const auto device_id = p0.first;
+            for (auto& p1 : p0.second)
+            {
+                if (p1.second.size > 0u)
+                {
 //                    p1.second.buffer.resize(p1.second.size);
-//                    ++num_streams;
-//                }
-//            }
-//        }
-//        std::vector<future_type> stream_futures;
-//        stream_futures.reserve(num_streams);
-//        num_streams = 0;
-//        for (auto& p0 : map.send_memory)
-//        {
-//            for (auto& p1 : p0.second)
-//            {
-//                if (p1.second.size > 0u)
-//                {
-//                    for (const auto& fb : p1.second.field_infos)
-//                    {
-//                        fb.call_back(p1.second.buffer.data() + fb.offset, *fb.index_container,
-//                            (void*)(&p1.second.m_cuda_stream.get()));
-//                    }
-//                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_cuda_stream});
-//                    ++num_streams;
-//                }
-//            }
-//        }
-//        await_futures(stream_futures, [&comm, &send_futures](send_buffer_type* b) {
+                    if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+                            || p1.second.buffer.device_id() != device_id)
+                        p1.second.buffer =
+                            arch_traits<gpu>::make_message(comm, p1.second.size, device_id);
+                    ++num_streams;
+                }
+            }
+        }
+        std::vector<future_type> stream_futures;
+        stream_futures.reserve(num_streams);
+        num_streams = 0;
+        for (auto& p0 : map.send_memory)
+        {
+            for (auto& p1 : p0.second)
+            {
+                if (p1.second.size > 0u)
+                {
+                    for (const auto& fb : p1.second.field_infos)
+                    {
+                        fb.call_back(p1.second.buffer.data() + fb.offset, *fb.index_container,
+                            (void*)(&p1.second.m_cuda_stream.get()));
+                    }
+                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_cuda_stream});
+                    ++num_streams;
+                }
+            }
+        }
+        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
 //            send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
-//        });
-//    }
-//
-//    template<typename Buffer>
-//    static void unpack(Buffer& buffer, unsigned char* data)
-//    {
-//        auto& stream = buffer.m_cuda_stream;
-//        for (const auto& fb : buffer.field_infos)
-//            fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
-//    }
-//
+            send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
+        });
+    }
+
+    template<typename Buffer>
+    static void unpack(Buffer& buffer, unsigned char* data)
+    {
+        auto& stream = buffer.m_cuda_stream;
+        for (const auto& fb : buffer.field_infos)
+            fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
+    }
+
 //    template<typename BufferMem>
 //    static void unpack(BufferMem& m)
 //    {
@@ -373,7 +404,7 @@ struct packer
 //            });
 //        for (auto x : stream_ptrs) { cudaStreamSynchronize(*x); }
 //    }
-//};
-//#endif
+};
+#endif
 
 } // namespace ghex

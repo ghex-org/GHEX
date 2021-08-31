@@ -256,7 +256,7 @@ class communication_object
     //    {
     //        exchange(buffer_infos...).wait();
     //    }
-    //
+    
     /** @brief non-blocking exchange of halo data
       * @tparam Archs list of device types
       * @tparam Fields list of field types
@@ -498,7 +498,8 @@ class communication_object
                     if (p1.second.size > 0u)
                     {
                         // p1.second.buffer.resize(p1.second.size);
-                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size)
+                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+                                || p1.second.buffer.device_id() != device_id)
                             p1.second.buffer = arch_traits<arch_type>::make_message(
                                 m_comm, p1.second.size, device_id);
                         auto ptr = &p1.second;
