@@ -11,7 +11,6 @@
 #pragma once
 
 #include <ghex/config.hpp>
-//#include "../common/utils.hpp"
 #include <ghex/device/stream.hpp>
 #include <ghex/structured/rma_range.hpp>
 
@@ -57,9 +56,10 @@ __attribute__((optimize("no-tree-loop-distribute-patterns"))) __attribute__((tar
 #endif
 std::enable_if_t<cpu_to_cpu<SourceField, TargetField>::value &&
                  !rma_range<SourceField>::fuse_components::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
+put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+    rma::locality
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     ,
     cudaStream_t
 #endif
@@ -79,9 +79,10 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<cpu_to_cpu<SourceField, TargetField>::value &&
                         rma_range<SourceField>::fuse_components::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
+put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+    rma::locality
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     ,
     cudaStream_t
 #endif
@@ -105,16 +106,17 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<cpu_to_gpu<SourceField, TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
+put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+    rma::locality
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     ,
     cudaStream_t st
 #endif
 )
 {
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
     for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
@@ -128,19 +130,20 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
 
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<gpu_to_cpu<SourceField, TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
+put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+    rma::locality
 #ifdef GHEX_USE_XPMEM
         loc
 #endif
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     ,
     cudaStream_t st
 #endif
 )
 {
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
 #ifndef GHEX_USE_XPMEM
@@ -215,16 +218,17 @@ put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<gpu_to_gpu<SourceField, TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality /*loc*/
+put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+    rma::locality /*loc*/
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     ,
     cudaStream_t st
 #endif
 )
 {
 #ifdef GHEX_CUDACC
-//#ifdef GHEX_USE_GPU
+    //#ifdef GHEX_USE_GPU
     static constexpr unsigned int block_dim = 128;
     const unsigned int            num_blocks = (s.m_num_elements + block_dim - 1) / block_dim;
     put_device_to_device_kernel<<<num_blocks, block_dim, 0, st>>>(s, t);
