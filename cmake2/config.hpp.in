@@ -15,6 +15,15 @@
 
 #cmakedefine GHEX_USE_XPMEM
 #cmakedefine GHEX_USE_XPMEM_ACCESS_GUARD
+#cmakedefine GHEX_USE_GPU
+#define GHEX_GPU_MODE @ghex_gpu_mode@
+#cmakedefine GHEX_GPU_MODE_EMULATE
+
+#if defined(GHEX_USE_GPU)
+#if (defined(__CUDACC__) || defined(__HIP_PLATFORM_HCC__))
+#define GHEX_CUDACC
+#endif
+#endif
 
 namespace ghex
 {
@@ -25,7 +34,7 @@ struct gpu
 {
 };
 
-#if HWMALLOC_ENABLE_DEVICE
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
 using arch_list = std::tuple<cpu, gpu>;
 #else
 using arch_list = std::tuple<cpu>;

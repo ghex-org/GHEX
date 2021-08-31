@@ -1,3 +1,5 @@
+include(ghex_compile_options)
+
 # ---------------------------------------------------------------------
 # interface library
 # ---------------------------------------------------------------------
@@ -10,7 +12,6 @@ add_library(GHEX::ghex ALIAS ghex_common)
 add_library(ghex SHARED)
 add_library(GHEX::lib ALIAS ghex)
 target_link_libraries(ghex PUBLIC ghex_common)
-include(ghex_compile_options)
 ghex_target_compile_options(ghex)
 
 # ---------------------------------------------------------------------
@@ -78,3 +79,8 @@ if (GHEX_USE_XPMEM)
 endif()
 set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma access")
 mark_as_advanced(GHEX_USE_XPMEM_ACCESS_GUARD)
+
+# ---------------------------------------------------------------------
+# device setup
+# ---------------------------------------------------------------------
+include(ghex_device)
