@@ -10,7 +10,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../mpi_runner/mpi_test_fixture.hpp"
+#include "../../mpi_runner/mpi_test_fixture.hpp"
 
 #include <ghex/communication_object.hpp>
 #include <ghex/glue/gridtools/gt_glue.hpp>

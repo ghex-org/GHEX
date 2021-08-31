@@ -27,4 +27,10 @@ foreach (t ${parallel_mt_tests})
     ghex_reg_parallel_test(${t} 4 true)
 endforeach()
 
+if (GHEX_USE_GPU)
+    ghex_compile_test(unified_memory_allocator)
+    ghex_reg_test(unified_memory_allocator)
+endif()
+
 add_subdirectory(structured)
+add_subdirectory(glue)
