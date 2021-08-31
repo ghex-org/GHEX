@@ -686,7 +686,9 @@ parameters<T1, T2, T3, Arch_A, Arch_B>::field<T, Arch>::field(
 
     int size, std::array<int, 3> const& off, std::array<int, 3> const& ext,
     domain_descriptor_type& d, std::array<int, 6> const halos_, pattern_container_type& p)
-: raw_field{(unsigned int)size}
+//: raw_field{(unsigned int)size}
+// no freeing of (pinned) GPU memory because of MPICH bug on daint...
+: raw_field{(unsigned int)size, T{}, true}
 , ghex_field{wrap(raw_field, d, off, ext, Arch{})}
 , dom{d}
 , halos{halos_}

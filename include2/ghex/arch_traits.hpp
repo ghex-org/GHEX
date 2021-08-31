@@ -42,10 +42,10 @@ struct arch_traits<cpu>
     static device_id_type default_id() { return 0; }
 
     static message_type make_message(
-        oomph::communicator& c, std::size_t size, device_id_type index = default_id())
+        oomph::communicator& c, std::size_t size, device_id_type = default_id())
     {
-        static_assert(
-            std::is_same<decltype(index), device_id_type>::value, "trick to prevent warnings");
+        //static_assert(
+        //    std::is_same<decltype(index), device_id_type>::value, "trick to prevent warnings");
         return c.make_buffer<unsigned char>(size);
     }
 };

@@ -36,7 +36,7 @@ struct stream
 
     ~stream()
     {
-        if (!m_moved) cudaStreamDestroy(stream);
+        if (!m_moved) cudaStreamDestroy(m_stream);
     }
 
     operator bool() const noexcept { return m_moved; }

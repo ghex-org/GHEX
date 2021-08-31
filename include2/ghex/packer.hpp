@@ -20,6 +20,7 @@
 //#include "./cuda_utils/future.hpp"
 #include <ghex/device/cuda/future.hpp>
 //#include <gridtools/common/array.hpp>
+#include <numeric>
 
 namespace ghex
 {
@@ -155,6 +156,7 @@ struct packer<gpu>
         using send_buffer_type = typename Map::send_buffer_type;
         using future_type = device::future<send_buffer_type*>;
         std::size_t num_streams = 0;
+
         for (auto& p0 : map.send_memory)
         {
             const auto device_id = p0.first;
@@ -182,16 +184,16 @@ struct packer<gpu>
                 {
                     for (const auto& fb : p1.second.field_infos)
                     {
-                        fb.call_back(p1.second.buffer.data() + fb.offset, *fb.index_container,
-                            (void*)(&p1.second.m_cuda_stream.get()));
+                        device::guard g(p1.second.buffer);
+                        fb.call_back(g.data() + fb.offset, *fb.index_container,
+                            (void*)(&p1.second.m_stream.get()));
                     }
-                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_cuda_stream});
+                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_stream});
                     ++num_streams;
                 }
             }
         }
         await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
-//            send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
             send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
         });
     }
@@ -199,7 +201,7 @@ struct packer<gpu>
     template<typename Buffer>
     static void unpack(Buffer& buffer, unsigned char* data)
     {
-        auto& stream = buffer.m_cuda_stream;
+        auto& stream = buffer.m_stream;
         for (const auto& fb : buffer.field_infos)
             fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
     }
