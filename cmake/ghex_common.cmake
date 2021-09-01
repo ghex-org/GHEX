@@ -100,3 +100,17 @@ if (GHEX_ENABLE_ATLAS_BINDINGS)
     target_link_libraries(atlas INTERFACE eckit)
     target_link_libraries(ghex_common INTERFACE atlas)
 endif()
+
+# ---------------------------------------------------------------------
+# install rules
+# ---------------------------------------------------------------------
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+install(TARGETS ghex_common ghex
+    EXPORT ghex-targets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
