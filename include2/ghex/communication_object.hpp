@@ -137,14 +137,11 @@ class communication_object
 
   private: // member types
     using communicator_type = oomph::communicator;
-    //using address_type = typename communicator_type::address_type;
     using rank_type = communicator_type::rank_type;
     using index_container_type = typename pattern_type::index_container_type;
     using pack_function_type = std::function<void(void*, const index_container_type&, void*)>;
     using unpack_function_type =
         std::function<void(const void*, const index_container_type&, void*)>;
-    //using future_type = typename communicator_type::template future<void>;
-    //using request_cb_type = typename communicator_type::request_cb_type;
     using send_request_type = oomph::send_request;
     using recv_request_type = oomph::recv_request;
 
@@ -162,10 +159,10 @@ class communication_object
     };
 
     /** @brief Holds a pointer to a set of iteration spaces and a callback function pointer 
-              * which is used to store a field's pack or unpack member function. 
-              * This class also stores the offset in the serialized buffer in bytes.
-              * The type-erased field_ptr member is only used for the gpu-vector-interface.
-              * @tparam Function Either pack or unpack function pointer type */
+      * which is used to store a field's pack or unpack member function. 
+      * This class also stores the offset in the serialized buffer in bytes.
+      * The type-erased field_ptr member is only used for the gpu-vector-interface.
+      * @tparam Function Either pack or unpack function pointer type */
     template<typename Function>
     struct field_info
     {
@@ -177,13 +174,12 @@ class communication_object
     };
 
     /** @brief Holds serial buffer memory and meta information associated with it
-              * @tparam Vector contiguous buffer memory type
-              * @tparam Function Either pack or unpack function pointer type */
+      * @tparam Vector contiguous buffer memory type
+      * @tparam Function Either pack or unpack function pointer type */
     template<class Function>
     struct buffer
     {
         using field_info_type = field_info<Function>;
-        //address_type                 address;
         rank_type                    rank;
         int                          tag;
         context::message_type        buffer;
@@ -192,15 +188,14 @@ class communication_object
         device::stream               m_stream;
     };
 
-    /** @brief Holds maps of buffers for send and recieve operations indexed by a domain_id_pair and a device id
-              * @tparam Arch the device on which the buffer memory is allocated */
+    /** @brief Holds maps of buffers for send and recieve operations indexed by a domain_id_pair and
+      * a device id
+      * @tparam Arch the device on which the buffer memory is allocated */
     template<typename Arch>
     struct buffer_memory
     {
         using arch_type = Arch;
         using device_id_type = typename arch_traits<Arch>::device_id_type;
-        //using vector_type =  //typename arch_traits<Arch>::message_type;
-
         using send_buffer_type = buffer<pack_function_type>;
         using recv_buffer_type = buffer<unpack_function_type>;
         using send_memory_type =
@@ -208,7 +203,6 @@ class communication_object
         using recv_memory_type =
             std::map<device_id_type, std::map<domain_id_pair, recv_buffer_type>>;
 
-        //std::map<device_id_type, std::unique_ptr<typename arch_traits<Arch>::pool_type>> m_pools;
         send_memory_type send_memory;
         recv_memory_type recv_memory;
 
@@ -256,7 +250,7 @@ class communication_object
     //    {
     //        exchange(buffer_infos...).wait();
     //    }
-    
+
     /** @brief non-blocking exchange of halo data
       * @tparam Archs list of device types
       * @tparam Fields list of field types
@@ -271,21 +265,21 @@ class communication_object
         pack();
         return h;
     }
-    
-        /** @brief  non-blocking exchange of halo data
+
+    /** @brief  non-blocking exchange of halo data
                   * @tparam Iterator Iterator type to range of buffer_info objects
                   * @param first points to the begin of the range
                   * @param last points to the end of the range
                   * @return handle to await communication */
-        template<typename Iterator>
-        [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(
-            Iterator first, Iterator last)
-        {
-            // call special function for a single range
-            return exchange_u(first, last);
-        }
-    
-        /** @brief  non-blocking exchange of halo data
+    template<typename Iterator>
+    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(
+        Iterator first, Iterator last)
+    {
+        // call special function for a single range
+        return exchange_u(first, last);
+    }
+
+    /** @brief  non-blocking exchange of halo data
                   * @tparam Iterator0 Iterator type to range of buffer_info objects
                   * @tparam Iterator1 Iterator type to range of buffer_info objects
                   * @tparam Iterators Iterator types to ranges of buffer_info objects
@@ -295,53 +289,53 @@ class communication_object
                   * @param last1 points to the end of the range1
                   * @param iters first and last iterators for further ranges
                   * @return handle to await communication */
-        template<typename Iterator0, typename Iterator1, typename... Iterators>
-        [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(
-            Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
-        {
-            static_assert(
-                sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
-            // call helper function to turn iterators into pairs of iterators
-            return exchange_make_pairs(std::make_index_sequence<2 + sizeof...(iters) / 2>(), first0,
-                last0, first1, last1, iters...);
-        }
-    
-      private: // implementation
-        // overload for pairs of iterators
-        template<typename... Iterators>
-        [[nodiscard]] handle_type exchange(std::pair<Iterators, Iterators>... iter_pairs)
-        {
-            exchange_impl(iter_pairs...);
-            post_recvs();
-            pack();
-    //        return handle_type(m_comm, [this]() { this->wait(); });
-            return handle_type ([this]() { this->wait(); });
-        }
-    
-        // helper function to turn iterators into pairs of iterators
-        template<std::size_t... Is, typename... Iterators>
-        [[nodiscard]] handle_type exchange_make_pairs(std::index_sequence<Is...>, Iterators... iters)
-        {
-            const std::tuple<Iterators...> iter_t{iters...};
-            // call exchange with pairs of iterators
-            return exchange(std::make_pair(std::get<2 * Is>(iter_t), std::get<2 * Is + 1>(iter_t))...);
-        }
-    
-        // special function to handle one iterator pair (optimization for gpus below)
-        template<typename Iterator>
+    template<typename Iterator0, typename Iterator1, typename... Iterators>
+    [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(
+        Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
+    {
+        static_assert(
+            sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
+        // call helper function to turn iterators into pairs of iterators
+        return exchange_make_pairs(std::make_index_sequence<2 + sizeof...(iters) / 2>(), first0,
+            last0, first1, last1, iters...);
+    }
+
+  private: // implementation
+    // overload for pairs of iterators
+    template<typename... Iterators>
+    [[nodiscard]] handle_type exchange(std::pair<Iterators, Iterators>... iter_pairs)
+    {
+        exchange_impl(iter_pairs...);
+        post_recvs();
+        pack();
+        //        return handle_type(m_comm, [this]() { this->wait(); });
+        return handle_type([this]() { this->wait(); });
+    }
+
+    // helper function to turn iterators into pairs of iterators
+    template<std::size_t... Is, typename... Iterators>
+    [[nodiscard]] handle_type exchange_make_pairs(std::index_sequence<Is...>, Iterators... iters)
+    {
+        const std::tuple<Iterators...> iter_t{iters...};
+        // call exchange with pairs of iterators
+        return exchange(std::make_pair(std::get<2 * Is>(iter_t), std::get<2 * Is + 1>(iter_t))...);
+    }
+
+    // special function to handle one iterator pair (optimization for gpus below)
+    template<typename Iterator>
     //#ifdef GHEX_COMM_OBJ_USE_U
     //    [[nodiscard]] std::enable_if_t<
     //        !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
     //        handle_type>
     //#else
-        [[nodiscard]] handle_type
+    [[nodiscard]] handle_type
     //#endif
-        exchange_u(Iterator first, Iterator last)
-        {
-            // call exchange with a pair of iterators
-            return exchange(std::make_pair(first, last));
-        }
-    
+    exchange_u(Iterator first, Iterator last)
+    {
+        // call exchange with a pair of iterators
+        return exchange(std::make_pair(first, last));
+    }
+
     //#ifdef GHEX_COMM_OBJ_USE_U
     //#ifdef __CUDACC__
     //    // optimized exchange for regular grids and a range of same-type fields
@@ -404,43 +398,43 @@ class communication_object
     //#endif
     //#endif
     //
-        // helper function to set up communicaton buffers (run-time case)
-        template<typename... Iterators>
-        void exchange_impl(std::pair<Iterators, Iterators>... iter_pairs)
-        {
-            const std::tuple<std::pair<Iterators, Iterators>...> iter_pairs_t{iter_pairs...};
-    
-            if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
-            m_valid = true;
-    
-            // build a tag map
-            using test_t = pattern_container<grid_type, domain_id_type>;
-            std::map<const test_t*, int> pat_ptr_map;
-            int                          max_tag = 0;
-            for_each(iter_pairs_t, [&pat_ptr_map, &max_tag](auto iter_pair) {
-                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
-                {
-                    auto ptr = &(it->get_pattern_container());
-                    auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
-                    if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
-                }
-            });
-            for_each(iter_pairs_t, [this, &pat_ptr_map](auto iter_pair) {
-                using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
-                using arch_t = typename buffer_info_t::arch_type;
-                using value_t = typename buffer_info_t::value_type;
-                auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
-                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
-                {
-                    auto       field_ptr = &(it->get_field());
-                    auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
-                    const auto my_dom_id = it->get_field().domain_id();
-                    allocate<arch_t, value_t>(
-                        mem, it->get_pattern(), field_ptr, my_dom_id, it->device_id(), tag_offset);
-                }
-            });
-        }
-    
+    // helper function to set up communicaton buffers (run-time case)
+    template<typename... Iterators>
+    void exchange_impl(std::pair<Iterators, Iterators>... iter_pairs)
+    {
+        const std::tuple<std::pair<Iterators, Iterators>...> iter_pairs_t{iter_pairs...};
+
+        if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
+        m_valid = true;
+
+        // build a tag map
+        using test_t = pattern_container<grid_type, domain_id_type>;
+        std::map<const test_t*, int> pat_ptr_map;
+        int                          max_tag = 0;
+        for_each(iter_pairs_t, [&pat_ptr_map, &max_tag](auto iter_pair) {
+            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+            {
+                auto ptr = &(it->get_pattern_container());
+                auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
+                if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
+            }
+        });
+        for_each(iter_pairs_t, [this, &pat_ptr_map](auto iter_pair) {
+            using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
+            using arch_t = typename buffer_info_t::arch_type;
+            using value_t = typename buffer_info_t::value_type;
+            auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
+            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+            {
+                auto       field_ptr = &(it->get_field());
+                auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
+                const auto my_dom_id = it->get_field().domain_id();
+                allocate<arch_t, value_t>(
+                    mem, it->get_pattern(), field_ptr, my_dom_id, it->device_id(), tag_offset);
+            }
+        });
+    }
+
     // helper function to set up communicaton buffers (compile-time case)
     template<typename... Archs, typename... Fields>
     void exchange_impl(buffer_info_type<Archs, Fields>... buffer_infos)
@@ -497,9 +491,8 @@ class communication_object
                 {
                     if (p1.second.size > 0u)
                     {
-                        // p1.second.buffer.resize(p1.second.size);
-                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
-                                || p1.second.buffer.device_id() != device_id)
+                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
+                            p1.second.buffer.device_id() != device_id)
                             p1.second.buffer = arch_traits<arch_type>::make_message(
                                 m_comm, p1.second.size, device_id);
                         auto ptr = &p1.second;
@@ -624,33 +617,25 @@ class communication_object
     void allocate(Memory& mem, const pattern_type& pattern, Field* field_ptr, domain_id_type dom_id,
         typename arch_traits<Arch>::device_id_type device_id, O tag_offset)
     {
-        //        auto& pool = mem->m_pools[device_id];
-        //        if (!pool)
-        //        {
-        //            pool.reset(new typename arch_traits<Arch>::pool_type{
-        //                typename arch_traits<Arch>::basic_allocator_type{}});
-        //        }
         allocate<Arch, T, typename buffer_memory<Arch>::recv_buffer_type>(
             mem->recv_memory[device_id], pattern.recv_halos(),
             [field_ptr](const void* buffer, const index_container_type& c, void* arg) {
                 field_ptr->unpack(reinterpret_cast<const T*>(buffer), c, arg);
             },
-            dom_id /*, device_id*/, tag_offset, true /*, *pool*/, field_ptr);
+            dom_id, tag_offset, true, field_ptr);
         allocate<Arch, T, typename buffer_memory<Arch>::send_buffer_type>(
             mem->send_memory[device_id], pattern.send_halos(),
             [field_ptr](void* buffer, const index_container_type& c, void* arg) {
                 field_ptr->pack(reinterpret_cast<T*>(buffer), c, arg);
             },
-            dom_id /*, device_id*/, tag_offset, false /*, *pool*/, field_ptr);
+            dom_id, tag_offset, false, field_ptr);
     }
 
     // compute memory requirements to be allocated on the device
     template<typename Arch, typename ValueType, typename BufferType, typename Memory,
-        typename Halos, typename Function /*, typename DeviceIdType*/ /*, typename Pool*/,
-        typename Field = void>
+        typename Halos, typename Function, typename Field = void>
     void allocate(Memory& memory, const Halos& halos, Function&& func, domain_id_type my_dom_id,
-        /*DeviceIdType device_id, */ int tag_offset, bool receive /*, Pool& pool*/,
-        Field* field_ptr = nullptr)
+        int tag_offset, bool receive, Field* field_ptr = nullptr)
     {
         for (const auto& p_id_c : halos)
         {
@@ -702,10 +687,8 @@ class communication_object
           * @return communication object */
 template<typename PatternContainer>
 auto
-make_communication_object(
-    context& c) //typename PatternContainer::value_type::communicator_type comm)
+make_communication_object(context& c)
 {
-    //using communicator_type = typename PatternContainer::value_type::communicator_type;
     using grid_type = typename PatternContainer::value_type::grid_type;
     using domain_id_type = typename PatternContainer::value_type::domain_id_type;
     return communication_object<grid_type, domain_id_type>(c);

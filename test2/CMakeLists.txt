@@ -33,4 +33,5 @@ if (GHEX_USE_GPU)
 endif()
 
 add_subdirectory(structured)
+add_subdirectory(unstructured)
 add_subdirectory(glue)

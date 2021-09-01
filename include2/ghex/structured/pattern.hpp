@@ -127,7 +127,6 @@ class pattern<structured::detail::grid<CoordinateArrayType>, DomainIdType>
       public: // members
         domain_id_type id;
         int            mpi_rank;
-        //address_type   address;
         int tag;
 
       public: // member functions
@@ -217,11 +216,9 @@ struct make_pattern_impl<ghex::structured::detail::grid<CoordinateArrayType>>
     static auto apply(context& ctxt, HaloGenerator&& hgen, DomainRange&& d_range)
     {
         // typedefs
-        //using context_type = context;
         using domain_type = typename std::remove_reference_t<DomainRange>::value_type;
         using domain_id_type = typename domain_type::domain_id_type;
         using grid_type = ghex::structured::detail::grid<CoordinateArrayType>;
-        //using communicator_type = typename context_type::communicator_type;
         using pattern_type = pattern<grid_type, domain_id_type>;
         using iteration_space = typename pattern_type::iteration_space;
         using iteration_space_pair = typename pattern_type::iteration_space_pair;
@@ -230,8 +227,6 @@ struct make_pattern_impl<ghex::structured::detail::grid<CoordinateArrayType>>
 
         auto comm = mpi::communicator(ctxt);
         auto my_rank = comm.rank();
-        //auto new_comm = ctxt.get_communicator();
-        //auto my_rank = new_comm.rank();
 
         // set up domain ids, extents and recv halos
         std::vector<iteration_space_pair>              my_domain_extents;
