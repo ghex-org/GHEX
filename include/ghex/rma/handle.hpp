@@ -18,6 +18,7 @@
 #endif
 #ifdef GHEX_CUDACC
 #include <ghex/rma/cuda/handle.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 #include <memory>
 

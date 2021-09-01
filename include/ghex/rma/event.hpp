@@ -10,7 +10,12 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <ghex/device/cuda/error.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 #include <memory>
 
 namespace ghex
@@ -53,8 +58,8 @@ struct local_event
             { GHEX_CHECK_CUDA_RESULT(cudaEventCreate(&m_event, cudaEventDisableTiming)); }
             if (m_loc == locality::process)
             {
-                GHEX_CHECK_CUDA_RESULT(
-                    cudaEventCreate(&m_event, cudaEventDisableTiming | cudaEventInterprocess));
+                GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(
+                    &m_event, cudaEventDisableTiming | cudaEventInterprocess));
                 GHEX_CHECK_CUDA_RESULT(cudaIpcGetEventHandle(&m_event_handle, m_event));
             }
 #endif

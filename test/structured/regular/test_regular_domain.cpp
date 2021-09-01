@@ -18,6 +18,11 @@
 #include <ghex/structured/regular/halo_generator.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/communication_object.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#include <gridtools/common/cuda_util.hpp>
+#include <gridtools/common/host_device.hpp>
+#endif
 
 #include <gridtools/common/array.hpp>
 #include "../../util/memory.hpp"

@@ -13,6 +13,9 @@
 #include "../../mpi_runner/mpi_test_fixture.hpp"
 
 #include <ghex/config.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object.hpp>
 #include <ghex/structured/cubed_sphere/halo_generator.hpp>

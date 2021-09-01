@@ -24,9 +24,10 @@
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
 #include <ghex/communication_object.hpp>
-//#ifdef __CUDACC__
-//#include <gridtools/common/cuda_util.hpp>
-//#endif
+#ifdef GHEX_CUDACC
+#include <gridtools/common/cuda_util.hpp>
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 
 #include <vector>
 

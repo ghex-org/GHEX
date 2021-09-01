@@ -12,6 +12,9 @@
 
 #include <ghex/config.hpp>
 #include <ghex/context.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 
 namespace ghex
 {

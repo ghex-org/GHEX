@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
+#cmake_policy(SET CMP0048 NEW)
 
 project(GHEX VERSION 1.0 LANGUAGES CXX)
 

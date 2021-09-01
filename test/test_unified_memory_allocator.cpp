@@ -10,6 +10,9 @@
  */
 #include <gtest/gtest.h>
 #include <ghex/config.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 #include <ghex/allocator/unified_memory_allocator.hpp>
 #include <vector>
 

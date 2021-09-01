@@ -14,6 +14,10 @@
 #include <ghex/arch_traits.hpp>
 #include <ghex/common/utils.hpp>
 #include <ghex/structured/field_utils.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 #include <cstring>
 
 namespace ghex

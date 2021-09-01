@@ -12,7 +12,7 @@
 
 #include <ghex/config.hpp>
 #ifdef GHEX_CUDACC
-#include <cuda_runtime.h>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 #include <cstdlib>

@@ -15,6 +15,9 @@
 #include <ghex/arch_traits.hpp>
 //#include <ghex/allocator/unified_memory_allocator.hpp>
 #include <ghex/device/cuda/error.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 
 #include <atlas/field.h>
 #include <atlas/array.h>
@@ -104,7 +107,7 @@ class atlas_halo_generator
     using local_index_type = typename domain_type::local_index_type;
 
     /** @brief Halo class for Atlas
-                  * Provides list of local indices of neighboring elements.*/
+     * Provides list of local indices of neighboring elements.*/
     class halo
     {
       private:
@@ -145,8 +148,8 @@ class atlas_halo_generator
   public:
     // member functions
     /** @brief generates the halo
-                 * @param domain local domain instance
-                 * @return receive halo*/
+     * @param domain local domain instance
+     * @return receive halo*/
     halo operator()(const domain_type& domain) const
     {
         auto partition = atlas::array::make_view<int, 1>(domain.partition());

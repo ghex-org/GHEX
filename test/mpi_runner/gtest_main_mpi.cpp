@@ -7,9 +7,10 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <fstream>
 #include <gtest/gtest.h>
 #include "./mpi_listener.hpp"
+
+#include <fstream>
 
 GTEST_API_ int
 main(int argc, char** argv)

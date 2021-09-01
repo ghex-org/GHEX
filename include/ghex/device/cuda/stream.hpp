@@ -10,8 +10,10 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <ghex/device/cuda/error.hpp>
 #include <ghex/util/moved_bit.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #include <memory>
 
 namespace ghex

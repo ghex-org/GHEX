@@ -18,6 +18,9 @@
 #include <ghex/device/stream.hpp>
 #include <ghex/device/guard.hpp>
 #include <ghex/packer.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 #include <map>
 #include <stdio.h>
 #include <functional>

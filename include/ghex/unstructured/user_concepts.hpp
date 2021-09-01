@@ -13,6 +13,9 @@
 #include <ghex/config.hpp>
 #include <ghex/arch_traits.hpp>
 #include <ghex/device/cuda/error.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 
 #include <set>
 #include <vector>

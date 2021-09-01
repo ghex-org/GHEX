@@ -17,6 +17,10 @@
 //#include <ghex/device/cuda/kernel_argument.hpp>
 #include <ghex/device/cuda/future.hpp>
 //#include <gridtools/common/array.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 #include <numeric>
 
 namespace ghex

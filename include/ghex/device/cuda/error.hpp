@@ -10,8 +10,12 @@
  */
 #pragma once
 
+#include <ghex/config.hpp>
 #include <stdexcept>
 #include <string>
+
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
 
 #ifdef NDEBUG
 #define GHEX_CHECK_CUDA_RESULT(x) x;
@@ -21,4 +25,6 @@
         throw std::runtime_error("GHEX Error: CUDA Call failed " + std::string(#x) + " (" +        \
                                  std::string(cudaGetErrorString(x)) + ") in " +                    \
                                  std::string(__FILE__) + ":" + std::to_string(__LINE__));
+#endif
+
 #endif

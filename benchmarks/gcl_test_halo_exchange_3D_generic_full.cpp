@@ -29,8 +29,10 @@
 #include <ghex/common/timer.hpp>
 //#include "triplet.hpp"
 
-#ifdef __CUDACC__
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
 #include <gridtools/common/cuda_util.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 namespace halo_exchange_3D_generic_full {
@@ -55,7 +57,7 @@ namespace halo_exchange_3D_generic_full {
     typedef long long int T3;
 #endif
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     typedef gridtools::gcl::gpu arch_type;
 #else
     typedef gridtools::gcl::cpu arch_type;
@@ -225,7 +227,7 @@ namespace halo_exchange_3D_generic_full {
         printbuff(file, c, DIM1 + H1m3 + H1p3, DIM2 + H2m3 + H2p3, DIM3 + H3m3 + H3p3);
         file.flush();
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         file << "***** GPU ON *****\n";
 
         triple_t<USE_DOUBLE, T1>::data_type *gpu_a = 0;
@@ -377,7 +379,7 @@ namespace halo_exchange_3D_generic_full {
             << std::scientific << std::setprecision(4) << std::right << std::setw(12) << t_global.max()/1000.0
             << std::endl;
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaMemcpy(a.ptr,
             gpu_a,
             (DIM1 + H1m1 + H1p1) * (DIM2 + H2m1 + H2p1) * (DIM3 + H3m1 + H3p1) *

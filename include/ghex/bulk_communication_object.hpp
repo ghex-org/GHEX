@@ -16,6 +16,10 @@
 #include <ghex/rma/locality.hpp>
 #include <ghex/rma/range_factory.hpp>
 #include <ghex/rma/handle.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 #include <memory>
 #include <functional>
 #include <vector>

@@ -16,6 +16,9 @@
 #include <ghex/structured/rma_range.hpp>
 #include <ghex/structured/rma_put.hpp>
 #include <oomph/communicator.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 
 namespace ghex
 {

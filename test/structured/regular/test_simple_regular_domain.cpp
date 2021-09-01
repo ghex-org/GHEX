@@ -20,6 +20,9 @@
 #include <ghex/structured/regular/halo_generator.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/make_pattern.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 
 #include "../../util/memory.hpp"
 #include <gridtools/common/array.hpp>
