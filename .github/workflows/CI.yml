@@ -7,7 +7,7 @@ on:
       - master
 
 jobs:
-  build-cpu:
+  build-cpu-mpi:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
 
@@ -23,7 +23,29 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON -DMPIEXEC_PREFLAGS=-oversubscribe
+          eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_TRANSPORT_BACKEND=MPI -DOOMPH_WITH_MPI=ON -DGHEX_USE_GPU=OFF -DHWMALLOC_ENABLE_DEVICE=OFF -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_WITH_TESTING=ON -DGHEX_BUILD_BENCHMARKS=ON -DMPIEXEC_PREFLAGS=-oversubscribe
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Execute tests
+        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env && ctest
+
+  build-cpu-ucx:
+    runs-on: ubuntu-latest
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Configure
+        run: |
+          echo "WORKFLOW"
+          export SHLVL=1
+          env
+          ulimit -a
+          ipcs -lm
+          df
+          cat /proc/cpuinfo
+          mkdir -p build && cd build
+          eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_TRANSPORT_BACKEND=UCX -DOOMPH_WITH_UCX=ON -DGHEX_USE_GPU=OFF -DHWMALLOC_ENABLE_DEVICE=OFF -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_WITH_TESTING=ON -DGHEX_BUILD_BENCHMARKS=ON -DMPIEXEC_PREFLAGS=-oversubscribe
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -45,7 +67,7 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          CXX=/opt/rocm/llvm/bin/clang++ cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
+          CXX=/opt/rocm/llvm/bin/clang++ cmake .. -DCMAKE_BUILD_TYPE=Debug -DGHEX_TRANSPORT_BACKEND=MPI -DOOMPH_WITH_MPI=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_WITH_TESTING=ON -DGHEX_BUILD_BENCHMARKS=ON -DGHEX_USE_GPU=ON -DGHEX_GPU_TYPE=AMD -DHWMALLOC_ENABLE_DEVICE=ON -DHWMALLOC_DEVICE_RUNTIME=hip
       - name: Build
         run: cmake --build build --parallel 2
 
@@ -65,6 +87,6 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DGHEX_TRANSPORT_BACKEND=MPI -DOOMPH_WITH_MPI=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_WITH_TESTING=ON -DGHEX_BUILD_BENCHMARKS=ON -DGHEX_USE_GPU=ON -DGHEX_GPU_TYPE=NVIDIA -DHWMALLOC_ENABLE_DEVICE=ON -DHWMALLOC_DEVICE_RUNTIME=cuda
       - name: Build
         run: cmake --build build --parallel 2
