@@ -88,3 +88,15 @@ include(ghex_device)
 if (ghex_gpu_mode STREQUAL "hip")
     target_link_libraries(ghex PUBLIC hip::device)
 endif()
+
+# ---------------------------------------------------------------------
+# atlas setup
+# ---------------------------------------------------------------------
+set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas bindings")
+if (GHEX_ENABLE_ATLAS_BINDINGS)
+    find_package(eckit REQUIRED HINTS ${eckit_DIR})
+    find_package(Atlas REQUIRED HINTS ${Atlas_DIR})
+    # Temporary workaround to fix missing dependency in Atlas target: eckit
+    target_link_libraries(atlas INTERFACE eckit)
+    target_link_libraries(ghex_common INTERFACE atlas)
+endif()

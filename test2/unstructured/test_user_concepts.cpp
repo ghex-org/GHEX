@@ -40,28 +40,52 @@ void test_in_place_receive_multi(ghex::context& ctxt);
 void test_in_place_receive_oversubscribe(ghex::context& ctxt);
 void test_in_place_receive_threads(ghex::context& ctxt);
 
-TEST_F(mpi_test_fixture, setup)
+TEST_F(mpi_test_fixture, domain_descriptor)
 {
     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
-    if (world_size == 4)
-    {
-        test_domain_descriptor_and_halos(ctxt);
-        test_pattern_setup(ctxt);
-        test_data_descriptor(ctxt);
-        //test_in_place_receive(ctxt);
-        //test_in_place_receive_multi(ctxt);
-    }
+    if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
+}
+
+TEST_F(mpi_test_fixture, pattern_setup)
+{
+    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+
+    if (world_size == 4) { test_pattern_setup(ctxt); }
     else if (world_size == 2)
     {
         test_pattern_setup_oversubscribe(ctxt);
         test_pattern_setup_oversubscribe_asymm(ctxt);
-        test_data_descriptor_oversubscribe(ctxt);
-        if (thread_safe) test_data_descriptor_threads(ctxt);
-        //test_in_place_receive_oversubscribe(ctxt);
-        //if (thread_safe) test_in_place_receive_threads(ctxt);
     }
 }
+
+TEST_F(mpi_test_fixture, data_descriptor)
+{
+    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+
+    if (world_size == 4) { test_data_descriptor(ctxt); }
+    else if (world_size == 2)
+    {
+        test_data_descriptor_oversubscribe(ctxt);
+        if (thread_safe) test_data_descriptor_threads(ctxt);
+    }
+}
+
+//TEST_F(mpi_test_fixture, in_place_receive)
+//{
+//    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+//
+//    if (world_size == 4)
+//    {
+//        test_in_place_receive(ctxt);
+//        test_in_place_receive_multi(ctxt);
+//    }
+//    else if (world_size == 2)
+//    {
+//        test_in_place_receive_oversubscribe(ctxt);
+//        if (thread_safe) test_in_place_receive_threads(ctxt);
+//    }
+//}
 
 /** @brief Test domain descriptor and halo generator concepts */
 void
