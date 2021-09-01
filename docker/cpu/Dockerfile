@@ -31,7 +31,7 @@ RUN apt-get update -qq && \
 
 ENV CXX=g++-${GCC_VERSION} CC=gcc-${GCC_VERSION} FC=gfortran-${GCC_VERSION}
 
-ARG CMAKE_VERSION=3.14.5
+ARG CMAKE_VERSION=3.21.2
 RUN cd /tmp && \
     wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz && \
     tar xzf cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz && \
