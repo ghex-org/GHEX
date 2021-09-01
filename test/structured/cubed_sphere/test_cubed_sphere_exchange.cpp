@@ -14,7 +14,7 @@
 
 #include <ghex/config.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 #include <ghex/structured/pattern.hpp>
 #include <ghex/communication_object.hpp>

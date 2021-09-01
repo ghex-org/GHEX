@@ -12,14 +12,14 @@
 
 #include <ghex/config.hpp>
 #include <ghex/context.hpp>
-#include <ghex/common/utils.hpp>
-#include <ghex/common/test_eq.hpp>
+#include <ghex/util/for_each.hpp>
+#include <ghex/util/test_eq.hpp>
 #include <ghex/pattern_container.hpp>
 #include <ghex/device/stream.hpp>
 #include <ghex/device/guard.hpp>
 #include <ghex/packer.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 #include <map>
 #include <stdio.h>

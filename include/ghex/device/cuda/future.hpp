@@ -11,10 +11,10 @@
 #pragma once
 
 #include <ghex/config.hpp>
-#include <ghex/common/c_managed_struct.hpp>
+#include <ghex/util/c_managed_struct.hpp>
 #include <ghex/device/cuda/error.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 #include <memory>
 

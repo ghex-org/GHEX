@@ -21,7 +21,7 @@
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/structured/regular/make_pattern.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 
 #include "../../util/memory.hpp"

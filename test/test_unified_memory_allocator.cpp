@@ -11,9 +11,9 @@
 #include <gtest/gtest.h>
 #include <ghex/config.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
-#include <ghex/allocator/unified_memory_allocator.hpp>
+#include <ghex/device/cuda/unified_memory_allocator.hpp>
 #include <vector>
 
 #ifdef GHEX_CUDACC

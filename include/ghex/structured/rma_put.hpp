@@ -14,7 +14,7 @@
 #include <ghex/device/stream.hpp>
 #include <ghex/structured/rma_range.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 
 namespace ghex

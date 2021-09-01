@@ -13,11 +13,6 @@
 #include <type_traits>
 #include <array>
 #include <algorithm>
-//#include <initializer_list>
-//#include <vector>
-//#include <iterator>
-//#include "../../common/utils.hpp"
-//#include "../grid.hpp"
 
 namespace ghex
 {

@@ -26,7 +26,7 @@
 #include <ghex/communication_object.hpp>
 #ifdef GHEX_CUDACC
 #include <gridtools/common/cuda_util.hpp>
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 
 #include <vector>

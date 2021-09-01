@@ -10,7 +10,7 @@
  */
 #pragma once
 
-#include <ghex/common/coordinate.hpp>
+#include <ghex/util/coordinate.hpp>
 
 namespace ghex
 {

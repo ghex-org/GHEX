@@ -14,8 +14,8 @@
 #include <ghex/context.hpp>
 #include <ghex/arch_traits.hpp>
 #include <ghex/buffer_info.hpp>
-#include <ghex/common/utils.hpp>
-#include <ghex/common/test_eq.hpp>
+#include <ghex/util/for_each.hpp>
+#include <ghex/util/test_eq.hpp>
 #include <ghex/communication_object_ipr.hpp>
 #include <ghex/device/stream.hpp>
 #include <ghex/device/guard.hpp>

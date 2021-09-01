@@ -12,10 +12,10 @@
 
 #include <ghex/config.hpp>
 #include <ghex/arch_traits.hpp>
-#include <ghex/common/utils.hpp>
+#include <ghex/util/for_each.hpp>
 #include <ghex/structured/field_utils.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 
 #include <cstring>

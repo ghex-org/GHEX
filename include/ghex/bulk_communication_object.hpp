@@ -17,7 +17,7 @@
 #include <ghex/rma/range_factory.hpp>
 #include <ghex/rma/handle.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 
 #include <memory>

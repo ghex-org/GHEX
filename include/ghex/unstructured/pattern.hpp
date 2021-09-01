@@ -13,7 +13,7 @@
 #include <ghex/config.hpp>
 #include <ghex/context.hpp>
 #include <ghex/mpi/communicator.hpp>
-#include <ghex/allocator/unified_memory_allocator.hpp>
+#include <ghex/device/cuda/unified_memory_allocator.hpp>
 #include <ghex/pattern_container.hpp>
 #include <ghex/buffer_info.hpp>
 #include <ghex/unstructured/grid.hpp>

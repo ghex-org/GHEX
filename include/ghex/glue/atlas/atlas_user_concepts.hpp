@@ -13,10 +13,9 @@
 #include <ghex/config.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/arch_traits.hpp>
-//#include <ghex/allocator/unified_memory_allocator.hpp>
 #include <ghex/device/cuda/error.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 
 #include <atlas/field.h>

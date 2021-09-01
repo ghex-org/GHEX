@@ -15,7 +15,7 @@
 #include <string>
 
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 
 #ifdef NDEBUG
 #define GHEX_CHECK_CUDA_RESULT(x) x;

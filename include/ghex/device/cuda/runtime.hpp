@@ -1,15 +1,14 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_COMMON_CUDA_RUNTIME_HPP
-#define INCLUDED_GHEX_COMMON_CUDA_RUNTIME_HPP
+#pragma once
 
 #ifdef __HIP_PLATFORM_HCC__
 
@@ -73,5 +72,3 @@
 #include <cuda_runtime.h>
 
 #endif /* __HIP_PLATFORM_HCC__ */
-
-#endif /* INCLUDED_GHEX_COMMON_CUDA_RUNTIME_HPP */

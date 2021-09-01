@@ -14,6 +14,8 @@
 
 namespace ghex
 {
+namespace util
+{
 template<class T>
 constexpr T*
 to_address(T* p) noexcept
@@ -29,4 +31,5 @@ to_address(T& p) noexcept
     return to_address(p.operator->());
 }
 
+} // namespace util
 } // namespace ghex

@@ -18,7 +18,7 @@
 #include <ghex/device/cuda/future.hpp>
 //#include <gridtools/common/array.hpp>
 #ifdef GHEX_CUDACC
-#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/device/cuda/runtime.hpp>
 #endif
 
 #include <numeric>

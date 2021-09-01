@@ -11,7 +11,6 @@
 #pragma once
 
 #include <ghex/structured/field_utils.hpp>
-//#include "../common/utils.hpp"
 #include <ghex/arch_traits.hpp>
 #include <gridtools/common/layout_map.hpp>
 #include <algorithm>
