@@ -187,8 +187,8 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
     ghex::atlas_recv_domain_ids_gen<int> rdig{};
 
     // Make patterns
-    auto patterns_1 = gridtools::ghex::make_pattern<grid_type>(ctxt, hg, rdig, local_domains_1);
-    auto patterns_2 = gridtools::ghex::make_pattern<grid_type>(ctxt, hg, rdig, local_domains_2);
+    auto patterns_1 = ghex::make_pattern<grid_type>(ctxt, hg, rdig, local_domains_1);
+    auto patterns_2 = ghex::make_pattern<grid_type>(ctxt, hg, rdig, local_domains_2);
 
     // Make communication object
     auto co = ghex::make_communication_object<decltype(patterns_1)>(ctxt);
