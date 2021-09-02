@@ -23,14 +23,16 @@
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/communication_object_2.hpp>
 #include <ghex/unstructured/communication_object_ipr.hpp>
-#ifdef __CUDACC__
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
 #include <ghex/allocator/cuda_allocator.hpp>
 #endif
 #include "./util/unstructured_test_case.hpp"
 
 
 using data_descriptor_cpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, int>;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 using data_descriptor_gpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::gpu, domain_id_type, global_index_type, int>;
 #endif
 
@@ -117,7 +119,7 @@ TEST(unstructured_user_concepts, data_descriptor) {
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 
     // application data
     std::vector<int> field_cpu(d.size(), 0);
@@ -173,7 +175,7 @@ TEST(unstructured_user_concepts, in_place_receive) {
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 
     // application data
     std::vector<int> field_cpu(d.size(), 0);

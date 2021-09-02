@@ -41,7 +41,9 @@
 #include <ghex/unstructured/communication_object_ipr.hpp>
 #include <ghex/common/timer.hpp>
 #include <ghex/common/accumulator.hpp>
-#ifdef __CUDACC__
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
 #include <ghex/allocator/cuda_allocator.hpp>
 #endif
 
@@ -60,7 +62,7 @@ using grid_type = gridtools::ghex::unstructured::grid;
 template<typename T>
 using data_descriptor_cpu_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, T>;
 using timer_type = gridtools::ghex::timer;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 template<typename T>
 using gpu_allocator_type = gridtools::ghex::allocator::cuda::allocator<T>;
 template<typename T>
@@ -381,7 +383,7 @@ TEST(unstructured_parmetis, receive_type) {
     const int n_iters_warm_up = 50;
     const int n_iters = 50;
 
-#ifndef __CUDACC__
+#ifndef GHEX_CUDACC
 
     // GHEX context
     auto context_ptr = gridtools::ghex::tl::context_factory<transport>::create(MPI_COMM_WORLD);
