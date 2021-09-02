@@ -25,8 +25,10 @@
 #include "../../arch_traits.hpp"
 #include "../../allocator/unified_memory_allocator.hpp"
 
-#ifdef __CUDACC__
+#include "../../common/defs.hpp"
+#ifdef GHEX_CUDACC
 #include "../../cuda_utils/error.hpp"
+#include "../../common/cuda_runtime.hpp"
 #endif
 
 
@@ -358,7 +360,7 @@ namespace gridtools {
 
         };
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 
 #define GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK 32
 

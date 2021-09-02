@@ -15,6 +15,11 @@
 #include "../cuda_utils/stream.hpp"
 #include "./rma_range.hpp"
 
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "../common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 namespace ghex {
 namespace structured {
@@ -48,7 +53,7 @@ __attribute__ ((target ("sse2")))
 std::enable_if_t<
     cpu_to_cpu<SourceField,TargetField>::value && !rma_range<SourceField>::fuse_components::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     , cudaStream_t
 #endif
 )
@@ -75,7 +80,7 @@ template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_cpu<SourceField,TargetField>::value && rma_range<SourceField>::fuse_components::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     , cudaStream_t
 #endif
 )
@@ -104,12 +109,12 @@ template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     cpu_to_gpu<SourceField,TargetField>::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     , cudaStream_t st
 #endif
 )
 {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
     gridtools::ghex::detail::for_loop<
@@ -129,12 +134,12 @@ template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     gpu_to_cpu<SourceField,TargetField>::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     , cudaStream_t st
 #endif
 )
 {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
 #ifndef GHEX_USE_XPMEM
@@ -199,7 +204,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
 #endif
 }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 template<typename SourceRange, typename TargetRange>
 __global__ void put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 {
@@ -226,12 +231,12 @@ template<typename SourceField, typename TargetField>
 inline std::enable_if_t<
     gpu_to_gpu<SourceField,TargetField>::value>
 put(rma_range<SourceField>& s, rma_range<TargetField>& t, rma::locality loc
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     , cudaStream_t st
 #endif
 )
 {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     static constexpr unsigned int block_dim = 128;
     const unsigned int num_blocks = (s.m_num_elements+block_dim-1)/block_dim;
     put_device_to_device_kernel<<<num_blocks,block_dim,0,st>>>(s, t);

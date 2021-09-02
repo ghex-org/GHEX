@@ -15,13 +15,18 @@
 #include "./error.hpp"
 #include <memory>
 
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "../common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 
     namespace ghex {
 
         namespace cuda {
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 
             /** @brief thin wrapper around a cuda stream */
             struct stream

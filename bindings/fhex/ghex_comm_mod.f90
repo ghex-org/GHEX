@@ -153,14 +153,14 @@ MODULE ghex_comm_mod
      subroutine ghex_comm_post_send_multi_cb_wrapped(comm, message, ranks, nranks, tag, cb, req, user_data) \
        bind(c, name="ghex_comm_post_send_multi_cb")
        use iso_c_binding
-       import ghex_communicator, ghex_message, ghex_request, ghex_cb_user_data
+       import ghex_communicator, ghex_message, ghex_request_multi, ghex_cb_user_data
        type(ghex_communicator), value :: comm
        type(ghex_message), value :: message
        type(c_ptr), value :: ranks
        integer(c_int), value :: nranks
        integer(c_int), value :: tag
        type(c_funptr), value :: cb
-       type(ghex_request) :: req
+       type(ghex_request_multi) :: req
        type(ghex_cb_user_data), value :: user_data
      end subroutine ghex_comm_post_send_multi_cb_wrapped
 
@@ -171,14 +171,14 @@ MODULE ghex_comm_mod
      subroutine ghex_comm_send_multi_cb_wrapped(comm, message, ranks, nranks, tag, cb, req, user_data) \
        bind(c, name="ghex_comm_send_multi_cb")
        use iso_c_binding
-       import ghex_communicator, ghex_message, ghex_request, ghex_cb_user_data
+       import ghex_communicator, ghex_message, ghex_request_multi, ghex_cb_user_data
        type(ghex_communicator), value :: comm
        type(ghex_message) :: message
        type(c_ptr), value :: ranks
        integer(c_int), value :: nranks
        integer(c_int), value :: tag
        type(c_funptr), value :: cb
-       type(ghex_request) :: req
+       type(ghex_request_multi) :: req
        type(ghex_cb_user_data), value :: user_data
      end subroutine ghex_comm_send_multi_cb_wrapped
 
@@ -292,6 +292,8 @@ CONTAINS
     type(ghex_request) :: lreq
     type(ghex_cb_user_data) :: luser_data
 
+    ! This is needed for GCC. Otherwise c_funloc(cart_nbor) doesn't work correctly
+    ! This is a difference wrt. Intel compiler
     if (present(cb)) then
       lcb => cb
     else
@@ -358,12 +360,12 @@ CONTAINS
     integer, dimension(:), intent(in), target :: ranks
     integer, intent(in) :: tag
     procedure(f_callback), optional, pointer :: cb
-    type(ghex_request), optional :: req
+    type(ghex_request_multi), optional :: req
     type(ghex_cb_user_data), optional :: user_data
     
     ! local variables
     procedure(f_callback), pointer :: lcb
-    type(ghex_request) :: lreq
+    type(ghex_request_multi) :: lreq
     type(ghex_cb_user_data) :: luser_data
 
     if (present(cb)) then
@@ -390,12 +392,12 @@ CONTAINS
     integer, dimension(:), intent(in), target :: ranks
     integer, intent(in) :: tag
     procedure(f_callback), optional, pointer :: cb
-    type(ghex_request), optional :: req
+    type(ghex_request_multi), optional :: req
     type(ghex_cb_user_data), optional :: user_data
     
     ! local variables
     procedure(f_callback), pointer :: lcb
-    type(ghex_request) :: lreq
+    type(ghex_request_multi) :: lreq
     type(ghex_cb_user_data) :: luser_data
     
     if (present(cb)) then

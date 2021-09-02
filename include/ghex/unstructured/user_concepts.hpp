@@ -22,6 +22,11 @@
 #include "../arch_list.hpp"
 #include "../arch_traits.hpp"
 
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "../common/cuda_runtime.hpp"
+#endif
+
 
 namespace gridtools {
 
@@ -328,7 +333,7 @@ namespace gridtools {
 
             };
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 
 #define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK 32
 
@@ -374,7 +379,6 @@ namespace gridtools {
                 using value_type = T;
                 using device_id_type = gridtools::ghex::arch_traits<arch_type>::device_id_type;
                 using domain_descriptor_type = domain_descriptor<domain_id_type, global_index_type>;
-                using allocator_type = gridtools::ghex::allocator::cuda::allocator<value_type>;
 
             private:
 

@@ -24,7 +24,7 @@ endforeach()
 if (USE_GPU)
     foreach (_x ${_cubed_sphere_tests})
         set(_t cubed_sphere_${_x}_gpu)
-        add_executable(${_t} ${_x}.cu)
+        add_ghex_gpu_executable(${_t} ${_x})
         target_link_libraries(${_t} gtest_main_mt)
         add_test(
             NAME ${_t}
@@ -48,7 +48,7 @@ if (GHEX_USE_UCP)
     if (USE_GPU)
         foreach (_x ${_simple_tests})
             set(_t cubed_sphere_${_x}_ucx_gpu)
-            add_executable(${_t} ${_x}.cu)
+            add_ghex_gpu_executable(${_t} ${_x})
             target_compile_definitions(${_t} PUBLIC GHEX_TEST_USE_UCX)
             target_link_libraries(${_t} gtest_main_mt)
             add_test(

@@ -7,9 +7,9 @@ on:
       - master
 
 jobs:
-  build:
+  build-cpu:
     runs-on: ubuntu-latest
-    container: mbianco/ghex:gcc-9
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
 
     steps:
       - uses: actions/checkout@v1
@@ -23,9 +23,48 @@ jobs:
           df
           cat /proc/cpuinfo
           mkdir -p build && cd build
-          CXX=/usr/bin/g++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/usr/local -DGHEX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_BENCHMARKS=ON -DMPIEXEC_PREFLAGS=-oversubscribe -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single"
+          eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_ENABLE_ATLAS_BINDINGS=ON -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON -DMPIEXEC_PREFLAGS=-oversubscribe
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
-        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && env &&  ctest 
+        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env && ctest
 
+  build-gpu-amd:
+    runs-on: ubuntu-latest
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Configure
+        run: |
+          echo "WORKFLOW"
+          export SHLVL=1
+          env
+          ulimit -a
+          ipcs -lm
+          df
+          cat /proc/cpuinfo
+          mkdir -p build && cd build
+          CXX=/opt/rocm/llvm/bin/clang++ cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
+      - name: Build
+        run: cmake --build build --parallel 2
+
+  build-gpu-nvidia:
+    runs-on: ubuntu-latest
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Configure
+        run: |
+          echo "WORKFLOW"
+          export SHLVL=1
+          env
+          ulimit -a
+          ipcs -lm
+          df
+          cat /proc/cpuinfo
+          mkdir -p build && cd build
+          cmake .. -DUSE_GPU=ON -DUCX_DIR=/opt/ucx -DCMAKE_BUILD_TYPE=Debug -DGHEX_USE_UCP=ON -DGHEX_BUILD_FORTRAN=ON -DCMAKE_Fortran_FLAGS="-cpp -ffree-line-length-none -fcoarray=single" -DGHEX_BUILD_TESTS=ON -DGHEX_BUILD_BENCHMARKS=ON
+      - name: Build
+        run: cmake --build build --parallel 2

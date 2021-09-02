@@ -21,6 +21,11 @@
 #include <ghex/cuda_utils/error.hpp>
 #include <gridtools/common/array.hpp>
 
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 using namespace gridtools::ghex;
 using arr       = std::array<int,2>;
 using transport = TRANSPORT;
@@ -41,7 +46,7 @@ struct memory
 {
     unsigned int m_size;
     std::unique_ptr<T[]> m_host_memory;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     struct cuda_deleter
     {
         // no delete since this messes up the rma stuff
@@ -58,7 +63,7 @@ struct memory
     {
         for (unsigned int i=0; i<m_size; ++i)
             m_host_memory[i] = value;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         void* ptr;
         GHEX_CHECK_CUDA_RESULT(cudaMalloc(&ptr, m_size*sizeof(T)))
         m_device_memory.reset((T*)ptr);
@@ -71,7 +76,7 @@ struct memory
 
     T* data() const { return m_host_memory.get(); }
     T* host_data() const { return m_host_memory.get(); }
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     T* device_data() const { return m_device_memory.get(); }
 #endif
 
@@ -86,7 +91,7 @@ struct memory
     const T* begin() const { return m_host_memory.get(); }
     const T* end() const { return m_host_memory.get()+m_size; }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     void clone_to_device()
     {
         GHEX_CHECK_CUDA_RESULT(cudaMemcpy(m_device_memory.get(), m_host_memory.get(),
@@ -111,7 +116,7 @@ auto wrap_cpu_field(RawField& raw_field, const domain& d)
     return wrap_field<cpu,::gridtools::layout_map<1,0>>(d, raw_field.data(), arr{HALO, HALO}, arr{HALO*2+DIM, HALO*2+DIM/2});
 }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 template<typename RawField>
 auto wrap_gpu_field(RawField& raw_field, const domain& d)
 {
@@ -220,7 +225,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // field
     auto raw_field = allocate_field();
     auto field     = fill(wrap_cpu_field(raw_field, domains[thread_id]));
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_device();
     auto field_gpu = wrap_gpu_field(raw_field, domains[thread_id]);
@@ -236,7 +241,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // classical
     // ---------
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id == 0)
         co.exchange(pattern(field)).wait();
     else
@@ -246,7 +251,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
 #endif
 
     // check field
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_host();
 #endif
@@ -254,7 +259,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
 
     // reset field
     reset(field);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_device();
 #endif
@@ -264,7 +269,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // using stages
     // ------------
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id == 0)
     {
         co.exchange(spattern[0]->operator()(field)).wait();
@@ -281,7 +286,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
 #endif
 
     // check field
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_host();
 #endif
@@ -289,7 +294,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
 
     // reset field
     reset(field);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_device();
 #endif
@@ -303,7 +308,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // classical
     // ---------
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field), decltype(field_gpu)>(co);
     if (thread_id == 0)
         bco.add_field(pattern(field));
@@ -318,7 +323,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     gbco.exchange().wait();
 
     // check field
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_host();
 #endif
@@ -326,7 +331,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
 
     // reset field
     reset(field);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_device();
 #endif
@@ -336,7 +341,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // using stages
     // ------------
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field), decltype(field_gpu)>(co);
     auto bco_y = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field), decltype(field_gpu)>(co);
     if (thread_id == 0)
@@ -362,7 +367,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     gbco_y.exchange().wait();
 
     // check field
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     if (thread_id != 0)
         raw_field.clone_to_host();
 #endif
@@ -379,7 +384,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     auto raw_field_b = allocate_field();
     auto field_a     = fill(wrap_cpu_field(raw_field_a, domains[0]));
     auto field_b     = fill(wrap_cpu_field(raw_field_b, domains[1]));
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_device();
     auto field_b_gpu = wrap_gpu_field(raw_field_b, domains[1]);
 #endif
@@ -393,14 +398,14 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // classical
     // ---------
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     co.exchange(pattern(field_a), pattern(field_b_gpu)).wait();
 #else
     co.exchange(pattern(field_a), pattern(field_b)).wait();
 #endif
 
     // check fields
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);
@@ -409,7 +414,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // reset fields
     reset(field_a);
     reset(field_b);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_device();
 #endif
 
@@ -418,7 +423,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // using stages
     // ------------
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     co.exchange(spattern[0]->operator()(field_a), spattern[0]->operator()(field_b_gpu)).wait();
     co.exchange(spattern[1]->operator()(field_a), spattern[1]->operator()(field_b_gpu)).wait();
 #else
@@ -427,7 +432,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
 #endif
 
     // check fields
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);
@@ -436,7 +441,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // reset fields
     reset(field_a);
     reset(field_b);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_device();
 #endif
 
@@ -448,7 +453,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // classical
     // ---------
     
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a), decltype(field_b_gpu)>(co);
     bco.add_field(pattern(field_a));
     bco.add_field(pattern(field_b_gpu));
@@ -462,7 +467,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     bco.exchange().wait();
 
     // check fields
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);
@@ -471,7 +476,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // reset fields
     reset(field_a);
     reset(field_b);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_device();
 #endif
 
@@ -480,7 +485,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     // using stages
     // ------------
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field_a), decltype(field_b_gpu)>(co);
     bco_x.add_field(spattern[0]->operator()(field_a));
     bco_x.add_field(spattern[0]->operator()(field_b_gpu));
@@ -502,7 +507,7 @@ bool run(Context& context, const Pattern& pattern, const SPattern& spattern, con
     bco_y.exchange().wait();
 
     // check fields
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     raw_field_b.clone_to_host();
 #endif
     res = res && check(field_a, dims);

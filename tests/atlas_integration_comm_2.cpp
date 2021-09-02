@@ -30,8 +30,10 @@
 #include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
 
-#ifdef __CUDACC__
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
 #include <gridtools/common/cuda_util.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 #ifndef GHEX_TEST_USE_UCX
@@ -117,7 +119,7 @@ TEST(atlas_integration, halo_exchange) {
         }
     }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     // Additional data descriptor type for GPU
     using gpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
 
@@ -262,7 +264,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
         }
     }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     // Additional data descriptor types for GPU
     using gpu_int_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
     using gpu_double_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, double>;

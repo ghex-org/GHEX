@@ -28,16 +28,20 @@
 #include <gtest/gtest.h>
 
 #include <gridtools/common/array.hpp>
-#ifdef __CUDACC__
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
 #include <gridtools/common/cuda_util.hpp>
 #include <gridtools/common/host_device.hpp>
+#include <ghex/common/cuda_runtime.hpp>
 #endif
 
 // stupid kernel to test whether cuda is working
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 #include <stdio.h>
 __global__ void print_kernel() {
-    printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
+    int b_idx = blockIdx.x;
+    int t_idx = threadIdx.x;
+    printf("Hello from block %d, thread %d\n", b_idx, t_idx);
 }
 #endif
 
@@ -160,7 +164,7 @@ TEST(communication_object_2, exchange)
 
     auto& context = *context_ptr;
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     int num_devices_per_node;
     cudaGetDeviceCount(&num_devices_per_node);
     MPI_Comm raw_local_comm;
@@ -321,7 +325,7 @@ TEST(communication_object_2, exchange)
 #endif
 #endif
 
-#if defined(__CUDACC__) || (!defined(__CUDACC__) && defined(GHEX_EMULATE_GPU))
+#if defined(GHEX_CUDACC) || (!defined(GHEX_CUDACC) && defined(GHEX_EMULATE_GPU))
 
     if (local_comm.rank()<num_devices_per_node)
     {
@@ -334,7 +338,7 @@ TEST(communication_object_2, exchange)
         TT2* gpu_2b_raw;
         TT3* gpu_3b_raw;
 #endif
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaMalloc((void**)&gpu_1a_raw, max_memory*sizeof(TT1)));
         GT_CUDA_CHECK(cudaMalloc((void**)&gpu_2a_raw, max_memory*sizeof(TT2)));
         GT_CUDA_CHECK(cudaMalloc((void**)&gpu_3a_raw, max_memory*sizeof(TT3)));
@@ -364,7 +368,7 @@ TEST(communication_object_2, exchange)
         auto field_3b_gpu = gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(local_domains[1], gpu_3b_raw, offset, local_ext_buffer);
 #endif
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         // copy
         GT_CUDA_CHECK(cudaMemcpy(field_1a_gpu.data(), field_1a.data(), max_memory*sizeof(TT1), cudaMemcpyHostToDevice));
         GT_CUDA_CHECK(cudaMemcpy(field_2a_gpu.data(), field_2a.data(), max_memory*sizeof(TT2), cudaMemcpyHostToDevice));
@@ -461,7 +465,7 @@ TEST(communication_object_2, exchange)
 #ifdef GHEX_TEST_THREADS
     auto func = [&context, device_id=local_comm.rank()](auto... bis)
     {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
@@ -492,7 +496,7 @@ TEST(communication_object_2, exchange)
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
     auto func = [&context, device_id=local_comm.rank()](field_vec_type& vec)
     {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
@@ -518,7 +522,7 @@ TEST(communication_object_2, exchange)
 #ifdef GHEX_TEST_ASYNC_ASYNC
     auto func = [&context, device_id=local_comm.rank()](auto... bis)
     {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
@@ -550,7 +554,7 @@ TEST(communication_object_2, exchange)
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
     auto func = [&context, device_id=local_comm.rank()](field_vec_type& vec)
     {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         auto co_ = gridtools::ghex::make_communication_object<pattern_type>(context.get_communicator());
@@ -577,7 +581,7 @@ TEST(communication_object_2, exchange)
 #ifdef GHEX_TEST_ASYNC_DEFERRED
     auto func_h = [device_id=local_comm.rank()](auto co_, auto... bis)
     {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         return co_->exchange(bis...);
@@ -614,7 +618,7 @@ TEST(communication_object_2, exchange)
     using field_vec_type = std::vector<std::remove_reference_t<decltype(pattern1(field_1a_gpu))>>;
     auto func_h = [device_id=local_comm.rank()](auto co_, field_vec_type& vec)
     {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         GT_CUDA_CHECK(cudaSetDevice(device_id));
 #endif
         return co_->exchange(vec.begin(), vec.end());
@@ -700,7 +704,7 @@ TEST(communication_object_2, exchange)
     future_2.get().wait();
 #endif*/
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         // copy back
         GT_CUDA_CHECK(cudaMemcpy(field_1a.data(), field_1a_gpu.data(), max_memory*sizeof(TT1), cudaMemcpyDeviceToHost));
         GT_CUDA_CHECK(cudaMemcpy(field_2a.data(), field_2a_gpu.data(), max_memory*sizeof(TT2), cudaMemcpyDeviceToHost));

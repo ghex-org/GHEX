@@ -13,13 +13,18 @@
 
 #include <tuple>
 
+#include "./common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "./common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
     namespace ghex {
 
         struct cpu {};
         struct gpu {};
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             using arch_list = std::tuple<cpu,gpu>;
 #else
 #ifdef GHEX_EMULATE_GPU
