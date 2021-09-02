@@ -78,7 +78,8 @@ class communication_handle
 
   private: // members
     //communicator_type*     m_comm = nullptr;
-    std::function<void()> m_wait_fct;
+    //std::function<void()> m_wait_fct;
+    co_t* m_co = nullptr;
 
   public: // public constructor
     /** @brief construct a ready handle
@@ -90,10 +91,14 @@ class communication_handle
       * @tparam Func function type with signature void()
       * @param comm communicator
       * @param wait_fct wait function */
-    template<typename Func>
-    communication_handle(/*communicator_type* comm, */ Func&& wait_fct)
-    //: m_comm{comm}
-    : m_wait_fct(std::forward<Func>(wait_fct))
+    //template<typename Func>
+    //communication_handle(/*communicator_type* comm, */ Func&& wait_fct)
+    ////: m_comm{comm}
+    //: m_wait_fct(std::forward<Func>(wait_fct))
+    //{
+    //}
+    communication_handle(co_t* co)
+    : m_co{co}
     {
     }
 
@@ -105,13 +110,15 @@ class communication_handle
 
   public: // member functions
     /** @brief  wait for communication to be finished*/
-    void wait()
-    {
-        if (m_wait_fct) m_wait_fct();
-    }
-    void progress()
-    { /*if (m_comm) m_comm->progress();*/
-    }
+    void wait();
+    //{
+    //    //if (m_wait_fct) m_wait_fct();
+    //}
+    //void progress()
+    //{ /*if (m_comm) m_comm->progress();*/
+    //}
+
+    bool is_ready();
 };
 
 /** @brief communication object responsible for exchanging halo data. Allocates storage depending on the 
@@ -263,10 +270,10 @@ class communication_object
     [[nodiscard]] handle_type exchange(buffer_info_type<Archs, Fields>... buffer_infos)
     {
         exchange_impl(buffer_infos...);
-        handle_type h(/*m_comm,*/ [this]() { this->wait(); });
+        //handle_type h(/*m_comm,*/ [this]() { this->wait(); });
         post_recvs();
         pack();
-        return h;
+        return {this};
     }
 
     /** @brief  non-blocking exchange of halo data
@@ -312,7 +319,7 @@ class communication_object
         post_recvs();
         pack();
         //        return handle_type(m_comm, [this]() { this->wait(); });
-        return handle_type([this]() { this->wait(); });
+        return {this}; //handle_type([this]() { this->wait(); });
     }
 
     // helper function to turn iterators into pairs of iterators
@@ -543,6 +550,22 @@ class communication_object
     }
     //
   private: // wait functions
+    bool is_ready()
+    {
+        if (!m_valid) return false;
+        if (m_comm.is_ready())
+        {
+            clear();
+            return true;
+        }
+        m_comm.progress();
+        if (m_comm.is_ready())
+        {
+            clear();
+            return true;
+        }
+        return false;
+    }
     void wait()
     {
         if (!m_valid) return;
@@ -687,6 +710,31 @@ class communication_object
         }
     }
 };
+
+template<typename GridType, typename DomainIdType>
+void
+communication_handle<GridType, DomainIdType>::wait()
+{
+    if (m_co)
+    {
+        m_co->wait();
+        m_co = nullptr;
+    }
+}
+
+template<typename GridType, typename DomainIdType>
+bool
+communication_handle<GridType, DomainIdType>::is_ready()
+{
+    if (!m_co) return true;
+    if (m_co->is_ready())
+    {
+        m_co = nullptr;
+        return true;
+    }
+    else
+        return false;
+}
 
 /** @brief creates a communication object based on the pattern type
           * @tparam PatternContainer pattern type

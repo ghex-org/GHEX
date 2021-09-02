@@ -70,14 +70,56 @@ struct generic_bulk_communication_object
 {
     struct bulk_co_iface;
 
+    struct handle_iface
+    {
+        virtual ~handle_iface() {}
+        virtual bool is_ready() = 0;
+        virtual void wait() = 0;
+    };
+
+    template<typename Handle>
+    struct handle_holder : public handle_iface
+    {
+        Handle h;
+        handle_holder(Handle&& h_) : h{std::move(h_)} {}
+        virtual bool is_ready() override final
+        {
+            return h.is_ready();
+        }
+        virtual void wait() override final
+        {
+            h.wait();
+        }
+    };
+
     struct handle
     {
-        std::function<void()> m_remote_wait_fct;
-        bulk_co_iface*        m_bulk_co_iface_ptr;
-        void                  wait()
+        std::unique_ptr<handle_iface> m_impl;
+        
+        template<typename Handle>
+        handle(Handle&& h)
+        //: m_impl{std::make_unique<handle_holder<Handle>>(std::move(h))}
+        : m_impl{new handle_holder<Handle>{std::move(h)}}
         {
-            m_remote_wait_fct();
-            m_bulk_co_iface_ptr->wait();
+        }
+
+        bool is_ready()
+        {
+            if (!m_impl) return true;
+            if (m_impl->is_ready())
+            {
+                m_impl.reset();
+                return true;
+            }
+            else return false;
+        }
+        void wait()
+        {
+            if (m_impl)
+            {
+                m_impl->wait();
+                m_impl.reset();
+            }
         }
     };
 
@@ -101,7 +143,8 @@ struct generic_bulk_communication_object
         }
         handle exchange() override final
         {
-            return {std::move(m.exchange().m_remote_handle.m_wait_fct), this};
+            //return {std::move(m.exchange().m_remote_handle.m_wait_fct), this};
+            return {std::move(m.exchange())};
         }
 
       private:
@@ -121,7 +164,7 @@ struct generic_bulk_communication_object
     generic_bulk_communication_object(generic_bulk_communication_object&&) = default;
     generic_bulk_communication_object& operator=(generic_bulk_communication_object&&) = default;
 
-    handle exchange() { return m_impl->exchange(); }
+    handle exchange() { return std::move(m_impl->exchange()); }
 };
 
 /** @brief wait for all requests in a range to finish and call 
@@ -178,11 +221,22 @@ class bulk_communication_object
     {
         co_handle                  m_remote_handle;
         bulk_communication_object* m_bulk_co_ptr;
+        bool m_done = false;
 
         void wait()
         {
-            m_remote_handle.wait();
+            if (!m_done) m_remote_handle.wait();
             m_bulk_co_ptr->wait();
+        }
+
+        bool is_ready()
+        {
+            if (m_done || m_remote_handle.is_ready())
+            {
+                m_done = true;
+                return m_remote_handle.is_ready();
+            }
+            else return false;
         }
     };
 
