@@ -345,7 +345,7 @@ if (GHEX_ENABLE_PARMETIS_BINDINGS)
         target_link_libraries(${_t}_ipr gtest_main_bench_mt metis parmetis)
 
         if(USE_GPU)
-            add_executable(${_t}_gpu ${_t}.cu)
+            add_ghex_gpu_executable(${_t}_gpu ${_t})
             target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
             target_include_directories(${_t}_gpu PRIVATE ${METIS_INCLUDE_DIR} ${PARMETIS_INCLUDE_DIR})
             target_link_directories(${_t}_gpu PRIVATE ${METIS_LIB_DIR} ${PARMETIS_LIB_DIR})

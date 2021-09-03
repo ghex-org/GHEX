@@ -285,7 +285,7 @@ if (USE_GPU)
     endforeach()
 
     foreach (_t ${_tests_unstructured})
-        add_executable(${_t}_gpu ${_t}.cu)
+        add_ghex_gpu_executable(${_t}_gpu ${_t})
         target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
         target_link_libraries(${_t}_gpu gtest_main_mt)
         add_test(
