@@ -228,7 +228,11 @@ struct test_exchange
         auto        co2 = ghex::make_communication_object<pattern_container_type>(ctxt);
         auto        h1 = co1.exchange(params.field_1a.bi, params.field_2a.bi, params.field_3a.bi);
         auto        h2 = co2.exchange(params.field_1b.bi, params.field_2b.bi, params.field_3b.bi);
-        while (!h1.is_ready() || !h2.is_ready()) {}
+        while (!h1.is_ready() || !h2.is_ready())
+        {
+            h1.progress();
+            h2.progress();
+        }
         params.check_values();
     }
 
@@ -284,7 +288,11 @@ struct test_exchange
             policy, func, &co2, params.field_1b.bi, params.field_2b.bi, params.field_3b.bi);
         auto h1 = future1.get();
         auto h2 = future2.get();
-        while (!h1.is_ready() || !h2.is_ready()) {}
+        while (!h1.is_ready() || !h2.is_ready())
+        {
+            h1.progress();
+            h2.progress();
+        }
         params.check_values();
     }
 };
@@ -321,7 +329,11 @@ struct test_exchange_vector
             params.field_1b.bi, params.field_2b.bi, params.field_3b.bi};
         auto h1 = co1.exchange(fields1.begin(), fields1.end());
         auto h2 = co2.exchange(fields2.begin(), fields2.end());
-        while (!h1.is_ready() || !h2.is_ready()) {}
+        while (!h1.is_ready() || !h2.is_ready())
+        {
+            h1.progress();
+            h2.progress();
+        }
         params.check_values();
     }
 
@@ -383,7 +395,11 @@ struct test_exchange_vector
         auto future2 = std::async(policy, func, &co2, fields2);
         auto h1 = future1.get();
         auto h2 = future2.get();
-        while (!h1.is_ready() || !h2.is_ready()) {}
+        while (!h1.is_ready() || !h2.is_ready())
+        {
+            h1.progress();
+            h2.progress();
+        }
         params.check_values();
     }
 };

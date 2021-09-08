@@ -75,27 +75,26 @@ struct generic_bulk_communication_object
         virtual ~handle_iface() {}
         virtual bool is_ready() = 0;
         virtual void wait() = 0;
+        virtual void progress() = 0;
     };
 
     template<typename Handle>
     struct handle_holder : public handle_iface
     {
         Handle h;
-        handle_holder(Handle&& h_) : h{std::move(h_)} {}
-        virtual bool is_ready() override final
+        handle_holder(Handle&& h_)
+        : h{std::move(h_)}
         {
-            return h.is_ready();
         }
-        virtual void wait() override final
-        {
-            h.wait();
-        }
+        virtual bool is_ready() override final { return h.is_ready(); }
+        virtual void wait() override final { h.wait(); }
+        virtual void progress() override final { h.progress(); }
     };
 
     struct handle
     {
         std::unique_ptr<handle_iface> m_impl;
-        
+
         template<typename Handle>
         handle(Handle&& h)
         //: m_impl{std::make_unique<handle_holder<Handle>>(std::move(h))}
@@ -111,7 +110,8 @@ struct generic_bulk_communication_object
                 m_impl.reset();
                 return true;
             }
-            else return false;
+            else
+                return false;
         }
         void wait()
         {
@@ -120,6 +120,10 @@ struct generic_bulk_communication_object
                 m_impl->wait();
                 m_impl.reset();
             }
+        }
+        void progress()
+        {
+            if (m_impl) m_impl->progress();
         }
     };
 
@@ -221,7 +225,7 @@ class bulk_communication_object
     {
         co_handle                  m_remote_handle;
         bulk_communication_object* m_bulk_co_ptr;
-        bool m_done = false;
+        bool                       m_done = false;
 
         void wait()
         {
@@ -236,8 +240,11 @@ class bulk_communication_object
                 m_done = true;
                 return m_remote_handle.is_ready();
             }
-            else return false;
+            else
+                return false;
         }
+
+        void progress() { m_remote_handle.progress(); }
     };
 
   private: // member types
