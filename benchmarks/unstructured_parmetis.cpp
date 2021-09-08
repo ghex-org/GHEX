@@ -132,7 +132,7 @@ Domain make_reindexed_domain(const Domain& d, const Pattern& p) {
             vs.push_back(d.vertices()[i]);
         }
     }
-    Domain res{d.domain_id(), vs, d.inner_size(), d.levels()}; // TO DO: std::move vs?
+    Domain res{d.domain_id(), vs, d.inner_size(), d.levels()};
     return res;
 }
 
@@ -168,7 +168,7 @@ struct d_v_pair {
 
 using vertices_dist_type = std::map<int, std::map<d_v_pair<domain_id_type, idx_t>, std::vector<idx_t>>>;
 using domain_vertices_dist_type = std::map<domain_id_type, std::map<idx_t, std::vector<idx_t>>>;
-domain_vertices_dist_type distribute_parmetis(vertices_dist_type& vertices_dist, std::size_t n_vertices, MPI_Comm comm) { // TO DO: vertices_dist should be const ref
+domain_vertices_dist_type distribute_parmetis(const vertices_dist_type& vertices_dist, std::size_t n_vertices, MPI_Comm comm) {
     
     int size;
     MPI_Comm_size(comm, &size);
@@ -176,7 +176,7 @@ domain_vertices_dist_type distribute_parmetis(vertices_dist_type& vertices_dist,
     // 1) all-to-all: number of vertices per rank
     std::vector<int> s_n_vertices_rank(size);
     for (int i = 0; i < size; ++i) {
-        s_n_vertices_rank[i] = vertices_dist[i].size(); // TO DO: any missing rank gets actually inserted into the map here
+        s_n_vertices_rank[i] = vertices_dist[i].size(); // any missing rank gets actually inserted into the map here
     };
     std::vector<int> r_n_vertices_rank(size);
     MPI_Alltoall(s_n_vertices_rank.data(), sizeof(int), MPI_BYTE,
@@ -345,10 +345,10 @@ TEST(unstructured_parmetis, receive_type) {
     // ParMETIS variables
     idx_t wgtflag = 0;
     idx_t numflag = 0;
-    idx_t ncon = 1; // TO DO: double check
+    idx_t ncon = 1; // TO DO: might vary
     idx_t nparts = size * num_threads;
-    std::vector<real_t> tpwgts_v(ncon * nparts, 1 / static_cast<real_t>(nparts)); // TO DO: double check
-    std::vector<real_t> ubvec_v(ncon, 1.02); // TO DO: double check
+    std::vector<real_t> tpwgts_v(ncon * nparts, 1 / static_cast<real_t>(nparts)); // TO DO: might vary
+    std::vector<real_t> ubvec_v(ncon, 1.02); // TO DO: might vary
     std::array<idx_t, 3> options{0, 0, 0};
     idx_t edgecut;
 
@@ -431,7 +431,7 @@ TEST(unstructured_parmetis, receive_type) {
     for (auto d_id : rank_to_domains<domain_id_type>(gh_rank, num_threads)) {
         std::vector<idx_t> vertices{};
         vertices.reserve(domain_vertices_dist[d_id].size()); // any missing domain gets actually inserted into the map here
-        std::vector<idx_t> adjncy{}; // TO DO: size might be deduced in advance
+        std::vector<idx_t> adjncy{}; // size may be computed in advance, not preformance critical anyway // HERE
         for (const auto& v_a_pair : domain_vertices_dist[d_id]) {
             vertices.push_back(v_a_pair.first);
             adjncy.insert(adjncy.end(), v_a_pair.second.begin(), v_a_pair.second.end());
@@ -515,7 +515,7 @@ TEST(unstructured_parmetis, receive_type) {
     for (std::size_t i = 0; i < local_domains.size(); ++i) {
         local_domains_ord.push_back(make_reindexed_domain(local_domains[i], p[i]));
     }
-    auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // TO DO: definitely not optimal, only recv halos are different
+    auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // easiest way, but quite redundant: only recv halos are different
 
 #ifdef GHEX_PARMETIS_BENCHMARK_ORDERED
 
@@ -667,7 +667,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<idx_t> f_cpu(d.size() * d.levels(), 0);
     initialize_field(d, f_cpu, d_id_offset);
     idx_t* f_gpu = gpu_alloc.allocate(d.size() * d.levels());
-    cudaMemcpy(f_gpu, f_cpu.data(), d.size() * d.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    cudaMemcpy(f_gpu, f_cpu.data(), d.size() * d.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper
     data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, 0};
 
     // exchange
@@ -700,12 +700,12 @@ TEST(unstructured_parmetis, receive_type) {
     // setup
     domain_descriptor_type d_ord = make_reindexed_domain(d, p[0]);
     std::vector<domain_descriptor_type> local_domains_ord{d_ord};
-    auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // TO DO: definitely not optimal, only recv halos are different
+    auto p_ord = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains_ord); // easiest way, but quite redundant: only recv halos are different
     auto co_ord = gridtools::ghex::make_communication_object<pattern_container_type>(gh_comm); // new one, same conditions
     std::vector<idx_t> f_ord_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ord_cpu, d_id_offset);
     idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
-    cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper
     data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, 0};
 
     // exchange
@@ -740,7 +740,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<idx_t> f_ipr_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ipr_cpu, d_id_offset);
     idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
-    cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper
     data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, 0};
 
     // exchange
