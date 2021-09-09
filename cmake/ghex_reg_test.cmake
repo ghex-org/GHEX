@@ -15,6 +15,8 @@ function(ghex_reg_test t_)
     add_executable(${t} $<TARGET_OBJECTS:${t_}_obj>)
     target_link_libraries(${t} PRIVATE gtest_main)
     target_link_libraries(${t} PRIVATE ghex)
+    # workaround for clang+openmp
+    target_link_libraries(${t} PRIVATE $<$<CXX_COMPILER_ID:Clang>:$<LINK_ONLY:-fopenmp=libomp>>)
     add_test(
         NAME ${t}
         COMMAND $<TARGET_FILE:${t}>)
@@ -31,6 +33,8 @@ function(ghex_reg_parallel_test t_ n mt)
         target_link_libraries(${t} PRIVATE gtest_main_mpi)
     endif()
     target_link_libraries(${t} PRIVATE ghex)
+    # workaround for clang+openmp
+    target_link_libraries(${t} PRIVATE $<$<CXX_COMPILER_ID:Clang>:$<LINK_ONLY:-fopenmp=libomp>>)
     add_test(
         NAME ${t}
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
