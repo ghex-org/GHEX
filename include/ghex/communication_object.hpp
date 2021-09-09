@@ -25,8 +25,6 @@
 #include <stdio.h>
 #include <functional>
 
-#define GHEX_COMM_OBJ_USE_U
-
 namespace ghex
 {
 // forward declaration for optimization on regular grids
@@ -201,13 +199,6 @@ class communication_object
 
         send_memory_type send_memory;
         recv_memory_type recv_memory;
-
-        //#ifndef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
-        //        // additional members needed for receive operations used for scheduling calls to unpack
-        //        using hook_type = recv_buffer_type*;
-        //        using hook_future_type = typename communicator_type::template future<hook_type>;
-        //        std::vector<hook_future_type> m_recv_futures;
-        //#endif
     };
 
     /** tuple type of buffer_memory (one element for each device in arch_list) */
@@ -221,9 +212,7 @@ class communication_object
     communicator_type              m_comm;
     memory_type                    m_mem;
     std::vector<send_request_type> m_send_reqs;
-    //#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
     std::vector<recv_request_type> m_recv_reqs;
-    //#endif
 
   public: // ctors
     communication_object(context& c)
@@ -334,7 +323,6 @@ class communication_object
         exchange_impl(std::make_pair(first, last));
         // post recvs
         auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
-        //#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
         for (auto& p0 : gpu_mem.recv_memory)
         {
             const auto device_id = p0.first;
@@ -361,25 +349,6 @@ class communication_object
         packer<gpu>::template pack_u<value_type, field_type>(gpu_mem, m_send_reqs, m_comm);
         // return handle
         return {this};
-        //#else
-        //        for (auto& p0 : gpu_mem.recv_memory)
-        //        {
-        //            for (auto& p1 : p0.second)
-        //            {
-        //                if (p1.second.size > 0u)
-        //                {
-        //                    p1.second.buffer.resize(p1.second.size);
-        //                    gpu_mem.m_recv_futures.emplace_back(typename gpu_mem_t::hook_future_type{
-        //                        &p1.second,
-        //                        m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
-        //                }
-        //            }
-        //        }
-        //        // pack
-        //        packer<gpu>::template pack_u<value_type, field_type>(gpu_mem, m_send_futures, m_comm);
-        //        // return handle
-        //        return handle_type(m_comm, [this]() { this->template wait_u_gpu<field_type>(); });
-        //#endif
     }
 #endif
 
@@ -466,7 +435,6 @@ class communication_object
 
     void post_recvs()
     {
-        //#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
         for_each(m_mem, [this](auto& m) {
             using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
             for (auto& p0 : m.recv_memory)
@@ -495,27 +463,8 @@ class communication_object
                 }
             }
         });
-        //#else
-        //        detail::for_each(m_mem, [this](auto& m) {
-        //            for (auto& p0 : m.recv_memory)
-        //            {
-        //                for (auto& p1 : p0.second)
-        //                {
-        //                    if (p1.second.size > 0u)
-        //                    {
-        //                        p1.second.buffer.resize(p1.second.size);
-        //                        m.m_recv_futures.emplace_back(
-        //                            typename std::remove_reference_t<decltype(m)>::hook_future_type{
-        //                                &p1.second,
-        //                                m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag)
-        //                                    .m_handle});
-        //                    }
-        //                }
-        //            }
-        //        });
-        //#endif
     }
-    //
+
     void pack()
     {
         for_each(m_mem, [this](auto& m) {
@@ -523,7 +472,7 @@ class communication_object
             packer<arch_type>::pack(m, m_send_reqs, m_comm);
         });
     }
-    //
+
   private: // wait functions
     void progress()
     {
@@ -551,47 +500,11 @@ class communication_object
     void wait()
     {
         if (!m_valid) return;
+        // wait for data to arrive (unpack callback will be invoked)
         m_comm.wait_all();
-        //            // wait for data to arrive (unpack callback will be invoked)
-        //#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
-        //        await_requests(m_recv_reqs, [comm = m_comm]() mutable { comm.progress(); });
-        //#else
-        //        detail::for_each(m_mem, [this](auto& m) {
-        //            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-        //            packer<arch_type>::unpack(m);
-        //        });
-        //#endif
-        //        // wait for data to be sent
-        //        await_requests(m_send_futures);
-        //#ifdef __CUDACC__
-        //        // wait for the unpack kernels to finish
-        //        auto& m = std::get<buffer_memory<gpu>>(m_mem);
-        //        for (auto& p0 : m.recv_memory)
-        //            for (auto& p1 : p0.second)
-        //                if (p1.second.size > 0u) p1.second.m_cuda_stream.sync();
-        //#endif
         clear();
     }
-    //
-    //#ifdef GHEX_COMM_OBJ_USE_U
-    //#if defined(__CUDACC__) && !defined(GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
-    //    template<typename FieldType>
-    //    void wait_u_gpu()
-    //    {
-    //        if (!m_valid) return;
-    //        using field_type = FieldType;
-    //        using value_type = typename field_type::value_type;
-    //        using memory_t = buffer_memory<gpu>;
-    //        // unpack
-    //        memory_t& mem = std::get<memory_t>(m_mem);
-    //        packer<gpu>::template unpack_u<value_type, field_type>(mem);
-    //        // wait for data to be sent
-    //        await_requests(m_send_futures);
-    //        clear();
-    //    }
-    //#endif
-    //#endif
-    //
+
   private: // reset
     // clear the internal flags so that a new exchange can be started
     // important: does not deallocate
@@ -599,24 +512,17 @@ class communication_object
     {
         m_valid = false;
         m_send_reqs.clear();
-        //#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
         m_recv_reqs.clear();
         for_each(m_mem, [this](auto& m) {
-            //#else
-            //        detail::for_each(m_mem, [this](auto& m) {
-            //            m.m_recv_futures.clear();
-            //#endif
             for (auto& p0 : m.send_memory)
                 for (auto& p1 : p0.second)
                 {
-                    //                    p1.second.buffer.resize(0);
                     p1.second.size = 0;
                     p1.second.field_infos.resize(0);
                 }
             for (auto& p0 : m.recv_memory)
                 for (auto& p1 : p0.second)
                 {
-                    //                    p1.second.buffer.resize(0);
                     p1.second.size = 0;
                     p1.second.field_infos.resize(0);
                 }

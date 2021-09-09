@@ -2,6 +2,7 @@
 set(GHEX_USE_GPU "OFF" CACHE BOOL "use gpu")
 set(GHEX_EMULATE_GPU "OFF" CACHE BOOL "emulate gpu (for debugging)")
 #mark_as_advanced(GHEX_EMULATE_GPU)
+set(GHEX_COMM_OBJ_USE_U "OFF" CACHE BOOL "uniform field optimization for gpu")
 
 if(GHEX_USE_GPU)
     if (NOT ${HWMALLOC_ENABLE_DEVICE})
