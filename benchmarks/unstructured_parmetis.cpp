@@ -45,6 +45,7 @@
 #ifdef GHEX_CUDACC
 #include <ghex/common/cuda_runtime.hpp>
 #include <ghex/allocator/cuda_allocator.hpp>
+#include <ghex/cuda_utils/error.hpp>
 #endif
 
 
@@ -667,7 +668,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<idx_t> f_cpu(d.size() * d.levels(), 0);
     initialize_field(d, f_cpu, d_id_offset);
     idx_t* f_gpu = gpu_alloc.allocate(d.size() * d.levels());
-    cudaMemcpy(f_gpu, f_cpu.data(), d.size() * d.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper
+    GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_gpu, f_cpu.data(), d.size() * d.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
     data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, 0};
 
     // exchange
@@ -705,7 +706,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<idx_t> f_ord_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ord_cpu, d_id_offset);
     idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
-    cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper
+    GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
     data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, 0};
 
     // exchange
@@ -740,7 +741,7 @@ TEST(unstructured_parmetis, receive_type) {
     std::vector<idx_t> f_ipr_cpu(d_ord.size() * d_ord.levels(), 0);
     initialize_field(d_ord, f_ipr_cpu, d_id_offset);
     idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
-    cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice); // TO DO: GT wrapper
+    GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
     data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, 0};
 
     // exchange
