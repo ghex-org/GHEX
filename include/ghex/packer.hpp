@@ -13,10 +13,10 @@
 #include <ghex/config.hpp>
 #include <ghex/arch_traits.hpp>
 #include <ghex/device/guard.hpp>
-//#include "./structured/field_utils.hpp"
-//#include <ghex/device/cuda/kernel_argument.hpp>
+#include <ghex/structured/field_utils.hpp>
+#include <ghex/device/cuda/kernel_argument.hpp>
 #include <ghex/device/cuda/future.hpp>
-//#include <gridtools/common/array.hpp>
+#include <gridtools/common/array.hpp>
 #ifdef GHEX_CUDACC
 #include <ghex/device/cuda/runtime.hpp>
 #endif
@@ -97,32 +97,32 @@ await_futures(std::vector<Future>& range, Continuation&& cont)
     }
 }
 
-//template<typename PackIterationSpace, unsigned int N>
-//__global__ void
-//pack_kernel_u(cuda::kernel_argument<PackIterationSpace, N> args)
-//{
-//    using layout_t = typename PackIterationSpace::layout_map;
-//    using value_type = typename PackIterationSpace::value_t;
-//    using coordinate_type = typename PackIterationSpace::coordinate_t;
-//    static constexpr auto D = coordinate_type::size();
-//    const int             thread_index = blockIdx.x * blockDim.x + threadIdx.x;
-//    const int             data_lu_index = blockIdx.y;
-//
-//    auto&     arg = args[data_lu_index];
-//    const int size = arg.m_buffer_desc.m_size;
-//    if (thread_index < size)
-//    {
-//        // compute local coordinate
-//        coordinate_type local_coordinate;
-//        ::gridtools::ghex::structured::detail::compute_coordinate<D>::template apply<layout_t>(
-//            arg.m_data_is.m_local_strides, local_coordinate, thread_index);
-//        // add offset
-//        const coordinate_type x = local_coordinate + arg.m_data_is.m_first;
-//        // assign
-//        arg.buffer(x) = arg.data(x);
-//    }
-//}
-//
+template<typename PackIterationSpace, unsigned int N>
+__global__ void
+pack_kernel_u(cuda::kernel_argument<PackIterationSpace, N> args)
+{
+    using layout_t = typename PackIterationSpace::layout_map;
+    using value_type = typename PackIterationSpace::value_t;
+    using coordinate_type = typename PackIterationSpace::coordinate_t;
+    static constexpr auto D = coordinate_type::size();
+    const int             thread_index = blockIdx.x * blockDim.x + threadIdx.x;
+    const int             data_lu_index = blockIdx.y;
+
+    auto&     arg = args[data_lu_index];
+    const int size = arg.m_buffer_desc.m_size;
+    if (thread_index < size)
+    {
+        // compute local coordinate
+        coordinate_type local_coordinate;
+        ghex::structured::detail::compute_coordinate<D>::template apply<layout_t>(
+            arg.m_data_is.m_local_strides, local_coordinate, thread_index);
+        // add offset
+        const coordinate_type x = local_coordinate + arg.m_data_is.m_first;
+        // assign
+        arg.buffer(x) = arg.data(x);
+    }
+}
+
 //template<typename UnPackIterationSpace, unsigned int N>
 //__global__ void
 //unpack_kernel_u(cuda::kernel_argument<UnPackIterationSpace, N> args)
@@ -217,115 +217,119 @@ struct packer<gpu>
     //                    (void*)(&hook->m_cuda_stream.get()));
     //        });
     //    }
-    //
-    //    template<typename T, typename FieldType, typename Map, typename Futures, typename Communicator>
-    //    static void pack_u(Map& map, Futures& send_futures, Communicator& comm)
-    //    {
-    //        using send_buffer_type = typename Map::send_buffer_type;
-    //        using field_info_type = typename send_buffer_type::field_info_type;
-    //        using index_container_type = typename field_info_type::index_container_type;
-    //        using dimension = typename index_container_type::value_type::dimension;
-    //        using array_t = array<int, dimension::value>;
-    //        using arg_t = typename FieldType::pack_iteration_space;
-    //        constexpr int block_size = 128;
-    //
-    //        std::vector<arg_t> args;
-    //        args.reserve(64);
-    //
-    //        std::size_t num_streams = 0;
-    //        for (auto& p0 : map.send_memory)
-    //        {
-    //            for (auto& p1 : p0.second)
-    //            {
-    //                if (p1.second.size > 0u)
-    //                {
-    //                    p1.second.buffer.resize(p1.second.size);
-    //                    ++num_streams;
-    //                }
-    //            }
-    //        }
-    //
-    //        using future_type = cuda::future<send_buffer_type*>;
-    //        std::vector<future_type> stream_futures;
-    //        stream_futures.reserve(num_streams);
-    //
-    //        num_streams = 0;
-    //        for (auto& p0 : map.send_memory)
-    //        {
-    //            for (auto& p1 : p0.second)
-    //            {
-    //                if (p1.second.size > 0u)
-    //                {
-    //                    args.clear();
-    //                    int num_blocks_y = 0;
-    //                    int max_size = 0;
-    //                    for (const auto& fb : p1.second.field_infos)
-    //                    {
-    //                        T* buffer_address =
-    //                            reinterpret_cast<T*>(p1.second.buffer.data() + fb.offset);
-    //                        auto& f = *reinterpret_cast<FieldType*>(fb.field_ptr);
-    //                        for (const auto& it_space_pair : *fb.index_container)
-    //                        {
-    //                            ++num_blocks_y;
-    //                            const int size = it_space_pair.size() * f.num_components();
-    //                            max_size = std::max(size, max_size);
-    //                            args.push_back(f.make_pack_is(it_space_pair, buffer_address, size));
-    //                            buffer_address += size;
-    //                        }
-    //                    }
-    //                    const int num_blocks_x = (max_size + block_size - 1) / block_size;
-    //                    // unroll kernels: can fit at most 34 arguments as pack kernel argument
-    //                    // invoke new kernels until all data is packed
-    //                    unsigned int count = 0;
-    //                    while (num_blocks_y)
-    //                    {
-    //                        if (num_blocks_y > 34)
-    //                        {
-    //                            dim3 dimBlock(block_size, 1);
-    //                            dim3 dimGrid(num_blocks_x, 34);
-    //                            pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
-    //                                cuda::make_kernel_arg<34>(args.data() + count, 34));
-    //                            count += 34;
-    //                            num_blocks_y -= 34;
-    //                        }
-    //                        else
-    //                        {
-    //                            dim3 dimBlock(block_size, 1);
-    //                            dim3 dimGrid(num_blocks_x, num_blocks_y);
-    //                            if (num_blocks_y < 7)
-    //                            {
-    //                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
-    //                                    cuda::make_kernel_arg<6>(args.data() + count, num_blocks_y));
-    //                            }
-    //                            else if (num_blocks_y < 13)
-    //                            {
-    //                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
-    //                                    cuda::make_kernel_arg<12>(args.data() + count, num_blocks_y));
-    //                            }
-    //                            else if (num_blocks_y < 25)
-    //                            {
-    //                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
-    //                                    cuda::make_kernel_arg<24>(args.data() + count, num_blocks_y));
-    //                            }
-    //                            else
-    //                            {
-    //                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_cuda_stream>>>(
-    //                                    cuda::make_kernel_arg<34>(args.data() + count, num_blocks_y));
-    //                            }
-    //                            count += num_blocks_y;
-    //                            num_blocks_y = 0;
-    //                        }
-    //                    }
-    //                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_cuda_stream});
-    //                    ++num_streams;
-    //                }
-    //            }
-    //        }
-    //        await_futures(stream_futures, [&comm, &send_futures](send_buffer_type* b) {
-    //            send_futures.push_back(comm.send(b->buffer, b->address, b->tag));
-    //        });
-    //    }
-    //
+
+    template<typename T, typename FieldType, typename Map, typename Requests, typename Communicator>
+    static void pack_u(Map& map, Requests& send_reqs, Communicator& comm)
+    {
+        using send_buffer_type = typename Map::send_buffer_type;
+        using field_info_type = typename send_buffer_type::field_info_type;
+        using index_container_type = typename field_info_type::index_container_type;
+        using dimension = typename index_container_type::value_type::dimension;
+        using array_t = gridtools::array<int, dimension::value>;
+        using arg_t = typename FieldType::pack_iteration_space;
+        constexpr int block_size = 128;
+
+        std::vector<arg_t> args;
+        args.reserve(64);
+
+        std::size_t num_streams = 0;
+        for (auto& p0 : map.send_memory)
+        {
+            const auto device_id = p0.first;
+            for (auto& p1 : p0.second)
+            {
+                if (p1.second.size > 0u)
+                {
+                    if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
+                        p1.second.buffer.device_id() != device_id)
+                        p1.second.buffer =
+                            arch_traits<gpu>::make_message(comm, p1.second.size, device_id);
+                    ++num_streams;
+                }
+            }
+        }
+
+        using future_type = cuda::future<send_buffer_type*>;
+        std::vector<future_type> stream_futures;
+        stream_futures.reserve(num_streams);
+
+        num_streams = 0;
+        for (auto& p0 : map.send_memory)
+        {
+            for (auto& p1 : p0.second)
+            {
+                if (p1.second.size > 0u)
+                {
+                    args.clear();
+                    int num_blocks_y = 0;
+                    int max_size = 0;
+                    for (const auto& fb : p1.second.field_infos)
+                    {
+                        device::guard g(p1.second.buffer);
+                        T*            buffer_address = reinterpret_cast<T*>(g.data() + fb.offset);
+                        auto&         f = *reinterpret_cast<FieldType*>(fb.field_ptr);
+                        for (const auto& it_space_pair : *fb.index_container)
+                        {
+                            ++num_blocks_y;
+                            const int size = it_space_pair.size() * f.num_components();
+                            max_size = std::max(size, max_size);
+                            args.push_back(f.make_pack_is(it_space_pair, buffer_address, size));
+                            buffer_address += size;
+                        }
+                    }
+                    const int num_blocks_x = (max_size + block_size - 1) / block_size;
+                    // unroll kernels: can fit at most 34 arguments as pack kernel argument
+                    // invoke new kernels until all data is packed
+                    unsigned int count = 0;
+                    while (num_blocks_y)
+                    {
+                        if (num_blocks_y > 34)
+                        {
+                            dim3 dimBlock(block_size, 1);
+                            dim3 dimGrid(num_blocks_x, 34);
+                            pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_stream>>>(
+                                device::make_kernel_arg<34>(args.data() + count, 34));
+                            count += 34;
+                            num_blocks_y -= 34;
+                        }
+                        else
+                        {
+                            dim3 dimBlock(block_size, 1);
+                            dim3 dimGrid(num_blocks_x, num_blocks_y);
+                            if (num_blocks_y < 7)
+                            {
+                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_stream>>>(
+                                    device::make_kernel_arg<6>(args.data() + count, num_blocks_y));
+                            }
+                            else if (num_blocks_y < 13)
+                            {
+                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_stream>>>(
+                                    device::make_kernel_arg<12>(args.data() + count, num_blocks_y));
+                            }
+                            else if (num_blocks_y < 25)
+                            {
+                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_stream>>>(
+                                    device::make_kernel_arg<24>(args.data() + count, num_blocks_y));
+                            }
+                            else
+                            {
+                                pack_kernel_u<<<dimGrid, dimBlock, 0, p1.second.m_stream>>>(
+                                    device::make_kernel_arg<34>(args.data() + count, num_blocks_y));
+                            }
+                            count += num_blocks_y;
+                            num_blocks_y = 0;
+                        }
+                    }
+                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_stream});
+                    ++num_streams;
+                }
+            }
+        }
+        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
+            send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
+        });
+    }
+
     //    template<typename T, typename FieldType, typename BufferMem>
     //    static void unpack_u(BufferMem& m)
     //    {

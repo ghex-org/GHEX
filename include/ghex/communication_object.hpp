@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <functional>
 
+#define GHEX_COMM_OBJ_USE_U
+
 namespace ghex
 {
 // forward declaration for optimization on regular grids
@@ -235,16 +237,6 @@ class communication_object
     communicator_type& communicator() { return m_comm; }
 
   public: // exchange arbitrary field-device-pattern combinations
-    //    /** @brief blocking variant of halo exchange
-    //              * @tparam Archs list of device types
-    //              * @tparam Fields list of field types
-    //              * @param buffer_infos buffer_info objects created by binding a field descriptor to a pattern */
-    //    template<typename... Archs, typename... Fields>
-    //    void bexchange(buffer_info_type<Archs, Fields>... buffer_infos)
-    //    {
-    //        exchange(buffer_infos...).wait();
-    //    }
-
     /** @brief non-blocking exchange of halo data
       * @tparam Archs list of device types
       * @tparam Fields list of field types
@@ -254,7 +246,6 @@ class communication_object
     [[nodiscard]] handle_type exchange(buffer_info_type<Archs, Fields>... buffer_infos)
     {
         exchange_impl(buffer_infos...);
-        //handle_type h(/*m_comm,*/ [this]() { this->wait(); });
         post_recvs();
         pack();
         return {this};
@@ -302,8 +293,7 @@ class communication_object
         exchange_impl(iter_pairs...);
         post_recvs();
         pack();
-        //        return handle_type(m_comm, [this]() { this->wait(); });
-        return {this}; //handle_type([this]() { this->wait(); });
+        return {this};
     }
 
     // helper function to turn iterators into pairs of iterators
@@ -317,81 +307,82 @@ class communication_object
 
     // special function to handle one iterator pair (optimization for gpus below)
     template<typename Iterator>
-    //#ifdef GHEX_COMM_OBJ_USE_U
-    //    [[nodiscard]] std::enable_if_t<
-    //        !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
-    //        handle_type>
-    //#else
+#if defined(GHEX_COMM_OBJ_USE_U) && !defined(GHEX_GPU_MODE_EMULATE)
+    [[nodiscard]] std::enable_if_t<
+        !detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
+        handle_type>
+#else
     [[nodiscard]] handle_type
-    //#endif
+#endif
     exchange_u(Iterator first, Iterator last)
     {
         // call exchange with a pair of iterators
         return exchange(std::make_pair(first, last));
     }
 
-    //#ifdef GHEX_COMM_OBJ_USE_U
-    //#ifdef __CUDACC__
-    //    // optimized exchange for regular grids and a range of same-type fields
-    //    template<typename Iterator>
-    //    [[nodiscard]] std::enable_if_t<
-    //        detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
-    //        handle_type>
-    //    exchange_u(Iterator first, Iterator last)
-    //    {
-    //        using gpu_mem_t = buffer_memory<gpu>;
-    //        using field_type = std::remove_reference_t<decltype(first->get_field())>;
-    //        using value_type = typename field_type::value_type;
-    //        exchange_impl(std::make_pair(first, last));
-    //        // post recvs
-    //        auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
-    //#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
-    //        for (auto& p0 : gpu_mem.recv_memory)
-    //        {
-    //            for (auto& p1 : p0.second)
-    //            {
-    //                if (p1.second.size > 0u)
-    //                {
-    //                    p1.second.buffer.resize(p1.second.size);
-    //                    // use callbacks for unpacking
-    //                    auto ptr = &p1.second;
-    //                    m_recv_reqs.push_back(
-    //                        m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag,
-    //                            [ptr](typename communicator_type::message_type m,
-    //                                typename communicator_type::rank_type,
-    //                                typename communicator_type::tag_type) {
-    //                                packer<gpu>::unpack(*ptr, m.data());
-    //                            }));
-    //                }
-    //            }
-    //        }
-    //        // pack
-    //        packer<gpu>::template pack_u<value_type, field_type>(gpu_mem, m_send_futures, m_comm);
-    //        // return handle
-    //        return handle_type(m_comm, [this]() { this->wait(); });
-    //#else
-    //        for (auto& p0 : gpu_mem.recv_memory)
-    //        {
-    //            for (auto& p1 : p0.second)
-    //            {
-    //                if (p1.second.size > 0u)
-    //                {
-    //                    p1.second.buffer.resize(p1.second.size);
-    //                    gpu_mem.m_recv_futures.emplace_back(typename gpu_mem_t::hook_future_type{
-    //                        &p1.second,
-    //                        m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
-    //                }
-    //            }
-    //        }
-    //        // pack
-    //        packer<gpu>::template pack_u<value_type, field_type>(gpu_mem, m_send_futures, m_comm);
-    //        // return handle
-    //        return handle_type(m_comm, [this]() { this->template wait_u_gpu<field_type>(); });
-    //#endif
-    //    }
-    //#endif
-    //#endif
-    //
+#if defined(GHEX_COMM_OBJ_USE_U) && !defined(GHEX_GPU_MODE_EMULATE) && defined(GHEX_CUDACC)
+    // optimized exchange for regular grids and a range of same-type fields
+    template<typename Iterator>
+    [[nodiscard]] std::enable_if_t<
+        detail::is_regular_gpu<typename std::iterator_traits<Iterator>::value_type>::value,
+        handle_type>
+    exchange_u(Iterator first, Iterator last)
+    {
+        using gpu_mem_t = buffer_memory<gpu>;
+        using field_type = std::remove_reference_t<decltype(first->get_field())>;
+        using value_type = typename field_type::value_type;
+        exchange_impl(std::make_pair(first, last));
+        // post recvs
+        auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
+        //#ifdef GHEX_COMM_OBJ_USE_FAT_CALLBACKS
+        for (auto& p0 : gpu_mem.recv_memory)
+        {
+            const auto device_id = p0.first;
+            for (auto& p1 : p0.second)
+            {
+                if (p1.second.size > 0u)
+                {
+                    if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
+                        p1.second.buffer.device_id() != device_id)
+                        p1.second.buffer =
+                            arch_traits<arch_type>::make_message(m_comm, p1.second.size, device_id);
+                    // use callbacks for unpacking
+                    auto ptr = &p1.second;
+                    m_recv_reqs.push_back(
+                        m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
+                            [ptr](context::message_type& m, context::rank_type, context::tag_type) {
+                                device::guard g(m);
+                                packer<gpu>::unpack(*ptr, g.data());
+                            }));
+                }
+            }
+        }
+        // pack
+        packer<gpu>::template pack_u<value_type, field_type>(gpu_mem, m_send_reqs, m_comm);
+        // return handle
+        return {this};
+        //#else
+        //        for (auto& p0 : gpu_mem.recv_memory)
+        //        {
+        //            for (auto& p1 : p0.second)
+        //            {
+        //                if (p1.second.size > 0u)
+        //                {
+        //                    p1.second.buffer.resize(p1.second.size);
+        //                    gpu_mem.m_recv_futures.emplace_back(typename gpu_mem_t::hook_future_type{
+        //                        &p1.second,
+        //                        m_comm.recv(p1.second.buffer, p1.second.address, p1.second.tag).m_handle});
+        //                }
+        //            }
+        //        }
+        //        // pack
+        //        packer<gpu>::template pack_u<value_type, field_type>(gpu_mem, m_send_futures, m_comm);
+        //        // return handle
+        //        return handle_type(m_comm, [this]() { this->template wait_u_gpu<field_type>(); });
+        //#endif
+    }
+#endif
+
     // helper function to set up communicaton buffers (run-time case)
     template<typename... Iterators>
     void exchange_impl(std::pair<Iterators, Iterators>... iter_pairs)
