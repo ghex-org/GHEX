@@ -11,41 +11,41 @@
 #pragma once
 
 #include <gridtools/common/array.hpp>
-#include <gridtools/common/host_device.hpp>
+#include <ghex/device/attributes.hpp>
 #include <cstddef>
 
 namespace gridtools
 {
 template<typename T, size_t D>
-GT_FUNCTION array<T, D>
+GHEX_FUNCTION array<T, D>
             operator+(array<T, D> a, const array<T, D>& b)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] += b[i];
     return a;
 }
 template<typename T, size_t D, typename U>
-GT_FUNCTION array<T, D>
+GHEX_FUNCTION array<T, D>
             operator+(array<T, D> a, const U& scalar)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] += scalar;
     return a;
 }
 template<typename T, size_t D, typename U>
-GT_FUNCTION array<T, D>
+GHEX_FUNCTION array<T, D>
             operator+(const U& scalar, array<T, D> a)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] += scalar;
     return a;
 }
 template<typename T, size_t D>
-GT_FUNCTION array<T, D>
+GHEX_FUNCTION array<T, D>
             operator-(array<T, D> a, const array<T, D>& b)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] -= b[i];
     return a;
 }
 template<typename T, typename U, size_t D>
-GT_FUNCTION typename std::common_type<T, U>::type
+GHEX_FUNCTION typename std::common_type<T, U>::type
 dot(const array<T, D>& a, const array<U, D>& b)
 {
     typename std::common_type<T, U>::type res = a[0] * b[0];
@@ -74,7 +74,7 @@ template<int D, int I>
 struct compute_strides_impl
 {
     template<typename Layout, typename Coordinate, typename Strides>
-    GT_FUNCTION static void apply(const Coordinate& extents, Strides& strides)
+    GHEX_FUNCTION static void apply(const Coordinate& extents, Strides& strides)
     {
         const auto last_idx = Layout::find(I);
         const auto idx = Layout::find(I - 1);
@@ -86,7 +86,7 @@ template<int D>
 struct compute_strides_impl<D, 0>
 {
     template<typename Layout, typename Coordinate, typename Strides>
-    GT_FUNCTION static void apply(const Coordinate&, Strides&)
+    GHEX_FUNCTION static void apply(const Coordinate&, Strides&)
     {
     }
 };
@@ -94,14 +94,14 @@ template<int D>
 struct compute_strides
 {
     template<typename Layout, typename Coordinate, typename Strides>
-    GT_FUNCTION static void apply(const Coordinate& extents, Strides& strides)
+    GHEX_FUNCTION static void apply(const Coordinate& extents, Strides& strides)
     {
         const auto idx = Layout::find(D - 1);
         strides[idx] = 1;
         compute_strides_impl<D, D - 1>::template apply<Layout>(extents, strides);
     }
     template<typename Layout, typename T, typename Coordinate, typename Strides>
-    GT_FUNCTION static void apply(const Coordinate& extents, Strides& strides, std::size_t padding)
+    GHEX_FUNCTION static void apply(const Coordinate& extents, Strides& strides, std::size_t padding)
     {
         const auto idx = Layout::find(D - 1);
         strides[idx] = sizeof(T);
@@ -114,12 +114,12 @@ template<>
 struct compute_strides<1>
 {
     template<typename Layout, typename Coordinate, typename Strides>
-    GT_FUNCTION static void apply(const Coordinate&, Strides& strides)
+    GHEX_FUNCTION static void apply(const Coordinate&, Strides& strides)
     {
         strides[0] = 1;
     }
     template<typename Layout, typename T, typename Coordinate, typename Strides>
-    GT_FUNCTION static void apply(const Coordinate&, Strides& strides, std::size_t)
+    GHEX_FUNCTION static void apply(const Coordinate&, Strides& strides, std::size_t)
     {
         strides[0] = sizeof(T);
     }
@@ -129,7 +129,7 @@ template<int D, int K>
 struct compute_coordinate_impl
 {
     template<typename Layout, typename Strides, typename Coordinate, typename I>
-    GT_FUNCTION static void apply(const Strides& strides, Coordinate& coord, I i)
+    GHEX_FUNCTION static void apply(const Strides& strides, Coordinate& coord, I i)
     {
         const auto idx = Layout::find(D - (K));
         coord[idx] = i / strides[idx];
@@ -141,7 +141,7 @@ template<int D>
 struct compute_coordinate_impl<D, 0>
 {
     template<typename Layout, typename Strides, typename Coordinate, typename I>
-    GT_FUNCTION static void apply(const Strides&, Coordinate&, I)
+    GHEX_FUNCTION static void apply(const Strides&, Coordinate&, I)
     {
     }
 };
@@ -149,7 +149,7 @@ template<int D>
 struct compute_coordinate
 {
     template<typename Layout, typename Strides, typename Coordinate, typename I>
-    GT_FUNCTION static void apply(const Strides& strides, Coordinate& coord, I i)
+    GHEX_FUNCTION static void apply(const Strides& strides, Coordinate& coord, I i)
     {
         const auto idx = Layout::find(0);
         coord[idx] = i / strides[idx];

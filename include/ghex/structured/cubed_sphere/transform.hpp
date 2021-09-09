@@ -11,7 +11,7 @@
 #pragma once
 
 #include <array>
-#include <gridtools/common/host_device.hpp>
+#include <ghex/device/attributes.hpp>
 
 namespace ghex
 {
@@ -58,7 +58,7 @@ struct transform
                       * @param y y coordinate
                       * @param c number of cells along the cube edges
                       * @return transformed coordinate array */
-    GT_FUNCTION
+    GHEX_FUNCTION
     constexpr std::array<int, 2> operator()(int x, int y, int c) const noexcept
     {
         return {m_rotation[0] * x + m_rotation[1] * y + m_translation[0] * c + m_offset[0],

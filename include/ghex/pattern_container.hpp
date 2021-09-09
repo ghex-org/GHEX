@@ -44,7 +44,7 @@ class pattern_container
     using data_type = std::vector<value_type>;
 
   private: // friend declarations
-    friend class detail::make_pattern_impl<GridType>;
+    friend struct detail::make_pattern_impl<GridType>;
 
   public: // copy constructor
     pattern_container(const pattern_container& other)

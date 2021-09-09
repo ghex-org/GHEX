@@ -13,7 +13,7 @@
 #include <utility>
 #include <tuple>
 #include <gridtools/common/layout_map.hpp>
-#include <gridtools/common/host_device.hpp>
+#include <ghex/device/attributes.hpp>
 
 namespace ghex
 {
@@ -119,7 +119,7 @@ struct for_loop<D, I, gridtools::layout_map<Args...>, Skip>
   private: // member types
     using layout_t = gridtools::layout_map<Args...>;
     using idx = std::integral_constant<int, layout_t::find(D - I)>;
-    friend class for_loop<D, I + 1, layout_t, Skip>;
+    friend struct for_loop<D, I + 1, layout_t, Skip>;
 
   public: // static member functions
     /**
@@ -131,7 +131,7 @@ struct for_loop<D, I, gridtools::layout_map<Args...>, Skip>
                  * @param last end coordinate (inclusive)
                  */
     template<typename Func, typename Array>
-    GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last) noexcept
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last) noexcept
     {
         for (auto i = first[idx::value]; i <= last[idx::value]; ++i)
         {
@@ -145,7 +145,7 @@ struct for_loop<D, I, gridtools::layout_map<Args...>, Skip>
 
   private: // implementation details
     template<typename Func, typename Array, typename Array2>
-    GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Array2&& y) noexcept
     {
         for (auto i = first[idx::value]; i <= last[idx::value]; ++i)
         {
@@ -163,17 +163,17 @@ struct for_loop<D, Skip, gridtools::layout_map<Args...>, Skip>
 {
   private: // member types
     using layout_t = gridtools::layout_map<Args...>;
-    friend class for_loop<D, Skip + 1, layout_t, Skip>;
+    friend struct for_loop<D, Skip + 1, layout_t, Skip>;
 
   private: // implementation details
     template<typename Func, typename Array, typename Array2>
-    GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Array2&& x) noexcept
     {
         apply(std::forward<Func>(f), std::forward<Array2>(x), std::make_index_sequence<D>{});
     }
 
     template<typename Func, typename Array, std::size_t... Is>
-    GT_FORCE_INLINE static void apply(Func&& f, Array&& x, std::index_sequence<Is...>)
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& x, std::index_sequence<Is...>)
     {
         // functor is called with expanded coordinates
         f(x[Is]...);
@@ -216,7 +216,7 @@ struct for_loop_pointer_arithmetic<D, I, gridtools::layout_map<Args...>>
                  * An array without buffer zones has a coordinate offset of (0,0,...), while the offset is (1,1,...) for an array with buffer zone of 1.
                  */
     template<typename Func, typename Array, typename Strides, typename Array2>
-    GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides,
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides,
         Array2&& coordinate_offset) noexcept
     {
         std::size_t iter = 0;
@@ -231,7 +231,7 @@ struct for_loop_pointer_arithmetic<D, I, gridtools::layout_map<Args...>>
 
   private: // implementation details
     template<typename Func, typename Array, typename Strides, typename Array2>
-    GT_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides,
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides,
         Array2&& coordinate_offset, std::size_t offset, std::size_t iter) noexcept
     {
         //offset *= extent[idx::value];
@@ -252,7 +252,7 @@ struct for_loop_pointer_arithmetic<D, 0, gridtools::layout_map<Args...>>
 {
     using layout_t = gridtools::layout_map<Args...>;
     template<typename Func, typename Array, typename Strides, typename Array2>
-    GT_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Strides&& byte_strides, Array2&&,
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Strides&& byte_strides, Array2&&,
         std::size_t offset, std::size_t iter) noexcept
     {
         // functor call with two arguments

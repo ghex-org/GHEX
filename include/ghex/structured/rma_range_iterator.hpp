@@ -11,7 +11,7 @@
 #pragma once
 
 #include <ghex/rma/chunk.hpp>
-#include <gridtools/common/host_device.hpp>
+#include <ghex/device/attributes.hpp>
 
 namespace ghex
 {
@@ -31,21 +31,21 @@ struct range_iterator
     size_type  m_index;
     coordinate m_coord;
 
-    GT_FUNCTION
+    GHEX_FUNCTION
     range_iterator(Range* r, size_type idx, const coordinate& coord)
     : m_range{r}
     , m_index{idx}
     , m_coord{coord}
     {
     }
-    GT_FUNCTION
+    GHEX_FUNCTION
     range_iterator(const range_iterator& other) noexcept
     : m_range{other.m_range}
     , m_index{other.m_index}
     , m_coord{other.m_coord}
     {
     }
-    GT_FUNCTION
+    GHEX_FUNCTION
     range_iterator(range_iterator&& other) noexcept
     : m_range{other.m_range}
     , m_index{other.m_index}
@@ -53,22 +53,22 @@ struct range_iterator
     {
     }
 
-    GT_HOST_DEVICE
+    GHEX_HOST_DEVICE
     auto index() const noexcept { return m_index; }
 
-    GT_HOST_DEVICE
+    GHEX_HOST_DEVICE
     chunk operator*() const noexcept { return m_range->get_chunk(m_coord); }
-    GT_HOST_DEVICE
+    GHEX_HOST_DEVICE
     void operator++() noexcept { m_index = m_range->inc(m_index, m_coord); }
-    GT_HOST_DEVICE
+    GHEX_HOST_DEVICE
     void operator--() noexcept { m_range->inc(m_index, -1, m_coord); }
-    GT_HOST_DEVICE
+    GHEX_HOST_DEVICE
     void operator+=(int n) noexcept { m_range->inc(m_index, n, m_coord); }
-    GT_FUNCTION
+    GHEX_FUNCTION
     size_type sub(const range_iterator& other) const { return m_index - other.m_index; }
-    GT_FUNCTION
+    GHEX_FUNCTION
     bool equal(const range_iterator& other) const { return m_index == other.m_index; }
-    GT_FUNCTION
+    GHEX_FUNCTION
     bool lt(const range_iterator& other) const { return m_index < other.m_index; }
 };
 

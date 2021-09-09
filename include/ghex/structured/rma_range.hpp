@@ -12,7 +12,7 @@
 
 #include <ghex/rma/chunk.hpp>
 #include <ghex/structured/rma_range_iterator.hpp>
-#include <gridtools/common/host_device.hpp>
+#include <ghex/device/attributes.hpp>
 #include <cstring>
 #include <vector>
 #include <iostream>
@@ -28,7 +28,7 @@ template<unsigned int Dim, unsigned int D, typename Layout>
 struct inc_coord
 {
     template<typename Coord>
-    GT_FUNCTION static void fn(Coord& coord, const Coord& ext) noexcept
+    GHEX_FUNCTION static void fn(Coord& coord, const Coord& ext) noexcept
     {
         static constexpr auto I = Layout::find(Dim - D - 1);
         if (coord[I] == ext[I] - 1)
@@ -44,7 +44,7 @@ template<typename Layout>
 struct inc_coord<3, 1, Layout>
 {
     template<typename Coord>
-    GT_FUNCTION static void fn(Coord& coord, const Coord& ext) noexcept
+    GHEX_FUNCTION static void fn(Coord& coord, const Coord& ext) noexcept
     {
         static constexpr auto Y = Layout::find(1);
         static constexpr auto Z = Layout::find(0);
@@ -57,7 +57,7 @@ template<unsigned int Dim, typename Layout>
 struct inc_coord<Dim, Dim, Layout>
 {
     template<typename Coord>
-    GT_FUNCTION static void fn(Coord& coord, const Coord& ext) noexcept
+    GHEX_FUNCTION static void fn(Coord& coord, const Coord& ext) noexcept
     {
         static constexpr auto I = Layout::find(Dim - 1);
         for (unsigned int i = 0; i < Dim; ++i) coord[i] = ext[i] - 1;
@@ -146,28 +146,28 @@ struct rma_range
     rma_range(const rma_range&) = default;
     rma_range(rma_range&&) = default;
 
-    GT_FUNCTION
+    GHEX_FUNCTION
     iterator begin() { return {this, 0, m_begin}; }
-    GT_FUNCTION
+    GHEX_FUNCTION
     iterator end() { return {this, m_size, m_end}; }
 
-    GT_FUNCTION
+    GHEX_FUNCTION
     value_type& operator()(const coordinate& x) { return m_field(x + m_offset); }
-    GT_FUNCTION
+    GHEX_FUNCTION
     const value_type& operator()(const coordinate& x) const { return m_field(x + m_offset); }
 
-    GT_FUNCTION
+    GHEX_FUNCTION
     value_type* ptr(const coordinate& x) { return m_field.ptr(x + m_offset); }
-    GT_FUNCTION
+    GHEX_FUNCTION
     const value_type* ptr(const coordinate& x) const { return m_field.ptr(x + m_offset); }
 
-    GT_FUNCTION
+    GHEX_FUNCTION
     rma::chunk<value_type> get_chunk(const coordinate& coord) const noexcept
     {
         return {const_cast<value_type*>(ptr(coord)), m_chunk_size_};
     }
 
-    GT_HOST_DEVICE
+    GHEX_HOST_DEVICE
     void inc(size_type& index, int n, coordinate& coord) const noexcept
     {
         if (n < 0 && (size_type)(-n) > index)
@@ -196,7 +196,7 @@ struct rma_range
         }
     }
 
-    GT_FUNCTION
+    GHEX_FUNCTION
     size_type inc(size_type index, coordinate& coord) const noexcept
     {
         static constexpr auto I = layout::find(dimension::value - 1);

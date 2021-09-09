@@ -10,8 +10,6 @@
  */
 #pragma once
 
-#include <gridtools/common/host_device.hpp>
-
 namespace ghex
 {
 namespace rma

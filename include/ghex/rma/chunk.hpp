@@ -10,7 +10,7 @@
  */
 #pragma once
 
-#include <gridtools/common/host_device.hpp>
+#include <ghex/device/attributes.hpp>
 
 namespace ghex
 {
@@ -27,15 +27,15 @@ struct chunk
     T*        m_ptr;
     size_type m_size;
 
-    GT_FUNCTION
+    GHEX_FUNCTION
     T* data() const noexcept { return m_ptr; }
-    GT_FUNCTION
+    GHEX_FUNCTION
     T operator[](unsigned int i) const noexcept { return m_ptr[i]; }
-    GT_FUNCTION
+    GHEX_FUNCTION
     T& operator[](unsigned int i) noexcept { return m_ptr[i]; }
-    GT_FUNCTION
+    GHEX_FUNCTION
     size_type size() const noexcept { return m_size; }
-    GT_FUNCTION
+    GHEX_FUNCTION
     size_type bytes() const noexcept { return m_size * sizeof(T); }
 };
 

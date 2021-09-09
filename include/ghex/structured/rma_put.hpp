@@ -54,7 +54,7 @@ using gpu_to_gpu = std::integral_constant<bool,
 
 // attributes needed for gcc to produce optimized code
 template<typename SourceField, typename TargetField>
-#ifdef __GNUG__
+#if defined(__GNUC__) && !defined(__llvm__) && !defined(__INTEL_COMPILER)
 __attribute__((optimize("no-tree-loop-distribute-patterns"))) __attribute__((target("sse2")))
 #endif
 std::enable_if_t<cpu_to_cpu<SourceField, TargetField>::value &&

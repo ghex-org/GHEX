@@ -21,7 +21,6 @@
 #ifdef GHEX_CUDACC
 #include <ghex/device/cuda/runtime.hpp>
 #include <gridtools/common/cuda_util.hpp>
-#include <gridtools/common/host_device.hpp>
 #endif
 
 #include <gridtools/common/array.hpp>

@@ -129,7 +129,7 @@ struct generic_bulk_communication_object
 
     struct bulk_co_iface
     {
-        friend class handle;
+        friend struct handle;
         virtual ~bulk_co_iface() {}
         virtual handle exchange() = 0;
 
@@ -168,7 +168,7 @@ struct generic_bulk_communication_object
     generic_bulk_communication_object(generic_bulk_communication_object&&) = default;
     generic_bulk_communication_object& operator=(generic_bulk_communication_object&&) = default;
 
-    handle exchange() { return std::move(m_impl->exchange()); }
+    handle exchange() { return m_impl->exchange(); }
 };
 
 /** @brief wait for all requests in a range to finish and call 
@@ -218,7 +218,7 @@ class bulk_communication_object
     using buffer_info_type =
         typename co_type::template buffer_info_type<typename Field::arch_type, Field>;
 
-    friend class generic_bulk_communication_object::bulk_co_impl<bulk_communication_object>;
+    friend struct generic_bulk_communication_object::bulk_co_impl<bulk_communication_object>;
 
     // return type from exchange()
     struct handle

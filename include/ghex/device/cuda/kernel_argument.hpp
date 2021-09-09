@@ -10,7 +10,7 @@
  */
 #pragma once
 
-#include <gridtools/common/host_device.hpp>
+#include <ghex/device/attributes.hpp>
 
 namespace ghex
 {
@@ -22,7 +22,7 @@ struct kernel_argument
 {
     T m_data[N];
 
-    GT_HOST kernel_argument& fill(const T* data, unsigned int size)
+    GHEX_HOST kernel_argument& fill(const T* data, unsigned int size)
     {
         if (size > N)
             throw std::runtime_error(
@@ -30,9 +30,9 @@ struct kernel_argument
         for (unsigned int i = 0; i < size; ++i) m_data[i] = data[i];
         return *this;
     }
-    GT_FUNCTION T& operator[](unsigned int i) { return m_data[i]; }
+    GHEX_FUNCTION T& operator[](unsigned int i) { return m_data[i]; }
 
-    GT_FUNCTION T const& operator[](unsigned int i) const { return m_data[i]; }
+    GHEX_FUNCTION T const& operator[](unsigned int i) const { return m_data[i]; }
 };
 
 template<unsigned int N, typename T>
