@@ -10,4 +10,16 @@ if (GHEX_BUILD_FORTRAN)
     else()
         set(GHEX_FORTRAN_FP_KIND 8)
     endif()
+
+    find_package(MPI REQUIRED)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ghex_defs.f90.in
+        ${CMAKE_CURRENT_BINARY_DIR}/bindings/fhex/ghex_defs.f90 @ONLY)
+    install(FILES ${PROJECT_BINARY_DIR}/bindings/fhex/ghex_defs.f90
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/bindings/fhex)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ghex_defs.hpp.in
+        ${CMAKE_CURRENT_BINARY_DIR}/bindings/fhex/ghex_defs.hpp @ONLY)
+    install(FILES ${PROJECT_BINARY_DIR}/bindings/fhex/ghex_defs.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/bindings/fhex)
 endif()

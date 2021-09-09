@@ -11,8 +11,6 @@
 
 #include <memory>
 
-namespace ghex
-{
 namespace fhex
 {
 class obj_wrapper
@@ -60,4 +58,3 @@ get_object_ptr_unsafe(obj_wrapper* src)
 }
 
 } // namespace fhex
-} // namespace ghex

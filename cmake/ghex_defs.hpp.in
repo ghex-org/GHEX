@@ -1,0 +1,29 @@
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+#pragma once
+
+namespace fhex
+{
+using fp_type = @GHEX_FORTRAN_FP@;
+}
+
+#define GHEX_DIMS 3
+
+#define GhexDeviceUnknown 0
+#define GhexDeviceCPU     1
+#define GhexDeviceGPU     2
+
+#define GhexLayoutFieldLast  1
+#define GhexLayoutFieldFirst 2
+
+///* barrier types */
+//#define GhexBarrierGlobal 1
+//#define GhexBarrierThread 2
+//#define GhexBarrierRank   3
