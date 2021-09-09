@@ -27,6 +27,4 @@ function(link_device_runtime target)
     if (ghex_gpu_mode STREQUAL "hip")
         target_link_libraries(${target} PRIVATE hip::device)
     endif()
-endfunction
-
-
+endfunction()
