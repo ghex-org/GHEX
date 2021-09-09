@@ -99,7 +99,7 @@ await_futures(std::vector<Future>& range, Continuation&& cont)
 
 template<typename PackIterationSpace, unsigned int N>
 __global__ void
-pack_kernel_u(cuda::kernel_argument<PackIterationSpace, N> args)
+pack_kernel_u(device::kernel_argument<PackIterationSpace, N> args)
 {
     using layout_t = typename PackIterationSpace::layout_map;
     using value_type = typename PackIterationSpace::value_t;
@@ -249,7 +249,7 @@ struct packer<gpu>
             }
         }
 
-        using future_type = cuda::future<send_buffer_type*>;
+        using future_type = device::future<send_buffer_type*>;
         std::vector<future_type> stream_futures;
         stream_futures.reserve(num_streams);
 

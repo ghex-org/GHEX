@@ -345,7 +345,7 @@ class communication_object
                     if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
                         p1.second.buffer.device_id() != device_id)
                         p1.second.buffer =
-                            arch_traits<arch_type>::make_message(m_comm, p1.second.size, device_id);
+                            arch_traits<gpu>::make_message(m_comm, p1.second.size, device_id);
                     // use callbacks for unpacking
                     auto ptr = &p1.second;
                     m_recv_reqs.push_back(
