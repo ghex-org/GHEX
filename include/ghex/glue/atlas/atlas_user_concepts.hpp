@@ -64,7 +64,7 @@ class atlas_domain_descriptor
     : m_id{id}
     , m_partition{partition}
     , m_remote_index{remote_index}
-    , m_size{partition.size()}
+    , m_size{static_cast<local_index_type>(partition.size())}
     , m_levels{levels}
     {
         // Asserts
