@@ -1,77 +1,54 @@
-#include "obj_wrapper.hpp"
-#include <iostream>
-#include <cstring> 
-#include <vector>
-#include <ghex/transport_layer/message_buffer.hpp>
-#include <ghex/transport_layer/callback_utils.hpp>
+/*
+ * GridTools
+ *
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+#include <fhex/context_bind.hpp>
+#include <cstring>
 
-namespace ghex = gridtools::ghex;
-using namespace gridtools::ghex::fhex;
+//namespace gridtools {
+//    namespace ghex {
+//        namespace fhex {
+//
+//            typedef enum
+//            {
+//                 GhexAllocatorHost=1,
+//                 GhexAllocatorDevice=2
+//            } ghex_allocator_type;
+//
+//            using host_allocator_type = std::allocator<unsigned char>;
+//        }
+//    }
+//}
 
-namespace gridtools {
-    namespace ghex {
-        namespace fhex {
-
-            typedef enum 
-            {
-                 GhexAllocatorHost=1,
-                 GhexAllocatorDevice=2
-            } ghex_allocator_type;
-
-            using host_allocator_type = std::allocator<unsigned char>;
-        }
-    }
+extern "C" void*
+ghex_message_new(std::size_t size)
+{
+    return new ghex::context::message_type{fhex::context().make_buffer(size)};
 }
 
-extern "C"
-void *ghex_message_new(std::size_t size, int allocator_type)
+extern "C" void
+ghex_message_free(ghex::context::message_type** wmsg)
 {
-    void *wmessage = nullptr;
-
-    switch(allocator_type){
-    case GhexAllocatorHost:
-	{
-            wmessage = new ghex::tl::cb::any_message{ghex::tl::message_buffer<host_allocator_type>{size, host_allocator_type{}}};
-	    break;
-	}
-    case GhexAllocatorDevice:
-	{
-	    std::cerr << "BINDINGS: " << __FUNCTION__ << ": DEVICE allocator not yet implemented\n";
-            std::terminate();
-	    break;
-	}
-    default:
-	{
-	    std::cerr << "BINDINGS: " << __FUNCTION__ << ": unsupported allocator type: " << allocator_type << "\n";
-            std::terminate();
-	    break;
-	}
-    }
-
-    return wmessage;
-}
-
-extern "C"
-void ghex_message_free(ghex::tl::cb::any_message **wmessage_ref)
-{
-    ghex::tl::cb::any_message *wmessage = *wmessage_ref;
-
+    auto msg = *wmsg;
     // clear the fortran-side variable
-    *wmessage_ref = nullptr;
-    delete wmessage;
+    wmsg = nullptr;
+    delete msg;
 }
 
-extern "C"
-void ghex_message_zero(ghex::tl::cb::any_message *wmessage)
+extern "C" void
+ghex_message_zero(ghex::context::message_type* wmsg)
 {
-    unsigned char* __restrict data = wmessage->data();
-    std::size_t size = wmessage->size();
-    std::memset(data, 0, size);
+    std::memset(wmsg->data(), 0, wmsg->size());
 }
 
-extern "C"
-unsigned char *ghex_message_data(ghex::tl::cb::any_message *wmessage, std::size_t *size)
+extern "C" unsigned char*
+ghex_message_data(ghex::context::message_type* wmsg, std::size_t* size)
 {
-    *size = wmessage->size();
-    return wmessage->data();
+    *size = wmsg->size();
+    return wmsg->data();
 }
