@@ -1,0 +1,13 @@
+set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
+
+if (GHEX_BUILD_FORTRAN)
+    enable_language(Fortran)
+    set(GHEX_FORTRAN_FP "float" CACHE STRING "Floating-point type")
+    set(GHEX_FORTRAN_OPENMP "ON" CACHE BOOL "Compile Fortran bindings with OpenMP")
+    set_property(CACHE GHEX_FORTRAN_FP PROPERTY STRINGS "float" "double")
+    if(${GHEX_FORTRAN_FP} STREQUAL "float")
+        set(GHEX_FORTRAN_FP_KIND 4)
+    else()
+        set(GHEX_FORTRAN_FP_KIND 8)
+    endif()
+endif()
