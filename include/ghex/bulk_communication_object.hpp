@@ -24,6 +24,11 @@
 #include "./rma/range_factory.hpp"
 #include "./rma/handle.hpp"
 
+#include "./common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "./common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 namespace ghex {
 
@@ -177,7 +182,7 @@ private: // member types
     using buffer_info_types = boost::mp11::mp_transform<buffer_info_type, field_types>;
     // all possible cpu field types
     using cpu_fields = boost::mp11::mp_transform_q<select_arch_q<cpu>,field_types>;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     // all possible gpu field types
     using gpu_fields = boost::mp11::mp_transform_q<select_arch_q<gpu>,field_types>;
     using all_fields = boost::mp11::mp_unique<boost::mp11::mp_append<cpu_fields,gpu_fields>>;

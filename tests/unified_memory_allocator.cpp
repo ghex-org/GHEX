@@ -12,8 +12,13 @@
 #include <gtest/gtest.h>
 #include <ghex/allocator/unified_memory_allocator.hpp>
 
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
 
-#ifdef __CUDACC__
+
+#ifdef GHEX_CUDACC
 template <typename T>
 __global__ void add_one(T* values, const std::size_t n) {
     auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -46,7 +51,7 @@ void run_test(const std::size_t n) {
         EXPECT_TRUE(vec[i] == value);
     }
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     // Launch kernels to access from GPU
     add_one<T><<<n/32, 32>>>(ptr, n); // n = k * 32, k = 1, 2, ...
     add_one<T><<<n/32, 32>>>(&(vec[0]), n); // n = k * 32, k = 1, 2, ...

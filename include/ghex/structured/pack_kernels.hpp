@@ -16,6 +16,11 @@
 #include "../common/utils.hpp"
 #include "../arch_traits.hpp"
 
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "../common/cuda_runtime.hpp"
+#endif
+
 namespace gridtools {
 namespace ghex {
 namespace structured {
@@ -127,7 +132,7 @@ struct serialization {
     }
 };
 
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
 template<typename Layout, typename PackIterationSpace>
 __global__ void pack_kernel(PackIterationSpace pack_is, unsigned int num_elements) {
     using value_type = typename PackIterationSpace::value_t;

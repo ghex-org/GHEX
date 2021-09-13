@@ -39,11 +39,16 @@ using transport = gridtools::ghex::tl::ucx_tag;
 #include <ghex/util/decomposition.hpp>
 #include <ghex/common/timer.hpp>
 
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#endif
+
 using clock_type = std::chrono::high_resolution_clock;
 
 struct simulation
 {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     template<typename T>
     struct cuda_deleter
     {
@@ -64,7 +69,7 @@ struct simulation
     using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type,Layout>;
 
     using field_type     = field_descriptor_type<gridtools::ghex::cpu, ::gridtools::layout_map<2, 1, 0>>;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     using gpu_field_type = field_descriptor_type<gridtools::ghex::gpu, ::gridtools::layout_map<2, 1, 0>>;
 #endif
     using decomp_type = gridtools::ghex::hierarchical_decomposition<3>;
@@ -89,7 +94,7 @@ struct simulation
     const int max_memory;
     std::vector<std::vector<std::vector<T>>> fields_raw;
     std::vector<std::vector<field_type>> fields;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
     std::vector<std::vector<std::unique_ptr<T,cuda_deleter<T>>>> fields_raw_gpu;
     std::vector<std::vector<gpu_field_type>> fields_gpu;
 #endif
@@ -140,7 +145,7 @@ struct simulation
         local_domains.reserve(num_threads);
         fields_raw.resize(num_threads);
         fields.resize(num_threads);
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
         fields_raw_gpu.resize(num_threads);
         fields_gpu.resize(num_threads);
 #endif
@@ -209,7 +214,7 @@ struct simulation
                 fields_raw[j].back().data(),
                 offset,
                 local_ext_buffer));
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
             fields_raw_gpu[j].push_back( std::unique_ptr<T,cuda_deleter<T>>{
                 [this](){ void* ptr; cudaMalloc(&ptr, max_memory*sizeof(T)); return (T*)ptr; }()});
             fields_gpu[j].push_back(gridtools::ghex::wrap_field<gridtools::ghex::gpu,::gridtools::layout_map<2,1,0>>(
@@ -223,13 +228,13 @@ struct simulation
         auto bco = gridtools::ghex::bulk_communication_object<
             gridtools::ghex::structured::rma_range_generator,
             pattern_type,
-#ifndef __CUDACC__
+#ifndef GHEX_CUDACC
             field_type
 #else
             gpu_field_type
 #endif
         > (basic_co);
-#ifndef __CUDACC__
+#ifndef GHEX_CUDACC
         for (int i=0; i<num_fields; ++i)
             bco.add_field(pattern->operator()(fields[j][i]));
 #else

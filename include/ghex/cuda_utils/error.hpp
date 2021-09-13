@@ -11,10 +11,12 @@
 #ifndef INCLUDED_GHEX_CUDA_ERROR_HPP
 #define INCLUDED_GHEX_CUDA_ERROR_HPP
 
-#ifdef __CUDACC__
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
 
 #include <stdexcept>
 #include <string>
+#include "../common/cuda_runtime.hpp"
 
 #ifdef NDEBUG
     #define GHEX_CHECK_CUDA_RESULT(x) x;

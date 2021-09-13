@@ -15,7 +15,12 @@
 #include "./error.hpp"
 #include <memory>
 
-#ifdef __CUDACC__
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "../common/cuda_runtime.hpp"
+#endif
+
+#ifdef GHEX_CUDACC
 
 namespace gridtools {
 

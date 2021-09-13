@@ -16,8 +16,9 @@
 #include <stdexcept>
 #include <limits>
 
-#ifdef __CUDACC__
-#include <cuda_runtime.h>
+#include "../common/defs.hpp"
+#ifdef GHEX_CUDACC
+#include "../common/cuda_runtime.hpp"
 #endif
 
 namespace gridtools {
@@ -39,7 +40,7 @@ namespace gridtools {
                         if (n > std::numeric_limits<std::size_t>::max() / sizeof(T))
                             throw std::bad_alloc();
                         T* p;
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
                         if (cudaMallocManaged(reinterpret_cast<void**>(&p), n * sizeof(T)) != cudaSuccess)
                             throw std::runtime_error("ERROR: failed to allocate GPU memory");
 #else
@@ -50,7 +51,7 @@ namespace gridtools {
                     }
 
                     void deallocate(T* p, std::size_t) {
-#ifdef __CUDACC__
+#ifdef GHEX_CUDACC
                         if (cudaDeviceSynchronize() != cudaSuccess)
                             throw std::runtime_error("ERROR: failed to synchronize GPU memory");
                         if (cudaFree(reinterpret_cast<void*>(p)) != cudaSuccess)
