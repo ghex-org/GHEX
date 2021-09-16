@@ -21,6 +21,7 @@ namespace util
 template<typename T>
 struct memory
 {
+    using value_type = T;
     unsigned int         m_size;
     std::unique_ptr<T[]> m_host_memory;
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)

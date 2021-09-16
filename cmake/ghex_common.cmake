@@ -66,6 +66,17 @@ set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma acc
 mark_as_advanced(GHEX_USE_XPMEM_ACCESS_GUARD)
 
 # ---------------------------------------------------------------------
+# parmetis setup
+# ---------------------------------------------------------------------
+set(GHEX_ENABLE_PARMETIS_BINDINGS OFF CACHE BOOL "Set to true to build with ParMETIS bindings")
+if (GHEX_ENABLE_PARMETIS_BINDINGS)
+    set(METIS_INCLUDE_DIR "" CACHE STRING "METIS include directory")
+    set(METIS_LIB_DIR "" CACHE STRING "METIS library directory")
+    set(PARMETIS_INCLUDE_DIR "" CACHE STRING "ParMETIS include directory")
+    set(PARMETIS_LIB_DIR "" CACHE STRING "ParMETIS library directory")
+endif()
+
+# ---------------------------------------------------------------------
 # atlas setup
 # ---------------------------------------------------------------------
 set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas bindings")

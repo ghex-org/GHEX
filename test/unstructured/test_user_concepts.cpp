@@ -18,12 +18,17 @@
 #include <ghex/communication_object.hpp>
 //#include <ghex/unstructured/communication_object_ipr.hpp>
 #include "./unstructured_test_case.hpp"
+#include "../util/memory.hpp"
 
 #include <vector>
 #include <thread>
 
 using data_descriptor_cpu_int_type =
     ghex::unstructured::data_descriptor<ghex::cpu, domain_id_type, global_index_type, int>;
+#ifdef GHEX_CUDACC
+using data_descriptor_gpu_int_type =
+    ghex::unstructured::data_descriptor<ghex::gpu, domain_id_type, global_index_type, int>;
+#endif
 
 void test_domain_descriptor_and_halos(ghex::context& ctxt);
 
@@ -257,7 +262,7 @@ test_data_descriptor(ghex::context& ctxt)
     auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
 
     // application data
-    std::vector<int> field(d.size(), 0);
+    ghex::test::util::memory<int> field(d.size(), 0);
     initialize_data(d, field);
     data_descriptor_cpu_int_type data{d, field};
 
@@ -268,6 +273,22 @@ test_data_descriptor(ghex::context& ctxt)
 
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
+
+#ifdef GHEX_CUDACC
+    // application data
+    initialize_data(d, field);
+    field.clone_to_device();
+    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 0};
+
+    EXPECT_NO_THROW(co.exchange(patterns(data_gpu)).wait());
+
+    auto h_gpu = co.exchange(patterns(data_gpu));
+    h_gpu.wait();
+
+    // check exchanged data
+    field.clone_to_host;
+    check_exchanged_data(d, field, patterns[0]);
+#endif
 }
 
 /** @brief Test data descriptor concept*/
@@ -373,7 +394,7 @@ test_data_descriptor_threads(ghex::context& ctxt)
 //    auto co = ghex::make_communication_object_ipr<pattern_container_type>(ctxt);
 //
 //    // application data
-//    std::vector<int> field(d.size(), 0);
+//    ghex::test::util::memory<int> field(d.size(), 0);
 //    initialize_data(d, field);
 //    data_descriptor_cpu_int_type data{d, field};
 //
@@ -382,6 +403,22 @@ test_data_descriptor_threads(ghex::context& ctxt)
 //
 //    // check exchanged data
 //    check_exchanged_data(d, field, patterns[0]);
+//
+//#ifdef GHEX_CUDACC
+//    // application data
+//    initialize_data(d, field);
+//    field.clone_to_device();
+//    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 0};
+//
+//    EXPECT_NO_THROW(co.exchange(patterns(data_gpu)).wait());
+//
+//    auto h_gpu = co.exchange(patterns(data_gpu));
+//    h_gpu.wait();
+//
+//    // check exchanged data
+//    field.clone_to_host;
+//    check_exchanged_data(d, field, patterns[0]);
+//#endif
 //}
 
 ///** @brief Test in place receive with multiple fields*/

@@ -318,6 +318,43 @@ endif()
 add_subdirectory(transport)
 
 
+# unstructured benchmarks
+# ----------------
+
+if (GHEX_ENABLE_PARMETIS_BINDINGS)
+    # ParMeTiS benchmarks require also multithreading support
+    set(_benchmarks unstructured_parmetis)
+
+    foreach (_t ${_benchmarks})
+        add_executable(${_t}_unord ${_t}.cpp)
+        target_compile_definitions(${_t}_unord PUBLIC GHEX_PARMETIS_BENCHMARK_UNORDERED)
+        target_include_directories(${_t}_unord PRIVATE ${METIS_INCLUDE_DIR} ${PARMETIS_INCLUDE_DIR})
+        target_link_directories(${_t}_unord PRIVATE ${METIS_LIB_DIR} ${PARMETIS_LIB_DIR})
+        target_link_libraries(${_t}_unord gtest_main_bench_mt metis parmetis)
+
+        add_executable(${_t}_ord ${_t}.cpp)
+        target_compile_definitions(${_t}_ord PUBLIC GHEX_PARMETIS_BENCHMARK_ORDERED)
+        target_include_directories(${_t}_ord PRIVATE ${METIS_INCLUDE_DIR} ${PARMETIS_INCLUDE_DIR})
+        target_link_directories(${_t}_ord PRIVATE ${METIS_LIB_DIR} ${PARMETIS_LIB_DIR})
+        target_link_libraries(${_t}_ord gtest_main_bench_mt metis parmetis)
+
+        add_executable(${_t}_ipr ${_t}.cpp)
+        target_compile_definitions(${_t}_ipr PUBLIC GHEX_PARMETIS_BENCHMARK_IPR)
+        target_include_directories(${_t}_ipr PRIVATE ${METIS_INCLUDE_DIR} ${PARMETIS_INCLUDE_DIR})
+        target_link_directories(${_t}_ipr PRIVATE ${METIS_LIB_DIR} ${PARMETIS_LIB_DIR})
+        target_link_libraries(${_t}_ipr gtest_main_bench_mt metis parmetis)
+
+        if(USE_GPU)
+            add_ghex_gpu_executable(${_t}_gpu ${_t})
+            target_compile_definitions(${_t}_gpu PUBLIC GT_USE_GPU)
+            target_include_directories(${_t}_gpu PRIVATE ${METIS_INCLUDE_DIR} ${PARMETIS_INCLUDE_DIR})
+            target_link_directories(${_t}_gpu PRIVATE ${METIS_LIB_DIR} ${PARMETIS_LIB_DIR})
+            target_link_libraries(${_t}_gpu gtest_main_bench_mt metis parmetis)
+        endif()
+    endforeach()
+endif()
+
+
 # atlas benchmarks
 # ----------------
 

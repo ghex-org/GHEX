@@ -84,8 +84,7 @@ class domain_descriptor
         const std::size_t inner_size, const std::size_t levels = 1)
     : m_id{id}
     , m_vertices{vertices}
-    , m_adjncy{}
-      // not set using this constructor. Not a big deal, will eventually be removed
+    , m_adjncy{} // not set using this constructor. Not a big deal, will eventually be removed
     , m_inner_size{inner_size}
     , m_size{vertices.size()}
     , m_levels{levels}
@@ -338,7 +337,121 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 };
 
 #ifdef GHEX_CUDACC
-// TO DO: GPU SPECIALIZATION
+
+#define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK 32
+
+template<typename T>
+__global__ void
+pack_kernel(const T* values, const std::size_t local_indices_size, const std::size_t* local_indices,
+    const std::size_t levels, T* buffer)
+{
+    std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (idx < local_indices_size)
+    {
+        for (std::size_t level = 0; level < levels; ++level)
+        { buffer[idx * levels + level] = values[local_indices[idx] * levels + level]; }
+    }
+}
+
+template<typename T>
+__global__ void
+unpack_kernel(const T* buffer, const std::size_t local_indices_size,
+    const std::size_t* local_indices, const std::size_t levels, T* values)
+{
+    std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (idx < local_indices_size)
+    {
+        for (std::size_t level = 0; level < levels; ++level)
+        { values[local_indices[idx] * levels + level] = buffer[idx * levels + level]; }
+    }
+}
+
+/** @brief data descriptor for unstructured grids (GPU specialization)*/
+template<typename DomainId, typename Idx, typename T>
+class data_descriptor<gpu, DomainId, Idx, T>
+{
+  public:
+    using arch_type = gpu;
+    using domain_id_type = DomainId;
+    using global_index_type = Idx;
+    using value_type = T;
+    using device_id_type = arch_traits<arch_type>::device_id_type;
+    using domain_descriptor_type = domain_descriptor<domain_id_type, global_index_type>;
+
+  private:
+    device_id_type m_device_id;
+    domain_id_type m_domain_id;
+    std::size_t    m_domain_size;
+    std::size_t    m_levels;
+    value_type*    m_values;
+
+  public:
+    // constructors
+    /** @brief constructs a GPU data descriptor
+      * @param domain local domain instance
+      * @param field data pointer, assumed to point to a contiguous memory region of size = domain size * n levels
+      * @param device_id device id*/
+    data_descriptor(
+        const domain_descriptor_type& domain, value_type* field, device_id_type device_id)
+    : m_device_id{device_id}
+    , m_domain_id{domain.domain_id()}
+    , m_domain_size{domain.size()}
+    , m_levels{domain.levels()}
+    , m_values{field}
+    {
+    }
+
+    // member functions
+
+    device_id_type device_id() const noexcept { return m_device_id; }
+    domain_id_type domain_id() const noexcept { return m_domain_id; }
+    std::size_t    domain_size() const noexcept { return m_domain_size; }
+    std::size_t    levels() const noexcept { return m_levels; }
+    int            num_components() const noexcept { return 1; }
+
+    /** @brief single access operator
+                 * used from the host to get data pointers, e.g.: &(data(i, j))*/ // TO DO: find better solution
+    value_type& operator()(const std::size_t local_v, const std::size_t level)
+    {
+        return m_values[local_v * m_levels + level];
+    }
+
+    /** @brief single access operator (const version)
+                 * used from the host to get data pointers, e.g.: &(data(i, j))*/ // TO DO: find better solution
+    const value_type& operator()(const std::size_t local_v, const std::size_t level) const
+    {
+        return m_values[local_v * m_levels + level];
+    }
+
+    template<typename IndexContainer>
+    void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr)
+    {
+        for (const auto& is : c)
+        {
+            int n_blocks =
+                static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
+                                           GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
+            pack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
+                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
+                m_values, is.local_indices().size(), &(is.local_indices()[0]), is.levels(), buffer);
+        }
+    }
+
+    template<typename IndexContainer>
+    void unpack(const value_type* buffer, const IndexContainer& c, void* stream_ptr)
+    {
+        for (const auto& is : c)
+        {
+            int n_blocks =
+                static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
+                                           GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
+            unpack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
+                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
+                buffer, is.local_indices().size(), &(is.local_indices()[0]), is.levels(), m_values);
+        }
+    }
+};
+
 #endif
 
 } // namespace unstructured
