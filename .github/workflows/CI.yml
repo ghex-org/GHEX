@@ -25,14 +25,12 @@ jobs:
           mkdir -p build && cd build
           eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DOOMPH_WITH_MPI=ON \
-            -DGHEX_TRANSPORT_BACKEND=MPI \
-            -DHWMALLOC_ENABLE_DEVICE=OFF \
-            -DGHEX_USE_GPU=OFF \
-            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
+            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
+            -GHEX_TRANSPORT_BACKEND=MPI \
+            -DGHEX_USE_GPU=OFF \
             -DMPIEXEC_PREFLAGS=--oversubscribe
       - name: Build
         run: cmake --build build --parallel 2
@@ -56,17 +54,15 @@ jobs:
           cat /proc/cpuinfo
           mkdir -p build && cd build
           eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DOOMPH_WITH_UCX=ON \
-              -DGHEX_TRANSPORT_BACKEND=UCX \
-              -DHWMALLOC_ENABLE_DEVICE=OFF \
-              -DGHEX_USE_GPU=OFF \
-              -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-              -DGHEX_BUILD_FORTRAN=ON \
-              -DGHEX_WITH_TESTING=ON \
-              -DGHEX_BUILD_BENCHMARKS=ON \
-              -DMPIEXEC_PREFLAGS=--oversubscribe \
-              -DUCX_DIR=/opt/ucx 
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_WITH_TESTING=ON \
+            -DGHEX_BUILD_BENCHMARKS=ON \
+            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
+            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_USE_GPU=OFF \
+            -DMPIEXEC_PREFLAGS=--oversubscribe \
+            -DUCX_DIR=/opt/ucx 
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -89,16 +85,14 @@ jobs:
           cat /proc/cpuinfo
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DOOMPH_WITH_MPI=ON \
-              -DGHEX_TRANSPORT_BACKEND=MPI \
-              -DHWMALLOC_ENABLE_DEVICE=OFF \
-              -DGHEX_USE_GPU=OFF \
-              -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-              -DGHEX_BUILD_FORTRAN=ON \
-              -DGHEX_WITH_TESTING=ON \
-              -DGHEX_BUILD_BENCHMARKS=ON \
-              -DMPIEXEC_PREFLAGS=--oversubscribe
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_WITH_TESTING=ON \
+            -DGHEX_BUILD_BENCHMARKS=ON \
+            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
+            -GHEX_TRANSPORT_BACKEND=MPI \
+            -DGHEX_USE_GPU=OFF \
+            -DMPIEXEC_PREFLAGS=--oversubscribe
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -121,17 +115,15 @@ jobs:
           cat /proc/cpuinfo
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DOOMPH_WITH_UCX=ON \
-              -DGHEX_TRANSPORT_BACKEND=UCX \
-              -DHWMALLOC_ENABLE_DEVICE=OFF \
-              -DGHEX_USE_GPU=OFF \
-              -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-              -DGHEX_BUILD_FORTRAN=ON \
-              -DGHEX_WITH_TESTING=ON \
-              -DGHEX_BUILD_BENCHMARKS=ON \
-              -DMPIEXEC_PREFLAGS=--oversubscribe \
-              -DUCX_DIR=/opt/ucx 
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_WITH_TESTING=ON \
+            -DGHEX_BUILD_BENCHMARKS=ON \
+            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
+            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_USE_GPU=OFF \
+            -DMPIEXEC_PREFLAGS=--oversubscribe \
+            -DUCX_DIR=/opt/ucx 
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -154,19 +146,16 @@ jobs:
           cat /proc/cpuinfo
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ cmake .. \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DOOMPH_WITH_UCX=ON \
-              -DGHEX_TRANSPORT_BACKEND=UCX \
-              -DUCX_DIR=/opt/ucx \
-              -DHWMALLOC_ENABLE_DEVICE=ON \
-              -DGHEX_USE_GPU=ON \
-              -DHWMALLOC_DEVICE_RUNTIME=hip \
-              -DGHEX_GPU_TYPE=AMD \
-              -DGHEX_WITH_TESTING=ON \
-              -DGHEX_BUILD_BENCHMARKS=ON \
-              -DMPIEXEC_PREFLAGS=--oversubscribe \
-              -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
-              -DGHEX_BUILD_FORTRAN=ON
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_WITH_TESTING=ON \
+            -DGHEX_BUILD_BENCHMARKS=ON \
+            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
+            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_USE_GPU=ON \
+            -DGHEX_GPU_TYPE=AMD \
+            -DMPIEXEC_PREFLAGS=--oversubscribe \
+            -DUCX_DIR=/opt/ucx 
       - name: Build
         run: cmake --build build --parallel 2
 
@@ -187,18 +176,15 @@ jobs:
           cat /proc/cpuinfo
           mkdir -p build && cd build
           cmake .. \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DOOMPH_WITH_UCX=ON \
-              -DGHEX_TRANSPORT_BACKEND=UCX \
-              -DUCX_DIR=/opt/ucx \
-              -DHWMALLOC_ENABLE_DEVICE=ON \
-              -DGHEX_USE_GPU=ON \
-              -DHWMALLOC_DEVICE_RUNTIME=cuda \
-              -DGHEX_GPU_TYPE=NVIDIA \
-              -DGHEX_WITH_TESTING=ON \
-              -DGHEX_BUILD_BENCHMARKS=ON \
-              -DMPIEXEC_PREFLAGS=--oversubscribe \
-              -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
-              -DGHEX_BUILD_FORTRAN=ON
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_WITH_TESTING=ON \
+            -DGHEX_BUILD_BENCHMARKS=ON \
+            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
+            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_USE_GPU=ON \
+            -DGHEX_GPU_TYPE=NVIDIA \
+            -DMPIEXEC_PREFLAGS=--oversubscribe \
+            -DUCX_DIR=/opt/ucx 
       - name: Build
         run: cmake --build build --parallel 2

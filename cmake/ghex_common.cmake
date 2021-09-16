@@ -15,6 +15,14 @@ target_link_libraries(ghex PUBLIC ghex_common)
 ghex_target_compile_options(ghex)
 
 # ---------------------------------------------------------------------
+# device setup
+# ---------------------------------------------------------------------
+include(ghex_device)
+if (ghex_gpu_mode STREQUAL "hip")
+    target_link_libraries(ghex PUBLIC hip::device)
+endif()
+
+# ---------------------------------------------------------------------
 # MPI setup
 # ---------------------------------------------------------------------
 find_package(MPI REQUIRED)
@@ -44,29 +52,6 @@ target_link_libraries(ghex_common INTERFACE GridTools::gridtools)
 # ---------------------------------------------------------------------
 include(ghex_oomph)
 target_link_libraries(ghex_common INTERFACE oomph::oomph)
-#TODO: make some sort of plugin loader to avoid linking to hwmalloc, oomph_<backend> and ghex
-#      and instead only link to libghex
-set(GHEX_TRANSPORT_BACKEND "MPI" CACHE STRING "Choose the backend type: MPI | UCX | LIBFABRIC")
-set_property(CACHE GHEX_TRANSPORT_BACKEND PROPERTY STRINGS "MPI" "UCX" "LIBFABRIC")
-if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
-    if (${OOMPH_WITH_LIBFABRIC})
-        target_link_libraries(ghex PUBLIC oomph::libfabric)
-    else()
-        message( FATAL_ERROR "LIBFABRIC backend is not available - check oomph configure options" )
-    endif()
-elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
-    if (${OOMPH_WITH_UCX})
-        target_link_libraries(ghex PUBLIC oomph::ucx)
-    else()
-        message( FATAL_ERROR "UCX backend is not available - check oomph configure options" )
-    endif()
-else()
-    if (${OOMPH_WITH_MPI})
-        target_link_libraries(ghex PUBLIC oomph::mpi)
-    else()
-        message( FATAL_ERROR "MPI backend is not available - check oomph configure options" )
-    endif()
-endif()
 
 # ---------------------------------------------------------------------
 # xpmem setup
@@ -79,15 +64,6 @@ if (GHEX_USE_XPMEM)
 endif()
 set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma access")
 mark_as_advanced(GHEX_USE_XPMEM_ACCESS_GUARD)
-
-# ---------------------------------------------------------------------
-# device setup
-# ---------------------------------------------------------------------
-include(ghex_device)
-
-if (ghex_gpu_mode STREQUAL "hip")
-    target_link_libraries(ghex PUBLIC hip::device)
-endif()
 
 # ---------------------------------------------------------------------
 # atlas setup

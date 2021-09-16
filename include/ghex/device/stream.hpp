@@ -12,7 +12,7 @@
 
 #include <ghex/config.hpp>
 
-#if defined(GHEX_USE_GPU)
+#if defined(GHEX_CUDACC)
 #include <ghex/device/cuda/stream.hpp>
 #else
 namespace ghex
