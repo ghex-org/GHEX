@@ -242,7 +242,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     using value_type = T;
     using device_id_type = ghex::arch_traits<arch_type>::device_id_type;
     using domain_descriptor_type = domain_descriptor<domain_id_type, global_index_type>;
-    using allocator_type = std::allocator<value_type>;
+    //using allocator_type = std::allocator<value_type>;
     using byte_t = unsigned char;
 
   private:
@@ -258,9 +258,10 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * be contiguous in memory
       * @param domain local domain instance
       * @param field field to be wrapped*/
-    template<template<typename, typename> class Container>
+    //template<template<typename, typename> class Container>
+    template<class Container>
     data_descriptor(
-        const domain_descriptor_type& domain, Container<value_type, allocator_type>& field)
+        const domain_descriptor_type& domain, Container& field)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{domain.levels()}
