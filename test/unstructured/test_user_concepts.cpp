@@ -286,7 +286,7 @@ test_data_descriptor(ghex::context& ctxt)
     h_gpu.wait();
 
     // check exchanged data
-    field.clone_to_host;
+    field.clone_to_host();
     check_exchanged_data(d, field, patterns[0]);
 #endif
 }
@@ -416,7 +416,7 @@ test_data_descriptor_threads(ghex::context& ctxt)
 //    h_gpu.wait();
 //
 //    // check exchanged data
-//    field.clone_to_host;
+//    field.clone_to_host();
 //    check_exchanged_data(d, field, patterns[0]);
 //#endif
 //}
