@@ -270,7 +270,7 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
         }
     }
 
-    // Target views
+    // GHEX target views
     auto serial_field_1_target_data = serial_field_1.target_view();
     auto multi_field_1_target_data = multi_field_1.target_view();
     auto serial_field_2_target_data = serial_field_2.target_view();
@@ -310,56 +310,64 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
         }
     }
 
-    // HERE
-
 #ifdef GHEX_CUDACC
+
+    using storage_traits_gpu = gridtools::storage::gpu;
+
     // Additional data descriptor types for GPU
-    using gpu_int_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
-    using gpu_double_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, double>;
+    using gpu_int_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int, storage_traits_gpu, function_space_t>;
+    using gpu_double_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, double, storage_traits_gpu, function_space_t>;
 
     // Additional fields for GPU halo exchange
-    fields_1.add(fs_nodes_1.createField<int>(atlas::option::name("gpu_multi_field_1")));
-    fields_2.add(fs_nodes_2.createField<double>(atlas::option::name("gpu_multi_field_2")));
-    auto gpu_multi_field_1_data = atlas::array::make_host_view<int, 2>(fields_1["gpu_multi_field_1"]);
-    auto gpu_multi_field_2_data = atlas::array::make_host_view<double, 2>(fields_2["gpu_multi_field_2"]);
-    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
-            auto value = (rank << 15) + (node << 7) + level;
-            gpu_multi_field_1_data(node, level) = value;
+    auto gpu_multi_field_1 = gridtools::ghex::atlas::make_field<int, storage_traits_gpu>(fs_nodes_1, 1); // 1 component / scalar field
+    auto gpu_multi_field_2 = gridtools::ghex::atlas::make_field<double, storage_traits_gpu>(fs_nodes_2, 1); // 1 component / scalar field
+    {
+        auto gpu_multi_field_1_data = gpu_multi_field_1.host_view();
+        auto gpu_multi_field_2_data = gpu_multi_field_2.host_view();
+        for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+                auto value = (rank << 15) + (node << 7) + level;
+                gpu_multi_field_1_data(node, level, 0) = value; // TO DO: hard-coded 3d view. Should be more flexible
+            }
+        }
+        for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+                auto value = ((rank << 15) + (node << 7) + level) * 0.5;
+                gpu_multi_field_2_data(node, level, 0) = value; // TO DO: hard-coded 3d view. Should be more flexible
+            }
         }
     }
-    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
-            auto value = ((rank << 15) + (node << 7) + level) * 0.5;
-            gpu_multi_field_2_data(node, level) = value;
-        }
-    }
-    fields_1["gpu_multi_field_1"].cloneToDevice();
-    fields_2["gpu_multi_field_2"].cloneToDevice();
+
+    // GHEX target views
+    auto gpu_multi_field_1_target_data = gpu_multi_field_1.target_view();
+    auto gpu_multi_field_2_target_data = gpu_multi_field_2.target_view();
 
     // Additional data descriptors for GPU halo exchange
-    gpu_int_data_descriptor_t gpu_multi_data_1{local_domains_1.front(), 0, fields_1["gpu_multi_field_1"]};
-    gpu_double_data_descriptor_t gpu_multi_data_2{local_domains_2.front(), 0, fields_2["gpu_multi_field_2"]};
+    gpu_int_data_descriptor_t gpu_multi_data_1{local_domains_1.front(), 0, gpu_multi_field_1_target_data, gpu_multi_field_1.components()};
+    gpu_double_data_descriptor_t gpu_multi_data_2{local_domains_2.front(), 0, gpu_multi_field_2_target_data, gpu_multi_field_2.components()};
 
     // Multiple halo exchange on the GPU
     auto h_m_gpu = co.exchange(patterns_1(gpu_multi_data_1), patterns_2(gpu_multi_data_2));
     h_m_gpu.wait();
 
     // Test for correctness
-    fields_1["gpu_multi_field_1"].cloneFromDevice();
-    fields_2["gpu_multi_field_2"].cloneFromDevice();
-    fields_1["gpu_multi_field_1"].reactivateHostWriteViews();
-    fields_2["gpu_multi_field_2"].reactivateHostWriteViews();
-    for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
-            EXPECT_TRUE(serial_field_1_data(node, level) == gpu_multi_field_1_data(node, level));
+    {
+        auto serial_field_1_data = serial_field_1.const_host_view();
+        auto gpu_multi_field_1_data = gpu_multi_field_1.const_host_view();
+        auto serial_field_2_data = serial_field_2.const_host_view();
+        auto gpu_multi_field_2_data = gpu_multi_field_2.const_host_view();
+        for (auto node = 0; node < fs_nodes_1.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes_1.levels(); ++level) {
+                EXPECT_TRUE(serial_field_1_data(node, level, 0) == gpu_multi_field_1_data(node, level, 0)); // TO DO: hard-coded 3d view. Should be more flexible
+            }
+        }
+        for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
+                EXPECT_TRUE(serial_field_2_data(node, level, 0) == gpu_multi_field_2_data(node, level, 0)); // TO DO: hard-coded 3d view. Should be more flexible
+            }
         }
     }
-    for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes_2.levels(); ++level) {
-            EXPECT_TRUE(serial_field_2_data(node, level) == gpu_multi_field_2_data(node, level));
-        }
-    }
+
 #endif
 
 }
