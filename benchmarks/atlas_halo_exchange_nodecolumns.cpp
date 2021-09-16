@@ -13,6 +13,16 @@
 
 #include <gtest/gtest.h>
 
+#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST
+#include <gridtools/storage/cpu_kfirst.hpp>
+#endif
+#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST
+#include <gridtools/storage/cpu_ifirst.hpp>
+#endif
+#ifdef GHEX_CUDACC
+#include <gridtools/storage/gpu.hpp>
+#endif
+
 #include <atlas/grid.h>
 #include <atlas/mesh.h>
 #include <atlas/meshgenerator.h>
@@ -27,6 +37,7 @@
 #endif
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
+#include <ghex/glue/atlas/field.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
 #include <ghex/arch_list.hpp>
 #include <ghex/communication_object_2.hpp>
@@ -46,15 +57,15 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using context_type = gridtools::ghex::tl::context<transport>;
 
 
-/* WARN: Atlas halo exchange on GPU is disabled for the moment
- * due to some fixes that has been done in Atlas develop branch
- * and still need to be tested properly here*/
 TEST(atlas_integration, halo_exchange_nodecolumns) {
 
     using timer_type = gridtools::ghex::timer;
     using domain_id_t = int;
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
-    using cpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int>;
+    using grid_type = gridtools::ghex::unstructured::grid;
+    using storage_traits_cpu = gridtools::storage::cpu_kfirst;
+    using function_space_t = atlas::functionspace::NodeColumns;
+    using cpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int, storage_traits_cpu, function_space_t>;
 
     const int n_iter = 50;
 
@@ -72,7 +83,6 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     // Timers
     timer_type t_atlas_cpu_local, t_atlas_cpu_global; // Atlas on CPU
     timer_type t_ghex_cpu_local, t_ghex_cpu_global; // GHEX on CPU
-    // timer_type t_atlas_gpu_local, t_atlas_gpu_global; // Atlas on GPU
     timer_type t_ghex_gpu_local, t_ghex_gpu_global; // GHEX on GPU
 
     // Global octahedral Gaussian grid
@@ -103,36 +113,42 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     gridtools::ghex::atlas_recv_domain_ids_gen<int> rdig{};
 
     // Make patterns
-    using grid_type = gridtools::ghex::unstructured::grid;
     auto patterns = gridtools::ghex::make_pattern<grid_type>(context, hg, rdig, local_domains);
 
     // Make communication object
     auto co = gridtools::ghex::make_communication_object<decltype(patterns)>(context.get_communicator());
 
     // Fields creation and initialization
-    atlas::FieldSet fields;
-    fields.add(fs_nodes.createField<int>(atlas::option::name("atlas_field_1")));
-    fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1")));
-    auto atlas_field_1_data = atlas::array::make_view<int, 2>(fields["atlas_field_1"]);
-    auto GHEX_field_1_data = atlas::array::make_view<int, 2>(fields["GHEX_field_1"]);
-    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            auto value = (rank << 15) + (node << 7) + level;
-            atlas_field_1_data(node, level) = value;
-            GHEX_field_1_data(node, level) = value;
+    auto atlas_field_1 = fs_nodes.createField<int>(atlas::option::name("atlas_field_1"));
+    auto GHEX_field_1 = gridtools::ghex::atlas::make_field<int, storage_traits_cpu>(fs_nodes, 1); // 1 component / scalar field
+    {
+        auto atlas_field_1_data = atlas::array::make_view<int, 2>(atlas_field_1);
+        auto GHEX_field_1_data = GHEX_field_1.host_view();
+        for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes.levels(); ++level) {
+                auto value = (rank << 15) + (node << 7) + level;
+                atlas_field_1_data(node, level) = value;
+                GHEX_field_1_data(node, level, 0) = value; // TO DO: hard-coded 3d view. Should be more flexible
+            }
         }
     }
 
+    // GHEX target view
+    auto GHEX_field_1_target_data = GHEX_field_1.target_view();
+
     // Instantiate data descriptor
-    cpu_data_descriptor_t data_1{local_domains.front(), fields["GHEX_field_1"]};
+    cpu_data_descriptor_t data_1{local_domains.front(), GHEX_field_1_target_data, GHEX_field_1.components()};
 
     // Atlas halo exchange
-    fs_nodes.haloExchange(fields["atlas_field_1"]); // first iteration
+    // Atlas built-in halo exchange function is called (only from the CPU) for testing data correctness.
+    // Time comparison might give a hint that GHEX exchange times are consistent,
+    // but Atlas times should not be considered as a baseline.
+    fs_nodes.haloExchange(atlas_field_1); // first iteration
     for (auto i = 0; i < n_iter; ++i) { // benchmark
         timer_type t_local;
         MPI_Barrier(context.mpi_comm());
         t_local.tic();
-        fs_nodes.haloExchange(fields["atlas_field_1"]);
+        fs_nodes.haloExchange(atlas_field_1);
         t_local.toc();
         t_atlas_cpu_local(t_local);
         MPI_Barrier(context.mpi_comm());
@@ -157,13 +173,17 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     }
 
     // test for correctness
-    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
+    {
+        auto atlas_field_1_data = atlas::array::make_view<const int, 2>(atlas_field_1);
+        auto GHEX_field_1_data = GHEX_field_1.const_host_view();
+        for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes.levels(); ++level) {
+                EXPECT_TRUE(GHEX_field_1_data(node, level, 0) == atlas_field_1_data(node, level)); // TO DO: hard-coded 3d view. Should be more flexible
+            }
         }
     }
 
-    // Write timings
+    // Write timings // TO DO: fix error estimation
     file << "- Atlas CPU benchmark\n"
         << "\tlocal time = " << t_atlas_cpu_local.mean() / 1000.0 << "+/-" << t_atlas_cpu_local.stddev() / 1000.0 << "s\n"
         << "\tglobal time = " << t_atlas_cpu_global.mean() / 1000.0 << "+/-" << t_atlas_cpu_global.stddev() / 1000.0 << "s\n";
@@ -174,40 +194,28 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
 
 #ifdef GHEX_CUDACC
 
-    // Additional data descriptor type for GPU
-    using gpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int>;
+    using storage_traits_gpu = gridtools::storage::gpu;
 
-    // Additional fields for GPU halo exchange
-    // fields.add(fs_nodes.createField<int>(atlas::option::name("atlas_field_1_gpu")));
-    fields.add(fs_nodes.createField<int>(atlas::option::name("GHEX_field_1_gpu")));
-    // auto atlas_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["atlas_field_1_gpu"]);
-    auto GHEX_field_1_gpu_data = atlas::array::make_host_view<int, 2>(fields["GHEX_field_1_gpu"]);
-    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            auto value = (rank << 15) + (node << 7) + level;
-            // atlas_field_1_gpu_data(node, level) = value;
-            GHEX_field_1_gpu_data(node, level) = value;
+    // Additional data descriptor type for GPU
+    using gpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::gpu, domain_id_t, int, storage_traits_gpu, function_space_t>;
+
+    // Additional field for GPU halo exchange
+    auto GHEX_field_1_gpu = gridtools::ghex::atlas::make_field<int, storage_traits_gpu>(fs_nodes, 1); // 1 component / scalar field
+    {
+        auto GHEX_field_1_gpu_data = GHEX_field_1_gpu.host_view();
+        for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes.levels(); ++level) {
+                auto value = (rank << 15) + (node << 7) + level;
+                GHEX_field_1_gpu_data(node, level, 0) = value; // TO DO: hard-coded 3d view. Should be more flexible
+            }
         }
     }
-    // fields["atlas_field_1_gpu"].cloneToDevice();
-    fields["GHEX_field_1_gpu"].cloneToDevice();
+
+    // GHEX target view
+    auto GHEX_field_1_gpu_target_data = GHEX_field_1_gpu.target_view();
 
     // Additional data descriptor for GPU halo exchange
-    gpu_data_descriptor_t data_1_gpu{local_domains.front(), 0, fields["GHEX_field_1_gpu"]};
-
-    // Atlas halo exchange on GPU
-    // fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true); // first iteration
-    // for (auto i = 0; i < n_iter; ++i) { // benchmark
-    //     timer_type t_local;
-    //     MPI_Barrier(context.mpi_comm());
-    //     t_local.tic();
-    //     fs_nodes.haloExchange(fields["atlas_field_1_gpu"], true);
-    //     t_local.toc();
-    //     t_atlas_gpu_local(t_local);
-    //     MPI_Barrier(context.mpi_comm());
-    //     auto t_global = gridtools::ghex::reduce(t_local, context.mpi_comm());
-    //     t_atlas_gpu_global(t_global);
-    // }
+    gpu_data_descriptor_t data_1_gpu{local_domains.front(), 0, GHEX_field_1_gpu_target_data, GHEX_field_1_gpu.components()};
 
     // GHEX halo exchange on GPU
     auto h_gpu = co.exchange(patterns(data_1_gpu)); // first iteration
@@ -226,26 +234,21 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     }
 
     // Test for correctness
-    // fields["atlas_field_1_gpu"].cloneFromDevice();
-    fields["GHEX_field_1_gpu"].cloneFromDevice();
-    // fields["atlas_field_1_gpu"].reactivateHostWriteViews();
-    fields["GHEX_field_1_gpu"].reactivateHostWriteViews();
-    for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
-        for (auto level = 0; level < fs_nodes.levels(); ++level) {
-            EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_data(node, level));
-            // Not strictly needed, just double check Atlas on GPU
-            // EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_gpu_data(node, level));
+    {
+        auto atlas_field_1_data = atlas::array::make_view<const int, 2>(atlas_field_1);
+        auto GHEX_field_1_gpu_data = GHEX_field_1_gpu.const_host_view();
+        for (auto node = 0; node < fs_nodes.nb_nodes(); ++node) {
+            for (auto level = 0; level < fs_nodes.levels(); ++level) {
+                EXPECT_TRUE(GHEX_field_1_gpu_data(node, level, 0) == atlas_field_1_data(node, level)); // TO DO: hard-coded 3d view. Should be more flexible
+            }
         }
     }
 
-    // Write timings
-    // file << "- Atlas GPU benchmark\n"
-    //     << "\tlocal time = " << t_atlas_gpu_local.mean() / 1000.0 << "+/-" << t_atlas_gpu_local.stddev() / 1000.0 << "s\n"
-    //     << "\tglobal time = " << t_atlas_gpu_global.mean() / 1000.0 << "+/-" << t_atlas_gpu_global.stddev() / 1000.0 << "s\n";
-
+    // Write timings // TO DO: fix error estimation
     file << "- GHEX GPU benchmark\n"
         << "\tlocal time = " << t_ghex_gpu_local.mean() / 1000.0 << "+/-" << t_ghex_gpu_local.stddev() / 1000.0 << "s\n"
         << "\tglobal time = " << t_ghex_gpu_global.mean() / 1000.0 << "+/-" << t_ghex_gpu_global.stddev() / 1000.0 << "s\n";
+
 #endif
 
 }
