@@ -23,10 +23,18 @@
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/communication_object_2.hpp>
 #include <ghex/unstructured/communication_object_ipr.hpp>
+#include <ghex/common/defs.hpp>
+#ifdef GHEX_CUDACC
+#include <ghex/common/cuda_runtime.hpp>
+#include <ghex/allocator/cuda_allocator.hpp>
+#endif
 #include "./util/unstructured_test_case.hpp"
 
 
 using data_descriptor_cpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::cpu, domain_id_type, global_index_type, int>;
+#ifdef GHEX_CUDACC
+using data_descriptor_gpu_int_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::gpu, domain_id_type, global_index_type, int>;
+#endif
 
 #ifndef GHEX_TEST_UNSTRUCTURED_OVERSUBSCRIPTION
 
@@ -111,6 +119,31 @@ TEST(unstructured_user_concepts, data_descriptor) {
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
 
+#ifdef GHEX_CUDACC
+
+    // application data
+    std::vector<int> field_cpu(d.size(), 0);
+    initialize_data(d, field_cpu);
+    using gpu_allocator_int_type = gridtools::ghex::allocator::cuda::allocator<int>;
+    gpu_allocator_int_type gpu_alloc{};
+    int* field_gpu = gpu_alloc.allocate(d.size());
+    cudaMemcpy(field_gpu, field_cpu.data(), d.size() * sizeof(int), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    data_descriptor_gpu_int_type data_gpu{d, field_gpu, 0};
+
+    EXPECT_NO_THROW(co.bexchange(patterns(data_gpu)));
+
+    auto h_gpu = co.exchange(patterns(data_gpu));
+    h_gpu.wait();
+
+    // check exchanged data
+    cudaMemcpy(field_cpu.data(), field_gpu, d.size() * sizeof(int), cudaMemcpyDeviceToHost);
+    check_exchanged_data(d, field_cpu, patterns[0]);
+
+    // deallocate
+    gpu_alloc.deallocate(field_gpu, d.size());
+
+#endif
+
 }
 
 /** @brief Test in place receive*/
@@ -141,6 +174,31 @@ TEST(unstructured_user_concepts, in_place_receive) {
 
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
+
+#ifdef GHEX_CUDACC
+
+    // application data
+    std::vector<int> field_cpu(d.size(), 0);
+    initialize_data(d, field_cpu);
+    using gpu_allocator_int_type = gridtools::ghex::allocator::cuda::allocator<int>;
+    gpu_allocator_int_type gpu_alloc{};
+    int* field_gpu = gpu_alloc.allocate(d.size());
+    cudaMemcpy(field_gpu, field_cpu.data(), d.size() * sizeof(int), cudaMemcpyHostToDevice); // TO DO: GT wrapper?
+    data_descriptor_gpu_int_type data_gpu{d, field_gpu, 0};
+
+    EXPECT_NO_THROW(co.bexchange(patterns(data_gpu)));
+
+    auto h_gpu = co.exchange(patterns(data_gpu));
+    h_gpu.wait();
+
+    // check exchanged data
+    cudaMemcpy(field_cpu.data(), field_gpu, d.size() * sizeof(int), cudaMemcpyDeviceToHost);
+    check_exchanged_data(d, field_cpu, patterns[0]);
+
+    // deallocate
+    gpu_alloc.deallocate(field_gpu, d.size());
+
+#endif
 
 }
 
