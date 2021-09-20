@@ -10,7 +10,6 @@ jobs:
   build-cpu-mpi:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
-
     steps:
       - uses: actions/checkout@v1
       - name: Configure
@@ -40,7 +39,6 @@ jobs:
   build-cpu-ucx:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
-
     steps:
       - uses: actions/checkout@v1
       - name: Configure
@@ -71,7 +69,6 @@ jobs:
   build-cpu-mpi-clang:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
-
     steps:
       - uses: actions/checkout@v1
       - name: Configure
@@ -88,7 +85,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
             -GHEX_TRANSPORT_BACKEND=MPI \
             -DGHEX_USE_GPU=OFF \
@@ -101,7 +98,6 @@ jobs:
   build-cpu-ucx_clang:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
-
     steps:
       - uses: actions/checkout@v1
       - name: Configure
@@ -118,7 +114,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
             -GHEX_TRANSPORT_BACKEND=UCX \
             -DGHEX_USE_GPU=OFF \
@@ -132,7 +128,6 @@ jobs:
   build-gpu-amd:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
-
     steps:
       - uses: actions/checkout@v1
       - name: Configure
@@ -149,7 +144,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
             -GHEX_TRANSPORT_BACKEND=UCX \
             -DGHEX_USE_GPU=ON \
@@ -162,7 +157,6 @@ jobs:
   build-gpu-nvidia:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
-
     steps:
       - uses: actions/checkout@v1
       - name: Configure
@@ -179,7 +173,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
             -GHEX_TRANSPORT_BACKEND=UCX \
             -DGHEX_USE_GPU=ON \
