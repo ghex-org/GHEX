@@ -54,6 +54,11 @@ include(ghex_oomph)
 target_link_libraries(ghex_common INTERFACE oomph::oomph)
 
 # ---------------------------------------------------------------------
+# general RMA setup
+# ---------------------------------------------------------------------
+set(GHEX_NO_RMA OFF CACHE BOOL "Disable in-node RMA completely")
+
+# ---------------------------------------------------------------------
 # xpmem setup
 # ---------------------------------------------------------------------
 set(GHEX_USE_XPMEM OFF CACHE BOOL "Set to true to use xpmem shared memory")

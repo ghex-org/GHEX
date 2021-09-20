@@ -13,6 +13,7 @@
 #include <oomph/config.hpp>
 #include <tuple>
 
+#cmakedefine GHEX_NO_RMA
 #cmakedefine GHEX_USE_XPMEM
 #cmakedefine GHEX_USE_XPMEM_ACCESS_GUARD
 #cmakedefine GHEX_USE_GPU
