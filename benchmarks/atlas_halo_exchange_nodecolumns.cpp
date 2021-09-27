@@ -186,14 +186,14 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
         }
     }
 
-    // Write timings // TO DO: fix error estimation
+    // Write timings
     file << "- Atlas CPU benchmark\n"
-        << "\tlocal time = " << t_atlas_cpu_local.mean() / 1000.0 << "+/-" << t_atlas_cpu_local.stddev() / 1000.0 << "s\n"
-        << "\tglobal time = " << t_atlas_cpu_global.mean() / 1000.0 << "+/-" << t_atlas_cpu_global.stddev() / 1000.0 << "s\n";
+        << "\tlocal time = " << t_atlas_cpu_local.mean() / 1000.0 << "+/-" << t_atlas_cpu_local.stddev() / (sqrt(t_atlas_cpu_local.num_samples()) * 1000.0) << "s\n"
+        << "\tglobal time = " << t_atlas_cpu_global.mean() / 1000.0 << "+/-" << t_atlas_cpu_global.stddev() / (sqrt(t_atlas_cpu_global.num_samples()) * 1000.0) << "s\n";
 
     file << "- GHEX CPU benchmark\n"
-        << "\tlocal time = " << t_ghex_cpu_local.mean() / 1000.0 << "+/-" << t_ghex_cpu_local.stddev() / 1000.0 << "s\n"
-        << "\tglobal time = " << t_ghex_cpu_global.mean() / 1000.0 << "+/-" << t_ghex_cpu_global.stddev() / 1000.0 << "s\n";
+        << "\tlocal time = " << t_ghex_cpu_local.mean() / 1000.0 << "+/-" << t_ghex_cpu_local.stddev() / (sqrt(t_ghex_cpu_local.num_samples()) * 1000.0) << "s\n"
+        << "\tglobal time = " << t_ghex_cpu_global.mean() / 1000.0 << "+/-" << t_ghex_cpu_global.stddev() / (sqrt(t_ghex_cpu_global.num_samples()) * 1000.0) << "s\n";
 
 #ifdef GHEX_CUDACC
 
@@ -247,10 +247,10 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
         }
     }
 
-    // Write timings // TO DO: fix error estimation
+    // Write timings
     file << "- GHEX GPU benchmark\n"
-        << "\tlocal time = " << t_ghex_gpu_local.mean() / 1000.0 << "+/-" << t_ghex_gpu_local.stddev() / 1000.0 << "s\n"
-        << "\tglobal time = " << t_ghex_gpu_global.mean() / 1000.0 << "+/-" << t_ghex_gpu_global.stddev() / 1000.0 << "s\n";
+        << "\tlocal time = " << t_ghex_gpu_local.mean() / 1000.0 << "+/-" << t_ghex_gpu_local.stddev() / (sqrt(t_ghex_gpu_local.num_samples()) * 1000.0) << "s\n"
+        << "\tglobal time = " << t_ghex_gpu_global.mean() / 1000.0 << "+/-" << t_ghex_gpu_global.stddev() / (sqrt(t_ghex_gpu_global.num_samples()) * 1000.0) << "s\n";
 
 #endif
 
