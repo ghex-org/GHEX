@@ -14,10 +14,9 @@
 #include <utility>
 
 #include <gridtools/storage/builder.hpp>
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST
+#if defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST) // TO DO: needed here?
 #include <gridtools/storage/cpu_kfirst.hpp>
-#endif
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST
+#elif defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST)
 #include <gridtools/storage/cpu_ifirst.hpp>
 #endif
 #ifdef GHEX_CUDACC

@@ -12,10 +12,9 @@
 
 #include <gtest/gtest.h>
 
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST
+#if defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST)
 #include <gridtools/storage/cpu_kfirst.hpp>
-#endif
-#ifdef GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST
+#elif defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST)
 #include <gridtools/storage/cpu_ifirst.hpp>
 #endif
 #ifdef GHEX_CUDACC
@@ -60,7 +59,11 @@ TEST(atlas_integration, halo_exchange) {
     using domain_id_t = int;
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
     using grid_type = gridtools::ghex::unstructured::grid;
+#if defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST)
     using storage_traits_cpu = gridtools::storage::cpu_kfirst;
+#elif defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST)
+    using storage_traits_cpu = gridtools::storage::cpu_ifirst;
+#endif
     using function_space_t = atlas::functionspace::NodeColumns;
     using cpu_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int, storage_traits_cpu, function_space_t>;
 
@@ -190,7 +193,11 @@ TEST(atlas_integration, halo_exchange_multiple_patterns) {
     using domain_id_t = int;
     using domain_descriptor_t = gridtools::ghex::atlas_domain_descriptor<domain_id_t>;
     using grid_type = gridtools::ghex::unstructured::grid;
+#if defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST)
     using storage_traits_cpu = gridtools::storage::cpu_kfirst;
+#elif defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST)
+    using storage_traits_cpu = gridtools::storage::cpu_ifirst;
+#endif
     using function_space_t = atlas::functionspace::NodeColumns;
     using cpu_int_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, int, storage_traits_cpu, function_space_t>;
     using cpu_double_data_descriptor_t = gridtools::ghex::atlas_data_descriptor<gridtools::ghex::cpu, domain_id_t, double, storage_traits_cpu, function_space_t>;
