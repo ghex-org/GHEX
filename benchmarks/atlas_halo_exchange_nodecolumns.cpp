@@ -99,7 +99,7 @@ TEST(atlas_integration, halo_exchange_nodecolumns) {
     std::size_t nb_levels = 100;
 
     // Generate functionspace associated to the mesh
-    atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(1));
+    atlas::functionspace::NodeColumns fs_nodes(mesh, atlas::option::levels(nb_levels) | atlas::option::halo(2));
 
     // Instantiate domain descriptor
     std::vector<domain_descriptor_t> local_domains{};
