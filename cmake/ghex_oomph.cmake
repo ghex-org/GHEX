@@ -3,7 +3,7 @@
 set(GHEX_TRANSPORT_BACKEND "MPI" CACHE STRING "Choose the backend type: MPI | UCX | LIBFABRIC")
 set_property(CACHE GHEX_TRANSPORT_BACKEND PROPERTY STRINGS "MPI" "UCX" "LIBFABRIC")
 
-set(_oomph_repository "https://github.com/boeschf/oomph.git")
+set(_oomph_repository "https://github.com/ghex-org/oomph.git")
 set(_oomph_tag        "main")
 if(NOT _oomph_already_fetched)
     message(STATUS "Fetching oomph ${_oomph_tag} from ${_oomph_repository}")
