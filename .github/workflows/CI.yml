@@ -182,3 +182,4 @@ jobs:
             -DUCX_DIR=/opt/ucx 
       - name: Build
         run: cmake --build build --parallel 2
+
