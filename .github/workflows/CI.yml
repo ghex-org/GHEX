@@ -28,7 +28,7 @@ jobs:
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -GHEX_TRANSPORT_BACKEND=MPI \
+            -DGHEX_TRANSPORT_BACKEND=MPI \
             -DGHEX_USE_GPU=OFF \
             -DMPIEXEC_PREFLAGS=--oversubscribe
       - name: Build
@@ -57,7 +57,7 @@ jobs:
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
             -DGHEX_USE_GPU=OFF \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             -DUCX_DIR=/opt/ucx 
@@ -87,7 +87,7 @@ jobs:
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -GHEX_TRANSPORT_BACKEND=MPI \
+            -DGHEX_TRANSPORT_BACKEND=MPI \
             -DGHEX_USE_GPU=OFF \
             -DMPIEXEC_PREFLAGS=--oversubscribe
       - name: Build
@@ -116,7 +116,7 @@ jobs:
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
             -DGHEX_USE_GPU=OFF \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             -DUCX_DIR=/opt/ucx 
@@ -146,7 +146,7 @@ jobs:
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
-            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
             -DGHEX_USE_GPU=ON \
             -DGHEX_GPU_TYPE=AMD \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
@@ -175,7 +175,7 @@ jobs:
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
-            -GHEX_TRANSPORT_BACKEND=UCX \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
             -DGHEX_USE_GPU=ON \
             -DGHEX_GPU_TYPE=NVIDIA \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
