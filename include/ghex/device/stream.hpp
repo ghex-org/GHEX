@@ -32,6 +32,8 @@ struct stream
     // movable
     stream(stream&& other) noexcept = default;
     stream& operator=(stream&&) noexcept = default;
+
+    void sync() {}
 };
 } // namespace device
 } // namespace ghex

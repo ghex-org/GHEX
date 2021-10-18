@@ -278,6 +278,11 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     std::size_t    levels() const noexcept { return m_levels; }
     int            num_components() const noexcept { return 1; }
 
+    value_type* get_address_at(const std::size_t local_v, const std::size_t level)
+    {
+        return m_values + (local_v * m_levels + level);
+    }
+
     /** @brief single access operator, used by multiple access set function*/
     value_type& operator()(const std::size_t local_v, const std::size_t level)
     {

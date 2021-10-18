@@ -36,6 +36,12 @@ struct arch_traits<cpu>
     {
         return c.make_buffer<unsigned char>(size);
     }
+
+    static message_type make_message(
+        oomph::communicator& c, void* ptr, std::size_t size, device_id_type = default_id())
+    {
+        return c.make_buffer<unsigned char>((unsigned char*)ptr, size);
+    }
 };
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
@@ -55,6 +61,14 @@ struct arch_traits<gpu>
         static_assert(
             std::is_same<decltype(index), device_id_type>::value, "trick to prevent warnings");
         return c.make_device_buffer<unsigned char>(size, index);
+    }
+
+    static message_type make_message(
+        oomph::communicator& c, void* device_ptr, std::size_t size, device_id_type index = default_id())
+    {
+        static_assert(
+            std::is_same<decltype(index), device_id_type>::value, "trick to prevent warnings");
+        return c.make_device_buffer<unsigned char>((unsigned char*)device_ptr, size, index);
     }
 };
 #endif

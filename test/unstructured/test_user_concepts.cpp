@@ -16,7 +16,7 @@
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
 #include <ghex/communication_object.hpp>
-//#include <ghex/unstructured/communication_object_ipr.hpp>
+#include <ghex/unstructured/communication_object_ipr.hpp>
 #include "./unstructured_test_case.hpp"
 #include "../util/memory.hpp"
 
@@ -41,8 +41,8 @@ void test_data_descriptor_oversubscribe(ghex::context& ctxt);
 void test_data_descriptor_threads(ghex::context& ctxt);
 
 void test_in_place_receive(ghex::context& ctxt);
-void test_in_place_receive_multi(ghex::context& ctxt);
-void test_in_place_receive_oversubscribe(ghex::context& ctxt);
+//void test_in_place_receive_multi(ghex::context& ctxt);
+//void test_in_place_receive_oversubscribe(ghex::context& ctxt);
 void test_in_place_receive_threads(ghex::context& ctxt);
 
 TEST_F(mpi_test_fixture, domain_descriptor)
@@ -76,21 +76,21 @@ TEST_F(mpi_test_fixture, data_descriptor)
     }
 }
 
-//TEST_F(mpi_test_fixture, in_place_receive)
-//{
-//    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-//
-//    if (world_size == 4)
-//    {
-//        test_in_place_receive(ctxt);
-//        test_in_place_receive_multi(ctxt);
-//    }
-//    else if (world_size == 2)
-//    {
-//        test_in_place_receive_oversubscribe(ctxt);
-//        if (thread_safe) test_in_place_receive_threads(ctxt);
-//    }
-//}
+TEST_F(mpi_test_fixture, in_place_receive)
+{
+    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+
+    if (world_size == 4)
+    {
+        test_in_place_receive(ctxt);
+        //test_in_place_receive_multi(ctxt);
+    }
+    else if (world_size == 2)
+    {
+        //test_in_place_receive_oversubscribe(ctxt);
+        if (thread_safe) test_in_place_receive_threads(ctxt);
+    }
+}
 
 /** @brief Test domain descriptor and halo generator concepts */
 void
@@ -359,7 +359,8 @@ test_data_descriptor_threads(ghex::context& ctxt)
     data_descriptor_cpu_int_type data_1{d_1, field_1};
     data_descriptor_cpu_int_type data_2{d_2, field_2};
 
-    auto func = [&ctxt](auto bi) {
+    auto func = [&ctxt](auto bi)
+    {
         auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
         auto h = co.exchange(bi);
         h.wait();
@@ -376,50 +377,52 @@ test_data_descriptor_threads(ghex::context& ctxt)
 }
 
 ///** @brief Test in place receive*/
-//void
-//test_in_place_receive(ghex::context& ctxt)
-//{
-//    int rank = ctxt.rank();
-//
-//    domain_id_type         domain_id{rank}; // 1 domain per rank
-//    domain_descriptor_type d{
-//        domain_id, init_ordered_vertices(domain_id), init_inner_sizes(domain_id)};
-//    std::vector<domain_descriptor_type> local_domains{d};
-//    halo_generator_type                 hg{};
-//
-//    auto patterns = gridtools::ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
-//
-//    // communication object
-//    using pattern_container_type = decltype(patterns);
-//    auto co = ghex::make_communication_object_ipr<pattern_container_type>(ctxt);
-//
-//    // application data
-//    ghex::test::util::memory<int> field(d.size(), 0);
-//    initialize_data(d, field);
-//    data_descriptor_cpu_int_type data{d, field};
-//
-//    auto h = co.exchange(patterns(data));
-//    h.wait();
-//
-//    // check exchanged data
-//    check_exchanged_data(d, field, patterns[0]);
-//
-//#ifdef GHEX_CUDACC
-//    // application data
-//    initialize_data(d, field);
-//    field.clone_to_device();
-//    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 0};
-//
-//    EXPECT_NO_THROW(co.exchange(patterns(data_gpu)).wait());
-//
-//    auto h_gpu = co.exchange(patterns(data_gpu));
-//    h_gpu.wait();
-//
-//    // check exchanged data
-//    field.clone_to_host();
-//    check_exchanged_data(d, field, patterns[0]);
-//#endif
-//}
+void
+test_in_place_receive(ghex::context& ctxt)
+{
+    int rank = ctxt.rank();
+
+    domain_id_type                      domain_id{rank}; // 1 domain per rank
+    domain_descriptor_type              d{domain_id, init_ordered_vertices(domain_id),
+        init_inner_sizes(domain_id)};
+    std::vector<domain_descriptor_type> local_domains{d};
+    halo_generator_type                 hg{};
+
+    auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
+
+    // application data
+    ghex::test::util::memory<int> field(d.size(), 0);
+    initialize_data(d, field);
+    data_descriptor_cpu_int_type data{d, field};
+
+    // communication object
+    auto co = ghex::unstructured::make_communication_object_ipr(ctxt, patterns(data));
+
+    auto h = co.exchange();
+    h.wait();
+
+    // check exchanged data
+    check_exchanged_data(d, field, patterns[0]);
+
+#ifdef GHEX_CUDACC
+    // application data
+    initialize_data(d, field);
+    field.clone_to_device();
+    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 0};
+
+    // communication object
+    auto co_gpu = ghex::unstructured::make_communication_object_ipr(ctxt, patterns(data_gpu));
+
+    EXPECT_NO_THROW(co_gpu.exchange());
+
+    auto h_gpu = co_gpu.exchange();
+    h_gpu.wait();
+
+    // check exchanged data
+    field.clone_to_host();
+    check_exchanged_data(d, field, patterns[0]);
+#endif
+}
 
 ///** @brief Test in place receive with multiple fields*/
 //void
@@ -503,45 +506,45 @@ test_data_descriptor_threads(ghex::context& ctxt)
 //    check_exchanged_data(d_2, field_2, patterns[1]);
 //}
 
-///** @brief Test data descriptor concept with in-place receive and multiple threads*/
-//void
-//test_in_place_receive_threads(ghex::context& ctxt)
-//{
-//    int rank = ctxt.rank();
-//
-//    domain_id_type domain_id_1{rank * 2};
-//    domain_id_type domain_id_2{
-//        rank * 2 +
-//        1}; // HERE domain_id, init_ordered_vertices(domain_id), init_inner_sizes(domain_id)
-//    domain_descriptor_type d_1{
-//        domain_id_1, init_ordered_vertices(domain_id_1), init_inner_sizes(domain_id_1)};
-//    domain_descriptor_type d_2{
-//        domain_id_2, init_ordered_vertices(domain_id_2), init_inner_sizes(domain_id_2)};
-//    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
-//    halo_generator_type                 hg{};
-//
-//    auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
-//    using pattern_container_type = decltype(patterns);
-//
-//    std::vector<int> field_1(d_1.size(), 0);
-//    std::vector<int> field_2(d_2.size(), 0);
-//    initialize_data(d_1, field_1);
-//    initialize_data(d_2, field_2);
-//    data_descriptor_cpu_int_type data_1{d_1, field_1};
-//    data_descriptor_cpu_int_type data_2{d_2, field_2};
-//
-//    auto func = [&ctxt](auto bi) {
-//        auto co = ghex::make_communication_object_ipr<pattern_container_type>(ctxt);
-//        auto h = co.exchange(bi);
-//        h.wait();
-//    };
-//
-//    std::vector<std::thread> threads;
-//    threads.push_back(std::thread{func, patterns(data_1)});
-//    threads.push_back(std::thread{func, patterns(data_2)});
-//    for (auto& t : threads) t.join();
-//
-//    // check exchanged data
-//    check_exchanged_data(d_1, field_1, patterns[0]);
-//    check_exchanged_data(d_2, field_2, patterns[1]);
-//}
+/** @brief Test data descriptor concept with in-place receive and multiple threads*/
+void
+test_in_place_receive_threads(ghex::context& ctxt)
+{
+    int rank = ctxt.rank();
+
+    domain_id_type domain_id_1{rank * 2};
+    domain_id_type domain_id_2{
+        rank * 2 +
+        1}; // HERE domain_id, init_ordered_vertices(domain_id), init_inner_sizes(domain_id)
+    domain_descriptor_type              d_1{domain_id_1, init_ordered_vertices(domain_id_1),
+        init_inner_sizes(domain_id_1)};
+    domain_descriptor_type              d_2{domain_id_2, init_ordered_vertices(domain_id_2),
+        init_inner_sizes(domain_id_2)};
+    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
+    halo_generator_type                 hg{};
+
+    auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
+
+    std::vector<int> field_1(d_1.size(), 0);
+    std::vector<int> field_2(d_2.size(), 0);
+    initialize_data(d_1, field_1);
+    initialize_data(d_2, field_2);
+    data_descriptor_cpu_int_type data_1{d_1, field_1};
+    data_descriptor_cpu_int_type data_2{d_2, field_2};
+
+    auto func = [&ctxt](auto bi)
+    {
+        auto co = ghex::unstructured::make_communication_object_ipr(ctxt, bi);
+        auto h = co.exchange();
+        h.wait();
+    };
+
+    std::vector<std::thread> threads;
+    threads.push_back(std::thread{func, patterns(data_1)});
+    threads.push_back(std::thread{func, patterns(data_2)});
+    for (auto& t : threads) t.join();
+
+    // check exchanged data
+    check_exchanged_data(d_1, field_1, patterns[0]);
+    check_exchanged_data(d_2, field_2, patterns[1]);
+}
