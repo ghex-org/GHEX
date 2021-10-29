@@ -376,7 +376,7 @@ TEST(unstructured_parmetis, receive_type) {
     vertices_dist_type vertices_dist{};
     for (idx_t v_id = vtxdist_v[rank], i = 0; i < static_cast<idx_t>(ap_n.size() - 1); ++v_id, ++i) {
         vertices_dist[domain_to_rank(part_v[i], num_threads)]
-                .insert(std::make_pair(d_v_pair<domain_id_type, idx_t>{part_v[i], v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
+                .insert(std::make_pair(d_v_pair<domain_id_type, idx_t>{static_cast<domain_id_type>(part_v[i]), v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
     }
     auto domain_vertices_dist = distribute_parmetis(vertices_dist, ap_n.size() - 1, comm);
 
@@ -394,7 +394,7 @@ TEST(unstructured_parmetis, receive_type) {
     int gh_rank = context.rank();
 
     // barrier
-    gridtools::ghex::tl::barrier_t gh_barrier{num_threads};
+    gridtools::ghex::tl::barrier_t gh_barrier{static_cast<std::size_t>(num_threads)};
 
     // timers (local = rank local)
 #ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
