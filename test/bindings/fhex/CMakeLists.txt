@@ -23,4 +23,4 @@ ghex_reg_parallel_test_f(f_context 4)
 if (GHEX_FORTRAN_OPENMP)
     ghex_reg_parallel_test_f(f_barrier 4)
 endif()
-
+ghex_reg_parallel_test_f(f_structured 4)
