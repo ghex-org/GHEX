@@ -71,9 +71,9 @@ struct field_compare
 };
 
 using grid_type = ghex::structured::grid;
-using grid_detail_type = ghex::structured::detail::grid<std::array<int, GHEX_DIMS>>;
+using grid_detail_type = ghex::structured::detail::grid<std::array<int, 3>>;
 using domain_descriptor_type = ghex::structured::regular::domain_descriptor<domain_id_type,
-    std::integral_constant<int, GHEX_DIMS>>;
+    std::integral_constant<int, 3>>;
 using pattern_type = ghex::pattern_container<grid_detail_type, domain_id_type>;
 using communication_obj_type = ghex::communication_object<grid_detail_type, domain_id_type>;
 using field_descriptor_type = ghex::structured::regular::field_descriptor<fp_type, arch_type,

@@ -14,7 +14,7 @@ target_link_libraries(fhex PUBLIC MPI::MPI_Fortran)
 
 target_sources(fhex PRIVATE obj_wrapper.cpp)
 target_sources(fhex PRIVATE context_bind.cpp)
-target_sources(fhex PRIVATE structured_bulk_bind.cpp)
+target_sources(fhex PRIVATE structured_staged_bind.cpp)
 
 target_sources(fhex PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ghex_defs.f90)
 target_sources(fhex PUBLIC ghex_mod.f90)

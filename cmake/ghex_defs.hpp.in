@@ -14,8 +14,6 @@ namespace fhex
 using fp_type = @GHEX_FORTRAN_FP@;
 }
 
-#define GHEX_DIMS 3
-
 #define GhexDeviceUnknown 0
 #define GhexDeviceCPU     1
 #define GhexDeviceGPU     2
