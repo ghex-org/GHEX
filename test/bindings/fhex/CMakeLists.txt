@@ -1,10 +1,16 @@
-
 include(ghex_compile_options)
+
+if (GHEX_FORTRAN_OPENMP)
+    find_package(OpenMP REQUIRED)
+endif()
 
 function(ghex_reg_parallel_test_f t n)
     add_executable(${t} test_${t}.f90)
     ghex_target_compile_options(${t})
     target_link_libraries(${t} PRIVATE fhex)
+    if (GHEX_FORTRAN_OPENMP)
+        target_link_libraries(${t} PRIVATE OpenMP::OpenMP_Fortran)
+    endif()
     ## workaround for clang+openmp
     #target_link_libraries(${t} PRIVATE $<$<CXX_COMPILER_ID:Clang>:$<LINK_ONLY:-fopenmp=libomp>>)
     add_test(
@@ -14,3 +20,7 @@ function(ghex_reg_parallel_test_f t n)
 endfunction()
 
 ghex_reg_parallel_test_f(f_context 4)
+if (GHEX_FORTRAN_OPENMP)
+    ghex_reg_parallel_test_f(f_barrier 4)
+endif()
+

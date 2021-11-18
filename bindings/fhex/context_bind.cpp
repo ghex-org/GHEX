@@ -8,14 +8,17 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <fhex/context_bind.hpp>
+#include <fhex/ghex_defs.hpp>
 #include <mpi.h>
 #include <sched.h>
 #include <sys/sysinfo.h>
 
 namespace
 {
-ghex::context* ghex_context;
-}
+ghex::context*  ghex_context = nullptr;
+oomph::barrier* ghex_barrier_obj = nullptr;
+int             ghex_nthreads = 0;
+} // namespace
 
 namespace fhex
 {
@@ -24,23 +27,29 @@ context()
 {
     return *ghex_context;
 }
+
+oomph::barrier&
+barrier()
+{
+    return *ghex_barrier_obj;
+}
 } // namespace fhex
 
 extern "C" void
-ghex_init(MPI_Fint fcomm)
+ghex_init(int nthreads, MPI_Fint fcomm)
 {
     /* the fortran-side mpi communicator must be translated to C */
     MPI_Comm ccomm = MPI_Comm_f2c(fcomm);
-    int      mpi_thread_safety;
-    MPI_Query_thread(&mpi_thread_safety);
-    const bool thread_safe = (mpi_thread_safety == MPI_THREAD_MULTIPLE);
-    ghex_context = new ghex::context{ccomm, thread_safe};
+    ghex_nthreads = nthreads;
+    ghex_context = new ghex::context{ccomm, nthreads > 1};
+    ghex_barrier_obj = new oomph::barrier(nthreads);
 }
 
 extern "C" void
 ghex_finalize()
 {
     delete ghex_context;
+    delete ghex_barrier_obj;
 }
 
 extern "C" int
@@ -53,4 +62,22 @@ extern "C" int
 ghex_get_ncpus()
 {
     return get_nprocs_conf();
+}
+
+extern "C" void
+ghex_barrier(int type)
+{
+    ghex::context::communicator_type comm = ghex_context->get_communicator();
+    switch (type)
+    {
+        case (GhexBarrierThread):
+            ghex_barrier_obj->in_node(comm);
+            break;
+        case (GhexBarrierRank):
+            ghex_barrier_obj->rank_barrier(comm);
+            break;
+        default:
+            (*ghex_barrier_obj)(comm);
+            break;
+    }
 }

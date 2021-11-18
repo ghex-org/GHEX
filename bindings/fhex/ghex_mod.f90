@@ -18,14 +18,19 @@ MODULE ghex_mod
     implicit none
     
     interface
-        subroutine ghex_init(mpi_comm) bind(c)
+        subroutine ghex_init(nthreads, mpi_comm) bind(c)
             use iso_c_binding
-            integer, value :: mpi_comm
+            integer, value :: nthreads, mpi_comm
         end subroutine ghex_init
 
         subroutine ghex_finalize() bind(c)
             use iso_c_binding
         end subroutine ghex_finalize
-    end interface
+
+        subroutine ghex_barrier(type) bind(c)
+          use iso_c_binding
+          integer, value :: type
+        end subroutine ghex_barrier
+end interface
 
 END MODULE ghex_mod

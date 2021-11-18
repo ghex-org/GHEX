@@ -24,6 +24,6 @@ using fp_type = @GHEX_FORTRAN_FP@;
 #define GhexLayoutFieldFirst 2
 
 ///* barrier types */
-//#define GhexBarrierGlobal 1
-//#define GhexBarrierThread 2
-//#define GhexBarrierRank   3
+#define GhexBarrierGlobal 1
+#define GhexBarrierThread 2
+#define GhexBarrierRank   3

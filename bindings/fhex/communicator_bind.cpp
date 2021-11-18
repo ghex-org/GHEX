@@ -63,23 +63,6 @@ progress_status_type ghex_comm_progress(obj_wrapper *wrapper)
     return get_object_ptr_unsafe<communicator_type>(wrapper)->progress();
 }
 
-extern "C"
-void ghex_comm_barrier(obj_wrapper *wrapper, int type)
-{
-    communicator_type *comm = get_object_ptr_unsafe<communicator_type>(wrapper);
-    switch(type){
-    case(GhexBarrierThread):
-        ghex_barrier->in_node(*comm);
-        break;
-    case(GhexBarrierRank):
-        ghex_barrier->rank_barrier(*comm);
-        break;
-    default:
-        (*ghex_barrier)(*comm);
-        break;
-    }
-}
-
 /*
    SEND requests
  */
