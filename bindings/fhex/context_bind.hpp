@@ -9,10 +9,10 @@
  */
 #pragma once
 #include <ghex/context.hpp>
-#include <oomph/barrier.hpp>
+#include <ghex/barrier.hpp>
 
 namespace fhex
 {
-ghex::context&  context();
-oomph::barrier& barrier();
+ghex::context& context();
+ghex::barrier& barrier();
 } // namespace fhex

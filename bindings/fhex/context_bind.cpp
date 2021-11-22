@@ -15,9 +15,9 @@
 
 namespace
 {
-ghex::context*  ghex_context = nullptr;
-oomph::barrier* ghex_barrier_obj = nullptr;
-int             ghex_nthreads = 0;
+ghex::context* ghex_context_obj = nullptr;
+ghex::barrier* ghex_barrier_obj = nullptr;
+int            ghex_nthreads = 0;
 } // namespace
 
 namespace fhex
@@ -25,10 +25,10 @@ namespace fhex
 ghex::context&
 context()
 {
-    return *ghex_context;
+    return *ghex_context_obj;
 }
 
-oomph::barrier&
+ghex::barrier&
 barrier()
 {
     return *ghex_barrier_obj;
@@ -41,14 +41,14 @@ ghex_init(int nthreads, MPI_Fint fcomm)
     /* the fortran-side mpi communicator must be translated to C */
     MPI_Comm ccomm = MPI_Comm_f2c(fcomm);
     ghex_nthreads = nthreads;
-    ghex_context = new ghex::context{ccomm, nthreads > 1};
-    ghex_barrier_obj = new oomph::barrier(nthreads);
+    ghex_context_obj = new ghex::context{ccomm, nthreads > 1};
+    ghex_barrier_obj = new ghex::barrier(*ghex_context_obj, nthreads);
 }
 
 extern "C" void
 ghex_finalize()
 {
-    delete ghex_context;
+    delete ghex_context_obj;
     delete ghex_barrier_obj;
 }
 
@@ -67,17 +67,16 @@ ghex_get_ncpus()
 extern "C" void
 ghex_barrier(int type)
 {
-    ghex::context::communicator_type comm = ghex_context->get_communicator();
     switch (type)
     {
         case (GhexBarrierThread):
-            ghex_barrier_obj->in_node(comm);
+            ghex_barrier_obj->thread_barrier();
             break;
         case (GhexBarrierRank):
-            ghex_barrier_obj->rank_barrier(comm);
+            ghex_barrier_obj->rank_barrier();
             break;
         default:
-            (*ghex_barrier_obj)(comm);
+            (*ghex_barrier_obj)();
             break;
     }
 }
