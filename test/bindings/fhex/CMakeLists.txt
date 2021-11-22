@@ -20,7 +20,7 @@ function(ghex_reg_parallel_test_f t n)
 endfunction()
 
 ghex_reg_parallel_test_f(f_context 4)
-if (GHEX_FORTRAN_OPENMP)
+if (GHEX_FORTRAN_OPENMP AND OOMPH_ENABLE_BARRIER)
     ghex_reg_parallel_test_f(f_barrier 4)
 endif()
 ghex_reg_parallel_test_f(f_structured 4)

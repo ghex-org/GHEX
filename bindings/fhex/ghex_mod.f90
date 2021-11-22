@@ -27,10 +27,12 @@ MODULE ghex_mod
        use iso_c_binding
      end subroutine ghex_finalize
 
+#ifdef GHEX_ENABLE_BARRIER
      subroutine ghex_barrier(type) bind(c)
        use iso_c_binding
        integer, value :: type
      end subroutine ghex_barrier
+#endif
   end interface
 
 END MODULE ghex_mod

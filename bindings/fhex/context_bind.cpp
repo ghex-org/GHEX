@@ -16,8 +16,10 @@
 namespace
 {
 ghex::context* ghex_context_obj = nullptr;
+#ifdef GHEX_ENABLE_BARRIER
 ghex::barrier* ghex_barrier_obj = nullptr;
-int            ghex_nthreads = 0;
+#endif
+int ghex_nthreads = 0;
 } // namespace
 
 namespace fhex
@@ -28,11 +30,13 @@ context()
     return *ghex_context_obj;
 }
 
+#ifdef GHEX_ENABLE_BARRIER
 ghex::barrier&
 barrier()
 {
     return *ghex_barrier_obj;
 }
+#endif
 } // namespace fhex
 
 extern "C" void
@@ -42,14 +46,18 @@ ghex_init(int nthreads, MPI_Fint fcomm)
     MPI_Comm ccomm = MPI_Comm_f2c(fcomm);
     ghex_nthreads = nthreads;
     ghex_context_obj = new ghex::context{ccomm, nthreads > 1};
+#ifdef GHEX_ENABLE_BARRIER
     ghex_barrier_obj = new ghex::barrier(*ghex_context_obj, nthreads);
+#endif
 }
 
 extern "C" void
 ghex_finalize()
 {
     delete ghex_context_obj;
+#ifdef GHEX_ENABLE_BARRIER
     delete ghex_barrier_obj;
+#endif
 }
 
 extern "C" int
@@ -64,6 +72,7 @@ ghex_get_ncpus()
     return get_nprocs_conf();
 }
 
+#ifdef GHEX_ENABLE_BARRIER
 extern "C" void
 ghex_barrier(int type)
 {
@@ -80,3 +89,4 @@ ghex_barrier(int type)
             break;
     }
 }
+#endif

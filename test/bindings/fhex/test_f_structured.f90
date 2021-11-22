@@ -146,7 +146,9 @@ PROGRAM test_halo_exchange
     call ghex_free(eh)
     it = it+1
   end do
+#ifdef GHEX_ENABLE_BARRIER
   call ghex_barrier(GhexBarrierGlobal)
+#endif
   call cpu_time(toc)
   if (world_rank == 0) then
     print *, "exchange time:      ", (toc-tic)

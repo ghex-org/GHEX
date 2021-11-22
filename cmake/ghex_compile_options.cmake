@@ -15,6 +15,9 @@ function(ghex_target_compile_options target)
     # flags for Fortran builds
     $<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
     $<${fortran_lang_gnu}:$<BUILD_INTERFACE:-ffree-line-length-none>>)
+    if (OOMPH_ENABLE_BARRIER)
+        target_compile_definitions(${target} PRIVATE GHEX_ENABLE_BARRIER)
+    endif()
 endfunction()
 
 function(compile_as_cuda)
