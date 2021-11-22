@@ -17,26 +17,15 @@
 
 namespace ghex
 {
-//template<typename Pattern, typename Arch>
-//class communication_object;
-//namespace mpi
-//{
-//class communicator;
-//} // namespace mpi
-
+class barrier;
 class context
 {
+    friend class barrier;
   public:
     using rank_type = oomph::communicator::rank_type;
     using tag_type = oomph::communicator::tag_type;
     using communicator_type = oomph::communicator;
     using message_type = oomph::message_buffer<unsigned char>;
-
-  private:
-    //friend class communication_object;
-    //template<typename Pattern, typename Arch>
-    //friend class communication_object;
-    //friend class mpi::communicator;
 
   private:
     std::unique_ptr<oomph::context> m_ctxt;
@@ -45,11 +34,6 @@ class context
 
   public:
     context(MPI_Comm comm, bool thread_safe = true);
-    //: m_ctxt{std::make_unique<oomph::context>(comm, thread_safe)}
-    //{
-    //    GHEX_CHECK_MPI_RESULT(MPI_Comm_rank(mpi_comm(), &m_rank));
-    //    GHEX_CHECK_MPI_RESULT(MPI_Comm_size(mpi_comm(), &m_size));
-    //}
 
   public:
     auto      transport_context() const noexcept { return m_ctxt.get(); }
@@ -60,15 +44,9 @@ class context
     communicator_type get_communicator() { return m_ctxt->get_communicator(); }
 
     message_type make_buffer(std::size_t size);
-    //{
-    //    return m_ctxt->template make_buffer<unsigned char>(size);
-    //}
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     message_type make_device_buffer(std::size_t size, int id);
-    //{
-    //    return m_ctxt->template make_device_buffer<unsigned char>(size, id);
-    //}
 #endif
 };
 
