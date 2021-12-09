@@ -50,7 +50,6 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
     using storage_traits_cpu = gridtools::storage::cpu_ifirst;
 #endif
     using function_space_t = atlas::functionspace::NodeColumns;
-    using cpu_data_descriptor_t = ghex::atlas_data_descriptor<ghex::cpu, domain_id_t, int>;
     using cpu_data_descriptor_t = ghex::atlas_data_descriptor<ghex::cpu, domain_id_t, int,
         storage_traits_cpu, function_space_t>;
 

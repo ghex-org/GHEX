@@ -236,8 +236,8 @@ class atlas_recv_domain_ids_gen
       * @return receive domain ids halo*/
     halo operator()(const domain_type& domain) const
     {
-        auto partition = atlas::array::make_view<int, 1>(domain.partition());
-        auto remote_index = atlas::array::make_view<local_index_type, 1>(domain.remote_index());
+        auto partition = ::atlas::array::make_view<int, 1>(domain.partition());
+        auto remote_index = ::atlas::array::make_view<local_index_type, 1>(domain.remote_index());
 
         halo h{};
 
