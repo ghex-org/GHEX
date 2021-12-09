@@ -12,6 +12,19 @@
 #include <gtest/gtest.h>
 #include "../../mpi_runner/mpi_test_fixture.hpp"
 
+#include <ghex/config.hpp>
+#if defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST)
+#include <gridtools/storage/cpu_kfirst.hpp>
+#elif defined(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST)
+#include <gridtools/storage/cpu_ifirst.hpp>
+#endif
+#ifdef GHEX_CUDACC
+#include <gridtools/storage/gpu.hpp>
+#include <gridtools/common/cuda_util.hpp>
+#include <ghex/device/cuda/runtime.hpp>
+#endif
+
+
 #include <atlas/grid.h>
 #include <atlas/mesh.h>
 #include <atlas/meshgenerator.h>
@@ -19,15 +32,10 @@
 #include <atlas/field.h>
 #include <atlas/array.h>
 
-#include <ghex/config.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 #include <ghex/glue/atlas/atlas_user_concepts.hpp>
 #include <ghex/communication_object.hpp>
-#ifdef GHEX_CUDACC
-#include <gridtools/common/cuda_util.hpp>
-#include <ghex/device/cuda/runtime.hpp>
-#endif
 
 #include <vector>
 

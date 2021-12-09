@@ -20,6 +20,8 @@
 #define GHEX_GPU_MODE @ghex_gpu_mode@
 #cmakedefine GHEX_GPU_MODE_EMULATE
 #cmakedefine GHEX_COMM_OBJ_USE_U
+#cmakedefine GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST ON
+#cmakedefine GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST OFF
 
 #if defined(GHEX_USE_GPU)
 #if (defined(__CUDACC__) || defined(__HIP_PLATFORM_HCC__))

@@ -88,9 +88,22 @@ set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas b
 if (GHEX_ENABLE_ATLAS_BINDINGS)
     find_package(eckit REQUIRED HINTS ${eckit_DIR})
     find_package(Atlas REQUIRED HINTS ${Atlas_DIR})
+    set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND "KFIRST" CACHE STRING "GridTools CPU storage traits: KFIRST | IFIRST.")
+    set_property(CACHE GHEX_ATLAS_GT_STORAGE_CPU_BACKEND PROPERTY STRINGS "KFIRST" "IFIRST")
     # Temporary workaround to fix missing dependency in Atlas target: eckit
     target_link_libraries(atlas INTERFACE eckit)
     target_link_libraries(ghex_common INTERFACE atlas)
+
+    if (GHEX_ATLAS_GT_STORAGE_CPU_BACKEND STREQUAL "KFIRST")
+        set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST ON)
+        set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST OFF)
+    elseif(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND STREQUAL "IFIRST")
+        set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST OFF)
+        set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST ON)
+    else()
+        set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST OFF)
+        set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST OFF)
+    endif()
 endif()
 
 # ---------------------------------------------------------------------
