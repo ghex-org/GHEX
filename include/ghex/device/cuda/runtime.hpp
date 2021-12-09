@@ -13,6 +13,7 @@
 #ifdef __HIP_PLATFORM_HCC__
 
 #include <hip/hip_runtime.h>
+#include <ghex/device/cuda/undef_cuda_macros.hpp>
 
 /* GridTools cuda -> hip translations */
 #define cudaDeviceProp hipDeviceProp_t
