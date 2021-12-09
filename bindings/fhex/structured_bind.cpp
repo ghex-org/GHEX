@@ -69,8 +69,8 @@ struct field_compare
 
 using grid_type = ghex::structured::grid;
 using grid_detail_type = ghex::structured::detail::grid<std::array<int, 3>>;
-using domain_descriptor_type = ghex::structured::regular::domain_descriptor<domain_id_type,
-    std::integral_constant<int, 3>>;
+using domain_descriptor_type =
+    ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, 3>>;
 using pattern_type = ghex::pattern_container<grid_detail_type, domain_id_type>;
 using communication_obj_type = ghex::communication_object<grid_detail_type, domain_id_type>;
 using field_descriptor_type = ghex::structured::regular::field_descriptor<fp_type, arch_type,
@@ -96,8 +96,8 @@ ghex_struct_co_init(obj_wrapper** wco_ref)
 }
 
 extern "C" void
-ghex_struct_domain_add_field(
-    struct_domain_descriptor* domain_desc, struct_field_descriptor* field_desc)
+ghex_struct_domain_add_field(struct_domain_descriptor* domain_desc,
+    struct_field_descriptor*                           field_desc)
 {
     if (nullptr == domain_desc || nullptr == field_desc) return;
     if (nullptr == domain_desc->fields) { domain_desc->fields = new field_vector_type(); }
@@ -169,9 +169,9 @@ ghex_struct_exchange_desc_new(struct_domain_descriptor* domains_desc, int n_doma
                 std::array<int, 6>& halo = *((std::array<int, 6>*)field.halo);
                 auto halo_generator = halo_generator_type(gfirst, glast, halo, periodic);
                 pit = field_to_pattern
-                          .emplace(std::make_pair(
-                              std::move(field), ghex::make_pattern<grid_type>(
-                                                    context(), halo_generator, local_domains)))
+                          .emplace(std::make_pair(std::move(field),
+                              ghex::make_pattern<grid_type>(context(), halo_generator,
+                                  local_domains)))
                           .first;
             }
 
@@ -179,8 +179,8 @@ ghex_struct_exchange_desc_new(struct_domain_descriptor* domains_desc, int n_doma
             std::array<int, 3>&                    offset = *((std::array<int, 3>*)field.offset);
             std::array<int, 3>&                    extents = *((std::array<int, 3>*)field.extents);
             std::unique_ptr<field_descriptor_type> field_desc_uptr(new field_descriptor_type(
-                ghex::wrap_field<arch_type, ::gridtools::layout_map<2, 1, 0>>(
-                    local_domains[i], field.data, offset, extents)));
+                ghex::wrap_field<arch_type, ::gridtools::layout_map<2, 1, 0>>(local_domains[i],
+                    field.data, offset, extents)));
             auto                                   ptr = field_desc_uptr.get();
             pattern_fields.first.push_back(std::move(field_desc_uptr));
             pattern_fields.second.push_back(pattern(*ptr));

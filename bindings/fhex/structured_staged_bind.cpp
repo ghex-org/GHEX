@@ -77,8 +77,8 @@ struct field_compare
 
 using grid_type = ghex::structured::grid;
 using grid_detail_type = ghex::structured::detail::grid<std::array<int, 3>>;
-using domain_descriptor_type = ghex::structured::regular::domain_descriptor<domain_id_type,
-    std::integral_constant<int, 3>>;
+using domain_descriptor_type =
+    ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, 3>>;
 using pattern_type = ghex::pattern_container<grid_detail_type, domain_id_type>;
 using communication_obj_type = ghex::communication_object<grid_detail_type, domain_id_type>;
 using field_descriptor_type = ghex::structured::regular::field_descriptor<fp_type, arch_type,
@@ -125,8 +125,8 @@ ghex_struct_co_init(obj_wrapper** wco_ref)
 }
 
 extern "C" void
-ghex_struct_domain_add_field(
-    struct_domain_descriptor* domain_desc, struct_field_descriptor* field_desc)
+ghex_struct_domain_add_field(struct_domain_descriptor* domain_desc,
+    struct_field_descriptor*                           field_desc)
 {
     if (nullptr == domain_desc || nullptr == field_desc) return;
     if (nullptr == domain_desc->fields) { domain_desc->fields = new field_vector_type(); }
@@ -231,7 +231,8 @@ ghex_struct_exchange_desc_new(struct_domain_descriptor* domains_desc, int n_doma
 
                 auto pattern = ghex::structured::regular::make_staged_pattern(
                     context(), local_domains,
-                    [&domain_desc, &cart_nbor, &field](auto id, auto const& offset) {
+                    [&domain_desc, &cart_nbor, &field](auto id, auto const& offset)
+                    {
                         int nbid, nbrank;
                         cart_nbor(id, offset[0], offset[1], offset[2], &nbid, &nbrank);
                         struct _neighbor
@@ -253,8 +254,8 @@ ghex_struct_exchange_desc_new(struct_domain_descriptor* domains_desc, int n_doma
             std::array<int, 3>&                    offset = *((std::array<int, 3>*)field.offset);
             std::array<int, 3>&                    extents = *((std::array<int, 3>*)field.extents);
             std::unique_ptr<field_descriptor_type> field_desc_uptr(new field_descriptor_type(
-                ghex::wrap_field<arch_type, ::gridtools::layout_map<2, 1, 0>>(
-                    local_domains[i], field.data, offset, extents)));
+                ghex::wrap_field<arch_type, ::gridtools::layout_map<2, 1, 0>>(local_domains[i],
+                    field.data, offset, extents)));
             auto                                   ptr = field_desc_uptr.get();
 
             // keep pointer around
@@ -284,13 +285,19 @@ ghex_struct_exchange(obj_wrapper* cowrapper, obj_wrapper* ewrapper)
     {
         for (auto it = pattern_fields_array[0].second.begin();
              it != pattern_fields_array[0].second.end(); ++it)
-        { bcowr.bco_x.add_field(*it); }
+        {
+            bcowr.bco_x.add_field(*it);
+        }
         for (auto it = pattern_fields_array[1].second.begin();
              it != pattern_fields_array[1].second.end(); ++it)
-        { bcowr.bco_y.add_field(*it); }
+        {
+            bcowr.bco_y.add_field(*it);
+        }
         for (auto it = pattern_fields_array[2].second.begin();
              it != pattern_fields_array[2].second.end(); ++it)
-        { bcowr.bco_z.add_field(*it); }
+        {
+            bcowr.bco_z.add_field(*it);
+        }
 
         // exchange the RMA handles before any other BCO can be created
         bcowr.bco_x.init();
