@@ -10,7 +10,15 @@
 #pragma once
 #include <ghex/context.hpp>
 
+#ifdef GHEX_ENABLE_BARRIER
+#include <ghex/barrier.hpp>
+#endif
+
 namespace fhex
 {
 ghex::context& context();
+
+#if OOMPH_ENABLE_BARRIER
+ghex::barrier& barrier();
+#endif
 } // namespace fhex

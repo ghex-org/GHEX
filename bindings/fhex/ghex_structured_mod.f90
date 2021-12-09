@@ -1,7 +1,6 @@
 MODULE ghex_structured_mod
   use iso_c_binding
   use ghex_defs
-  use ghex_comm_mod
 
   implicit none
 
@@ -114,10 +113,9 @@ MODULE ghex_structured_mod
   end interface ghex_field_init
 
   interface ghex_co_init
-     subroutine ghex_struct_co_init(co, comm) bind(c)
-       import ghex_struct_communication_object, ghex_communicator
+     subroutine ghex_struct_co_init(co) bind(c)
+       import ghex_struct_communication_object
        type(ghex_struct_communication_object) :: co
-       type(ghex_communicator), value :: comm
      end subroutine ghex_struct_co_init
   end interface ghex_co_init
 
@@ -164,16 +162,16 @@ CONTAINS
     procedure(f_cart_rank_neighbor), pointer, optional :: cart_nbor
     integer, optional :: device_id
     procedure(f_cart_rank_neighbor), pointer :: lcart_nbor
-    
+
     ! This is needed for GCC. Otherwise c_funloc(cart_nbor) doesn't work correctly
     ! This is a difference wrt. Intel compiler
     if (present(cart_nbor)) then
-       lcart_nbor => cart_nbor
+      lcart_nbor => cart_nbor
     else
-       lcart_nbor => null()
+      lcart_nbor => null()
     end if
     domain_desc%cart_nbor = c_funloc(lcart_nbor)
-    
+
     if (present(device_id)) then
       domain_desc%device_id = device_id
     else
