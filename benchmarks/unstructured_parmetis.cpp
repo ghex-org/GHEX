@@ -44,6 +44,7 @@
 #include <ghex/common/defs.hpp>
 #ifdef GHEX_CUDACC
 #include <ghex/common/cuda_runtime.hpp>
+#include <ghex/arch_traits.hpp>
 #include <ghex/allocator/cuda_allocator.hpp>
 #include <ghex/cuda_utils/error.hpp>
 #endif
@@ -68,6 +69,7 @@ template<typename T>
 using gpu_allocator_type = gridtools::ghex::allocator::cuda::allocator<T>;
 template<typename T>
 using data_descriptor_gpu_type = gridtools::ghex::unstructured::data_descriptor<gridtools::ghex::gpu, domain_id_type, global_index_type, T>;
+using device_id_type = gridtools::ghex::arch_traits<gridtools::ghex::gpu>::device_id_type;
 #endif
 
 
@@ -169,7 +171,7 @@ struct d_v_pair {
 
 using vertices_dist_type = std::map<int, std::map<d_v_pair<domain_id_type, idx_t>, std::vector<idx_t>>>;
 using domain_vertices_dist_type = std::map<domain_id_type, std::map<idx_t, std::vector<idx_t>>>;
-domain_vertices_dist_type distribute_parmetis(const vertices_dist_type& vertices_dist, std::size_t n_vertices, MPI_Comm comm) {
+domain_vertices_dist_type distribute_parmetis(vertices_dist_type& vertices_dist, std::size_t n_vertices, MPI_Comm comm) {
     
     int size;
     MPI_Comm_size(comm, &size);
@@ -374,7 +376,7 @@ TEST(unstructured_parmetis, receive_type) {
     vertices_dist_type vertices_dist{};
     for (idx_t v_id = vtxdist_v[rank], i = 0; i < static_cast<idx_t>(ap_n.size() - 1); ++v_id, ++i) {
         vertices_dist[domain_to_rank(part_v[i], num_threads)]
-                .insert(std::make_pair(d_v_pair<domain_id_type, idx_t>{part_v[i], v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
+                .insert(std::make_pair(d_v_pair<domain_id_type, idx_t>{static_cast<domain_id_type>(part_v[i]), v_id}, std::vector<idx_t>{ai.begin() + ap_n[i], ai.begin() + ap_n[i+1]}));
     }
     auto domain_vertices_dist = distribute_parmetis(vertices_dist, ap_n.size() - 1, comm);
 
@@ -392,7 +394,7 @@ TEST(unstructured_parmetis, receive_type) {
     int gh_rank = context.rank();
 
     // barrier
-    gridtools::ghex::tl::barrier_t gh_barrier{num_threads};
+    gridtools::ghex::tl::barrier_t gh_barrier{static_cast<std::size_t>(num_threads)};
 
     // timers (local = rank local)
 #ifdef GHEX_PARMETIS_BENCHMARK_UNORDERED
@@ -432,7 +434,7 @@ TEST(unstructured_parmetis, receive_type) {
     for (auto d_id : rank_to_domains<domain_id_type>(gh_rank, num_threads)) {
         std::vector<idx_t> vertices{};
         vertices.reserve(domain_vertices_dist[d_id].size()); // any missing domain gets actually inserted into the map here
-        std::vector<idx_t> adjncy{}; // size may be computed in advance, not preformance critical anyway // HERE
+        std::vector<idx_t> adjncy{}; // size may be computed in advance, not preformance critical anyway
         for (const auto& v_a_pair : domain_vertices_dist[d_id]) {
             vertices.push_back(v_a_pair.first);
             adjncy.insert(adjncy.end(), v_a_pair.second.begin(), v_a_pair.second.end());
@@ -639,6 +641,10 @@ TEST(unstructured_parmetis, receive_type) {
     auto& context = *context_ptr;
     int gh_rank = context.rank();
     auto gh_comm = context.get_communicator();
+    int num_devices;
+    GHEX_CHECK_CUDA_RESULT(cudaGetDeviceCount(&num_devices));
+    device_id_type device_id = gh_rank % num_devices;
+    GHEX_CHECK_CUDA_RESULT(cudaSetDevice(device_id));
 
     // timers
     timer_type t_buf_local_gpu, t_buf_global_gpu; // 1 - unordered halos - buffered receive
@@ -650,7 +656,7 @@ TEST(unstructured_parmetis, receive_type) {
     ss_file << gh_rank;
     std::string filename = "unstructured_parmetis_receive_type_gpu_" + ss_file.str() + ".txt";
     std::ofstream file(filename.c_str());
-    file << "Unstructured ParMETIS receive type benchmark\n\n";
+    file << "Unstructured ParMETIS receive type benchmark; DEBUG: GPU device id = " << device_id << "\n\n";
 
     // GPU allocator
     gpu_allocator_type<idx_t> gpu_alloc{};
@@ -659,7 +665,14 @@ TEST(unstructured_parmetis, receive_type) {
 
     // setup
     domain_id_type d_id{gh_rank}; // 1 domain per rank
-    domain_descriptor_type d{d_id, r_v_ids_rank, r_adjncy_rank, levels}; // CSR constructor
+    std::vector<idx_t> vertices{};
+    vertices.reserve(domain_vertices_dist[d_id].size()); // any missing domain gets actually inserted into the map here
+    std::vector<idx_t> adjncy{}; // size may be computed in advance, not preformance critical anyway
+    for (const auto& v_a_pair : domain_vertices_dist[d_id]) {
+	vertices.push_back(v_a_pair.first);
+        adjncy.insert(adjncy.end(), v_a_pair.second.begin(), v_a_pair.second.end());
+    }
+    domain_descriptor_type d{d_id, vertices, adjncy, levels}; // CSR constructor
     std::vector<domain_descriptor_type> local_domains{d};
     halo_generator_type hg{};
     auto p = gridtools::ghex::make_pattern<grid_type>(context, hg, local_domains);
@@ -669,7 +682,7 @@ TEST(unstructured_parmetis, receive_type) {
     initialize_field(d, f_cpu, d_id_offset);
     idx_t* f_gpu = gpu_alloc.allocate(d.size() * d.levels());
     GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_gpu, f_cpu.data(), d.size() * d.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
-    data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, 0};
+    data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, device_id};
 
     // exchange
     for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -707,7 +720,7 @@ TEST(unstructured_parmetis, receive_type) {
     initialize_field(d_ord, f_ord_cpu, d_id_offset);
     idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
     GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
-    data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, 0};
+    data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, device_id};
 
     // exchange
     for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -742,7 +755,7 @@ TEST(unstructured_parmetis, receive_type) {
     initialize_field(d_ord, f_ipr_cpu, d_id_offset);
     idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
     GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
-    data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, 0};
+    data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, device_id};
 
     // exchange
     for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -771,7 +784,7 @@ TEST(unstructured_parmetis, receive_type) {
 
     // ======== output =======================================================
 
-    idx_t n_halo_vertices_local{d.size() - d.inner_size()}, n_halo_vertices_global;
+    idx_t n_halo_vertices_local{static_cast<idx_t>(d.size() - d.inner_size())}, n_halo_vertices_global;
     MPI_Allreduce(&n_halo_vertices_local, &n_halo_vertices_global, 1, MPI_INT64_T, MPI_SUM, context.mpi_comm()); // MPI type set according to parmetis idx type
     file << "total exchanged size in GB (assuming value type = idx_t): "
          << static_cast<double>(n_halo_vertices_global * levels * sizeof(idx_t) * 2) / (1024.0 * 1024.0 * 1024.0) << "\n\n";
