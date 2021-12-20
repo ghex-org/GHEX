@@ -1,3 +1,5 @@
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![CI](https://github.com/GridTools/GHEX/actions/workflows/CI.yml/badge.svg)](https://github.com/GridTools/GHEX/actions/workflows/CI.yml)
 # GHEX
 Generic exascale-ready library for halo-exchange operations on variety of grids/meshes.
 
