@@ -1,20 +1,21 @@
 /*
  * GridTools
  *
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  */
-#ifndef INCLUDED_GHEX_RMA_LOCALITY_HPP
-#define INCLUDED_GHEX_RMA_LOCALITY_HPP
+#pragma once
 
-namespace gridtools {
-namespace ghex {
-namespace rma {
+#include <ghex/config.hpp>
 
+namespace ghex
+{
+namespace rma
+{
 // source/destination of a communication
 // can be either
 // - among threads of the same rank,
@@ -35,23 +36,25 @@ enum class locality
   * and remote otherwise. */
 #ifdef GHEX_NO_RMA
 template<typename Communicator>
-static locality is_local(Communicator, int) {
+static locality
+is_local(Communicator&, int)
+{
     return locality::remote;
 }
 #else
 template<typename Communicator>
-static locality is_local(Communicator comm, int remote_rank)
+static locality
+is_local(Communicator& comm, int remote_rank)
 {
     if (comm.rank() == remote_rank) return locality::thread;
 #ifdef GHEX_USE_XPMEM
-    else if (comm.is_local(remote_rank)) return locality::process;
+    else if (comm.is_local(remote_rank))
+        return locality::process;
 #endif /* GHEX_USE_XPMEM */
-    else return locality::remote;
+    else
+        return locality::remote;
 }
 #endif
 
 } // namespace rma
 } // namespace ghex
-} // namespace gridtools
-
-#endif /* INCLUDED_GHEX_RMA_LOCALITY_HPP */

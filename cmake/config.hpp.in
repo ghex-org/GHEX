@@ -1,0 +1,48 @@
+/* 
+ * GridTools
+ * 
+ * Copyright (c) 2014-2021, ETH Zurich
+ * All rights reserved.
+ * 
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * 
+ */
+#pragma once
+
+#include <oomph/config.hpp>
+#include <tuple>
+
+#cmakedefine GHEX_NO_RMA
+#cmakedefine GHEX_USE_XPMEM
+#cmakedefine GHEX_USE_XPMEM_ACCESS_GUARD
+#cmakedefine GHEX_USE_GPU
+#define GHEX_GPU_MODE @ghex_gpu_mode@
+#cmakedefine GHEX_GPU_MODE_EMULATE
+#cmakedefine GHEX_COMM_OBJ_USE_U
+#cmakedefine GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST ON
+#cmakedefine GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST OFF
+
+#if defined(GHEX_USE_GPU)
+#if (defined(__CUDACC__) || defined(__HIP_PLATFORM_HCC__))
+#define GHEX_CUDACC
+#endif
+#endif
+
+namespace ghex
+{
+struct cpu
+{
+};
+struct gpu
+{
+};
+
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+using arch_list = std::tuple<cpu, gpu>;
+#else
+using arch_list = std::tuple<cpu>;
+#endif
+
+} // namespace ghex
+

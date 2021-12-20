@@ -1,81 +1,82 @@
 /* 
  * GridTools
  * 
- * Copyright (c) 2014-2020, ETH Zurich
+ * Copyright (c) 2014-2021, ETH Zurich
  * All rights reserved.
  * 
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  * 
  */
-#ifndef INCLUDED_GHEX_STRUCTURED_FIELD_DESCRIPTOR_HPP
-#define INCLUDED_GHEX_STRUCTURED_FIELD_DESCRIPTOR_HPP
+#pragma once
 
-#include <algorithm>
-#include "./field_utils.hpp"
-#include "../common/utils.hpp"
-#include "../arch_traits.hpp"
-#include <gridtools/common/array.hpp>
+#include <ghex/structured/field_utils.hpp>
+#include <ghex/arch_traits.hpp>
 #include <gridtools/common/layout_map.hpp>
+#include <algorithm>
 
-namespace gridtools {
-namespace ghex {
-namespace structured {
-
+namespace ghex
+{
+namespace structured
+{
 template<typename T, typename Arch, typename DomainDescriptor, typename Layout>
 class field_descriptor;
 
 template<typename T, typename Arch, typename DomainDescriptor, int... Order>
 class field_descriptor<T, Arch, DomainDescriptor, ::gridtools::layout_map<Order...>>
 {
-public: // member types
-    using value_type             = T;
-    using arch_type              = Arch;
-    using device_id_type         = typename arch_traits<arch_type>::device_id_type;
+  public: // member types
+    using value_type = T;
+    using arch_type = Arch;
+    using device_id_type = typename arch_traits<arch_type>::device_id_type;
     using domain_descriptor_type = DomainDescriptor;
-    using dimension              = std::integral_constant<std::size_t,sizeof...(Order)>;
-    using has_components         = std::integral_constant<bool,
-        (dimension::value > domain_descriptor_type::dimension::value)>;
-    using layout_map             = ::gridtools::layout_map<Order...>;
-    using domain_id_type         = typename DomainDescriptor::domain_id_type;
+    using dimension = std::integral_constant<std::size_t, sizeof...(Order)>;
+    using has_components =
+        std::integral_constant<bool, (dimension::value > domain_descriptor_type::dimension::value)>;
+    using layout_map = ::gridtools::layout_map<Order...>;
+    using domain_id_type = typename DomainDescriptor::domain_id_type;
     using scalar_coordinate_type = typename domain_descriptor_type::coordinate_type::value_type;
-    using coordinate_type        = ::gridtools::array<scalar_coordinate_type, dimension::value>;
-    using size_type              = unsigned int;
-    using strides_type           = ::gridtools::array<size_type, dimension::value>;
+    using coordinate_type = ::gridtools::array<scalar_coordinate_type, dimension::value>;
+    using size_type = unsigned int;
+    using strides_type = ::gridtools::array<size_type, dimension::value>;
 
     // holds buffer information
     template<typename Pointer>
-    struct buffer_descriptor {
-        Pointer m_ptr;
+    struct buffer_descriptor
+    {
+        Pointer         m_ptr;
         coordinate_type m_first;
-        strides_type m_strides;
-        size_type m_size;
+        strides_type    m_strides;
+        size_type       m_size;
     };
-    
+
     // holds halo iteration space information
     template<typename Pointer>
-    struct basic_iteration_space {
-        Pointer m_ptr;
+    struct basic_iteration_space
+    {
+        Pointer         m_ptr;
         coordinate_type m_domain_first;
         coordinate_type m_offset;
         coordinate_type m_first;
         coordinate_type m_last;
-        strides_type m_strides;
-        strides_type m_local_strides;
+        strides_type    m_strides;
+        strides_type    m_local_strides;
     };
 
-    struct pack_iteration_space {
+    struct pack_iteration_space
+    {
         using value_t = T;
         using coordinate_t = coordinate_type;
         using layout_map = typename field_descriptor::layout_map;
-        buffer_descriptor<T*> m_buffer_desc;
+        buffer_descriptor<T*>           m_buffer_desc;
         basic_iteration_space<const T*> m_data_is;
 
         /** @brief accesses buffer at specified local coordinate
           * @param coord in local coordinate system
           * @return reference to the value in the buffer */
         GT_FUNCTION
-        T& buffer(const coordinate_type& coord) const noexcept {
+        T& buffer(const coordinate_type& coord) const noexcept
+        {
             // compute buffer coordinates, relative to the buffer origin
             const coordinate_type buffer_coord = coord - m_data_is.m_first;
             // dot product with strides to compute address
@@ -88,7 +89,8 @@ public: // member types
           * @param coord in local coordinate system
           * @return const reference to the value in the field */
         GT_FUNCTION
-        const T& data(const coordinate_type& coord) const noexcept {
+        const T& data(const coordinate_type& coord) const noexcept
+        {
             // make data memory coordinates from local coordinates
             const coordinate_type data_coord = coord + m_data_is.m_offset;
             // dot product with strides to compute address
@@ -96,21 +98,22 @@ public: // member types
             return *reinterpret_cast<const T*>(
                 reinterpret_cast<const char*>(m_data_is.m_ptr) + memory_location);
         }
-
     };
 
-    struct unpack_iteration_space {
+    struct unpack_iteration_space
+    {
         using value_t = T;
         using coordinate_t = coordinate_type;
         using layout_map = typename field_descriptor::layout_map;
         buffer_descriptor<const T*> m_buffer_desc;
-        basic_iteration_space<T*> m_data_is;
+        basic_iteration_space<T*>   m_data_is;
 
         /** @brief accesses buffer at specified local coordinate
           * @param coord in local coordinate system
           * @return value in the buffer */
         GT_FUNCTION
-        const T& buffer(const coordinate_type& coord) const noexcept {
+        const T& buffer(const coordinate_type& coord) const noexcept
+        {
             // compute buffer coordinates, relative to the buffer origin
             const coordinate_type buffer_coord = coord - m_data_is.m_first;
             // dot product with strides to compute address
@@ -123,7 +126,8 @@ public: // member types
           * @param local coordinate system
           * @return reference to the value in the field */
         GT_FUNCTION
-        T& data(const coordinate_type& coord) const noexcept {
+        T& data(const coordinate_type& coord) const noexcept
+        {
             // make data memory coordinates from local coordinates
             const coordinate_type data_coord = coord + m_data_is.m_offset;
             // dot product with strides to compute address
@@ -133,29 +137,23 @@ public: // member types
         }
     };
 
-protected: // members
-    domain_descriptor_type m_dom;                 ///< domain descriptor
-    value_type*            m_data;                ///< pointer to data
-    coordinate_type        m_dom_first;           ///< global coordinate of first domain cell
-    coordinate_type        m_offsets;             ///< offset from beginning of memory to the first domain cell
-    coordinate_type        m_extents;             ///< extent of memory (including halos)
-    size_type              m_num_components;      ///< number of components 
-    bool                   m_is_vector_field;     ///< true if this field describes a vector field
-    device_id_type         m_device_id;           ///< device id
-    strides_type           m_byte_strides;        ///< memory strides in bytes
-    size_type              m_bytes;               ///< size of memory
+  protected:                            // members
+    domain_descriptor_type m_dom;       ///< domain descriptor
+    value_type*            m_data;      ///< pointer to data
+    coordinate_type        m_dom_first; ///< global coordinate of first domain cell
+    coordinate_type        m_offsets; ///< offset from beginning of memory to the first domain cell
+    coordinate_type        m_extents; ///< extent of memory (including halos)
+    size_type              m_num_components;  ///< number of components
+    bool                   m_is_vector_field; ///< true if this field describes a vector field
+    device_id_type         m_device_id;       ///< device id
+    strides_type           m_byte_strides;    ///< memory strides in bytes
+    size_type              m_bytes;           ///< size of memory
 
-public: // ctors
+  public: // ctors
     template<typename DomainArray, typename OffsetArray, typename ExtentArray>
-    field_descriptor(
-        const domain_descriptor_type& dom_,
-        const DomainArray& dom_first_,
-        value_type* data_,
-        const OffsetArray& offsets_,
-        const ExtentArray& extents_,
-        unsigned int num_components_ = 1u,
-        bool is_vector_field_ = false,
-        device_id_type d_id_ = 0)
+    field_descriptor(const domain_descriptor_type& dom_, const DomainArray& dom_first_,
+        value_type* data_, const OffsetArray& offsets_, const ExtentArray& extents_,
+        unsigned int num_components_ = 1u, bool is_vector_field_ = false, device_id_type d_id_ = 0)
     : m_dom{dom_}
     , m_data{data_}
     , m_num_components{num_components_}
@@ -174,33 +172,28 @@ public: // ctors
         std::copy(offsets_.begin(), offsets_.end(), m_offsets.begin());
         // extents of the field including buffers
         std::copy(extents_.begin(), extents_.end(), m_extents.begin());
-        if (has_components::value) {
-            m_dom_first[dimension::value-1] = 0;
-            m_offsets[dimension::value-1] = 0;
-            m_extents[dimension::value-1] = num_components_;
+        if (has_components::value)
+        {
+            m_dom_first[dimension::value - 1] = 0;
+            m_offsets[dimension::value - 1] = 0;
+            m_extents[dimension::value - 1] = num_components_;
         }
         // compute strides in bytes
-        detail::compute_strides<dimension::value>::template
-            apply<layout_map,value_type>(m_extents,m_byte_strides,0u);
+        detail::compute_strides<dimension::value>::template apply<layout_map, value_type>(
+            m_extents, m_byte_strides, 0u);
 
-        m_bytes = m_byte_strides[layout_map::find(0)]*m_extents[layout_map::find(0)];
+        m_bytes = m_byte_strides[layout_map::find(0)] * m_extents[layout_map::find(0)];
     }
     template<typename DomainArray, typename OffsetArray, typename ExtentArray, typename Strides>
-    field_descriptor(
-        const domain_descriptor_type& dom_,
-        const DomainArray& dom_first_,
-        value_type* data_,
-        const OffsetArray& offsets_,
-        const ExtentArray& extents_,
-        const Strides& strides_,
-        unsigned int num_components_ = 1u,
-        bool is_vector_field_ = false,
+    field_descriptor(const domain_descriptor_type& dom_, const DomainArray& dom_first_,
+        value_type* data_, const OffsetArray& offsets_, const ExtentArray& extents_,
+        const Strides& strides_, unsigned int num_components_ = 1u, bool is_vector_field_ = false,
         device_id_type d_id_ = 0)
-    : field_descriptor(dom_, dom_first_, data_, offsets_, extents_, num_components_, is_vector_field_, d_id_)
+    : field_descriptor(
+          dom_, dom_first_, data_, offsets_, extents_, num_components_, is_vector_field_, d_id_)
     {
-        for (unsigned int i=0u; i<dimension::value; ++i)
-            m_byte_strides[i] = strides_[i];
-        m_bytes = m_byte_strides[layout_map::find(0)]*m_extents[layout_map::find(0)];
+        for (unsigned int i = 0u; i < dimension::value; ++i) m_byte_strides[i] = strides_[i];
+        m_bytes = m_byte_strides[layout_map::find(0)] * m_extents[layout_map::find(0)];
     }
 
     field_descriptor(field_descriptor&&) noexcept = default;
@@ -208,7 +201,7 @@ public: // ctors
     field_descriptor& operator=(field_descriptor&&) noexcept = default;
     field_descriptor& operator=(const field_descriptor&) noexcept = default;
 
-public: // member functions
+  public: // member functions
     /** @brief returns the device id */
     typename arch_traits<arch_type>::device_id_type device_id() const { return m_device_id; }
     /** @brief returns the domain */
@@ -231,46 +224,49 @@ public: // member functions
     bool is_vector_field() const noexcept { return m_is_vector_field; }
     /** @brief returns the size of the memory in bytes */
     size_type bytes() const noexcept { return m_bytes; }
-        
+
     /** @brief access operator
      * @param x coordinate vector with respect to offset specified in constructor
      * @return reference to value */
     GT_FUNCTION
-    value_type& operator()(const coordinate_type& x) {
-        return *reinterpret_cast<T*>((char*)m_data +dot(x+m_offsets,m_byte_strides));
+    value_type& operator()(const coordinate_type& x)
+    {
+        return *reinterpret_cast<T*>((char*)m_data + dot(x + m_offsets, m_byte_strides));
     }
     GT_FUNCTION
-    const value_type& operator()(const coordinate_type& x) const {
-        return *reinterpret_cast<const T*>((const char*)m_data +dot(x+m_offsets,m_byte_strides));
+    const value_type& operator()(const coordinate_type& x) const
+    {
+        return *reinterpret_cast<const T*>(
+            (const char*)m_data + dot(x + m_offsets, m_byte_strides));
     }
 
     GT_FUNCTION
-    value_type* ptr(const coordinate_type& x) {
-        return reinterpret_cast<T*>((char*)m_data +dot(x+m_offsets,m_byte_strides));
+    value_type* ptr(const coordinate_type& x)
+    {
+        return reinterpret_cast<T*>((char*)m_data + dot(x + m_offsets, m_byte_strides));
     }
     GT_FUNCTION
-    const value_type* ptr(const coordinate_type& x) const {
-        return reinterpret_cast<const T*>((const char*)m_data +dot(x+m_offsets,m_byte_strides));
+    const value_type* ptr(const coordinate_type& x) const
+    {
+        return reinterpret_cast<const T*>((const char*)m_data + dot(x + m_offsets, m_byte_strides));
     }
 
     /** @brief access operator
      * @param is coordinates with respect to offset specified in constructor
      * @return reference to value */
     template<typename... Is>
-    GT_FUNCTION
-    value_type& operator()(const Is&... is) {
-        return *reinterpret_cast<T*>((char*)m_data+dot(coordinate_type{is...}+m_offsets,m_byte_strides));
+    GT_FUNCTION value_type& operator()(const Is&... is)
+    {
+        return *reinterpret_cast<T*>(
+            (char*)m_data + dot(coordinate_type{is...} + m_offsets, m_byte_strides));
     }
     template<typename... Is>
-    GT_FUNCTION
-    const value_type& operator()(const Is&... is) const {
-        return *reinterpret_cast<const T*>((const char*)m_data+dot(coordinate_type{is...}+
-            m_offsets,m_byte_strides));
+    GT_FUNCTION const value_type& operator()(const Is&... is) const
+    {
+        return *reinterpret_cast<const T*>(
+            (const char*)m_data + dot(coordinate_type{is...} + m_offsets, m_byte_strides));
     }
 };
 
 } // namespace structured
 } // namespace ghex
-} // namespace gridtools
-
-#endif /* INCLUDED_GHEX_STRUCTURED_FIELD_DESCRIPTOR_HPP */

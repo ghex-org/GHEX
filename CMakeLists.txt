@@ -1,279 +1,96 @@
-cmake_minimum_required(VERSION 3.14.5)
+cmake_minimum_required(VERSION 3.17)
+#cmake_policy(SET CMP0048 NEW)
 
-project(GHEX VERSION 0.1 LANGUAGES CXX)
-if(USE_GPU)
-    set(GHEX_GPU_TYPE "AUTO" CACHE STRING "Choose the GPU type: AMD | NVIDIA | AUTO (environment-based)")
-    # Set the possible values of GPU type for cmake-gui
-    set_property(CACHE GHEX_GPU_TYPE PROPERTY STRINGS "AMD" "NVIDIA" "AUTO")
-    if (GHEX_GPU_TYPE STREQUAL "AMD")
-        find_package(hip REQUIRED)
-        set(ghex_gpu_mode "hip")
-    elseif (GHEX_GPU_TYPE STREQUAL "NVIDIA")
-        set(ghex_gpu_mode "cuda")
-    elseif (GHEX_GPU_TYPE STREQUAL "AUTO")
-        find_package(hip)
-        if (hip_FOUND)
-            set(ghex_gpu_mode "hip")
-        else() # assume cuda elsewhere; TO DO: might be refined
-            set(ghex_gpu_mode "cuda")
-        endif()
-    endif()
-    if (ghex_gpu_mode STREQUAL "cuda")
-        set(CMAKE_CUDA_FLAGS "" CACHE STRING "")
-        string(APPEND CMAKE_CUDA_FLAGS " --cudart shared --expt-relaxed-constexpr")
-        enable_language(CUDA)
-        set(CMAKE_CUDA_STANDARD 14)
-        set(CMAKE_CUDA_EXTENSIONS OFF)
-    endif()
-else()
-    set(ghex_gpu_mode "none")
-endif()
-include(GNUInstallDirs)
+project(GHEX VERSION 0.2 LANGUAGES CXX)
 
-# setup fortran compiler and arguments
-if (GHEX_BUILD_FORTRAN)
-   enable_language(Fortran)
-   set(GHEX_FORTRAN_FP "float" CACHE STRING "Floating-point type")
-   set(GHEX_FORTRAN_OPENMP "ON" CACHE BOOL "Compile Fortran bindings with OpenMP")
-   set_property(CACHE GHEX_FORTRAN_FP PROPERTY STRINGS "float" "double")
-   if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-     message(STATUS "Fortran compiler is GNU.")
-     set(CMAKE_Fortran_FLAGS "-cpp -ffree-line-length-none")
-   else ()
-     set(CMAKE_Fortran_FLAGS "-cpp")
-   endif()
-   message(STATUS "Fortran flags: ${CMAKE_Fortran_FLAGS}.")
-endif()
-
-cmake_policy(SET CMP0048 NEW)
-
-set(USE_GPU "OFF" CACHE BOOL "use cuda")
-set(USE_HYBRID_TESTS "ON" CACHE BOOL "run gpu+cpu tests")
-
-set(default_build_type "Debug")
-
+# ---------------------------------------------------------------------
+# CMake setup, C++ version, build type, modules, etc
+# ---------------------------------------------------------------------
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -Wno-unknown-pragmas")
-
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-    # Set the possible values of build type for cmake-gui
+if(NOT CMAKE_BUILD_TYPE) # AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
-
-set(GHEX_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+set(GHEX_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
-find_package(MPI REQUIRED)
-find_package(Boost REQUIRED)
-find_library(LIBRT rt REQUIRED)
 
-set(_required_gridtools_version "2.0.0")
-if(NOT _gridtools_already_fetched)
-    find_package(GridTools ${_required_gridtools_version})
-endif()
-if(NOT GridTools_FOUND)
-    set(_gridtools_repository "https://github.com/GridTools/gridtools.git")
-    set(_gridtools_tag        "v${_required_gridtools_version}")
-    if(NOT _gridtools_already_fetched)
-        message(STATUS "Fetching GridTools tag ${_gridtools_tag} from ${_gridtools_repository}")
-    endif()
-    include(FetchContent)
-    FetchContent_Declare(
-        gridtools
-        GIT_REPOSITORY ${_gridtools_repository}
-        GIT_TAG        ${_gridtools_tag}
-    )
-    FetchContent_MakeAvailable(gridtools)
-    set(_gridtools_already_fetched ON CACHE INTERNAL "")
-endif()
+# ---------------------------------------------------------------------
+# Define main library
+# ---------------------------------------------------------------------
+include(ghex_common)
 
-set(GHEX_USE_UCP OFF CACHE BOOL "Set to true to use UCP library")
-if (GHEX_USE_UCP)
-    find_package(UCP REQUIRED)
-endif()
-
-set(GHEX_USE_PMIX OFF CACHE BOOL "Set to true to use PMIx process management")
-if (GHEX_USE_PMIX)
-    find_package(PMIx REQUIRED)
-endif()
-
-set(GHEX_USE_XPMEM OFF CACHE BOOL "Set to true to use xpmem shared memory")
-if (GHEX_USE_XPMEM)
-    find_package(XPMEM REQUIRED)
-endif()
-
-set(GHEX_SKIP_MPICXX OFF CACHE BOOL "True if your compiler wrapper includes MPI already (as CRAY PE for instance)")
-if (GHEX_SKIP_MPICXX)
-    set(MPI_CXX_SKIP_MPICXX ON)
-else()
-    set(MPI_CXX_SKIP_MPICXX OFF)
-endif()
-
-set(GHEX_ENABLE_PARMETIS_BINDINGS OFF CACHE BOOL "Set to true to build with ParMETIS bindings")
-if (GHEX_ENABLE_PARMETIS_BINDINGS)
-    set(METIS_INCLUDE_DIR "" CACHE STRING "METIS include directory")
-    set(METIS_LIB_DIR "" CACHE STRING "METIS library directory")
-    set(PARMETIS_INCLUDE_DIR "" CACHE STRING "ParMETIS include directory")
-    set(PARMETIS_LIB_DIR "" CACHE STRING "ParMETIS library directory")
-endif()
-
-set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas bindings")
-if (GHEX_ENABLE_ATLAS_BINDINGS)
-    find_package(eckit REQUIRED HINTS ${eckit_DIR})
-    find_package(Atlas REQUIRED HINTS ${Atlas_DIR})
-    # Temporary workaround to fix missing dependency in Atlas target: eckit
-    target_link_libraries(atlas INTERFACE eckit)
-    set(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND "KFIRST" CACHE STRING "GridTools CPU storage traits: KFIRST | IFIRST.")
-    set_property(CACHE GHEX_ATLAS_GT_STORAGE_CPU_BACKEND PROPERTY STRINGS "KFIRST" "IFIRST")
-endif()
-
-set(GHEX_BUILD_TESTS OFF CACHE BOOL "True if tests shall be built")
-set(GHEX_BUILD_BENCHMARKS OFF CACHE BOOL "True if benchmarks shall be built")
-set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
-
-add_library(ghexlib INTERFACE)
-add_library(GHEX::ghexlib ALIAS ghexlib)
-target_include_directories(ghexlib INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+# ---------------------------------------------------------------------
+# include paths
+# ---------------------------------------------------------------------
+target_include_directories(ghex_common INTERFACE
     $<INSTALL_INTERFACE:include>
-    )
-target_link_libraries(ghexlib INTERFACE GridTools::gridtools MPI::MPI_CXX)
-if (GHEX_USE_UCP)
-    target_link_libraries(ghexlib INTERFACE UCP::libucp)
-    if (GHEX_USE_PMIX)
-        target_link_libraries(ghexlib INTERFACE PMIx::libpmix)
-	target_compile_definitions(ghexlib INTERFACE GHEX_USE_PMI)
-    endif()
-endif()
-if (GHEX_USE_XPMEM)
-    target_link_libraries(ghexlib INTERFACE XPMEM::libxpmem)
-endif()
-if (GHEX_ENABLE_ATLAS_BINDINGS)
-    target_link_libraries(ghexlib INTERFACE atlas)
-    if (GHEX_ATLAS_GT_STORAGE_CPU_BACKEND STREQUAL "KFIRST")
-        target_compile_definitions(ghexlib INTERFACE GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST)
-    elseif(GHEX_ATLAS_GT_STORAGE_CPU_BACKEND STREQUAL "IFIRST")
-        target_compile_definitions(ghexlib INTERFACE GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST)
-    endif()
-endif()
-target_link_libraries(ghexlib INTERFACE ${LIBRT})
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>)
 
-target_compile_features(ghexlib INTERFACE cxx_std_14)
+# ---------------------------------------------------------------------
+# main src subdir
+# ---------------------------------------------------------------------
+add_subdirectory(src)
 
-# Define this macro to use optimizations for same type fields
-# Improves performance for gpu, but only when solely same field types are passed to an exhange
-set(GHEX_COMM_OBJ_U_PACK OFF CACHE BOOL "Set to true to use optimizations for same type fields (gpus only)")
-if (GHEX_COMM_OBJ_U_PACK)
-    target_compile_definitions(ghexlib INTERFACE GHEX_COMM_OBJ_USE_U)
-endif()
+# ---------------------------------------------------------------------
+# generate config file
+# ---------------------------------------------------------------------
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/ghex/config.hpp @ONLY)
+install(FILES ${PROJECT_BINARY_DIR}/include/ghex/config.hpp
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ghex)
 
-# Define this macro for fat callbacks
-# Description: Fat callbacks take advantage of the capability of the underlying communicator to
-#   receive messages with a callback function. This callback function is then used to unpack data.
-#   A similar mechanism is used otherwise - but implemented within this class independently of the
-#   communicator.
-# Note: May not yet work optimally with the current ucx implementation because the ucx receive
-#   worker will be locked for the entire duration of the callback execution which may lead to
-#   performance issues.
-# TODO: Performance tests are needed to determine which option is better.
-set(GHEX_COMM_OBJ_FAT_CALLBACKS OFF CACHE BOOL "Use communicator to execute callbacks instead off comm object")
-if (GHEX_COMM_OBJ_FAT_CALLBACKS)
-    target_compile_definitions(ghexlib INTERFACE GHEX_COMM_OBJ_USE_FAT_CALLBACKS)
+# ---------------------------------------------------------------------
+# fortran bindings
+# ---------------------------------------------------------------------
+include(ghex_fortran)
+
+# ---------------------------------------------------------------------
+# python bindings
+# ---------------------------------------------------------------------
+
+# bindings
+add_subdirectory(bindings)
+
+# ---------------------------------------------------------------------
+# testing
+# ---------------------------------------------------------------------
+set(GHEX_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
+if (GHEX_WITH_TESTING)
+    enable_testing()
+    # Enable CDash dashboard testing integration
+    include(CTest)
+    add_subdirectory(test)
 endif()
 
-set(GHEX_USE_XPMEM_ACCESS_GUARD OFF CACHE BOOL "Use xpmem to synchronize rma access")
-if (GHEX_USE_XPMEM_ACCESS_GUARD)
-    target_compile_definitions(ghexlib INTERFACE GHEX_USE_XPMEM_ACCESS_GUARD)
-endif()
+# ---------------------------------------------------------------------
+# benchmarks
+# ---------------------------------------------------------------------
 
-# setup fortran compiler and arguments
-if (GHEX_BUILD_FORTRAN)
-   add_subdirectory(bindings/fhex)
-endif()
+# ---------------------------------------------------------------------
+# installation
+# ---------------------------------------------------------------------
+install(EXPORT ghex-targets
+    FILE ghex-targets.cmake
+    NAMESPACE GHEX::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
 
-# Enable adding of tests etc
-enable_testing()
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ghex_config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
 
-# Enable CDash dashboard testing integration
-include(CTest)
+write_basic_package_version_file(GHEXConfigVersion.cmake
+    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
 
-if (GHEX_BUILD_TESTS OR GHEX_BUILD_BENCHMARKS)
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG        release-1.10.0
-    )
-    FetchContent_GetProperties(googletest)
-    if(NOT googletest_POPULATED)
-        FetchContent_Populate(googletest)
-        add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
-        # https://github.com/google/googletest/issues/2429
-        add_library(GTest::gtest ALIAS gtest)
-    endif()
-
-    function(add_ghex_gpu_executable _target _source_root)
-        if (ghex_gpu_mode STREQUAL "cuda")
-            add_executable(${_target} ${_source_root}.cu)
-        elseif (ghex_gpu_mode STREQUAL "hip")
-            add_executable(${_target} ${_source_root}.cpp)
-            target_link_libraries(${_target} hip::device)
-        endif()
-    endfunction()
-
-    if (GHEX_BUILD_TESTS)
-        add_library(gtest_main_mt ./utils/gtest_main.cpp)
-        target_link_libraries(gtest_main_mt GTest::gtest ghexlib)
-
-        if (GHEX_USE_UCP)
-            add_library(gtest_main_ucx ./utils/gtest_main_ucx.cpp)
-            target_link_libraries(gtest_main_ucx GTest::gtest ghexlib)
-        endif()
-
-        add_subdirectory(tests)
-    endif()
-
-    if (GHEX_BUILD_BENCHMARKS)
-        add_library(gtest_main_bench ./utils/gtest_main_bench.cpp)
-        target_link_libraries(gtest_main_bench GTest::gtest ghexlib)
-
-        add_library(gtest_main_bench_mt ./utils/gtest_main_bench.cpp)
-        target_compile_definitions(gtest_main_bench_mt PRIVATE GHEX_BENCHMARKS_USE_MULTI_THREADED_MPI)
-        target_link_libraries(gtest_main_bench_mt GTest::gtest ghexlib)
-
-        add_subdirectory(benchmarks)
-    endif()
-
-    if (GHEX_ENABLE_ATLAS_BINDINGS)
-        add_library(gtest_main_atlas ./utils/gtest_main_atlas.cpp)
-        target_link_libraries(gtest_main_atlas GTest::gtest ghexlib)
-
-        add_library(gtest_main_bench_atlas ./utils/gtest_main_bench_atlas.cpp)
-        target_link_libraries(gtest_main_bench_atlas GTest::gtest ghexlib)
-    endif()
-endif()
-
-install(TARGETS ghexlib EXPORT GHEX-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(EXPORT GHEX-targets
-  FILE GHEX-targets.cmake
-  NAMESPACE GHEX::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
-  )
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-include(CMakePackageConfigHelpers)
-configure_package_config_file(cmake/GHEXConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfig.cmake
-                              INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
-write_basic_package_version_file(GHEXConfigVersion.cmake VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
 install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/GHEXConfigVersion.cmake
-        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCP.cmake
-        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindXPMEM.cmake
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)
+
+export(EXPORT ghex-targets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/ghex-targets.cmake")

@@ -1,0 +1,93 @@
+---
+Language:        Cpp
+# BasedOnStyle:  LLVM
+#AccessModifierOffset: -4
+AccessModifierOffset: -2
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: true
+AlignConsecutiveMacros: true
+#AlignConsecutiveAssignments: false
+#AlignConsecutiveDeclarations: false
+#AlignConsecutiveMacros: false
+AlignEscapedNewlines: Right
+AlignOperands: true
+AlignTrailingComments: true
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeBraces: Allman
+#BreakBeforeBraces: Attach
+#BreakBeforeBraces: Custom
+#BraceWrapping:
+#    AfterCaseLabel: true
+#    AfterClass: true
+# BreakBeforeBinaryOperators: All
+# ConstructorInitializerAllOnOneLineOrOnePerLine: false
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 0
+BreakInheritanceList: BeforeComma
+#AllowShortBlocksOnASingleLine: Always
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Always
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: true
+#AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterReturnType: TopLevelDefinitions
+# PenaltyReturnTypeOnItsOwnLine: 1
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeTernaryOperators: true
+BreakInheritanceList: BeforeComma
+BreakStringLiterals: false
+ColumnLimit: 100
+#ColumnLimit: 120
+# CommentPragmas
+CompactNamespaces: false
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
+#--DeriveLineEnding: true
+#--DerivePointerAlignment: true
+FixNamespaceComments: true
+# ForEachMacros: [for_each]
+# IncludeBlocks: Regroup
+IndentCaseLabels: true
+#IndentGotoLabels: false
+#IndentPPDirectives: BeforeHash
+IndentPPDirectives: None
+IndentWidth: 4
+IndentWrappedFunctionNames: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+NamespaceIndentation: None
+PointerAlignment: Left
+ReflowComments: false
+SortIncludes: false
+SortUsingDeclarations: false
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+#SpaceBeforeSquareBrackets: false
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+# SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+#Standard: Latest
+TabWidth: 4
+UseTab: Never
+
+
+
