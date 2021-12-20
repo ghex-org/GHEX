@@ -20,19 +20,16 @@ if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
     set(OOMPH_WITH_MPI OFF CACHE INTERNAL "")  # Forces the value
     set(OOMPH_WITH_UCX OFF CACHE INTERNAL "")  # Forces the value
     set(OOMPH_WITH_LIBFABRIC ON CACHE INTERNAL "")  # Forces the value
-    target_link_libraries(ghex PUBLIC oomph::libfabric)
 elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
     set(OOMPH_WITH_MPI OFF CACHE INTERNAL "")  # Forces the value
     set(OOMPH_WITH_UCX ON CACHE INTERNAL "")  # Forces the value
     set(OOMPH_WITH_LIBFABRIC OFF CACHE INTERNAL "")  # Forces the value
-    target_link_libraries(ghex PUBLIC oomph::ucx)
 else()
     set(OOMPH_WITH_MPI ON CACHE INTERNAL "")  # Forces the value
     set(OOMPH_WITH_UCX OFF CACHE INTERNAL "")  # Forces the value
     set(OOMPH_WITH_LIBFABRIC OFF CACHE INTERNAL "")  # Forces the value
-    target_link_libraries(ghex PUBLIC oomph::mpi)
 endif()
-
+    
 if (GHEX_USE_GPU)
     set(OOMPH_USE_GPU ON CACHE INTERNAL "")  # Forces the value
     if (ghex_gpu_mode STREQUAL "hip")
@@ -49,3 +46,16 @@ endif()
 
 FetchContent_MakeAvailable(oomph)
 set(_oomph_already_fetched ON CACHE INTERNAL "")
+
+target_link_libraries(ghex INTERFACE oomph::oomph)
+
+function(ghex_link_to_oomph target)
+    if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
+        target_link_libraries(${target} PRIVATE oomph::libfabric)
+    elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
+        target_link_libraries(${target} PRIVATE oomph::ucx)
+    else()
+        target_link_libraries(${target} PRIVATE oomph::mpi)
+    endif()
+endfunction()
+

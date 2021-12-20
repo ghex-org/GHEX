@@ -11,6 +11,7 @@ function(ghex_reg_parallel_test_f t n)
     if (GHEX_FORTRAN_OPENMP)
         target_link_libraries(${t} PRIVATE OpenMP::OpenMP_Fortran)
     endif()
+    ghex_link_to_oomph(${t})
     ## workaround for clang+openmp
     #target_link_libraries(${t} PRIVATE $<$<CXX_COMPILER_ID:Clang>:$<LINK_ONLY:-fopenmp=libomp>>)
     add_test(
