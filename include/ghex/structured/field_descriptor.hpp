@@ -153,7 +153,8 @@ class field_descriptor<T, Arch, DomainDescriptor, ::gridtools::layout_map<Order.
     template<typename DomainArray, typename OffsetArray, typename ExtentArray>
     field_descriptor(const domain_descriptor_type& dom_, const DomainArray& dom_first_,
         value_type* data_, const OffsetArray& offsets_, const ExtentArray& extents_,
-        unsigned int num_components_ = 1u, bool is_vector_field_ = false, device_id_type d_id_ = 0)
+        unsigned int num_components_ = 1u, bool is_vector_field_ = false, device_id_type d_id_ =
+        arch_traits<Arch>::current_id())
     : m_dom{dom_}
     , m_data{data_}
     , m_num_components{num_components_}
@@ -188,7 +189,7 @@ class field_descriptor<T, Arch, DomainDescriptor, ::gridtools::layout_map<Order.
     field_descriptor(const domain_descriptor_type& dom_, const DomainArray& dom_first_,
         value_type* data_, const OffsetArray& offsets_, const ExtentArray& extents_,
         const Strides& strides_, unsigned int num_components_ = 1u, bool is_vector_field_ = false,
-        device_id_type d_id_ = 0)
+        device_id_type d_id_ = arch_traits<Arch>::current_id())
     : field_descriptor(
           dom_, dom_first_, data_, offsets_, extents_, num_components_, is_vector_field_, d_id_)
     {

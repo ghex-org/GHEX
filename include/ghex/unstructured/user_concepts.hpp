@@ -272,7 +272,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
     // member functions
 
-    device_id_type device_id() const noexcept { return 0; } // significant for the GPU
+    device_id_type device_id() const noexcept { return arch_traits<arch_type>::default_id(); } // significant for the GPU
     domain_id_type domain_id() const noexcept { return m_domain_id; }
     std::size_t    domain_size() const noexcept { return m_domain_size; }
     std::size_t    levels() const noexcept { return m_levels; }
@@ -398,7 +398,7 @@ class data_descriptor<gpu, DomainId, Idx, T>
       * @param field data pointer, assumed to point to a contiguous memory region of size = domain size * n levels
       * @param device_id device id*/
     data_descriptor(
-        const domain_descriptor_type& domain, value_type* field, device_id_type device_id)
+        const domain_descriptor_type& domain, value_type* field, device_id_type device_id = arch_traits<arch_type>::current_id())
     : m_device_id{device_id}
     , m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
