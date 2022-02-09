@@ -54,7 +54,8 @@ struct get_unmasked_layout_map<gridtools::layout_map<Args...>>
 template<typename Arch, typename DomainDescriptor, typename DataStore>
 auto
 wrap_gt_field(const DomainDescriptor& dom, const std::shared_ptr<DataStore>& ds,
-    const std::array<int, DataStore::ndims>& origin, int device_id = 0)
+    const std::array<int, DataStore::ndims>& origin, int device_id =
+    arch_traits<Arch>::current_id())
 {
     using value_t = typename DataStore::data_t;
     using layout_t = typename DataStore::layout_t;
@@ -73,7 +74,7 @@ wrap_gt_field(const DomainDescriptor& dom, const std::shared_ptr<DataStore>& ds,
 
 template<typename Arch, typename DataStore, typename Origin>
 auto
-wrap_gt_field(const gt_grid& grid, DataStore&& ds, Origin&& origin, int device_id = 0)
+wrap_gt_field(const gt_grid& grid, DataStore&& ds, Origin&& origin, int device_id = arch_traits<Arch>::current_id())
 {
     return wrap_gt_field<Arch>(
         grid.m_domains[0], std::forward<DataStore>(ds), std::forward<Origin>(origin), device_id);

@@ -114,7 +114,7 @@ class field_descriptor<T, Arch, ::gridtools::layout_map<X, Y, Z, C>>
     template<typename Array>
     field_descriptor(const domain_descriptor& dom_, value_type* data_, const Array& offsets_,
         const Array& extents_, unsigned int num_components_ = 1u, bool is_vector_field_ = false,
-        device_id_type d_id_ = 0)
+        device_id_type d_id_ = arch_traits<Arch>::current_id())
     : base(dom_, std::array<int, 3>{dom_.first()[1], dom_.first()[2], dom_.first()[3]}, data_,
           offsets_, extents_, num_components_, is_vector_field_, d_id_)
     , m_edge_size{dom_.edge_size()}

@@ -53,7 +53,7 @@ class field_descriptor
     template<typename ExtentArray, typename OffsetArray>
     field_descriptor(const domain_descriptor_type& dom_, value_type* data_,
         const ExtentArray& offsets_, const OffsetArray& extents_, unsigned int num_components_ = 1u,
-        bool is_vector_field_ = false, device_id_type d_id_ = 0)
+        bool is_vector_field_ = false, device_id_type d_id_ = arch_traits<Arch>::current_id())
     : base(dom_, dom_.first(), data_, offsets_, extents_, num_components_, is_vector_field_, d_id_)
     {
     }
@@ -168,7 +168,7 @@ class field_descriptor
 template<typename Arch, typename Layout, typename DomainDescriptor, typename T, typename Array>
 structured::regular::field_descriptor<T, Arch, DomainDescriptor, Layout>
 wrap_field(const DomainDescriptor& dom, T* data, const Array& offsets, const Array& extents,
-    typename arch_traits<Arch>::device_id_type device_id = 0)
+    typename arch_traits<Arch>::device_id_type device_id = arch_traits<Arch>::current_id())
 {
     return {dom, data, offsets, extents, 1, false, device_id};
 }

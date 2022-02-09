@@ -302,7 +302,7 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
 
     domain_id_type domain_id() const { return m_domain_id; }
 
-    device_id_type device_id() const { return 0; }
+    device_id_type device_id() const { return arch_traits<arch_type>::default_id(); }
 
     int num_components() const noexcept { return m_components; }
 

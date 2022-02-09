@@ -11,7 +11,7 @@
 #pragma once
 
 #include <ghex/config.hpp>
-#include <hwmalloc/device.hpp>
+#include <ghex/device/id.hpp>
 #include <oomph/message_buffer.hpp>
 
 namespace ghex
@@ -34,8 +34,8 @@ struct guard
         {
             m_ptr = m.device_data();
             m_new_device_id = m.device_id();
-            m_current_device_id = hwmalloc::get_device_id();
-            if (m_current_device_id != m_new_device_id) hwmalloc::set_device_id(m_new_device_id);
+            m_current_device_id = get_id();
+            if (m_current_device_id != m_new_device_id) set_id(m_new_device_id);
         }
         else
 #endif
@@ -50,7 +50,7 @@ struct guard
     ~guard()
     {
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-        if (m_new_device_id != m_current_device_id) hwmalloc::set_device_id(m_current_device_id);
+        if (m_new_device_id != m_current_device_id) set_id(m_current_device_id);
 #endif
     }
 
