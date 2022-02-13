@@ -8,4 +8,4 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from . import grid, index_space
+from ghex.utils import cpp_wrapper_utils, grid, index_space

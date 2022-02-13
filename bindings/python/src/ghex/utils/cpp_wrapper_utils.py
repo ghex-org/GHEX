@@ -15,7 +15,7 @@ from functools import reduce
 
 import ghex_py_bindings as _ghex
 
-def _unwrap(arg):
+def unwrap(arg):
     return arg.__wrapped__ if isinstance(arg, CppWrapper) else arg
 
 def dtype_to_cpp(dtype):
@@ -38,11 +38,11 @@ class CppWrapper:
 
             wrapped_cls = getattr(_ghex, fq_cpp_type_specialization_name)
 
-        self.__wrapped__ = wrapped_cls(*(_unwrap(arg) for arg in args), **{kw: _unwrap(arg) for kw, arg in kwargs.items()})
+        self.__wrapped__ = wrapped_cls(*(unwrap(arg) for arg in args), **{kw: unwrap(arg) for kw, arg in kwargs.items()})
 
     def __wrapped_call__(self, method_name, *args, **kwargs):
         method = getattr(self.__wrapped__, method_name)
-        return method(*(_unwrap(arg) for arg in args), **{kw: _unwrap(arg) for kw, arg in kwargs.items()})
+        return method(*(unwrap(arg) for arg in args), **{kw: unwrap(arg) for kw, arg in kwargs.items()})
 
     def __getattr__(self, name):
         if hasattr(self, "__wrapped__"):

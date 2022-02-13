@@ -9,8 +9,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
-from sympy import ProductSet
-import sympy
 import typing
 import functools
 import itertools
@@ -18,11 +16,10 @@ import operator
 from copy import copy
 from typing import Union, Sequence, Tuple, Dict, Any, final
 
-
-Integer = Union[int, typing.Literal[math.inf], typing.Literal[-math.inf], sympy.Symbol]
+Integer = Union[int, typing.Literal[math.inf], typing.Literal[-math.inf]]
 
 def is_integer_like(val):
-    return isinstance(val, int) or val == math.inf or val == -math.inf or isinstance(val, sympy.Symbol)
+    return isinstance(val, int) or val == math.inf or val == -math.inf
 
 class Set:
     pass
@@ -35,6 +32,12 @@ class IntegerSet(Set):
 
     def universe(self):
         return UnitRange(-math.inf, math.inf)
+
+    def shrink(self, arg: Union[int, Tuple[int, int]]):
+        if isinstance(arg, int):
+            arg = (arg, arg)
+
+        return self.extend(tuple(-v for v in arg))
 
     @staticmethod
     def primitive_type():
@@ -215,6 +218,12 @@ def union(*args: Set, simplify=True, disjoint=False):
 
     return result.simplify() if simplify else result
 
+from functools import reduce
+
+def intersect(a, *args: Set):
+    if len(args)==0:
+        return a
+    return reduce(lambda a, b: a.intersect(b), args, a)
 
 class UnionMixin:
     # todo: abstract bounds property
@@ -341,15 +350,22 @@ class UnionRange(IntegerSet, UnionMixin):
     def __hash__(self):
         return hash(tuple(hash(arg) for arg in self.args))
 
+_empty_cartesian_cache={}
 
 class CartesianSet(Set):
     """A set of (cartesian indices, i.e. tuples of integers)"""
     # todo: implement abstract methods
     def empty_set(self):
-        return functools.reduce(operator.mul, itertools.repeat(UnitRange(0, 0), self.dim))
+        if self.dim not in _empty_cartesian_cache:
+            _empty_cartesian_cache[self.dim] = functools.reduce(operator.mul, itertools.repeat(UnitRange(0, 0), self.dim))
+        return _empty_cartesian_cache[self.dim]
 
     def universe(self):
         return functools.reduce(operator.mul, itertools.repeat(UnitRange(-math.inf, math.inf), self.dim))
+
+    def shrink(self, *args: Sequence[Union[int, Tuple[int, int]]]):
+        args = tuple((-arg, -arg) if isinstance(arg, int) else (-arg[0], -arg[1]) for arg in args)
+        return self.extend(*args)
 
     @staticmethod
     def union_type():
@@ -398,7 +414,7 @@ class ProductSet(CartesianSet):
     def dim(self):
         return len(self.args)
 
-    def without(self, other: ProductSet, *tail: ProductSet, simplify=True):
+    def without(self, other: "ProductSet", *tail: "ProductSet", simplify=True):
         if isinstance(other, ProductSet):
             # if there is no overlap in any dimension nothing is to be removed
             if any(r1.intersect(r2).empty for r1, r2 in zip(self.args, other.args)):
@@ -417,7 +433,7 @@ class ProductSet(CartesianSet):
 
         raise NotImplementedError()
 
-    def complement(self, arg: Union[None, ProductSet] = None, simplify=True):
+    def complement(self, arg: Union[None, "ProductSet"] = None, simplify=True):
         if not arg:
             arg = self.universe()
 
@@ -531,7 +547,7 @@ class UnionCartesian(CartesianSet, UnionMixin):
                     if covering.issubset(a):
                         rest = [set_.without(curr) for set_ in a.args if
                                 not set_.issubset(covering) and set_ != curr and set_ != touching_set]
-                        merged = union(union(*rest, disjoint=a.disjoint, simplify=False) if len(rest) > 0 else a.empty_set(), covering, disjoint=a.disjoint, simplify=False)
+                        merged = union(union(*rest, disjoint=a.disjoint, simplify=False) if len(rest) > 0 else a.empty_set(), covering, disjoint=False, simplify=False)
                         if isinstance(merged, ProductSet):
                             return merged
                         elif isinstance(merged, UnionCartesian):
@@ -546,7 +562,7 @@ class UnionCartesian(CartesianSet, UnionMixin):
                 # reset simplification to merged a
                 if converged == False:
                     break
-        return a
+        return a.make_disjoint()
 
     def __hash__(self):
         return hash(tuple(hash(arg) for arg in self.args))
@@ -557,8 +573,6 @@ class IndexSpace:
     An IndexSpace is a collection of cartesian sets associated with a label
     """
     subset: Dict[Any, CartesianSet]
-
-    _covering_cache: Union[None, Tuple[int, CartesianSet]]
 
     def __init__(self, definition: CartesianSet = None):
         self.subset = {}

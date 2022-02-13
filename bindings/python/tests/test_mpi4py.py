@@ -130,7 +130,7 @@ def test_pattern(mpi_cart_comm):
                                                      periodicity)
     #print("local_local: ", local_local_grid.subset["definition"])
 
-    pattern = ghex.make_pattern(context.__wrapped__, halo_gen.__wrapped__, [domain_desc.__wrapped__])
+    pattern = ghex.make_pattern(context, halo_gen, [domain_desc])
 
     co = ghex.CommunicationObject(context.get_communicator())
 
