@@ -57,6 +57,12 @@ struct context_type_exporter {
                 MPI_Comm mpi_comm = *PyMPIComm_Get(py_comm_obj.ptr());
 
                 return gridtools::ghex::tl::context_factory<typename context_type::tag>::create(mpi_comm);  }))
+#else
+            .def(py::init([] (pybind11::object&) {
+                throw std::runtime_error("Context construction reqires bindings to be compiled with mpi4py support.");
+
+                return static_cast<context_type*>(nullptr); // just to make pybind11 happy
+            }))
 #endif
             .def("rank", &context_type::rank)
             .def("size", &context_type::size)
