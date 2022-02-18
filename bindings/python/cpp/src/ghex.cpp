@@ -108,7 +108,14 @@ PYBIND11_MODULE(ghex_py_bindings, m) {
 
     m.doc() = "pybind11 ghex bindings"; // optional module docstring
 
-    m.def_submodule("utils").def("hash_str", [] (const std::string& val) { return std::hash<std::string>()(val); });
+    m.def_submodule("utils")
+        .def("hash_str", [] (const std::string& val) { return std::hash<std::string>()(val); })
+        .def("mpi_library_version", [] () {
+            int resultlen;
+            char version[MPI_MAX_LIBRARY_VERSION_STRING];
+            MPI_Get_library_version(version, &resultlen);
+            return std::string(version);
+        });
 
     using domain_id_type = int;
     using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, 3>>;
