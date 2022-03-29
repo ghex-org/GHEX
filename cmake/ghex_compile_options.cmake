@@ -2,7 +2,8 @@
 set(c_cxx_lang "$<COMPILE_LANGUAGE:C,CXX>")
 set(c_cxx_lang_clang "$<COMPILE_LANG_AND_ID:CXX,Clang>")
 set(cuda_lang "$<COMPILE_LANGUAGE:CUDA>")
-set(fortran_lang "$<COMPILE_LANGUAGE:Fortran>")
+set(fortran_lang_intel "$<COMPILE_LANG_AND_ID:Fortran,Intel>")
+set(fortran_lang_cray "$<COMPILE_LANG_AND_ID:Fortran,Cray>")
 set(fortran_lang_gnu "$<COMPILE_LANG_AND_ID:Fortran,GNU>")
 
 function(ghex_target_compile_options target)
@@ -13,8 +14,9 @@ function(ghex_target_compile_options target)
     # flags for CUDA builds
     $<${cuda_lang}:$<BUILD_INTERFACE:-Xcompiler=-Wall -Wextra -Wno-unknown-pragmas --default-stream per-thread>>
     # flags for Fortran builds
-    $<${fortran_lang}:$<BUILD_INTERFACE:-cpp -fcoarray=single>>
-    $<${fortran_lang_gnu}:$<BUILD_INTERFACE:-ffree-line-length-none>>)
+    $<${fortran_lang_intel}:$<BUILD_INTERFACE:-cpp>>
+    $<${fortran_lang_cray}:$<BUILD_INTERFACE:-eZ>>
+    $<${fortran_lang_gnu}:$<BUILD_INTERFACE:-cpp -ffree-line-length-none>>)
     if (OOMPH_ENABLE_BARRIER)
         target_compile_definitions(${target} PRIVATE GHEX_ENABLE_BARRIER)
     endif()
