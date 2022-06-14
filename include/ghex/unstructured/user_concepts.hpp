@@ -263,6 +263,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
   public:
     // constructors
+    // TO DO: check consistency between constructors (const ptr, size and size checks. Here and for the GPU)
     /** @brief constructs a CPU data descriptor
       * @tparam Container templated container type for the field to be wrapped; data are assumed to
       * be contiguous in memory
@@ -278,6 +279,19 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     , m_values{&(field[0])}
     {
         assert(field.size() == (domain.size() * domain.levels()));
+    }
+    /** @brief constructs a CPU data descriptor
+      * @param domain local domain instance
+      * @param field_ptr pointer to the field to be wrapped
+      * @param size size of the field to be wrapped*/
+    data_descriptor(
+        const domain_descriptor_type& domain, const value_type* const field_ptr, const std::size_t size)
+    : m_domain_id{domain.domain_id()}
+    , m_domain_size{domain.size()}
+    , m_levels{domain.levels()}
+    , m_values{field_ptr}
+    {
+        assert(size == (domain.size() * domain.levels()));
     }
 
     // member functions
