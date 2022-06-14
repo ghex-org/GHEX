@@ -35,12 +35,9 @@ MODULE ghex_unstructured_mod
     ! field descriptor
     type, bind(c) :: ghex_unstruct_field_desc
         type(c_ptr) :: domain = c_null_ptr
-        type(c_ptr) :: field = c_null_ptr ! OK
-        integer(c_int) :: field_size = 0 ! From HERE (included)
-        integer(c_int) :: device_id = GhexDeviceUnknown
+        type(c_ptr) :: field = c_null_ptr
+        integer(c_int) :: field_size = 0
     end type ghex_unstruct_field
-
-    ! To HERE
 
     ! ---------------------
     ! --- module C interfaces

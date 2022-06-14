@@ -48,6 +48,7 @@ ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_des
 struct ghex_unstruct_field_desc
 {
     ghex_unstruct_domain_desc* domain;
-    fp_type* // HERE
+    fp_type* field = nullptr;
+    int field_size;
 };
 } // namespace fhex
