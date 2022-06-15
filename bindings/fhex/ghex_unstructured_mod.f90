@@ -40,17 +40,10 @@ MODULE ghex_unstructured_mod
         type(c_ptr) :: field = c_null_ptr
     end type ghex_unstruct_field_desc
 
-    ! ---------------------
-    ! --- module C interfaces
-    ! ---------------------
-
-    interface
-        subroutine ghex_unstruct_pattern_setup_impl(pattern, domain_descs, n_domains) bind(c)
-            type(ghex_unstruct_pattern) :: pattern
-            type(c_ptr) :: domain_descs
-            integer(c_int) :: n_domains
-        end subroutine ghex_unstruct_pattern_setup_impl
-    end interface
+    ! communication object
+    type, bind(c) :: ghex_unstruct_communication_object
+        type(c_ptr) :: ptr = c_null_ptr
+    end type ghex_unstruct_communication_object
 
     ! ---------------------
     ! --- generic ghex interfaces
@@ -67,6 +60,24 @@ MODULE ghex_unstructured_mod
     interface ghex_unstruct_pattern_setup
         procedure :: ghex_unstruct_pattern_setup
     end interface ghex_unstruct_pattern_setup
+
+    interface ghex_unstruct_communication_object_init
+        subroutine ghex_unstruct_communication_object_init(co) bind(c)
+            type(ghex_unstruct_communication_object) :: co
+        end subroutine ghex_unstruct_communication_object_init
+    end interface ghex_unstruct_communication_object_init
+
+    ! ---------------------
+    ! --- module C interfaces
+    ! ---------------------
+
+    interface
+        subroutine ghex_unstruct_pattern_setup_impl(pattern, domain_descs, n_domains) bind(c)
+            type(ghex_unstruct_pattern) :: pattern
+            type(c_ptr) :: domain_descs
+            integer(c_int) :: n_domains
+        end subroutine ghex_unstruct_pattern_setup_impl
+    end interface
 
 CONTAINS
 

@@ -13,14 +13,16 @@
 #include <fhex/obj_wrapper.hpp>
 #include <fhex/context_bind.hpp>
 
-#include <ghex/unstructured/pattern.hpp>
 #include <ghex/unstructured/user_concepts.hpp>
+#include <ghex/unstructured/pattern.hpp> // grid and pattern_container included here
 
 namespace fhex
 {
-using unstruct_grid_type = ghex::unstructured::grid;
 using unstruct_domain_descriptor_type = ghex::unstructured::domain_descriptor<int, int>;
 using unstruct_halo_generator_type = ghex::unstructured::halo_generator<int, int>;
+using unstruct_grid_type = ghex::unstructured::grid;
+using unstruct_grid_detail_type = ghex::unstructured::detail::grid<std::size_t>;
+using unstruct_pattern_container_type = ghex::pattern_container<unstruct_grid_detail_type, int>;
 
 struct ghex_unstruct_domain_desc
 {
@@ -51,5 +53,11 @@ ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_des
     }
     unstruct_halo_generator_type hg{};
     *pattern = new obj_wrapper{ghex::make_pattern<unstruct_grid_type>(context(), hg, local_domains)};
+}
+
+extern "C" void
+ghex_unstruct_communication_object_init(obj_wrapper** co) // TO DO: check wrapper
+{
+    *co = new obj_wrapper{ghex::make_communication_object<unstruct_pattern_container_type>(context())};
 }
 } // namespace fhex
