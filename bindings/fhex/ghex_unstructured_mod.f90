@@ -34,10 +34,11 @@ MODULE ghex_unstructured_mod
 
     ! field descriptor
     type, bind(c) :: ghex_unstruct_field_desc
-        type(c_ptr) :: domain = c_null_ptr
+        integer(c_int) :: domain_id
+        integer(c_int) :: domain_size
+        integer(c_int) :: levels
         type(c_ptr) :: field = c_null_ptr
-        integer(c_int) :: field_size = 0
-    end type ghex_unstruct_field
+    end type ghex_unstruct_field_desc
 
     ! ---------------------
     ! --- module C interfaces
@@ -58,6 +59,10 @@ MODULE ghex_unstructured_mod
     interface ghex_unstruct_domain_desc_init
         procedure :: ghex_unstruct_domain_desc_init
     end interface ghex_unstruct_domain_desc_init
+
+    interface ghex_unstruct_field_desc_init
+        procedure :: ghex_unstruct_field_desc_init
+    end interface ghex_unstruct_field_desc_init
 
     interface ghex_unstruct_pattern_setup
         procedure :: ghex_unstruct_pattern_setup
@@ -81,6 +86,17 @@ CONTAINS
             domain_desc%levels = levels
         endif
     end subroutine ghex_unstruct_domain_desc_init
+
+    subroutine ghex_unstruct_field_desc_init(field_desc, domain_desc, field)
+        type(ghex_unstruct_field_desc) :: field_desc
+        type(ghex_unstruct_domain_desc) :: domain_desc
+        real(ghex_fp_kind), dimension(:), target :: field
+
+        field_desc%domain_id = domain_desc%id
+        field_desc%domain_size = domain_desc%total_size
+        field_desc%levels = domain_desc%levels
+        field_desc%field = c_loc(field)
+    end subroutine ghex_unstruct_field_desc_init
 
     subroutine ghex_unstruct_pattern_setup(pattern, domain_descs)
         type(ghex_unstruct_pattern) :: pattern

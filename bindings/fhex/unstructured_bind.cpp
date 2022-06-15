@@ -31,6 +31,14 @@ struct ghex_unstruct_domain_desc
     int levels;
 };
 
+struct ghex_unstruct_field_desc
+{
+    int domain_id;
+    int domain_size;
+    int levels;
+    fp_type* field = nullptr;
+};
+
 extern "C" void
 ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_desc* domain_descs, int n_domains) // TO DO: check wrapper
 {
@@ -44,11 +52,4 @@ ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_des
     unstruct_halo_generator_type hg{};
     *pattern = new obj_wrapper{ghex::make_pattern<unstruct_grid_type>(context(), hg, local_domains)};
 }
-
-struct ghex_unstruct_field_desc
-{
-    ghex_unstruct_domain_desc* domain;
-    fp_type* field = nullptr;
-    int field_size;
-};
 } // namespace fhex
