@@ -23,7 +23,9 @@ using unstruct_halo_generator_type = ghex::unstructured::halo_generator<int, int
 using unstruct_field_descriptor_cpu_type = ghex::unstructured::data_descriptor<ghex::cpu, int, int, fp_type>;
 using unstruct_grid_type = ghex::unstructured::grid;
 using unstruct_grid_detail_type = ghex::unstructured::detail::grid<std::size_t>;
+using unstruct_pattern_type = ghex::pattern<unstructured_grid_detail_type, int>;
 using unstruct_pattern_container_type = ghex::pattern_container<unstruct_grid_detail_type, int>;
+using unstruct_buffer_info_type = ghex::buffer_info<unstruct_pattern_type, ghex::cpu, unstruct_field_descriptor_cpu_type>;
 
 struct ghex_unstruct_domain_desc
 {
@@ -45,7 +47,7 @@ struct ghex_unstruct_field_desc
 class exchange_args
 {
   public: // member types
-    using arg_type = std::pair<unstruct_pattern_container_type*, unstruct_field_descriptor_cpu_type>; // TO DO: const ref?
+    using arg_type = unstruct_buffer_info_type;
 
   public: // ctors
     exchange_args() noexcept = default;
@@ -59,19 +61,18 @@ class exchange_args
   public: // member functions
     void add(unstruct_pattern_container_type* p, ghex_unstruct_field_desc* f) // TO DO: const ref?
     {
-        m_args.emplace_back({p, {f->domain_id, f->domain_size, f->levels, f->field}}); // TO DO: check constructors used and std::forward
+        m_fields.emplace_back({f->domain_id, f->domain_size, f->levels, f->field});
+        m_args.emplace_back(p->operator()(m_fields.back()));
     }
 
-    const std::vector<arg_type>& get_args() const
-    {
-        return m_args;
-    }
-    std::vector<arg_type>& get_args()
-    {
-        return m_args;
-    }
+    auto begin() { return m_args.begin(); }
+    auto end() { return m_args.end(); }
+
+    const std::vector<arg_type>& get() const { return m_args; }
+    std::vector<arg_type>& get() { return m_args; }
 
   private:
+    std::vector<unstruct_field_descriptor_cpu_type> m_fields;
     std::vector<arg_type> m_args;
 };
 
