@@ -34,9 +34,9 @@ MODULE ghex_unstructured_mod
 
     ! field descriptor
     type, bind(c) :: ghex_unstruct_field_desc
-        integer(c_int) :: domain_id
-        integer(c_int) :: domain_size
-        integer(c_int) :: levels
+        integer(c_int) :: domain_id = -1
+        integer(c_int) :: domain_size = 0
+        integer(c_int) :: levels = 1
         type(c_ptr) :: field = c_null_ptr
     end type ghex_unstruct_field_desc
 
@@ -70,6 +70,29 @@ MODULE ghex_unstructured_mod
     interface ghex_unstruct_pattern_setup
         procedure :: ghex_unstruct_pattern_setup
     end interface ghex_unstruct_pattern_setup
+
+    interface ghex_free
+        subroutine ghex_unstruct_pattern_free(pattern) bind(c, name="ghex_obj_free")
+            type(ghex_unstruct_pattern) :: pattern
+        end subroutine ghex_unstruct_pattern_free
+
+        subroutine ghex_unstruct_communication_object_free(co) bind(c, name="ghex_obj_free")
+            type(ghex_unstruct_communication_object) :: co
+        end subroutine ghex_unstruct_communication_object_free
+
+        subroutine ghex_unstruct_exchange_args_free(args) bind(c, name="ghex_obj_free")
+            type(ghex_unstruct_exchange_args) :: args
+        end subroutine ghex_unstruct_exchange_args_free
+
+        subroutine ghex_unstruct_exchange_handle_free(h) bind(c, name="ghex_obj_free")
+            type(ghex_unstruct_exchange_handle) :: h
+        end subroutine ghex_unstruct_exchange_handle_free
+    end interface ghex_free
+
+    interface ghex_clear
+        procedure :: ghex_unstruct_domain_desc_clear
+        procedure :: ghex_unstruct_field_desc_clear
+    end interface ghex_clear
 
     ! ---------------------
     ! --- module C interfaces
@@ -151,5 +174,24 @@ CONTAINS
         type(ghex_unstruct_domain_desc), dimension(:), target :: domain_descs
         call ghex_unstruct_pattern_setup_impl(pattern, c_loc(domain_descs), size(domain_descs))
     end subroutine ghex_unstruct_pattern_setup
+
+    subroutine ghex_unstruct_domain_desc_clear(domain_desc)
+        type(ghex_unstruct_domain_desc) :: domain_desc
+
+        domain_desc%id = -1
+        domain_desc%vertices = c_null_ptr
+        domain_desc%total_size = 0
+        domain_desc%inner_size = 0
+        domain_desc%levels = 1
+    end subroutine ghex_unstruct_domain_desc_clear
+
+    subroutine ghex_unstruct_field_desc_clear(field_desc)
+        type(ghex_unstruct_field_desc) :: field_desc
+
+        field_desc%domain_id = -1
+        field_desc%domain_size = 0
+        field_desc%levels = 1
+        field_desc%field = c_null_ptr
+    end subroutine ghex_unstruct_field_desc_clear
 
 END MODULE ghex_unstructured_mod
