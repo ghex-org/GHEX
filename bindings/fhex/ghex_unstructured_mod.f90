@@ -50,6 +50,11 @@ MODULE ghex_unstructured_mod
         type(c_ptr) :: ptr = c_null_ptr
     end type ghex_unstruct_exchange_args
 
+    ! exchange handle
+    type, bind(c) :: ghex_unstruct_exchange_handle
+        type(c_ptr) :: ptr = c_null_ptr
+    end type ghex_unstruct_exchange_handle
+
     ! ---------------------
     ! --- generic ghex interfaces
     ! ---------------------
@@ -96,6 +101,13 @@ MODULE ghex_unstructured_mod
             type(ghex_unstruct_pattern) :: pattern
             type(ghex_unstruct_field_desc) :: field_desc
         end subroutine ghex_unstruct_exchange_args_add
+    end interface
+
+    interface
+        type(ghex_unstruct_exchange_handle) function ghex_unstruct_exchange(co, args) bind(c)
+            type(ghex_unstruct_communication_object) :: co
+            type(ghex_unstruct_exchange_args) :: args
+        end function ghex_unstruct_exchange
     end interface
 
 CONTAINS

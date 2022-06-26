@@ -26,6 +26,8 @@ using unstruct_grid_detail_type = ghex::unstructured::detail::grid<std::size_t>;
 using unstruct_pattern_type = ghex::pattern<unstructured_grid_detail_type, int>;
 using unstruct_pattern_container_type = ghex::pattern_container<unstruct_grid_detail_type, int>;
 using unstruct_buffer_info_type = ghex::buffer_info<unstruct_pattern_type, ghex::cpu, unstruct_field_descriptor_cpu_type>;
+using unstruct_communication_object_type = ghex::communication_object<unstructured_grid_detail_type, int>;
+using unstruct_exchange_handle_type = unstruct_communication_object_type::handle_type;
 
 struct ghex_unstruct_domain_desc
 {
@@ -108,5 +110,13 @@ ghex_unstruct_exchange_args_add(obj_wrapper** args, obj_wrapper** pattern, ghex_
     exchange_args* args_ptr = get_object_ptr_unsafe<exchange_args>(*args);
     unstruct_pattern_container_type* pattern_ptr = get_object_ptr_unsafe<unstruct_pattern_container_type>(*pattern);
     args_ptr->add(pattern_ptr, field_desc);
+}
+
+extern "C" void*
+ghex_unstruct_exchange(obj_wrapper** co, obj_wrapper** args)
+{
+    unstruct_communication_object_type* co_ptr = get_object_ptr_unsafe<unstruct_communication_object_type>(*co);
+    exchange_args* args_ptr = get_object_ptr_unsafe<exchange_args>(*args);
+    return new obj_wrapper{co_ptr->exchange(args_ptr->begin(), args_ptr->end())};
 }
 } // namespace fhex
