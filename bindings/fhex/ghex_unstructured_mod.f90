@@ -110,6 +110,12 @@ MODULE ghex_unstructured_mod
         end function ghex_unstruct_exchange
     end interface
 
+    interface
+        subroutine ghex_unstruct_exchange_handle_wait(h) bind(c)
+            type(ghex_unstruct_exchange_handle) :: h
+        end subroutine ghex_unstruct_exchange_handle_wait
+    end interface
+
 CONTAINS
 
     subroutine ghex_unstruct_domain_desc_init(domain_desc, id, vertices, total_size, inner_size, levels)

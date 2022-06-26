@@ -119,4 +119,11 @@ ghex_unstruct_exchange(obj_wrapper** co, obj_wrapper** args)
     exchange_args* args_ptr = get_object_ptr_unsafe<exchange_args>(*args);
     return new obj_wrapper{co_ptr->exchange(args_ptr->begin(), args_ptr->end())};
 }
+
+extern "C" void
+ghex_unstruct_exchange_handle_wait(obj_wrapper** h)
+{
+    unstruct_exchange_handle_type* h_ptr = get_object_ptr_unsafe<unstruct_exchange_handle_type>(*h);
+    h_ptr->wait();
+}
 } // namespace fhex
