@@ -161,7 +161,7 @@ CONTAINS
     subroutine ghex_unstruct_field_desc_init(field_desc, domain_desc, field)
         type(ghex_unstruct_field_desc) :: field_desc
         type(ghex_unstruct_domain_desc) :: domain_desc
-        real(ghex_fp_kind), dimension(:), target :: field
+        real(ghex_fp_kind), dimension(:,:), target :: field
 
         field_desc%domain_id = domain_desc%id
         field_desc%domain_size = domain_desc%total_size

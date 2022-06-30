@@ -10,91 +10,206 @@ PROGRAM test_halo_exchange
     ! SPDX-License-Identifier: BSD-3-Clause
     !
 
-    use iso_c_binding
-    use ghex_mod
-    use ghex_unstructured_mod
+    use iso_c_binding ! TO DO: should not be needed here
+    use ghex_mod ! ghex_init() etc.
+    use ghex_unstructured_mod ! ghex unstruct bindings
 
     implicit none
 
     include 'mpif.h'
 
-    ! TO DO: mpi variables
-    ! TO DO: nthreads
-    ! TO DO: nfields
+    ! utils
+    integer :: mpi_err, world_rank, world_size, it
+    real :: tic, toc
+    logical :: passed = .true.
 
-    ! data field pointers
+    ! parameters
+    integer, parameter :: niters = 1
+    integer, parameter :: nfields = 4
+
+    ! application domain
+    integer, dimension(:), pointer :: vertices
+
+    ! application field pointers
     type hptr
-        real(kind=4), dimension(:,:), pointer :: ptr
+        real(ghex_fp_kind), dimension(:,:), pointer :: ptr
     end type hptr
-    type(hptr) :: data_ptr(4) ! TO DO data_ptr(nfields_max)
+    type(hptr) :: field_ptrs(nfields)
 
-    ! GHEX stuff
-    type(ghex_struct_domain)               :: domain_desc  ! domain descriptor
-    type(ghex_struct_field)                :: field_desc   ! field descriptor
-    type(ghex_struct_communication_object) :: co           ! communication object
-    type(ghex_struct_exchange_descriptor)  :: ed           ! exchange descriptor
-    type(ghex_struct_exchange_handle)      :: eh           ! exchange handle
+    ! GHEX types
+    type(ghex_unstruct_domain_desc)          :: domain_desc ! domain descriptor (TO DO: array?)
+    type(ghex_unstruct_pattern)              :: pattern ! pattern
+    type(ghex_unstruct_field_desc)           :: field_descs(nfields) ! field descriptors
+    type(ghex_unstruct_communication_object) :: co ! communication object
+    type(ghex_unstruct_exchange_args)        :: args ! exchange arguments
+    type(ghex_unstruct_exchange_handle)      :: h ! exchange handle
 
     ! init mpi
-    call mpi_init_thread (MPI_THREAD_SINGLE, mpi_threading, mpi_err)
+    call mpi_init(mpi_err) ! TO DO: mpi_init_thread
     call mpi_comm_rank(mpi_comm_world, world_rank, mpi_err)
     call mpi_comm_size(mpi_comm_world, world_size, mpi_err)
 
-    ! allocate and initialize data
-    it = 1
-    do while (it <= nfields)
-    ! allocate(data_ptr(it)%ptr(...), source=-1.0)
-    ! data_ptr(it)%ptr(...) = ...
-    it = it+1
+    ! init GHEX
+    call ghex_init(1, mpi_comm_world) ! TO DO: multithread
+
+    ! application domain decomposition
+    call domain_decompose(world_rank, vertices)
+
+    ! init GHEX domain descriptor
+    call domain_desc_init(domain_desc, world_rank, vertices)
+
+    ! setup GHEX pattern
+    call ghex_unstruct_pattern_setup(pattern, domain_desc) ! TO DO: in case, array
+
+    ! application data
+    do it = 1, nfields
+        call field_init(field_ptrs(it), it, domain_desc)
     end do
 
-    ! ------ GHEX
-    call ghex_init(nthreads, mpi_comm_world)
-
-    ! create domain description
-    call ghex_domain_init(domain_desc, ...)
-
-    ! initialize the field datastructure
-    it = 1
-    do while (it <= nfields)
-    call ghex_field_init(field_desc, ...)
-    call ghex_exchange_desc_add_field(domain_desc, field_desc)
-    call ghex_free(field_desc)
-    it = it+1
+    ! init GHEX field descriptors
+    do it = 1, nfields
+        ghex_unstruct_field_desc_init(field_descs(it), domain_desc, field_ptrs(it)%ptr)
     end do
 
-    ! compute the halo information for all domains and fields
-    ed = ghex_exchange_desc_new(domain_desc, field_desc)
+    ! init GHEX communication object
+    call ghex_unstruct_communication_object_init(co)
 
-    ! create communication object
-    call ghex_co_init(co)
+    ! init GHEX exchange args
+    call ghex_unstruct_exchange_args_init(args)
+
+    ! add pattern-field matches to GHEX exchange args
+    do it = 1, nfields
+        call ghex_unstruct_exchange_args_add(args, pattern, field_descs(it))
+    end do
 
     ! exchange loop
-    it = 0
     call cpu_time(tic)
-    do while (it < niters)
-    eh = ghex_exchange(co, ed)
-    call ghex_wait(eh)
-    call ghex_free(eh)
-    it = it+1
+    do it = 1, niters
+        h = ghex_unstruct_exchange(co, args)
+        call ghex_unstruct_exchange_handle_wait(h)
+        call ghex_free(h)
     end do
 #ifdef GHEX_ENABLE_BARRIER
     call ghex_barrier(GhexBarrierGlobal)
 #endif
     call cpu_time(toc)
-    if (world_rank == 0) then
-        print *, "exchange time:      ", (toc-tic)
+
+    ! validate results
+    do it = 1, nfields
+        passed = passed .and. field_check(field_ptrs(it), it, domain_desc)
+    end do
+
+    ! print results
+    if (passed) then
+        print *, "rank ", world_rank, ": PASSED"
+        if (world_rank == 0) then
+            print *, "exchange time for rank 0: ", (toc-tic)
+        end if
+    else
+        print *, "rank ", world_rank, ": FAILED"
     end if
 
-    ! validate the results
-    ! call test_exchange(data_ptr, rank_coord)
-
-    ! cleanup
+    ! cleanup GHEX
+    call ghex_free(args)
     call ghex_free(co)
-    call ghex_free(domain_desc)
-    call ghex_free(ed)
+    call ghex_free(pattern)
+    do it = 1, nfields
+        call ghex_clear(field_descs(it))
+    end do
+    call ghex_clear(domain_desc)
+
+    ! cleanup application
+    do it = 1, nfields
+        deallocate(field_ptrs(it)%ptr)
+    end do
+    deallocate(vertices)
+
+    ! finalize GHEX
     call ghex_finalize()
+
+    ! finalize mpi
     call mpi_finalize(mpi_err)
-    call exit(0)
+
+    if (passed) then
+        call exit(0)
+    else
+        call exit(1)
+    end if
+
+contains
+
+    subroutine domain_decompose(id, vertices)
+        integer :: id
+        integer, dimension(:), pointer :: vertices ! TO DO: target?
+
+        select case(id)
+        case(0)
+            allocate(vertices(9))
+            vertices = (/0, 13, 5, 2, 1, 3, 7, 11, 20/)
+        case(1)
+            allocate(vertices(11))
+            vertices = (/1, 19, 20, 4, 7, 15, 8, 0, 9, 13, 16/)
+        case(2)
+            allocate(vertices(6))
+            vertices = (/3, 16, 18, 1, 5, 6/)
+        case(3)
+            allocate(vertices(9))
+            vertices = (/17, 6, 11, 10, 12, 9, 0, 3, 4/)
+        endselect
+    end subroutine domain_decompose
+
+    subroutine domain_desc_init(domain_desc, id, vertices)
+        type(ghex_unstruct_domain_desc) :: domain_desc
+        integer :: id
+        integer, dimension(:), target :: vertices ! TO DO: pointer?
+
+        select case(id)
+        case(0)
+            call ghex_unstruct_domain_desc_init(domain_desc, 0, vertices, 9, 4, 10) ! 10 vertical layers
+        case(1)
+            call ghex_unstruct_domain_desc_init(domain_desc, 1, vertices, 11, 7, 10) ! 10 vertical layers
+        case(2)
+            call ghex_unstruct_domain_desc_init(domain_desc, 2, vertices, 6, 3, 10) ! 10 vertical layers
+        case(3)
+            call ghex_unstruct_domain_desc_init(domain_desc, 3, vertices, 9, 6, 10) ! 10 vertical layers
+        endselect
+    end subroutine domain_desc_init
+
+    subroutine field_init(field_ptr, field_id, domain_desc)
+        type(hptr) :: field_ptr
+        integer :: field_id
+        type(ghex_unstruct_domain_desc) :: domain_desc
+        integer :: i, j
+        real(ghex_fp_kind) :: part_1, part_2
+
+        allocate(field_ptr%ptr(domain_desc%levels, domain_desc%total_size), source=-1.)
+        ! part_1 = domain_id * 10000 + field_id * 1000
+        part_1 = field_id * 1000 ! TO DO: domain_id temporarily removed for simplicity
+        do j = 1, domain_desc%inner_size
+            part_2 = part_1 + domain_vertices(j) * 10
+            do i = 1, levels
+                field_ptr%ptr(i, j) = part_2 + i
+            end do
+        end do
+    end subroutine field_init
+
+    logical function field_check(field_ptr, field_id, domain_desc)
+        type(hptr) :: field_ptr
+        integer :: field_id
+        type(ghex_unstruct_domain_desc) :: domain_desc
+        integer :: i, j
+        real(ghex_fp_kind) :: part_1, part_2
+        logical :: passed = .true.
+
+        part_1 = field_id * 1000 ! TO DO: domain_id temporarily removed for simplicity
+        do j = domain_desc%inner_size + 1, domain_desc%total_size
+            part_2 = part_1 + domain_vertices(j) * 10
+            do i = 1, levels
+                passed = passed .and. ((field_ptr%ptr(i, j)) == (part_2 + i))
+            end do
+        end do
+
+        field_check = passed
+    end function field_check
 
 END PROGRAM test_halo_exchange
