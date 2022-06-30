@@ -10,11 +10,13 @@
 
 #include <vector>
 
+#include <fhex/ghex_defs.hpp>
 #include <fhex/obj_wrapper.hpp>
 #include <fhex/context_bind.hpp>
 
 #include <ghex/unstructured/user_concepts.hpp> // ghex arch traits included here
 #include <ghex/unstructured/pattern.hpp> // grid and pattern_container included here
+#include <ghex/communication_object.hpp>
 
 namespace fhex
 {
@@ -23,10 +25,10 @@ using unstruct_halo_generator_type = ghex::unstructured::halo_generator<int, int
 using unstruct_field_descriptor_cpu_type = ghex::unstructured::data_descriptor<ghex::cpu, int, int, fp_type>;
 using unstruct_grid_type = ghex::unstructured::grid;
 using unstruct_grid_detail_type = ghex::unstructured::detail::grid<std::size_t>;
-using unstruct_pattern_type = ghex::pattern<unstructured_grid_detail_type, int>;
+using unstruct_pattern_type = ghex::pattern<unstruct_grid_detail_type, int>;
 using unstruct_pattern_container_type = ghex::pattern_container<unstruct_grid_detail_type, int>;
 using unstruct_buffer_info_type = ghex::buffer_info<unstruct_pattern_type, ghex::cpu, unstruct_field_descriptor_cpu_type>;
-using unstruct_communication_object_type = ghex::communication_object<unstructured_grid_detail_type, int>;
+using unstruct_communication_object_type = ghex::communication_object<unstruct_grid_detail_type, int>;
 using unstruct_exchange_handle_type = unstruct_communication_object_type::handle_type;
 
 struct ghex_unstruct_domain_desc
@@ -63,7 +65,8 @@ class exchange_args
   public: // member functions
     void add(unstruct_pattern_container_type* p, ghex_unstruct_field_desc* f) // TO DO: const ref?
     {
-        m_fields.emplace_back({f->domain_id, f->domain_size, f->levels, f->field});
+        m_fields.emplace_back(
+            unstruct_field_descriptor_cpu_type{f->domain_id, f->domain_size, f->levels, f->field}); // TO DO: explicit name? cast?
         m_args.emplace_back(p->operator()(m_fields.back()));
     }
 
@@ -82,7 +85,7 @@ extern "C" void
 ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_desc* domain_descs, int n_domains) // TO DO: check wrapper (everywhere obj_wrapper occurs)
 {
     std::vector<unstruct_domain_descriptor_type> local_domains{};
-    local_domain.reserve(n_domains);
+    local_domains.reserve(n_domains);
     for (std::size_t i = 0; i < n_domains; ++i)
     {
         const auto& d = domain_descs[i];

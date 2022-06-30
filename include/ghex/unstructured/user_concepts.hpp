@@ -300,7 +300,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @param field_ptr pointer to the field to be wrapped*/
     data_descriptor(
         const domain_id_type domain_id, const std::size_t domain_size, const std::size_t levels,
-        const value_type* const field_ptr)
+        value_type* const field_ptr)
     : m_domain_id{domain_id}
     , m_domain_size{domain_size}
     , m_levels{levels}
