@@ -15,10 +15,12 @@ target_link_libraries(fhex PUBLIC MPI::MPI_Fortran)
 target_sources(fhex PRIVATE obj_wrapper.cpp)
 target_sources(fhex PRIVATE context_bind.cpp)
 target_sources(fhex PRIVATE structured_staged_bind.cpp)
+target_sources(fhex PRIVATE unstructured_bind.cpp)
 
 target_sources(fhex PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ghex_defs.f90)
 target_sources(fhex PUBLIC ghex_mod.f90)
 target_sources(fhex PUBLIC ghex_structured_mod.f90)
+target_sources(fhex PUBLIC ghex_unstructured_mod.f90)
 
 install(TARGETS fhex
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -30,5 +32,6 @@ install(
 #        ${CMAKE_CURRENT_BINARY_DIR}/ghex_cubed_sphere_mod.mod
         ${CMAKE_CURRENT_BINARY_DIR}/ghex_mod.mod
         ${CMAKE_CURRENT_BINARY_DIR}/ghex_structured_mod.mod
+        ${CMAKE_CURRENT_BINARY_DIR}/ghex_unstructured_mod.mod
     DESTINATION
         ${CMAKE_INSTALL_INCLUDEDIR}/fhex)
