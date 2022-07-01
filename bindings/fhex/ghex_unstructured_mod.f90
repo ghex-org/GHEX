@@ -73,18 +73,22 @@ MODULE ghex_unstructured_mod
 
     interface ghex_free
         subroutine ghex_unstruct_pattern_free(pattern) bind(c, name="ghex_obj_free")
+            import ghex_unstruct_pattern
             type(ghex_unstruct_pattern) :: pattern
         end subroutine ghex_unstruct_pattern_free
 
         subroutine ghex_unstruct_communication_object_free(co) bind(c, name="ghex_obj_free")
+            import ghex_unstruct_communication_object
             type(ghex_unstruct_communication_object) :: co
         end subroutine ghex_unstruct_communication_object_free
 
         subroutine ghex_unstruct_exchange_args_free(args) bind(c, name="ghex_obj_free")
+            import ghex_unstruct_exchange_args
             type(ghex_unstruct_exchange_args) :: args
         end subroutine ghex_unstruct_exchange_args_free
 
         subroutine ghex_unstruct_exchange_handle_free(h) bind(c, name="ghex_obj_free")
+            import ghex_unstruct_exchange_handle
             type(ghex_unstruct_exchange_handle) :: h
         end subroutine ghex_unstruct_exchange_handle_free
     end interface ghex_free
@@ -100,6 +104,8 @@ MODULE ghex_unstructured_mod
 
     interface
         subroutine ghex_unstruct_pattern_setup_impl(pattern, domain_descs, n_domains) bind(c)
+            use iso_c_binding, only: c_ptr, c_int
+            import ghex_unstruct_pattern
             type(ghex_unstruct_pattern) :: pattern
             type(c_ptr) :: domain_descs
             integer(c_int) :: n_domains
@@ -108,18 +114,21 @@ MODULE ghex_unstructured_mod
 
     interface
         subroutine ghex_unstruct_communication_object_init(co) bind(c)
+            import ghex_unstruct_communication_object
             type(ghex_unstruct_communication_object) :: co
         end subroutine ghex_unstruct_communication_object_init
     end interface
 
     interface
         subroutine ghex_unstruct_exchange_args_init(args) bind(c)
+            import ghex_unstruct_exchange_args
             type(ghex_unstruct_exchange_args) :: args
         end subroutine ghex_unstruct_exchange_args_init
     end interface
 
     interface
         subroutine ghex_unstruct_exchange_args_add(args, pattern, field_desc) bind(c)
+            import ghex_unstruct_exchange_args, ghex_unstruct_pattern, ghex_unstruct_field_desc
             type(ghex_unstruct_exchange_args) :: args
             type(ghex_unstruct_pattern) :: pattern
             type(ghex_unstruct_field_desc) :: field_desc
@@ -128,6 +137,7 @@ MODULE ghex_unstructured_mod
 
     interface
         type(ghex_unstruct_exchange_handle) function ghex_unstruct_exchange(co, args) bind(c)
+            import ghex_unstruct_exchange_handle, ghex_unstruct_communication_object, ghex_unstruct_exchange_args
             type(ghex_unstruct_communication_object) :: co
             type(ghex_unstruct_exchange_args) :: args
         end function ghex_unstruct_exchange
@@ -135,6 +145,7 @@ MODULE ghex_unstructured_mod
 
     interface
         subroutine ghex_unstruct_exchange_handle_wait(h) bind(c)
+            import ghex_unstruct_exchange_handle
             type(ghex_unstruct_exchange_handle) :: h
         end subroutine ghex_unstruct_exchange_handle_wait
     end interface

@@ -25,9 +25,13 @@ PROGRAM test_halo_exchange
 
     ! parameters
     integer, parameter :: niters = 1
+    integer, parameter :: ndomains = 1
     integer, parameter :: nfields = 4
 
     ! application domain
+    ! TO DO: the test application is currently implemented assuming 1 domain per rank,
+    ! despite GHEX built-in support for multiple domains per rank.
+    ! For tests with multiple domains a minor refactoring is needed.
     integer, dimension(:), pointer :: vertices
 
     ! application field pointers
@@ -37,7 +41,7 @@ PROGRAM test_halo_exchange
     type(hptr) :: field_ptrs(nfields)
 
     ! GHEX types
-    type(ghex_unstruct_domain_desc)          :: domain_desc ! domain descriptor (TO DO: array?)
+    type(ghex_unstruct_domain_desc)          :: domain_descs(ndomains) ! domain descriptors
     type(ghex_unstruct_pattern)              :: pattern ! pattern
     type(ghex_unstruct_field_desc)           :: field_descs(nfields) ! field descriptors
     type(ghex_unstruct_communication_object) :: co ! communication object
@@ -55,20 +59,24 @@ PROGRAM test_halo_exchange
     ! application domain decomposition
     call domain_decompose(world_rank, vertices)
 
-    ! init GHEX domain descriptor
-    call domain_desc_init(domain_desc, world_rank, vertices)
+    ! init GHEX domain descriptors
+    do it = 1, ndomains
+        call domain_desc_init(domain_descs(it), world_rank, vertices)
+    end do
 
     ! setup GHEX pattern
-    call ghex_unstruct_pattern_setup(pattern, domain_desc) ! TO DO: in case, array
+    call ghex_unstruct_pattern_setup(pattern, domain_descs)
 
     ! application data
+    ! TO DO: all fields are defined on the first (and only) domain
     do it = 1, nfields
-        call field_init(field_ptrs(it), it, domain_desc)
+        call field_init(field_ptrs(it), it, domain_descs(1), vertices)
     end do
 
     ! init GHEX field descriptors
+    ! TO DO: all fields are defined on the first (and only) domain
     do it = 1, nfields
-        ghex_unstruct_field_desc_init(field_descs(it), domain_desc, field_ptrs(it)%ptr)
+        call ghex_unstruct_field_desc_init(field_descs(it), domain_descs(1), field_ptrs(it)%ptr)
     end do
 
     ! init GHEX communication object
@@ -95,8 +103,9 @@ PROGRAM test_halo_exchange
     call cpu_time(toc)
 
     ! validate results
+    ! TO DO: all fields are defined on the first (and only) domain
     do it = 1, nfields
-        passed = passed .and. field_check(field_ptrs(it), it, domain_desc)
+        passed = passed .and. field_check(field_ptrs(it), it, domain_descs(1), vertices)
     end do
 
     ! print results
@@ -116,7 +125,9 @@ PROGRAM test_halo_exchange
     do it = 1, nfields
         call ghex_clear(field_descs(it))
     end do
-    call ghex_clear(domain_desc)
+    do it = 1, ndomains
+        call ghex_clear(domain_descs(it))
+    end do
 
     ! cleanup application
     do it = 1, nfields
@@ -175,10 +186,11 @@ contains
         endselect
     end subroutine domain_desc_init
 
-    subroutine field_init(field_ptr, field_id, domain_desc)
+    subroutine field_init(field_ptr, field_id, domain_desc, vertices)
         type(hptr) :: field_ptr
         integer :: field_id
         type(ghex_unstruct_domain_desc) :: domain_desc
+        integer, dimension(:), target :: vertices ! TO DO: pointer?
         integer :: i, j
         real(ghex_fp_kind) :: part_1, part_2
 
@@ -186,25 +198,26 @@ contains
         ! part_1 = domain_id * 10000 + field_id * 1000
         part_1 = field_id * 1000 ! TO DO: domain_id temporarily removed for simplicity
         do j = 1, domain_desc%inner_size
-            part_2 = part_1 + domain_vertices(j) * 10
-            do i = 1, levels
+            part_2 = part_1 + vertices(j) * 10
+            do i = 1, domain_desc%levels
                 field_ptr%ptr(i, j) = part_2 + i
             end do
         end do
     end subroutine field_init
 
-    logical function field_check(field_ptr, field_id, domain_desc)
+    logical function field_check(field_ptr, field_id, domain_desc, vertices)
         type(hptr) :: field_ptr
         integer :: field_id
         type(ghex_unstruct_domain_desc) :: domain_desc
+        integer, dimension(:), target :: vertices ! TO DO: pointer?
         integer :: i, j
         real(ghex_fp_kind) :: part_1, part_2
         logical :: passed = .true.
 
         part_1 = field_id * 1000 ! TO DO: domain_id temporarily removed for simplicity
         do j = domain_desc%inner_size + 1, domain_desc%total_size
-            part_2 = part_1 + domain_vertices(j) * 10
-            do i = 1, levels
+            part_2 = part_1 + vertices(j) * 10
+            do i = 1, domain_desc%levels
                 passed = passed .and. ((field_ptr%ptr(i, j)) == (part_2 + i))
             end do
         end do
