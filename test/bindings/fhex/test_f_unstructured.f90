@@ -198,11 +198,11 @@ contains
 
         allocate(field_ptr%ptr(domain_desc%levels, domain_desc%total_size), source=-1.)
         ! part_1 = domain_id * 10000 + field_id * 1000
-        part_1 = field_id * 1000 ! TO DO: domain_id temporarily removed for simplicity
+        part_1 = (field_id - 1) * 1000 ! TO DO: domain_id temporarily removed for simplicity
         do j = 1, domain_desc%inner_size
             part_2 = part_1 + vertices(j) * 10
             do i = 1, domain_desc%levels
-                field_ptr%ptr(i, j) = part_2 + i
+                field_ptr%ptr(i, j) = part_2 + i - 1
             end do
         end do
     end subroutine field_init
@@ -216,11 +216,11 @@ contains
         real(ghex_fp_kind) :: part_1, part_2
         logical :: passed = .true.
 
-        part_1 = field_id * 1000 ! TO DO: domain_id temporarily removed for simplicity
+        part_1 = (field_id - 1) * 1000 ! TO DO: domain_id temporarily removed for simplicity
         do j = domain_desc%inner_size + 1, domain_desc%total_size
             part_2 = part_1 + vertices(j) * 10
             do i = 1, domain_desc%levels
-                passed = passed .and. ((field_ptr%ptr(i, j)) == (part_2 + i))
+                passed = passed .and. ((field_ptr%ptr(i, j)) == (part_2 + i - 1))
             end do
         end do
 
