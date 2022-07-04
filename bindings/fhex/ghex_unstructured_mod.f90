@@ -107,8 +107,8 @@ MODULE ghex_unstructured_mod
             use iso_c_binding, only: c_ptr, c_int
             import ghex_unstruct_pattern
             type(ghex_unstruct_pattern) :: pattern
-            type(c_ptr) :: domain_descs
-            integer(c_int) :: n_domains
+            type(c_ptr), value :: domain_descs ! TO DO: value?
+            integer(c_int), value :: n_domains ! TO DO: value?
         end subroutine ghex_unstruct_pattern_setup_impl
     end interface
 
