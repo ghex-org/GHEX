@@ -74,7 +74,14 @@ class exchange_args
         m_patterns.push_back(p); // TO DO: emplace_back?
         if (m_fields.size() == m_fields.capacity()) m_valid = false;
         m_fields.emplace_back(f->domain_id, f->domain_size, f->levels, f->field);
-        validate();
+        if (m_valid)
+        {
+            m_args.emplace_back(m_patterns.back()->operator()(m_fields.back()));
+        }
+        else
+        {
+            validate();
+        }
     }
 
     auto begin() { return m_args.begin(); }
