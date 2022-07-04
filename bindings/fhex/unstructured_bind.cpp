@@ -54,20 +54,27 @@ class exchange_args
     using arg_type = unstruct_buffer_info_type;
 
   public: // ctors
-    exchange_args() noexcept = default;
+    exchange_args() noexcept
+    : m_patterns{}
+    , m_fields{}
+    , m_args{}
+    , m_valid{true}
+    {
+    }
 
-    exchange_args(const exchange_args&) noexcept = default;
-    exchange_args(exchange_args&&) noexcept = default;
+    exchange_args(const exchange_args&) noexcept = delete;
+    exchange_args(exchange_args&&) noexcept = default; // TO DO: m_valid?
 
-    exchange_args& operator=(const exchange_args&) noexcept = default;
-    exchange_args& operator=(exchange_args&&) noexcept = default;
+    exchange_args& operator=(const exchange_args&) noexcept = delete;
+    exchange_args& operator=(exchange_args&&) noexcept = default; // TO DO: m_valid?
 
   public: // member functions
     void add(unstruct_pattern_container_type* p, ghex_unstruct_field_desc* f) // TO DO: const ref?
     {
-        m_fields.emplace_back(
-            unstruct_field_descriptor_cpu_type{f->domain_id, f->domain_size, f->levels, f->field}); // TO DO: explicit name? cast?
-        m_args.emplace_back(p->operator()(m_fields.back()));
+        m_patterns.push_back(p); // TO DO: emplace_back?
+        if (m_fields.size() == m_fields.capacity()) m_valid = false;
+        m_fields.emplace_back(f->domain_id, f->domain_size, f->levels, f->field);
+        validate();
     }
 
     auto begin() { return m_args.begin(); }
@@ -76,9 +83,25 @@ class exchange_args
     const std::vector<arg_type>& get() const { return m_args; }
     std::vector<arg_type>& get() { return m_args; }
 
+  private: // member functions
+    void validate()
+    {
+        if (!m_valid)
+        {
+            m_args.clear();
+            for (auto i = 0; i < m_patterns.size(); ++i)
+            {
+                m_args.emplace_back(m_patterns[i]->operator()(m_fields[i]));
+            }
+            m_valid = true;
+        }
+    }
+
   private:
+    std::vector<unstruct_pattern_container_type*> m_patterns;
     std::vector<unstruct_field_descriptor_cpu_type> m_fields;
     std::vector<arg_type> m_args;
+    bool m_valid;
 };
 
 extern "C" void

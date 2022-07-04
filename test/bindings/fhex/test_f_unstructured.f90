@@ -41,12 +41,12 @@ PROGRAM test_halo_exchange
     type(hptr) :: field_ptrs(nfields)
 
     ! GHEX types
-    type(ghex_unstruct_domain_desc)          :: domain_descs(ndomains) ! domain descriptors
-    type(ghex_unstruct_pattern)              :: pattern ! pattern
-    type(ghex_unstruct_field_desc)           :: field_descs(nfields) ! field descriptors
+    type(ghex_unstruct_domain_desc), dimension(:), pointer :: domain_descs ! domain descriptors
+    type(ghex_unstruct_pattern) :: pattern ! pattern
+    type(ghex_unstruct_field_desc) :: field_descs(nfields) ! field descriptors
     type(ghex_unstruct_communication_object) :: co ! communication object
-    type(ghex_unstruct_exchange_args)        :: args ! exchange arguments
-    type(ghex_unstruct_exchange_handle)      :: h ! exchange handle
+    type(ghex_unstruct_exchange_args) :: args ! exchange arguments
+    type(ghex_unstruct_exchange_handle) :: h ! exchange handle
 
     ! init mpi
     call mpi_init(mpi_err) ! TO DO: mpi_init_thread
@@ -60,6 +60,7 @@ PROGRAM test_halo_exchange
     call domain_decompose(world_rank, vertices)
 
     ! init GHEX domain descriptors
+    allocate(domain_descs(ndomains))
     do it = 1, ndomains
         call domain_desc_init(domain_descs(it), world_rank, vertices)
     end do
@@ -128,6 +129,7 @@ PROGRAM test_halo_exchange
     do it = 1, ndomains
         call ghex_clear(domain_descs(it))
     end do
+    deallocate(domain_descs)
 
     ! cleanup application
     do it = 1, nfields
