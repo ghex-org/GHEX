@@ -617,7 +617,6 @@ class IndexSpace:
 
     def decompose(self, parts_per_dim: Tuple[int, int, int]):
         def dim_splitters(n, length):
-            import numpy as np
             "Divide `length` long dimension into `n` parts"
             interval_length = math.floor(length/n)
             return [i*interval_length for i in range(n)] + [length]

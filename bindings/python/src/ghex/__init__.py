@@ -15,7 +15,7 @@ import sys
 import warnings
 sys.path.append(os.environ.get('GHEX_PY_LIB_PATH', "/home/tille/Development/GHEX/build"))
 
-from ghex.utils.cpp_wrapper_utils import unwrap
+from ghex.utils.cpp_wrapper_utils import unwrap, CppWrapper
 import ghex_py_bindings as _ghex
 
 def _may_use_mpi4py():
@@ -42,11 +42,14 @@ def _validate_library_version():
                       f" mpi4py: {mpi4py_lib_ver}.")
 _validate_library_version()
 
-
 def make_pattern(context, halo_gen, domain_range):
+    # todo: select based on arg types
     return _ghex.make_pattern(unwrap(context), unwrap(halo_gen), [unwrap(d) for d in domain_range])
 
-CommunicationObject = _ghex.CommunicationObject
+# note: we don't use the CppWrapper to avoid the runtime overhead
+def CommunicationObject(communicator, grid_type: str, domain_id_type: str):
+    cls = getattr(_ghex, f"gridtools::ghex::communication_object<{communicator.__cpp_type__}, {grid_type}, {domain_id_type}>")
+    return cls(communicator)
 
 #wrap_field = _ghex.wrap_field
 

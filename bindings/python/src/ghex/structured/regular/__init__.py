@@ -54,12 +54,14 @@ class HaloGenerator(CppWrapper):
 
 # todo: try importing gt4py to see if it's there, avoiding the dependency
 
-def _layout_order(field):
-    if sorted(field.strides) == list(reversed(field.strides)):  # row-major
-        return range(0, len(field.strides))
-    elif sorted(field.strides) == list(field.strides):  # column-major
-        return range(len(field.strides), 0)
-    return sorted(range(len(field.strides)), key=field.strides.__getitem__, reverse=True)
+def _layout_order(field) -> tuple[int, ...]:
+    ordered_strides = list(reversed(sorted(field.strides)))
+    layout_map = [ordered_strides.index(stride) for stride in field.strides]
+    # ensure layout map has unique indices in case the size in dimension is one
+    for i, val in enumerate(layout_map):
+        if val in layout_map[:i]:
+            layout_map[i] = max(layout_map)+1
+    return tuple(layout_map)
 
 
 class FieldDescriptor(CppWrapper):

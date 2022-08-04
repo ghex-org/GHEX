@@ -100,6 +100,7 @@ endif()
 
 set(GHEX_BUILD_PYTHON_BINDINGS OFF CACHE BOOL "Set to true to build Python bindings")
 if (GHEX_BUILD_PYTHON_BINDINGS)
+    set(Python_FIND_STRATEGY LOCATION)
     find_package (Python REQUIRED COMPONENTS Interpreter Development)
     message(${Python_SITELIB})
     find_package(pybind11 REQUIRED PATHS ${Python_SITELIB})
@@ -222,14 +223,14 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
 
     find_python_module(mpi4py)
 
-    pybind11_add_module(ghex_py_bindings bindings/python/cpp/src/ghex.cpp bindings/python/cpp/src/structured/regular/domain_descriptor.cpp bindings/python/cpp/src/structured/regular/field_descriptor.cpp bindings/python/cpp/src/structured/regular/halo_generator.cpp bindings/python/cpp/src/transport_layer/context.cpp)
+    pybind11_add_module(ghex_py_bindings bindings/python/cpp/src/ghex.cpp bindings/python/cpp/src/communication_object.cpp bindings/python/cpp/src/structured/regular/domain_descriptor.cpp bindings/python/cpp/src/structured/regular/field_descriptor.cpp bindings/python/cpp/src/structured/regular/halo_generator.cpp bindings/python/cpp/src/transport_layer/communicator.cpp bindings/python/cpp/src/transport_layer/context.cpp bindings/python/cpp/src/pattern.cpp bindings/python/cpp/src/buffer_info.cpp)
     target_include_directories(ghex_py_bindings PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/bindings/python/cpp/include")
     if (HAVE_MPI4PY)
         target_include_directories(ghex_py_bindings PRIVATE "${PY_MPI4PY}/include")
         target_compile_definitions(ghex_py_bindings PRIVATE GHEX_ENABLE_MPI4PY)
     else()
-        message(WARNING "Python bindings are compiled without MPI4PY support. Make sure mpi4py is importable \
-        in the environment in which cmake is invoked.")
+        message(WARNING "MPI4PY not found. Python bindings will be compiled without MPI4PY support.\
+         Make sure mpi4py is importable in the environment in which cmake is invoked to avoid this.")
     endif()
     target_link_libraries(ghex_py_bindings PRIVATE ghexlib)
 endif()

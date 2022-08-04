@@ -16,35 +16,19 @@
 #include <mpi4py/mpi4py.h>
 #endif
 
-#include <gridtools/common/generic_metafunctions/for_each.hpp>
-#include <gridtools/meta.hpp>
-
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <ghex/transport_layer/mpi/context.hpp>
 #include <ghex/bindings/python/utils/type_exporter.hpp>
 #include <ghex/bindings/python/type_list.hpp>
-
-#include <ghex/transport_layer/mpi/context.hpp>
+#include <ghex/bindings/python/types/transport_layer/context.hpp>
 
 namespace py = pybind11;
 
-namespace detail {
-    using args = gridtools::meta::cartesian_product<
-                        gridtools::meta::list<gridtools::ghex::tl::mpi_tag>>;
-
-    template<typename Transport>
-    using context_type = typename gridtools::ghex::tl::context_factory<Transport>::context_type;
-
-    using specializations = gridtools::meta::transform<gridtools::meta::rename<context_type>::template apply, args>;
-}
-
-template<typename ContextType>
-struct context_type_exporter {
-    using context_type = ContextType;
-
-
-    void operator() (pybind11::module_& m, py::class_<context_type> context_cls) {
+template<typename context_type>
+struct context_exporter {
+    void operator() (pybind11::module_&, py::class_<context_type> context_cls) {
         context_cls
 #ifdef GHEX_ENABLE_MPI4PY
             .def(py::init([] (pybind11::object& py_comm_obj) {
@@ -67,10 +51,7 @@ struct context_type_exporter {
             .def("rank", &context_type::rank)
             .def("size", &context_type::size)
             .def("get_communicator", &context_type::get_communicator);
-
-        using communicator_type = typename context_type::communicator_type;
-        py::class_<communicator_type>(m, "Communicator");
     }
 };
 
-GHEX_PYBIND11_EXPORT_TYPE(context_type_exporter, detail::specializations)
+GHEX_PYBIND11_EXPORT_TYPE(context_exporter, gridtools::ghex::bindings::python::types::transport_layer::context_specializations)

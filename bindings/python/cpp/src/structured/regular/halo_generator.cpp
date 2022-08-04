@@ -18,22 +18,9 @@
 #include <pybind11/stl.h>
 
 #include <ghex/bindings/python/utils/type_exporter.hpp>
-#include <ghex/bindings/python/type_list.hpp>
-
-#include <ghex/structured/regular/domain_descriptor.hpp>
+#include <ghex/bindings/python/types/structured/regular/halo_generator.hpp>
 
 namespace py = pybind11;
-
-namespace detail {
-    using args = gridtools::meta::cartesian_product<
-                        gridtools::ghex::bindings::python::type_list::domain_id_types,
-                        gridtools::meta::list<std::integral_constant<int, 3>>>;
-
-    template<typename DomainIdType, typename Dimension_t>
-    using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension_t>;
-
-    using specializations = gridtools::meta::transform<gridtools::meta::rename<halo_generator_type>::template apply, args>;
-}
 
 template<typename DomainIdType, typename Dimension_t>
 struct type_exporter<gridtools::ghex::structured::regular::halo_generator<DomainIdType, Dimension_t>> {
@@ -67,4 +54,4 @@ struct type_exporter<gridtools::ghex::structured::regular::halo_generator<Domain
     }
 };
 
-GHEX_PYBIND11_EXPORT_TYPE(type_exporter, detail::specializations)
+GHEX_PYBIND11_EXPORT_TYPE(type_exporter, gridtools::ghex::bindings::python::types::structured::regular::halo_generator_specializations)

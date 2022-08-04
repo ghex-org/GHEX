@@ -10,7 +10,7 @@
  */
 #ifndef INCLUDED_GHEX_COMMUNICATION_OBJECT_2_HPP
 #define INCLUDED_GHEX_COMMUNICATION_OBJECT_2_HPP
-
+#include <gridtools/meta.hpp>
 #include "./cuda_utils/stream.hpp"
 #include "./packer.hpp"
 #include "./common/utils.hpp"
@@ -111,6 +111,7 @@ namespace gridtools {
         public: // member types
             /** @brief handle type returned by exhange operation */
             using handle_type             = communication_handle<Communicator,GridType,DomainIdType>;
+            using communicator_type       = Communicator;
             using grid_type               = GridType;
             using domain_id_type          = DomainIdType;
             using pattern_type            = pattern<Communicator,GridType,DomainIdType>;
@@ -126,7 +127,6 @@ namespace gridtools {
             friend class bulk_communication_object;
 
         private: // member types
-            using communicator_type       = Communicator;
             using address_type            = typename communicator_type::address_type;
             using index_container_type    = typename pattern_type::index_container_type;
             using pack_function_type      = std::function<void(void*,const index_container_type&, void*)>;

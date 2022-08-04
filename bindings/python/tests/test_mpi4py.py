@@ -17,6 +17,7 @@ Nx = 10
 Ny = 10
 Nz = 2
 
+
 haloss = [
     #(0, 0, 0),
     (1, 0, 0),
@@ -132,7 +133,7 @@ def test_pattern(mpi_cart_comm):
 
     pattern = ghex.make_pattern(context, halo_gen, [domain_desc])
 
-    co = ghex.CommunicationObject(context.get_communicator())
+    co = ghex.CommunicationObject(context.get_communicator(), pattern.grid_type, pattern.domain_id_type)
 
     def make_field():
         import numpy as np

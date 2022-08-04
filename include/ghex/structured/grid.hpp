@@ -25,7 +25,7 @@ namespace gridtools {
             using coordinate_base_type    = CoordinateArrayType;
             using coordinate_type         = coordinate<coordinate_base_type>;
             using coordinate_element_type = typename coordinate_type::element_type;
-            using dimension               = typename coordinate_type::dimension;    
+            using dimension               = typename coordinate_type::dimension;
         };
 
         template<typename A>

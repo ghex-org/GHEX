@@ -33,14 +33,26 @@ struct type_list {
     using architecture_types = gridtools::meta::list<gridtools::ghex::cpu>; // todo: gpu
     using domain_id_types = gridtools::meta::list<int>;
     using data_types = gridtools::meta::list<double, float>;
+    using grid_types = gridtools::meta::list<gridtools::ghex::structured::grid>;
+    using dims = gridtools::meta::list<std::integral_constant<int, 3>>;
+    // TODO: layout maps per dim
+    using layout_maps = gridtools::meta::list<
+        gridtools::layout_map<0, 1, 2>,
+        gridtools::layout_map<0, 2, 1>,
+        gridtools::layout_map<1, 0, 2>,
+        gridtools::layout_map<1, 2, 0>,
+        gridtools::layout_map<2, 0, 1>,
+        gridtools::layout_map<2, 1, 0>
+    >;
+
+    template <typename DomainDescriptor>
+    using domain_range_type = std::vector<DomainDescriptor>;
 
     using transport = gridtools::ghex::tl::mpi_tag;
     using context_type = typename gridtools::ghex::tl::context_factory<transport>::context_type;
+    using communicator_type = typename context_type::communicator_type;
 
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<int,std::integral_constant<int, 3>>;
     using halo_generator_type = gridtools::ghex::structured::regular::halo_generator<int,std::integral_constant<int, 3>>;
-    //template<typename T, typename Arch, int... Is>
-    //using field_descriptor_type  = gridtools::ghex::structured::regular::field_descriptor<T,Arch,domain_descriptor_type, Is...>;
 };
 
 }
