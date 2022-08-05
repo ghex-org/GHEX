@@ -7,16 +7,14 @@
 #
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
-
 from typing import Tuple
 
 import numpy as np
 
 import ghex_py_bindings as _ghex
-from ghex.utils.cpp_wrapper_utils import CppWrapper, dtype_to_cpp
+from ghex.utils.cpp_wrapper_utils import CppWrapper, dtype_to_cpp, unwrap, cls_from_cpp_type_spec
 from ghex.utils.index_space import CartesianSet, ProductSet, union
 
-# todo: call HaloContainer?
 class HaloContainer:
     local: CartesianSet
     global_: CartesianSet
@@ -64,12 +62,22 @@ def _layout_order(field) -> tuple[int, ...]:
     return tuple(layout_map)
 
 
-class FieldDescriptor(CppWrapper):
-    def __init__(self, domain_desc: DomainDescriptor, field: np.ndarray, offsets: Tuple[int, ...], extents: Tuple[int, ...]):
-        type_spec = ("gridtools::ghex::structured::regular::field_descriptor",
-                     dtype_to_cpp(field.dtype), "gridtools::ghex::cpu", domain_desc.__cpp_type__,
-                     f"gridtools::layout_map<{', '.join(map(str, _layout_order(field)))}> ")
-        super(FieldDescriptor, self).__init__(type_spec, domain_desc, field, offsets, extents)
+def FieldDescriptor(
+    domain_desc: DomainDescriptor,
+    field: np.ndarray,
+    offsets: Tuple[int, ...],
+    extents: Tuple[int, ...]
+):
+    type_spec = ("gridtools::ghex::structured::regular::field_descriptor",
+                 dtype_to_cpp(field.dtype), "gridtools::ghex::cpu",
+                 domain_desc.__cpp_type__,
+                 f"gridtools::layout_map<{', '.join(map(str, _layout_order(field)))}> ")
+    return cls_from_cpp_type_spec(type_spec)(
+        unwrap(domain_desc),
+        unwrap(field),
+        unwrap(offsets),
+        unwrap(extents)
+    )
 
 def wrap_field(*args):
     return FieldDescriptor(*args)

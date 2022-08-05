@@ -24,19 +24,25 @@ def dtype_to_cpp(dtype):
 
     return {np.float64: "double", np.float32: "float"}[dtype.type]
 
+def cls_from_cpp_type_spec(cpp_type_spec: Union[str, Tuple[str, ...]]):
+    if isinstance(cpp_type_spec, str):
+        return getattr(_ghex, cpp_type_spec)
+    else:
+        fq_cpp_type_name, *template_args = cpp_type_spec
+        template_args = [targ if not isinstance(targ,
+                                                int) else f"std::integral_constant<int, {targ}> "
+                         for targ in
+                         template_args]
+        fq_cpp_type_specialization_name = fq_cpp_type_name + "<" + ", ".join(
+            template_args) + ">"
+
+        return getattr(_ghex, fq_cpp_type_specialization_name)
+
 class CppWrapper:
     __wrapped__ = None
 
     def __init__(self, cpp_type_spec: Union[str, Tuple[str, ...]], *args, **kwargs):
-        if isinstance(cpp_type_spec, str):
-            wrapped_cls = getattr(_ghex, cpp_type_spec)
-        else:
-            fq_cpp_type_name, *template_args = cpp_type_spec
-            template_args = [targ if not isinstance(targ, int) else f"std::integral_constant<int, {targ}> " for targ in
-                             template_args]
-            fq_cpp_type_specialization_name = fq_cpp_type_name + "<" + ", ".join(template_args) + ">"
-
-            wrapped_cls = getattr(_ghex, fq_cpp_type_specialization_name)
+        wrapped_cls = cls_from_cpp_type_spec(cpp_type_spec)
 
         self.__wrapped__ = wrapped_cls(*(unwrap(arg) for arg in args), **{kw: unwrap(arg) for kw, arg in kwargs.items()})
 

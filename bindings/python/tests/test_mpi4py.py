@@ -150,13 +150,17 @@ def test_pattern(mpi_cart_comm):
     gfields = (gfield_1, gfield_2, gfield_3)
     for p_dim, p_coord_l in enumerate(p_coord):
         fields[p_dim][:, :, :] = p_coord_l
+        #res = co.exchange(pattern(gfields[p_dim].__wrapped__))
+        #res.wait()
 
-        res = co.exchange(pattern(gfields[p_dim].__wrapped__))
-        res.wait()
+    res = co.exchange(pattern(gfields[0]),
+                      pattern(gfields[1]),
+                      pattern(gfields[2]))
+    res.wait()
 
     rank_field, grank_field = make_field()
     rank_field[:, :, :] = context.rank()
-    res = co.exchange(pattern(grank_field.__wrapped__)) # arch, dtype. exchange of fields living on cpu+gpu possible
+    res = co.exchange(pattern(grank_field)) # arch, dtype. exchange of fields living on cpu+gpu possible
     res.wait()
     # todo: co.bexchange
 
