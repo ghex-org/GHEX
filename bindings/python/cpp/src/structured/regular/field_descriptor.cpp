@@ -15,14 +15,74 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <gridtools/common/stride_util.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/bindings/python/utils/type_exporter.hpp>
 #include <ghex/bindings/python/types/structured/regular/field_descriptor.hpp>
 
 namespace py = pybind11;
 
+using namespace pybind11::literals;
+
 template <int... val>
 using int_tuple_constant = gridtools::meta::list<std::integral_constant<int, val>...>;
+
+template <typename Arch>
+struct buffer_info_accessor {};
+
+template <>
+struct buffer_info_accessor<gridtools::ghex::cpu> {
+    static py::buffer_info get(py::object& buffer) {
+        return buffer.cast<py::buffer>().request();
+    }
+};
+
+template <>
+struct buffer_info_accessor<gridtools::ghex::gpu> {
+    static py::buffer_info get(py::object& buffer) {
+        py::dict info = buffer.attr("__cuda_array_interface__");
+
+        bool readonly = info["data"].cast<py::tuple>()[1].cast<bool>();
+        assert(!readonly);
+
+        void* ptr = reinterpret_cast<void*>(info["data"].cast<py::tuple>()[0].cast<py::ssize_t>());
+
+        // create buffer protocol format and itemsize from typestr
+        py::function memory_view = py::module::import("builtins").attr("memoryview");
+        py::function np_array = py::module::import("numpy").attr("array");
+        py::buffer empty_buffer = memory_view(np_array(py::list(), "dtype"_a=info["typestr"]));
+        py::ssize_t itemsize = empty_buffer.request().itemsize;
+        std::string format = empty_buffer.request().format;
+
+        std::vector<py::ssize_t> shape = info["shape"].cast<std::vector<py::ssize_t>>();
+        py::ssize_t ndim = shape.size();
+
+        std::vector<py::ssize_t> strides(ndim);
+        if (py::isinstance<py::none>(info["strides"])) {
+            strides[ndim-1] = 1;
+            for (int i=ndim-2; i>=0; --i) {
+                strides[i] = (strides[i+1]*shape[i+1]) * itemsize;
+            }
+        } else {
+            strides = info["strides"].cast<std::vector<py::ssize_t>>();
+            assert(strides.size() == ndim);
+        }
+
+        return py::buffer_info(
+            ptr,        /* Pointer to buffer */
+            itemsize,   /* Size of one scalar */
+            format,     /* Python struct-style format descriptor */
+            ndim,       /* Number of dimensions */
+            shape,      /* Buffer dimensions */
+            strides     /* Strides (in bytes) for each index */
+        );
+    }
+};
+
+template <typename Arch>
+py::buffer_info get_buffer_info(py::object& buffer) {
+    return buffer_info_accessor<Arch>::get(buffer);
+}
 
 
 // todo: dim independent
@@ -35,8 +95,8 @@ struct type_exporter<gridtools::ghex::structured::regular::field_descriptor<T, A
 
         using array_type = std::array<int, dim>;
 
-        auto wrapper = [] (const DomainDescriptor& dom, py::buffer b, const array_type& offsets, const array_type& extents) {
-            py::buffer_info info = b.request();
+        auto wrapper = [] (const DomainDescriptor& dom, py::object& b, const array_type& offsets, const array_type& extents) {
+            py::buffer_info info = get_buffer_info<Arch>(b);
 
             if (info.format != py::format_descriptor<T>::format()) {
                 std::stringstream error;

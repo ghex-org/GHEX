@@ -12,6 +12,8 @@ from ghex.utils.grid import IndexSpace, UnitRange
 
 from fixtures.mpi import mpi_cart_comm, ghex_cart_context
 
+import cupy as cp
+
 # Domain configuration
 Nx = 10
 Ny = 10
@@ -137,7 +139,8 @@ def test_pattern(mpi_cart_comm):
 
     def make_field():
         import numpy as np
-        field_1 = np.zeros(memory_local_grid.bounds.shape, dtype=np.float64) # todo: , order='F'
+        #field_1 = np.zeros(memory_local_grid.bounds.shape, dtype=np.float64, order='F') # todo: , order='F'
+        field_1 = cp.zeros(memory_local_grid.bounds.shape, dtype=np.float64, order='F')
         gfield_1 = FieldDescriptor(domain_desc, field_1,
                                    memory_local_grid.subset["definition"][0, 0, 0],
                                    memory_local_grid.bounds.shape)
@@ -152,10 +155,12 @@ def test_pattern(mpi_cart_comm):
         fields[p_dim][:, :, :] = p_coord_l
         #res = co.exchange(pattern(gfields[p_dim].__wrapped__))
         #res.wait()
+    cp.cuda.Device(0).synchronize()
 
     res = co.exchange(pattern(gfields[0]),
                       pattern(gfields[1]),
                       pattern(gfields[2]))
+
     res.wait()
 
     rank_field, grank_field = make_field()
@@ -163,6 +168,10 @@ def test_pattern(mpi_cart_comm):
     res = co.exchange(pattern(grank_field)) # arch, dtype. exchange of fields living on cpu+gpu possible
     res.wait()
     # todo: co.bexchange
+    cp.cuda.Device(0).synchronize()
+
+    print("post_ex:")
+    print(rank_field[:, :, 0])
 
     for m_idx, local_idx in zip(memory_local_grid.bounds, sub_grid.bounds):
         value_owner_coord = tuple(int(fields[dim][m_idx]) for dim in range(0, 3))
@@ -171,9 +180,4 @@ def test_pattern(mpi_cart_comm):
             assert (local_idx in sub_grids[value_owner_coord].subset["definition"])
 
             assert rank_field[m_idx] == value_owner_rank
-
-
-    print("post_ex:")
-    print(rank_field[:, :, 0])
-
 

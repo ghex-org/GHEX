@@ -28,10 +28,10 @@ namespace py = pybind11;
 
 template<typename context_type>
 struct context_exporter {
-    void operator() (pybind11::module_&, py::class_<context_type> context_cls) {
+    void operator() (py::module_&, py::class_<context_type> context_cls) {
         context_cls
 #ifdef GHEX_ENABLE_MPI4PY
-            .def(py::init([] (pybind11::object& py_comm_obj) {
+            .def(py::init([] (py::object& py_comm_obj) {
                 import_mpi4py();
                 if (!PyObject_TypeCheck(py_comm_obj.ptr(), &PyMPIComm_Type)) {
                     std::stringstream ss;
@@ -42,7 +42,7 @@ struct context_exporter {
 
                 return gridtools::ghex::tl::context_factory<typename context_type::tag>::create(mpi_comm);  }))
 #else
-            .def(py::init([] (pybind11::object&) {
+            .def(py::init([] (py::object&) {
                 throw std::runtime_error("Context construction reqires bindings to be compiled with mpi4py support.");
 
                 return static_cast<context_type*>(nullptr); // just to make pybind11 happy

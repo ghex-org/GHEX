@@ -7,11 +7,12 @@
 #
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 
 import ghex_py_bindings as _ghex
+from ghex.utils.architecture import Architecture
 from ghex.utils.cpp_wrapper_utils import CppWrapper, dtype_to_cpp, unwrap, cls_from_cpp_type_spec
 from ghex.utils.index_space import CartesianSet, ProductSet, union
 
@@ -23,11 +24,13 @@ class HaloContainer:
         self.local = local
         self.global_ = global_
 
+
 class DomainDescriptor(CppWrapper):
     def __init__(self, id_: int, sub_domain_indices: ProductSet):
         super(DomainDescriptor, self).__init__(
             ("gridtools::ghex::structured::regular::domain_descriptor", "int", 3),
             id_, sub_domain_indices[0, 0, 0], sub_domain_indices[-1, -1, -1])
+
 
 class HaloGenerator(CppWrapper):
     def __init__(self, glob_domain_indices: ProductSet, halos, periodicity):
@@ -52,7 +55,14 @@ class HaloGenerator(CppWrapper):
 
 # todo: try importing gt4py to see if it's there, avoiding the dependency
 
-def _layout_order(field) -> tuple[int, ...]:
+def _layout_order(field: np.ndarray, architecture: Architecture) -> tuple[int, ...]:
+    if architecture == Architecture.CPU:
+        strides = field.__array_interface__["strides"]
+    elif architecture == Architecture.GPU:
+        strides = field.__cuda_array_interface__["strides"]
+    else:
+        raise ValueError()
+
     ordered_strides = list(reversed(sorted(field.strides)))
     layout_map = [ordered_strides.index(stride) for stride in field.strides]
     # ensure layout map has unique indices in case the size in dimension is one
@@ -66,12 +76,28 @@ def FieldDescriptor(
     domain_desc: DomainDescriptor,
     field: np.ndarray,
     offsets: Tuple[int, ...],
-    extents: Tuple[int, ...]
+    extents: Tuple[int, ...],
+    *,
+    architecture: Optional[Architecture] = None
 ):
+    if not architecture:
+        if hasattr(field, "__cuda_array_interface__"):
+            architecture = Architecture.GPU
+        elif hasattr(field, "__array_interface__"):
+            architecture = Architecture.CPU
+        else:
+            raise ValueError()
+
+    if architecture == Architecture.CPU:
+        assert hasattr(field, "__array_interface__")
+    if architecture == Architecture.GPU:
+        assert hasattr(field, "__cuda_array_interface__")
+
     type_spec = ("gridtools::ghex::structured::regular::field_descriptor",
-                 dtype_to_cpp(field.dtype), "gridtools::ghex::cpu",
+                 dtype_to_cpp(field.dtype),
+                 architecture.value,
                  domain_desc.__cpp_type__,
-                 f"gridtools::layout_map<{', '.join(map(str, _layout_order(field)))}> ")
+                 f"gridtools::layout_map<{', '.join(map(str, _layout_order(field, architecture)))}> ")
     return cls_from_cpp_type_spec(type_spec)(
         unwrap(domain_desc),
         unwrap(field),
