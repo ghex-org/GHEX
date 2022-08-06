@@ -165,6 +165,7 @@ def test_pattern(mpi_cart_comm):
 
     rank_field, grank_field = make_field()
     rank_field[:, :, :] = context.rank()
+    cp.cuda.Device(0).synchronize()
     res = co.exchange(pattern(grank_field)) # arch, dtype. exchange of fields living on cpu+gpu possible
     res.wait()
     # todo: co.bexchange
