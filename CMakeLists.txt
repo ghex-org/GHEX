@@ -225,6 +225,7 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
 
     set(GHEX_PYTHON_BINDINGS_SOURCE_FILES bindings/python/cpp/src/ghex.cpp
         bindings/python/cpp/src/communication_object.cpp
+        bindings/python/cpp/src/common/coordinate.cpp
         bindings/python/cpp/src/structured/regular/domain_descriptor.cpp
         bindings/python/cpp/src/structured/regular/field_descriptor.cpp
         bindings/python/cpp/src/structured/regular/halo_generator.cpp

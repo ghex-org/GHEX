@@ -65,7 +65,7 @@ struct buffer_info_accessor<gridtools::ghex::gpu> {
             }
         } else {
             strides = info["strides"].cast<std::vector<py::ssize_t>>();
-            assert(strides.size() == ndim);
+            assert(py::ssize_t(strides.size()) == ndim);
         }
 
         return py::buffer_info(

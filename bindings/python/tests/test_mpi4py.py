@@ -12,6 +12,7 @@ from ghex.utils.grid import IndexSpace, UnitRange
 
 from fixtures.mpi import mpi_cart_comm, ghex_cart_context
 
+import numpy as np
 import cupy as cp
 
 # Domain configuration
@@ -138,10 +139,10 @@ def test_pattern(mpi_cart_comm):
     co = ghex.CommunicationObject(context.get_communicator(), pattern.grid_type, pattern.domain_id_type)
 
     def make_field():
-        import numpy as np
         #field_1 = np.zeros(memory_local_grid.bounds.shape, dtype=np.float64, order='F') # todo: , order='F'
         field_1 = cp.zeros(memory_local_grid.bounds.shape, dtype=np.float64, order='F')
-        gfield_1 = FieldDescriptor(domain_desc, field_1,
+        gfield_1 = FieldDescriptor(domain_desc,
+                                   field_1,
                                    memory_local_grid.subset["definition"][0, 0, 0],
                                    memory_local_grid.bounds.shape)
         return field_1, gfield_1
@@ -160,7 +161,6 @@ def test_pattern(mpi_cart_comm):
     res = co.exchange(pattern(gfields[0]),
                       pattern(gfields[1]),
                       pattern(gfields[2]))
-
     res.wait()
 
     rank_field, grank_field = make_field()

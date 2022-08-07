@@ -49,11 +49,6 @@ PYBIND11_MODULE(ghex_py_bindings, m) {
             return std::string(version);
         });
 
-    using domain_id_type = int;
-    using domain_descriptor_type = gridtools::ghex::structured::regular::domain_descriptor<domain_id_type, std::integral_constant<int, 3>>;
-
     pybind11::class_<mpi_comm_shim> mpi_comm(m, "mpi_comm");
     mpi_comm.def(pybind11::init<>());
-
-    py::class_<gridtools::ghex::coordinate<std::array<int, 3>>>(m, "Coordinate3d");
 }

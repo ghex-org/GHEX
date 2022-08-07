@@ -63,8 +63,8 @@ def _layout_order(field: np.ndarray, architecture: Architecture) -> tuple[int, .
     else:
         raise ValueError()
 
-    ordered_strides = list(reversed(sorted(field.strides)))
-    layout_map = [ordered_strides.index(stride) for stride in field.strides]
+    ordered_strides = list(reversed(sorted(strides)))
+    layout_map = [ordered_strides.index(stride) for stride in strides]
     # ensure layout map has unique indices in case the size in dimension is one
     for i, val in enumerate(layout_map):
         if val in layout_map[:i]:
