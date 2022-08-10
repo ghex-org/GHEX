@@ -10,12 +10,13 @@
  */
 #pragma once
 
+#include <type_traits>
+
 #include <ghex/config.hpp>
 #include <ghex/arch_traits.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
 #include <ghex/glue/gridtools/processor_grid.hpp>
 #include <gridtools/storage/data_store.hpp>
-#include <gridtools/meta/type_traits.hpp>
 #include <gridtools/meta/list_to_iseq.hpp>
 
 namespace ghex
@@ -29,7 +30,7 @@ namespace _impl
 //}
 
 template <class Int>
-using not_negative = gridtools::bool_constant<(Int::value >= 0)>;
+using not_negative = std::integral_constant<bool, (Int::value >= 0)>;
 
 template<typename Seq>
 struct get_layout_map;
