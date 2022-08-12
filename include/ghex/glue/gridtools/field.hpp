@@ -10,6 +10,8 @@
  */
 #pragma once
 
+#include <type_traits>
+
 #include <ghex/config.hpp>
 #include <ghex/arch_traits.hpp>
 #include <ghex/structured/regular/field_descriptor.hpp>
@@ -26,6 +28,9 @@ namespace _impl
 //{
 //    return {Halo::template at<Is>()...};
 //}
+
+template <class Int>
+using not_negative = std::integral_constant<bool, (Int::value >= 0)>;
 
 template<typename Seq>
 struct get_layout_map;
@@ -44,7 +49,7 @@ struct get_unmasked_layout_map<gridtools::layout_map<Args...>>
 {
     using args = gridtools::meta::list<std::integral_constant<int, Args>...>;
     using unmasked_args =
-        gridtools::meta::filter<gridtools::_impl::_layout_map::not_negative, args>;
+        gridtools::meta::filter<not_negative, args>;
     using integer_seq = gridtools::meta::list_to_iseq<unmasked_args>;
     using type = typename get_layout_map<integer_seq>::type;
 };
