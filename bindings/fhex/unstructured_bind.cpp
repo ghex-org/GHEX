@@ -31,6 +31,16 @@ using unstruct_buffer_info_type = ghex::buffer_info<unstruct_pattern_type, ghex:
 using unstruct_communication_object_type = ghex::communication_object<unstruct_grid_detail_type, int>;
 using unstruct_exchange_handle_type = unstruct_communication_object_type::handle_type;
 
+/** @brief wraps domain descriptor constructor arguments
+ * When applied to the ICON use case,
+ * these parameters have to be inferred from the t-patch.
+ * In particular, vertices should match the field with domain global indices;
+ * total_size is the total domain size, including halo indices;
+ * finally, inner_size is the actual domain size, without halo indices.
+ * inner_size has to be computed based on a second field available in ICON,
+ * which uses different flags for inner and halo indices,
+ * and therefore allows to identify and count inner indices.
+*/
 struct ghex_unstruct_domain_desc
 {
     int id;
@@ -48,6 +58,16 @@ struct ghex_unstruct_field_desc
     fp_type* field = nullptr;
 };
 
+/** @brief wraps a container of buffer info objects
+ * This is the only class which does not have a 1 to 1 match in GHEX.
+ * It has been introduced to overcome the issue with
+ * binding the the variadic template based signature of the exchange method.
+ * An exchange_args type allows for binding to the iterator based one instead.
+ * Note that the actual GHEX field_descriptor object
+ * is created when calling the add member function,
+ * since the ghex_unstruct_field_descriptor f, passed as argument,
+ * is only a wrapper aronud the field_descriptor constructor arguments.
+*/
 class exchange_args
 {
   public: // member types
