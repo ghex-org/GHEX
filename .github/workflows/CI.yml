@@ -24,6 +24,7 @@ jobs:
           mkdir -p build && cd build
           eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
@@ -58,6 +59,7 @@ jobs:
           mkdir -p build && cd build
           eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
@@ -93,6 +95,7 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
@@ -127,6 +130,7 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
@@ -162,6 +166,7 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
@@ -196,6 +201,7 @@ jobs:
           mkdir -p build && cd build
           cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
