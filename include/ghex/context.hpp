@@ -22,8 +22,8 @@ class context
 {
     friend class barrier;
   public:
-    using rank_type = oomph::communicator::rank_type;
-    using tag_type = oomph::communicator::tag_type;
+    using rank_type = oomph::rank_type;
+    using tag_type = oomph::tag_type;
     using communicator_type = oomph::communicator;
     using message_type = oomph::message_buffer<unsigned char>;
 

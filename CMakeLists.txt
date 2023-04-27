@@ -1,25 +1,36 @@
 cmake_minimum_required(VERSION 3.17)
 #cmake_policy(SET CMP0048 NEW)
 
-project(GHEX VERSION 0.2 LANGUAGES CXX)
+set(GHEX_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
+
+include(ghex_version)
+make_version(GHEX 0 3 0)
+
+project(GHEX VERSION ${GHEX_VERSION} LANGUAGES CXX)
 
 # ---------------------------------------------------------------------
 # CMake setup, C++ version, build type, modules, etc
 # ---------------------------------------------------------------------
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE) # AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
-set(GHEX_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 
 # ---------------------------------------------------------------------
 # Define main library
 # ---------------------------------------------------------------------
 include(ghex_common)
+
+# ---------------------------------------------------------------------
+# Dependencies
+# ---------------------------------------------------------------------
+option(GHEX_GIT_SUBMODULE "Check submodules during build" ON)
+option(GHEX_USE_BUNDLED_LIBS "Use bundled 3rd party libraries" ON)
+include(ext_deps)
 
 # ---------------------------------------------------------------------
 # include paths

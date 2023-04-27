@@ -131,7 +131,7 @@ class communication_object
 
   private: // member types
     using communicator_type = oomph::communicator;
-    using rank_type = communicator_type::rank_type;
+    using rank_type = oomph::rank_type;
     using index_container_type = typename pattern_type::index_container_type;
     using pack_function_type = std::function<void(void*, const index_container_type&, void*)>;
     using unpack_function_type =

@@ -42,7 +42,7 @@ class pattern<unstructured::detail::grid<Index>, DomainId>
     using index_type = Index;
     using domain_id_type = DomainId;
     using communicator_type = oomph::communicator;
-    using rank_type = typename communicator_type::rank_type;
+    using rank_type = oomph::rank_type;
     using grid_type = unstructured::detail::grid<index_type>;
     using pattern_container_type = pattern_container<grid_type, domain_id_type>;
 

@@ -35,7 +35,7 @@ class pattern<structured::detail::grid<CoordinateArrayType>, DomainIdType>
     using coordinate_element_type = typename grid_type::coordinate_element_type;
     using dimension = typename grid_type::dimension;
     using communicator_type = oomph::communicator;
-    using rank_type = typename communicator_type::rank_type;
+    using rank_type = oomph::rank_type;
     using domain_id_type = DomainIdType;
     using pattern_container_type = pattern_container<grid_type, DomainIdType>;
 

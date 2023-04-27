@@ -10,6 +10,11 @@
  */
 #pragma once
 
+#define GHEX_VERSION @GHEX_VERSION_NUMERIC@
+#define GHEX_VERSION_MAJOR @GHEX_VERSION_MAJOR@
+#define GHEX_VERSION_MINOR @GHEX_VERSION_MINOR@
+#define GHEX_VERSION_PATCH @GHEX_VERSION_PATCH@
+
 #include <oomph/config.hpp>
 #include <tuple>
 
@@ -19,6 +24,7 @@
 #cmakedefine GHEX_USE_GPU
 #define GHEX_GPU_MODE @ghex_gpu_mode@
 #cmakedefine GHEX_GPU_MODE_EMULATE
+#define @GHEX_DEVICE@
 #cmakedefine GHEX_COMM_OBJ_USE_U
 #cmakedefine GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_KFIRST ON
 #cmakedefine GHEX_ATLAS_GT_STORAGE_CPU_BACKEND_IFIRST OFF
@@ -42,6 +48,16 @@ struct gpu
 using arch_list = std::tuple<cpu, gpu>;
 #else
 using arch_list = std::tuple<cpu>;
+#endif
+
+#if defined(GHEX_DEVICE_NONE) && !defined(OOPMPH_DEVICE_NONE)
+#   pragma error "oomph (dependency) differs in GPU support"
+#elif defined(GHEX_DEVICE_CUDA) && !defined(OOMPH_DEVICE_CUDA)
+#   pragma error "oomph (dependency) differs in GPU support"
+#elif defined(GHEX_DEVICE_HIP) && !defined(OOMPH_DEVICE_HIP)
+#   pragma error "oomph (dependency) differs in GPU support"
+#elif defined(GHEX_DEVICE_EMULATE) && !defined(OOMPH_DEVICE_EMULATE)
+#   pragma error "oomph (dependency) differs in GPU support"
 #endif
 
 } // namespace ghex
