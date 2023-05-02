@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -46,7 +48,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -82,7 +86,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -117,7 +123,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -153,7 +161,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -188,7 +198,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
