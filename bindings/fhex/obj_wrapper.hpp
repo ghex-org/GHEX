@@ -48,6 +48,8 @@ class obj_wrapper
     }
 };
 
+extern "C" void ghex_obj_free(fhex::obj_wrapper** wrapper_ref);
+
 /** get the object without performing type checks:
              *	assume that has already been done in Fortran and the cast is legal */
 template<class T>

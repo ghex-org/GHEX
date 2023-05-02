@@ -1,6 +1,7 @@
 include(ghex_compile_options)
 
 add_library(fhex SHARED)
+set_target_properties(fhex PROPERTIES LINKER_LANGUAGE Fortran)
 
 target_include_directories(fhex PRIVATE
     $<INSTALL_INTERFACE:..>
@@ -24,11 +25,21 @@ install(TARGETS fhex
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-install(
-    FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/ghex_defs.mod
-#        ${CMAKE_CURRENT_BINARY_DIR}/ghex_cubed_sphere_mod.mod
-        ${CMAKE_CURRENT_BINARY_DIR}/ghex_mod.mod
-        ${CMAKE_CURRENT_BINARY_DIR}/ghex_structured_mod.mod
-    DESTINATION
-        ${CMAKE_INSTALL_INCLUDEDIR}/fhex)
+
+if(CMAKE_Fortran_COMPILER_ID STREQUAL "Cray")
+   install(
+      FILES
+         ${CMAKE_CURRENT_BINARY_DIR}/GHEX_DEFS.mod
+         ${CMAKE_CURRENT_BINARY_DIR}/GHEX_MOD.mod
+         ${CMAKE_CURRENT_BINARY_DIR}/GHEX_STRUCTURED_MOD.mod
+       DESTINATION
+         ${CMAKE_INSTALL_INCLUDEDIR}/fhex)
+else()
+   install(
+      FILES
+         ${CMAKE_CURRENT_BINARY_DIR}/ghex_defs.mod
+         ${CMAKE_CURRENT_BINARY_DIR}/ghex_mod.mod
+         ${CMAKE_CURRENT_BINARY_DIR}/ghex_structured_mod.mod
+       DESTINATION
+         ${CMAKE_INSTALL_INCLUDEDIR}/fhex)
+endif()
