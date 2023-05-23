@@ -3,5 +3,5 @@ if (GHEX_BUILD_FORTRAN)
 endif()
 
 if (GHEX_BUILD_PYTHON_BINDINGS)
-    add_subdirectory(python_new)
+    add_subdirectory(python)
 endif()
