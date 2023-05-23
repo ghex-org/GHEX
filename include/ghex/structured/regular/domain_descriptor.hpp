@@ -38,8 +38,8 @@ class domain_descriptor<DomainIdType, std::integral_constant<int, Dimension>>
     /** @brief construct a local domain
       * @tparam Array coordinate-like type
       * @param id domain id
-      * @param first first coordinate in domain (global coordinate)
-      * @param last last coordinate in domain (including, global coordinate) */
+      * @param first for each dimension the first coordinate in domain (global coordinate)
+      * @param last for each dimension the last coordinate in domain (including, global coordinate) */
     template<typename Array>
     domain_descriptor(domain_id_type id, const Array& first, const Array& last)
     : m_id{id}

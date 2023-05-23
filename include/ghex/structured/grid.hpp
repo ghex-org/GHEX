@@ -35,7 +35,6 @@ struct grid<coordinate<A>>
     using coordinate_element_type = typename coordinate_type::element_type;
     using dimension = typename coordinate_type::dimension;
 };
-
 } // namespace detail
 
 /** @brief type to indicate structured grids */

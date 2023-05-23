@@ -34,7 +34,9 @@ class halo_generator<DomainIdType, std::integral_constant<int, Dimension>>
     using dimension = typename domain_type::dimension;
     using coordinate_type = typename grid::template type<domain_type>::coordinate_type;
 
-  private: // member types
+  //private: // member types
+  // todo (tehrengruber): check with ghex team
+  public: // member types
     struct box
     {
         const coordinate_type& first() const { return m_first; }
