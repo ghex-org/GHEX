@@ -24,7 +24,7 @@ function(check_git_submodule name path)
     get_filename_component(dotgit "${path}/.git" ABSOLUTE)
     if(NOT EXISTS ${dotgit})
         message(
-            "\nThe git submodule for ${name} is not available.\n"
+            "\nThe git submodule for ${name} is not available in ${path}.\n"
             "To check out all submodules use the following commands:\n"
             "    git submodule init\n"
             "    git submodule update\n"

@@ -1,5 +1,6 @@
 include(ExternalProject)
-include(git_submodule)
+include(ghex_git_submodule)
+include(ghex_error_target)
 
 # functionality for adding external projects
 # Arguments:

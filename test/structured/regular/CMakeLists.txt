@@ -1,5 +1,4 @@
 
-include(ghex_gtest)
 include(ghex_reg_test)
 
 ghex_compile_test(regular_domain)

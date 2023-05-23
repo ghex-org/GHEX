@@ -1,6 +1,6 @@
 include(CMakeDependentOption)
-include(git_submodule)
-include(external_project)
+include(ghex_git_submodule)
+include(ghex_external_project)
 
 if(GHEX_GIT_SUBMODULE)
     update_git_submodules()
