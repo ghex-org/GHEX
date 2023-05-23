@@ -1,5 +1,3 @@
-set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
-
 if (GHEX_BUILD_FORTRAN)
     enable_language(Fortran)
     set(GHEX_FORTRAN_FP "float" CACHE STRING "Floating-point type")

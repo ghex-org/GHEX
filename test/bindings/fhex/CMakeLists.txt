@@ -6,6 +6,7 @@ endif()
 
 function(ghex_reg_parallel_test_f t n)
     add_executable(${t} test_${t}.f90)
+    set_target_properties(${t} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${t}_Mod)
     ghex_target_compile_options(${t})
     target_link_libraries(${t} PRIVATE fhex)
     if (GHEX_FORTRAN_OPENMP)
