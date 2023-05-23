@@ -1,0 +1,7 @@
+import pytest
+import sys
+
+@pytest.fixture(autouse=True, scope="module")
+def pyghex_path():
+    sys.path.append("@ghex_python_path@")
+
