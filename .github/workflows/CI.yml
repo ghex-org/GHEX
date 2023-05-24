@@ -214,6 +214,7 @@ jobs:
             -DGT_INSTALL_EXAMPLES=OFF \
             -DGHEX_USE_BUNDLED_OOMPH=ON \
             -DGHEX_TRANSPORT_BACKEND=UCX \
+            -DOOMPH_WITH_UCX=ON \
             -DUCX_DIR=/opt/ucx \
             -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
@@ -260,6 +261,7 @@ jobs:
             -DGT_INSTALL_EXAMPLES=OFF \
             -DGHEX_USE_BUNDLED_OOMPH=ON \
             -DGHEX_TRANSPORT_BACKEND=UCX \
+            -DOOMPH_WITH_UCX=ON \
             -DUCX_DIR=/opt/ucx \
             -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
