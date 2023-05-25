@@ -1,3 +1,4 @@
+include(ghex_copy_files)
 
 set(pyghex_source
     module.cpp
@@ -49,26 +50,6 @@ target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(pyghex)
 
 
-# A helper function to copy files and make them part of a custom target so that they are copied
-# prior to "building"
-# Arguments:
-# TARGET
-# DESTINATION
-# FILES
-function(copy_files)
-    set(options OPTIONAL)
-    set(oneValueArgs TARGET DESTINATION)
-    set(multiValueArgs FILES)
-    cmake_parse_arguments(CF "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    add_custom_command(TARGET ${CF_TARGET} PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${CF_DESTINATION})
-    foreach(file ${CF_FILES})
-        add_custom_command(TARGET ${CF_TARGET} PRE_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy ${file} ${CF_DESTINATION})
-    endforeach()
-endfunction()
-
-
 # The Python module
 # ==================
 # Create the Python module in the build directory.
@@ -97,51 +78,3 @@ copy_files(TARGET pyghex_module DESTINATION ${python_mod_path}/structured/regula
 )
 add_dependencies(pyghex pyghex_module)
 
-
-# The Python tests
-# ================
-if (GHEX_WITH_TESTING)
-    add_custom_target(pyghex_tests)
-    add_dependencies(pyghex_module pyghex_tests)
-    copy_files(TARGET pyghex_tests DESTINATION ${python_mod_path}/../tests/fixtures FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/context.py)
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/pyghex_path.py.in
-    ${CMAKE_CURRENT_BINARY_DIR}/tests/fixtures/pyghex_path.py @ONLY)
-
-    function(ghex_reg_pytest t)
-        copy_files(TARGET pyghex_tests DESTINATION ${python_mod_path}/../tests FILES
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_${t}.py)
-        add_test(
-            NAME py_${t}
-            COMMAND ${PYTHON_EXECUTABLE} -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/tests/test_${t}.py)
-    endfunction()
-    
-    function(ghex_reg_parallel_pytest t n)
-        copy_files(TARGET pyghex_tests DESTINATION ${python_mod_path}/../tests FILES
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_${t}.py)
-        add_test(
-            NAME py_${t}_parallel
-            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-            ${PYTHON_EXECUTABLE} -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/tests/test_${t}.py)
-    endfunction()
-
-    #ghex_reg_pytest(simple)
-    #ghex_reg_parallel_pytest(simple 4)
-    ghex_reg_pytest(context)
-    ghex_reg_parallel_pytest(context 4)
-    ghex_reg_parallel_pytest(domain_descriptor 4)
-    ghex_reg_parallel_pytest(pattern 4)
-    #ghex_reg_parallel_pytest(pattern 4)
-
-    ##configure_file(${CMAKE_CURRENT_SOURCE_DIR}/tests/__init__.py.in
-    ##${CMAKE_CURRENT_BINARY_DIR}/tests/__init__.py @ONLY)
-    ##add_subdirectory(tests)
-    ##PYTHONPATH="${CMAKE_CURRENT_BINARY_DIR}"
-    #add_test(NAME test_simple_parallel
-    #    #WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests
-    #    #COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/tests/test_simple.py)
-    #    #COMMAND ${PYTHON_EXECUTABLE} -m pytest ${CMAKE_CURRENT_BINARY_DIR})
-    #    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} ${PYTHON_EXECUTABLE} -m pytest --with-mpi ${CMAKE_CURRENT_BINARY_DIR})
-    #add_test(NAME test_simple
-    #    COMMAND ${PYTHON_EXECUTABLE} -m pytest ${CMAKE_CURRENT_BINARY_DIR})
-endif()

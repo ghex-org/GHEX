@@ -7,9 +7,9 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-#import pytest
+import pytest
 
-# import the (autouse) fixture which adds the pyghex module to sys.path
+# add the pyghex module to sys.path
 from fixtures.pyghex_path import *
 
 # import mpi4py

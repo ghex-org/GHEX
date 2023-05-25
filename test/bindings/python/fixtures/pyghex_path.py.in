@@ -7,9 +7,6 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-import pytest
 import sys
 
-@pytest.fixture(autouse=True, scope="module")
-def pyghex_path():
-    sys.path.append("@ghex_python_path@")
+sys.path.append("@ghex_python_path@")
