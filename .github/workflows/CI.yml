@@ -78,7 +78,6 @@ jobs:
             -DGT_INSTALL_EXAMPLES=OFF \
             -DGHEX_USE_BUNDLED_OOMPH=ON \
             -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DOOMPH_WITH_UCX=ON \
             -DUCX_DIR=/opt/ucx \
             -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
@@ -168,7 +167,6 @@ jobs:
             -DGT_INSTALL_EXAMPLES=OFF \
             -DGHEX_USE_BUNDLED_OOMPH=ON \
             -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DOOMPH_WITH_UCX=ON \
             -DUCX_DIR=/opt/ucx \
             -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
@@ -214,7 +212,6 @@ jobs:
             -DGT_INSTALL_EXAMPLES=OFF \
             -DGHEX_USE_BUNDLED_OOMPH=ON \
             -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DOOMPH_WITH_UCX=ON \
             -DUCX_DIR=/opt/ucx \
             -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
@@ -228,9 +225,7 @@ jobs:
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             -DGHEX_USE_GPU=ON \
-            -DGHEX_GPU_TYPE=AMD \
-            -DHWMALLOC_ENABLE_DEVICE=ON \
-            -DHWMALLOC_DEVICE_RUNTIME=hip
+            -DGHEX_GPU_TYPE=AMD
       - name: Build
         run: cmake --build build --parallel 2
 
@@ -261,7 +256,6 @@ jobs:
             -DGT_INSTALL_EXAMPLES=OFF \
             -DGHEX_USE_BUNDLED_OOMPH=ON \
             -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DOOMPH_WITH_UCX=ON \
             -DUCX_DIR=/opt/ucx \
             -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
@@ -275,9 +269,7 @@ jobs:
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             -DGHEX_USE_GPU=ON \
-            -DGHEX_GPU_TYPE=NVIDIA \
-            -DHWMALLOC_ENABLE_DEVICE=ON \
-            -DHWMALLOC_DEVICE_RUNTIME=cuda
+            -DGHEX_GPU_TYPE=NVIDIA
       - name: Build
         run: cmake --build build --parallel 2
 
