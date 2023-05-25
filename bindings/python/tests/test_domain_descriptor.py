@@ -1,3 +1,12 @@
+#
+# ghex-org
+#
+# Copyright (c) 2014-2023, ETH Zurich
+# All rights reserved.
+#
+# Please, refer to the LICENSE file in the root directory.
+# SPDX-License-Identifier: BSD-3-Clause
+#
 import pytest
 
 from fixtures.context import *
@@ -100,4 +109,3 @@ def test_domain_descriptor_grid(mpi_cart_comm, halos):
     assert domain_desc.domain_id() == ctx.rank()
     assert domain_desc.first() == owned_indices.bounds[0, 0, 0]
     assert domain_desc.last() == owned_indices.bounds[-1, -1, -1]
-

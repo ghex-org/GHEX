@@ -1,3 +1,12 @@
+!
+! ghex-org
+!
+! Copyright (c) 2014-2023, ETH Zurich
+! All rights reserved.
+!
+! Please, refer to the LICENSE file in the root directory.
+! SPDX-License-Identifier: BSD-3-Clause
+!
 PROGRAM test_send_multi
 
   ! This test starts m MPI ranks, each with n threads. Each thread sends the same message
