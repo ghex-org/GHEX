@@ -89,6 +89,16 @@ class domain_descriptor
     , m_levels{levels}
     {
     }
+    domain_descriptor(const domain_id_type id, const global_index_type* const vertices_ptr,
+        const std::size_t total_size, const std::size_t inner_size, const std::size_t levels = 1)
+    : m_id{id}
+    , m_vertices{vertices_ptr, vertices_ptr + total_size}
+    , m_adjncy{} // not set using this constructor. Not a big deal, will eventually be removed
+    , m_inner_size{inner_size}
+    , m_size{total_size}
+    , m_levels{levels}
+    {
+    }
 
   private:
     // member functions
@@ -252,7 +262,8 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
   public:
     // constructors
-    /** @brief constructs a CPU data descriptor
+    // TO DO: check consistency between constructors (const ptr, size and size checks. Here and for the GPU)
+    /** @brief constructs a CPU data descriptor using a generic container for the field memory
       * @tparam Container templated container type for the field to be wrapped; data are assumed to
       * be contiguous in memory
       * @param domain local domain instance
@@ -267,6 +278,34 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     , m_values{&(field[0])}
     {
         assert(field.size() == (domain.size() * domain.levels()));
+    }
+    /** @brief constructs a CPU data descriptor using pointer and size for the field memory
+      * @param domain local domain instance
+      * @param field_ptr pointer to the field to be wrapped
+      * @param size size of the field to be wrapped*/
+    data_descriptor(
+        const domain_descriptor_type& domain, const value_type* const field_ptr, const std::size_t size)
+    : m_domain_id{domain.domain_id()}
+    , m_domain_size{domain.size()}
+    , m_levels{domain.levels()}
+    , m_values{field_ptr}
+    {
+        assert(size == (domain.size() * domain.levels()));
+    }
+    /** @brief constructs a CPU data descriptor using domain parameters and pointer for the field memory
+      * @param domain_id local domain id
+      * @param domain_size domain size
+      * @param levels domain / field vertical levels
+      * @param field_ptr pointer to the field to be wrapped*/
+    data_descriptor(
+        const domain_id_type domain_id, const std::size_t domain_size, const std::size_t levels,
+        value_type* const field_ptr)
+    : m_domain_id{domain_id}
+    , m_domain_size{domain_size}
+    , m_levels{levels}
+    , m_values{field_ptr}
+    {
+        // TO DO: no checks on the size
     }
 
     // member functions
