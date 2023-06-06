@@ -41,17 +41,14 @@ def test_pattern(capsys, mpi_cart_comm):
     domain_desc = regular.domain_descriptor(ctx.rank(), owned_indices)
     halo_gen = regular.halo_generator(global_grid.subset["definition"], halos, periodicity)
 
-    print("sdökfjasklfjdasklfjdasfkl")
     pattern = regular.make_pattern(ctx, halo_gen, [domain_desc])
 
     with capsys.disabled():
         print("python side: making co")
         print(pattern.grid_type)
         print(pattern.domain_id_type)
-    #co = regular.communication_object(ctx, pattern.grid_type, pattern.domain_id_type)
+
     co = regular.make_co(ctx, pattern)
-    #co = ghex.make_co_regular(ctx, pattern)
-    print("python side: making co done")
 
     def make_field():
         field_1 = np.zeros(memory_local_grid.bounds.shape, dtype=np.float64, order='F') # todo: , order='F'
@@ -83,8 +80,9 @@ def test_pattern(capsys, mpi_cart_comm):
     res.wait()
     #cp.cuda.Device(0).synchronize()
 
-    print("post_ex:")
-    print(rank_field[:, :, 0])
+    with capsys.disabled():
+        print("post_ex:")
+        print(rank_field[:, :, 0])
 
     for m_idx, local_idx in zip(memory_local_grid.bounds, sub_grid.bounds):
         value_owner_coord = tuple(int(fields[dim][m_idx]) for dim in range(0, 3))
@@ -94,4 +92,3 @@ def test_pattern(capsys, mpi_cart_comm):
 
             assert rank_field[m_idx] == value_owner_rank
     
-    #del co

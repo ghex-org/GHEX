@@ -8,17 +8,6 @@
 ! SPDX-License-Identifier: BSD-3-Clause
 !
 PROGRAM test_halo_exchange
-
-    !
-    ! GridTools
-    !
-    ! Copyright (c) 2014-2021, ETH Zurich
-    ! All rights reserved.
-    !
-    ! Please, refer to the LICENSE file in the root directory.
-    ! SPDX-License-Identifier: BSD-3-Clause
-    !
-
     use iso_c_binding ! TO DO: should not be needed here
     use ghex_mod ! ghex_init() etc.
     use ghex_unstructured_mod ! ghex unstruct bindings
@@ -42,6 +31,7 @@ PROGRAM test_halo_exchange
     ! despite GHEX built-in support for multiple domains per rank.
     ! For tests with multiple domains a minor refactoring is needed.
     integer, dimension(:), pointer :: vertices
+    integer, dimension(:), pointer :: outer_indices
 
     ! application field pointers
     type hptr
@@ -66,12 +56,12 @@ PROGRAM test_halo_exchange
     call ghex_init(1, mpi_comm_world) ! TO DO: multithread
 
     ! application domain decomposition
-    call domain_decompose(world_rank, vertices)
+    call domain_decompose(world_rank, vertices, outer_indices)
 
     ! init GHEX domain descriptors
     allocate(domain_descs(ndomains))
     do it = 1, ndomains
-        call domain_desc_init(domain_descs(it), world_rank, vertices)
+        call domain_desc_init(domain_descs(it), world_rank, vertices, outer_indices)
     end do
 
     ! setup GHEX pattern
@@ -160,40 +150,50 @@ PROGRAM test_halo_exchange
 
 contains
 
-    subroutine domain_decompose(id, vertices)
+    subroutine domain_decompose(id, vertices, outer_indices)
         integer :: id
         integer, dimension(:), pointer :: vertices ! TO DO: target?
+        integer, dimension(:), pointer :: outer_indices ! TO DO: target?
 
         select case(id)
         case(0)
             allocate(vertices(9))
             vertices = (/0, 13, 5, 2, 1, 3, 7, 11, 20/)
+            allocate(outer_indices(5))
+            outer_indices = (/4, 5, 6, 7, 8/)
         case(1)
             allocate(vertices(11))
             vertices = (/1, 19, 20, 4, 7, 15, 8, 0, 9, 13, 16/)
+            allocate(outer_indices(4))
+            outer_indices = (/7, 8, 9, 10/)
         case(2)
             allocate(vertices(6))
             vertices = (/3, 16, 18, 1, 5, 6/)
+            allocate(outer_indices(3))
+            outer_indices = (/3, 4, 5/)
         case(3)
             allocate(vertices(9))
             vertices = (/17, 6, 11, 10, 12, 9, 0, 3, 4/)
+            allocate(outer_indices(3))
+            outer_indices = (/6, 7, 8/)
         endselect
     end subroutine domain_decompose
 
-    subroutine domain_desc_init(domain_desc, id, vertices)
+    subroutine domain_desc_init(domain_desc, id, vertices, outer_indices)
         type(ghex_unstruct_domain_desc) :: domain_desc
         integer :: id
         integer, dimension(:), target :: vertices ! TO DO: pointer?
+        integer, dimension(:), target :: outer_indices 
 
         select case(id)
         case(0)
-            call ghex_unstruct_domain_desc_init(domain_desc, 0, vertices, 9, 4, 10) ! 10 vertical layers
+            call ghex_unstruct_domain_desc_init(domain_desc, 0, vertices, 9, outer_indices, 5, 10) ! 10 vertical layers
         case(1)
-            call ghex_unstruct_domain_desc_init(domain_desc, 1, vertices, 11, 7, 10) ! 10 vertical layers
+            call ghex_unstruct_domain_desc_init(domain_desc, 1, vertices, 11, outer_indices, 4, 10) ! 10 vertical layers
         case(2)
-            call ghex_unstruct_domain_desc_init(domain_desc, 2, vertices, 6, 3, 10) ! 10 vertical layers
+            call ghex_unstruct_domain_desc_init(domain_desc, 2, vertices, 6, outer_indices, 3, 10) ! 10 vertical layers
         case(3)
-            call ghex_unstruct_domain_desc_init(domain_desc, 3, vertices, 9, 6, 10) ! 10 vertical layers
+            call ghex_unstruct_domain_desc_init(domain_desc, 3, vertices, 9, outer_indices, 3, 10) ! 10 vertical layers
         endselect
     end subroutine domain_desc_init
 
@@ -208,7 +208,7 @@ contains
         allocate(field_ptr%ptr(domain_desc%levels, domain_desc%total_size), source=-1.)
         ! part_1 = domain_id * 10000 + field_id * 1000
         part_1 = (field_id - 1) * 1000 ! TO DO: domain_id temporarily removed for simplicity
-        do j = 1, domain_desc%inner_size
+        do j = 1, domain_desc%total_size - domain_desc%outer_size
             part_2 = part_1 + vertices(j) * 10
             do i = 1, domain_desc%levels
                 field_ptr%ptr(i, j) = part_2 + i - 1
@@ -226,7 +226,7 @@ contains
         logical :: passed = .true.
 
         part_1 = (field_id - 1) * 1000 ! TO DO: domain_id temporarily removed for simplicity
-        do j = domain_desc%inner_size + 1, domain_desc%total_size
+        do j = domain_desc%total_size - domain_desc%outer_size + 1, domain_desc%total_size
             part_2 = part_1 + vertices(j) * 10
             do i = 1, domain_desc%levels
                 passed = passed .and. ((field_ptr%ptr(i, j)) == (part_2 + i - 1))
