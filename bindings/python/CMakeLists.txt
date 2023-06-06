@@ -10,6 +10,11 @@ set(pyghex_source
     structured/regular/field_descriptor.cpp
     structured/regular/pattern.cpp
     structured/regular/communication_object.cpp
+    unstructured/domain_descriptor.cpp
+    unstructured/halo_generator.cpp
+    unstructured/field_descriptor.cpp
+    unstructured/pattern.cpp
+    unstructured/communication_object.cpp
 )
 set_source_files_properties(config.cpp PROPERTIES 
     COMPILE_DEFINITIONS GHEX_TRANSPORT_BACKEND=${GHEX_TRANSPORT_BACKEND})
@@ -75,6 +80,9 @@ copy_files(TARGET pyghex_module DESTINATION ${python_mod_path}/structured FILES
 )
 copy_files(TARGET pyghex_module DESTINATION ${python_mod_path}/structured/regular FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/structured/regular/__init__.py
+)
+copy_files(TARGET pyghex_module DESTINATION ${python_mod_path}/unstructured FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/unstructured/__init__.py
 )
 add_dependencies(pyghex pyghex_module)
 
