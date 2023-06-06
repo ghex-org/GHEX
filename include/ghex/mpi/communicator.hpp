@@ -84,6 +84,24 @@ class communicator
     }
 
     template<typename T>
+    future<void> isend(int dest, int tag, const T* values, int n) const
+    {
+        request h;
+        GHEX_CHECK_MPI_RESULT(MPI_Isend(reinterpret_cast<const void*>(values), sizeof(T) * n,
+            MPI_BYTE, dest, tag, *this, &h.get()));
+        return {std::move(h)};
+    }
+
+    template<typename T>
+    future<void> irecv(int source, int tag, T* values, int n) const
+    {
+        request h;
+        GHEX_CHECK_MPI_RESULT(MPI_Irecv(reinterpret_cast<void*>(values), sizeof(T) * n, MPI_BYTE,
+            source, tag, *this, &h.get()));
+        return {std::move(h)};
+    }
+
+    template<typename T>
     void broadcast(T& value, int root) const
     {
         GHEX_CHECK_MPI_RESULT(MPI_Bcast(&value, sizeof(T), MPI_BYTE, root, *this));
