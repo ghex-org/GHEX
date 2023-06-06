@@ -46,7 +46,8 @@ struct ghex_unstruct_domain_desc
     int id;
     int* vertices = nullptr;
     int total_size;
-    int inner_size;
+    int* outer_indices = nullptr;
+    int outer_size;
     int levels;
 };
 
@@ -139,7 +140,11 @@ ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_des
     for (int i = 0; i < n_domains; ++i)
     {
         const auto& d = domain_descs[i];
-        local_domains.emplace_back(d.id, d.vertices, d.total_size, d.inner_size, d.levels);
+        local_domains.emplace_back(
+            d.id,
+            d.vertices, d.vertices + d.total_size,
+            d.outer_indices, d.outer_indices + d.outer_size,
+            d.levels);
     }
     unstruct_halo_generator_type hg{};
     *pattern = new obj_wrapper{ghex::make_pattern<unstruct_grid_type>(context(), hg, local_domains)};

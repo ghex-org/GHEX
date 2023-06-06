@@ -32,7 +32,8 @@ MODULE ghex_unstructured_mod
         integer(c_int) :: id = -1
         type(c_ptr) :: vertices = c_null_ptr
         integer(c_int) :: total_size = 0
-        integer(c_int) :: inner_size = 0
+        type(c_ptr) :: outer_indices = c_null_ptr
+        integer(c_int) :: outer_size = 0
         integer(c_int) :: levels = 1
     end type ghex_unstruct_domain_desc
 
@@ -161,18 +162,20 @@ MODULE ghex_unstructured_mod
 
 CONTAINS
 
-    subroutine ghex_unstruct_domain_desc_init(domain_desc, id, vertices, total_size, inner_size, levels)
+    subroutine ghex_unstruct_domain_desc_init(domain_desc, id, vertices, total_size, outer_indices, outer_size, levels)
         type(ghex_unstruct_domain_desc) :: domain_desc
         integer :: id
         integer, dimension(:), target :: vertices
         integer :: total_size
-        integer :: inner_size
+        integer, dimension(:), target :: outer_indices
+        integer :: outer_size
         integer, optional :: levels
 
         domain_desc%id = id
         domain_desc%vertices = c_loc(vertices)
         domain_desc%total_size = total_size
-        domain_desc%inner_size = inner_size
+        domain_desc%outer_indices = c_loc(outer_indices)
+        domain_desc%outer_size = outer_size
         if (present(levels)) then
             domain_desc%levels = levels
         endif
@@ -201,7 +204,8 @@ CONTAINS
         domain_desc%id = -1
         domain_desc%vertices = c_null_ptr
         domain_desc%total_size = 0
-        domain_desc%inner_size = 0
+        domain_desc%outer_indices = c_null_ptr
+        domain_desc%outer_size = 0
         domain_desc%levels = 1
     end subroutine ghex_unstruct_domain_desc_clear
 
