@@ -42,24 +42,25 @@ class domain_descriptor
     using domain_id_type = DomainId;
     using global_index_type = Idx;
     using local_index_type = std::size_t;
-    using id_map = std::unordered_map<global_index_type, local_index_type>;
+    using inner_map = std::unordered_map<global_index_type, local_index_type>;
+    using outer_map = std::unordered_multimap<global_index_type, local_index_type>;
 
   private:
     // members
     domain_id_type                 m_id;
-    id_map                         m_inner_id_map;
-    id_map                         m_outer_id_map;
+    inner_map                      m_inner_map;
+    outer_map                      m_outer_map;
     std::vector<global_index_type> m_gids;
     std::vector<global_index_type> m_outer_gids;
     std::size_t                    m_levels;
 
   public: // member functions
-    domain_id_type domain_id() const noexcept { return m_id; }
-    std::size_t    inner_size() const noexcept { return m_inner_id_map.size(); }
-    std::size_t    size() const noexcept { return m_gids.size(); }
-    std::size_t    levels() const noexcept { return m_levels; }
-    const id_map&  inner_ids() const noexcept { return m_inner_id_map; }
-    const id_map&  outer_ids() const noexcept { return m_outer_id_map; }
+    domain_id_type                        domain_id() const noexcept { return m_id; }
+    std::size_t                           inner_size() const noexcept { return m_inner_map.size(); }
+    std::size_t                           size() const noexcept { return m_gids.size(); }
+    std::size_t                           levels() const noexcept { return m_levels; }
+    const inner_map&                      inner_ids() const noexcept { return m_inner_map; }
+    const outer_map&                      outer_ids() const noexcept { return m_outer_map; }
     const std::vector<global_index_type>& gids() const noexcept { return m_gids; }
     const std::vector<global_index_type>& outer_gids() const noexcept { return m_outer_gids; }
 
@@ -70,24 +71,47 @@ class domain_descriptor
 
     std::optional<local_index_type> inner_local_index(global_index_type gid) const noexcept
     {
-        auto it = m_inner_id_map.find(gid);
-        return it != m_inner_id_map.end() ? std::optional{it->second} : std::nullopt;
-    }
-
-    std::optional<local_index_type> outer_local_index(global_index_type gid) const noexcept
-    {
-        auto it = m_outer_id_map.find(gid);
-        return it != m_outer_id_map.end() ? std::optional{it->second} : std::nullopt;
+        auto it = m_inner_map.find(gid);
+        return it != m_inner_map.end() ? std::optional{it->second} : std::nullopt;
     }
 
     bool is_inner(global_index_type gid) const noexcept
     {
-        return m_inner_id_map.find(gid) != m_inner_id_map.end();
+        return m_inner_map.find(gid) != m_inner_map.end();
     }
 
     bool is_outer(global_index_type gid) const noexcept
     {
-        return m_outer_id_map.find(gid) != m_outer_id_map.end();
+        return m_outer_map.find(gid) != m_outer_map.end();
+    }
+
+    // Create a vector of local ids from global ids
+    // Repeated gids are allowed iff there are multiple lids mapped to the same gids
+    std::vector<local_index_type> make_outer_lids(const std::vector<global_index_type>& gids) const
+    {
+        std::vector<local_index_type> lids;
+        lids.reserve(gids.size());
+        std::unordered_map<global_index_type, unsigned int> gid_count;
+        for (auto gid : gids)
+        {
+            auto [first, last] = outer_ids().equal_range(gid);
+            if (first == outer_ids().end()) continue;
+            if (auto [it, success] = gid_count.insert(std::make_pair(gid, 0u)); !success)
+            {
+                if (auto c = ++it->second; c < std::distance(first, last)) std::advance(first, c);
+                else
+                    throw std::runtime_error(
+                        "halo gid does not have an associated lid in the domain");
+            }
+            lids.push_back(first->second);
+        }
+        for (auto [gid, c] : gid_count)
+        {
+            auto [first, last] = outer_ids().equal_range(gid);
+            if ((c + 1u) != std::distance(first, last))
+                throw std::runtime_error("halo gid occurs not often enough");
+        }
+        return lids;
     }
 
     // print
@@ -142,13 +166,12 @@ class domain_descriptor
             const auto gid = *it;
             if (outer_lids.count(lid))
             {
-                auto res = m_outer_id_map.insert(std::make_pair(gid, lid));
-                if (!res.second) throw std::runtime_error("repeated outer (global) index");
+                m_outer_map.insert(std::make_pair(gid, lid));
                 m_outer_gids.push_back(gid);
             }
             else
             {
-                auto res = m_inner_id_map.insert(std::make_pair(gid, lid));
+                auto res = m_inner_map.insert(std::make_pair(gid, lid));
                 if (!res.second) throw std::runtime_error("repeated inner (global) index");
             }
             m_gids.push_back(gid);
@@ -243,26 +266,8 @@ class halo_generator
       * @return receive halo*/
     halo operator()(const domain_type& domain) const
     {
-        if (m_use_all)
-        {
-            std::vector<local_index_type> lids;
-            lids.reserve(domain.size() - domain.inner_size());
-            std::transform(domain.outer_gids().begin(), domain.outer_gids().end(),
-                std::back_inserter(lids),
-                [&domain](auto gid) { return domain.outer_local_index(gid).value(); });
-            return {std::move(lids), domain.levels()};
-        }
-        else
-        {
-            std::vector<local_index_type> lids;
-            lids.reserve(m_gids.size());
-            for (auto gid : m_gids)
-            {
-                if (auto it = domain.outer_ids().find(gid); it != domain.outer_ids().end())
-                    lids.push_back(it->second);
-            }
-            return {std::move(lids), domain.levels()};
-        }
+        if (m_use_all) { return {domain.make_outer_lids(domain.outer_gids()), domain.levels()}; }
+        else { return {domain.make_outer_lids(m_gids), domain.levels()}; }
     }
 };
 

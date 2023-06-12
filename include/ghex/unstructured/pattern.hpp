@@ -246,13 +246,7 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
             auto h = hgen(d);
             std::transform(h.local_indices().begin(), h.local_indices().end(),
                 std::back_inserter(my_reduced_halos),
-                [&d](auto lid)
-                {
-                    //return d.global_index(lid);
-                    auto opt = d.global_index(lid);
-                    //if (!opt) throw std::runtime_error("halo generator provided invalid local ids");
-                    return opt.value();
-                });
+                [&d](auto lid) { return d.global_index(lid).value(); });
             my_domain_data.push_back(domain_data{d.domain_id(), h.size(), h.levels()});
         }
 
@@ -365,9 +359,9 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                             iteration_space_type is{r.num_levels};
                             tmp.resize(r.is_size);
                             comm.recv(other_rank, r.tag, tmp.data(), r.is_size);
-                            std::transform(tmp.begin(), tmp.end(),
-                                std::back_inserter(is.local_indices()),
-                                [&d](auto gid) { return d.outer_local_index(gid).value(); });
+                            auto lids = d.make_outer_lids(tmp);
+                            assert(lids.size() == tmp.size());
+                            is.local_indices().assign(lids.begin(), lids.end());
                             p.recv_halos().insert(
                                 std::make_pair(id, index_container_type{std::move(is)}));
                         }

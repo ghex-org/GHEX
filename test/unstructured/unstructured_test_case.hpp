@@ -143,7 +143,7 @@ check_domain(const domain_descriptor_type& d, const std::vector<global_index_typ
     for (auto gid : outer_gids)
     {
         EXPECT_TRUE(d.is_outer(gid));
-        EXPECT_EQ(d.outer_local_index(gid).value(), lid);
+        EXPECT_EQ(d.outer_ids().find(gid)->second, lid);
         ++lid;
     }
 }
@@ -210,7 +210,7 @@ check_halo_generator(const domain_descriptor_type& d, const halo_generator_type&
         auto lid = h.local_indices()[i];
         auto gid = d.global_index(lid).value();
         EXPECT_TRUE(!d.is_inner(gid));
-        EXPECT_EQ(d.outer_local_index(gid), lid);
+        EXPECT_EQ(d.outer_ids().find(gid)->second, lid);
     }
 }
 
