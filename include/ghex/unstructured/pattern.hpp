@@ -216,6 +216,14 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
             my_patterns.push_back(p);
         }
 
+        // get maximum domain id (used to create tags)
+        auto my_max_domain_id = max_element(my_patterns.begin(), my_patterns.end(),
+            [](const auto& lhs, const auto& rhs) {
+                return lhs.domain_id() < rhs.domain_id();
+            })->domain_id();
+        auto all_max_domain_ids = comm.all_gather(my_max_domain_id).get();
+        auto max_domain_id = *max_element(all_max_domain_ids.begin(), all_max_domain_ids.end());
+
         // gather halos from all local domains on all ranks.
         int  my_num_domains = d_range.size();
         auto all_num_domains = comm.all_gather(my_num_domains).get();
@@ -224,9 +232,9 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
         unsigned max_num_domains =
             *std::max_element(all_num_domains.begin(), all_num_domains.end());
         auto make_tag = [shift = num_bits(max_num_domains)](unsigned src_local_domain_id,
-                            unsigned                                 tgt_local_domain_id) -> int
-        { return (src_local_domain_id << shift) | tgt_local_domain_id; };
-        int max_tag = make_tag(max_num_domains, max_num_domains);
+                            domain_id_type                           tgt_domain_id) -> int
+        { return (src_local_domain_id << shift) | tgt_domain_id; };
+        int max_tag = make_tag(max_num_domains, max_domain_id);
 
         // POD data for send halo exchange
         struct domain_data
@@ -289,7 +297,7 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                 unsigned my_domain_count = 0u;
                 for (const auto& d : d_range)
                 {
-                    int                     tag = make_tag(my_domain_count, other_domain_count);
+                    int                     tag = make_tag(my_domain_count, other_d.id);
                     extended_domain_id_type id{other_d.id, other_rank, tag};
                     iteration_space_type    is{other_d.num_levels};
                     for (auto it = first; it != last; ++it)
