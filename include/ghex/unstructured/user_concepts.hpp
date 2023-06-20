@@ -52,13 +52,11 @@ class domain_descriptor
     outer_map                      m_outer_map;
     std::vector<global_index_type> m_gids;
     std::vector<global_index_type> m_outer_gids;
-    std::size_t                    m_levels;
 
   public: // member functions
     domain_id_type                        domain_id() const noexcept { return m_id; }
     std::size_t                           inner_size() const noexcept { return m_inner_map.size(); }
     std::size_t                           size() const noexcept { return m_gids.size(); }
-    std::size_t                           levels() const noexcept { return m_levels; }
     const inner_map&                      inner_ids() const noexcept { return m_inner_map; }
     const outer_map&                      outer_ids() const noexcept { return m_outer_map; }
     const std::vector<global_index_type>& gids() const noexcept { return m_gids; }
@@ -123,7 +121,6 @@ class domain_descriptor
         os << "domain id =       " << domain.domain_id() << ";\n"
            << "size =            " << domain.size() << ";\n"
            << "inner size =      " << domain.inner_size() << ";\n"
-           << "levels =          " << domain.levels() << ";\n"
            << "global ids =       [";
         for (auto x : domain.gids()) os << x << " ";
         os << "]\n"
@@ -144,13 +141,11 @@ class domain_descriptor
       * @param first Iterator pointing to the first global index
       * @param last Iterator pointing to the end (one-past-last) of the global indices
       * @param outer_first Iterator pointing to the first outer local index
-      * @param outer_last Iterator pointing to the end (one-past-last) of the outer local indices
-      * @param levels Number of vertical levels*/
+      * @param outer_last Iterator pointing to the end (one-past-last) of the outer local indices*/
     template<typename GidIt, typename LidIt>
     domain_descriptor(domain_id_type id, GidIt first, GidIt last, LidIt outer_first,
-        LidIt outer_last, std::size_t levels = 1)
+        LidIt outer_last)
     : m_id{id}
-    , m_levels{levels}
     {
         // temporariliy store the outer local ids in a set for easy retrieval later
         std::unordered_set<local_index_type> outer_lids;
@@ -200,25 +195,19 @@ class halo_generator
     {
       private:
         local_indices_type m_local_indices;
-        std::size_t        m_levels;
 
       public:
         // ctors
-        halo(const std::size_t levels) noexcept
-        : m_levels{levels}
-        {
-        }
+        halo() noexcept = default;
 
-        halo(local_indices_type local_indices, std::size_t levels)
+        halo(local_indices_type local_indices)
         : m_local_indices{std::move(local_indices)}
-        , m_levels{levels}
         {
         }
 
         // member functions
         /** @brief size of the halo */
         std::size_t               size() const noexcept { return m_local_indices.size(); }
-        std::size_t               levels() const noexcept { return m_levels; }
         const local_indices_type& local_indices() const noexcept { return m_local_indices; }
         void                      push_back(const global_index_type v, const local_index_type idx)
         {
@@ -232,7 +221,6 @@ class halo_generator
             const halo&                                                                         h)
         {
             os << "size = " << h.size() << ";\n"
-               << "levels = " << h.levels() << ";\n"
                << "local indices: [ ";
             for (const auto idx : h.local_indices()) { os << idx << " "; }
             os << "]\n";
@@ -266,8 +254,8 @@ class halo_generator
       * @return receive halo*/
     halo operator()(const domain_type& domain) const
     {
-        if (m_use_all) { return {domain.make_outer_lids(domain.outer_gids()), domain.levels()}; }
-        else { return {domain.make_outer_lids(m_gids), domain.levels()}; }
+        if (m_use_all) { return {domain.make_outer_lids(domain.outer_gids())}; }
+        else { return {domain.make_outer_lids(m_gids)}; }
     }
 };
 
@@ -307,26 +295,26 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @param domain local domain instance
       * @param field field to be wrapped*/
     template<class Container>
-    data_descriptor(const domain_descriptor_type& domain, Container& field)
+    data_descriptor(const domain_descriptor_type& domain, Container& field, std::size_t levels = 1u)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
-    , m_levels{domain.levels()}
+    , m_levels{levels}
     , m_values{&(field[0])}
     {
-        assert(field.size() == (domain.size() * domain.levels()));
+        assert(field.size() == (domain.size() * m_levels));
     }
 
     /** @brief constructs a CPU data descriptor using pointer and size for the field memory
       * @param domain local domain instance
       * @param field_ptr pointer to the field to be wrapped
       * @param size size of the field to be wrapped*/
-    data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr)
+    data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr,
+        std::size_t levels = 1u)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
-    , m_levels{domain.levels()}
+    , m_levels{levels}
     , m_values{field_ptr}
     {
-        //assert(size == (domain.size() * domain.levels()));
     }
 
     /** @brief constructs a CPU data descriptor using domain parameters and pointer for the field memory
@@ -334,8 +322,8 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @param domain_size domain size
       * @param levels domain / field vertical levels
       * @param field_ptr pointer to the field to be wrapped*/
-    data_descriptor(domain_id_type domain_id, std::size_t domain_size, std::size_t levels,
-        value_type* field_ptr)
+    data_descriptor(domain_id_type domain_id, std::size_t domain_size, value_type* field_ptr,
+        std::size_t levels = 1u)
     : m_domain_id{domain_id}
     , m_domain_size{domain_size}
     , m_levels{levels}
@@ -350,8 +338,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
     domain_id_type domain_id() const noexcept { return m_domain_id; }
     std::size_t    domain_size() const noexcept { return m_domain_size; }
-    std::size_t    levels() const noexcept { return m_levels; }
-    int            num_components() const noexcept { return 1; }
+    int            num_components() const noexcept { return m_levels; }
 
     value_type* get_address_at(const std::size_t local_v, const std::size_t level)
     {
@@ -379,7 +366,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     {
         for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */
         {
-            for (std::size_t level = 0; level < is.levels(); ++level)
+            for (std::size_t level = 0; level < m_levels; ++level)
             {
                 std::memcpy(&((*this)(local_v, level)), buffer, sizeof(value_type));
                 buffer += sizeof(value_type);
@@ -396,7 +383,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     {
         for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */
         {
-            for (std::size_t level = 0; level < is.levels(); ++level)
+            for (std::size_t level = 0; level < m_levels; ++level)
             {
                 std::memcpy(buffer, &((*this)(local_v, level)), sizeof(value_type));
                 buffer += sizeof(value_type);
@@ -477,11 +464,11 @@ class data_descriptor<gpu, DomainId, Idx, T>
       * @param field data pointer, assumed to point to a contiguous memory region of size = domain size * n levels
       * @param device_id device id*/
     data_descriptor(const domain_descriptor_type& domain, value_type* field,
-        device_id_type device_id = arch_traits<arch_type>::current_id())
+        std::size_t levels = 1u, device_id_type device_id = arch_traits<arch_type>::current_id())
     : m_device_id{device_id}
     , m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
-    , m_levels{domain.levels()}
+    , m_levels{levels}
     , m_values{field}
     {
     }
@@ -491,8 +478,7 @@ class data_descriptor<gpu, DomainId, Idx, T>
     device_id_type device_id() const noexcept { return m_device_id; }
     domain_id_type domain_id() const noexcept { return m_domain_id; }
     std::size_t    domain_size() const noexcept { return m_domain_size; }
-    std::size_t    levels() const noexcept { return m_levels; }
-    int            num_components() const noexcept { return 1; }
+    int            num_components() const noexcept { return m_levels; }
 
     value_type* get_address_at(const std::size_t local_v, const std::size_t level)
     {
@@ -523,7 +509,7 @@ class data_descriptor<gpu, DomainId, Idx, T>
                                            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
             pack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
                 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
-                is.local_indices().size(), &(is.local_indices()[0]), is.levels(), buffer);
+                is.local_indices().size(), &(is.local_indices()[0]), m_levels, buffer);
         }
     }
 
@@ -537,7 +523,7 @@ class data_descriptor<gpu, DomainId, Idx, T>
                                            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
             unpack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
                 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer,
-                is.local_indices().size(), &(is.local_indices()[0]), is.levels(), m_values);
+                is.local_indices().size(), &(is.local_indices()[0]), m_levels, m_values);
         }
     }
 };

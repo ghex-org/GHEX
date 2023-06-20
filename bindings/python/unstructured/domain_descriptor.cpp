@@ -38,18 +38,15 @@ register_domain_descriptor(pybind11::module& m)
 
             auto type_name = util::demangle<type>();
             pybind11::class_<type>(m, type_name.c_str())
-                //.def(pybind11::init<domain_id_type, const std::vector<global_index_type>&,
-                //         std::size_t, std::size_t>(),
-                //    "domain_id"_a, "global_indices"_a, "inner_size"_a, "levels"_a = std::size_t(1u),
-                //    "Create a domain descriptor")
-                .def(pybind11::init([](domain_id_type id, const std::vector<global_index_type>& gids,
-                    const std::vector<local_index_type>& halo_lids, std::size_t levels){
-                        return type{id, gids.begin(), gids.end(), halo_lids.begin(), halo_lids.end(), levels};
-                            }))
+                .def(pybind11::init(
+                    [](domain_id_type id, const std::vector<global_index_type>& gids,
+                        const std::vector<local_index_type>& halo_lids) {
+                        return type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                            halo_lids.end()};
+                    }))
                 .def("domain_id", &type::domain_id, "Returns the domain id")
                 .def("size", &type::size, "Returns the size")
                 .def("inner_size", &type::inner_size, "Returns the inner size")
-                .def("levels", &type::levels, "Returns the levels")
                 .def(
                     "indices",
                     [](const type& d) -> std::vector<global_index_type> { return d.gids(); },

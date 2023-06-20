@@ -44,7 +44,7 @@ using local_indices_type = std::vector<local_index_type>;
  * */
 
 domain_descriptor_type
-make_domain(domain_id_type id, std::size_t n_levels = 1)
+make_domain(domain_id_type id)
 {
     switch (id)
     {
@@ -53,7 +53,7 @@ make_domain(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {0, 13, 5, 2, 1, 3, 7, 11, 20};
             std::vector<local_index_type>  halo_lids = {4, 5, 6, 7, 8};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         case 1:
@@ -61,7 +61,7 @@ make_domain(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {1, 19, 20, 4, 7, 15, 8, 0, 9, 13, 16};
             std::vector<local_index_type>  halo_lids = {7, 8, 9, 10};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         case 2:
@@ -69,7 +69,7 @@ make_domain(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {3, 16, 18, 1, 5, 6};
             std::vector<local_index_type>  halo_lids = {3, 4, 5};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         case 3:
@@ -77,7 +77,7 @@ make_domain(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {17, 6, 11, 10, 12, 9, 0, 3, 4};
             std::vector<local_index_type>  halo_lids = {6, 7, 8};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         default:
@@ -86,7 +86,7 @@ make_domain(domain_id_type id, std::size_t n_levels = 1)
 }
 
 domain_descriptor_type
-make_domain_ipr(domain_id_type id, std::size_t n_levels = 1)
+make_domain_ipr(domain_id_type id)
 {
     switch (id)
     {
@@ -95,7 +95,7 @@ make_domain_ipr(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {0, 13, 5, 2, 1, 7, 20, 3, 11};
             std::vector<local_index_type>  halo_lids = {4, 5, 6, 7, 8};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         case 1:
@@ -103,7 +103,7 @@ make_domain_ipr(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {1, 19, 20, 4, 7, 15, 8, 0, 13, 16, 9};
             std::vector<local_index_type>  halo_lids = {7, 8, 9, 10};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         case 2:
@@ -111,7 +111,7 @@ make_domain_ipr(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {3, 16, 18, 5, 1, 6};
             std::vector<local_index_type>  halo_lids = {3, 4, 5};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         case 3:
@@ -119,7 +119,7 @@ make_domain_ipr(domain_id_type id, std::size_t n_levels = 1)
             std::vector<global_index_type> gids = {17, 6, 11, 10, 12, 9, 0, 4, 3};
             std::vector<local_index_type>  halo_lids = {6, 7, 8};
             return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                halo_lids.end(), n_levels};
+                halo_lids.end()};
             break;
         }
         default:

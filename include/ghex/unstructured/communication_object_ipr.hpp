@@ -49,16 +49,16 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
   private:
     struct halo
     {
-        int remote_rank;
-        int tag;
-        index_container_type const & index_container;
-        message_type message;
+        int                         remote_rank;
+        int                         tag;
+        index_container_type const& index_container;
+        message_type                message;
     };
 
     struct status
     {
-        std::size_t num_completed;
-        std::size_t num_total;
+        std::size_t        num_completed;
+        std::size_t        num_total;
         communicator_type& comm;
     };
 
@@ -67,11 +67,16 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
     {
       public:
         handle() noexcept {}
-        handle(status* s) noexcept : m_status{s} {}
+        handle(status* s) noexcept
+        : m_status{s}
+        {
+        }
         handle(handle&&) noexcept = default;
         handle& operator=(handle&&) noexcept = default;
+
       private:
-        status* m_status = nullptr;      
+        status* m_status = nullptr;
+
       public: // member functions
         /** @brief wait for communication to be finished */
         void wait()
@@ -94,14 +99,14 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
     };
 
   private:
-    context& m_context;
-    communicator_type m_comm;
-    device_id_type m_device_id;
-    field_type m_field;
-    std::vector<halo> m_send_halos;
-    std::vector<halo> m_recv_halos;
+    context&                m_context;
+    communicator_type       m_comm;
+    device_id_type          m_device_id;
+    field_type              m_field;
+    std::vector<halo>       m_send_halos;
+    std::vector<halo>       m_recv_halos;
     std::unique_ptr<status> m_status;
-    device::stream m_stream;
+    device::stream          m_stream;
 
   public:
     communication_object_ipr(context& c, buffer_info_type bi)
@@ -112,52 +117,35 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
     {
         //domain_id_type const domain_id = m_field.domain_id();
         //int const            max_tag = bi.get_pattern_container().max_tag();
-        pattern_type const&  pattern = bi.get_pattern();
+        pattern_type const& pattern = bi.get_pattern();
 
-        for (auto const & send_halo : pattern.send_halos())
+        for (auto const& send_halo : pattern.send_halos())
         {
-            auto const& extended_id = send_halo.first;
+            auto const&                 extended_id = send_halo.first;
             index_container_type const& index_container = send_halo.second;
-            auto const& iteration_space = index_container[0];
-            std::size_t const size = iteration_space.size()*iteration_space.levels()*sizeof(value_type);
+            auto const&                 iteration_space = index_container[0];
+            std::size_t const           size =
+                iteration_space.size() * m_field.num_components() * sizeof(value_type);
 
-            m_send_halos.push_back(
-                halo{
-                    extended_id.mpi_rank,
-                    extended_id.tag,
-                    index_container,
-                    arch_traits<arch_type>::make_message(
-                        m_comm,
-                        size,
-                        m_device_id
-                    )
-                }
-            );
+            m_send_halos.push_back(halo{extended_id.mpi_rank, extended_id.tag, index_container,
+                arch_traits<arch_type>::make_message(m_comm, size, m_device_id)});
         }
-        for (auto const & recv_halo : pattern.recv_halos())
+        for (auto const& recv_halo : pattern.recv_halos())
         {
-            auto const& extended_id = recv_halo.first;
+            auto const&                 extended_id = recv_halo.first;
             index_container_type const& index_container = recv_halo.second;
-            auto const& iteration_space = index_container[0];
-            std::size_t const size = iteration_space.size()*iteration_space.levels()*sizeof(value_type);
+            auto const&                 iteration_space = index_container[0];
+            std::size_t const           size =
+                iteration_space.size() * m_field.num_components() * sizeof(value_type);
             index_vector_type const& index_vector = iteration_space.local_indices();
 
-            m_recv_halos.push_back(
-                halo{
-                    extended_id.mpi_rank,
-                    extended_id.tag,
-                    index_container,
-                    arch_traits<arch_type>::make_message(
-                        m_comm,
-                        m_field.get_address_at(index_vector.front(),0),
-                        size,
-                        m_device_id
-                    )
-                }
-            );
+            m_recv_halos.push_back(halo{extended_id.mpi_rank, extended_id.tag, index_container,
+                arch_traits<arch_type>::make_message(m_comm,
+                    m_field.get_address_at(index_vector.front(), 0), size, m_device_id)});
         }
 
-        m_status = std::unique_ptr<status>(new status{0ul,m_recv_halos.size()+m_send_halos.size(),m_comm});
+        m_status = std::unique_ptr<status>(
+            new status{0ul, m_recv_halos.size() + m_send_halos.size(), m_comm});
     }
 
     handle exchange()
@@ -173,7 +161,8 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
     {
         for (halo& h : m_recv_halos)
         {
-            m_comm.recv(h.message, h.remote_rank, h.tag, [s = m_status.get()](message_type&,int,int){ ++s->num_completed; });
+            m_comm.recv(h.message, h.remote_rank, h.tag,
+                [s = m_status.get()](message_type&, int, int) { ++s->num_completed; });
         }
     }
 
@@ -183,9 +172,11 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
         {
             device::guard g(h.message);
             auto          data = g.data();
-            m_field.pack(reinterpret_cast<T*>(data), h.index_container, std::is_same<arch_type,cpu>::value?nullptr:&m_stream);
+            m_field.pack(reinterpret_cast<T*>(data), h.index_container,
+                std::is_same<arch_type, cpu>::value ? nullptr : &m_stream);
             m_stream.sync();
-            m_comm.send(h.message, h.remote_rank, h.tag, [s = m_status.get()](message_type&,int,int){ ++s->num_completed; });
+            m_comm.send(h.message, h.remote_rank, h.tag,
+                [s = m_status.get()](message_type&, int, int) { ++s->num_completed; });
         }
     }
 };

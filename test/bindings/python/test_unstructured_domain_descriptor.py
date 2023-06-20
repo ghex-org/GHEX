@@ -212,13 +212,11 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
     domain_desc = unstructured.domain_descriptor(
             ctx.rank(),
             domains[ctx.rank()]["all"],
-            domains[ctx.rank()]["outer_lids"],
-            LEVELS)
+            domains[ctx.rank()]["outer_lids"])
 
     assert domain_desc.domain_id() == ctx.rank()
     assert domain_desc.size() == len(domains[ctx.rank()]["all"])
     assert domain_desc.inner_size() == len(domains[ctx.rank()]["inner"])
-    assert domain_desc.levels() == LEVELS
 
     #halo_gen = unstructured.halo_generator()
     halo_gen = unstructured.halo_generator_with_gids(domains[ctx.rank()]["outer"])

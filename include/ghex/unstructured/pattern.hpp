@@ -58,24 +58,18 @@ class pattern<unstructured::detail::grid<Index>, DomainId>
 
       private:
         local_indices_type m_local_indices;
-        std::size_t        m_levels;
 
       public:
         // ctors
-        iteration_space(std::size_t levels = 1) noexcept
-        : m_levels{levels}
-        {
-        }
+        iteration_space() noexcept = default;
 
-        iteration_space(local_indices_type local_indices, std::size_t levels = 1)
+        iteration_space(local_indices_type local_indices)
         : m_local_indices{std::move(local_indices)}
-        , m_levels{levels}
         {
         }
 
         // member functions
         std::size_t               size() const noexcept { return m_local_indices.size(); }
-        std::size_t               levels() const noexcept { return m_levels; }
         const local_indices_type& local_indices() const noexcept { return m_local_indices; }
         local_indices_type&       local_indices() noexcept { return m_local_indices; }
 
@@ -88,7 +82,6 @@ class pattern<unstructured::detail::grid<Index>, DomainId>
             const iteration_space&                                                              is)
         {
             os << "size = " << is.size() << ";\n"
-               << "levels = " << is.levels() << ";\n"
                << "local indices: [ ";
             for (auto idx : is.local_indices()) { os << idx << " "; }
             os << "]\n";
@@ -135,7 +128,7 @@ class pattern<unstructured::detail::grid<Index>, DomainId>
     static std::size_t num_elements(const index_container_type& c) noexcept
     {
         std::size_t s{0};
-        for (const auto& is : c) s += (is.size() * is.levels());
+        for (const auto& is : c) s += is.size();
         return s;
     }
 
@@ -241,7 +234,6 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
         {
             domain_id_type id;
             std::size_t    halo_size;
-            std::size_t    num_levels;
         };
         std::vector<domain_data> my_domain_data;
 
@@ -255,7 +247,7 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
             std::transform(h.local_indices().begin(), h.local_indices().end(),
                 std::back_inserter(my_reduced_halos),
                 [&d](auto lid) { return d.global_index(lid).value(); });
-            my_domain_data.push_back(domain_data{d.domain_id(), h.size(), h.levels()});
+            my_domain_data.push_back(domain_data{d.domain_id(), h.size()});
         }
 
         // exchange domain data
@@ -280,7 +272,6 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
             int            recv_rank;
             int            tag;
             std::size_t    is_size;
-            std::size_t    num_levels;
         };
         std::vector<recv_halo_data> my_recv_halo_data;
 
@@ -299,7 +290,7 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                 {
                     int                     tag = make_tag(my_domain_count, other_d.id);
                     extended_domain_id_type id{other_d.id, other_rank, tag};
-                    iteration_space_type    is{other_d.num_levels};
+                    iteration_space_type    is;
                     for (auto it = first; it != last; ++it)
                     {
                         auto gid = *it;
@@ -307,8 +298,8 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                     }
                     if (is.size())
                     {
-                        my_recv_halo_data.push_back(recv_halo_data{d.domain_id(), other_d.id,
-                            other_rank, tag, is.size(), other_d.num_levels});
+                        my_recv_halo_data.push_back(
+                            recv_halo_data{d.domain_id(), other_d.id, other_rank, tag, is.size()});
                         my_patterns[my_domain_count].send_halos().insert(
                             std::make_pair(id, index_container_type{std::move(is)}));
                     }
@@ -364,7 +355,7 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                         if (p.domain_id() == r.other_id)
                         {
                             auto&                d = d_range[domain_counter];
-                            iteration_space_type is{r.num_levels};
+                            iteration_space_type is;
                             tmp.resize(r.is_size);
                             comm.recv(other_rank, r.tag, tmp.data(), r.is_size);
                             auto lids = d.make_outer_lids(tmp);
@@ -484,7 +475,7 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                 // TO DO: maximum shift should not be hard-coded
                 int tag = (static_cast<unsigned int>(other_id) << 7) + d.domain_id();
                 extended_domain_id_type id{other_id, other_rank, tag};
-                iteration_space_type    is{d_id_is.second.local_indices(), h.levels()};
+                iteration_space_type    is{d_id_is.second.local_indices()};
                 index_container_type    ic{is};
                 p.recv_halos().insert({id, ic});
             }
@@ -588,7 +579,6 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
             for (std::size_t d_idx = 0; d_idx < domain_ids.size(); ++d_idx)
             {
                 auto d_id = domain_ids[d_idx];
-                auto levels = hgen(d_range[local_domain_ids_map.at(d_id)]).levels();
                 auto send_counts = all_send_counts[r_idx].at(d_id);
                 for (std::size_t other_d_idx = 0; other_d_idx < send_counts.size(); ++other_d_idx)
                 {
@@ -599,11 +589,9 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                         // TO DO: maximum shift should not be hard-coded
                         int tag = (static_cast<unsigned int>(d_id) << 7) + other_id;
                         extended_domain_id_type id{other_id, other_rank, tag};
-                        iteration_space_type    is{
-                            {all_flat_send_indices_it,
-                                   all_flat_send_indices_it + send_counts[other_d_idx]},
-                            levels};
-                        index_container_type ic{is};
+                        iteration_space_type    is{{all_flat_send_indices_it,
+                               all_flat_send_indices_it + send_counts[other_d_idx]}};
+                        index_container_type    ic{is};
                         my_patterns[d_idx].send_halos().insert({id, ic});
                         all_flat_send_indices_it += send_counts[other_d_idx];
                     }

@@ -25,8 +25,7 @@ from ghex.util.cpp_wrapper import (
 def domain_descriptor(
         index,
         indices,
-        halo_indices,
-        levels = 1
+        halo_indices
 ):
     type_spec = (
         "ghex::unstructured::domain_descriptor",
@@ -34,7 +33,7 @@ def domain_descriptor(
         "int",
     )
     return cls_from_cpp_type_spec(type_spec)(
-        index, indices, halo_indices, levels 
+        index, indices, halo_indices
     )
 
 def halo_generator():

@@ -15,20 +15,23 @@
 #include <fhex/context_bind.hpp>
 
 #include <ghex/unstructured/user_concepts.hpp> // ghex arch traits included here
-#include <ghex/unstructured/pattern.hpp> // grid and pattern_container included here
+#include <ghex/unstructured/pattern.hpp>       // grid and pattern_container included here
 #include <ghex/communication_object.hpp>
 
 namespace fhex
 {
 using unstruct_domain_descriptor_type = ghex::unstructured::domain_descriptor<int, int>;
 using unstruct_halo_generator_type = ghex::unstructured::halo_generator<int, int>;
-using unstruct_field_descriptor_cpu_type = ghex::unstructured::data_descriptor<ghex::cpu, int, int, fp_type>;
+using unstruct_field_descriptor_cpu_type =
+    ghex::unstructured::data_descriptor<ghex::cpu, int, int, fp_type>;
 using unstruct_grid_type = ghex::unstructured::grid;
 using unstruct_grid_detail_type = ghex::unstructured::detail::grid<std::size_t>;
 using unstruct_pattern_type = ghex::pattern<unstruct_grid_detail_type, int>;
 using unstruct_pattern_container_type = ghex::pattern_container<unstruct_grid_detail_type, int>;
-using unstruct_buffer_info_type = ghex::buffer_info<unstruct_pattern_type, ghex::cpu, unstruct_field_descriptor_cpu_type>;
-using unstruct_communication_object_type = ghex::communication_object<unstruct_grid_detail_type, int>;
+using unstruct_buffer_info_type =
+    ghex::buffer_info<unstruct_pattern_type, ghex::cpu, unstruct_field_descriptor_cpu_type>;
+using unstruct_communication_object_type =
+    ghex::communication_object<unstruct_grid_detail_type, int>;
 using unstruct_exchange_handle_type = unstruct_communication_object_type::handle_type;
 
 /** @brief wraps domain descriptor constructor arguments
@@ -43,19 +46,18 @@ using unstruct_exchange_handle_type = unstruct_communication_object_type::handle
 */
 struct ghex_unstruct_domain_desc
 {
-    int id;
+    int  id;
     int* vertices = nullptr;
-    int total_size;
+    int  total_size;
     int* outer_indices = nullptr;
-    int outer_size;
-    int levels;
+    int  outer_size;
 };
 
 struct ghex_unstruct_field_desc
 {
-    int domain_id;
-    int domain_size;
-    int levels;
+    int      domain_id;
+    int      domain_size;
+    int      levels;
     fp_type* field = nullptr;
 };
 
@@ -89,27 +91,21 @@ class exchange_args
     exchange_args& operator=(const exchange_args&) noexcept = delete;
     exchange_args& operator=(exchange_args&&) noexcept = default; // TO DO: m_valid?
 
-  public: // member functions
+  public:                                                                     // member functions
     void add(unstruct_pattern_container_type* p, ghex_unstruct_field_desc* f) // TO DO: const ref?
     {
         m_patterns.push_back(p); // TO DO: emplace_back?
         if (m_fields.size() == m_fields.capacity()) m_valid = false;
-        m_fields.emplace_back(f->domain_id, f->domain_size, f->levels, f->field);
-        if (m_valid)
-        {
-            m_args.emplace_back(m_patterns.back()->operator()(m_fields.back()));
-        }
-        else
-        {
-            validate();
-        }
+        m_fields.emplace_back(f->domain_id, f->domain_size, f->field, f->levels);
+        if (m_valid) { m_args.emplace_back(m_patterns.back()->operator()(m_fields.back())); }
+        else { validate(); }
     }
 
     auto begin() { return m_args.begin(); }
     auto end() { return m_args.end(); }
 
     const std::vector<arg_type>& get() const { return m_args; }
-    std::vector<arg_type>& get() { return m_args; }
+    std::vector<arg_type>&       get() { return m_args; }
 
   private: // member functions
     void validate()
@@ -126,34 +122,34 @@ class exchange_args
     }
 
   private:
-    std::vector<unstruct_pattern_container_type*> m_patterns;
+    std::vector<unstruct_pattern_container_type*>   m_patterns;
     std::vector<unstruct_field_descriptor_cpu_type> m_fields;
-    std::vector<arg_type> m_args;
-    bool m_valid;
+    std::vector<arg_type>                           m_args;
+    bool                                            m_valid;
 };
 
 extern "C" void
-ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_desc* domain_descs, int n_domains) // TO DO: check wrapper (everywhere obj_wrapper occurs)
+ghex_unstruct_pattern_setup_impl(obj_wrapper** pattern, ghex_unstruct_domain_desc* domain_descs,
+    int n_domains) // TO DO: check wrapper (everywhere obj_wrapper occurs)
 {
     std::vector<unstruct_domain_descriptor_type> local_domains{};
     local_domains.reserve(n_domains);
     for (int i = 0; i < n_domains; ++i)
     {
         const auto& d = domain_descs[i];
-        local_domains.emplace_back(
-            d.id,
-            d.vertices, d.vertices + d.total_size,
-            d.outer_indices, d.outer_indices + d.outer_size,
-            d.levels);
+        local_domains.emplace_back(d.id, d.vertices, d.vertices + d.total_size, d.outer_indices,
+            d.outer_indices + d.outer_size);
     }
     unstruct_halo_generator_type hg{};
-    *pattern = new obj_wrapper{ghex::make_pattern<unstruct_grid_type>(context(), hg, local_domains)};
+    *pattern =
+        new obj_wrapper{ghex::make_pattern<unstruct_grid_type>(context(), hg, local_domains)};
 }
 
 extern "C" void
 ghex_unstruct_communication_object_init(obj_wrapper** co)
 {
-    *co = new obj_wrapper{ghex::make_communication_object<unstruct_pattern_container_type>(context())};
+    *co = new obj_wrapper{
+        ghex::make_communication_object<unstruct_pattern_container_type>(context())};
 }
 
 extern "C" void
@@ -163,17 +159,21 @@ ghex_unstruct_exchange_args_init(obj_wrapper** args)
 }
 
 extern "C" void
-ghex_unstruct_exchange_args_add(obj_wrapper** args, obj_wrapper** pattern, ghex_unstruct_field_desc* field_desc) // TO DO: check whether explicitly pass pointers from Fortran
+ghex_unstruct_exchange_args_add(obj_wrapper** args, obj_wrapper** pattern,
+    ghex_unstruct_field_desc*
+        field_desc) // TO DO: check whether explicitly pass pointers from Fortran
 {
-    exchange_args* args_ptr = get_object_ptr_unsafe<exchange_args>(*args);
-    unstruct_pattern_container_type* pattern_ptr = get_object_ptr_unsafe<unstruct_pattern_container_type>(*pattern);
+    exchange_args*                   args_ptr = get_object_ptr_unsafe<exchange_args>(*args);
+    unstruct_pattern_container_type* pattern_ptr =
+        get_object_ptr_unsafe<unstruct_pattern_container_type>(*pattern);
     args_ptr->add(pattern_ptr, field_desc);
 }
 
 extern "C" void*
 ghex_unstruct_exchange(obj_wrapper** co, obj_wrapper** args)
 {
-    unstruct_communication_object_type* co_ptr = get_object_ptr_unsafe<unstruct_communication_object_type>(*co);
+    unstruct_communication_object_type* co_ptr =
+        get_object_ptr_unsafe<unstruct_communication_object_type>(*co);
     exchange_args* args_ptr = get_object_ptr_unsafe<exchange_args>(*args);
     return new obj_wrapper{co_ptr->exchange(args_ptr->begin(), args_ptr->end())};
 }

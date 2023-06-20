@@ -7,13 +7,8 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-//#include <array>
-//#include <tuple>
 #include <vector>
-//#include <cassert>
 #include <sstream>
-//#include <numeric>
-//#include <algorithm>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -121,70 +116,43 @@ register_field_descriptor(pybind11::module& m)
             using domain_id_type = typename type::domain_id_type;
             using domain_descriptor_type = typename type::domain_descriptor_type;
             using arch_type = typename type::arch_type;
-            //using layout_map = typename type::layout_map;
-            //using dimension = typename type::dimension;
-            //using array = std::array<int, dimension::value>;
             using grid_type = ghex::unstructured::grid::template type<domain_descriptor_type>;
             using pattern_type = ghex::pattern<grid_type, domain_id_type>;
             using buffer_info_type = ghex::buffer_info<pattern_type, arch_type, type>;
 
             auto type_name = util::demangle<type>();
             pybind11::class_<type>(m, type_name.c_str())
-                .def(
-                    pybind11::init(
-                        [](const domain_descriptor_type& dom, pybind11::object& b)
-                        //const array& offsets, const array& extents)
-                        {
-                            pybind11::buffer_info info = get_buffer_info<arch_type>(b);
+                .def(pybind11::init(
+                         [](const domain_descriptor_type& dom, pybind11::object& b)
+                         {
+                             pybind11::buffer_info info = get_buffer_info<arch_type>(b);
 
-                            if (info.format != pybind11::format_descriptor<T>::format())
-                            {
-                                std::stringstream error;
-                                error << "Incompatible format: expected a " << typeid(T).name()
-                                      << " buffer.";
-                                throw pybind11::type_error(error.str());
-                            }
-                            if (info.ndim > 2u)
-                            {
-                                throw pybind11::type_error("field has too many dimensions");
-                            }
-                            if (static_cast<std::size_t>(info.shape[0]) != dom.size())
-                            {
-                                throw pybind11::type_error(
-                                    "field's first dimension must match the size of the domain");
-                            }
-                            if ((info.ndim == 2 &&
-                                    static_cast<std::size_t>(info.shape[1]) != dom.levels()) ||
-                                (info.ndim == 1 && dom.levels() > 1u))
-                            {
-                                throw pybind11::type_error(
-                                    "field's second dimension must match the levels of the domain");
-                            }
-                            if (info.ndim == 2 && info.strides[1] != sizeof(T))
-                            {
-                                throw pybind11::type_error(
-                                    "field's levels must be contiguous in memory");
-                            }
+                             if (info.format != pybind11::format_descriptor<T>::format())
+                             {
+                                 std::stringstream error;
+                                 error << "Incompatible format: expected a " << typeid(T).name()
+                                       << " buffer.";
+                                 throw pybind11::type_error(error.str());
+                             }
+                             if (info.ndim > 2u)
+                             {
+                                 throw pybind11::type_error("field has too many dimensions");
+                             }
+                             if (static_cast<std::size_t>(info.shape[0]) != dom.size())
+                             {
+                                 throw pybind11::type_error(
+                                     "field's first dimension must match the size of the domain");
+                             }
+                             if (info.ndim == 2 && info.strides[1] != sizeof(T))
+                             {
+                                 throw pybind11::type_error(
+                                     "field's levels must be contiguous in memory");
+                             }
+                             std::size_t levels =
+                                 (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
 
-                            //             std::array<int, dimension::value> buffer_order;
-                            //             std::iota(buffer_order.begin(), buffer_order.end(), 0);
-                            //             std::sort(buffer_order.begin(), buffer_order.end(),
-                            //                 [&info](int a, int b)
-                            //                 { return info.strides[a] > info.strides[b]; });
-                            //             for (size_t i = 0; i < dimension::value; ++i)
-                            //             {
-                            //                 if (buffer_order[i] != layout_map::at(i))
-                            //                 {
-                            //                     throw pybind11::type_error(
-                            //                         "Buffer has a different layout than specified.");
-                            //                 }
-                            //             }
-
-                            //             return ghex::wrap_field<arch_type, layout_map>(dom,
-                            //                 static_cast<T*>(info.ptr), offsets, extents);
-                            return type{dom,
-                                static_cast<T*>(info.ptr) /*, info.shape[0]*dom.levels()*/};
-                        }),
+                             return type{dom, static_cast<T*>(info.ptr), levels};
+                         }),
                     pybind11::keep_alive<0, 2>())
                 .def_property_readonly_static("__cpp_type__",
                     [type_name](const pybind11::object&) { return type_name; });
