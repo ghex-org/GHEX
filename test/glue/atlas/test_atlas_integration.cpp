@@ -71,7 +71,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
 
     // Instantiate domain descriptor
     std::vector<domain_descriptor_t> local_domains{};
-    domain_descriptor_t d{rank, mesh.nodes().partition(), mesh.nodes().remote_index()};
+    domain_descriptor_t              d{rank, mesh.nodes().partition(), mesh.nodes().remote_index()};
     local_domains.push_back(d);
 
     // Instantiate halo generator
@@ -88,8 +88,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
 
     // Fields creation and initialization
     auto atlas_field_1 = fs_nodes.createField<int>(atlas::option::name("atlas_field_1"));
-    auto GHEX_field_1 =
-        ghex::atlas::make_field<int, storage_traits_cpu>(fs_nodes, nb_levels); // 1 component / scalar field
+    auto GHEX_field_1 = ghex::atlas::make_field<int, storage_traits_cpu>(fs_nodes, nb_levels);
     {
         auto atlas_field_1_data = atlas::array::make_view<int, 2>(atlas_field_1);
         auto GHEX_field_1_data = GHEX_field_1.host_view();
@@ -99,8 +98,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
             {
                 auto value = (rank << 15) + (node << 7) + level;
                 atlas_field_1_data(node, level) = value;
-                GHEX_field_1_data(node, level) =
-                    value;
+                GHEX_field_1_data(node, level) = value;
             }
         }
     }
@@ -127,9 +125,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
         {
             for (auto level = 0; level < fs_nodes.levels(); ++level)
             {
-                EXPECT_TRUE(GHEX_field_1_data(node, level) ==
-                            atlas_field_1_data(node,
-                                level));
+                EXPECT_TRUE(GHEX_field_1_data(node, level) == atlas_field_1_data(node, level));
             }
         }
     }
@@ -143,8 +139,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
         storage_traits_gpu, function_space_t>;
 
     // Additional field for GPU halo exchange
-    auto GHEX_field_1_gpu =
-        ghex::atlas::make_field<int, storage_traits_gpu>(fs_nodes, nb_levels); // 1 component / scalar field
+    auto GHEX_field_1_gpu = ghex::atlas::make_field<int, storage_traits_gpu>(fs_nodes, nb_levels);
     {
         auto GHEX_field_1_gpu_data = GHEX_field_1_gpu.host_view();
         for (auto node = 0; node < fs_nodes.nb_nodes(); ++node)
@@ -152,8 +147,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
             for (auto level = 0; level < fs_nodes.levels(); ++level)
             {
                 auto value = (rank << 15) + (node << 7) + level;
-                GHEX_field_1_gpu_data(node, level) =
-                    value;
+                GHEX_field_1_gpu_data(node, level) = value;
             }
         }
     }
@@ -177,9 +171,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange)
         {
             for (auto level = 0; level < fs_nodes.levels(); ++level)
             {
-                EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) ==
-                            atlas_field_1_data(node,
-                                level));
+                EXPECT_TRUE(GHEX_field_1_gpu_data(node, level) == atlas_field_1_data(node, level));
             }
         }
     }
@@ -248,14 +240,11 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
     auto co = ghex::make_communication_object<decltype(patterns_1)>(ctxt);
 
     // Fields creation and initialization
-    auto serial_field_1 = ghex::atlas::make_field<int, storage_traits_cpu>(fs_nodes_1,
-        nb_levels); // 1 component / scalar field
-    auto multi_field_1 = ghex::atlas::make_field<int, storage_traits_cpu>(fs_nodes_1,
-        nb_levels); // 1 component / scalar field
-    auto serial_field_2 = ghex::atlas::make_field<double, storage_traits_cpu>(fs_nodes_2,
-        nb_levels); // 1 component / scalar field
-    auto multi_field_2 = ghex::atlas::make_field<double, storage_traits_cpu>(fs_nodes_2,
-        nb_levels); // 1 component / scalar field
+    auto serial_field_1 = ghex::atlas::make_field<int, storage_traits_cpu>(fs_nodes_1, nb_levels);
+    auto multi_field_1 = ghex::atlas::make_field<int, storage_traits_cpu>(fs_nodes_1, nb_levels);
+    auto serial_field_2 =
+        ghex::atlas::make_field<double, storage_traits_cpu>(fs_nodes_2, nb_levels);
+    auto multi_field_2 = ghex::atlas::make_field<double, storage_traits_cpu>(fs_nodes_2, nb_levels);
     {
         auto serial_field_1_data = serial_field_1.host_view();
         auto multi_field_1_data = multi_field_1.host_view();
@@ -266,10 +255,8 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
             for (auto level = 0; level < fs_nodes_1.levels(); ++level)
             {
                 auto value = (rank << 15) + (node << 7) + level;
-                serial_field_1_data(node, level) =
-                    value;
-                multi_field_1_data(node, level) =
-                    value;
+                serial_field_1_data(node, level) = value;
+                multi_field_1_data(node, level) = value;
             }
         }
         for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node)
@@ -277,10 +264,8 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
             for (auto level = 0; level < fs_nodes_2.levels(); ++level)
             {
                 auto value = ((rank << 15) + (node << 7) + level) * 0.5;
-                serial_field_2_data(node, level) =
-                    value;
-                multi_field_2_data(node, level) =
-                    value;
+                serial_field_2_data(node, level) = value;
+                multi_field_2_data(node, level) = value;
             }
         }
     }
@@ -321,9 +306,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
         {
             for (auto level = 0; level < fs_nodes_1.levels(); ++level)
             {
-                EXPECT_TRUE(serial_field_1_data(node, level) ==
-                            multi_field_1_data(node, level
-                                ));
+                EXPECT_TRUE(serial_field_1_data(node, level) == multi_field_1_data(node, level));
             }
         }
         for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node)
@@ -331,8 +314,8 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
             for (auto level = 0; level < fs_nodes_2.levels(); ++level)
             {
                 EXPECT_TRUE(serial_field_2_data(node, level) ==
-                            multi_field_2_data(node, level
-                                )); // TO DO: hard-coded 3d view. Should be more flexible
+                            multi_field_2_data(node,
+                                level)); // TO DO: hard-coded 3d view. Should be more flexible
             }
         }
     }
@@ -348,10 +331,10 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
         storage_traits_gpu, function_space_t>;
 
     // Additional fields for GPU halo exchange
-    auto gpu_multi_field_1 = ghex::atlas::make_field<int, storage_traits_gpu>(fs_nodes_1,
-        nb_levels); // 1 component / scalar field
-    auto gpu_multi_field_2 = ghex::atlas::make_field<double, storage_traits_gpu>(fs_nodes_2,
-        nb_levels); // 1 component / scalar field
+    auto gpu_multi_field_1 =
+        ghex::atlas::make_field<int, storage_traits_gpu>(fs_nodes_1, nb_levels);
+    auto gpu_multi_field_2 =
+        ghex::atlas::make_field<double, storage_traits_gpu>(fs_nodes_2, nb_levels);
     {
         auto gpu_multi_field_1_data = gpu_multi_field_1.host_view();
         auto gpu_multi_field_2_data = gpu_multi_field_2.host_view();
@@ -360,8 +343,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
             for (auto level = 0; level < fs_nodes_1.levels(); ++level)
             {
                 auto value = (rank << 15) + (node << 7) + level;
-                gpu_multi_field_1_data(node, level) =
-                    value;
+                gpu_multi_field_1_data(node, level) = value;
             }
         }
         for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node)
@@ -369,8 +351,7 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
             for (auto level = 0; level < fs_nodes_2.levels(); ++level)
             {
                 auto value = ((rank << 15) + (node << 7) + level) * 0.5;
-                gpu_multi_field_2_data(node, level) =
-                    value;
+                gpu_multi_field_2_data(node, level) = value;
             }
         }
     }
@@ -399,18 +380,16 @@ TEST_F(mpi_test_fixture, atlas_halo_exchange_multiple_patterns)
         {
             for (auto level = 0; level < fs_nodes_1.levels(); ++level)
             {
-                EXPECT_TRUE(serial_field_1_data(node, level) ==
-                            gpu_multi_field_1_data(node, level
-                                ));
+                EXPECT_TRUE(
+                    serial_field_1_data(node, level) == gpu_multi_field_1_data(node, level));
             }
         }
         for (auto node = 0; node < fs_nodes_2.nb_nodes(); ++node)
         {
             for (auto level = 0; level < fs_nodes_2.levels(); ++level)
             {
-                EXPECT_TRUE(serial_field_2_data(node, level) ==
-                            gpu_multi_field_2_data(node, level
-                                )); // TO DO: hard-coded 3d view. Should be more flexible
+                EXPECT_TRUE(
+                    serial_field_2_data(node, level) == gpu_multi_field_2_data(node, level));
             }
         }
     }

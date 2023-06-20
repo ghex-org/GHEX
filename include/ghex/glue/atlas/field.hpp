@@ -62,8 +62,8 @@ class field<T, StorageTraits, ::atlas::functionspace::NodeColumns>
 
   private:
     // TO DO: 2d storage is hard-coded. That might not be optimal i.e. for scalar fields
-    using storage_type = decltype(storage_builder<value_type, storage_traits>(
-        std::declval<dims<2>>())()); // TO DO: double check
+    using storage_type =
+        decltype(storage_builder<value_type, storage_traits>(std::declval<dims<2>>())());
 
     storage_type               m_st;
     const function_space_type& m_fs;
@@ -77,7 +77,7 @@ class field<T, StorageTraits, ::atlas::functionspace::NodeColumns>
         idx_t   x{fs.nb_nodes()};
         idx_t   y{components};
         dims<2> d{x, y};
-        m_st = storage_builder<value_type, storage_traits>(d)(); // TO DO: double check
+        m_st = storage_builder<value_type, storage_traits>(d)();
     }
 
     idx_t components() const noexcept { return m_components; }

@@ -295,15 +295,13 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
     int num_components() const noexcept { return m_components; }
 
     /** @brief single access operator, used by multiple access set function*/
-    value_type& operator()(const local_index_type idx,
-        const int component)
+    value_type& operator()(const local_index_type idx, const int component)
     {
         return m_values(idx, component);
     }
 
     /** @brief single access operator (const version), used by multiple access get function*/
-    const value_type& operator()(const local_index_type idx,
-        const int component) const
+    const value_type& operator()(const local_index_type idx, const int component) const
     {
         return m_values(idx, component);
     }
@@ -318,9 +316,8 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
         for (local_index_type idx : is.local_indices())
         {
             for (int component = 0; component < m_components; ++component)
-            { // TO DO: iteration space should probably be fixed accordongly
-                std::memcpy(&((*this)(idx, component)), buffer,
-                    sizeof(value_type));
+            {
+                std::memcpy(&((*this)(idx, component)), buffer, sizeof(value_type));
                 buffer += sizeof(value_type);
             }
         }
@@ -336,9 +333,8 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
         for (local_index_type idx : is.local_indices())
         {
             for (int component = 0; component < m_components; ++component)
-            { // TO DO: iteration space should probably be fixed accordongly
-                std::memcpy(buffer, &((*this)(idx, component)),
-                    sizeof(value_type));
+            {
+                std::memcpy(buffer, &((*this)(idx, component)), sizeof(value_type));
                 buffer += sizeof(value_type);
             }
         }
@@ -371,8 +367,7 @@ pack_kernel(const View values, const std::size_t local_indices_size, const Index
     {
         for (int component = 0; component < components; ++component)
         {
-            buffer[idx * components + component] =
-                values(local_indices[idx], component);
+            buffer[idx * components + component] = values(local_indices[idx], component);
         }
     }
 }
@@ -387,8 +382,7 @@ unpack_kernel(const T* buffer, const std::size_t local_indices_size, const Index
     {
         for (int component = 0; component < components; ++component)
         {
-            values(local_indices[idx], component) =
-                buffer[idx * components + component];
+            values(local_indices[idx], component) = buffer[idx * components + component];
         }
     }
 }
@@ -448,8 +442,7 @@ class atlas_data_descriptor<ghex::gpu, DomainId, T, StorageTraits, FunctionSpace
                                            GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
             pack_kernel<<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0,
                 *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
-                is.local_indices().size(), &(is.local_indices()[0]), m_components,
-                buffer);
+                is.local_indices().size(), &(is.local_indices()[0]), m_components, buffer);
         }
     }
 
