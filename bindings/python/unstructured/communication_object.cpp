@@ -52,8 +52,6 @@ register_communication_object(pybind11::module& m)
             ;
 
             using pattern_type = typename type::pattern_type;
-            using pattern_container_type = typename type::pattern_container_type;
-            //using dimension = typename type::grid_type::dimension;
             using fields = field_descriptor_specializations;
 
             gridtools::for_each<gridtools::meta::transform<gridtools::meta::list, fields>>(
@@ -86,12 +84,10 @@ register_communication_object(pybind11::module& m)
                         pybind11::keep_alive<0, 1>());
                 });
 
-            m.def(
-                "make_co_unstructured",
-                [](context_shim& c, pattern_container_type&)
+            m.def("make_co_unstructured",
+                [](context_shim& c)
                 {
-                    auto co = ghex::make_communication_object<pattern_container_type>(c.m);
-                    return co;
+                    return type{c.m};
                 },
                 pybind11::keep_alive<0, 1>());
         });

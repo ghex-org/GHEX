@@ -90,5 +90,5 @@ def make_pattern(context, halo_gen, domain_range):
     )
 
 
-def make_co(context, pattern):
-    return _ghex.make_co_unstructured(context, pattern)
+def make_co(context):
+    return _ghex.make_co_unstructured(context)

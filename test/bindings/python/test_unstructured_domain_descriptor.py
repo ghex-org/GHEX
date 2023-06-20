@@ -225,7 +225,7 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
 
     pattern = unstructured.make_pattern(ctx, halo_gen, [domain_desc])
 
-    co = unstructured.make_co(ctx, pattern)
+    co = unstructured.make_co(ctx)
 
     def make_field():
         data = np.zeros([len(domains[ctx.rank()]["all"]), LEVELS], dtype=np.float64)
