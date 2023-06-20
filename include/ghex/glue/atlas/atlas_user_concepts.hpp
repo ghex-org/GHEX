@@ -111,8 +111,6 @@ class atlas_halo_generator
       public:
         // ctors
         halo() noexcept = default;
-        {
-        }
 
         // member functions
         std::size_t                    size() const noexcept { return m_local_indices.size(); }

@@ -76,7 +76,7 @@ class field<T, StorageTraits, ::atlas::functionspace::NodeColumns>
     {
         idx_t   x{fs.nb_nodes()};
         idx_t   y{components};
-        dims<3> d{x, y};
+        dims<2> d{x, y};
         m_st = storage_builder<value_type, storage_traits>(d)(); // TO DO: double check
     }
 
