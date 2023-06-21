@@ -315,7 +315,9 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
                         tmp.reserve(is.size());
                         std::transform(is.local_indices().begin(), is.local_indices().end(),
                             std::back_inserter(tmp),
-                            [&d](auto lid) { return d.global_index(lid).value(); });
+                            // use init-capture of address since clang doesn't allow lambda captures
+                            // of structured bindings, (see https://stackoverflow.com/a/46115028)
+                            [d = &d](auto lid) { return d->global_index(lid).value(); });
                         futures.push_back(comm.isend(rank, tag + 1, tmp.data(), tmp.size()));
                         send_indices.push_back(std::move(tmp));
                         // update the pattern's send halos
