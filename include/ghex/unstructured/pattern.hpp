@@ -196,34 +196,37 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
         using extended_domain_id_type = typename pattern_type::extended_domain_id_type;
         using index_container_type = typename pattern_type::index_container_type;
 
-        // get setup comm, and then this rank and size
+        // This alorithm uses 3 all-to-all communications and several (non-blocking) send and
+        // receive communications (one for each halo/neighbor) to determine the halos. The
+        // collectives are implemented by using a series of point-to-point communications in order
+        // to avoid storing the complete set of all halos. This may be somewhat slower than native
+        // MPI all-to-all operations but easily scales to large numbers of domains/halos.
+
+        // get setup comm and this rank
         auto comm = mpi::communicator(ctxt);
         auto my_rank = comm.rank();
-        auto size = comm.size();
 
-        // setup patterns
-        std::vector<pattern_type> my_patterns;
+        // create patterns and store domain ids
+        std::vector<pattern_type>   my_patterns;
+        std::vector<domain_id_type> my_domain_ids;
         for (const auto& d : d_range)
         {
-            pattern_type p{{d.domain_id(), my_rank, 0}};
-            my_patterns.push_back(p);
+            my_patterns.emplace_back(pattern_type{{d.domain_id(), my_rank, 0}});
+            my_domain_ids.push_back(d.domain_id());
         }
 
-        // get maximum domain id (used to create tags)
-        auto my_max_domain_id = max_element(my_patterns.begin(), my_patterns.end(),
-            [](const auto& lhs, const auto& rhs) {
-                return lhs.domain_id() < rhs.domain_id();
-            })->domain_id();
-        auto all_max_domain_ids = comm.all_gather(my_max_domain_id).get();
-        auto max_domain_id = *max_element(all_max_domain_ids.begin(), all_max_domain_ids.end());
-
-        // gather halos from all local domains on all ranks.
-        int  my_num_domains = d_range.size();
-        auto all_num_domains = comm.all_gather(my_num_domains).get();
-
-        // create tag scheme
-        unsigned max_num_domains =
-            *std::max_element(all_num_domains.begin(), all_num_domains.end());
+        // create tags by collecting domain ids from all domains
+        auto max_domain_id = *std::max_element(my_domain_ids.begin(), my_domain_ids.end());
+        auto max_num_domains = my_domain_ids.size();
+        comm.distributed_for_each(
+            [&](int, auto other_domain_ids)
+            {
+                max_domain_id =
+                    std::max(*std::max_element(other_domain_ids.begin(), other_domain_ids.end()),
+                        max_domain_id);
+                max_num_domains = std::max(other_domain_ids.size(), max_num_domains);
+            },
+            my_domain_ids);
         auto make_tag = [shift = num_bits(max_num_domains)](unsigned src_local_domain_id,
                             domain_id_type                           tgt_domain_id) -> int
         { return (src_local_domain_id << shift) | tgt_domain_id; };
@@ -240,7 +243,7 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
         // single reduced halo with halo gids of all local domains
         std::vector<global_index_type> my_reduced_halos;
 
-        // loop over domains and get halo and domain data
+        // loop over local domains and get reduced halo and domain data
         for (const auto& d : d_range)
         {
             auto h = hgen(d);
@@ -250,19 +253,16 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
             my_domain_data.push_back(domain_data{d.domain_id(), h.size()});
         }
 
-        // exchange domain data
-        auto all_domain_data = comm.all_gather(my_domain_data, all_num_domains).get();
-
-        // exchange reduced halo data
-        std::vector<int> all_reduced_halos_sizes(size, 0);
-        std::transform(all_domain_data.begin(), all_domain_data.end(),
-            all_reduced_halos_sizes.begin(),
-            [](const std::vector<domain_data>& d_vec)
+        // collect references to local domains and patterns for easier access
+        std::vector<std::tuple<std::size_t, const domain_type&, pattern_type&>> pattern_tuples;
+        {
+            std::size_t i = 0u;
+            for (const auto& d : d_range)
             {
-                return std::accumulate(d_vec.begin(), d_vec.end(), 0,
-                    [](int i, const auto& d) -> int { return i + d.halo_size; });
-            });
-        auto all_reduced_halos = comm.all_gather(my_reduced_halos, all_reduced_halos_sizes).get();
+                pattern_tuples.emplace_back(i, d, my_patterns[i]);
+                ++i;
+            }
+        }
 
         // POD data for recv halo exchange
         struct recv_halo_data
@@ -275,104 +275,95 @@ struct make_pattern_impl<unstructured::detail::grid<Index>>
         };
         std::vector<recv_halo_data> my_recv_halo_data;
 
-        // loop over all ranks and create send halos
-        for (int other_rank = 0; other_rank < size; ++other_rank)
-        {
-            std::size_t offset = 0u;
-            const auto& other_reduced_halos = all_reduced_halos[other_rank];
-            unsigned    other_domain_count = 0u;
-            for (const domain_data& other_d : all_domain_data[other_rank])
-            {
-                auto     first = other_reduced_halos.begin() + offset;
-                auto     last = other_reduced_halos.begin() + offset + other_d.halo_size;
-                unsigned my_domain_count = 0u;
-                for (const auto& d : d_range)
-                {
-                    int                     tag = make_tag(my_domain_count, other_d.id);
-                    extended_domain_id_type id{other_d.id, other_rank, tag};
-                    iteration_space_type    is;
-                    for (auto it = first; it != last; ++it)
-                    {
-                        auto gid = *it;
-                        if (d.is_inner(gid)) { is.push_back(d.inner_local_index(gid).value()); }
-                    }
-                    if (is.size())
-                    {
-                        my_recv_halo_data.push_back(
-                            recv_halo_data{d.domain_id(), other_d.id, other_rank, tag, is.size()});
-                        my_patterns[my_domain_count].send_halos().insert(
-                            std::make_pair(id, index_container_type{std::move(is)}));
-                    }
-                    ++my_domain_count;
-                }
-                offset += other_d.halo_size;
-                ++other_domain_count;
-            }
-        }
-
-        // exchange sizes of all receive halos
-        auto all_recv_halo_data_sizes = comm.all_gather((int)my_recv_halo_data.size()).get();
-        auto all_recv_halo_data =
-            comm.all_gather(my_recv_halo_data, all_recv_halo_data_sizes).get();
-
         // data structues for non-blocking exchanges
         std::vector<mpi::future<void>>              futures;
         std::vector<std::vector<global_index_type>> send_indices;
 
-        // loop over send halo indices, transform them to global indices and send them to their
-        // neighbors (non-blocking)
-        unsigned domain_counter = 0;
-        for (auto& p : my_patterns)
-        {
-            const auto& d = d_range[domain_counter];
-            for (auto& x : p.send_halos())
+        // loop over each rank's domain data vectors and reduced halo data vectors in order to
+        // create send halos
+        comm.distributed_for_each(
+            [&](int rank, auto other_domain_data, auto other_reduced_halos)
             {
-                std::vector<global_index_type> tmp;
-                tmp.reserve(x.second.front().size());
-                std::transform(x.second.front().local_indices().begin(),
-                    x.second.front().local_indices().end(), std::back_inserter(tmp),
-                    [&d](auto lid) { return d.global_index(lid).value(); });
-                futures.push_back(
-                    comm.isend(x.first.mpi_rank, x.first.tag, tmp.data(), tmp.size()));
-                send_indices.push_back(std::move(tmp));
-            }
-            ++domain_counter;
-        }
-
-        // create receive halos: wait for global indices to arrive from neighbors and then transform
-        // them into local indices again
-        std::vector<global_index_type> tmp;
-        for (int other_rank = 0; other_rank < size; ++other_rank)
-        {
-            for (const auto r : all_recv_halo_data[other_rank])
-            {
-                if (r.recv_rank == my_rank)
+                std::size_t offset = 0u; // offset into reduced halo data
+                // loop over neighbor rank's domain data
+                for (const domain_data& other_d : other_domain_data)
                 {
-                    extended_domain_id_type id{r.id, other_rank, r.tag};
-                    domain_counter = 0;
-                    for (auto& p : my_patterns)
+                    // cut out appropriate halo indices from reduced halo data
+                    auto first = other_reduced_halos.begin() + offset;
+                    auto last = other_reduced_halos.begin() + offset + other_d.halo_size;
+                    // loop over this rank's patterns
+                    for (auto& [i, d, p] : pattern_tuples)
                     {
-                        if (p.domain_id() == r.other_id)
+                        // cerate tag and id for potential communication connection
+                        int                     tag = make_tag(i, other_d.id);
+                        extended_domain_id_type id{other_d.id, rank, tag};
+                        // create iteration space consisting of local indices iff any of the
+                        // neighbors reduced halo gids are among inner indices of current domain d
+                        iteration_space_type is;
+                        for (auto it = first; it != last; ++it)
                         {
-                            auto&                d = d_range[domain_counter];
-                            iteration_space_type is;
+                            auto gid = *it;
+                            if (d.is_inner(gid)) { is.push_back(d.inner_local_index(gid).value()); }
+                        }
+                        if (!is.size()) continue;
+                        // fill recv halo data
+                        my_recv_halo_data.push_back(
+                            recv_halo_data{d.domain_id(), other_d.id, rank, tag, is.size()});
+                        // start a non-blocking send to neighbor rank with the gid's that were
+                        // determined above by checking whether they were among inner indices of d
+                        std::vector<global_index_type> tmp;
+                        tmp.reserve(is.size());
+                        std::transform(is.local_indices().begin(), is.local_indices().end(),
+                            std::back_inserter(tmp),
+                            [&d](auto lid) { return d.global_index(lid).value(); });
+                        futures.push_back(comm.isend(rank, tag + 1, tmp.data(), tmp.size()));
+                        send_indices.push_back(std::move(tmp));
+                        // update the pattern's send halos
+                        p.send_halos().insert(
+                            std::make_pair(id, index_container_type{std::move(is)}));
+                    }
+                    offset += other_d.halo_size;
+                }
+            },
+            my_domain_data, my_reduced_halos);
+
+        // temporary data structure to store received global indices
+        std::vector<global_index_type> tmp;
+
+        // loop over each rank's recv halo data vectors which were filled above in order to create
+        // recv halos
+        comm.distributed_for_each(
+            [&](int rank, auto other_recv_halo_data)
+            {
+                for (const auto r : other_recv_halo_data)
+                {
+                    // consider each recv halo data object only if its recv_rank equals this rank
+                    if (r.recv_rank != my_rank) continue;
+                    // create id and find corresponding pattern
+                    extended_domain_id_type id{r.id, rank, r.tag};
+                    for (auto& [i, d, p] : pattern_tuples)
+                    {
+                        if (d.domain_id() == r.other_id)
+                        {
+                            // receive subset remotely determined set of gids sent above
                             tmp.resize(r.is_size);
-                            comm.recv(other_rank, r.tag, tmp.data(), r.is_size);
+                            comm.recv(rank, r.tag + 1, tmp.data(), r.is_size);
+                            // transform the gids into lids and update the pattern's receive halo
                             auto lids = d.make_outer_lids(tmp);
                             assert(lids.size() == tmp.size());
+                            iteration_space_type is;
                             is.local_indices().assign(lids.begin(), lids.end());
                             p.recv_halos().insert(
                                 std::make_pair(id, index_container_type{std::move(is)}));
+                            break;
                         }
-                        ++domain_counter;
                     }
                 }
-            }
-        }
+            },
+            my_recv_halo_data);
 
         // wait for all communication to finish
         for (auto& f : futures) f.wait();
-
         return pattern_container<grid_type, domain_id_type>(ctxt, std::move(my_patterns), max_tag);
     }
 

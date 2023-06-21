@@ -16,57 +16,29 @@
 
 namespace ghex
 {
-template<typename Func>
-void
-invoke_with_arg(Func&&)
-{
-}
-
-template<typename Func, typename Arg0, typename... Args>
-void
-invoke_with_arg(Func&& f, Arg0&& a0, Args&&... as)
-{
-    f(std::forward<Arg0>(a0));
-    invoke_with_arg(std::forward<Func>(f), std::forward<Args>(as)...);
-}
 
 template<typename Tuple, typename Func, std::size_t... Is>
 void
 for_each_impl(Tuple&& t, Func&& f, std::index_sequence<Is...>)
 {
     using std::get;
-    invoke_with_arg(std::forward<Func>(f), get<Is>(std::forward<Tuple>(t))...);
+    (f(Is, get<Is>(t)), ...);
 }
 
 /**
-             * @brief iterate over tuple type using a functor
-             * @tparam Tuple tuple-like type
-             * @tparam Func functor with signature void(auto& x), where x is tuple element
-             * @param t tuple instance
-             * @param f functor instance
-             */
+ * @brief iterate over tuple type using a functor
+ * @tparam Tuple tuple-like type
+ * @tparam Func functor with signature void(auto& x), where x is tuple element
+ * @param t tuple instance
+ * @param f functor instance
+ */
 template<typename Tuple, typename Func>
 void
 for_each(Tuple&& t, Func&& f)
 {
     using size = std::tuple_size<std::remove_reference_t<Tuple>>;
-    for_each_impl(
-        std::forward<Tuple>(t), std::forward<Func>(f), std::make_index_sequence<size::value>());
-}
-
-template<typename Func>
-void
-invoke_with_2_args(Func&&)
-{
-}
-
-template<typename Func, typename Arg0, typename... Args>
-void
-invoke_with_2_args(Func&& f, Arg0&& a0, Args&&... as)
-{
-    //f(std::forward<decltype(a0.first)>(a0.first), std::forward<decltype(a0.second)>(a0.second));
-    f(a0.first, a0.second); //, std::forward<decltype(a0.second)>(a0.second));
-    invoke_with_2_args(std::forward<Func>(f), std::forward<Args>(as)...);
+    for_each_impl(std::forward<Tuple>(t), std::forward<Func>(f),
+        std::make_index_sequence<size::value>());
 }
 
 template<typename Tuple1, typename Tuple2, typename Func, std::size_t... Is>
@@ -74,26 +46,24 @@ void
 for_each_impl(Tuple1&& t1, Tuple2&& t2, Func&& f, std::index_sequence<Is...>)
 {
     using std::get;
-    invoke_with_2_args(
-        std::forward<Func>(
-            f), //get<Is>(std::forward<Tuple1>(t1), get<Is>(std::forward<Tuple2>(t2))...);
-        std::make_pair<decltype(get<Is>(t1)), decltype(get<Is>(t2))>(get<Is>(t1), get<Is>(t2))...);
+    (f(Is, get<Is>(t1), get<Is>(t2)), ...);
 }
 
 /**
-             * @brief iterate over two tuple types using a functor
-             * @tparam Tuple1 tuple-like type
-             * @tparam Tuple2 tuple-like type
-             * @tparam Func functor with signature void(auto& x1, auto& x2), where x1, x2 are elements of t1 and t2
-             * @param t1 tuple instance
-             * @param t2 tuple instance
-             * @param f functor instance
-             */
+ * @brief iterate over two tuple types using a functor
+ * @tparam Tuple1 tuple-like type
+ * @tparam Tuple2 tuple-like type
+ * @tparam Func functor with signature void(auto& x1, auto& x2), where x1, x2 are elements of t1 and t2
+ * @param t1 tuple instance
+ * @param t2 tuple instance
+ * @param f functor instance
+ */
 template<typename Tuple1, typename Tuple2, typename Func>
 void
 for_each(Tuple1&& t1, Tuple2&& t2, Func&& f)
 {
     using size = std::tuple_size<std::remove_reference_t<Tuple1>>;
+    static_assert(size::value == std::tuple_size<std::remove_reference_t<Tuple2>>::value);
     for_each_impl(std::forward<Tuple1>(t1), std::forward<Tuple2>(t2), std::forward<Func>(f),
         std::make_index_sequence<size::value>());
 }
@@ -103,15 +73,15 @@ template<int D, int I, typename Layout, int Skip = 0>
 struct for_loop;
 
 /** @brief compile time recursive generation of loop nest for a D-dimensional array
-             *
-             * This template class provides compile time recursive nesting of D for-loops
-             * and calls a function at the end of the iteration with the current D-dimensional coordinate
-             * of the loop iteration.
-             *
-             * @tparam D dimensionality of loop nest
-             * @tparam I I==D to start recursion
-             * @tparam Layout template meta function which determines order of nesting
-             * @tparam Skip the number of innermost loops to skip */
+ *
+ * This template class provides compile time recursive nesting of D for-loops
+ * and calls a function at the end of the iteration with the current D-dimensional coordinate
+ * of the loop iteration.
+ *
+ * @tparam D dimensionality of loop nest
+ * @tparam I I==D to start recursion
+ * @tparam Layout template meta function which determines order of nesting
+ * @tparam Skip the number of innermost loops to skip */
 template<int D, int I, int... Args, int Skip>
 struct for_loop<D, I, gridtools::layout_map<Args...>, Skip>
 {
@@ -122,13 +92,13 @@ struct for_loop<D, I, gridtools::layout_map<Args...>, Skip>
 
   public: // static member functions
     /**
-                 * @brief generate loop nest
-                 * @tparam Func functor with signature void(x_0,x_1,...) where x_i are coordinates
-                 * @tparam Array coordinate vector type 
-                 * @param f instance of functor
-                 * @param first start coordinate
-                 * @param last end coordinate (inclusive)
-                 */
+     * @brief generate loop nest
+     * @tparam Func functor with signature void(x_0,x_1,...) where x_i are coordinates
+     * @tparam Array coordinate vector type
+     * @param f instance of functor
+     * @param first start coordinate
+     * @param last end coordinate (inclusive)
+     */
     template<typename Func, typename Array>
     GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last) noexcept
     {
@@ -137,8 +107,8 @@ struct for_loop<D, I, gridtools::layout_map<Args...>, Skip>
             //std::remove_const_t<std::remove_reference_t<Array>> x{};
             std::remove_const_t<std::remove_reference_t<Array>> x = first;
             x[idx::value] = i;
-            for_loop<D, I - 1, layout_t, Skip>::apply(
-                std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+            for_loop<D, I - 1, layout_t, Skip>::apply(std::forward<Func>(f),
+                std::forward<Array>(first), std::forward<Array>(last), x);
         }
     }
 
@@ -150,8 +120,8 @@ struct for_loop<D, I, gridtools::layout_map<Args...>, Skip>
         {
             std::remove_const_t<std::remove_reference_t<Array2>> x{y};
             x[idx::value] = i;
-            for_loop<D, I - 1, layout_t, Skip>::apply(
-                std::forward<Func>(f), std::forward<Array>(first), std::forward<Array>(last), x);
+            for_loop<D, I - 1, layout_t, Skip>::apply(std::forward<Func>(f),
+                std::forward<Array>(first), std::forward<Array>(last), x);
         }
     }
 };
@@ -184,15 +154,15 @@ template<int D, int I, typename Layout>
 struct for_loop_pointer_arithmetic;
 
 /** @brief generation of loop nest for an D-dimensional array assuming contiguous memory 
-             *
-             * This template class provides compile time recursive nesting of D for-loops
-             * and calls a function at the end of the iteration with the following 2 argments
-             * - offset in a global D-dimensional array
-             * - offset in a flattened buffer of the size of the accumulated iteration space the loop nest spans.
-             *
-             * @tparam D dimensionality of loop nest
-             * @tparam I I==D to start recursion
-             * @tparam Args compile time list of integral constants indicating order of loop nest*/
+ *
+ * This template class provides compile time recursive nesting of D for-loops
+ * and calls a function at the end of the iteration with the following 2 argments
+ * - offset in a global D-dimensional array
+ * - offset in a flattened buffer of the size of the accumulated iteration space the loop nest spans.
+ *
+ * @tparam D dimensionality of loop nest
+ * @tparam I I==D to start recursion
+ * @tparam Args compile time list of integral constants indicating order of loop nest*/
 template<int D, int I, int... Args>
 struct for_loop_pointer_arithmetic<D, I, gridtools::layout_map<Args...>>
 {
@@ -203,20 +173,20 @@ struct for_loop_pointer_arithmetic<D, I, gridtools::layout_map<Args...>>
 
   public: // static member functions
     /**
-                 * @brief generate loop nest
-                 * @tparam Func functor type with signature void(std::size_t, std::size_t)
-                 * @tparam Array coordinate vector type
-                 * @tparam Array2 coordinate difference vector type
-                 * @param f functor instance
-                 * @param first first coordinate in loop nest
-                 * @param last last coordinate in loop nest
-                 * @param extent extent of multi-dimensional array of which [first, last] is a sub-region
-                 * @param coordinate_offset distance from first coordinate in the multi-dimensional array to the origin (0,0,...). 
-                 * An array without buffer zones has a coordinate offset of (0,0,...), while the offset is (1,1,...) for an array with buffer zone of 1.
-                 */
+     * @brief generate loop nest
+     * @tparam Func functor type with signature void(std::size_t, std::size_t)
+     * @tparam Array coordinate vector type
+     * @tparam Array2 coordinate difference vector type
+     * @param f functor instance
+     * @param first first coordinate in loop nest
+     * @param last last coordinate in loop nest
+     * @param extent extent of multi-dimensional array of which [first, last] is a sub-region
+     * @param coordinate_offset distance from first coordinate in the multi-dimensional array to the origin (0,0,...).
+     * An array without buffer zones has a coordinate offset of (0,0,...), while the offset is (1,1,...) for an array with buffer zone of 1.
+     */
     template<typename Func, typename Array, typename Strides, typename Array2>
-    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides,
-        Array2&& coordinate_offset) noexcept
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last,
+        Strides&& byte_strides, Array2&& coordinate_offset) noexcept
     {
         std::size_t iter = 0;
         for (auto i = first[idx::value]; i <= last[idx::value]; ++i, ++iter)
@@ -230,8 +200,9 @@ struct for_loop_pointer_arithmetic<D, I, gridtools::layout_map<Args...>>
 
   private: // implementation details
     template<typename Func, typename Array, typename Strides, typename Array2>
-    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last, Strides&& byte_strides,
-        Array2&& coordinate_offset, std::size_t offset, std::size_t iter) noexcept
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&& first, Array&& last,
+        Strides&& byte_strides, Array2&& coordinate_offset, std::size_t offset,
+        std::size_t iter) noexcept
     {
         //offset *= extent[idx::value];
         iter *= last[idx::value] - first[idx::value] + 1;
@@ -251,8 +222,8 @@ struct for_loop_pointer_arithmetic<D, 0, gridtools::layout_map<Args...>>
 {
     using layout_t = gridtools::layout_map<Args...>;
     template<typename Func, typename Array, typename Strides, typename Array2>
-    GHEX_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Strides&& byte_strides, Array2&&,
-        std::size_t offset, std::size_t iter) noexcept
+    GHEX_FORCE_INLINE static void apply(Func&& f, Array&&, Array&&, Strides&& byte_strides,
+        Array2&&, std::size_t offset, std::size_t iter) noexcept
     {
         // functor call with two arguments
         // argument 1: offset in global multi-dimensional array

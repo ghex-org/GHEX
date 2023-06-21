@@ -364,7 +364,7 @@ class communication_object
         using test_t = pattern_container<grid_type, domain_id_type>;
         std::map<const test_t*, int> pat_ptr_map;
         int                          max_tag = 0;
-        for_each(iter_pairs_t, [&pat_ptr_map, &max_tag](auto iter_pair) {
+        for_each(iter_pairs_t, [&pat_ptr_map, &max_tag](std::size_t, auto iter_pair) {
             for (auto it = iter_pair.first; it != iter_pair.second; ++it)
             {
                 auto ptr = &(it->get_pattern_container());
@@ -372,7 +372,7 @@ class communication_object
                 if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
             }
         });
-        for_each(iter_pairs_t, [this, &pat_ptr_map](auto iter_pair) {
+        for_each(iter_pairs_t, [this, &pat_ptr_map](std::size_t, auto iter_pair) {
             using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
             using arch_t = typename buffer_info_t::arch_type;
             using value_t = typename buffer_info_t::value_type;
@@ -420,21 +420,19 @@ class communication_object
         buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
         memory_t           memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
         // loop over buffer_infos/memory and compute required space
-        int i = 0;
-        for_each(memory_tuple, buffer_info_tuple, [this, &i, &tag_offsets](auto mem, auto bi) {
+        for_each(memory_tuple, buffer_info_tuple, [this, &tag_offsets](std::size_t i, auto mem, auto bi) {
             using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
             using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
             auto                 field_ptr = &(bi->get_field());
             const domain_id_type my_dom_id = bi->get_field().domain_id();
             allocate<arch_type, value_type>(
                 mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
-            ++i;
         });
     }
 
     void post_recvs()
     {
-        for_each(m_mem, [this](auto& m) {
+        for_each(m_mem, [this](std::size_t, auto& m) {
             using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
             for (auto& p0 : m.recv_memory)
             {
@@ -466,7 +464,7 @@ class communication_object
 
     void pack()
     {
-        for_each(m_mem, [this](auto& m) {
+        for_each(m_mem, [this](std::size_t, auto& m) {
             using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
             packer<arch_type>::pack(m, m_send_reqs, m_comm);
         });
@@ -540,7 +538,7 @@ class communication_object
         m_valid = false;
         m_send_reqs.clear();
         m_recv_reqs.clear();
-        for_each(m_mem, [this](auto& m) {
+        for_each(m_mem, [this](std::size_t, auto& m) {
             for (auto& p0 : m.send_memory)
                 for (auto& p1 : p0.second)
                 {
