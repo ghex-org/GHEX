@@ -16,6 +16,7 @@
 namespace pyghex
 {
 
+// This is a slight variation of Arbor's mpi_comm_shim as introduced here
 // https://github.com/arbor-sim/arbor/commit/1d6a48d0ce4b96f59acf931efd61d55c571c5e68
 // A shim is required for MPI_Comm, because OpenMPI defines it as a pointer to
 // a forward-declared type, which pybind11 won't allow as an argument.
