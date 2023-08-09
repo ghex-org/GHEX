@@ -4,7 +4,7 @@ get_target_property(python_mod_path pyghex LIBRARY_OUTPUT_DIRECTORY)
 get_filename_component(ghex_python_path ${python_mod_path}/.. ABSOLUTE)
 
 add_custom_target(pyghex_tests)
-add_dependencies(pyghex_module pyghex_tests)
+add_dependencies(pyghex pyghex_tests)
 copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fixtures FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/context.py)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/fixtures/pyghex_path.py.in

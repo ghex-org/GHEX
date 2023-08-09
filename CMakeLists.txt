@@ -19,6 +19,13 @@ if(NOT CMAKE_BUILD_TYPE) # AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+# Set the output directory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Set the library and archive output directories
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
 # ---------------------------------------------------------------------
 # Define main library
 # ---------------------------------------------------------------------
@@ -41,7 +48,7 @@ set(GHEX_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
 if (GHEX_WITH_TESTING)
     enable_testing()
     # Enable CDash dashboard testing integration
-    include(CTest)
+    #include(CTest)
 endif()
 
 
