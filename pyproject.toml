@@ -1,0 +1,67 @@
+[build-system]
+requires = [
+    "scikit-build-core",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyghex"
+version = "0.3.0" # will be replaced during build process
+description = "Generic Halo Exchanges: Python API"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++"
+]
+dependencies = [
+    "numpy",
+]
+
+[project.urls]
+repository = "https://github.com/ghex-org/GHEX"
+
+#[project.optional-dependencies]
+#test = [
+#    "pytest",
+#]
+
+[tool.scikit-build]
+wheel.expand-macos-universal-tags = true
+cmake.args = [
+    "GHEX_BUILD_PYTHON_BINDINGS=ON",
+    "GHEX_USE_BUNDLED_LIBS=ON",
+    "GHEX_USE_BUNDLED_GRIDTOOLS=ON",
+    "GHEX_USE_BUNDLED_OOMPH=ON",
+]
+wheel.install-dir = "ghex"
+wheel.packages = []
+
+[tool.cibuildwheel]
+build-frontend = "build"
+build = ["*linux*","*macosx*"]
+skip = ["cp36*", "*musllinux*"]
+#test-command = "python -m unittest discover -v -s {project}/python"
+dependency-versions = "latest"
+
+[tool.cibuildwheel.macos]
+archs = ["universal2"]
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.15"
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+#TBD
