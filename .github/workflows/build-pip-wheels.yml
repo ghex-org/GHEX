@@ -1,4 +1,4 @@
-ame: GHEX Release Artifacts
+name: GHEX Release Artifacts
 
 on:
   push:
