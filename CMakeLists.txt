@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.17)
-#cmake_policy(SET CMP0048 NEW)
 
 set(GHEX_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
@@ -45,12 +44,6 @@ set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas b
 set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
 set(GHEX_BUILD_PYTHON_BINDINGS OFF CACHE BOOL "Set to true to build Python bindings")
 set(GHEX_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
-if (GHEX_WITH_TESTING)
-    enable_testing()
-    # Enable CDash dashboard testing integration
-    #include(CTest)
-endif()
-
 
 # ---------------------------------------------------------------------
 # Dependencies
@@ -108,6 +101,7 @@ add_subdirectory(bindings)
 # testing
 # ---------------------------------------------------------------------
 if (GHEX_WITH_TESTING)
+    enable_testing()
     add_subdirectory(test)
 endif()
 

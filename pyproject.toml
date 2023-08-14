@@ -24,6 +24,7 @@ classifiers = [
     "Programming Language :: C++"
 ]
 dependencies = [
+    "mpi4py",
     "numpy",
 ]
 
@@ -47,22 +48,22 @@ cmake.args = [
 wheel.install-dir = "ghex"
 wheel.packages = []
 
-[tool.cibuildwheel]
-build-frontend = "build"
-build = ["*linux*","*macosx*"]
-skip = ["cp36*", "*musllinux*"]
-#test-command = "python -m unittest discover -v -s {project}/python"
-dependency-versions = "latest"
-
-[tool.cibuildwheel.macos]
-archs = ["universal2"]
-
-[tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "10.15"
-
-[tool.cibuildwheel.linux]
-archs = ["x86_64"]
-
-[[tool.cibuildwheel.overrides]]
-select = "*-musllinux*"
-#TBD
+#[tool.cibuildwheel]
+#build-frontend = "build"
+#build = ["*linux*","*macosx*"]
+#skip = ["cp36*", "*musllinux*"]
+##test-command = "python -m unittest discover -v -s {project}/python"
+#dependency-versions = "latest"
+#
+#[tool.cibuildwheel.macos]
+#archs = ["universal2"]
+#
+#[tool.cibuildwheel.macos.environment]
+#MACOSX_DEPLOYMENT_TARGET = "10.15"
+#
+#[tool.cibuildwheel.linux]
+#archs = ["x86_64"]
+#
+#[[tool.cibuildwheel.overrides]]
+#select = "*-musllinux*"
+##TBD

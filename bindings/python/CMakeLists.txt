@@ -25,7 +25,6 @@ add_library(pyghex_obj OBJECT ${pyghex_source})
 target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
-#set_target_properties(pyghex_obj PROPERTIES CXX_VISIBILITY_PRESET hidden)
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
 link_device_runtime(pyghex_obj})
@@ -98,26 +97,12 @@ set(GHEX_PYTHON_LIB_PATH ${GHEX_PYTHON_LIB_PATH_DEFAULT} CACHE PATH "path for in
 message(STATUS "Python bindings installation path: ${GHEX_PYTHON_LIB_PATH}")
 
 if(DEFINED SKBUILD_PROJECT_NAME)
-    #find_package(PythonExtensions REQUIRED)
   # Building wheel through scikit-build-core
   set(_python_module_install_path .)
 
   # set RPaths
-  message(STATUS "The project is built using scikit-build-core")
-  message(STATUS "The cmake install libdir is: ${CMAKE_INSTALL_LIBDIR}")
-  message(STATUS "The cmake install prefix is: ${CMAKE_INSTALL_PREFIX}")
-  message(STATUS "The ghex python lib pat is: ${GHEX_PYTHON_LIB_PATH}")
-  message(STATUS "The cmake prefix path is: ${CMAKE_PREFIX_PATH}")
   list(GET CMAKE_PREFIX_PATH 0 scikit_build_core_install_path)
-  message(STATUS "The scikit_build_core_install_path is: ${scikit_build_core_install_path}")
-  #message(STATUS "The ghex python site is: ${PYTHON_RELATIVE_SITE_PACKAGES_DIR}")
-  #message(STATUS "The ghex python is: ${PYTHON_PREFIX}")
-  #-- The project is built using scikit-build-core
-  #-- The cmake install libdir is: lib64
-  #-- The cmake install prefix is: /usr/local
-  #-- The ghex python lib pat is: /usr/local/lib/python3.10/site-packages
   set_target_properties(pyghex PROPERTIES 
-      #INSTALL_RPATH_USE_LINK_PATH TRUE
       INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
 else()
   set(_python_module_install_path ${GHEX_PYTHON_LIB_PATH}/ghex)
@@ -126,6 +111,5 @@ endif()
 install(DIRECTORY ${python_mod_path}
     DESTINATION ${_python_module_install_path}/..
     PATTERN "__pycache__" EXCLUDE
-    #FILES_MATCHING PATTERN "*.so" EXCLUDE
 )
 install(TARGETS pyghex DESTINATION ${_python_module_install_path})
