@@ -132,5 +132,11 @@ install(
     DESTINATION
         ${CMAKE_INSTALL_LIBDIR}/cmake)
 
+install(
+    FILES "${PROJECT_SOURCE_DIR}/LICENSE"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/ghex
+    COMPONENT license
+)
+
 export(EXPORT ghex-targets
     FILE "${CMAKE_CURRENT_BINARY_DIR}/ghex-targets.cmake")
