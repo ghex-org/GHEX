@@ -1,5 +1,4 @@
 
-include(ghex_gtest)
 include(ghex_reg_test)
 
 add_subdirectory(mpi_runner)

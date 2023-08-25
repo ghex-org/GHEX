@@ -1,12 +1,11 @@
-/* 
- * GridTools
- * 
- * Copyright (c) 2014-2021, ETH Zurich
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
  */
 #pragma once
 
@@ -35,19 +34,19 @@ template<std::size_t N>
 struct dims;
 
 template<>
-struct dims<3>
+struct dims<2>
 {
-    idx_t x, y, z;
+    idx_t x, y;
 };
 
 template<typename T, typename StorageTraits>
 inline auto
-storage_builder(const dims<3>& d)
+storage_builder(const dims<2>& d)
 {
     using value_type = T;
     using storage_traits = StorageTraits;
     return gridtools::storage::builder<storage_traits>.template type<value_type>().dimensions(d.x,
-        d.y, d.z);
+        d.y);
 }
 
 template<typename T, typename StorageTraits, typename FunctionSpace>
@@ -62,9 +61,9 @@ class field<T, StorageTraits, ::atlas::functionspace::NodeColumns>
     using function_space_type = ::atlas::functionspace::NodeColumns;
 
   private:
-    // TO DO: 3d storage is hard-coded. That might not be optimal i.e. for scalar fields, or 2d fields (levels = 1)
-    using storage_type = decltype(storage_builder<value_type, storage_traits>(
-        std::declval<dims<3>>())()); // TO DO: double check
+    // TO DO: 2d storage is hard-coded. That might not be optimal i.e. for scalar fields
+    using storage_type =
+        decltype(storage_builder<value_type, storage_traits>(std::declval<dims<2>>())());
 
     storage_type               m_st;
     const function_space_type& m_fs;
@@ -76,10 +75,9 @@ class field<T, StorageTraits, ::atlas::functionspace::NodeColumns>
     , m_components{components}
     {
         idx_t   x{fs.nb_nodes()};
-        idx_t   y{fs.levels()};
-        idx_t   z{components};
-        dims<3> d{x, y, z};
-        m_st = storage_builder<value_type, storage_traits>(d)(); // TO DO: double check
+        idx_t   y{components};
+        dims<2> d{x, y};
+        m_st = storage_builder<value_type, storage_traits>(d)();
     }
 
     idx_t components() const noexcept { return m_components; }

@@ -1,12 +1,11 @@
-﻿/*
- * GridTools
+/*
+ * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
@@ -30,13 +29,8 @@ using domain_descriptor_type =
 using halo_generator_type = ghex::unstructured::halo_generator<domain_id_type, global_index_type>;
 using grid_type = ghex::unstructured::grid;
 using pattern_type = ghex::pattern<grid_type::type<domain_descriptor_type>, domain_id_type>;
-using vertices_type = domain_descriptor_type::vertices_type;
-using vertices_set_type = domain_descriptor_type::vertices_set_type;
-using adjncy_type = domain_descriptor_type::adjncy_type;
-using map_type = domain_descriptor_type::map_type;
 using local_index_type = domain_descriptor_type::local_index_type;
 using local_indices_type = std::vector<local_index_type>;
-using it_diff_type = vertices_type::iterator::difference_type;
 
 /* Domains
  *
@@ -48,52 +42,109 @@ using it_diff_type = vertices_type::iterator::difference_type;
  *              3  | [17, 6, 11, 10, 12, 9]   | [0, 3, 4]          |
  *
  * */
-map_type
-init_v_map(const domain_id_type domain_id)
+
+domain_descriptor_type
+make_domain(domain_id_type id)
 {
-    switch (domain_id)
+    switch (id)
     {
         case 0:
         {
-            map_type v_map{std::make_pair(global_index_type{0}, adjncy_type{13, 2, 1, 20, 11}),
-                std::make_pair(global_index_type{13}, adjncy_type{0, 5, 7}),
-                std::make_pair(global_index_type{5}, adjncy_type{13, 2, 3}),
-                std::make_pair(global_index_type{2}, adjncy_type{0, 5})};
-            return v_map;
+            std::vector<global_index_type> gids = {0, 13, 5, 2, 1, 3, 7, 11, 20};
+            std::vector<local_index_type>  halo_lids = {4, 5, 6, 7, 8};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
         }
         case 1:
         {
-            map_type v_map{std::make_pair(global_index_type{1}, adjncy_type{0, 19, 20, 7, 16}),
-                std::make_pair(global_index_type{19}, adjncy_type{1, 4, 15, 8}),
-                std::make_pair(global_index_type{20}, adjncy_type{0, 1, 4, 7}),
-                std::make_pair(global_index_type{4}, adjncy_type{19, 20, 15, 8, 9}),
-                std::make_pair(global_index_type{7}, adjncy_type{13, 1, 20, 15}),
-                std::make_pair(global_index_type{15}, adjncy_type{19, 4, 7, 8}),
-                std::make_pair(global_index_type{8}, adjncy_type{19, 4, 15})};
-            return v_map;
+            std::vector<global_index_type> gids = {1, 19, 20, 4, 7, 15, 8, 0, 9, 13, 16};
+            std::vector<local_index_type>  halo_lids = {7, 8, 9, 10};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
         }
         case 2:
         {
-            map_type v_map{std::make_pair(global_index_type{3}, adjncy_type{5, 18, 6}),
-                std::make_pair(global_index_type{16}, adjncy_type{1, 18}),
-                std::make_pair(global_index_type{18}, adjncy_type{3, 16})};
-            return v_map;
+            std::vector<global_index_type> gids = {3, 16, 18, 1, 5, 6};
+            std::vector<local_index_type>  halo_lids = {3, 4, 5};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
         }
         case 3:
         {
-            map_type v_map{std::make_pair(global_index_type{17}, adjncy_type{11}),
-                std::make_pair(global_index_type{6}, adjncy_type{3, 11, 10, 9}),
-                std::make_pair(global_index_type{11}, adjncy_type{0, 17, 6, 10, 12}),
-                std::make_pair(global_index_type{10}, adjncy_type{6, 11, 9}),
-                std::make_pair(global_index_type{12}, adjncy_type{11, 9}),
-                std::make_pair(global_index_type{9}, adjncy_type{4, 6, 10, 12})};
-            return v_map;
+            std::vector<global_index_type> gids = {17, 6, 11, 10, 12, 9, 0, 3, 4};
+            std::vector<local_index_type>  halo_lids = {6, 7, 8};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
         }
         default:
+            throw std::runtime_error("unknown domain id");
+    }
+}
+
+domain_descriptor_type
+make_domain_ipr(domain_id_type id)
+{
+    switch (id)
+    {
+        case 0:
         {
-            map_type v_map{};
-            return v_map;
+            std::vector<global_index_type> gids = {0, 13, 5, 2, 1, 7, 20, 3, 11};
+            std::vector<local_index_type>  halo_lids = {4, 5, 6, 7, 8};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
         }
+        case 1:
+        {
+            std::vector<global_index_type> gids = {1, 19, 20, 4, 7, 15, 8, 0, 13, 16, 9};
+            std::vector<local_index_type>  halo_lids = {7, 8, 9, 10};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
+        }
+        case 2:
+        {
+            std::vector<global_index_type> gids = {3, 16, 18, 5, 1, 6};
+            std::vector<local_index_type>  halo_lids = {3, 4, 5};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
+        }
+        case 3:
+        {
+            std::vector<global_index_type> gids = {17, 6, 11, 10, 12, 9, 0, 4, 3};
+            std::vector<local_index_type>  halo_lids = {6, 7, 8};
+            return domain_descriptor_type{id, gids.begin(), gids.end(), halo_lids.begin(),
+                halo_lids.end()};
+            break;
+        }
+        default:
+            throw std::runtime_error("unknown domain id");
+    }
+}
+
+void
+check_domain(const domain_descriptor_type& d, const std::vector<global_index_type>& inner_gids,
+    const std::vector<global_index_type>& outer_gids)
+{
+    EXPECT_EQ(d.inner_size(), inner_gids.size());
+    EXPECT_EQ(d.size(), inner_gids.size() + outer_gids.size());
+    local_index_type lid = 0;
+    for (auto gid : inner_gids)
+    {
+        EXPECT_TRUE(d.is_inner(gid));
+        EXPECT_EQ(d.inner_local_index(gid).value(), lid);
+        ++lid;
+    }
+    for (auto gid : outer_gids)
+    {
+        EXPECT_TRUE(d.is_outer(gid));
+        EXPECT_EQ(d.outer_ids().find(gid)->second, lid);
+        ++lid;
     }
 }
 
@@ -104,45 +155,17 @@ check_domain(const domain_descriptor_type& d)
     switch (domain_id)
     {
         case 0:
-        {
-            EXPECT_TRUE(d.inner_size() == 4);
-            EXPECT_TRUE(d.size() == 9);
-            vertices_type inner_vertices{d.vertices().begin(),
-                d.vertices().begin() + static_cast<it_diff_type>(d.inner_size())};
-            vertices_type reference_inner_vertices{0, 13, 5, 2};
-            EXPECT_TRUE(inner_vertices == reference_inner_vertices);
+            check_domain(d, {0, 13, 5, 2}, {1, 3, 7, 11, 20});
             break;
-        }
         case 1:
-        {
-            EXPECT_TRUE(d.inner_size() == 7);
-            EXPECT_TRUE(d.size() == 11);
-            vertices_type inner_vertices{d.vertices().begin(),
-                d.vertices().begin() + static_cast<it_diff_type>(d.inner_size())};
-            vertices_type reference_inner_vertices{1, 19, 20, 4, 7, 15, 8};
-            EXPECT_TRUE(inner_vertices == reference_inner_vertices);
+            check_domain(d, {1, 19, 20, 4, 7, 15, 8}, {0, 9, 13, 16});
             break;
-        }
         case 2:
-        {
-            EXPECT_TRUE(d.inner_size() == 3);
-            EXPECT_TRUE(d.size() == 6);
-            vertices_type inner_vertices{d.vertices().begin(),
-                d.vertices().begin() + static_cast<it_diff_type>(d.inner_size())};
-            vertices_type reference_inner_vertices{3, 16, 18};
-            EXPECT_TRUE(inner_vertices == reference_inner_vertices);
+            check_domain(d, {3, 16, 18}, {1, 5, 6});
             break;
-        }
         case 3:
-        {
-            EXPECT_TRUE(d.inner_size() == 6);
-            EXPECT_TRUE(d.size() == 9);
-            vertices_type inner_vertices{d.vertices().begin(),
-                d.vertices().begin() + static_cast<it_diff_type>(d.inner_size())};
-            vertices_type reference_inner_vertices{17, 6, 11, 10, 12, 9};
-            EXPECT_TRUE(inner_vertices == reference_inner_vertices);
+            check_domain(d, {17, 6, 11, 10, 12, 9}, {0, 3, 4});
             break;
-        }
     }
 }
 
@@ -150,39 +173,45 @@ void
 check_halo_generator(const domain_descriptor_type& d, const halo_generator_type& hg)
 {
     auto h = hg(d);
+    using vertices_set_type = std::set<global_index_type>;
+    vertices_set_type halo_vertices_set;
+    std::transform(h.local_indices().begin(), h.local_indices().end(),
+        std::inserter(halo_vertices_set, halo_vertices_set.end()),
+        [&d](auto lid) { return d.global_index(lid).value(); });
     switch (d.domain_id())
     {
         case 0:
         {
-            vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{1, 20, 7, 3, 11};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
             break;
         }
         case 1:
         {
-            vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{0, 13, 16, 9};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
             break;
         }
         case 2:
         {
-            vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{5, 1, 6};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
             break;
         }
         case 3:
         {
-            vertices_set_type halo_vertices_set{h.vertices().begin(), h.vertices().end()};
             vertices_set_type reference_halo_vertices_set{0, 4, 3};
             EXPECT_TRUE(halo_vertices_set == reference_halo_vertices_set);
             break;
         }
     }
     for (std::size_t i = 0; i < h.size(); ++i)
-    { EXPECT_TRUE(d.vertices()[h.local_indices()[i]] == h.vertices()[i]); }
+    {
+        auto lid = h.local_indices()[i];
+        auto gid = d.global_index(lid).value();
+        EXPECT_TRUE(!d.is_inner(gid));
+        EXPECT_EQ(d.outer_ids().find(gid)->second, lid);
+    }
 }
 
 /* Send maps (local indices on the send size)
@@ -239,12 +268,12 @@ check_send_halos_indices(const pattern_type& p)
         auto res = res_ids.insert(sh.first.id);
         EXPECT_TRUE(res.second);                  // ids are unique
         EXPECT_NO_THROW(ref_map.at(sh.first.id)); // ids are correct
-        EXPECT_TRUE(sh.second.front().local_indices().size() ==
-                    ref_map.at(sh.first.id).size()); // indices size is correct
+        EXPECT_EQ(sh.second.front().local_indices().size(),
+            ref_map.at(sh.first.id).size()); // indices size is correct
         for (std::size_t idx = 0; idx < ref_map.at(sh.first.id).size(); ++idx)
         {
-            EXPECT_TRUE(sh.second.front().local_indices()[idx] ==
-                        ref_map.at(sh.first.id)[idx]); // indices are correct
+            EXPECT_EQ(sh.second.front().local_indices()[idx],
+                ref_map.at(sh.first.id)[idx]); // indices are correct
         }
     }
 }
@@ -296,19 +325,19 @@ check_recv_halos_indices(const pattern_type& p)
             break;
         }
     }
-    EXPECT_TRUE(p.recv_halos().size() == 3); // size is correct
+    EXPECT_EQ(p.recv_halos().size(), 3u); // size is correct
     std::set<domain_id_type> res_ids{};
     for (const auto& rh : p.recv_halos())
     {
         auto res = res_ids.insert(rh.first.id);
         EXPECT_TRUE(res.second);                  // ids are unique
         EXPECT_NO_THROW(ref_map.at(rh.first.id)); // ids are correct
-        EXPECT_TRUE(rh.second.front().local_indices().size() ==
-                    ref_map.at(rh.first.id).size()); // indices size is correct
+        EXPECT_EQ(rh.second.front().local_indices().size(),
+            ref_map.at(rh.first.id).size()); // indices size is correct
         for (std::size_t idx = 0; idx < ref_map.at(rh.first.id).size(); ++idx)
         {
-            EXPECT_TRUE(rh.second.front().local_indices()[idx] ==
-                        ref_map.at(rh.first.id)[idx]); // indices are correct
+            EXPECT_EQ(rh.second.front().local_indices()[idx],
+                ref_map.at(rh.first.id)[idx]); // indices are correct
         }
     }
 }
@@ -317,13 +346,8 @@ template<typename Container>
 void
 initialize_data(const domain_descriptor_type& d, Container& field)
 {
-    using value_type = typename Container::value_type;
     assert(field.size() == d.size());
-    for (std::size_t idx = 0; idx < d.inner_size(); ++idx)
-    {
-        field[idx] = static_cast<value_type>(d.domain_id()) * 100 +
-                     static_cast<value_type>(d.vertices()[idx]);
-    }
+    for (const auto& x : d.inner_ids()) { field[x.second] = d.domain_id() * 100 + x.first; }
 }
 
 template<typename Container>
@@ -336,13 +360,14 @@ check_exchanged_data(const domain_descriptor_type& d, const Container& field, co
     for (const auto& rh : p.recv_halos())
     {
         for (const auto idx : rh.second.front().local_indices())
-        { halo_map.insert(std::make_pair(idx, rh.first.id)); }
+        {
+            halo_map.insert(std::make_pair(idx, rh.first.id));
+        }
     }
     for (const auto& pair : halo_map)
     {
-        EXPECT_EQ(field[static_cast<std::size_t>(pair.first)],
-            static_cast<value_type>(
-                pair.second * 100 + d.vertices()[static_cast<std::size_t>(pair.first)]));
+        EXPECT_EQ(field[pair.first],
+            static_cast<value_type>(pair.second * 100 + d.global_index(pair.first).value()));
     }
 }
 
@@ -435,52 +460,3 @@ class recv_domain_ids_gen
         return {domain_ids, remote_indices, ranks};
     }
 };
-
-/** @brief Vertices generator to be used for in-place receive tests.
- * Inner vertices are the same as before, halo vertices are partitioned according to recv domain id.*/
-vertices_type
-init_ordered_vertices(const domain_id_type domain_id)
-{
-    switch (domain_id)
-    {
-        case 0:
-        {
-            return {0, 13, 5, 2, 1, 7, 20, 3, 11};
-        }
-        case 1:
-        {
-            return {1, 19, 20, 4, 7, 15, 8, 0, 13, 16, 9};
-        }
-        case 2:
-        {
-            return {3, 16, 18, 5, 1, 6};
-        }
-        case 3:
-        {
-            return {17, 6, 11, 10, 12, 9, 0, 4, 3};
-        }
-        default:
-        {
-            return {};
-        }
-    }
-}
-
-/** @brief Simple generator of domain inner sizes, used for in-place receive tests.*/
-std::size_t
-init_inner_sizes(const domain_id_type domain_id)
-{
-    switch (domain_id)
-    {
-        case 0:
-            return 4;
-        case 1:
-            return 7;
-        case 2:
-            return 3;
-        case 3:
-            return 6;
-        default:
-            return 0;
-    }
-}

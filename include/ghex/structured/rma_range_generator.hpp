@@ -1,12 +1,11 @@
-/* 
- * GridTools
- * 
- * Copyright (c) 2014-2021, ETH Zurich
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
  */
 #pragma once
 
@@ -45,8 +44,8 @@ struct rma_range_generator
     template<typename RangeFactory>
     struct target_range
     {
-        using rank_type = oomph::communicator::rank_type;
-        using tag_type = oomph::communicator::tag_type;
+        using rank_type = oomph::rank_type;
+        using tag_type = oomph::tag_type;
 
         rma::local_access_guard              m_local_guard;
         range_type                           m_local_range;
@@ -118,8 +117,8 @@ struct rma_range_generator
     {
         using field_type = Field;
         using info = rma::info;
-        using rank_type = oomph::communicator::rank_type;
-        using tag_type = oomph::communicator::tag_type;
+        using rank_type = oomph::rank_type;
+        using tag_type = oomph::tag_type;
 
         range_type                           m_local_range;
         typename RangeFactory::range_type    m_remote_range;

@@ -1,12 +1,11 @@
-﻿/*
- * GridTools
+/*
+ * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 
 #include <gtest/gtest.h>
@@ -92,20 +91,35 @@ TEST_F(mpi_test_fixture, in_place_receive)
     }
 }
 
+auto
+create_halo(const domain_descriptor_type& d)
+{
+    // consider all outer vertices as halo
+    auto halo = d.outer_gids();
+    return halo;
+}
+
+halo_generator_type
+make_halo_gen(const std::vector<domain_descriptor_type>& local_domains)
+{
+    std::set<global_index_type> halo_set;
+    for (const auto& ld : local_domains)
+    {
+        for (const auto& x : ld.outer_gids()) halo_set.insert(x);
+    }
+    return {halo_set.begin(), halo_set.end()};
+}
+
 /** @brief Test domain descriptor and halo generator concepts */
 void
 test_domain_descriptor_and_halos(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
-
     // domain
-    domain_id_type         domain_id{rank}; // 1 domain per rank
-    auto                   v_map = init_v_map(domain_id);
-    domain_descriptor_type d{domain_id, v_map};
+    auto d = make_domain(ctxt.rank());
     check_domain(d);
 
     // halo_generator
-    halo_generator_type hg{};
+    halo_generator_type hg{create_halo(d)};
     check_halo_generator(d, hg);
 }
 
@@ -113,13 +127,11 @@ test_domain_descriptor_and_halos(ghex::context& ctxt)
 void
 test_pattern_setup(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
+    // domain
+    std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};
 
-    domain_id_type                      domain_id{rank}; // 1 domain per rank
-    auto                                v_map = init_v_map(domain_id);
-    domain_descriptor_type              d{domain_id, v_map};
-    std::vector<domain_descriptor_type> local_domains{d};
-    halo_generator_type                 hg{};
+    // halo_generator
+    auto hg = make_halo_gen(local_domains);
 
     // setup patterns
     auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
@@ -141,16 +153,12 @@ test_pattern_setup(ghex::context& ctxt)
 void
 test_pattern_setup_oversubscribe(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
+    // domain
+    std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank() * 2),
+        make_domain(ctxt.rank() * 2 + 1)};
 
-    domain_id_type                      domain_id_1{rank * 2};
-    domain_id_type                      domain_id_2{rank * 2 + 1};
-    auto                                v_map_1 = init_v_map(domain_id_1);
-    auto                                v_map_2 = init_v_map(domain_id_2);
-    domain_descriptor_type              d_1{domain_id_1, v_map_1};
-    domain_descriptor_type              d_2{domain_id_2, v_map_2};
-    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
-    halo_generator_type                 hg{};
+    // halo_generator
+    auto hg = make_halo_gen(local_domains);
 
     // setup patterns
     auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
@@ -173,7 +181,6 @@ test_pattern_setup_oversubscribe_asymm(ghex::context& ctxt)
 {
     int rank = ctxt.rank();
 
-    halo_generator_type hg{};
     auto domain_to_rank = [](const domain_id_type d_id) { return (d_id != 3) ? int{0} : int{1}; };
     recv_domain_ids_gen<decltype(domain_to_rank)> rdig{domain_to_rank};
 
@@ -181,16 +188,12 @@ test_pattern_setup_oversubscribe_asymm(ghex::context& ctxt)
     {
         case 0:
         {
-            domain_id_type                      domain_id_1{0};
-            domain_id_type                      domain_id_2{1};
-            domain_id_type                      domain_id_3{2};
-            auto                                v_map_1 = init_v_map(domain_id_1);
-            auto                                v_map_2 = init_v_map(domain_id_2);
-            auto                                v_map_3 = init_v_map(domain_id_3);
-            domain_descriptor_type              d_1{domain_id_1, v_map_1};
-            domain_descriptor_type              d_2{domain_id_2, v_map_2};
-            domain_descriptor_type              d_3{domain_id_3, v_map_3};
-            std::vector<domain_descriptor_type> local_domains{d_1, d_2, d_3};
+            // domain
+            std::vector<domain_descriptor_type> local_domains{make_domain(0), make_domain(1),
+                make_domain(2)};
+
+            // halo_generator
+            auto hg = make_halo_gen(local_domains);
 
             // setup patterns
             auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
@@ -219,10 +222,11 @@ test_pattern_setup_oversubscribe_asymm(ghex::context& ctxt)
 
         case 1:
         {
-            domain_id_type                      domain_id_1{3};
-            auto                                v_map_1 = init_v_map(domain_id_1);
-            domain_descriptor_type              d_1{domain_id_1, v_map_1};
-            std::vector<domain_descriptor_type> local_domains{d_1};
+            // domain
+            std::vector<domain_descriptor_type> local_domains{make_domain(3)};
+
+            // halo generator
+            auto hg = make_halo_gen(local_domains);
 
             // setup patterns
             auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
@@ -247,14 +251,13 @@ test_pattern_setup_oversubscribe_asymm(ghex::context& ctxt)
 void
 test_data_descriptor(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
+    // domain
+    std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};
 
-    domain_id_type                      domain_id{rank}; // 1 domain per rank
-    auto                                v_map = init_v_map(domain_id);
-    domain_descriptor_type              d{domain_id, v_map};
-    std::vector<domain_descriptor_type> local_domains{d};
-    halo_generator_type                 hg{};
+    // halo generator
+    auto hg = make_halo_gen(local_domains);
 
+    // setup patterns
     auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
 
     // communication object
@@ -262,6 +265,7 @@ test_data_descriptor(ghex::context& ctxt)
     auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
 
     // application data
+    auto&                         d = local_domains[0];
     ghex::test::util::memory<int> field(d.size(), 0);
     initialize_data(d, field);
     data_descriptor_cpu_int_type data{d, field};
@@ -295,16 +299,12 @@ test_data_descriptor(ghex::context& ctxt)
 void
 test_data_descriptor_oversubscribe(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
+    // domain
+    std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank() * 2),
+        make_domain(ctxt.rank() * 2 + 1)};
 
-    domain_id_type                      domain_id_1{rank * 2};
-    domain_id_type                      domain_id_2{rank * 2 + 1};
-    auto                                v_map_1 = init_v_map(domain_id_1);
-    auto                                v_map_2 = init_v_map(domain_id_2);
-    domain_descriptor_type              d_1{domain_id_1, v_map_1};
-    domain_descriptor_type              d_2{domain_id_2, v_map_2};
-    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
-    halo_generator_type                 hg{};
+    // halo generator
+    auto hg = make_halo_gen(local_domains);
 
     auto domain_to_rank = [](const domain_id_type d_id) { return static_cast<int>(d_id / 2); };
     recv_domain_ids_gen<decltype(domain_to_rank)> rdig{domain_to_rank};
@@ -315,6 +315,8 @@ test_data_descriptor_oversubscribe(ghex::context& ctxt)
     auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
 
     // application data
+    auto&            d_1 = local_domains[0];
+    auto&            d_2 = local_domains[1];
     std::vector<int> field_1(d_1.size(), 0);
     std::vector<int> field_2(d_2.size(), 0);
     initialize_data(d_1, field_1);
@@ -336,22 +338,20 @@ test_data_descriptor_oversubscribe(ghex::context& ctxt)
 void
 test_data_descriptor_threads(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
+    // domain
+    std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank() * 2),
+        make_domain(ctxt.rank() * 2 + 1)};
 
-    domain_id_type                      domain_id_1{rank * 2};
-    domain_id_type                      domain_id_2{rank * 2 + 1};
-    auto                                v_map_1 = init_v_map(domain_id_1);
-    auto                                v_map_2 = init_v_map(domain_id_2);
-    domain_descriptor_type              d_1{domain_id_1, v_map_1};
-    domain_descriptor_type              d_2{domain_id_2, v_map_2};
-    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
-    halo_generator_type                 hg{};
+    // halo generator
+    auto hg = make_halo_gen(local_domains);
 
     auto domain_to_rank = [](const domain_id_type d_id) { return static_cast<int>(d_id / 2); };
     recv_domain_ids_gen<decltype(domain_to_rank)> rdig{domain_to_rank};
     auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, rdig, local_domains);
     using pattern_container_type = decltype(patterns);
 
+    auto&            d_1 = local_domains[0];
+    auto&            d_2 = local_domains[1];
     std::vector<int> field_1(d_1.size(), 0);
     std::vector<int> field_2(d_2.size(), 0);
     initialize_data(d_1, field_1);
@@ -380,13 +380,12 @@ test_data_descriptor_threads(ghex::context& ctxt)
 void
 test_in_place_receive(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
+    // domain
+    std::vector<domain_descriptor_type> local_domains{make_domain_ipr(ctxt.rank())};
+    auto&                               d = local_domains[0];
 
-    domain_id_type                      domain_id{rank}; // 1 domain per rank
-    domain_descriptor_type              d{domain_id, init_ordered_vertices(domain_id),
-        init_inner_sizes(domain_id)};
-    std::vector<domain_descriptor_type> local_domains{d};
-    halo_generator_type                 hg{};
+    // halo generator
+    halo_generator_type hg;
 
     auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
 
@@ -480,6 +479,13 @@ test_in_place_receive(ghex::context& ctxt)
 //    domain_descriptor_type d_2{
 //        domain_id_2, init_ordered_vertices(domain_id_2), init_inner_sizes(domain_id_2)};
 //    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
+//
+//    // domain
+//    std::vector<domain_descriptor_type> local_domains{make_domain_ipr(ctxt.rank()*2), make_domain_ipr(ctxt.rank()*2+1)};
+//    auto& d_1 = local_domains[0];
+//    auto& d_2 = local_domains[1];
+//
+//    // halo generator
 //    halo_generator_type                 hg{};
 //
 //    auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
@@ -510,18 +516,14 @@ test_in_place_receive(ghex::context& ctxt)
 void
 test_in_place_receive_threads(ghex::context& ctxt)
 {
-    int rank = ctxt.rank();
+    // domain
+    std::vector<domain_descriptor_type> local_domains{make_domain_ipr(ctxt.rank() * 2),
+        make_domain_ipr(ctxt.rank() * 2 + 1)};
+    auto&                               d_1 = local_domains[0];
+    auto&                               d_2 = local_domains[1];
 
-    domain_id_type domain_id_1{rank * 2};
-    domain_id_type domain_id_2{
-        rank * 2 +
-        1}; // HERE domain_id, init_ordered_vertices(domain_id), init_inner_sizes(domain_id)
-    domain_descriptor_type              d_1{domain_id_1, init_ordered_vertices(domain_id_1),
-        init_inner_sizes(domain_id_1)};
-    domain_descriptor_type              d_2{domain_id_2, init_ordered_vertices(domain_id_2),
-        init_inner_sizes(domain_id_2)};
-    std::vector<domain_descriptor_type> local_domains{d_1, d_2};
-    halo_generator_type                 hg{};
+    // halo generator
+    halo_generator_type hg;
 
     auto patterns = ghex::make_pattern<grid_type>(ctxt, hg, local_domains);
 

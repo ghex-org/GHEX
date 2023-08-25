@@ -1,12 +1,11 @@
-/* 
- * GridTools
- * 
- * Copyright (c) 2014-2021, ETH Zurich
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
  */
 #pragma once
 
@@ -22,8 +21,8 @@ class context
 {
     friend class barrier;
   public:
-    using rank_type = oomph::communicator::rank_type;
-    using tag_type = oomph::communicator::tag_type;
+    using rank_type = oomph::rank_type;
+    using tag_type = oomph::tag_type;
     using communicator_type = oomph::communicator;
     using message_type = oomph::message_buffer<unsigned char>;
 

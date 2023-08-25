@@ -1,12 +1,11 @@
 /*
- * GridTools
+ * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
@@ -34,7 +33,9 @@ class halo_generator<DomainIdType, std::integral_constant<int, Dimension>>
     using dimension = typename domain_type::dimension;
     using coordinate_type = typename grid::template type<domain_type>::coordinate_type;
 
-  private: // member types
+  //private: // member types
+  // todo (tehrengruber): check with ghex team
+  public: // member types
     struct box
     {
         const coordinate_type& first() const { return m_first; }

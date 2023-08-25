@@ -1,0 +1,12 @@
+[submodule "ext/gridtools"]
+	path = ext/gridtools
+	url = https://github.com/GridTools/gridtools.git
+    branch = master
+[submodule "ext/googletest"]
+	path = ext/googletest
+	url = https://github.com/google/googletest.git
+    branch = main
+[submodule "ext/oomph"]
+	path = ext/oomph
+	url = https://github.com/ghex-org/oomph.git
+    branch = main

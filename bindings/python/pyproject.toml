@@ -1,0 +1,39 @@
+[build-system]
+requires = [
+    "scikit-build-core",
+    "mpi4py",
+    "pybind11"
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyghex"
+version = "0.3.0" # needs to be adapted
+description = "Generic Halo Exchanges: Python API"
+readme = {file = "../../README.md", content-type = "text/markdown"}
+license = {file = "../../LICENSE"}
+dependencies = [
+    "numpy",
+]
+
+[project.urls]
+repository = "https://github.com/ghex-org/GHEX"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[tool.scikit-build]
+cmake.minimum-version = "3.17"
+cmake.source-dir = "../.."
+cmake.build-type = "Release"
+cmake.args = [
+    "-DGHEX_BUILD_PYTHON_BINDINGS=ON",
+    "-DGHEX_USE_BUNDLED_LIBS=ON",
+    "-DGHEX_USE_BUNDLED_GRIDTOOLS=ON",
+    "-DGHEX_USE_BUNDLED_OOMPH=ON",
+]
+wheel.expand-macos-universal-tags = true
+wheel.install-dir = "ghex"
+wheel.packages = []

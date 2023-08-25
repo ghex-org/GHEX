@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -24,6 +26,15 @@ jobs:
           mkdir -p build && cd build
           eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_GIT_SUBMODULE=OFF \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
+            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
+            -DBUILD_TESTING=OFF \
+            -DGT_BUILD_TESTING=OFF \
+            -DGT_INSTALL_EXAMPLES=OFF \
+            -DGHEX_TRANSPORT_BACKEND=MPI \
+            -DGHEX_USE_BUNDLED_OOMPH=ON \
+            -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
@@ -33,9 +44,8 @@ jobs:
             -DMETIS_LIB_DIR=/opt/metis/lib \
             -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DGHEX_TRANSPORT_BACKEND=MPI \
-            -DGHEX_USE_GPU=OFF \
-            -DMPIEXEC_PREFLAGS=--oversubscribe
+            -DMPIEXEC_PREFLAGS=--oversubscribe \
+            -DGHEX_USE_GPU=OFF
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -45,7 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -58,6 +70,16 @@ jobs:
           mkdir -p build && cd build
           eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_GIT_SUBMODULE=OFF \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
+            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
+            -DBUILD_TESTING=OFF \
+            -DGT_BUILD_TESTING=OFF \
+            -DGT_INSTALL_EXAMPLES=OFF \
+            -DGHEX_USE_BUNDLED_OOMPH=ON \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
+            -DUCX_DIR=/opt/ucx \
+            -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
@@ -67,10 +89,8 @@ jobs:
             -DMETIS_LIB_DIR=/opt/metis/lib \
             -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DGHEX_USE_GPU=OFF \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DUCX_DIR=/opt/ucx 
+            -DGHEX_USE_GPU=OFF
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -80,7 +100,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -93,6 +115,15 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_GIT_SUBMODULE=OFF \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
+            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
+            -DBUILD_TESTING=OFF \
+            -DGT_BUILD_TESTING=OFF \
+            -DGT_INSTALL_EXAMPLES=OFF \
+            -DGHEX_USE_BUNDLED_OOMPH=ON \
+            -DGHEX_TRANSPORT_BACKEND=MPI \
+            -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
@@ -102,9 +133,8 @@ jobs:
             -DMETIS_LIB_DIR=/opt/metis/lib \
             -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DGHEX_TRANSPORT_BACKEND=MPI \
-            -DGHEX_USE_GPU=OFF \
-            -DMPIEXEC_PREFLAGS=--oversubscribe
+            -DMPIEXEC_PREFLAGS=--oversubscribe \
+            -DGHEX_USE_GPU=OFF
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -114,7 +144,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -127,6 +159,16 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_GIT_SUBMODULE=OFF \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
+            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
+            -DBUILD_TESTING=OFF \
+            -DGT_BUILD_TESTING=OFF \
+            -DGT_INSTALL_EXAMPLES=OFF \
+            -DGHEX_USE_BUNDLED_OOMPH=ON \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
+            -DUCX_DIR=/opt/ucx \
+            -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
@@ -136,10 +178,8 @@ jobs:
             -DMETIS_LIB_DIR=/opt/metis/lib \
             -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DGHEX_USE_GPU=OFF \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DUCX_DIR=/opt/ucx 
+            -DGHEX_USE_GPU=OFF
       - name: Build
         run: cmake --build build --parallel 2
       - name: Execute tests
@@ -149,7 +189,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -162,20 +204,28 @@ jobs:
           mkdir -p build && cd build
           CXX=/opt/rocm/llvm/bin/clang++ cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_GIT_SUBMODULE=OFF \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
+            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
+            -DBUILD_TESTING=OFF \
+            -DGT_BUILD_TESTING=OFF \
+            -DGT_INSTALL_EXAMPLES=OFF \
+            -DGHEX_USE_BUNDLED_OOMPH=ON \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
+            -DUCX_DIR=/opt/ucx \
+            -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=OFF \
+            -DGHEX_BUILD_FORTRAN=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
             -DMETIS_LIB_DIR=/opt/metis/lib \
             -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DGHEX_USE_GPU=ON \
-            -DGHEX_GPU_TYPE=AMD \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DUCX_DIR=/opt/ucx 
+            -DGHEX_USE_GPU=ON \
+            -DGHEX_GPU_TYPE=AMD
       - name: Build
         run: cmake --build build --parallel 2
 
@@ -183,7 +233,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Configure
         run: |
           echo "WORKFLOW"
@@ -196,20 +248,28 @@ jobs:
           mkdir -p build && cd build
           cmake .. \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DGHEX_GIT_SUBMODULE=OFF \
+            -DGHEX_USE_BUNDLED_LIBS=ON \
+            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
+            -DBUILD_TESTING=OFF \
+            -DGT_BUILD_TESTING=OFF \
+            -DGT_INSTALL_EXAMPLES=OFF \
+            -DGHEX_USE_BUNDLED_OOMPH=ON \
+            -DGHEX_TRANSPORT_BACKEND=UCX \
+            -DUCX_DIR=/opt/ucx \
+            -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=OFF \
+            -DGHEX_BUILD_FORTRAN=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
             -DMETIS_LIB_DIR=/opt/metis/lib \
             -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
             -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DGHEX_USE_GPU=ON \
-            -DGHEX_GPU_TYPE=NVIDIA \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DUCX_DIR=/opt/ucx 
+            -DGHEX_USE_GPU=ON \
+            -DGHEX_GPU_TYPE=NVIDIA
       - name: Build
         run: cmake --build build --parallel 2
 

@@ -1,12 +1,11 @@
 /*
- * GridTools
+ * ghex-org
  *
- * Copyright (c) 2014-2021, ETH Zurich
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- *
  */
 #pragma once
 
@@ -35,7 +34,7 @@ class pattern<structured::detail::grid<CoordinateArrayType>, DomainIdType>
     using coordinate_element_type = typename grid_type::coordinate_element_type;
     using dimension = typename grid_type::dimension;
     using communicator_type = oomph::communicator;
-    using rank_type = typename communicator_type::rank_type;
+    using rank_type = oomph::rank_type;
     using domain_id_type = DomainIdType;
     using pattern_container_type = pattern_container<grid_type, DomainIdType>;
 

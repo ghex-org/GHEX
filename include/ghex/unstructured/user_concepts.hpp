@@ -1,12 +1,11 @@
-/* 
- * GridTools
- * 
- * Copyright (c) 2014-2021, ETH Zurich
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
  */
 #pragma once
 
@@ -17,10 +16,13 @@
 #include <ghex/device/cuda/runtime.hpp>
 #endif
 
-#include <set>
+#include <unordered_map>
+#include <unordered_set>
+#include <optional>
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <iterator>
 #include <cassert>
 #include <cstring>
 #include <iosfwd>
@@ -39,98 +41,136 @@ class domain_descriptor
     // member types
     using domain_id_type = DomainId;
     using global_index_type = Idx;
-    using vertices_type = std::vector<global_index_type>;
-    using vertices_set_type = std::set<global_index_type>;
-    using adjncy_type = std::vector<global_index_type>; // named after ParMetis CSR arrays
-    using map_type = std::vector<std::pair<global_index_type, adjncy_type>>;
-    // local index, deduced from here, and not used at the application level. Will be cast to
-    // std::size_t in data_decriptor.
     using local_index_type = std::size_t;
+    using inner_map = std::unordered_map<global_index_type, local_index_type>;
+    using outer_map = std::unordered_multimap<global_index_type, local_index_type>;
 
   private:
     // members
-    domain_id_type m_id;
-    vertices_type  m_vertices; // including halo vertices
-    adjncy_type    m_adjncy;   // named after ParMetis CSR arrays
-    std::size_t    m_inner_size;
-    std::size_t    m_size;
-    std::size_t    m_levels;
+    domain_id_type                 m_id;
+    inner_map                      m_inner_map;
+    outer_map                      m_outer_map;
+    std::vector<global_index_type> m_gids;
+    std::vector<global_index_type> m_outer_gids;
 
-  public:
-    // constructors
-    domain_descriptor(const domain_id_type id, const vertices_type& vertices,
-        const adjncy_type& adjncy, const std::size_t levels = 1)
-    : m_id{id}
-    , m_vertices{vertices}
-    , m_adjncy{adjncy}
-    , m_levels{levels}
+  public: // member functions
+    domain_id_type                        domain_id() const noexcept { return m_id; }
+    std::size_t                           inner_size() const noexcept { return m_inner_map.size(); }
+    std::size_t                           size() const noexcept { return m_gids.size(); }
+    const inner_map&                      inner_ids() const noexcept { return m_inner_map; }
+    const outer_map&                      outer_ids() const noexcept { return m_outer_map; }
+    const std::vector<global_index_type>& gids() const noexcept { return m_gids; }
+    const std::vector<global_index_type>& outer_gids() const noexcept { return m_outer_gids; }
+
+    std::optional<global_index_type> global_index(local_index_type lid) const noexcept
     {
-        set_halo_vertices();
+        return lid < m_gids.size() ? std::optional<global_index_type>{m_gids[lid]} : std::nullopt;
     }
-    domain_descriptor(const domain_id_type id, const map_type& v_map, const std::size_t levels = 1)
-    : m_id{id}
-    , m_vertices{}
-    , m_adjncy{}
-    , m_levels{levels}
+
+    std::optional<local_index_type> inner_local_index(global_index_type gid) const noexcept
     {
-        for (const auto& v_elem : v_map)
+        auto it = m_inner_map.find(gid);
+        return it != m_inner_map.end() ? std::optional{it->second} : std::nullopt;
+    }
+
+    bool is_inner(global_index_type gid) const noexcept
+    {
+        return m_inner_map.find(gid) != m_inner_map.end();
+    }
+
+    bool is_outer(global_index_type gid) const noexcept
+    {
+        return m_outer_map.find(gid) != m_outer_map.end();
+    }
+
+    // Create a vector of local ids from global ids
+    // Repeated gids are allowed iff there are multiple lids mapped to the same gids
+    std::vector<local_index_type> make_outer_lids(const std::vector<global_index_type>& gids) const
+    {
+        std::vector<local_index_type> lids;
+        lids.reserve(gids.size());
+        std::unordered_map<global_index_type, unsigned int> gid_count;
+        for (auto gid : gids)
         {
-            m_vertices.push_back(v_elem.first);
-            m_adjncy.insert(m_adjncy.end(), v_elem.second.begin(), v_elem.second.end());
+            auto [first, last] = outer_ids().equal_range(gid);
+            if (first == outer_ids().end()) continue;
+            if (auto [it, success] = gid_count.insert(std::make_pair(gid, 0u)); !success)
+            {
+                if (auto c = ++it->second; c < std::distance(first, last)) std::advance(first, c);
+                else
+                    throw std::runtime_error(
+                        "halo gid does not have an associated lid in the domain");
+            }
+            lids.push_back(first->second);
         }
-        set_halo_vertices();
+        for (auto [gid, c] : gid_count)
+        {
+            auto [first, last] = outer_ids().equal_range(gid);
+            if ((c + 1u) != std::distance(first, last))
+                throw std::runtime_error("halo gid occurs not often enough");
+        }
+        return lids;
     }
-    domain_descriptor(const domain_id_type id, const vertices_type& vertices,
-        const std::size_t inner_size, const std::size_t levels = 1)
-    : m_id{id}
-    , m_vertices{vertices}
-    , m_adjncy{} // not set using this constructor. Not a big deal, will eventually be removed
-    , m_inner_size{inner_size}
-    , m_size{vertices.size()}
-    , m_levels{levels}
-    {
-    }
-
-  private:
-    // member functions
-    void set_halo_vertices()
-    {
-        vertices_set_type vertices_set{m_vertices.begin(), m_vertices.end()};
-        vertices_set_type all_vertices_set{m_adjncy.begin(), m_adjncy.end()};
-        vertices_set_type halo_vertices_set{};
-        std::set_difference(all_vertices_set.begin(), all_vertices_set.end(), vertices_set.begin(),
-            vertices_set.end(), std::inserter(halo_vertices_set, halo_vertices_set.begin()));
-        m_inner_size = m_vertices.size();
-        m_vertices.insert(m_vertices.end(), halo_vertices_set.begin(), halo_vertices_set.end());
-        m_size = m_vertices.size();
-    }
-
-  public:
-    // member functions
-    domain_id_type       domain_id() const noexcept { return m_id; }
-    std::size_t          inner_size() const noexcept { return m_inner_size; }
-    std::size_t          size() const noexcept { return m_size; }
-    std::size_t          levels() const noexcept { return m_levels; }
-    const vertices_type& vertices() const noexcept { return m_vertices; }
-    const adjncy_type&   adjncy() const noexcept { return m_adjncy; }
 
     // print
     /** @brief print */
     template<typename CharT, typename Traits>
-    friend std::basic_ostream<CharT, Traits>& operator<<(
-        std::basic_ostream<CharT, Traits>& os, const domain_descriptor& domain)
+    friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
+        const domain_descriptor&                                                            domain)
     {
-        os << "domain id = " << domain.domain_id() << ";\n"
-           << "inner size = " << domain.inner_size() << ";\n"
-           << "size = " << domain.size() << ";\n"
-           << "levels = " << domain.levels() << ";\n"
-           << "vertices: [ ";
-        for (const auto v : domain.vertices()) { os << v << " "; }
-        os << "]\n";
-        os << "adjncy: [ ";
-        for (const auto v : domain.adjncy()) { os << v << " "; }
+        os << "domain id =       " << domain.domain_id() << ";\n"
+           << "size =            " << domain.size() << ";\n"
+           << "inner size =      " << domain.inner_size() << ";\n"
+           << "global ids =       [";
+        for (auto x : domain.gids()) os << x << " ";
+        os << "]\n"
+           << "outer global ids = [";
+        for (auto x : domain.outer_gids()) os << x << " ";
         os << "]\n";
         return os;
+    }
+
+  public:
+    /** @brief Constructs a domain descriptor from a list of global indices and a second list of
+      * local indices. The first list describes all elements of the grid, while the latter indicates
+      * the position of outer-halo elements within the first list. The order of the global ids is
+      * assumed to be the storage order.
+      * @tparam GidIt Input iterator to a range of global indices
+      * @tparam LidIt Input iterator to a range of local indices
+      * @param id Global domain id
+      * @param first Iterator pointing to the first global index
+      * @param last Iterator pointing to the end (one-past-last) of the global indices
+      * @param outer_first Iterator pointing to the first outer local index
+      * @param outer_last Iterator pointing to the end (one-past-last) of the outer local indices*/
+    template<typename GidIt, typename LidIt>
+    domain_descriptor(domain_id_type id, GidIt first, GidIt last, LidIt outer_first,
+        LidIt outer_last)
+    : m_id{id}
+    {
+        // temporariliy store the outer local ids in a set for easy retrieval later
+        std::unordered_set<local_index_type> outer_lids;
+        for (auto it = outer_first; it != outer_last; ++it)
+        {
+            auto res = outer_lids.insert(*it);
+            if (!res.second) throw std::runtime_error("repeated outer (local) index");
+        }
+        // loop over all global indices and count local index along
+        local_index_type lid = 0;
+        for (auto it = first; it != last; ++it, ++lid)
+        {
+            const auto gid = *it;
+            if (outer_lids.count(lid))
+            {
+                m_outer_map.insert(std::make_pair(gid, lid));
+                m_outer_gids.push_back(gid);
+            }
+            else
+            {
+                auto res = m_inner_map.insert(std::make_pair(gid, lid));
+                if (!res.second) throw std::runtime_error("repeated inner (global) index");
+            }
+            m_gids.push_back(gid);
+        }
     }
 };
 
@@ -144,11 +184,8 @@ class halo_generator
     // member types
     using domain_type = domain_descriptor<DomainId, Idx>;
     using global_index_type = typename domain_type::global_index_type;
-    using vertices_type =
-        typename domain_type::vertices_type; // mandatory: inferred from the domain
     using local_index_type = typename domain_type::local_index_type;
     using local_indices_type = std::vector<local_index_type>;
-    using it_diff_type = typename vertices_type::iterator::difference_type;
 
     /** @brief Halo concept for unstructured grids
       * TO DO: if everything works, this class definition should be removed,
@@ -157,49 +194,33 @@ class halo_generator
     class halo
     {
       private:
-        vertices_type      m_vertices;
         local_indices_type m_local_indices;
-        std::size_t        m_levels;
 
       public:
         // ctors
-        halo(const std::size_t levels) noexcept
-        : m_levels{levels}
-        {
-        }
-        /** WARN: following one not strictly needed,
-          * but it will if this class is used as iteration_space class*/
-        halo(const vertices_type& vertices, const local_indices_type& local_indices,
-            const std::size_t levels)
-        : m_vertices{vertices}
-        , m_local_indices{local_indices}
-        , m_levels{levels}
+        halo() noexcept = default;
+
+        halo(local_indices_type local_indices)
+        : m_local_indices{std::move(local_indices)}
         {
         }
 
         // member functions
         /** @brief size of the halo */
-        std::size_t               size() const noexcept { return m_vertices.size(); }
-        std::size_t               levels() const noexcept { return m_levels; }
-        const vertices_type&      vertices() const noexcept { return m_vertices; }
+        std::size_t               size() const noexcept { return m_local_indices.size(); }
         const local_indices_type& local_indices() const noexcept { return m_local_indices; }
         void                      push_back(const global_index_type v, const local_index_type idx)
         {
-            m_vertices.push_back(v);
             m_local_indices.push_back(idx);
         }
 
         // print
         /** @brief print */
         template<typename CharT, typename Traits>
-        friend std::basic_ostream<CharT, Traits>& operator<<(
-            std::basic_ostream<CharT, Traits>& os, const halo& h)
+        friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
+            const halo&                                                                         h)
         {
             os << "size = " << h.size() << ";\n"
-               << "levels = " << h.levels() << ";\n"
-               << "vertices: [ ";
-            for (const auto v : h.vertices()) { os << v << " "; }
-            os << "]\n"
                << "local indices: [ ";
             for (const auto idx : h.local_indices()) { os << idx << " "; }
             os << "]\n";
@@ -207,19 +228,34 @@ class halo_generator
         }
     };
 
-    // member functions
+  private: // members
+    std::vector<global_index_type> m_gids;
+    bool                           m_use_all = true;
+
+  public: // ctor
+    halo_generator() = default;
+
+    halo_generator(std::vector<global_index_type> gids)
+    : m_gids{std::move(gids)}
+    , m_use_all{false}
+    {
+    }
+
+    template<typename Iterator>
+    halo_generator(Iterator first, Iterator last)
+    : m_use_all{false}
+    {
+        m_gids.insert(m_gids.end(), first, last);
+    }
+
+  public: // member functions
     /** @brief generate halo
       * @param domain local domain instance
       * @return receive halo*/
     halo operator()(const domain_type& domain) const
     {
-        local_indices_type local_indices(domain.size() - domain.inner_size());
-        for (size_t i = 0; i < (domain.size() - domain.inner_size()); ++i)
-        { local_indices[i] = i + domain.inner_size(); }
-        vertices_type vertices{
-            domain.vertices().begin() + static_cast<it_diff_type>(domain.inner_size()),
-            domain.vertices().end()};
-        return {vertices, local_indices, domain.levels()};
+        if (m_use_all) { return {domain.make_outer_lids(domain.outer_gids())}; }
+        else { return {domain.make_outer_lids(m_gids)}; }
     }
 };
 
@@ -242,7 +278,6 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     using value_type = T;
     using device_id_type = ghex::arch_traits<arch_type>::device_id_type;
     using domain_descriptor_type = domain_descriptor<domain_id_type, global_index_type>;
-    //using allocator_type = std::allocator<value_type>;
     using byte_t = unsigned char;
 
   private:
@@ -253,30 +288,57 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
   public:
     // constructors
-    /** @brief constructs a CPU data descriptor
+    // TO DO: check consistency between constructors (const ptr, size and size checks. Here and for the GPU)
+    /** @brief constructs a CPU data descriptor using a generic container for the field memory
       * @tparam Container templated container type for the field to be wrapped; data are assumed to
       * be contiguous in memory
       * @param domain local domain instance
       * @param field field to be wrapped*/
-    //template<template<typename, typename> class Container>
     template<class Container>
-    data_descriptor(
-        const domain_descriptor_type& domain, Container& field)
+    data_descriptor(const domain_descriptor_type& domain, Container& field, std::size_t levels = 1u)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
-    , m_levels{domain.levels()}
+    , m_levels{levels}
     , m_values{&(field[0])}
     {
-        assert(field.size() == (domain.size() * domain.levels()));
+        assert(field.size() == (domain.size() * m_levels));
+    }
+
+    /** @brief constructs a CPU data descriptor using pointer and size for the field memory
+      * @param domain local domain instance
+      * @param field_ptr pointer to the field to be wrapped
+      * @param size size of the field to be wrapped*/
+    data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr,
+        std::size_t levels = 1u)
+    : m_domain_id{domain.domain_id()}
+    , m_domain_size{domain.size()}
+    , m_levels{levels}
+    , m_values{field_ptr}
+    {
+    }
+
+    /** @brief constructs a CPU data descriptor using domain parameters and pointer for the field memory
+      * @param domain_id local domain id
+      * @param domain_size domain size
+      * @param levels domain / field vertical levels
+      * @param field_ptr pointer to the field to be wrapped*/
+    data_descriptor(domain_id_type domain_id, std::size_t domain_size, value_type* field_ptr,
+        std::size_t levels = 1u)
+    : m_domain_id{domain_id}
+    , m_domain_size{domain_size}
+    , m_levels{levels}
+    , m_values{field_ptr}
+    {
+        // TO DO: no checks on the size
     }
 
     // member functions
 
-    device_id_type device_id() const noexcept { return arch_traits<arch_type>::default_id(); } // significant for the GPU
+    device_id_type device_id() const noexcept { return arch_traits<arch_type>::default_id(); }
+
     domain_id_type domain_id() const noexcept { return m_domain_id; }
     std::size_t    domain_size() const noexcept { return m_domain_size; }
-    std::size_t    levels() const noexcept { return m_levels; }
-    int            num_components() const noexcept { return 1; }
+    int            num_components() const noexcept { return m_levels; }
 
     value_type* get_address_at(const std::size_t local_v, const std::size_t level)
     {
@@ -304,7 +366,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     {
         for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */
         {
-            for (std::size_t level = 0; level < is.levels(); ++level)
+            for (std::size_t level = 0; level < m_levels; ++level)
             {
                 std::memcpy(&((*this)(local_v, level)), buffer, sizeof(value_type));
                 buffer += sizeof(value_type);
@@ -321,7 +383,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     {
         for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */
         {
-            for (std::size_t level = 0; level < is.levels(); ++level)
+            for (std::size_t level = 0; level < m_levels; ++level)
             {
                 std::memcpy(buffer, &((*this)(local_v, level)), sizeof(value_type));
                 buffer += sizeof(value_type);
@@ -355,7 +417,9 @@ pack_kernel(const T* values, const std::size_t local_indices_size, const std::si
     if (idx < local_indices_size)
     {
         for (std::size_t level = 0; level < levels; ++level)
-        { buffer[idx * levels + level] = values[local_indices[idx] * levels + level]; }
+        {
+            buffer[idx * levels + level] = values[local_indices[idx] * levels + level];
+        }
     }
 }
 
@@ -368,7 +432,9 @@ unpack_kernel(const T* buffer, const std::size_t local_indices_size,
     if (idx < local_indices_size)
     {
         for (std::size_t level = 0; level < levels; ++level)
-        { values[local_indices[idx] * levels + level] = buffer[idx * levels + level]; }
+        {
+            values[local_indices[idx] * levels + level] = buffer[idx * levels + level];
+        }
     }
 }
 
@@ -397,12 +463,12 @@ class data_descriptor<gpu, DomainId, Idx, T>
       * @param domain local domain instance
       * @param field data pointer, assumed to point to a contiguous memory region of size = domain size * n levels
       * @param device_id device id*/
-    data_descriptor(
-        const domain_descriptor_type& domain, value_type* field, device_id_type device_id = arch_traits<arch_type>::current_id())
+    data_descriptor(const domain_descriptor_type& domain, value_type* field,
+        std::size_t levels = 1u, device_id_type device_id = arch_traits<arch_type>::current_id())
     : m_device_id{device_id}
     , m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
-    , m_levels{domain.levels()}
+    , m_levels{levels}
     , m_values{field}
     {
     }
@@ -412,8 +478,7 @@ class data_descriptor<gpu, DomainId, Idx, T>
     device_id_type device_id() const noexcept { return m_device_id; }
     domain_id_type domain_id() const noexcept { return m_domain_id; }
     std::size_t    domain_size() const noexcept { return m_domain_size; }
-    std::size_t    levels() const noexcept { return m_levels; }
-    int            num_components() const noexcept { return 1; }
+    int            num_components() const noexcept { return m_levels; }
 
     value_type* get_address_at(const std::size_t local_v, const std::size_t level)
     {
@@ -443,8 +508,8 @@ class data_descriptor<gpu, DomainId, Idx, T>
                 static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
                                            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
             pack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
-                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
-                m_values, is.local_indices().size(), &(is.local_indices()[0]), is.levels(), buffer);
+                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
+                is.local_indices().size(), &(is.local_indices()[0]), m_levels, buffer);
         }
     }
 
@@ -457,8 +522,8 @@ class data_descriptor<gpu, DomainId, Idx, T>
                 static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
                                            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
             unpack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
-                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(
-                buffer, is.local_indices().size(), &(is.local_indices()[0]), is.levels(), m_values);
+                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer,
+                is.local_indices().size(), &(is.local_indices()[0]), m_levels, m_values);
         }
     }
 };

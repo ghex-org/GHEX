@@ -1,12 +1,11 @@
-/* 
- * GridTools
- * 
- * Copyright (c) 2014-2021, ETH Zurich
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
  */
 #pragma once
 
@@ -52,22 +51,19 @@ class atlas_domain_descriptor
     ::atlas::Field   m_partition;
     ::atlas::Field   m_remote_index;
     local_index_type m_size;
-    std::size_t      m_levels;
 
   public:
     // ctors
     /** @brief Constructs a local domain
       * @param id domain id
       * @param partition partition indices of domain (+ halo) elements (Atlas field)
-      * @param remote_index local indices in remote partition for domain (+ halo) elements (Atlas field)
-      * @param size number of domain + halo points*/
+      * @param remote_index local indices in remote partition for domain (+ halo) elements (Atlas field)*/
     atlas_domain_descriptor(const domain_id_type id, const ::atlas::Field& partition,
-        const ::atlas::Field& remote_index, const std::size_t levels)
+        const ::atlas::Field& remote_index)
     : m_id{id}
     , m_partition{partition}
     , m_remote_index{remote_index}
     , m_size{static_cast<local_index_type>(partition.size())}
-    , m_levels{levels}
     {
         // Asserts
         assert(partition.size() == remote_index.size());
@@ -78,7 +74,6 @@ class atlas_domain_descriptor
     const ::atlas::Field& partition() const noexcept { return m_partition; }
     const ::atlas::Field& remote_index() const noexcept { return m_remote_index; }
     local_index_type      size() const noexcept { return m_size; }
-    std::size_t           levels() const noexcept { return m_levels; }
 
     // print
     /** @brief print */
@@ -88,7 +83,6 @@ class atlas_domain_descriptor
     {
         os << "domain id = " << domain.domain_id() << ";\n"
            << "size = " << domain.size() << ";\n"
-           << "levels = " << domain.levels() << ";\n"
            << "partition indices: [" << domain.partition() << "]\n"
            << "remote indices: [" << domain.remote_index() << "]\n";
         return os;
@@ -113,18 +107,13 @@ class atlas_halo_generator
     {
       private:
         std::vector<local_index_type> m_local_indices;
-        std::size_t                   m_levels;
 
       public:
         // ctors
-        halo(const std::size_t levels)
-        : m_levels{levels}
-        {
-        }
+        halo() noexcept = default;
 
         // member functions
         std::size_t                    size() const noexcept { return m_local_indices.size(); }
-        std::size_t                    levels() const noexcept { return m_levels; }
         std::vector<local_index_type>& local_indices() noexcept { return m_local_indices; }
         const std::vector<local_index_type>& local_indices() const noexcept
         {
@@ -138,7 +127,6 @@ class atlas_halo_generator
             const halo&                                                                         h)
         {
             os << "size = " << h.size() << ";\n"
-               << "levels = " << h.levels() << ";\n"
                << "local indices: [ ";
             for (const auto idx : h.local_indices()) { os << idx << " "; }
             os << "]\n";
@@ -156,7 +144,7 @@ class atlas_halo_generator
         auto partition = ::atlas::array::make_view<int, 1>(domain.partition());
         auto remote_index = ::atlas::array::make_view<local_index_type, 1>(domain.remote_index());
 
-        halo h{domain.levels()};
+        halo h;
 
         // if the index refers to another domain, or even to the same but as a halo point,
         // the halo is updated
@@ -307,17 +295,15 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
     int num_components() const noexcept { return m_components; }
 
     /** @brief single access operator, used by multiple access set function*/
-    value_type& operator()(const local_index_type idx, const local_index_type level,
-        const int component)
+    value_type& operator()(const local_index_type idx, const int component)
     {
-        return m_values(idx, level, component);
+        return m_values(idx, component);
     }
 
     /** @brief single access operator (const version), used by multiple access get function*/
-    const value_type& operator()(const local_index_type idx, const local_index_type level,
-        const int component) const
+    const value_type& operator()(const local_index_type idx, const int component) const
     {
-        return m_values(idx, level, component);
+        return m_values(idx, component);
     }
 
     /** @brief multiple access set function, needed by GHEX to perform the unpacking
@@ -329,14 +315,10 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
     {
         for (local_index_type idx : is.local_indices())
         {
-            for (std::size_t level = 0; level < is.levels(); ++level)
+            for (int component = 0; component < m_components; ++component)
             {
-                for (int component = 0; component < m_components; ++component)
-                { // TO DO: iteration space should probably be fixed accordongly
-                    std::memcpy(&((*this)(idx, level, component)), buffer,
-                        sizeof(value_type)); // level: implicit cast to local_index_type
-                    buffer += sizeof(value_type);
-                }
+                std::memcpy(&((*this)(idx, component)), buffer, sizeof(value_type));
+                buffer += sizeof(value_type);
             }
         }
     }
@@ -350,14 +332,10 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
     {
         for (local_index_type idx : is.local_indices())
         {
-            for (std::size_t level = 0; level < is.levels(); ++level)
+            for (int component = 0; component < m_components; ++component)
             {
-                for (int component = 0; component < m_components; ++component)
-                { // TO DO: iteration space should probably be fixed accordongly
-                    std::memcpy(buffer, &((*this)(idx, level, component)),
-                        sizeof(value_type)); // level: implicit cast to local_index_type
-                    buffer += sizeof(value_type);
-                }
+                std::memcpy(buffer, &((*this)(idx, component)), sizeof(value_type));
+                buffer += sizeof(value_type);
             }
         }
     }
@@ -382,18 +360,14 @@ class atlas_data_descriptor<ghex::cpu, DomainId, T, StorageTraits, FunctionSpace
 template<typename T, typename View, typename Index> // TO DO: in principle, Field would be enough
 __global__ void
 pack_kernel(const View values, const std::size_t local_indices_size, const Index* local_indices,
-    const std::size_t levels, const int components, T* buffer)
+    const int components, T* buffer)
 {
     auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx < local_indices_size)
     {
-        for (std::size_t level = 0; level < levels; ++level)
+        for (int component = 0; component < components; ++component)
         {
-            for (int component = 0; component < components; ++component)
-            {
-                buffer[idx * levels * components + level * components + component] =
-                    values(local_indices[idx], level, component);
-            }
+            buffer[idx * components + component] = values(local_indices[idx], component);
         }
     }
 }
@@ -401,18 +375,14 @@ pack_kernel(const View values, const std::size_t local_indices_size, const Index
 template<typename T, typename View, typename Index> // TO DO: in principle, Field would be enough
 __global__ void
 unpack_kernel(const T* buffer, const std::size_t local_indices_size, const Index* local_indices,
-    const std::size_t levels, const int components, View values)
+    const int components, View values)
 {
     auto idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx < local_indices_size)
     {
-        for (std::size_t level = 0; level < levels; ++level)
+        for (int component = 0; component < components; ++component)
         {
-            for (int component = 0; component < components; ++component)
-            {
-                values(local_indices[idx], level, component) =
-                    buffer[idx * levels * components + level * components + component];
-            }
+            values(local_indices[idx], component) = buffer[idx * components + component];
         }
     }
 }
@@ -472,8 +442,7 @@ class atlas_data_descriptor<ghex::gpu, DomainId, T, StorageTraits, FunctionSpace
                                            GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
             pack_kernel<<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0,
                 *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
-                is.local_indices().size(), &(is.local_indices()[0]), is.levels(), m_components,
-                buffer);
+                is.local_indices().size(), &(is.local_indices()[0]), m_components, buffer);
         }
     }
 
@@ -487,7 +456,7 @@ class atlas_data_descriptor<ghex::gpu, DomainId, T, StorageTraits, FunctionSpace
                                            GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
             unpack_kernel<<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0,
                 *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer, is.local_indices().size(),
-                &(is.local_indices()[0]), is.levels(), m_values);
+                &(is.local_indices()[0]), m_values);
         }
     }
 };

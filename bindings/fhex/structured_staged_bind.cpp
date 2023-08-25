@@ -1,3 +1,12 @@
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
+ * All rights reserved.
+ *
+ * Please, refer to the LICENSE file in the root directory.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #include <fhex/context_bind.hpp>
 #include <fhex/obj_wrapper.hpp>
 #include <fhex/ghex_defs.hpp> // those are configurable at compile time
@@ -138,18 +147,38 @@ ghex_struct_domain_add_field(struct_domain_descriptor* domain_desc,
             if (fd.halo[i] != field_desc->halo[i])
             {
                 std::cerr
-                    << "Bad halo definition: when constructing a bulk exchange domain, all fields must have the same halo and periodicity definition.";
+                    << "Bad halo definition: when constructing a bulk exchange domain, all fields must have the same halo and periodicity definition."
+                    << std::endl;
                 std::terminate();
             }
         for (int i = 0; i < 3; i++)
             if (fd.periodic[i] != field_desc->periodic[i])
             {
                 std::cerr
-                    << "Bad periodicity definition: when constructing a bulk exchange domain, all fields must have the same halo and periodicity definition.";
+                    << "Bad periodicity definition: when constructing a bulk exchange domain, all fields must have the same halo and periodicity definition."
+                    << std::endl;
                 std::terminate();
             }
     }
     domain_desc->fields->push_back(*field_desc);
+}
+
+extern "C" void
+ghex_struct_exchange_handle_free(obj_wrapper** wrapper_ref)
+{
+    fhex::ghex_obj_free(wrapper_ref);
+}
+
+extern "C" void
+ghex_struct_exchange_desc_free(obj_wrapper** wrapper_ref)
+{
+    fhex::ghex_obj_free(wrapper_ref);
+}
+
+extern "C" void
+ghex_struct_co_free(obj_wrapper** wrapper_ref)
+{
+    fhex::ghex_obj_free(wrapper_ref);
 }
 
 extern "C" void
@@ -163,9 +192,15 @@ ghex_struct_domain_free(struct_domain_descriptor* domain_desc)
 }
 
 extern "C" void*
-ghex_struct_exchange_desc_new(struct_domain_descriptor* domains_desc, int n_domains)
+ghex_struct_exchange_desc_new_wrapped(struct_domain_descriptor* domains_desc, int n_domains)
 {
-    if (0 == n_domains || nullptr == domains_desc) return nullptr;
+    if (0 == n_domains || nullptr == domains_desc)
+    {
+        std::cout
+            << "WARNING: do domains specified in call to ghex_struct_exchange_desc_new. Halos are not exchanged.\n"
+            << std::endl;
+        return nullptr;
+    }
 
     // Create all necessary patterns:
     //  1. make a vector of local domain descriptors
@@ -274,7 +309,13 @@ ghex_struct_exchange_desc_new(struct_domain_descriptor* domains_desc, int n_doma
 extern "C" void*
 ghex_struct_exchange(obj_wrapper* cowrapper, obj_wrapper* ewrapper)
 {
-    if (nullptr == cowrapper || nullptr == ewrapper) return nullptr;
+    if (nullptr == cowrapper || nullptr == ewrapper)
+    {
+        std::cout
+            << "WARNING: communicationi object and/or exchange descriptor are NULL in call to exchange(). Halos are not exchanged."
+            << std::endl;
+        return nullptr;
+    }
 
     bco_wrapper& bcowr = *get_object_ptr_unsafe<bco_wrapper>(cowrapper);
     std::array<pattern_field_vector_type, 3>& pattern_fields_array =

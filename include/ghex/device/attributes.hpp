@@ -1,12 +1,11 @@
-/* 
- * GridTools
- * 
- * Copyright (c) 2014-2021, ETH Zurich
+/*
+ * ghex-org
+ *
+ * Copyright (c) 2014-2023, ETH Zurich
  * All rights reserved.
- * 
+ *
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
- * 
  */
 #pragma once
 
@@ -51,4 +50,3 @@
 #ifndef GHEX_FUNCTION_DEVICE
 #define GHEX_FUNCTION_DEVICE GHEX_DEVICE GHEX_FORCE_INLINE
 #endif
-

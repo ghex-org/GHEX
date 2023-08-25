@@ -1,3 +1,12 @@
+!
+! ghex-org
+!
+! Copyright (c) 2014-2023, ETH Zurich
+! All rights reserved.
+!
+! Please, refer to the LICENSE file in the root directory.
+! SPDX-License-Identifier: BSD-3-Clause
+!
 MODULE ghex_structured_mod
   use iso_c_binding
   use ghex_defs
@@ -61,8 +70,7 @@ MODULE ghex_structured_mod
   ! --- module C interfaces
   ! ---------------------
   interface
-     type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_new_wrapped(domains_desc, n_domains) &
-       bind(c, name="ghex_struct_exchange_desc_new")
+     type(ghex_struct_exchange_descriptor) function ghex_struct_exchange_desc_new_wrapped(domains_desc, n_domains) bind(c)
        use iso_c_binding
        import ghex_struct_domain, ghex_struct_exchange_descriptor
        type(c_ptr), value :: domains_desc
@@ -75,13 +83,13 @@ MODULE ghex_structured_mod
   ! --- generic ghex interfaces
   ! ---------------------
   interface ghex_free
-     subroutine ghex_struct_exchange_desc_free(exchange_desc) bind(c, name="ghex_obj_free")
+     subroutine ghex_struct_exchange_desc_free(exchange_desc) bind(c)
        use iso_c_binding
        import ghex_struct_exchange_descriptor
        type(ghex_struct_exchange_descriptor) :: exchange_desc
      end subroutine ghex_struct_exchange_desc_free
 
-     subroutine ghex_struct_exchange_handle_free(exchange_handle) bind(c, name="ghex_obj_free")
+     subroutine ghex_struct_exchange_handle_free(exchange_handle) bind(c)
        use iso_c_binding
        import ghex_struct_exchange_handle
        type(ghex_struct_exchange_handle) :: exchange_handle
@@ -93,7 +101,7 @@ MODULE ghex_structured_mod
        type(ghex_struct_domain) :: domains_desc
      end subroutine ghex_struct_domain_free
 
-     subroutine ghex_struct_co_free(co) bind(c, name="ghex_obj_free")
+     subroutine ghex_struct_co_free(co) bind(c)
        use iso_c_binding
        import ghex_struct_communication_object
        ! reference, not a value - fortran variable is reset to null
