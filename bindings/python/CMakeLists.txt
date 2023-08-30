@@ -22,6 +22,7 @@ set_source_files_properties(config.cpp PROPERTIES
 # The Python object
 # =================
 add_library(pyghex_obj OBJECT ${pyghex_source})
+set_property(TARGET pyghex_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
