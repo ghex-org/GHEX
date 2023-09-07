@@ -25,6 +25,8 @@ jobs:
           submodules: recursive
       - name: Update pip and setup venv
         run: python -m pip install --upgrade pip && python -m venv ~/env && . ~/env/bin/activate && echo PATH=$PATH >> $GITHUB_ENV
+      - name: Install pytest
+        run: pip install pytest --user
       - name: Debug info Python
         run: |
           which python
