@@ -105,6 +105,18 @@ if(DEFINED SKBUILD_PROJECT_NAME)
   list(GET CMAKE_PREFIX_PATH 0 scikit_build_core_install_path)
   set_target_properties(pyghex PROPERTIES 
       INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
+  set_target_properties(ghex PROPERTIES
+      INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
+  if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
+      set_target_properties(oomph_libfabric PROPERTIES
+        INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
+  elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
+      set_target_properties(oomph_ucx PROPERTIES
+        INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
+  else()
+      set_target_properties(oomph_mpi PROPERTIES
+        INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
+  endif()
 else()
   set(_python_module_install_path ${GHEX_PYTHON_LIB_PATH}/ghex)
 endif()

@@ -9,9 +9,6 @@
 #
 import pytest
 
-# add the pyghex module to sys.path
-from fixtures.pyghex_path import *
-
 # import mpi4py
 import mpi4py
 mpi4py.rc.initialize = True

@@ -1,0 +1,46 @@
+name: Test pip
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  testpip:
+    name: "Pip build test + Python examples test"
+    runs-on: ${{ matrix.os }}
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [3.11]
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Clone w/ submodules
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Update pip and setup venv
+        run: python -m pip install --upgrade pip && python -m venv ~/env
+             #&& . ~/env/bin/activate && echo PATH=$PATH >> $GITHUB_ENV
+      - name: Debug info Python
+        run: |
+          which python
+          python --version
+          pip --version
+          echo $PATH
+      - name: Install pytest etc
+        run: . ~/env/bin/activate && python -m pip install -r ./scripts/pyghex_test_requirements.txt
+      - name: Build and install ghex using pip
+        run: . ~/env/bin/activate && CMAKE_ARGS="-DMPIEXEC_PREFLAGS=--oversubscribe -DGHEX_USE_GPU=OFF" python -m pip install ./bindings/python
+      - name: Run Python tests
+        run: |
+          export SHLVL=1
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+          . ~/env/bin/activate
+          python -m pytest -s ./test/bindings/python/
+          mpirun --oversubscribe -np 4 python -m pytest -s --with-mpi ./test/bindings/python/
