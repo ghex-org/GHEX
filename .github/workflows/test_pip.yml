@@ -10,6 +10,7 @@ jobs:
   testpip:
     name: "Pip build test + Python examples test"
     runs-on: ${{ matrix.os }}
+    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
     strategy:
       matrix:
         os: [ubuntu-latest]
