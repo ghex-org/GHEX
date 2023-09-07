@@ -35,8 +35,8 @@ jobs:
       #- name: Check that build flags match
       #  run: |
       #    python -c "import arbor; print(arbor.config())" | grep -q "'arch': 'native'"
-      #- name: Run Python tests
-      #  run: python -m unittest discover -v -s python
+      - name: Run Python tests
+        run: python -m unittest discover -v -s test/bindings/python
       #- name: Run Python examples
       #  run: scripts/run_python_examples.sh
       #- name: Test executables
