@@ -24,7 +24,8 @@ jobs:
         with:
           submodules: recursive
       - name: Update pip and setup venv
-        run: python -m pip install --upgrade pip && python -m venv ~/env && . ~/env/bin/activate && echo PATH=$PATH >> $GITHUB_ENV
+        run: python -m pip install --upgrade pip && python -m venv ~/env
+             #&& . ~/env/bin/activate && echo PATH=$PATH >> $GITHUB_ENV
       - name: Debug info Python
         run: |
           which python
@@ -32,14 +33,14 @@ jobs:
           pip --version
           echo $PATH
       - name: Install pytest
-        run: python -m pip install pytest
+        run: . ~/env/bin/activate && python -m pip install pytest
       - name: Build and install ghex using pip
-        run: CMAKE_ARGS="-DMPIEXEC_PREFLAGS=--oversubscribe -DGHEX_USE_GPU=OFF" python -m pip install ./bindings/python
+        run: . ~/env/bin/activate && CMAKE_ARGS="-DMPIEXEC_PREFLAGS=--oversubscribe -DGHEX_USE_GPU=OFF" python -m pip install ./bindings/python
       #- name: Check that build flags match
       #  run: |
       #    python -c "import arbor; print(arbor.config())" | grep -q "'arch': 'native'"
-      #- name: Run Python tests
-      #  run: python -m unittest discover -v -s test/bindings/python
+      - name: Run Python tests
+        run: . ~/env/bin/activate && python -m unittest discover -v -s test/bindings/python
       #- name: Run Python examples
       #  run: scripts/run_python_examples.sh
       #- name: Test executables
