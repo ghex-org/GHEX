@@ -40,7 +40,7 @@ jobs:
       #  run: |
       #    python -c "import arbor; print(arbor.config())" | grep -q "'arch': 'native'"
       - name: Run Python tests
-        run: . ~/env/bin/activate && python -m unittest discover -v -s test/bindings/python
+        run: . ~/env/bin/activate && mpirun -np 4 python -m pytest -s --with-mpi ./test/bindings/python/
       #- name: Run Python examples
       #  run: scripts/run_python_examples.sh
       #- name: Test executables
