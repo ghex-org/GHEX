@@ -24,7 +24,7 @@ find_library(LIBRT rt REQUIRED)
 # ---------------------------------------------------------------------
 # GridTools setup
 # ---------------------------------------------------------------------
-cmake_dependent_option(GHEX_USE_BUNDLED_GRIDTOOLS "Use bundled gridtools." OFF
+cmake_dependent_option(GHEX_USE_BUNDLED_GRIDTOOLS "Use bundled gridtools." ON
     "GHEX_USE_BUNDLED_LIBS" OFF)
 if(GHEX_USE_BUNDLED_GRIDTOOLS)
     check_git_submodule(GridTools ext/gridtools)
@@ -43,7 +43,7 @@ endif()
 # ---------------------------------------------------------------------
 set(GHEX_TRANSPORT_BACKEND "MPI" CACHE STRING "Choose the backend type: MPI | UCX | LIBFABRIC")
 set_property(CACHE GHEX_TRANSPORT_BACKEND PROPERTY STRINGS "MPI" "UCX" "LIBFABRIC")
-cmake_dependent_option(GHEX_USE_BUNDLED_OOMPH "Use bundled oomph." OFF "GHEX_USE_BUNDLED_LIBS" OFF)
+cmake_dependent_option(GHEX_USE_BUNDLED_OOMPH "Use bundled oomph." ON "GHEX_USE_BUNDLED_LIBS" OFF)
 if(GHEX_USE_BUNDLED_OOMPH)
     set(OOMPH_GIT_SUBMODULE OFF CACHE BOOL "")
     set(OOMPH_USE_BUNDLED_LIBS ON CACHE BOOL "")

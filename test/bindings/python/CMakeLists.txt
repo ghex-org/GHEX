@@ -7,15 +7,14 @@ add_custom_target(pyghex_tests)
 add_dependencies(pyghex pyghex_tests)
 copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fixtures FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/context.py)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/fixtures/pyghex_path.py.in
-${CMAKE_CURRENT_BINARY_DIR}/fixtures/pyghex_path.py @ONLY)
 
 function(ghex_reg_pytest t)
     copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/test_${t}.py)
     add_test(
         NAME py_${t}
-        COMMAND ${PYTHON_EXECUTABLE} -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py)
+        COMMAND ${PYTHON_EXECUTABLE} -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
+        WORKING_DIRECTORY ${ghex_python_path})
 endfunction()
 
 function(ghex_reg_parallel_pytest t n)
@@ -24,7 +23,8 @@ function(ghex_reg_parallel_pytest t n)
     add_test(
         NAME py_${t}_parallel
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-        ${PYTHON_EXECUTABLE} -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py)
+        ${PYTHON_EXECUTABLE} -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
+        WORKING_DIRECTORY ${ghex_python_path})
 endfunction()
 
 ghex_reg_pytest(context)
