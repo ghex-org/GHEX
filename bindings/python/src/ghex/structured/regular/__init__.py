@@ -77,9 +77,7 @@ class halo_generator(cpp_wrapper):
         )
         global_ = union(
             *(
-                product_set.from_coords(
-                    tuple(box2.global_.first), tuple(box2.global_.last)
-                )
+                product_set.from_coords(tuple(box2.global_.first), tuple(box2.global_.last))
                 for box2 in result
             )
         )
@@ -144,9 +142,7 @@ def wrap_field(*args):
 
 
 def make_pattern(context, halo_gen, domain_range):
-    return _ghex.make_pattern_regular(
-        context, unwrap(halo_gen), [unwrap(d) for d in domain_range]
-    )
+    return _ghex.make_pattern_regular(context, unwrap(halo_gen), [unwrap(d) for d in domain_range])
 
 
 def make_co(context, pattern):

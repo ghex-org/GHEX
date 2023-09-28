@@ -19,22 +19,18 @@ from ghex.util.cpp_wrapper import (
     unwrap,
     cls_from_cpp_type_spec,
 )
-#from ghex.structured.index_space import cartesian_set, product_set, union
+
+# from ghex.structured.index_space import cartesian_set, product_set, union
 
 
-def domain_descriptor(
-        index,
-        indices,
-        halo_indices
-):
+def domain_descriptor(index, indices, halo_indices):
     type_spec = (
         "ghex::unstructured::domain_descriptor",
         "int",
         "int",
     )
-    return cls_from_cpp_type_spec(type_spec)(
-        index, indices, halo_indices
-    )
+    return cls_from_cpp_type_spec(type_spec)(index, indices, halo_indices)
+
 
 def halo_generator():
     type_spec = (
@@ -44,6 +40,7 @@ def halo_generator():
     )
     return cls_from_cpp_type_spec(type_spec)()
 
+
 def halo_generator_with_gids(gids):
     type_spec = (
         "ghex::unstructured::halo_generator",
@@ -51,6 +48,7 @@ def halo_generator_with_gids(gids):
         "int",
     )
     return cls_from_cpp_type_spec(type_spec)(gids)
+
 
 def field_descriptor(
     domain_desc: domain_descriptor,
@@ -78,15 +76,11 @@ def field_descriptor(
         "int",
         dtype_to_cpp(field.dtype),
     )
-    return cls_from_cpp_type_spec(type_spec)(
-        domain_desc, field
-    )
+    return cls_from_cpp_type_spec(type_spec)(domain_desc, field)
 
 
 def make_pattern(context, halo_gen, domain_range):
-    return _ghex.make_pattern_unstructured(
-        context, unwrap(halo_gen), domain_range
-    )
+    return _ghex.make_pattern_unstructured(context, unwrap(halo_gen), domain_range)
 
 
 def make_co(context):

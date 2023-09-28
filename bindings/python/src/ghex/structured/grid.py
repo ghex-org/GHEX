@@ -93,9 +93,7 @@ class grid_3d:
             (Nx, Ny, Nz + 1), (bcx, bcy, bcz), (0, 0, 1), (False, False, True)
         )
 
-        ij = self._init_index_space(
-            (Nx, Ny, 1), (bcx, bcy, bcz), (1, 1, 0), (True, True, False)
-        )
+        ij = self._init_index_space((Nx, Ny, 1), (bcx, bcy, bcz), (1, 1, 0), (True, True, False))
 
         self.index_spaces = {
             (I, J, K): ijk,  # unstaggered
@@ -149,9 +147,7 @@ class grid_3d:
                     return slice(0, None)
                 return dir_l_to_slice[dir_l + 1]
 
-            return tuple(
-                slices_from_dir_l(dir_l, size) for dir_l, size in zip(dir_, shape)
-            )
+            return tuple(slices_from_dir_l(dir_l, size) for dir_l, size in zip(dir_, shape))
 
         def is_interior(dir_):
             return all(
@@ -211,9 +207,7 @@ class grid_3d:
             if is_prescribed(dir_):
                 prescribed_boundary = union(prescribed_boundary, part, simplify=False)
                 if is_corner(dir_):
-                    index_space.add_subset(
-                        ("prescribed_boundary", label_from_dir(dir_)), part
-                    )
+                    index_space.add_subset(("prescribed_boundary", label_from_dir(dir_)), part)
                 for candidate_dir in prescribed_boundary_parts.keys():
                     if is_part_of(dir_, candidate_dir):
                         prescribed_boundary_parts[candidate_dir] = union(
@@ -230,9 +224,7 @@ class grid_3d:
         index_space.add_subset("periodic_boundary", periodic_boundary)
         index_space.add_subset(
             "physical",
-            index_space.subset["definition"].without(
-                index_space.subset["periodic_boundary"]
-            ),
+            index_space.subset["definition"].without(index_space.subset["periodic_boundary"]),
         )
         index_space.add_subset(
             "periodic_layers",
@@ -286,8 +278,7 @@ class grid_3d:
                     continue
 
                 offsets = tuple(
-                    dir_i * l
-                    for dir_i, l in zip(dir, index_space.subset["physical"].shape)
+                    dir_i * l for dir_i, l in zip(dir, index_space.subset["physical"].shape)
                 )
 
                 image_id = periodic_image_id(id_, dir)
@@ -309,8 +300,7 @@ class grid_3d:
 
             # ensure periodic images cover entire boundary
             assert (
-                len(self.periodic_images[id_]) == 0
-                and index_space.subset["periodic_layers"].empty
+                len(self.periodic_images[id_]) == 0 and index_space.subset["periodic_layers"].empty
             ) or union(
                 *(
                     image_index_space.subset["periodic_layers"]

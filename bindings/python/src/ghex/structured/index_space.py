@@ -386,9 +386,7 @@ class union_range(integer_set, union_mixin):
 
     def __mul__(self, other):
         # todo: may user facing interface should simplify
-        return union(
-            *(arg * other for arg in self.args), disjoint=self.disjoint, simplify=False
-        )
+        return union(*(arg * other for arg in self.args), disjoint=self.disjoint, simplify=False)
 
     def __hash__(self):
         return hash(tuple(hash(arg) for arg in self.args))
@@ -414,9 +412,7 @@ class cartesian_set(set):
         )
 
     def shrink(self, *args: Sequence[Union[int, Tuple[int, int]]]):
-        args = tuple(
-            (-arg, -arg) if isinstance(arg, int) else (-arg[0], -arg[1]) for arg in args
-        )
+        args = tuple((-arg, -arg) if isinstance(arg, int) else (-arg[0], -arg[1]) for arg in args)
         return self.extend(*args)
 
     @staticmethod
@@ -477,10 +473,8 @@ class product_set(cartesian_set):
             else:
                 if len(self.args) == 2:  # break recursion
                     result = union(
-                        self.args[0].without(other.args[0], simplify=simplify)
-                        * self.args[1],
-                        self.args[0].intersect(other.args[0])
-                        * self.args[1].without(other.args[1]),
+                        self.args[0].without(other.args[0], simplify=simplify) * self.args[1],
+                        self.args[0].intersect(other.args[0]) * self.args[1].without(other.args[1]),
                         simplify=simplify,
                     )
                 else:
@@ -494,9 +488,7 @@ class product_set(cartesian_set):
                         simplify=simplify,
                     )
 
-            return (
-                result if len(tail) == 0 else result.without(*tail, simplify=simplify)
-            )
+            return result if len(tail) == 0 else result.without(*tail, simplify=simplify)
         elif isinstance(other, union_cartesian):
             return self.without(other.args[0], *other.args[1:], *tail)
 
@@ -523,17 +515,13 @@ class product_set(cartesian_set):
         if self.empty:
             raise ValueError("Empty set can not be extended")
         assert len(self.args) == len(args)
-        return functools.reduce(
-            operator.mul, (r.extend(arg) for r, arg in zip(self.args, args))
-        )
+        return functools.reduce(operator.mul, (r.extend(arg) for r, arg in zip(self.args, args)))
 
     def translate(self, *args: Sequence[int]):
         if self.empty:
             raise ValueError("Empty set can not be translated")
         assert len(self.args) == len(args)
-        return functools.reduce(
-            operator.mul, (r.translate(arg) for r, arg in zip(self.args, args))
-        )
+        return functools.reduce(operator.mul, (r.translate(arg) for r, arg in zip(self.args, args)))
 
     def as_tuple(self):
         return tuple(arg.as_tuple() for arg in self.args)
@@ -628,9 +616,7 @@ class union_cartesian(cartesian_set, union_mixin):
                 touching_sets = [
                     other
                     for other in a.args
-                    if not curr.extend(*(1 for _ in range(0, self.dim)))
-                    .intersect(other)
-                    .empty
+                    if not curr.extend(*(1 for _ in range(0, self.dim))).intersect(other).empty
                     and other != curr
                 ]
                 for touching_set in touching_sets:
@@ -639,9 +625,7 @@ class union_cartesian(cartesian_set, union_mixin):
                         rest = [
                             set_.without(curr)
                             for set_ in a.args
-                            if not set_.issubset(covering)
-                            and set_ != curr
-                            and set_ != touching_set
+                            if not set_.issubset(covering) and set_ != curr and set_ != touching_set
                         ]
                         merged = union(
                             union(*rest, disjoint=a.disjoint, simplify=False)

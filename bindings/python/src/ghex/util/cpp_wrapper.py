@@ -33,14 +33,10 @@ def cls_from_cpp_type_spec(cpp_type_spec: Union[str, Tuple[str, ...]]):
     else:
         fq_cpp_type_name, *template_args = cpp_type_spec
         template_args = [
-            targ
-            if not isinstance(targ, int)
-            else f"std::integral_constant<int, {targ}> "
+            targ if not isinstance(targ, int) else f"std::integral_constant<int, {targ}> "
             for targ in template_args
         ]
-        fq_cpp_type_specialization_name = (
-            fq_cpp_type_name + "<" + ", ".join(template_args) + ">"
-        )
+        fq_cpp_type_specialization_name = fq_cpp_type_name + "<" + ", ".join(template_args) + ">"
 
         return getattr(_ghex, fq_cpp_type_specialization_name)
 
@@ -67,9 +63,7 @@ class cpp_wrapper:
         if hasattr(self, "__wrapped__"):
             attr = getattr(self.__wrapped__, name)
             if inspect.ismethod(attr):
-                return lambda *args, **kwargs: self.__wrapped_call__(
-                    name, *args, **kwargs
-                )
+                return lambda *args, **kwargs: self.__wrapped_call__(name, *args, **kwargs)
             return attr
 
         raise AttributeError(name)
