@@ -1,22 +1,22 @@
 include(ghex_copy_files)
 
 set(pyghex_source
-    module.cpp
-    config.cpp
-    mpi_comm_shim.cpp
-    context_shim.cpp
-    structured/regular/domain_descriptor.cpp
-    structured/regular/halo_generator.cpp
-    structured/regular/field_descriptor.cpp
-    structured/regular/pattern.cpp
-    structured/regular/communication_object.cpp
-    unstructured/domain_descriptor.cpp
-    unstructured/halo_generator.cpp
-    unstructured/field_descriptor.cpp
-    unstructured/pattern.cpp
-    unstructured/communication_object.cpp
+    src/_pyghex/module.cpp
+    src/_pyghex/config.cpp
+    src/_pyghex/mpi_comm_shim.cpp
+    src/_pyghex/context_shim.cpp
+    src/_pyghex/structured/regular/domain_descriptor.cpp
+    src/_pyghex/structured/regular/halo_generator.cpp
+    src/_pyghex/structured/regular/field_descriptor.cpp
+    src/_pyghex/structured/regular/pattern.cpp
+    src/_pyghex/structured/regular/communication_object.cpp
+    src/_pyghex/unstructured/domain_descriptor.cpp
+    src/_pyghex/unstructured/halo_generator.cpp
+    src/_pyghex/unstructured/field_descriptor.cpp
+    src/_pyghex/unstructured/pattern.cpp
+    src/_pyghex/unstructured/communication_object.cpp
 )
-set_source_files_properties(config.cpp PROPERTIES 
+set_source_files_properties(src/_pyghex/config.cpp PROPERTIES
     COMPILE_DEFINITIONS GHEX_TRANSPORT_BACKEND=${GHEX_TRANSPORT_BACKEND})
 
 # The Python object
@@ -24,7 +24,7 @@ set_source_files_properties(config.cpp PROPERTIES
 add_library(pyghex_obj OBJECT ${pyghex_source})
 set_property(TARGET pyghex_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pyghex_obj PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/_pyghex>
 )
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
@@ -60,24 +60,24 @@ ghex_link_to_oomph(pyghex)
 # Copy the required python source files as well
 add_custom_target(pyghex_files)
 copy_files(TARGET pyghex_files DESTINATION ${python_mod_path} FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/__init__.py
     ${PROJECT_BINARY_DIR}/version.txt
 )
 copy_files(TARGET pyghex_files DESTINATION ${python_mod_path}/util FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/util/__init__.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/util/cpp_wrapper.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/util/architecture.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/util/__init__.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/util/cpp_wrapper.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/util/architecture.py
 )
 copy_files(TARGET pyghex_files DESTINATION ${python_mod_path}/structured FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/structured/__init__.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/structured/index_space.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/structured/grid.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/structured/__init__.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/structured/index_space.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/structured/grid.py
 )
 copy_files(TARGET pyghex_files DESTINATION ${python_mod_path}/structured/regular FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/structured/regular/__init__.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/structured/regular/__init__.py
 )
 copy_files(TARGET pyghex_files DESTINATION ${python_mod_path}/unstructured FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/unstructured/__init__.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ghex/unstructured/__init__.py
 )
 add_dependencies(pyghex pyghex_files)
 
