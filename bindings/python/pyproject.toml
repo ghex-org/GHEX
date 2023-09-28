@@ -3,20 +3,44 @@ build-backend = 'setuptools.build_meta'
 requires = ['cmake', 'mpi4py>=3.1', 'pybind11>=2.6', 'setuptools>=65.5.0', 'wheel']
 
 [project]
-dependencies = ["mpi4py>=3.1", "numpy>=1.21"]
-description = "Generic Halo Exchanges: Python API"
-name = "ghex"
-version = "0.3.0"  # needs to be adapted
+dependencies = ['mpi4py>=3.1', 'numpy>=1.21']
+description = 'Generic Halo Exchanges: Python API'
+name = 'ghex'
+version = '0.3.0'  # needs to be adapted
 # note(stubbiali): the following fields are temporarily commented out since both LICENSE and README
 #  files live in a parent directory
-# license = {file = "../../LICENSE"}
-# readme = {file = "../../README.md", content-type = "text/markdown"}
+# license = {file = '../../LICENSE'}
+# readme = {file = '../../README.md', content-type = 'text/markdown'}
 
 [project.urls]
-repository = "https://github.com/ghex-org/GHEX"
+repository = 'https://github.com/ghex-org/GHEX'
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ['pytest']
+
+[tool.black]
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.gt_cache
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+
+  # The following are specific to Black, you probably don't want those.
+  | blib2to3
+  | tests/data
+  | profiling
+)/
+'''
+include = '\.pyi?$'
+line-length = 100
 
 [tool.setuptools]
 platforms = ['Linux', 'Mac']
