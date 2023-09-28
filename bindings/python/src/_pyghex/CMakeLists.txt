@@ -38,12 +38,10 @@ if (HAVE_MPI4PY)
     target_compile_definitions(pyghex_obj PRIVATE -DGHEX_ENABLE_MPI4PY)
 endif()
 
-
 # The Python module
 # ==================
 # Create the Python module in the build directory.
 # The module contains the dynamic library, __init__.py and VERSION information.
-set(python_mod_path "${CMAKE_CURRENT_BINARY_DIR}/build")
 add_library(pyghex MODULE $<TARGET_OBJECTS:pyghex_obj>)
 # With this, the full name of the library will be something like:
 # _pyghex.cpython-36m-x86_64-linux-gnu.so
@@ -51,56 +49,8 @@ set_target_properties(pyghex PROPERTIES
     OUTPUT_NAME _pyghex
     PREFIX "${PYTHON_MODULE_PREFIX}"
     SUFFIX "${PYTHON_MODULE_EXTENSION}")
-set_target_properties(pyghex PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${python_mod_path}")
 # This dependency has to be spelt out again, despite being added to
 # pyghex_obj because CMake.
 target_link_libraries(pyghex PRIVATE pybind11::module)
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(pyghex)
-
-# Installation
-# ============
-if(DEFINED SKBUILD_PROJECT_NAME)
-  # Building wheel through scikit-build-core
-  set(_python_module_install_path .)
-
-  # set RPaths
-  list(GET CMAKE_PREFIX_PATH 0 scikit_build_core_install_path)
-  set_target_properties(pyghex PROPERTIES
-      INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
-  set_target_properties(ghex PROPERTIES
-      INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
-  if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
-      set_target_properties(oomph_libfabric PROPERTIES
-        INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
-  elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
-      set_target_properties(oomph_ucx PROPERTIES
-        INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
-  else()
-      set_target_properties(oomph_mpi PROPERTIES
-        INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
-  endif()
-
-  # Copy required additional files
-  add_custom_target(pyghex_files)
-  copy_files(TARGET pyghex_files DESTINATION ${scikit_build_core_install_path}/ghex FILES
-    ${PROJECT_BINARY_DIR}/version.txt
-  )
-  add_dependencies(pyghex pyghex_files)
-else()
-  # Ask Python where it keeps its system (platform) packages.
-  file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")
-  execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} "${PROJECT_SOURCE_DIR}/scripts/where.py"
-    INPUT_FILE "${CMAKE_BINARY_DIR}/install-prefix"
-    OUTPUT_VARIABLE GHEX_PYTHON_LIB_PATH_DEFAULT_REL
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  # convert to absolute path if needed (could be a relative path if ccmake was used)
-  get_filename_component(GHEX_PYTHON_LIB_PATH_DEFAULT "${GHEX_PYTHON_LIB_PATH_DEFAULT_REL}"
-    REALPATH  BASE_DIR "${CMAKE_BINARY_DIR}")
-  # Default to installing in that path, override with user specified GHEX_PYTHON_LIB_PATH
-  set(GHEX_PYTHON_LIB_PATH ${GHEX_PYTHON_LIB_PATH_DEFAULT} CACHE PATH "path for installing Python bindings.")
-  set(_python_module_install_path ${GHEX_PYTHON_LIB_PATH}/ghex)
-endif()
-
-install(TARGETS pyghex DESTINATION ${_python_module_install_path})

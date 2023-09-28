@@ -1,18 +1,16 @@
 [build-system]
-requires = [
-    "scikit-build-core",
-    "mpi4py",
-    "pybind11"
-]
-build-backend = "scikit_build_core.build"
+build-backend = 'setuptools.build_meta'
+requires = ['cmake', 'mpi4py>=3.1', 'pybind11>=2.6', 'setuptools>=65.5.0', 'wheel']
 
 [project]
 dependencies = ["mpi4py>=3.1", "numpy>=1.21"]
 description = "Generic Halo Exchanges: Python API"
 name = "ghex"
-license = {file = "../../LICENSE"}
-readme = {file = "../../README.md", content-type = "text/markdown"}
-version = "0.3.0"
+version = "0.3.0"  # needs to be adapted
+# note(stubbiali): the following fields are temporarily commented out since both LICENSE and README
+#  files live in a parent directory
+# license = {file = "../../LICENSE"}
+# readme = {file = "../../README.md", content-type = "text/markdown"}
 
 [project.urls]
 repository = "https://github.com/ghex-org/GHEX"
@@ -20,16 +18,9 @@ repository = "https://github.com/ghex-org/GHEX"
 [project.optional-dependencies]
 test = ["pytest"]
 
-[tool.scikit-build]
-cmake.minimum-version = "3.17"
-cmake.source-dir = "../.."
-cmake.build-type = "Release"
-cmake.args = [
-    "-DGHEX_BUILD_PYTHON_BINDINGS=ON",
-    "-DGHEX_USE_BUNDLED_LIBS=ON",
-    "-DGHEX_USE_BUNDLED_GRIDTOOLS=ON",
-    "-DGHEX_USE_BUNDLED_OOMPH=ON",
-]
-wheel.expand-macos-universal-tags = true
-wheel.install-dir = "ghex"
-wheel.license-files = []
+[tool.setuptools]
+platforms = ['Linux', 'Mac']
+zip-safe = false
+
+[tool.setuptools.packages]
+find = {namespaces = false, where = ['src']}
