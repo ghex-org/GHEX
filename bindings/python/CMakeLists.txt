@@ -104,7 +104,7 @@ if(DEFINED SKBUILD_PROJECT_NAME)
   # set RPaths
   list(GET CMAKE_PREFIX_PATH 0 scikit_build_core_install_path)
   set_target_properties(pyghex PROPERTIES 
-      INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}:${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
+      INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
   set_target_properties(ghex PROPERTIES
       INSTALL_RPATH "${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR}")
   if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
