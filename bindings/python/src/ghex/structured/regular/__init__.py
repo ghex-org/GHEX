@@ -7,19 +7,13 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
+import numpy as np
 from typing import Tuple, Optional
 
-import numpy as np
-
-import ghex as _ghex
-from ghex.util.architecture import Architecture
-from ghex.util.cpp_wrapper import (
-    CppWrapper,
-    dtype_to_cpp,
-    unwrap,
-    cls_from_cpp_type_spec,
-)
+import _pyghex
 from ghex.structured.index_space import CartesianSet, ProductSet, union
+from ghex.util.architecture import Architecture
+from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
 
 
 class HaloContainer:
@@ -142,8 +136,10 @@ def wrap_field(*args):
 
 
 def make_pattern(context, halo_gen, domain_range):
-    return _ghex.make_pattern_regular(context, unwrap(halo_gen), [unwrap(d) for d in domain_range])
+    return _pyghex.make_pattern_regular(
+        context, unwrap(halo_gen), [unwrap(d) for d in domain_range]
+    )
 
 
 def make_co(context, pattern):
-    return _ghex.make_co_regular(context, pattern)
+    return _pyghex.make_co_regular(context, pattern)

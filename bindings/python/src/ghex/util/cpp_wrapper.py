@@ -7,11 +7,10 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-
 import inspect
 from typing import Tuple, Union
 
-import ghex as _ghex
+import _pyghex
 
 
 def unwrap(arg):
@@ -27,7 +26,7 @@ def dtype_to_cpp(dtype):
 
 def cls_from_cpp_type_spec(cpp_type_spec: Union[str, Tuple[str, ...]]):
     if isinstance(cpp_type_spec, str):
-        return getattr(_ghex, cpp_type_spec)
+        return getattr(_pyghex, cpp_type_spec)
     else:
         fq_cpp_type_name, *template_args = cpp_type_spec
         template_args = [
@@ -36,7 +35,7 @@ def cls_from_cpp_type_spec(cpp_type_spec: Union[str, Tuple[str, ...]]):
         ]
         fq_cpp_type_specialization_name = fq_cpp_type_name + "<" + ", ".join(template_args) + ">"
 
-        return getattr(_ghex, fq_cpp_type_specialization_name)
+        return getattr(_pyghex, fq_cpp_type_specialization_name)
 
 
 class CppWrapper:

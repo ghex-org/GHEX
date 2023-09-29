@@ -7,11 +7,10 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-
-from typing import Union, Any, Dict, Sequence, Tuple, Literal
 import copy
+from typing import Any, Dict, Sequence, Tuple
 
-from .index_space import IndexSpace, UnitRange, union, ProductSet
+from ghex.structured.index_space import IndexSpace, UnitRange, union
 
 # todo: subgrid to be used for stencils in libraries
 

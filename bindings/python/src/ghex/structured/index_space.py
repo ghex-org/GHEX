@@ -7,14 +7,13 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-
-import math
-import typing
+from copy import copy
 import functools
 import itertools
+import math
 import operator
-from copy import copy
-from typing import Union, Sequence, Tuple, Dict, Any, final
+import typing
+from typing import Any, Dict, Sequence, Union
 
 integer = Union[int, typing.Literal[math.inf], typing.Literal[-math.inf]]
 
