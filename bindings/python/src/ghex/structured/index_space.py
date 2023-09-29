@@ -7,15 +7,18 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
+from __future__ import annotations
 from copy import copy
 import functools
 import itertools
 import math
 import operator
-import typing
-from typing import Any, Dict, Sequence, Tuple, Union
+from typing import TYPE_CHECKING
 
-integer = Union[int, typing.Literal[math.inf], typing.Literal[-math.inf]]
+if TYPE_CHECKING:
+    from typing import Any, Dict, Literal, Sequence, Tuple, Union
+
+    integer = Union[int, Literal[math.inf], Literal[-math.inf]]
 
 
 def is_integer_like(val):
@@ -79,7 +82,7 @@ class UnitRange(IntegerSet):
         return self.start >= self.stop
 
     @property
-    def bounds(self) -> "UnitRange":
+    def bounds(self) -> UnitRange:
         """Smallest range containing all elements. In this case itelf."""
         return self
 
@@ -128,12 +131,12 @@ class UnitRange(IntegerSet):
 
             return result
 
-        raise ValueError("Invalid argument `f{arg}`")
+        raise ValueError(f"Invalid argument `{arg}`")
 
     def __str__(self):
         return f"UnitRange({self.start}, {self.stop})"
 
-    def __mul__(self, other: "UnitRange"):
+    def __mul__(self, other: UnitRange):
         """Cartesian product of `self` with `other`"""
         if isinstance(other, ProductSet):
             return ProductSet(self, *other.args)
@@ -168,8 +171,8 @@ class UnitRange(IntegerSet):
 
     def without(
         self,
-        other: Union["UnitRange", "UnionRange"],
-        *tail: Union["UnitRange", "UnionRange"],
+        other: Union[UnitRange, UnionRange],
+        *tail: Union[UnitRange, UnionRange],
         simplify=True,
     ):
         """Return range containing all elements in self, but not in other, i.e. the complement of `other` with `self`"""
@@ -283,7 +286,7 @@ class UnionMixin:
     def empty(self) -> bool:
         return all(arg.empty for arg in self.args)
 
-    def union(self, *args: Sequence[Union[UnitRange, "UnionRange"]]):
+    def union(self, *args: Sequence[Union[UnitRange, UnionRange]]):
         return union(*self.args, *args)
 
     def without(self, *others: Sequence[Set], simplify=True):
@@ -464,7 +467,7 @@ class ProductSet(CartesianSet):
     def dim(self):
         return len(self.args)
 
-    def without(self, other: "ProductSet", *tail: "ProductSet", simplify=True):
+    def without(self, other: ProductSet, *tail: ProductSet, simplify=True):
         if isinstance(other, ProductSet):
             # if there is no overlap in any dimension nothing is to be removed
             if any(r1.intersect(r2).empty for r1, r2 in zip(self.args, other.args)):
@@ -493,13 +496,13 @@ class ProductSet(CartesianSet):
 
         raise NotImplementedError()
 
-    def complement(self, arg: Union[None, "ProductSet"] = None, simplify=True):
+    def complement(self, arg: Union[None, ProductSet] = None, simplify=True):
         if not arg:
             arg = self.universe()
 
         return arg.without(self, simplify=simplify)
 
-    def intersect(self, other: Union["ProductSet", "UnionCartesian"]):
+    def intersect(self, other: Union[ProductSet, UnionCartesian]):
         if isinstance(other, ProductSet):
             return functools.reduce(
                 operator.mul,
@@ -554,7 +557,7 @@ class ProductSet(CartesianSet):
         if isinstance(arg, Set):
             return arg.complement(simplify=False).intersect(self).empty
 
-        raise ValueError("Invalid argument `f{arg}`")
+        raise ValueError(f"Invalid argument `{arg}`")
 
     def __getitem__(self, args):
         if all(isinstance(arg, int) for arg in args):
@@ -562,11 +565,11 @@ class ProductSet(CartesianSet):
         elif all(isinstance(arg, slice) for arg in args):
             return ProductSet(*(r[s] for r, s in zip(self.args, args)))
 
-        raise ValueError("Invalid argument `f{arg}`")
+        raise ValueError(f"Invalid argument `{args}`")
 
     def __mul__(self, other: UnitRange):
         if not isinstance(other, UnitRange):
-            raise ValueError("Invalid argument `f{other}`")
+            raise ValueError(f"Invalid argument `{other}`")
 
         return ProductSet(
             *(self.args if not other.empty else self.empty_set().args),

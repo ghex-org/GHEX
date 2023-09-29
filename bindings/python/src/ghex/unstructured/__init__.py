@@ -7,14 +7,18 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-import numpy as np
-from typing import Optional
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
 import _pyghex
 from ghex.util.architecture import Architecture
 from ghex.util.cpp_wrapper import cls_from_cpp_type_spec, dtype_to_cpp, unwrap
 
 # from ghex.structured.index_space import cartesian_set, product_set, union
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+    from typing import Optional
 
 
 def domain_descriptor(index, indices, halo_indices):
@@ -46,7 +50,7 @@ def halo_generator_with_gids(gids):
 
 def field_descriptor(
     domain_desc: domain_descriptor,
-    field: np.ndarray,
+    field: NDArray,
     *,
     arch: Optional[Architecture] = Architecture.CPU,
 ):

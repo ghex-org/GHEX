@@ -7,10 +7,14 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
+from __future__ import annotations
 import copy
-from typing import Any, Dict, Sequence, Tuple
+from typing import TYPE_CHECKING
 
 from ghex.structured.index_space import IndexSpace, UnitRange, union
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, Sequence, Tuple
 
 # todo: subgrid to be used for stencils in libraries
 

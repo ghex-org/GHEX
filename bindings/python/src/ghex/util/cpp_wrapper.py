@@ -7,10 +7,14 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
+from __future__ import annotations
 import inspect
-from typing import Tuple, Union
+from typing import TYPE_CHECKING
 
 import _pyghex
+
+if TYPE_CHECKING:
+    from typing import Tuple, Union
 
 
 def unwrap(arg):

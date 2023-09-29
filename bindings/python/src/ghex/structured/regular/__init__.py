@@ -7,13 +7,19 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-import numpy as np
-from typing import Tuple, Optional
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
 import _pyghex
-from ghex.structured.index_space import CartesianSet, ProductSet, union
+from ghex.structured.index_space import ProductSet, union
 from ghex.util.architecture import Architecture
 from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+    from typing import Tuple, Optional
+
+    from ghex.structured.index_space import CartesianSet
 
 
 class HaloContainer:
@@ -81,7 +87,7 @@ class HaloGenerator(CppWrapper):
 # todo: try importing gt4py to see if it's there, avoiding the dependency
 
 
-def _layout_order(field: np.ndarray, arch: Architecture) -> tuple[int, ...]:
+def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
     if arch == Architecture.CPU:
         strides = field.__array_interface__["strides"]
     elif arch == Architecture.GPU:
@@ -100,7 +106,7 @@ def _layout_order(field: np.ndarray, arch: Architecture) -> tuple[int, ...]:
 
 def field_descriptor(
     domain_desc: DomainDescriptor,
-    field: np.ndarray,
+    field: NDArray,
     offsets: Tuple[int, ...],
     extents: Tuple[int, ...],
     *,
