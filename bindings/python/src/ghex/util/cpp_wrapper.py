@@ -9,15 +9,13 @@
 #
 
 import inspect
-
 from typing import Tuple, Union
-from functools import reduce
 
 import ghex as _ghex
 
 
 def unwrap(arg):
-    return arg.__wrapped__ if isinstance(arg, cpp_wrapper) else arg
+    return arg.__wrapped__ if isinstance(arg, CppWrapper) else arg
 
 
 def dtype_to_cpp(dtype):
@@ -41,7 +39,7 @@ def cls_from_cpp_type_spec(cpp_type_spec: Union[str, Tuple[str, ...]]):
         return getattr(_ghex, fq_cpp_type_specialization_name)
 
 
-class cpp_wrapper:
+class CppWrapper:
     __wrapped__ = None
 
     def __init__(self, cpp_type_spec: Union[str, Tuple[str, ...]], *args, **kwargs):

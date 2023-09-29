@@ -12,9 +12,9 @@ from typing import Optional
 import numpy as np
 
 import ghex as _ghex
-from ghex.util.architecture import architecture
+from ghex.util.architecture import Architecture
 from ghex.util.cpp_wrapper import (
-    cpp_wrapper,
+    CppWrapper,
     dtype_to_cpp,
     unwrap,
     cls_from_cpp_type_spec,
@@ -54,19 +54,19 @@ def field_descriptor(
     domain_desc: domain_descriptor,
     field: np.ndarray,
     *,
-    arch: Optional[architecture] = architecture.CPU,
+    arch: Optional[Architecture] = Architecture.CPU,
 ):
     if not arch:
         if hasattr(field, "__cuda_array_interface__"):
-            arch = architecture.GPU
+            arch = Architecture.GPU
         elif hasattr(field, "__array_interface__"):
-            arch = architecture.CPU
+            arch = Architecture.CPU
         else:
             raise ValueError()
 
-    if arch == architecture.CPU:
+    if arch == Architecture.CPU:
         assert hasattr(field, "__array_interface__")
-    if arch == architecture.GPU:
+    if arch == Architecture.GPU:
         assert hasattr(field, "__cuda_array_interface__")
 
     type_spec = (

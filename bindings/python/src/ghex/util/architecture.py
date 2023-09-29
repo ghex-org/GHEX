@@ -10,6 +10,6 @@
 from enum import Enum
 
 
-class architecture(Enum):
+class Architecture(Enum):
     CPU = "ghex::cpu"
     GPU = "ghex::gpu"

@@ -12,28 +12,28 @@ from typing import Tuple, Optional
 import numpy as np
 
 import ghex as _ghex
-from ghex.util.architecture import architecture
+from ghex.util.architecture import Architecture
 from ghex.util.cpp_wrapper import (
-    cpp_wrapper,
+    CppWrapper,
     dtype_to_cpp,
     unwrap,
     cls_from_cpp_type_spec,
 )
-from ghex.structured.index_space import cartesian_set, product_set, union
+from ghex.structured.index_space import CartesianSet, ProductSet, union
 
 
-class halo_container:
-    local: cartesian_set
-    global_: cartesian_set
+class HaloContainer:
+    local: CartesianSet
+    global_: CartesianSet
 
-    def __init__(self, local: cartesian_set, global_: cartesian_set):
+    def __init__(self, local: CartesianSet, global_: CartesianSet):
         self.local = local
         self.global_ = global_
 
 
-class domain_descriptor(cpp_wrapper):
-    def __init__(self, id_: int, sub_domain_indices: product_set):
-        super(domain_descriptor, self).__init__(
+class DomainDescriptor(CppWrapper):
+    def __init__(self, id_: int, sub_domain_indices: CartesianSet):
+        super(DomainDescriptor, self).__init__(
             (
                 "ghex::structured::regular::domain_descriptor",
                 "int",
@@ -45,16 +45,16 @@ class domain_descriptor(cpp_wrapper):
         )
 
 
-class halo_generator(cpp_wrapper):
-    def __init__(self, glob_domain_indices: product_set, halos, periodicity):
+class HaloGenerator(CppWrapper):
+    def __init__(self, glob_domain_indices: ProductSet, halos, periodicity):
         assert glob_domain_indices.dim == len(halos)
         assert glob_domain_indices.dim == len(periodicity)
 
-        # canonanicalize integer halos, e.g. turn (h0, (h1, h2), h3) into ((h0, h0), (h1, h2), ...)
+        # canonicalize integer halos, e.g. turn (h0, (h1, h2), h3) into ((h0, h0), (h1, h2), ...)
         halos = ((halo, halo) if isinstance(halo, int) else halo for halo in halos)
         flattened_halos = tuple(h for halo in halos for h in halo)
 
-        super(halo_generator, self).__init__(
+        super(HaloGenerator, self).__init__(
             (
                 "ghex::structured::regular::halo_generator",
                 "int",
@@ -66,31 +66,31 @@ class halo_generator(cpp_wrapper):
             periodicity,
         )
 
-    def __call__(self, domain: domain_descriptor):
+    def __call__(self, domain: DomainDescriptor):
         result = self.__wrapped_call__("__call__", domain)
 
         local = union(
             *(
-                product_set.from_coords(tuple(box2.local.first), tuple(box2.local.last))
+                ProductSet.from_coords(tuple(box2.local.first), tuple(box2.local.last))
                 for box2 in result
             )
         )
         global_ = union(
             *(
-                product_set.from_coords(tuple(box2.global_.first), tuple(box2.global_.last))
+                ProductSet.from_coords(tuple(box2.global_.first), tuple(box2.global_.last))
                 for box2 in result
             )
         )
-        return halo_container(local, global_)
+        return HaloContainer(local, global_)
 
 
 # todo: try importing gt4py to see if it's there, avoiding the dependency
 
 
-def _layout_order(field: np.ndarray, arch: architecture) -> tuple[int, ...]:
-    if arch == architecture.CPU:
+def _layout_order(field: np.ndarray, arch: Architecture) -> tuple[int, ...]:
+    if arch == Architecture.CPU:
         strides = field.__array_interface__["strides"]
-    elif arch == architecture.GPU:
+    elif arch == Architecture.GPU:
         strides = field.__cuda_array_interface__["strides"]
     else:
         raise ValueError()
@@ -105,24 +105,24 @@ def _layout_order(field: np.ndarray, arch: architecture) -> tuple[int, ...]:
 
 
 def field_descriptor(
-    domain_desc: domain_descriptor,
+    domain_desc: DomainDescriptor,
     field: np.ndarray,
     offsets: Tuple[int, ...],
     extents: Tuple[int, ...],
     *,
-    arch: Optional[architecture] = architecture.CPU,
+    arch: Optional[Architecture] = Architecture.CPU,
 ):
     if not arch:
         if hasattr(field, "__cuda_array_interface__"):
-            arch = architecture.GPU
+            arch = Architecture.GPU
         elif hasattr(field, "__array_interface__"):
-            arch = architecture.CPU
+            arch = Architecture.CPU
         else:
             raise ValueError()
 
-    if arch == architecture.CPU:
+    if arch == Architecture.CPU:
         assert hasattr(field, "__array_interface__")
-    if arch == architecture.GPU:
+    if arch == Architecture.GPU:
         assert hasattr(field, "__cuda_array_interface__")
 
     type_spec = (

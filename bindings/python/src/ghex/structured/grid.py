@@ -11,12 +11,12 @@
 from typing import Union, Any, Dict, Sequence, Tuple, Literal
 import copy
 
-from .index_space import index_space, unit_range, union, product_set
+from .index_space import IndexSpace, UnitRange, union, ProductSet
 
 # todo: subgrid to be used for stencils in libraries
 
 
-class periodic_image_id:
+class PeriodicImageId:
     """Identifier of a periodic image."""
 
     id_: Any  # index space id
@@ -27,7 +27,7 @@ class periodic_image_id:
         self.dir = dir
 
 
-class dim_symbol:
+class DimSymbol:
     """Symbol representing a dimension, e.g. I or I - 1/2."""
 
     name: str
@@ -45,7 +45,7 @@ class dim_symbol:
 
     def __add__(self, offset):
         assert self.offset == 0 or self.offset + offset == 0
-        return dim_symbol(self.name, self.offset + offset)
+        return DimSymbol(self.name, self.offset + offset)
 
     def __sub__(self, other):
         return self + (-other)
@@ -60,18 +60,18 @@ class dim_symbol:
         raise RuntimeError()
 
 
-class grid_3d:
-    index_spaces: Dict[Any, index_space]
+class Grid3d:
+    index_spaces: Dict[Any, IndexSpace]
 
     index_conventions: Dict[Any, Dict[Any, Sequence[int]]]
 
-    periodic_images: Dict[periodic_image_id, index_space]
+    periodic_images: Dict[PeriodicImageId, IndexSpace]
 
     class Dims:
         # just use symbols to identify the axis/dimensions
-        I = dim_symbol("I")
-        J = dim_symbol("J")
-        K = dim_symbol("K")
+        I = DimSymbol("I")
+        J = DimSymbol("J")
+        K = DimSymbol("K")
 
     def __init__(self, Nx, Ny, Nz, *, bcx=1, bcy=1, bcz=1):
         # bc == 0 -> prescribed, bc == 1 -> periodic
@@ -176,9 +176,9 @@ class grid_3d:
                 for candidate_dir_l, dir_l in zip(candidate_dir, dir_)
             )
 
-        index_space = index_space.from_sizes(*shape)
+        index_space = IndexSpace.from_sizes(*shape)
 
-        empty_set = unit_range(0, 0) * unit_range(0, 0) * unit_range(0, 0)
+        empty_set = UnitRange(0, 0) * UnitRange(0, 0) * UnitRange(0, 0)
 
         interior = empty_set
         prescribed_boundary = empty_set
@@ -186,11 +186,11 @@ class grid_3d:
 
         prescribed_boundary_parts = {
             dir_: empty_set
-            for dir_ in unit_range(-1, 2) * unit_range(-1, 2) * unit_range(-1, 2)
+            for dir_ in UnitRange(-1, 2) * UnitRange(-1, 2) * UnitRange(-1, 2)
             if is_prescribed(dir_) and not is_corner(dir_)
         }
 
-        for dir_ in unit_range(-1, 2) * unit_range(-1, 2) * unit_range(-1, 2):
+        for dir_ in UnitRange(-1, 2) * UnitRange(-1, 2) * UnitRange(-1, 2):
             # skip if any non-center direction has a size of 1, e.g. top and bottom for pseudo horizontal
             if any(dir_l != 0 and size == 1 for dir_l, size in zip(dir_, shape)):
                 assert not any(
@@ -273,7 +273,7 @@ class grid_3d:
         for id_, index_space in original_index_spaces.items():
             self.periodic_images[id_] = {}
 
-            for dir in unit_range(-1, 2) * unit_range(-1, 2) * unit_range(-1, 2):
+            for dir in UnitRange(-1, 2) * UnitRange(-1, 2) * UnitRange(-1, 2):
                 if dir == (0, 0, 0):
                     continue
 
@@ -281,7 +281,7 @@ class grid_3d:
                     dir_i * l for dir_i, l in zip(dir, index_space.subset["physical"].shape)
                 )
 
-                image_id = periodic_image_id(id_, dir)
+                image_id = PeriodicImageId(id_, dir)
                 image_indices = index_space.bounds.translate(*offsets)
                 image_index_space = index_space(image_indices)
                 image_index_space.add_subset(
