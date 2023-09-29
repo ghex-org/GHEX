@@ -11,16 +11,19 @@ import pytest
 
 from fixtures.context import *
 
+
 @pytest.mark.mpi_skip
 def test_module(capsys):
     with capsys.disabled():
         print(ghex.__version__)
         print(ghex.__config__)
 
+
 @pytest.mark.mpi_skip
 def test_mpi_comm():
     with pytest.raises(TypeError, match=r"must be `mpi4py.MPI.Comm`"):
         comm = ghex.mpi_comm("invalid")
+
 
 @pytest.mark.mpi_skip
 def test_context_mpi4py():
@@ -28,6 +31,7 @@ def test_context_mpi4py():
     ctx = ghex.context(comm, True)
     assert ctx.size() == 1
     assert ctx.rank() == 0
+
 
 @pytest.mark.mpi
 def test_context(context):

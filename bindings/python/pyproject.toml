@@ -16,7 +16,7 @@ version = '0.3.0'  # needs to be adapted
 repository = 'https://github.com/ghex-org/GHEX'
 
 [project.optional-dependencies]
-test = ['pytest']
+test = ['pytest', 'pytest-mpi']
 
 [tool.black]
 exclude = '''

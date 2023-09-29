@@ -13,10 +13,10 @@ import numpy as np
 
 from fixtures.context import *
 
-from ghex.util.architecture import architecture
+from ghex.util.architecture import Architecture
 import ghex.structured
 import ghex.structured.regular as regular
-from ghex.structured.grid import index_space, unit_range
+from ghex.structured.grid import IndexSpace, UnitRange
 
 
 @pytest.mark.mpi_skip
@@ -30,7 +30,7 @@ def test_pattern(capsys, mpi_cart_comm):
     periodicity = (True, True, False)
 
     p_coord = tuple(mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank()))
-    global_grid = index_space.from_sizes(Nx, Ny, Nz)
+    global_grid = IndexSpace.from_sizes(Nx, Ny, Nz)
     sub_grids = global_grid.decompose(mpi_cart_comm.dims)
     sub_grid = sub_grids[p_coord]  # sub-grid in global coordinates
     owned_indices = sub_grid.subset["definition"]
@@ -38,8 +38,8 @@ def test_pattern(capsys, mpi_cart_comm):
 
     memory_local_grid = sub_grid.translate(*(-origin_l for origin_l in sub_grid.bounds[0, 0, 0]))
 
-    domain_desc = regular.domain_descriptor(ctx.rank(), owned_indices)
-    halo_gen = regular.halo_generator(global_grid.subset["definition"], halos, periodicity)
+    domain_desc = regular.DomainDescriptor(ctx.rank(), owned_indices)
+    halo_gen = regular.HaloGenerator(global_grid.subset["definition"], halos, periodicity)
 
     pattern = regular.make_pattern(ctx, halo_gen, [domain_desc])
 
