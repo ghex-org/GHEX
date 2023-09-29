@@ -13,7 +13,7 @@ import itertools
 import math
 import operator
 import typing
-from typing import Any, Dict, Sequence, Union
+from typing import Any, Dict, Sequence, Tuple, Union
 
 integer = Union[int, typing.Literal[math.inf], typing.Literal[-math.inf]]
 
