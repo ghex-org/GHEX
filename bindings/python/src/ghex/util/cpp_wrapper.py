@@ -14,21 +14,22 @@ from typing import TYPE_CHECKING
 import _pyghex
 
 if TYPE_CHECKING:
-    from typing import Tuple, Union
+    from numpy.typing import DTypeLike
+    from typing import Any, Union
 
 
-def unwrap(arg):
+def unwrap(arg: Any) -> Any:
     return arg.__wrapped__ if isinstance(arg, CppWrapper) else arg
 
 
-def dtype_to_cpp(dtype):
+def dtype_to_cpp(dtype: DTypeLike) -> str:
     """Convert numpy dtype to c++ type"""
     import numpy as np
 
     return {np.float64: "double", np.float32: "float"}[dtype.type]
 
 
-def cls_from_cpp_type_spec(cpp_type_spec: Union[str, Tuple[str, ...]]):
+def cls_from_cpp_type_spec(cpp_type_spec: Union[str, tuple[str, ...]]) -> Any:
     if isinstance(cpp_type_spec, str):
         return getattr(_pyghex, cpp_type_spec)
     else:
@@ -45,7 +46,7 @@ def cls_from_cpp_type_spec(cpp_type_spec: Union[str, Tuple[str, ...]]):
 class CppWrapper:
     __wrapped__ = None
 
-    def __init__(self, cpp_type_spec: Union[str, Tuple[str, ...]], *args, **kwargs):
+    def __init__(self, cpp_type_spec: Union[str, tuple[str, ...]], *args: Any, **kwargs: Any) -> None:
         wrapped_cls = cls_from_cpp_type_spec(cpp_type_spec)
 
         self.__wrapped__ = wrapped_cls(
@@ -53,14 +54,14 @@ class CppWrapper:
             **{kw: unwrap(arg) for kw, arg in kwargs.items()},
         )
 
-    def __wrapped_call__(self, method_name, *args, **kwargs):
+    def __wrapped_call__(self, method_name: str, *args: Any, **kwargs: Any) -> Any:
         method = getattr(self.__wrapped__, method_name)
         return method(
             *(unwrap(arg) for arg in args),
             **{kw: unwrap(arg) for kw, arg in kwargs.items()},
         )
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         if hasattr(self, "__wrapped__"):
             attr = getattr(self.__wrapped__, name)
             if inspect.ismethod(attr):

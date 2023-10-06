@@ -19,7 +19,7 @@ from _pyghex import config, context, mpi_comm  # noqa:F403
 
 
 # Parse version.txt file for the ghex version string
-def get_version():
+def get_version() -> str:
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, "version.txt")) as version_file:
         return version_file.read().strip()

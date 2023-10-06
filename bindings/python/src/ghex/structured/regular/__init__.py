@@ -17,7 +17,7 @@ from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_c
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-    from typing import Tuple, Optional
+    from typing import Any, Union
 
     from ghex.structured.index_space import CartesianSet
 
@@ -26,13 +26,13 @@ class HaloContainer:
     local: CartesianSet
     global_: CartesianSet
 
-    def __init__(self, local: CartesianSet, global_: CartesianSet):
+    def __init__(self, local: CartesianSet, global_: CartesianSet) -> None:
         self.local = local
         self.global_ = global_
 
 
 class DomainDescriptor(CppWrapper):
-    def __init__(self, id_: int, sub_domain_indices: CartesianSet):
+    def __init__(self, id_: int, sub_domain_indices: CartesianSet) -> None:
         super(DomainDescriptor, self).__init__(
             (
                 "ghex::structured::regular::domain_descriptor",
@@ -46,7 +46,12 @@ class DomainDescriptor(CppWrapper):
 
 
 class HaloGenerator(CppWrapper):
-    def __init__(self, glob_domain_indices: ProductSet, halos, periodicity):
+    def __init__(
+        self,
+        glob_domain_indices: ProductSet,
+        halos: tuple[Union[int, tuple[int, int]], ...],
+        periodicity: tuple[bool, ...],
+    ) -> None:
         assert glob_domain_indices.dim == len(halos)
         assert glob_domain_indices.dim == len(periodicity)
 
@@ -66,7 +71,7 @@ class HaloGenerator(CppWrapper):
             periodicity,
         )
 
-    def __call__(self, domain: DomainDescriptor):
+    def __call__(self, domain: DomainDescriptor) -> HaloContainer:
         result = self.__wrapped_call__("__call__", domain)
 
         local = union(
@@ -107,11 +112,11 @@ def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
 def field_descriptor(
     domain_desc: DomainDescriptor,
     field: NDArray,
-    offsets: Tuple[int, ...],
-    extents: Tuple[int, ...],
+    offsets: tuple[int, ...],
+    extents: tuple[int, ...],
     *,
-    arch: Optional[Architecture] = Architecture.CPU,
-):
+    arch: Architecture = Architecture.CPU,
+) -> Any:
     if not arch:
         if hasattr(field, "__cuda_array_interface__"):
             arch = Architecture.GPU
@@ -122,7 +127,7 @@ def field_descriptor(
 
     if arch == Architecture.CPU:
         assert hasattr(field, "__array_interface__")
-    if arch == Architecture.GPU:
+    elif arch == Architecture.GPU:
         assert hasattr(field, "__cuda_array_interface__")
 
     type_spec = (

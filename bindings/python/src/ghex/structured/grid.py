@@ -14,7 +14,12 @@ from typing import TYPE_CHECKING
 from ghex.structured.index_space import IndexSpace, UnitRange, union
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Sequence, Tuple
+    from collections.abc import Hashable
+    from typing import Literal, Sequence
+
+    DirType = Literal[-1, 0, 1]
+    DirTuple = tuple[DirType, DirType, DirType]
+
 
 # todo: subgrid to be used for stencils in libraries
 
@@ -22,10 +27,10 @@ if TYPE_CHECKING:
 class PeriodicImageId:
     """Identifier of a periodic image."""
 
-    id_: Any  # index space id
-    dir: Tuple[int, int, int]  # direction, e.g. (-1, -1, 0) is north-west
+    id_: Hashable  # index space id
+    dir: tuple[int, int, int]  # direction, e.g. (-1, -1, 0) is north-west
 
-    def __init__(self, id_, dir):
+    def __init__(self, id_: Hashable, dir: tuple[int, int, int]) -> None:
         self.id_ = id_
         self.dir = dir
 
@@ -36,24 +41,24 @@ class DimSymbol:
     name: str
     offset: float
 
-    def __init__(self, name, offset=0):
+    def __init__(self, name: str, offset: float = 0) -> None:
         self.name = name
         self.offset = offset
 
-    def __eq__(self, other):
+    def __eq__(self, other: DimSymbol) -> bool:
         return self.name == other.name and self.offset == other.offset
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.name, self.offset))
 
-    def __add__(self, offset):
+    def __add__(self, offset: float) -> DimSymbol:
         assert self.offset == 0 or self.offset + offset == 0
         return DimSymbol(self.name, self.offset + offset)
 
-    def __sub__(self, other):
+    def __sub__(self, other: float) -> DimSymbol:
         return self + (-other)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.offset == 0:
             return self.name
         elif self.offset > 0:
@@ -64,11 +69,11 @@ class DimSymbol:
 
 
 class Grid3d:
-    index_spaces: Dict[Any, IndexSpace]
+    index_spaces: dict[Hashable, IndexSpace]
 
-    index_conventions: Dict[Any, Dict[Any, Sequence[int]]]
+    index_conventions: dict[Hashable, dict[Hashable, Sequence[int]]]
 
-    periodic_images: Dict[PeriodicImageId, IndexSpace]
+    periodic_images: dict[Hashable, dict[PeriodicImageId, IndexSpace]]
 
     class Dims:
         # just use symbols to identify the axis/dimensions
@@ -76,7 +81,9 @@ class Grid3d:
         J = DimSymbol("J")
         K = DimSymbol("K")
 
-    def __init__(self, Nx, Ny, Nz, *, bcx=1, bcy=1, bcz=1):
+    def __init__(
+        self, Nx: int, Ny: int, Nz: int, *, bcx: int = 1, bcy: int = 1, bcz: int = 1
+    ) -> None:
         # bc == 0 -> prescribed, bc == 1 -> periodic
         assert Nx >= 3 and Ny >= 3 and Nz >= 3
 
@@ -124,12 +131,12 @@ class Grid3d:
 
     def _init_index_space(
         self,
-        shape: Tuple[int, int, int],
-        bcs: Tuple[int, int, int],
-        periodic_layers: Tuple[int, int, int],
-        has_boundary: Tuple[bool, bool, bool],
+        shape: tuple[int, int, int],
+        bcs: tuple[int, int, int],
+        periodic_layers: tuple[int, int, int],
+        has_boundary: tuple[bool, bool, bool],
     ):
-        def label_from_dir(dir_):
+        def label_from_dir(dir_: DirTuple) -> str:
             labels = [["south", "north"], ["west", "east"], ["bottom", "top"]]
             permuted_dir = (
                 dir_[1],
@@ -142,8 +149,8 @@ class Grid3d:
                 if dir_l != 0
             )
 
-        def slices_from_dir(dir_):
-            def slices_from_dir_l(dir_l, size):
+        def slices_from_dir(dir_: DirTuple) -> tuple[slice, slice, slice]:
+            def slices_from_dir_l(dir_l: int, size: int) -> slice:
                 dir_l_to_slice = (slice(0, 1), slice(1, -1), slice(-1, None))
                 if size == 1:
                     assert dir_l == 0
@@ -152,28 +159,28 @@ class Grid3d:
 
             return tuple(slices_from_dir_l(dir_l, size) for dir_l, size in zip(dir_, shape))
 
-        def is_interior(dir_):
+        def is_interior(dir_: DirTuple) -> bool:
             return all(
                 not has_boundary[dim] or dir_l in ([-1, 0] if bc == 1 else [0])
                 for dim, (dir_l, bc) in enumerate(zip(dir_, bcs))
             )
 
-        def is_prescribed(dir_):
+        def is_prescribed(dir_: DirTuple) -> bool:
             return any(
                 has_boundary[dim] and dir_l in [-1, 1] and bc == 0
                 for dim, (dir_l, bc) in enumerate(zip(dir_, bcs))
             )
 
-        def is_periodic(dir_):
+        def is_periodic(dir_: DirTuple) -> bool:
             return any(
                 has_boundary[dim] and dir_l == 1 and bc == 1
                 for dim, (dir_l, bc) in enumerate(zip(dir_, bcs))
             )
 
-        def is_corner(dir_):
+        def is_corner(dir_: DirTuple) -> bool:
             return not any(dir_l == 0 for dir_l in dir_)
 
-        def is_part_of(dir_, candidate_dir):
+        def is_part_of(dir_: DirTuple, candidate_dir: DirTuple) -> bool:
             return all(
                 candidate_dir_l == dir_l or candidate_dir_l == 0
                 for candidate_dir_l, dir_l in zip(candidate_dir, dir_)
