@@ -62,7 +62,11 @@ class CMakeBuild(build_ext):
         )
 
         # install shared libraries
-        copy_tree(build_lib_dir, install_dir)
+        libs = os.listdir(build_lib_dir)
+        for lib in libs:
+            src_path = os.path.join(build_lib_dir, lib)
+            trg_path = os.path.join(install_dir, lib)
+            self.copy_file(src_path, trg_path)
 
         # install version.txt
         src_path = os.path.join(build_dir, "version.txt")
