@@ -30,8 +30,6 @@ class CMakeBuild(build_ext):
         mpi4py_dir = os.path.abspath(os.path.join(mpi4py.get_include(), ".."))
         ext_name = self.extensions[0].name
         install_dir = self.get_ext_fullpath(ext_name).rsplit("/", maxsplit=1)[0]
-        # install_include_dir = os.path.join(install_dir, "ghex/include")
-        install_lib_dir = os.path.join(install_dir, "ghex/lib")
 
         # default cmake arguments
         cmake_args = [
@@ -63,21 +61,8 @@ class CMakeBuild(build_ext):
             ["cmake", "--build", build_dir, "--", "--jobs=8"], capture_output=False
         )
 
-        # install shared library _pyghex
-        src_path = os.path.join(build_dir, "lib", self.get_ext_filename(ext_name))
-        trg_path = self.get_ext_fullpath(ext_name)
-        self.copy_file(src_path, trg_path)
-
-        # install dependent shared libraries
-        # os.makedirs(install_lib_dir, exist_ok=True)
-        # libs = os.listdir(build_lib_dir)
-        # libs = [lib for lib in libs if "_pyghex" not in lib]
-        # for lib in libs:
-        #     src_path = os.path.join(build_lib_dir, lib)
-        #     trg_path = os.path.join(install_lib_dir, lib)
-        #     self.copy_file(src_path, trg_path)
-        copy_tree(build_lib_dir, install_lib_dir)
-        self.rpath.append(install_lib_dir)
+        # install shared libraries
+        copy_tree(build_lib_dir, install_dir)
 
         # install version.txt
         src_path = os.path.join(build_dir, "version.txt")
