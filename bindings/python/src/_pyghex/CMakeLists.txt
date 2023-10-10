@@ -29,9 +29,10 @@ target_include_directories(pyghex_obj PRIVATE
 )
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
-link_device_runtime(pyghex_obj})
+link_device_runtime(pyghex_obj)
 target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
+# Add GPU support
 if (GHEX_USE_GPU)
     if (ghex_gpu_mode STREQUAL "hip")
         target_compile_definitions(pyghex_obj PRIVATE __HIP_PLATFORM_HCC__ __HIP_ROCclr__)
