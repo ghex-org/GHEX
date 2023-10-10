@@ -8,6 +8,10 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
+from __future__ import annotations
+
 import _pyghex
 
-make_communication_object = _pyghex.make_co_regular
+
+def make_communication_object(context, pattern):
+    return _pyghex.make_co_regular(context, pattern)

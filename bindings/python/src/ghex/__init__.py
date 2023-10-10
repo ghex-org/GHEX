@@ -15,7 +15,7 @@
 # import the compiled part of the wrapper from the _pyghex namespace.
 import os
 
-from _pyghex import config, context, mpi_comm  # noqa:F403
+from _pyghex import config  # noqa:F403
 
 
 # Parse version.txt file for the ghex version string
