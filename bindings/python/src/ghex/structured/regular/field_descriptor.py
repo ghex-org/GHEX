@@ -25,7 +25,10 @@ def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
     if arch == Architecture.CPU:
         strides = getattr(field, "__array_interface__", {}).get("strides", None)
     elif arch == Architecture.GPU:
-        strides = getattr(field, "__cuda_array_interface__", {}).get("strides", None)
+        if hasattr(field, "__hip_array_interface__"):
+            strides = field.__hip_array_interface__.get("strides", None)
+        else:
+            strides = getattr(field, "__cuda_array_interface__", {}).get("strides", None)
     else:
         raise ValueError()
 
