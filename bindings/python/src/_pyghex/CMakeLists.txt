@@ -1,4 +1,5 @@
 include(ghex_copy_files)
+include(ghex_device)
 
 set(pyghex_source
     module.cpp
@@ -30,6 +31,28 @@ target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
 link_device_runtime(pyghex_obj})
 target_link_libraries(pyghex_obj PUBLIC ghex_common)
+
+if (GHEX_USE_GPU)
+    if (ghex_gpu_mode STREQUAL "hip")
+        target_compile_definitions(pyghex_obj PRIVATE __HIP_PLATFORM_HCC__ __HIP_ROCclr__)
+        target_compile_options(pyghex_obj PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-xhip>)
+        if (GHEX_GPU_ARCH)
+        string(TOUPPER ${GHEX_GPU_ARCH} ghex_gpu_arch_uppercase)
+            target_compile_options(
+                pyghex_obj
+                PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:--offload-arch=${GHEX_GPU_ARCH} -D__HIP_ARCH_${ghex_gpu_arch_uppercase}__=1>
+            )
+        endif()
+    else()
+        set_source_files_properties(${pyghex_source} PROPERTIES LANGUAGE CUDA)
+        if (${CMAKE_VERSION} VERSION_LESS "3.24.0" OR GHEX_GPU_ARCH)
+            set_target_properties(pyghex_obj PROPERTIES CUDA_ARCHITECTURES ${GHEX_GPU_ARCH})
+        else()
+            set_target_properties(pyghex_obj PROPERTIES CUDA_ARCHITECTURES native)
+        endif()
+    endif()
+endif()
 
 # Add support for mpi4py if available.
 find_python_module(mpi4py)

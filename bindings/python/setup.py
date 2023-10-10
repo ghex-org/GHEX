@@ -46,10 +46,11 @@ class CMakeBuild(build_ext):
 
         # cmake arguments: GPU
         ghex_use_gpu = os.environ.get("GHEX_USE_GPU", "False")
-        cmake_args.append(f"-DUSE_GPU={ghex_use_gpu}")
+        cmake_args.append(f"-DGHEX_USE_GPU={ghex_use_gpu}")
         if bool(ghex_use_gpu):
             ghex_gpu_type = os.environ.get("GHEX_GPU_TYPE", "AUTO")
-            cmake_args.append(f"-DGHEX_GPU_TYPE={ghex_gpu_type}")
+            ghex_gpu_arch = os.environ.get("GHEX_GPU_ARCH", "")
+            cmake_args += [f"-DGHEX_GPU_TYPE={ghex_gpu_type}", f"-DGHEX_GPU_ARCH={ghex_gpu_arch}"]
 
         # cmake arguments: transport backend
         ghex_transport_backend = os.environ.get("GHEX_TRANSPORT_BACKEND", "MPI")
