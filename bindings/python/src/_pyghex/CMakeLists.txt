@@ -38,11 +38,11 @@ if (GHEX_USE_GPU)
         target_compile_definitions(pyghex_obj PRIVATE __HIP_PLATFORM_HCC__ __HIP_ROCclr__)
         target_compile_options(pyghex_obj PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-xhip>)
         if (GHEX_GPU_ARCH)
-        string(TOUPPER ${GHEX_GPU_ARCH} ghex_gpu_arch_uppercase)
+        string(TOUPPER ${GHEX_GPU_ARCH} ghex_gpu_arch_u)
             target_compile_options(
                 pyghex_obj
                 PRIVATE
-                $<$<COMPILE_LANGUAGE:CXX>:--offload-arch=${GHEX_GPU_ARCH} -D__HIP_ARCH_${ghex_gpu_arch_uppercase}__=1>
+                $<$<COMPILE_LANGUAGE:CXX>:--offload-arch=${GHEX_GPU_ARCH} -D__HIP_ARCH_${ghex_gpu_arch_u}__=1>
             )
         endif()
     else()
