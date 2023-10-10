@@ -49,8 +49,12 @@ class CMakeBuild(build_ext):
         cmake_args.append(f"-DGHEX_USE_GPU={ghex_use_gpu}")
         if bool(ghex_use_gpu):
             ghex_gpu_type = os.environ.get("GHEX_GPU_TYPE", "AUTO")
+            cmake_args.append(f"-DGHEX_GPU_TYPE={ghex_gpu_type}")
             ghex_gpu_arch = os.environ.get("GHEX_GPU_ARCH", "")
-            cmake_args += [f"-DGHEX_GPU_TYPE={ghex_gpu_type}", f"-DGHEX_GPU_ARCH={ghex_gpu_arch}"]
+            if ghex_gpu_type == "NVIDIA":
+                cmake_args.append(f"-DGHEX_GPU_ARCH={ghex_gpu_arch}")
+            elif ghex_gpu_type == "AMD":
+                cmake_args.append(f"-DAMDGPU_TARGETS={ghex_gpu_arch}")
 
         # cmake arguments: transport backend
         ghex_transport_backend = os.environ.get("GHEX_TRANSPORT_BACKEND", "MPI")

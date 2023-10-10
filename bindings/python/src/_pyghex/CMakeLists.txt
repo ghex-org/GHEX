@@ -34,24 +34,16 @@ target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
 # Add GPU support
 if (GHEX_USE_GPU)
-    if (ghex_gpu_mode STREQUAL "hip")
-        target_compile_definitions(pyghex_obj PRIVATE __HIP_PLATFORM_HCC__ __HIP_ROCclr__)
-        target_compile_options(pyghex_obj PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-xhip>)
-        if (GHEX_GPU_ARCH)
-        string(TOUPPER ${GHEX_GPU_ARCH} ghex_gpu_arch_u)
-            target_compile_options(
-                pyghex_obj
-                PRIVATE
-                $<$<COMPILE_LANGUAGE:CXX>:--offload-arch=${GHEX_GPU_ARCH} -D__HIP_ARCH_${ghex_gpu_arch_u}__=1>
-            )
-        endif()
-    else()
+    if (ghex_gpu_mode STREQUAL "cuda")
         set_source_files_properties(${pyghex_source} PROPERTIES LANGUAGE CUDA)
         if (${CMAKE_VERSION} VERSION_LESS "3.24.0" OR GHEX_GPU_ARCH)
             set_target_properties(pyghex_obj PROPERTIES CUDA_ARCHITECTURES ${GHEX_GPU_ARCH})
         else()
             set_target_properties(pyghex_obj PROPERTIES CUDA_ARCHITECTURES native)
         endif()
+    elseif (ghex_gpu_mode STREQUAL "hip")
+        find_package(hip REQUIRED)
+        target_link_libraries(hwmalloc PRIVATE hip::device)
     endif()
 endif()
 
