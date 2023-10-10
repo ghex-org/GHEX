@@ -38,7 +38,7 @@ def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
     return tuple(layout_map)
 
 
-def field_descriptor(
+def make_field_descriptor(
     domain_desc: DomainDescriptor,
     field: NDArray,
     offsets: tuple[int, ...],
@@ -72,4 +72,4 @@ def field_descriptor(
 
 
 def wrap_field(*args):
-    return field_descriptor(*args)
+    return make_field_descriptor(*args)
