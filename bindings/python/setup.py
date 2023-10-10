@@ -31,7 +31,7 @@ class CMakeBuild(build_ext):
         ext_name = self.extensions[0].name
         install_dir = self.get_ext_fullpath(ext_name).rsplit("/", maxsplit=1)[0]
 
-        # default cmake arguments
+        # cmake arguments: default
         cmake_args = [
             f"-B{build_dir}",
             "-DCMAKE_BUILD_TYPE=Release",
@@ -44,22 +44,20 @@ class CMakeBuild(build_ext):
             "-DGHEX_USE_BUNDLED_OOMPH=ON",
         ]
 
-        # extra cmake arguments set via env variables
-        # ghex_use_gpu = os.environ.get("GHEX_USE_GPU", "False")
-        # cmake_args.append(f"-DUSE_GPU={ghex_use_gpu}")
-        # if bool(ghex_use_gpu):
-        #     ghex_gpu_type = os.environ.get("GHEX_GPU_TYPE", "AUTO")
-        #     ghex_gpu_arch = os.environ.get("GHEX_GPU_ARCH", "")
-        #     cmake_args += [
-        #         f"-DGHEX_GPU_TYPE={ghex_gpu_type}",
-        #         f"-DGHEX_GPU_ARCH={ghex_gpu_arch}",
-        #     ]
+        # cmake arguments: GPU
+        ghex_use_gpu = os.environ.get("GHEX_USE_GPU", "False")
+        cmake_args.append(f"-DUSE_GPU={ghex_use_gpu}")
+        if bool(ghex_use_gpu):
+            ghex_gpu_type = os.environ.get("GHEX_GPU_TYPE", "AUTO")
+            cmake_args.append(f"-DGHEX_GPU_TYPE={ghex_gpu_type}")
+
+        # cmake arguments: transport backend
+        ghex_transport_backend = os.environ.get("GHEX_TRANSPORT_BACKEND", "MPI")
+        cmake_args.append(f"-DGHEX_TRANSPORT_BACKEND={ghex_transport_backend}")
 
         # build
         subprocess.run(["cmake", source_dir, *cmake_args], capture_output=False)
-        subprocess.run(
-            ["cmake", "--build", build_dir, "--", "--jobs=8"], capture_output=False
-        )
+        subprocess.run(["cmake", "--build", build_dir, "--", "--jobs=8"], capture_output=False)
 
         # install shared libraries
         libs = os.listdir(build_lib_dir)
