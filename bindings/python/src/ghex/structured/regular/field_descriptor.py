@@ -23,11 +23,16 @@ if TYPE_CHECKING:
 
 def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
     if arch == Architecture.CPU:
-        strides = field.__array_interface__["strides"]
+        strides = getattr(field, "__array_interface__", {}).get("strides", None)
     elif arch == Architecture.GPU:
-        strides = field.__cuda_array_interface__["strides"]
+        strides = getattr(field, "__cuda_array_interface__", {}).get("strides", None)
     else:
         raise ValueError()
+
+    # `strides` field of array interface protocol is empty for C-style contiguous arrays
+    if strides is None:
+        strides = getattr(field, "strides", None)
+    assert strides is not None
 
     ordered_strides = list(reversed(sorted(strides)))
     layout_map = [ordered_strides.index(stride) for stride in strides]
