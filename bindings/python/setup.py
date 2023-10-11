@@ -40,8 +40,6 @@ class CMakeBuild(build_ext):
             f"-Dpybind11_DIR={pybind11_dir}",
             f"-DPY_MPI4PY={mpi4py_dir}",
             "-DGHEX_USE_BUNDLED_LIBS=ON",
-            "-DGHEX_USE_BUNDLED_GRIDTOOLS=ON",
-            "-DGHEX_USE_BUNDLED_OOMPH=ON",
         ]
 
         # cmake arguments: GPU
