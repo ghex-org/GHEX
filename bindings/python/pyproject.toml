@@ -1,6 +1,6 @@
 [build-system]
 build-backend = 'setuptools.build_meta'
-requires = ['cmake', 'mpi4py>=3.1', 'pybind11>=2.6', 'setuptools>=65.5.0', 'wheel']
+requires = ['mpi4py>=3.1', 'pybind11>=2.6', 'setuptools>=65.5.0', 'wheel']
 
 [project]
 dependencies = ['mpi4py>=3.1', 'numpy>=1.21']
