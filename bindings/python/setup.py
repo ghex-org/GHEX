@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from distutils.dir_util import copy_tree
+import multiprocessing
 import os
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
@@ -62,7 +62,10 @@ class CMakeBuild(build_ext):
 
         # build
         subprocess.run(["cmake", source_dir, *cmake_args], capture_output=False)
-        subprocess.run(["cmake", "--build", build_dir, "--", "--jobs=8"], capture_output=False)
+        subprocess.run(
+            ["cmake", "--build", build_dir, "--", f"--jobs={multiprocessing.cpu_count()}"],
+            capture_output=False,
+        )
 
         # install shared libraries
         libs = os.listdir(build_lib_dir)
