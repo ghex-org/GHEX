@@ -72,3 +72,9 @@ set_target_properties(pyghex PROPERTIES
 target_link_libraries(pyghex PRIVATE pybind11::module)
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(pyghex)
+
+# Set RPATH
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+
+#install(TARGETS pyghex)
