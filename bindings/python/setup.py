@@ -82,8 +82,9 @@ class CMakeBuild(build_ext):
         trg_path = os.path.join(install_dir, "ghex/version.txt")
         self.copy_file(src_path, trg_path)
 
-        # delete build directory
-        shutil.rmtree(build_dir)
+        # delete build directory in editable mode
+        if self.editable_mode:
+            shutil.rmtree(build_dir)
 
 
 if __name__ == "__main__":
