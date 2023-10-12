@@ -74,6 +74,8 @@ target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(pyghex)
 
 # Set RPATH
-set(CMAKE_INSTALL_RPATH "${PYGHEX_INSTALL_DIR}/ghex/lib")
+if (PYGHEX_INSTALL_DIR)
+    set(CMAKE_INSTALL_RPATH "${PYGHEX_INSTALL_DIR}/ghex/lib")
+endif()
 
 install(TARGETS pyghex DESTINATION ${CMAKE_INSTALL_PREFIX})
