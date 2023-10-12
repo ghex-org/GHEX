@@ -3,9 +3,9 @@ import multiprocessing
 import os
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
+import shutil
 import site
 import subprocess
-
 
 # build dependencies
 import mpi4py
@@ -27,22 +27,24 @@ class CMakeBuild(build_ext):
         this_dir = os.path.dirname(__file__)
         source_dir = os.path.abspath(os.path.join(this_dir, "../.."))
         build_dir = os.path.abspath(os.path.join(this_dir, "build"))
-        build_lib_dir = os.path.join(build_dir, "lib")
         pybind11_dir = pybind11.get_cmake_dir()
         mpi4py_dir = os.path.abspath(os.path.join(mpi4py.get_include(), ".."))
         ext_name = self.extensions[0].name
-        install_dir = self.get_ext_fullpath(ext_name).rsplit("/", maxsplit=1)[0]
+        ext_filename = self.get_ext_filename(ext_name)
+        ext_fullpath = self.get_ext_fullpath(ext_name)
+        install_dir = ext_fullpath.rsplit("/", maxsplit=1)[0]
+        install_prefix = os.path.join(site.getsitepackages()[0], "ghex")
 
         # cmake arguments: default
         cmake_args = [
             f"-B{build_dir}",
             "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_INSTALL_PREFIX={install_prefix}",
             "-DGHEX_BUILD_PYTHON_BINDINGS=ON",
-            "-DHAVE_MPI4PY=True",
-            f"-Dpybind11_DIR={pybind11_dir}",
-            f"-DPY_MPI4PY={mpi4py_dir}",
             "-DGHEX_USE_BUNDLED_LIBS=ON",
-            f"-DPYGHEX_INSTALL_DIR={site.getsitepackages()}"
+            "-DHAVE_MPI4PY=True",
+            f"-DPY_MPI4PY={mpi4py_dir}",
+            f"-Dpybind11_DIR={pybind11_dir}",
         ]
 
         # cmake arguments: GPU
@@ -63,24 +65,25 @@ class CMakeBuild(build_ext):
         ghex_transport_backend = os.environ.get("GHEX_TRANSPORT_BACKEND", "MPI")
         cmake_args.append(f"-DGHEX_TRANSPORT_BACKEND={ghex_transport_backend}")
 
-        # build
+        # build and install
         subprocess.run(["cmake", source_dir, *cmake_args], capture_output=False)
         subprocess.run(
             ["cmake", "--build", build_dir, "--", f"--jobs={multiprocessing.cpu_count()}"],
             capture_output=False,
         )
+        subprocess.run(["cmake", "--install", build_dir], capture_output=False)
 
-        # install shared libraries
-        libs = os.listdir(build_lib_dir)
-        for lib in libs:
-            src_path = os.path.join(build_lib_dir, lib)
-            trg_path = os.path.join(install_dir, lib)
-            self.copy_file(src_path, trg_path)
+        # copy shared library _pyghex into top-level distribution folder
+        src_path = os.path.join(install_prefix, ext_filename)
+        self.copy_file(src_path, ext_fullpath)
 
         # install version.txt
         src_path = os.path.join(build_dir, "version.txt")
         trg_path = os.path.join(install_dir, "ghex/version.txt")
         self.copy_file(src_path, trg_path)
+
+        # delete build directory
+        shutil.rmtree(build_dir)
 
 
 if __name__ == "__main__":

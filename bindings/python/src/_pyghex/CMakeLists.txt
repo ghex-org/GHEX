@@ -74,10 +74,15 @@ target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(pyghex)
 
 # Set RPATH
-execute_process(
-    COMMAND "python -c 'import site; print(site.getsitepackages()[0])'"
-    OUTPUT_VARIABLE ghex_python_lib_installation_dir
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-set_target_properties(pyghex PROPERTIES INSTALL_RPATH ${ghex_python_lib_installation_dir})
+set(ghex_python_install_libdir "${CMAKE_INSTALL_PREFIX}/lib64")
+set_target_properties(ghex PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
+if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
+    set_target_properties(oomph_libfabric PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
+elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
+    set_target_properties(oomph_ucx PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
+else()
+    set_target_properties(oomph_mpi PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
+endif()
+set_target_properties(pyghex PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
 
-install(TARGETS pyghex DESTINATION ${ghex_python_lib_installation_dir})
+install(TARGETS pyghex DESTINATION .)
