@@ -31,6 +31,8 @@ class CMakeBuild(build_ext):
         ext_name = self.extensions[0].name
         install_dir = self.get_ext_fullpath(ext_name).rsplit("/", maxsplit=1)[0]
 
+        print(f"=== {install_dir}")
+
         # cmake arguments: default
         cmake_args = [
             f"-B{build_dir}",
@@ -40,7 +42,7 @@ class CMakeBuild(build_ext):
             f"-Dpybind11_DIR={pybind11_dir}",
             f"-DPY_MPI4PY={mpi4py_dir}",
             "-DGHEX_USE_BUNDLED_LIBS=ON",
-            f"-DPYGHEX_INSTALL_DIR={install_dir}"
+            f"-DCMAKE_INSTALL_PREFIX={install_dir}"
         ]
 
         # cmake arguments: GPU
