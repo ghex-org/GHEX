@@ -56,7 +56,7 @@ set_target_properties(pyghex PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${python_mod_p
 # pyghex_obj because CMake.
 target_link_libraries(pyghex PRIVATE pybind11::module)
 target_link_libraries(pyghex PRIVATE ghex)
-ghex_link_to_oomph(pyghex)
+ghex_link_to_oomph(ghex)
 # Copy the required python source files as well
 add_custom_target(pyghex_files)
 copy_files(TARGET pyghex_files DESTINATION ${python_mod_path} FILES
