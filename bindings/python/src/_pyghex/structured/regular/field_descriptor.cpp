@@ -155,11 +155,11 @@ register_field_descriptor(pybind11::module& m)
 
                              auto ordered_strides = info.strides;
                              std::sort(ordered_strides.begin(), ordered_strides.end(), [](int a, int b) { return a > b; });
-                             array_type layout_map;
+                             array b_layout_map;
                              for (size_t i = 0; i < dimension::value; ++i) {
                                  auto it = std::find(ordered_strides.begin(), ordered_strides.end(), info.strides[i]);
-                                 layout_map[i] = std::distance(ordered_strides.begin(), it);
-                                 if (layout_map[i] != layout_map_type::at(i)) {
+                                 b_layout_map[i] = std::distance(ordered_strides.begin(), it);
+                                 if (b_layout_map[i] != layout_map::at(i)) {
                                      throw pybind11::type_error("Buffer has a different layout than specified.");
                                  }
                              }
