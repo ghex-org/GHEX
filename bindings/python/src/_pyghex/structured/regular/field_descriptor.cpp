@@ -165,7 +165,7 @@ register_field_descriptor(pybind11::module& m)
                              }
 
                              return ghex::wrap_field<arch_type, layout_map>(dom,
-                                 static_cast<T*>(info.ptr), offsets, extents);
+                                 static_cast<T*>(info.ptr), offsets, extents, info.strides);
                          }),
                     pybind11::keep_alive<0, 2>())
                 .def_property_readonly_static("__cpp_type__",
