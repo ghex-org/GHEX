@@ -152,17 +152,15 @@ register_field_descriptor(pybind11::module& m)
                                        << " buffer.";
                                  throw pybind11::type_error(error.str());
                              }
-                             std::array<int, dimension::value> buffer_order;
-                             std::iota(buffer_order.begin(), buffer_order.end(), 0);
-                             std::sort(buffer_order.begin(), buffer_order.end(),
-                                 [&info](int a, int b)
-                                 { return info.strides[a] > info.strides[b]; });
-                             for (size_t i = 0; i < dimension::value; ++i)
-                             {
-                                 if (buffer_order[i] != layout_map::at(i))
-                                 {
-                                     throw pybind11::type_error(
-                                         "Buffer has a different layout than specified.");
+
+                             auto ordered_strides = info.strides;
+                             std::sort(ordered_strides.begin(), ordered_strides.end(), [](int a, int b) { return a > b; });
+                             array_type layout_map;
+                             for (size_t i = 0; i < dimension::value; ++i) {
+                                 auto it = std::find(ordered_strides.begin(), ordered_strides.end(), info.strides[i]);
+                                 layout_map[i] = std::distance(ordered_strides.begin(), it);
+                                 if (layout_map[i] != layout_map_type::at(i)) {
+                                     throw pybind11::type_error("Buffer has a different layout than specified.");
                                  }
                              }
 
