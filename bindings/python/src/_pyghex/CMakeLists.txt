@@ -71,7 +71,7 @@ set_target_properties(pyghex PROPERTIES
 # pyghex_obj because CMake.
 target_link_libraries(pyghex PRIVATE pybind11::module)
 target_link_libraries(pyghex PRIVATE ghex)
-ghex_link_to_oomph(pyghex)
+ghex_link_to_oomph(ghex)
 
 # Set RPATH
 set(ghex_python_install_libdir "${CMAKE_INSTALL_PREFIX}/lib64")
