@@ -41,7 +41,6 @@ AlwaysBreakAfterReturnType: TopLevelDefinitions
 AlwaysBreakBeforeMultilineStrings: false
 AlwaysBreakTemplateDeclarations: Yes
 BreakBeforeTernaryOperators: true
-BreakInheritanceList: BeforeComma
 BreakStringLiterals: false
 ColumnLimit: 100
 #ColumnLimit: 120
