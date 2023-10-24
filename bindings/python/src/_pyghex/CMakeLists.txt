@@ -74,11 +74,7 @@ target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
 
 # Set RPATH
-if (UNIX AND NOT APPLE)
-    set(ghex_python_install_libdir "${CMAKE_INSTALL_PREFIX}/lib64")
-else()
-    set(ghex_python_install_libdir "${CMAKE_INSTALL_PREFIX}/lib")
-endif()
+set(ghex_python_install_libdir "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 set_target_properties(ghex PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
 if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
     set_target_properties(oomph_libfabric PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
