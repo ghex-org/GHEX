@@ -8,5 +8,5 @@
     branch = main
 [submodule "ext/oomph"]
 	path = ext/oomph
-	url = https://github.com/stubbiali/oomph.git
-    branch = fix-libfabric
+	url = https://github.com/ghex-org/oomph.git
+    branch = main
