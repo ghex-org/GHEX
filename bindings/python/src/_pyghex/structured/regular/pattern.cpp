@@ -71,7 +71,7 @@ register_pattern(pybind11::module& m)
                     cls.def(
                         "__call__",
                         [](const pattern_container& pattern, field& f)
-                        { return pc(f); },
+                        { return pattern(f); },
                         pybind11::keep_alive<0, 2>());
                 });
         });
