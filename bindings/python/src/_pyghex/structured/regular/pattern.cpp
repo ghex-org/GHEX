@@ -68,8 +68,10 @@ register_pattern(pybind11::module& m)
                 [&m, &cls](auto k)
                 {
                     using field = gridtools::meta::first<decltype(k)>;
-                    cls.def("__call__", &pattern_container::template operator()<field>,
-                        pybind11::keep_alive<0, 2>());
+//                    cls.def("__call__", &pattern_container::template operator()<field>,
+//                        pybind11::keep_alive<0, 2>());
+                    cls.def("__call__", [](const pattern_container& pc, const field& f)
+                        { return pc(f); }, pybind11::keep_alive<0, 2>());
                 });
         });
 }
