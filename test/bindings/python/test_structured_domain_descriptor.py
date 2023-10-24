@@ -9,11 +9,11 @@
 #
 import pytest
 
-from fixtures.context import *
-
-import ghex.structured
-import ghex.structured.regular as regular
+from ghex.context import make_context
 from ghex.structured.grid import IndexSpace, UnitRange
+from ghex.structured.regular.domain_descriptor import DomainDescriptor
+from ghex.structured.regular.halo_generator import HaloGenerator
+
 
 # Domain configuration
 Nx = 10
@@ -28,10 +28,10 @@ haloss = [
     ((1, 0), (0, 2), (2, 2)),
 ]
 
+
 @pytest.mark.mpi
 def test_domain_descriptor(capsys, mpi_cart_comm):
-    comm = ghex.mpi_comm(mpi_cart_comm)
-    ctx = ghex.context(comm, True)
+    ctx = make_context(mpi_cart_comm, True)
 
     coords = mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank())
     coords2 = mpi_cart_comm.Get_coords(ctx.rank())
@@ -41,18 +41,19 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
 
     assert coords == coords2
 
-    (i,j,k) = coords
+    (i, j, k) = coords
     rx = UnitRange(i * Nx, (i + 1) * Nx)
     ry = UnitRange(j * Ny, (j + 1) * Ny)
     rz = UnitRange(k * Nz, (k + 1) * Nz)
 
-    sub_domain_indices = rx * ry *rz
+    sub_domain_indices = rx * ry * rz
 
-    domain_desc = regular.DomainDescriptor(ctx.rank(), sub_domain_indices)
+    domain_desc = DomainDescriptor(ctx.rank(), sub_domain_indices)
 
     assert domain_desc.domain_id() == ctx.rank()
     assert domain_desc.first() == sub_domain_indices[0, 0, 0]
     assert domain_desc.last() == sub_domain_indices[-1, -1, -1]
+
 
 @pytest.mark.parametrize("halos", haloss)
 @pytest.mark.mpi
@@ -60,14 +61,18 @@ def test_halo_gen_construction(capsys, mpi_cart_comm, halos):
     with capsys.disabled():
         print(halos)
     dims = mpi_cart_comm.dims
-    glob_domain_indices = UnitRange(0, dims[0] * Nx) * UnitRange(0, dims[1] * Ny) * UnitRange(0, dims[2] * Nz)
-    halo_gen = regular.HaloGenerator(glob_domain_indices, halos, (False, False, False))
+    glob_domain_indices = (
+        UnitRange(0, dims[0] * Nx)
+        * UnitRange(0, dims[1] * Ny)
+        * UnitRange(0, dims[2] * Nz)
+    )
+    halo_gen = HaloGenerator(glob_domain_indices, halos, (False, False, False))
+
 
 @pytest.mark.parametrize("halos", haloss)
 @pytest.mark.mpi
 def test_halo_gen_call(mpi_cart_comm, halos):
-    comm = ghex.mpi_comm(mpi_cart_comm)
-    ctx = ghex.context(comm, True)
+    ctx = make_context(mpi_cart_comm, True)
 
     periodicity = (False, False, False)
     p_coord = tuple(mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank()))
@@ -80,20 +85,22 @@ def test_halo_gen_call(mpi_cart_comm, halos):
     sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
 
     # construct halo_generator
-    halo_gen = regular.HaloGenerator(global_grid.subset["definition"], halos, periodicity)
+    halo_gen = HaloGenerator(
+        global_grid.subset["definition"], halos, periodicity
+    )
 
-    domain_desc = regular.DomainDescriptor(ctx.rank(), owned_indices)
+    domain_desc = DomainDescriptor(ctx.rank(), owned_indices)
 
     # test generated halos
     halo_indices = halo_gen(domain_desc)
     assert sub_grid.subset["halo"] == halo_indices.global_
-    #assert sub_grid.subset["halo"] == halo_indices.local.translate(...)
+    # assert sub_grid.subset["halo"] == halo_indices.local.translate(...)
+
 
 @pytest.mark.parametrize("halos", haloss)
 @pytest.mark.mpi
 def test_domain_descriptor_grid(mpi_cart_comm, halos):
-    comm = ghex.mpi_comm(mpi_cart_comm)
-    ctx = ghex.context(comm, True)
+    ctx = make_context(mpi_cart_comm, True)
 
     p_coord = tuple(mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank()))
 
@@ -104,7 +111,7 @@ def test_domain_descriptor_grid(mpi_cart_comm, halos):
     owned_indices = sub_grid.subset["definition"]
     sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
 
-    domain_desc = regular.DomainDescriptor(ctx.rank(), owned_indices)
+    domain_desc = DomainDescriptor(ctx.rank(), owned_indices)
 
     assert domain_desc.domain_id() == ctx.rank()
     assert domain_desc.first() == owned_indices.bounds[0, 0, 0]

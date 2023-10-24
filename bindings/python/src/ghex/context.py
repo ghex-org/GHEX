@@ -17,5 +17,5 @@ if TYPE_CHECKING:
     from mpi4py.MPI import Comm
 
 
-def make_context(mpi_comm: Comm) -> _pyghex.context:
-    return _pyghex.context(_pyghex.mpi_comm(mpi_comm))
+def make_context(mpi_comm: Comm, thread_safe: bool = False) -> _pyghex.context:
+    return _pyghex.context(_pyghex.mpi_comm(mpi_comm), thread_safe)

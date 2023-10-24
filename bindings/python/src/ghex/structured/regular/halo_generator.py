@@ -12,13 +12,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ghex.structured.index_space import CartesianSet, union
+from ghex.structured.index_space import CartesianSet, ProductSet, union
 from ghex.util.cpp_wrapper import CppWrapper
 
 if TYPE_CHECKING:
     from typing import Union
 
-    from ghex.structured.index_space import ProductSet
     from ghex.structured.regular.domain_descriptor import DomainDescriptor
 
 
