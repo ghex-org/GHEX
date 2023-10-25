@@ -2,20 +2,20 @@ include(ghex_copy_files)
 include(ghex_device)
 
 set(pyghex_source
-    module.cpp
     config.cpp
-    mpi_comm_shim.cpp
     context_shim.cpp
-    structured/regular/domain_descriptor.cpp
-    structured/regular/halo_generator.cpp
-    structured/regular/field_descriptor.cpp
-    structured/regular/pattern.cpp
+    module.cpp
+    mpi_comm_shim.cpp
     structured/regular/communication_object.cpp
-    unstructured/domain_descriptor.cpp
-    unstructured/halo_generator.cpp
-    unstructured/field_descriptor.cpp
-    unstructured/pattern.cpp
+    structured/regular/domain_descriptor.cpp
+    structured/regular/field_descriptor.cpp
+    structured/regular/halo_generator.cpp
+    structured/regular/pattern.cpp
     unstructured/communication_object.cpp
+    unstructured/domain_descriptor.cpp
+    unstructured/field_descriptor.cpp
+    unstructured/halo_generator.cpp
+    unstructured/pattern.cpp
 )
 set_source_files_properties(config.cpp PROPERTIES 
     COMPILE_DEFINITIONS GHEX_TRANSPORT_BACKEND=${GHEX_TRANSPORT_BACKEND})
