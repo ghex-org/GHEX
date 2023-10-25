@@ -81,6 +81,11 @@ register_communication_object(pybind11::module& m)
                         [](type& co, buffer_info_type& b0, buffer_info_type& b1)
                         { return co.exchange(b0, b1); },
                         pybind11::keep_alive<0, 1>());
+                    cls.def(
+                        "exchange",
+                        [](type& co, buffer_info_type& b0, buffer_info_type& b1, buffer_info_type& b2)
+                        { return co.exchange(b0, b1, b2); },
+                        pybind11::keep_alive<0, 1>());
                 });
 
 
