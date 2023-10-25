@@ -22,8 +22,7 @@ mpi4py.rc.thread_level = "multiple"
 
 @pytest.fixture
 def context():
-    ctx = make_context(MPI.COMM_WORLD, True)
-    return ctx
+    return make_context(MPI.COMM_WORLD, True)
 
 
 @pytest.fixture
@@ -36,5 +35,4 @@ def mpi_cart_comm():
 
 @pytest.fixture
 def cart_context(mpi_cart_comm):
-    ctx = make_context(mpi_cart_comm, True)
-    return ctx
+    return make_context(mpi_cart_comm, True)
