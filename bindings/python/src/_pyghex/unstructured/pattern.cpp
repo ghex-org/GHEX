@@ -65,6 +65,9 @@ register_pattern(pybind11::module& m)
                 [&m, &cls](auto k)
                 {
                     using field = gridtools::meta::first<decltype(k)>;
+                    // note(stubbiali): pass a lambda function since directly using
+                    // `&pattern_container::template operator()<field>` leads to an
+                    // "identifier undefined in device code" error when using NVCC
                     cls.def(
                         "__call__",
                         [](const pattern_container& pattern, field& f)

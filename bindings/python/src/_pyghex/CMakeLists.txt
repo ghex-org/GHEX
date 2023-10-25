@@ -44,8 +44,8 @@ if (GHEX_USE_GPU)
     elseif (ghex_gpu_mode STREQUAL "hip")
         find_package(hip REQUIRED)
         target_link_libraries(pyghex_obj PRIVATE hip::device)
-        # workaround for clang-hip
-        #target_compile_options(pyghex_obj PRIVATE $<BUILD_INTERFACE:-std=c++14>)
+        # note(stubbiali): the following workaround for clang-hip seems to be superfluous
+        # target_compile_options(pyghex_obj PRIVATE $<BUILD_INTERFACE:-std=c++14>)
     endif()
 endif()
 
