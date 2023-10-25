@@ -23,7 +23,7 @@ class CMakeBuild(build_ext):
         if out.returncode != 0:
             raise RuntimeError(out.stderr)
 
-        # retrieve useful directories
+        # set path to useful directories
         this_dir = os.path.dirname(__file__)
         source_dir = os.path.abspath(os.path.join(this_dir, "../.."))
         build_dir = os.path.abspath(os.path.join(this_dir, "build"))
@@ -82,7 +82,7 @@ class CMakeBuild(build_ext):
         trg_path = os.path.join(install_dir, "ghex/version.txt")
         self.copy_file(src_path, trg_path)
 
-        # delete build directory in editable mode
+        # in editable mode: delete build directory
         if self.editable_mode:
             shutil.rmtree(build_dir)
 
