@@ -115,7 +115,7 @@ class field_descriptor
     BufferDesc make_buffer_desc(const IterationSpace& is, Buffer buffer, size_type size)
     {
         // description of the halo in the buffer
-        coordinate_type buffer_offset;
+        coordinate_type buffer_offset{0};
         std::copy(is.global().first().begin(), is.global().first().end(), buffer_offset.begin());
         if (has_components::value) buffer_offset[dimension::value - 1] = 0;
         coordinate_type buffer_extents;
@@ -132,8 +132,8 @@ class field_descriptor
     IS make_is(const IterationSpace& is)
     {
         // description of the halo in the local domain
-        coordinate_type data_first;
-        coordinate_type data_last;
+        coordinate_type data_first{0};
+        coordinate_type data_last{0};
         std::copy(is.local().first().begin(), is.local().first().end(), data_first.begin());
         std::copy(is.local().last().begin(), is.local().last().end(), data_last.begin());
         if (has_components::value)
