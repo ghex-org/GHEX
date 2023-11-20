@@ -13,8 +13,15 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
         set(reqs "${PROJECT_SOURCE_DIR}/scripts/pyghex_test_requirements.txt")
         message("Creating VENV from ${Python3_EXECUTABLE} to ${VENV}")
         execute_process(COMMAND_ECHO STDOUT COMMAND ${Python3_EXECUTABLE} -m venv --system-site-packages ${venv} )
-        execute_process(COMMAND_ECHO STDOUT COMMAND ${venv_bin_dir}/pip install -U pip wheel )
+        execute_process(COMMAND_ECHO STDOUT COMMAND ${venv_bin_dir}/pip install -U pip setuptools wheel )
         execute_process(COMMAND_ECHO STDOUT COMMAND ${venv_bin_dir}/pip install -r ${reqs} )
+        execute_process(
+            COMMAND_ECHO STDOUT
+            COMMAND ${Python3_EXECUTABLE} -c "import sys;print(str(sys.version_info.major) + '.' + str(sys.version_info.minor))"
+            OUTPUT_VARIABLE python_version
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        set(venv_site_packages_dir "${venv}/lib/python${python_version}/site-packages")
         #execute_process (COMMAND "${Python3_EXECUTABLE}" -m venv ${venv})
         # Here is the trick
         ## update the environment with VIRTUAL_ENV variable (mimic the activate script)

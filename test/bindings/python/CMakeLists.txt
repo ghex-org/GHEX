@@ -7,6 +7,8 @@ add_custom_target(pyghex_tests)
 add_dependencies(pyghex pyghex_tests)
 copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fixtures FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/context.py)
+copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/conftest.py)
 
 function(ghex_reg_pytest t)
     copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FILES

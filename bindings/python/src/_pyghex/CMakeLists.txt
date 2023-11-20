@@ -86,3 +86,7 @@ endif()
 set_target_properties(pyghex PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
 
 install(TARGETS pyghex DESTINATION .)
+
+if(GHEX_WITH_TESTING)
+    install(TARGETS pyghex DESTINATION ${venv_site_packages_dir})
+endif()
