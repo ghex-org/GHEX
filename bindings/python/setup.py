@@ -6,6 +6,7 @@ from setuptools.command.build_ext import build_ext
 import shutil
 import site
 import subprocess
+import tempfile
 
 # build dependencies
 import mpi4py
@@ -26,7 +27,8 @@ class CMakeBuild(build_ext):
         # set path to useful directories
         this_dir = os.path.dirname(__file__)
         source_dir = os.path.abspath(os.path.join(this_dir, "../.."))
-        build_dir = os.path.abspath(os.path.join(this_dir, "build"))
+        build_prefix = os.environ.get("GHEX_BUILD_PREFIX", tempfile.gettempdir())
+        build_dir = tempfile.mkdtemp(dir=build_prefix)
         pybind11_dir = pybind11.get_cmake_dir()
         mpi4py_dir = os.path.abspath(os.path.join(mpi4py.get_include(), ".."))
         ext_name = self.extensions[0].name
@@ -82,9 +84,8 @@ class CMakeBuild(build_ext):
         trg_path = os.path.join(install_dir, "ghex/version.txt")
         self.copy_file(src_path, trg_path)
 
-        # in editable mode: delete build directory
-        if self.editable_mode:
-            shutil.rmtree(build_dir)
+        # delete build directory
+        shutil.rmtree(build_dir)
 
 
 if __name__ == "__main__":
