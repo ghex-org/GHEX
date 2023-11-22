@@ -33,7 +33,7 @@ jobs:
           pip --version
           echo $PATH
       - name: Install pytest etc
-        run: . ~/env/bin/activate && python -m pip install -r ./scripts/pyghex_test_requirements.txt
+        run: . ~/env/bin/activate && python -m pip install -r ./bindings/python/requirements-test.txt
       - name: Build and install ghex using pip
         run: . ~/env/bin/activate && CMAKE_ARGS="-DMPIEXEC_PREFLAGS=--oversubscribe -DGHEX_USE_GPU=OFF" python -m pip install ./bindings/python
       - name: Run Python tests
