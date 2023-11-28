@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.17)
 
+if (NOT ${CMAKE_VERSION} VERSION_LESS 3.27)
+    # new in 3.27: additionally use uppercase <PACKAGENAME>_ROOT
+    # environment and CMake variables for find_package
+    cmake_policy(SET CMP0144 NEW)
+    set(CMAKE_POLICY_DEFAULT_CMP0144 NEW)
+endif()
+
 set(GHEX_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
