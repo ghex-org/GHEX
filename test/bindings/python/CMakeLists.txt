@@ -1,7 +1,6 @@
 include(ghex_copy_files)
 
-get_target_property(python_mod_path pyghex LIBRARY_OUTPUT_DIRECTORY)
-get_filename_component(ghex_python_path ${python_mod_path}/.. ABSOLUTE)
+get_target_property(pyghex_test_workdir pyghex LIBRARY_OUTPUT_DIRECTORY)
 
 add_custom_target(pyghex_tests)
 add_dependencies(pyghex pyghex_tests)
@@ -16,7 +15,7 @@ function(ghex_reg_pytest t)
     add_test(
         NAME py_${t}
         COMMAND ${PYTHON_EXECUTABLE} -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
-        WORKING_DIRECTORY ${ghex_python_path})
+        WORKING_DIRECTORY ${pyghex_test_workdir})
 endfunction()
 
 function(ghex_reg_parallel_pytest t n)
@@ -26,7 +25,7 @@ function(ghex_reg_parallel_pytest t n)
         NAME py_${t}_parallel
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
         ${PYTHON_EXECUTABLE} -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
-        WORKING_DIRECTORY ${ghex_python_path})
+        WORKING_DIRECTORY ${pyghex_test_workdir})
 endfunction()
 
 ghex_reg_pytest(context)

@@ -47,6 +47,7 @@ class CMakeBuild(build_ext):
             "-DHAVE_MPI4PY=True",
             f"-DPY_MPI4PY={mpi4py_dir}",
             f"-Dpybind11_DIR={pybind11_dir}",
+            "-DGHEX_BUILDEXT=ON",
         ]
 
         # cmake arguments: GPU
