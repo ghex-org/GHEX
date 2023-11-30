@@ -10,7 +10,7 @@
 #
 from __future__ import annotations
 
-import _pyghex
+import ghex as _pyghex
 from ghex.util.cpp_wrapper import unwrap
 
 

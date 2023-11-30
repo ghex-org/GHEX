@@ -10,7 +10,6 @@
 from mpi4py import MPI
 import pytest
 
-import _pyghex
 import ghex
 from ghex.context import make_context
 
@@ -25,7 +24,7 @@ def test_module(capsys):
 @pytest.mark.mpi_skip
 def test_mpi_comm():
     with pytest.raises(TypeError, match=r"must be `mpi4py.MPI.Comm`"):
-        comm = _pyghex.mpi_comm("invalid")
+        comm = ghex.mpi_comm("invalid")
 
 
 @pytest.mark.mpi_skip

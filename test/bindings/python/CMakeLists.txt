@@ -1,6 +1,7 @@
 include(ghex_copy_files)
 
-get_target_property(pyghex_test_workdir pyghex LIBRARY_OUTPUT_DIRECTORY)
+get_target_property(python_mod_path pyghex LIBRARY_OUTPUT_DIRECTORY)
+get_filename_component(pyghex_test_workdir ${python_mod_path}/.. ABSOLUTE)
 
 add_custom_target(pyghex_tests)
 add_dependencies(pyghex pyghex_tests)

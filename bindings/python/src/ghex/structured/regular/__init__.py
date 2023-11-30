@@ -8,6 +8,6 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-import _pyghex
+import ghex as _pyghex
 
 make_communication_object = _pyghex.make_co_regular

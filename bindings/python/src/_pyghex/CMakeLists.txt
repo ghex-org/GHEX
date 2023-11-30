@@ -66,43 +66,20 @@ add_library(pyghex MODULE $<TARGET_OBJECTS:pyghex_obj>)
 set_target_properties(pyghex PROPERTIES
     OUTPUT_NAME _pyghex
     PREFIX "${PYTHON_MODULE_PREFIX}"
-    SUFFIX "${PYTHON_MODULE_EXTENSION}")
+    SUFFIX "${PYTHON_MODULE_EXTENSION}"
+    # Choose this particular output directory for testing purposes
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../ghex")
 # This dependency has to be spelt out again, despite being added to
 # pyghex_obj because CMake.
 target_link_libraries(pyghex PRIVATE pybind11::module)
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
 
-if (GHEX_BUILDEXT)
-    # CMake driven by Python setuptools
-    # Set RPATH
-    set(ghex_python_install_libdir "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
-    set_target_properties(ghex PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-    if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
-        get_target_property(_aliased oomph::oomph_libfabric ALIASED_TARGET)
-        if(_aliased)
-            set_target_properties(${_aliased} PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-        else()
-            set_target_properties(oomph::oomph_libfabric PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-        endif()
-    elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
-        get_target_property(_aliased oomph::oomph_ucx ALIASED_TARGET)
-        if(_aliased)
-            set_target_properties(${_aliased} PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-        else()
-            set_target_properties(oomph::oomph_ucx PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-        endif()
-    else()
-        get_target_property(_aliased oomph::oomph_mpi ALIASED_TARGET)
-        if(_aliased)
-            set_target_properties(${_aliased} PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-        else()
-            set_target_properties(oomph::oomph_mpi PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-        endif()
-    endif()
-    set_target_properties(pyghex PROPERTIES INSTALL_RPATH ${ghex_python_install_libdir})
-
+# Set RPaths such that the python module is able to find libghex
+if (SKBUILD_PROJECT_NAME)
+    set_target_properties(pyghex PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
     install(TARGETS pyghex DESTINATION .)
 else()
-    set_target_properties(pyghex PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../")
+    set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+    install(TARGETS pyghex DESTINATION ${GHEX_PYTHON_LIB_PATH}/ghex)
 endif()

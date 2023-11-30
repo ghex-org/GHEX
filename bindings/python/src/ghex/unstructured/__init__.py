@@ -10,7 +10,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-import _pyghex
+import ghex as _pyghex
 from ghex.util.architecture import Architecture
 from ghex.util.cpp_wrapper import cls_from_cpp_type_spec, dtype_to_cpp, unwrap
 

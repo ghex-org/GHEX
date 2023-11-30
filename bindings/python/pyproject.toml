@@ -1,6 +1,6 @@
 [build-system]
-build-backend = 'setuptools.build_meta'
-requires = ['cmake', 'mpi4py>=3.1', 'pybind11>=2.6', 'setuptools>=65.5.0', 'wheel']
+build-backend = 'scikit_build_core.build'
+requires = ['cmake', 'mpi4py>=3.1', 'pybind11>=2.6', 'scikit-build-core', 'wheel']
 
 [project]
 dependencies = ['mpi4py>=3.1', 'numpy>=1.21']
@@ -17,6 +17,25 @@ repository = 'https://github.com/ghex-org/GHEX'
 
 [project.optional-dependencies]
 test = ['pytest', 'pytest-mpi']
+
+[tool.scikit-build]
+logging.level = 'INFO'
+minimum-version = '0.5'
+cmake.minimum-version = '3.20'
+cmake.verbose = true
+cmake.source-dir = "../.."
+cmake.build-type = "Release"
+cmake.args = [
+    "-DGHEX_BUILD_PYTHON_BINDINGS=ON",
+    "-DGHEX_USE_BUNDLED_LIBS=ON",
+    "-DGHEX_USE_BUNDLED_GRIDTOOLS=ON",
+    "-DGHEX_USE_BUNDLED_OOMPH=ON",
+    "-DHAVE_MPI4PY=True",
+]
+wheel.expand-macos-universal-tags = true
+wheel.install-dir = "ghex"
+wheel.packages = []
+wheel.license-files = []
 
 [tool.black]
 exclude = '''
@@ -42,9 +61,19 @@ exclude = '''
 include = '\.pyi?$'
 line-length = 100
 
-[tool.setuptools]
-platforms = ['Linux', 'Mac']
-zip-safe = false
+# Pip installation:
+###################
 
-[tool.setuptools.packages]
-find = {namespaces = false, where = ['src']}
+# for cuda aware build:
+# pip install bindings/python \
+#     --config-settings=cmake.define.GHEX_USE_GPU="ON" \
+#     --config-settings=cmake.define.GHEX_GPU_TYPE="NVIDIA"
+
+# for hip aware build:
+# pip install bindings/python \
+#     --config-settings=cmake.define.GHEX_USE_GPU="ON" \
+#     --config-settings=cmake.define.GHEX_GPU_TYPE="AMD" \
+#     --config-settings=cmake.define.AMDGPU_TARGETS="gfx900"
+
+# from github:
+#pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bindings/python'
