@@ -13,8 +13,13 @@ import numpy as np
 # import cupy as cp
 
 from ghex.context import make_context
-import ghex.unstructured as unstructured
+from ghex.unstructured.communication_object import make_communication_object
+from ghex.unstructured.domain_descriptor import DomainDescriptor
+from ghex.unstructured.halo_generator import HaloGenerator
+from ghex.unstructured.pattern import make_pattern
+from ghex.unstructured.field_descriptor import make_field_descriptor
 
+# fmt: off
 # Exchange of unstructured domain
 # This test uses a rectangular domain and divides it unevenly into
 # 4 subdomains (4 ranks). Directly neighboring cells are considered
@@ -200,6 +205,7 @@ domains = {
                        24, 25, 26, 27, 28, 29, 30, 31],
     },
 }
+# fmt: on
 
 LEVELS = 2
 
@@ -209,7 +215,7 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
 
-    domain_desc = unstructured.domain_descriptor(
+    domain_desc = DomainDescriptor(
         ctx.rank(), domains[ctx.rank()]["all"], domains[ctx.rank()]["outer_lids"]
     )
 
@@ -218,11 +224,13 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
     assert domain_desc.inner_size() == len(domains[ctx.rank()]["inner"])
 
     # halo_gen = unstructured.halo_generator()
-    halo_gen = unstructured.halo_generator_with_gids(domains[ctx.rank()]["outer"])
+    # halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
+    halo_gen = HaloGenerator(domains[ctx.rank()]["outer"])
+    # halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
 
-    pattern = unstructured.make_pattern(ctx, halo_gen, [domain_desc])
+    pattern = make_pattern(ctx, halo_gen, [domain_desc])
 
-    co = unstructured.make_co(ctx)
+    co = make_communication_object(ctx)
 
     def make_field():
         data = np.zeros([len(domains[ctx.rank()]["all"]), LEVELS], dtype=np.float64)
@@ -236,7 +244,7 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
                 else:
                     data[x, l] = -1
 
-        field = unstructured.field_descriptor(domain_desc, data)
+        field = make_field_descriptor(domain_desc, data)
         return data, field
 
     def check_field(data):
@@ -248,11 +256,9 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
                 if gid in inner_set:
                     assert data[x, l] == ctx.rank() * 1000 + 10 * gid + l
                 else:
-                    assert (
-                        data[x, l] - 1000 * int((data[x, l]) / 1000)
-                    ) == 10 * gid + l
+                    assert (data[x, l] - 1000 * int((data[x, l]) / 1000)) == 10 * gid + l
 
-        field = unstructured.field_descriptor(domain_desc, data)
+        field = make_field_descriptor(domain_desc, data)
         return data, field
 
     d1, f1 = make_field()

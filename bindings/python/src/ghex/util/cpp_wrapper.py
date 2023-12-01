@@ -46,7 +46,9 @@ def cls_from_cpp_type_spec(cpp_type_spec: Union[str, tuple[str, ...]]) -> Any:
 class CppWrapper:
     __wrapped__ = None
 
-    def __init__(self, cpp_type_spec: Union[str, tuple[str, ...]], *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, cpp_type_spec: Union[str, tuple[str, ...]], *args: Any, **kwargs: Any
+    ) -> None:
         wrapped_cls = cls_from_cpp_type_spec(cpp_type_spec)
 
         self.__wrapped__ = wrapped_cls(

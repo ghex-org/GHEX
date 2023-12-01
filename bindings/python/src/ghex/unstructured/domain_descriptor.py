@@ -13,14 +13,11 @@ from typing import TYPE_CHECKING
 from ghex.util.cpp_wrapper import CppWrapper
 
 if TYPE_CHECKING:
-    from ghex.structured.index_space import CartesianSet
+    from numpy.typing import ArrayLike
 
 
 class DomainDescriptor(CppWrapper):
-    def __init__(self, id_: int, sub_domain_indices: CartesianSet) -> None:
+    def __init__(self, index: int, indices: ArrayLike, halo_indices: ArrayLike):
         super(DomainDescriptor, self).__init__(
-            ("ghex::structured::regular::domain_descriptor", "int", sub_domain_indices.dim),
-            id_,
-            sub_domain_indices[tuple(0 for _ in range(sub_domain_indices.dim))],
-            sub_domain_indices[tuple(-1 for _ in range(sub_domain_indices.dim))],
+            ("ghex::unstructured::domain_descriptor", "int", "int"), index, indices, halo_indices
         )

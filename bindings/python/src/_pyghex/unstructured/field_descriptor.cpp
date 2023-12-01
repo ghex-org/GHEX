@@ -49,7 +49,11 @@ struct buffer_info_accessor<ghex::gpu>
     static pybind11::buffer_info get(pybind11::object& buffer)
     {
         using namespace pybind11::literals;
+#ifdef __HIP_PLATFORM_HCC__
+        pybind11::dict info = buffer.attr("__hip_array_interface__");
+#else
         pybind11::dict info = buffer.attr("__cuda_array_interface__");
+#endif
 
         [[maybe_unused]] bool readonly = info["data"].cast<pybind11::tuple>()[1].cast<bool>();
         assert(!readonly);
@@ -83,12 +87,13 @@ struct buffer_info_accessor<ghex::gpu>
             assert(pybind11::ssize_t(strides.size()) == ndim);
         }
 
-        return pybind11::buffer_info(ptr, /* Pointer to buffer */
-            itemsize,                     /* Size of one scalar */
-            format,                       /* Python struct-style format descriptor */
-            ndim,                         /* Number of dimensions */
-            shape,                        /* Buffer dimensions */
-            strides                       /* Strides (in bytes) for each index */
+        return pybind11::buffer_info(
+            ptr,        /* Pointer to buffer */
+            itemsize,   /* Size of one scalar */
+            format,     /* Python struct-style format descriptor */
+            ndim,       /* Number of dimensions */
+            shape,      /* Buffer dimensions */
+            strides     /* Strides (in bytes) for each index */
         );
     }
 };

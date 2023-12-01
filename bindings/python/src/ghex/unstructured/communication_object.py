@@ -12,5 +12,5 @@ from __future__ import annotations
 import ghex as _pyghex
 
 
-def make_communication_object(context, pattern):
-    return _pyghex.make_co_regular(context, pattern)
+def make_communication_object(context):
+    return _pyghex.make_co_unstructured(context)

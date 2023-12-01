@@ -62,9 +62,7 @@ def test_halo_gen_construction(capsys, mpi_cart_comm, halos):
         print(halos)
     dims = mpi_cart_comm.dims
     glob_domain_indices = (
-        UnitRange(0, dims[0] * Nx)
-        * UnitRange(0, dims[1] * Ny)
-        * UnitRange(0, dims[2] * Nz)
+        UnitRange(0, dims[0] * Nx) * UnitRange(0, dims[1] * Ny) * UnitRange(0, dims[2] * Nz)
     )
     halo_gen = HaloGenerator(glob_domain_indices, halos, (False, False, False))
 
@@ -85,9 +83,7 @@ def test_halo_gen_call(mpi_cart_comm, halos):
     sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
 
     # construct halo_generator
-    halo_gen = HaloGenerator(
-        global_grid.subset["definition"], halos, periodicity
-    )
+    halo_gen = HaloGenerator(global_grid.subset["definition"], halos, periodicity)
 
     domain_desc = DomainDescriptor(ctx.rank(), owned_indices)
 
