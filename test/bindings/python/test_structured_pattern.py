@@ -21,7 +21,7 @@ from ghex.structured.regular.halo_generator import HaloGenerator
 from ghex.structured.regular.pattern import make_pattern
 
 
-@pytest.mark.mpi_skip
+@pytest.mark.mpi
 def test_pattern(capsys, mpi_cart_comm):
     ctx = make_context(mpi_cart_comm, True)
 

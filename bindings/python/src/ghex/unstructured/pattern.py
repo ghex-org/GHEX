@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ghex.context import context
-from .._pyghex import make_pattern_unstructured as _make_pattern_unstructured
+from ghex.bind import make_pattern_unstructured as _make_pattern_unstructured
 from ghex.util.cpp_wrapper import unwrap
 
 if TYPE_CHECKING:

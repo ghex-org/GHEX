@@ -10,7 +10,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .._pyghex import make_co_unstructured as _make_co_unstructured
+from ghex.bind import make_co_unstructured as _make_co_unstructured
 
 if TYPE_CHECKING:
     from ghex.context import context

@@ -11,7 +11,7 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING
 
-import ghex as _pyghex
+import ghex.bind as _pyghex
 
 if TYPE_CHECKING:
     from numpy.typing import DTypeLike
