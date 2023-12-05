@@ -10,8 +10,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from ._pyghex import mpi_comm as mpi_comm
-from ._pyghex import context as context
+from ghex.bind import mpi_comm as mpi_comm
+from ghex.bind import context as context
 
 if TYPE_CHECKING:
     from mpi4py.MPI import Comm

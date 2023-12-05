@@ -9,6 +9,7 @@
 #
 
 import ghex.bind as _pyghex
+from ghex.bind import mpi_comm as mpi_comm
 import os
 
 
