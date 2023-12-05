@@ -223,10 +223,7 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
     assert domain_desc.size() == len(domains[ctx.rank()]["all"])
     assert domain_desc.inner_size() == len(domains[ctx.rank()]["inner"])
 
-    # halo_gen = unstructured.halo_generator()
-    # halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
-    halo_gen = HaloGenerator(domains[ctx.rank()]["outer"])
-    # halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
+    halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
 
     pattern = make_pattern(ctx, halo_gen, [domain_desc])
 
@@ -256,7 +253,9 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
                 if gid in inner_set:
                     assert data[x, l] == ctx.rank() * 1000 + 10 * gid + l
                 else:
-                    assert (data[x, l] - 1000 * int((data[x, l]) / 1000)) == 10 * gid + l
+                    assert (
+                        data[x, l] - 1000 * int((data[x, l]) / 1000)
+                    ) == 10 * gid + l
 
         field = make_field_descriptor(domain_desc, data)
         return data, field

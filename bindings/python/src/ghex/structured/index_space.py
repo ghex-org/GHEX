@@ -16,9 +16,9 @@ import operator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Literal, Sequence, Tuple, Union
+    from typing import Any, Dict, Literal, Sequence, Tuple, Union, TypeAlias
 
-    integer = Union[int, Literal[math.inf], Literal[-math.inf]]
+    integer: TypeAlias = Union[int, Literal[math.inf], Literal[-math.inf]]
 
 
 def is_integer_like(val):
@@ -93,13 +93,13 @@ class UnitRange(IntegerSet):
 
         return False
 
-    def __contains__(self, arg: integer):
+    def __contains__(self, arg: integer) -> bool:
         """Is (the integer-like) `arg` element of this range"""
         assert is_integer_like(arg)
 
         return self.start <= arg < self.stop
 
-    def issubset(self, arg: Set):
+    def issubset(self, arg: Set) -> bool:
         """Return if `self` is a subset of `arg`."""
         return arg.complement(simplify=False).intersect(self).empty
 

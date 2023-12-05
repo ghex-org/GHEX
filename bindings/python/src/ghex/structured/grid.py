@@ -45,7 +45,9 @@ class DimSymbol:
         self.name = name
         self.offset = offset
 
-    def __eq__(self, other: DimSymbol) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DimSymbol):
+            return NotImplemented
         return self.name == other.name and self.offset == other.offset
 
     def __hash__(self) -> int:
@@ -135,7 +137,7 @@ class Grid3d:
         bcs: tuple[int, int, int],
         periodic_layers: tuple[int, int, int],
         has_boundary: tuple[bool, bool, bool],
-    ):
+    ) -> IndexSpace:
         def label_from_dir(dir_: DirTuple) -> str:
             labels = [["south", "north"], ["west", "east"], ["bottom", "top"]]
             permuted_dir = (
@@ -149,7 +151,7 @@ class Grid3d:
                 if dir_l != 0
             )
 
-        def slices_from_dir(dir_: DirTuple) -> tuple[slice, slice, slice]:
+        def slices_from_dir(dir_: DirTuple) -> tuple[slice, ...]:
             def slices_from_dir_l(dir_l: int, size: int) -> slice:
                 dir_l_to_slice = (slice(0, 1), slice(1, -1), slice(-1, None))
                 if size == 1:

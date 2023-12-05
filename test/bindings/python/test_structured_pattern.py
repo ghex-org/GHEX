@@ -37,7 +37,9 @@ def test_pattern(capsys, mpi_cart_comm):
     owned_indices = sub_grid.subset["definition"]
     sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
 
-    memory_local_grid = sub_grid.translate(*(-origin_l for origin_l in sub_grid.bounds[0, 0, 0]))
+    memory_local_grid = sub_grid.translate(
+        *(-origin_l for origin_l in sub_grid.bounds[0, 0, 0])
+    )
 
     domain_desc = DomainDescriptor(ctx.rank(), owned_indices)
     halo_gen = HaloGenerator(global_grid.subset["definition"], halos, periodicity)

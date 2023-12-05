@@ -37,8 +37,8 @@ class HaloGenerator(CppWrapper):
         assert glob_domain_indices.dim == len(periodicity)
 
         # canonicalize integer halos, e.g. turn (h0, (h1, h2), h3) into ((h0, h0), (h1, h2), ...)
-        halos = ((halo, halo) if isinstance(halo, int) else halo for halo in halos)
-        flattened_halos = tuple(h for halo in halos for h in halo)
+        halos2 = ((halo, halo) if isinstance(halo, int) else halo for halo in halos)
+        flattened_halos = tuple(h for halo in halos2 for h in halo)
 
         super(HaloGenerator, self).__init__(
             (

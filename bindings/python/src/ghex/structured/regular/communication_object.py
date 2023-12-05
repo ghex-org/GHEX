@@ -8,9 +8,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
-import ghex as _pyghex
+from ..._pyghex import make_co_regular as _make_co_regular
+
+if TYPE_CHECKING:
+    from ghex.context import context
 
 
-def make_communication_object(context, pattern):
-    return _pyghex.make_co_regular(context, pattern)
+def make_communication_object(context: context, pattern):
+    return _make_co_regular(context, pattern)

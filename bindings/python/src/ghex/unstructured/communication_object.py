@@ -8,9 +8,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
-import ghex as _pyghex
+from .._pyghex import make_co_unstructured as _make_co_unstructured
+
+if TYPE_CHECKING:
+    from ghex.context import context
 
 
-def make_communication_object(context):
-    return _pyghex.make_co_unstructured(context)
+def make_communication_object(context: context):
+    return _make_co_unstructured(context)

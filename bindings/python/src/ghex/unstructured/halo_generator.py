@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload, Optional
 
 from ghex.util.cpp_wrapper import CppWrapper
 
@@ -17,10 +17,25 @@ if TYPE_CHECKING:
 
 
 class HaloGenerator(CppWrapper):
-    def __init__(self):
-        super(HaloGenerator, self).__init__(("ghex::unstructured::halo_generator", "int", "int"))
+    @overload
+    def __init__(self) -> None:
+        ...
 
-    def __init__(self, gids: ArrayLike):
-        super(HaloGenerator, self).__init__(
-            ("ghex::unstructured::halo_generator", "int", "int"), gids
-        )
+    @overload
+    def __init__(self, gids: ArrayLike) -> None:
+        ...
+
+    def __init__(self, gids: Optional[ArrayLike] = None) -> None:
+        if gids is None:
+            super(HaloGenerator, self).__init__(
+                ("ghex::unstructured::halo_generator", "int", "int")
+            )
+        else:
+            super(HaloGenerator, self).__init__(
+                ("ghex::unstructured::halo_generator", "int", "int"), gids
+            )
+
+    @classmethod
+    def from_gids(cls, gids: ArrayLike) -> HaloGenerator:
+        h = cls(gids)
+        return h

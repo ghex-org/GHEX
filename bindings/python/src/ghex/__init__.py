@@ -15,7 +15,7 @@
 # import the compiled part of the wrapper from the _pyghex namespace.
 import os
 
-from ._pyghex import *
+from ._pyghex import *  # noqa:F403
 
 
 # Parse version.txt file for the ghex version string
@@ -27,7 +27,6 @@ def get_version() -> str:
 
 __version__ = get_version()
 __config__ = config()  # noqa:F405
-
 
 # Remove get_version from module.
 del get_version

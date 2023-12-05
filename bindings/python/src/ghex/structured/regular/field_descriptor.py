@@ -54,7 +54,7 @@ def make_field_descriptor(
     arch: Architecture = Architecture.CPU,
 ) -> Any:
     if not arch:
-        if hasattr(field, "__cuda_array_interface__") or hasattr("__hip_array_interface__"):
+        if hasattr(field, "__cuda_array_interface__") or hasattr(field, "__hip_array_interface__"):
             arch = Architecture.GPU
         elif hasattr(field, "__array_interface__"):
             arch = Architecture.CPU

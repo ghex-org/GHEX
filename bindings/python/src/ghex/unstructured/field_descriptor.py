@@ -16,19 +16,19 @@ from ghex.util.cpp_wrapper import cls_from_cpp_type_spec, dtype_to_cpp, unwrap
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-    from typing import Any
+    from typing import Any, Optional
 
     from ghex.unstructured.domain_descriptor import DomainDescriptor
 
 
 def make_field_descriptor(
-    domain_desc: domain_descriptor,
+    domain_desc: DomainDescriptor,
     field: NDArray,
     *,
     arch: Optional[Architecture] = Architecture.CPU,
 ) -> Any:
     if not arch:
-        if hasattr(field, "__cuda_array_interface__") or hasattr("__hip_array_interface__"):
+        if hasattr(field, "__cuda_array_interface__") or hasattr(field, "__hip_array_interface__"):
             arch = Architecture.GPU
         elif hasattr(field, "__array_interface__"):
             arch = Architecture.CPU
