@@ -38,6 +38,7 @@ jobs:
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_PYTHON_BINDINGS=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
@@ -83,6 +84,7 @@ jobs:
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_PYTHON_BINDINGS=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
@@ -127,6 +129,7 @@ jobs:
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
+            -DGHEX_BUILD_PYTHON_BINDINGS=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
@@ -172,6 +175,7 @@ jobs:
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=OFF \
+            -DGHEX_BUILD_PYTHON_BINDINGS=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
@@ -217,6 +221,7 @@ jobs:
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_PYTHON_BINDINGS=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
@@ -261,6 +266,7 @@ jobs:
             -DGHEX_WITH_TESTING=ON \
             -DGHEX_BUILD_BENCHMARKS=ON \
             -DGHEX_BUILD_FORTRAN=ON \
+            -DGHEX_BUILD_PYTHON_BINDINGS=ON \
             -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
             -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
             -DMETIS_INCLUDE_DIR=/opt/metis/include \
