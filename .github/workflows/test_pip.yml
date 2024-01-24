@@ -2,7 +2,6 @@ name: Test pip
 
 on:
   push:
-    branches: [ master ]
   pull_request:
     branches: [ master ]
 
@@ -16,31 +15,32 @@ jobs:
         os: [ubuntu-latest]
         python-version: [3.11]
     steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: install python
+        run: |
+          apt update
+          apt-get -y install python3-dev python3-venv python3-pybind11
       - name: Clone w/ submodules
         uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Update pip and setup venv
-        run: python -m pip install --upgrade pip && python -m venv ~/env
+        run: python3 -m pip install --upgrade pip && python3 -m venv ~/env
              #&& . ~/env/bin/activate && echo PATH=$PATH >> $GITHUB_ENV
       - name: Debug info Python
         run: |
-          which python
-          python --version
-          pip --version
+          which python3
+          python3 --version
+          pip3 --version
           echo $PATH
       - name: Install pytest etc
-        run: . ~/env/bin/activate && python -m pip install -r ./bindings/python/requirements-test.txt
+        run: . ~/env/bin/activate && python3 -m pip install -r ./bindings/python/requirements-test.txt
       - name: Build and install ghex using pip
-        run: . ~/env/bin/activate && CMAKE_ARGS="-DMPIEXEC_PREFLAGS=--oversubscribe -DGHEX_USE_GPU=OFF" python -m pip install ./bindings/python
+        run: . ~/env/bin/activate && CMAKE_ARGS="-DMPIEXEC_PREFLAGS=--oversubscribe -DGHEX_USE_GPU=OFF" python3 -m pip install ./bindings/python
       - name: Run Python tests
         run: |
           export SHLVL=1
           export OMPI_ALLOW_RUN_AS_ROOT=1
           export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
           . ~/env/bin/activate
-          python -m pytest -s ./test/bindings/python/
-          mpirun --oversubscribe -np 4 python -m pytest -s --with-mpi ./test/bindings/python/
+          python3 -m pytest -s ./test/bindings/python/
+          mpirun --oversubscribe -np 4 python3 -m pytest -s --with-mpi ./test/bindings/python/
