@@ -44,22 +44,9 @@ PYBIND11_MODULE(_pyghex, m)
 {
     m.doc() = "pybind11 ghex bindings"; // optional module docstring
 
-    //m.def_submodule("util")
-    //    .def("hash_str", [] (const std::string& val) { return std::hash<std::string>()(val); })
-    //    .def("mpi_library_version", [] () {
-    //        int resultlen;
-    //        char version[MPI_MAX_LIBRARY_VERSION_STRING];
-    //        MPI_Get_library_version(version, &resultlen);
-    //        return std::string(version);
-    //    })
-    //    ;
-
     pyghex::register_config(m);
     pyghex::register_mpi(m);
     pyghex::register_context(m);
-
-    //auto structured = m.def_submodule("structured");
-    //auto regular = structured.def_submodule("regular");
 
     pyghex::structured::regular::register_domain_descriptor(m);
     pyghex::structured::regular::register_halo_generator(m);

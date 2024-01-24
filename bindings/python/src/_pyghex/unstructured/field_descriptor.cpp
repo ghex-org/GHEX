@@ -10,16 +10,13 @@
 #include <vector>
 #include <sstream>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
 #include <gridtools/common/for_each.hpp>
 
 #include <ghex/buffer_info.hpp>
 #include <ghex/unstructured/grid.hpp>
 #include <ghex/unstructured/pattern.hpp>
 
-#include <util/demangle.hpp>
+#include <register_class.hpp>
 #include <unstructured/field_descriptor.hpp>
 
 namespace pyghex
@@ -125,8 +122,10 @@ register_field_descriptor(pybind11::module& m)
             using pattern_type = ghex::pattern<grid_type, domain_id_type>;
             using buffer_info_type = ghex::buffer_info<pattern_type, arch_type, type>;
 
-            auto type_name = util::demangle<type>();
-            pybind11::class_<type>(m, type_name.c_str())
+            auto _field_descriptor = register_class<type>(m);
+            /*auto _buffer_info = */register_class<buffer_info_type>(m);
+
+            _field_descriptor
                 .def(pybind11::init(
                          [](const domain_descriptor_type& dom, pybind11::object& b)
                          {
@@ -158,14 +157,7 @@ register_field_descriptor(pybind11::module& m)
 
                              return type{dom, static_cast<T*>(info.ptr), levels};
                          }),
-                    pybind11::keep_alive<0, 2>())
-                .def_property_readonly_static("__cpp_type__",
-                    [type_name](const pybind11::object&) { return type_name; });
-
-            auto buffer_info_name = util::demangle<buffer_info_type>();
-            pybind11::class_<buffer_info_type>(m, buffer_info_name.c_str())
-                .def_property_readonly_static("__cpp_type__",
-                    [buffer_info_name](const pybind11::object&) { return buffer_info_name; });
+                    pybind11::keep_alive<0, 2>());
         });
 }
 

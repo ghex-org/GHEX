@@ -10,7 +10,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from ghex.bind import make_pattern_regular as _make_pattern_regular
+from ghex.pyghex import make_pattern_regular as _make_pattern_regular
 from ghex.util.cpp_wrapper import unwrap
 
 if TYPE_CHECKING:

@@ -15,16 +15,13 @@
 #include <numeric>
 #include <algorithm>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
 #include <gridtools/common/for_each.hpp>
 
 #include <ghex/buffer_info.hpp>
 #include <ghex/structured/grid.hpp>
 #include <ghex/structured/pattern.hpp>
 
-#include <util/demangle.hpp>
+#include <register_class.hpp>
 #include <structured/regular/field_descriptor.hpp>
 
 namespace pyghex
@@ -125,20 +122,22 @@ register_field_descriptor(pybind11::module& m)
             using namespace std::string_literals;
             using namespace pybind11::literals;
 
-            using type = gridtools::meta::first<decltype(l)>;
-            using T = typename type::value_type;
-            using domain_id_type = typename type::domain_id_type;
-            using domain_descriptor_type = typename type::domain_descriptor_type;
-            using arch_type = typename type::arch_type;
-            using layout_map = typename type::layout_map;
-            using dimension = typename type::dimension;
+            using field_descriptor_type = gridtools::meta::first<decltype(l)>;
+            using T = typename field_descriptor_type::value_type;
+            using domain_id_type = typename field_descriptor_type::domain_id_type;
+            using domain_descriptor_type = typename field_descriptor_type::domain_descriptor_type;
+            using arch_type = typename field_descriptor_type::arch_type;
+            using layout_map = typename field_descriptor_type::layout_map;
+            using dimension = typename field_descriptor_type::dimension;
             using array = std::array<int, dimension::value>;
             using grid_type = ghex::structured::grid::template type<domain_descriptor_type>;
             using pattern_type = ghex::pattern<grid_type, domain_id_type>;
-            using buffer_info_type = ghex::buffer_info<pattern_type, arch_type, type>;
+            using buffer_info_type = ghex::buffer_info<pattern_type, arch_type, field_descriptor_type>;
 
-            auto type_name = util::demangle<type>();
-            pybind11::class_<type>(m, type_name.c_str())
+            auto _field_descriptor = register_class<field_descriptor_type>(m);
+            /*auto _buffer_info =*/ register_class<buffer_info_type>(m);
+
+            _field_descriptor
                 .def(pybind11::init(
                          [](const domain_descriptor_type& dom, pybind11::object& b,
                              const array& offsets, const array& extents)
@@ -167,14 +166,7 @@ register_field_descriptor(pybind11::module& m)
                              return ghex::wrap_field<arch_type, layout_map>(dom,
                                  static_cast<T*>(info.ptr), offsets, extents, info.strides);
                          }),
-                    pybind11::keep_alive<0, 2>())
-                .def_property_readonly_static("__cpp_type__",
-                    [type_name](const pybind11::object&) { return type_name; });
-
-            auto buffer_info_name = util::demangle<buffer_info_type>();
-            pybind11::class_<buffer_info_type>(m, buffer_info_name.c_str())
-                .def_property_readonly_static("__cpp_type__",
-                    [buffer_info_name](const pybind11::object&) { return buffer_info_name; });
+                    pybind11::keep_alive<0, 2>());
         });
 }
 

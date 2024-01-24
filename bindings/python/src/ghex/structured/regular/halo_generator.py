@@ -42,7 +42,7 @@ class HaloGenerator(CppWrapper):
 
         super(HaloGenerator, self).__init__(
             (
-                "ghex::structured::regular::halo_generator",
+                "structured__regular__halo_generator",
                 "int",
                 glob_domain_indices.dim,
             ),

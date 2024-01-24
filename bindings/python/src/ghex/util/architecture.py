@@ -11,5 +11,5 @@ from enum import Enum
 
 
 class Architecture(Enum):
-    CPU = "ghex::cpu"
-    GPU = "ghex::gpu"
+    CPU = "cpu"
+    GPU = "gpu"

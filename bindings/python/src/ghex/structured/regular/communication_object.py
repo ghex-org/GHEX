@@ -10,7 +10,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from ghex.bind import make_co_regular as _make_co_regular
+from ghex.pyghex import make_co_regular as _make_co_regular
 
 if TYPE_CHECKING:
     from ghex.context import context

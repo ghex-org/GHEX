@@ -9,13 +9,11 @@
  */
 #include <array>
 #include <tuple>
-
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <string>
 
 #include <gridtools/common/for_each.hpp>
 
-#include <util/demangle.hpp>
+#include <register_class.hpp>
 #include <structured/regular/domain_descriptor.hpp>
 
 namespace pyghex
@@ -56,8 +54,9 @@ register_domain_descriptor(pybind11::module& m)
             using dimension = typename type::dimension;
             using array = std::array<int, dimension::value>;
 
-            auto type_name = util::demangle<type>();
-            pybind11::class_<type>(m, type_name.c_str())
+            auto _domain_descriptor = register_class<type>(m);
+
+            _domain_descriptor
                 .def(pybind11::init<domain_id_type, array, array>(), "domain_id"_a, "first"_a,
                     "last"_a, "Create a domain descriptor")
                 .def("domain_id", &type::domain_id, "Returns the domain id")
@@ -66,11 +65,7 @@ register_domain_descriptor(pybind11::module& m)
                     "Returns first coordinate")
                 .def(
                     "last", [](const type& d) { return as_tuple(d.last()); },
-                    "Returns last coordinate")
-                .def("__str__", [type_name](const type&) { return type_name; })
-                .def("__repr__", [type_name](const type&) { return type_name; })
-                .def_property_readonly_static("__cpp_type__",
-                    [type_name](const pybind11::object&) { return type_name; });
+                    "Returns last coordinate");
         });
 }
 

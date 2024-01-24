@@ -43,7 +43,7 @@ def make_field_descriptor(
         )
 
     type_spec = (
-        "ghex::unstructured::data_descriptor",
+        "unstructured__data_descriptor",
         arch.value,
         "int",
         "int",

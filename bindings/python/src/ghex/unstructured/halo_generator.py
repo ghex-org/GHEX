@@ -28,11 +28,11 @@ class HaloGenerator(CppWrapper):
     def __init__(self, gids: Optional[ArrayLike] = None) -> None:
         if gids is None:
             super(HaloGenerator, self).__init__(
-                ("ghex::unstructured::halo_generator", "int", "int")
+                ("unstructured__halo_generator", "int", "int")
             )
         else:
             super(HaloGenerator, self).__init__(
-                ("ghex::unstructured::halo_generator", "int", "int"), gids
+                ("unstructured__halo_generator", "int", "int"), gids
             )
 
     @classmethod

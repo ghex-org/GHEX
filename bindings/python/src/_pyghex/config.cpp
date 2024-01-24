@@ -87,9 +87,9 @@ print_config(const pybind11::dict& d)
 void
 register_config(pybind11::module& m)
 {
-    m.def("config", &config, "Get GHEX's configuration.")
-        .def(
-            "print_config", [](const pybind11::dict& d) { return print_config(d); },
+    m
+        .def("config", &config, "Get GHEX's configuration.")
+        .def("print_config", [](const pybind11::dict& d) { return print_config(d); },
             "Print GHEX's configuration.");
 }
 } // namespace pyghex
