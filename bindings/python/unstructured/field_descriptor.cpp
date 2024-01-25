@@ -123,36 +123,38 @@ register_field_descriptor(pybind11::module& m)
             auto type_name = util::demangle<type>();
             pybind11::class_<type>(m, type_name.c_str())
                 .def(pybind11::init(
-                         [](const domain_descriptor_type& dom, pybind11::object& b)
-                         {
-                             pybind11::buffer_info info = get_buffer_info<arch_type>(b);
+                    [](const domain_descriptor_type& dom, pybind11::object& b)
+                    {
+                        pybind11::buffer_info info = get_buffer_info<arch_type>(b);
+                        if (info.format != pybind11::format_descriptor<T>::format())
+                        {
+                            std::stringstream error;
+                            error << "Incompatible format: expected a " << typeid(T).name()
+                                  << " buffer.";
+                            throw pybind11::type_error(error.str());
+                        }
+                        if (info.ndim > 2u)
+                        {
+                            throw pybind11::type_error("field has too many dimensions");
+                        }
+                        if (static_cast<std::size_t>(info.shape[0]) != dom.size())
+                        {
+                            throw pybind11::type_error(
+                                "field's first dimension must match the size of the domain");
+                        }
+                        bool levels_first = true;
+                        if (info.ndim == 2 && info.strides[1] != sizeof(T))
+                        {
+                            if (info.strides[0] != sizeof(T))
+                                throw pybind11::type_error(
+                                    "field's strides are not compatible with GHEX");
+                            levels_first = false;
+                        }
+                        std::size_t levels =
+                            (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
 
-                             if (info.format != pybind11::format_descriptor<T>::format())
-                             {
-                                 std::stringstream error;
-                                 error << "Incompatible format: expected a " << typeid(T).name()
-                                       << " buffer.";
-                                 throw pybind11::type_error(error.str());
-                             }
-                             if (info.ndim > 2u)
-                             {
-                                 throw pybind11::type_error("field has too many dimensions");
-                             }
-                             if (static_cast<std::size_t>(info.shape[0]) != dom.size())
-                             {
-                                 throw pybind11::type_error(
-                                     "field's first dimension must match the size of the domain");
-                             }
-                             if (info.ndim == 2 && info.strides[1] != sizeof(T))
-                             {
-                                 throw pybind11::type_error(
-                                     "field's levels must be contiguous in memory");
-                             }
-                             std::size_t levels =
-                                 (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
-
-                             return type{dom, static_cast<T*>(info.ptr), levels};
-                         }),
+                        return type{dom, static_cast<T*>(info.ptr), levels, levels_first};
+                    }),
                     pybind11::keep_alive<0, 2>())
                 .def_property_readonly_static("__cpp_type__",
                     [type_name](const pybind11::object&) { return type_name; });
