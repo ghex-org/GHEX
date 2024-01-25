@@ -285,6 +285,10 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     std::size_t    m_domain_size;
     std::size_t    m_levels;
     value_type*    m_values;
+    bool           m_levels_first;
+    std::size_t    m_index_stride;
+    std::size_t    m_level_stride;
+
 
   public:
     // constructors
@@ -293,13 +297,18 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @tparam Container templated container type for the field to be wrapped; data are assumed to
       * be contiguous in memory
       * @param domain local domain instance
-      * @param field field to be wrapped*/
+      * @param field field to be wrapped
+      * @param levels number of levels
+      * @param levels_first level stride*/
     template<class Container>
-    data_descriptor(const domain_descriptor_type& domain, Container& field, std::size_t levels = 1u)
+    data_descriptor(const domain_descriptor_type& domain, Container& field, std::size_t levels = 1u, bool levels_first = true)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{levels}
     , m_values{&(field[0])}
+    , m_levels_first{levels_first}
+    , m_index_stride{levels_first ? m_levels : 1u}
+    , m_level_stride{levels_first ? 1u : m_domain_size}
     {
         assert(field.size() == (domain.size() * m_levels));
     }
@@ -307,29 +316,36 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     /** @brief constructs a CPU data descriptor using pointer and size for the field memory
       * @param domain local domain instance
       * @param field_ptr pointer to the field to be wrapped
-      * @param size size of the field to be wrapped*/
+      * @param levels number of levels
+      * @param levels_first stride of levels*/
     data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr,
-        std::size_t levels = 1u)
+        std::size_t levels = 1u, bool levels_first = true)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{levels}
     , m_values{field_ptr}
+    , m_levels_first{levels_first}
+    , m_index_stride{levels_first ? m_levels : 1u}
+    , m_level_stride{levels_first ? 1u : m_domain_size}
     {
     }
 
     /** @brief constructs a CPU data descriptor using domain parameters and pointer for the field memory
       * @param domain_id local domain id
       * @param domain_size domain size
-      * @param levels domain / field vertical levels
-      * @param field_ptr pointer to the field to be wrapped*/
+      * @param field_ptr pointer to the field to be wrapped
+      * @param levels number of levels
+      * @param levels_first stride of levels*/
     data_descriptor(domain_id_type domain_id, std::size_t domain_size, value_type* field_ptr,
-        std::size_t levels = 1u)
+        std::size_t levels = 1u, bool levels_first = true)
     : m_domain_id{domain_id}
     , m_domain_size{domain_size}
     , m_levels{levels}
     , m_values{field_ptr}
+    , m_levels_first{levels_first}
+    , m_index_stride{levels_first ? m_levels : 1u}
+    , m_level_stride{levels_first ? 1u : m_domain_size}
     {
-        // TO DO: no checks on the size
     }
 
     // member functions
@@ -342,19 +358,19 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
     value_type* get_address_at(const std::size_t local_v, const std::size_t level)
     {
-        return m_values + (local_v * m_levels + level);
+        return m_values + (local_v * m_index_stride + level * m_level_stride);
     }
 
     /** @brief single access operator, used by multiple access set function*/
     value_type& operator()(const std::size_t local_v, const std::size_t level)
     {
-        return m_values[local_v * m_levels + level];
+        return m_values[local_v * m_index_stride + level * m_level_stride];
     }
 
     /** @brief single access operator (const version), used by multiple access get function*/
     const value_type& operator()(const std::size_t local_v, const std::size_t level) const
     {
-        return m_values[local_v * m_levels + level];
+        return m_values[local_v * m_index_stride + level * m_level_stride];
     }
 
     /** @brief multiple access set function, needed by GHEX to perform the unpacking
@@ -364,13 +380,28 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     template<typename IterationSpace>
     void set(const IterationSpace& is, const byte_t* buffer)
     {
-        for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */
+        if (m_levels_first)
+        {
+            for (std::size_t local_v : is.local_indices())
+            {
+                for (std::size_t level = 0; level < m_levels; ++level)
+                {
+                    std::memcpy(&((*this)(local_v, level)), buffer, sizeof(value_type));
+                    buffer += sizeof(value_type);
+                }
+            }
+        }
+        else
         {
             for (std::size_t level = 0; level < m_levels; ++level)
             {
-                std::memcpy(&((*this)(local_v, level)), buffer, sizeof(value_type));
-                buffer += sizeof(value_type);
+                for (std::size_t local_v : is.local_indices())
+                {
+                    std::memcpy(&((*this)(local_v, level)), buffer, sizeof(value_type));
+                    buffer += sizeof(value_type);
+                }
             }
+
         }
     }
 
@@ -381,12 +412,26 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     template<typename IterationSpace>
     void get(const IterationSpace& is, byte_t* buffer) const
     {
-        for (std::size_t local_v : is.local_indices()) /* TO DO: explicit cast? */
+        if (m_levels_first)
+        {
+            for (std::size_t local_v : is.local_indices())
+            {
+                for (std::size_t level = 0; level < m_levels; ++level)
+                {
+                    std::memcpy(buffer, &((*this)(local_v, level)), sizeof(value_type));
+                    buffer += sizeof(value_type);
+                }
+            }
+        }
+        else
         {
             for (std::size_t level = 0; level < m_levels; ++level)
             {
-                std::memcpy(buffer, &((*this)(local_v, level)), sizeof(value_type));
-                buffer += sizeof(value_type);
+                for (std::size_t local_v : is.local_indices())
+                {
+                    std::memcpy(buffer, &((*this)(local_v, level)), sizeof(value_type));
+                    buffer += sizeof(value_type);
+                }
             }
         }
     }
@@ -410,15 +455,17 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
 template<typename T>
 __global__ void
-pack_kernel(const T* values, const std::size_t local_indices_size, const std::size_t* local_indices,
-    const std::size_t levels, T* buffer)
+pack_kernel(const T* values, const std::size_t local_indices_size,
+    const std::size_t* local_indices, const std::size_t levels, T* buffer
+    const std::size_t m_index_stride, const std::size_t m_level_stride,
+    const std::size_t buffer_index_stride, const std::size_t buffer_level_stride)
 {
-    std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
+    const std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx < local_indices_size)
     {
         for (std::size_t level = 0; level < levels; ++level)
         {
-            buffer[idx * levels + level] = values[local_indices[idx] * levels + level];
+            buffer[idx * buffer_index_stride + level * buffer_level_stride] = values[local_indices[idx] * index_stride + level * level_stride];
         }
     }
 }
@@ -426,14 +473,16 @@ pack_kernel(const T* values, const std::size_t local_indices_size, const std::si
 template<typename T>
 __global__ void
 unpack_kernel(const T* buffer, const std::size_t local_indices_size,
-    const std::size_t* local_indices, const std::size_t levels, T* values)
+    const std::size_t* local_indices, const std::size_t levels, T* values,
+    const std::size_t m_index_stride, const std::size_t m_level_stride,
+    const std::size_t buffer_index_stride, const std::size_t buffer_level_stride)
 {
-    std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
+    const std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx < local_indices_size)
     {
         for (std::size_t level = 0; level < levels; ++level)
         {
-            values[local_indices[idx] * levels + level] = buffer[idx * levels + level];
+            values[local_indices[idx] * index_stride + level * level_stride] = buffer[idx * buffer_index_stride + level * buffer_level_stride];
         }
     }
 }
@@ -456,20 +505,28 @@ class data_descriptor<gpu, DomainId, Idx, T>
     std::size_t    m_domain_size;
     std::size_t    m_levels;
     value_type*    m_values;
+    bool           m_levels_first;
+    std::size_t    m_index_stride;
+    std::size_t    m_level_stride;
 
   public:
     // constructors
     /** @brief constructs a GPU data descriptor
       * @param domain local domain instance
       * @param field data pointer, assumed to point to a contiguous memory region of size = domain size * n levels
+      * @param levels number of levels
+      * @param levels_first level stride
       * @param device_id device id*/
     data_descriptor(const domain_descriptor_type& domain, value_type* field,
-        std::size_t levels = 1u, device_id_type device_id = arch_traits<arch_type>::current_id())
+        std::size_t levels = 1u, bool levels_first = true, device_id_type device_id = arch_traits<arch_type>::current_id())
     : m_device_id{device_id}
     , m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{levels}
     , m_values{field}
+    , m_levels_first{levels_first}
+    , m_index_stride{levels_first ? m_levels : 1u}
+    , m_level_stride{levels_first ? 1u : m_domain_size}
     {
     }
 
@@ -482,21 +539,7 @@ class data_descriptor<gpu, DomainId, Idx, T>
 
     value_type* get_address_at(const std::size_t local_v, const std::size_t level)
     {
-        return m_values + (local_v * m_levels + level);
-    }
-
-    /** @brief single access operator
-                 * used from the host to get data pointers, e.g.: &(data(i, j))*/ // TO DO: find better solution
-    value_type& operator()(const std::size_t local_v, const std::size_t level)
-    {
-        return m_values[local_v * m_levels + level];
-    }
-
-    /** @brief single access operator (const version)
-                 * used from the host to get data pointers, e.g.: &(data(i, j))*/ // TO DO: find better solution
-    const value_type& operator()(const std::size_t local_v, const std::size_t level) const
-    {
-        return m_values[local_v * m_levels + level];
+        return m_values + (local_v * m_index_stride + level * m_level_stride);
     }
 
     template<typename IndexContainer>
@@ -504,12 +547,15 @@ class data_descriptor<gpu, DomainId, Idx, T>
     {
         for (const auto& is : c)
         {
-            int n_blocks =
+            const int n_blocks =
                 static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
                                            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
+            const std::size_t buffer_index_stride = m_levels_first ? m_levels : 1u;
+            const std::size_t buffer_level_stride = m_levels_first ? 1u : is.local_indices.size();
             pack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
                 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
-                is.local_indices().size(), &(is.local_indices()[0]), m_levels, buffer);
+                is.local_indices().size(), is.local_indices().data(), m_levels, buffer,
+                m_index_stride, m_level_stride, buffer_index_stride, buffer_level_stride);
         }
     }
 
@@ -518,12 +564,15 @@ class data_descriptor<gpu, DomainId, Idx, T>
     {
         for (const auto& is : c)
         {
-            int n_blocks =
+            const int n_blocks =
                 static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
                                            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
+            const std::size_t buffer_index_stride = m_levels_first ? m_levels : 1u;
+            const std::size_t buffer_level_stride = m_levels_first ? 1u : is.local_indices.size();
             unpack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
                 0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer,
-                is.local_indices().size(), &(is.local_indices()[0]), m_levels, m_values);
+                is.local_indices().size(), is.local_indices().data(), m_levels, m_values,
+                m_index_stride, m_level_stride, buffer_index_stride, buffer_level_stride);
         }
     }
 };
