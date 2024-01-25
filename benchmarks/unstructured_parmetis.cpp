@@ -681,7 +681,7 @@ TEST(unstructured_parmetis, receive_type) {
     initialize_field(d, f_cpu, d_id_offset);
     idx_t* f_gpu = gpu_alloc.allocate(d.size() * d.levels());
     GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_gpu, f_cpu.data(), d.size() * d.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
-    data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, device_id};
+    data_descriptor_gpu_type<idx_t> data_gpu{d, f_gpu, 1, true, device_id};
 
     // exchange
     for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -719,7 +719,7 @@ TEST(unstructured_parmetis, receive_type) {
     initialize_field(d_ord, f_ord_cpu, d_id_offset);
     idx_t* f_ord_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
     GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_ord_gpu, f_ord_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
-    data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, device_id};
+    data_descriptor_gpu_type<idx_t> data_ord_gpu{d_ord, f_ord_gpu, 1, true, device_id};
 
     // exchange
     for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up
@@ -754,7 +754,7 @@ TEST(unstructured_parmetis, receive_type) {
     initialize_field(d_ord, f_ipr_cpu, d_id_offset);
     idx_t* f_ipr_gpu = gpu_alloc.allocate(d_ord.size() * d_ord.levels());
     GHEX_CHECK_CUDA_RESULT(cudaMemcpy(f_ipr_gpu, f_ipr_cpu.data(), d_ord.size() * d_ord.levels() * sizeof(idx_t), cudaMemcpyHostToDevice));
-    data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, device_id};
+    data_descriptor_gpu_type<idx_t> data_ipr_gpu{d_ord, f_ipr_gpu, 1, true, device_id};
 
     // exchange
     for (int i = 0; i < n_iters_warm_up; ++i) { // warm-up

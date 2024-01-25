@@ -35,7 +35,7 @@ void test_pattern_setup(ghex::context& ctxt);
 void test_pattern_setup_oversubscribe(ghex::context& ctxt);
 void test_pattern_setup_oversubscribe_asymm(ghex::context& ctxt);
 
-void test_data_descriptor(ghex::context& ctxt);
+void test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first);
 void test_data_descriptor_oversubscribe(ghex::context& ctxt);
 void test_data_descriptor_threads(ghex::context& ctxt);
 
@@ -67,7 +67,13 @@ TEST_F(mpi_test_fixture, data_descriptor)
 {
     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
-    if (world_size == 4) { test_data_descriptor(ctxt); }
+    if (world_size == 4)
+    {
+        test_data_descriptor(ctxt, 1, true);
+        test_data_descriptor(ctxt, 3, true);
+        test_data_descriptor(ctxt, 1, false);
+        test_data_descriptor(ctxt, 3, false);
+    }
     else if (world_size == 2)
     {
         test_data_descriptor_oversubscribe(ctxt);
@@ -249,7 +255,7 @@ test_pattern_setup_oversubscribe_asymm(ghex::context& ctxt)
 
 /** @brief Test data descriptor concept*/
 void
-test_data_descriptor(ghex::context& ctxt)
+test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 {
     // domain
     std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};
@@ -265,10 +271,10 @@ test_data_descriptor(ghex::context& ctxt)
     auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
 
     // application data
-    auto&                         d = local_domains[0];
-    ghex::test::util::memory<int> field(d.size(), 0);
-    initialize_data(d, field);
-    data_descriptor_cpu_int_type data{d, field};
+    auto& d = local_domains[0];
+    ghex::test::util::memory<int> field(d.size()*levels, 0);
+    initialize_data(d, field, levels, levels_first);
+    data_descriptor_cpu_int_type data{d, field, levels, levels_first};
 
     EXPECT_NO_THROW(co.exchange(patterns(data)).wait());
 
@@ -276,13 +282,13 @@ test_data_descriptor(ghex::context& ctxt)
     h.wait();
 
     // check exchanged data
-    check_exchanged_data(d, field, patterns[0]);
+    check_exchanged_data(d, field, patterns[0], levels, levels_first);
 
 #ifdef GHEX_CUDACC
     // application data
-    initialize_data(d, field);
+    initialize_data(d, field, levels, levels_first);
     field.clone_to_device();
-    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 0};
+    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), levels, levels_first, 0};
 
     EXPECT_NO_THROW(co.exchange(patterns(data_gpu)).wait());
 
@@ -291,7 +297,7 @@ test_data_descriptor(ghex::context& ctxt)
 
     // check exchanged data
     field.clone_to_host();
-    check_exchanged_data(d, field, patterns[0]);
+    check_exchanged_data(d, field, patterns[0], levels, levels_first);
 #endif
 }
 
@@ -407,7 +413,7 @@ test_in_place_receive(ghex::context& ctxt)
     // application data
     initialize_data(d, field);
     field.clone_to_device();
-    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 0};
+    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 1, true, 0};
 
     // communication object
     auto co_gpu = ghex::unstructured::make_communication_object_ipr(ctxt, patterns(data_gpu));
