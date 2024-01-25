@@ -456,7 +456,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 template<typename T>
 __global__ void
 pack_kernel(const T* values, const std::size_t local_indices_size,
-    const std::size_t* local_indices, const std::size_t levels, T* buffer
+    const std::size_t* local_indices, const std::size_t levels, T* buffer,
     const std::size_t m_index_stride, const std::size_t m_level_stride,
     const std::size_t buffer_index_stride, const std::size_t buffer_level_stride)
 {
