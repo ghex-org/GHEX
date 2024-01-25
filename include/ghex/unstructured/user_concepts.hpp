@@ -457,7 +457,7 @@ template<typename T>
 __global__ void
 pack_kernel(const T* values, const std::size_t local_indices_size,
     const std::size_t* local_indices, const std::size_t levels, T* buffer,
-    const std::size_t m_index_stride, const std::size_t m_level_stride,
+    const std::size_t index_stride, const std::size_t level_stride,
     const std::size_t buffer_index_stride, const std::size_t buffer_level_stride)
 {
     const std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -474,7 +474,7 @@ template<typename T>
 __global__ void
 unpack_kernel(const T* buffer, const std::size_t local_indices_size,
     const std::size_t* local_indices, const std::size_t levels, T* values,
-    const std::size_t m_index_stride, const std::size_t m_level_stride,
+    const std::size_t index_stride, const std::size_t level_stride,
     const std::size_t buffer_index_stride, const std::size_t buffer_level_stride)
 {
     const std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
