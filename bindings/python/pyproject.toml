@@ -1,6 +1,13 @@
 [build-system]
 build-backend = 'scikit_build_core.build'
-requires = ['cmake', 'mpi4py>=3.1', 'pybind11>=2.6', 'scikit-build-core', 'wheel']
+requires = [
+    'cmake',
+    'mpi4py>=3.1',
+    'pybind11>=2.6',
+    #'scikit-build-core',
+    'scikit-build-core@git+https://github.com/scikit-build/scikit-build-core#egg=37ba268d04ab0816816bb8c7b0b1bc3388f91308',
+    'wheel',
+]
 
 [project]
 dependencies = ['mpi4py>=3.1', 'numpy>=1.21']
@@ -21,7 +28,7 @@ test = ['pytest', 'pytest-mpi']
 [tool.scikit-build]
 logging.level = 'INFO'
 minimum-version = '0.5'
-cmake.minimum-version = '3.20'
+cmake.minimum-version = '3.21'
 cmake.verbose = true
 cmake.source-dir = "../.."
 cmake.build-type = "Release"
@@ -36,6 +43,12 @@ wheel.expand-macos-universal-tags = true
 wheel.install-dir = "ghex"
 wheel.packages = []
 wheel.license-files = []
+
+[tool.scikit-build.cmake.define]
+GHEX_USE_GPU = { env = "GHEX_USE_GPU", default = "OFF" }
+GHEX_GPU_TYPE = { env = "GHEX_GPU_TYPE", default = "AUTO" }
+#CMAKE_CUDA_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "60:70;75;80;90" }
+#CMAKE_HIP_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "gfx906;gfx900" }
 
 [tool.black]
 exclude = '''
@@ -79,15 +92,14 @@ warn_unused_ignores = true
 ###################
 
 # for cuda aware build:
-# pip install bindings/python \
-#     --config-settings=cmake.define.GHEX_USE_GPU="ON" \
-#     --config-settings=cmake.define.GHEX_GPU_TYPE="NVIDIA"
+# export GHEX_USE_GPU=ON
+# export GHEX_GPU_TYPE=NVIDIA
+# pip install bindings/python
 
 # for hip aware build:
-# pip install bindings/python \
-#     --config-settings=cmake.define.GHEX_USE_GPU="ON" \
-#     --config-settings=cmake.define.GHEX_GPU_TYPE="AMD" \
-#     --config-settings=cmake.define.AMDGPU_TARGETS="gfx900"
+# export GHEX_USE_GPU=ON
+# export GHEX_GPU_TYPE=AMD
+# pip install bindings/python
 
 # from github:
 #pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bindings/python'

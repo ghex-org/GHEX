@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 
 if (NOT ${CMAKE_VERSION} VERSION_LESS 3.27)
     # new in 3.27: additionally use uppercase <PACKAGENAME>_ROOT

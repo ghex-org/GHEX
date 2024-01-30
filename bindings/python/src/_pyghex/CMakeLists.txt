@@ -29,25 +29,10 @@ target_include_directories(pyghex_obj PRIVATE
 )
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
-link_device_runtime(pyghex_obj)
 target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
 # Add GPU support
-if (GHEX_USE_GPU)
-    if (ghex_gpu_mode STREQUAL "cuda")
-        set_source_files_properties(${pyghex_source} PROPERTIES LANGUAGE CUDA)
-        #if (${CMAKE_VERSION} VERSION_LESS "3.24.0" OR GHEX_GPU_ARCH)
-        #    set_target_properties(pyghex_obj PROPERTIES CUDA_ARCHITECTURES ${GHEX_GPU_ARCH})
-        #else()
-        #    set_target_properties(pyghex_obj PROPERTIES CUDA_ARCHITECTURES native)
-        #endif()
-    elseif (ghex_gpu_mode STREQUAL "hip")
-        find_package(hip REQUIRED)
-        target_link_libraries(pyghex_obj PRIVATE hip::device)
-        # note(stubbiali): the following workaround for clang-hip seems to be superfluous
-        # target_compile_options(pyghex_obj PRIVATE $<BUILD_INTERFACE:-std=c++14>)
-    endif()
-endif()
+compile_as_cuda(${pyghex_source})
 
 # Add support for mpi4py if available.
 find_python_module(mpi4py)
