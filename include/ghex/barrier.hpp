@@ -27,7 +27,6 @@ class barrier
     {
     }
 
-    barrier(const barrier&) noexcept = default;
     barrier(barrier&&) noexcept = default;
 
   public: // public member functions

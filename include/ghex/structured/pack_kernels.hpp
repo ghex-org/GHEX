@@ -143,7 +143,6 @@ template<typename Layout, typename PackIterationSpace>
 __global__ void
 pack_kernel(PackIterationSpace pack_is, unsigned int num_elements)
 {
-    using value_type = typename PackIterationSpace::value_t;
     using coordinate_type = typename PackIterationSpace::coordinate_t;
     static constexpr auto D = coordinate_type::size();
     const unsigned int    index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -167,7 +166,6 @@ template<typename Layout, typename UnPackIterationSpace>
 __global__ void
 unpack_kernel(UnPackIterationSpace unpack_is, unsigned int num_elements)
 {
-    using value_type = typename UnPackIterationSpace::value_t;
     using coordinate_type = typename UnPackIterationSpace::coordinate_t;
     static constexpr auto D = coordinate_type::size();
     const unsigned int    index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -198,7 +196,6 @@ struct serialization<ghex::gpu, LMap>
     template<typename PackIterationSpace>
     static void pack(PackIterationSpace&& pack_is, void* arg)
     {
-        using coordinate_type = typename PackIterationSpace::coordinate_t;
         auto              stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
         const std::size_t num_threads =
             (pack_is.m_buffer_desc.m_size + elements_per_thread - 1) / elements_per_thread;
@@ -209,7 +206,6 @@ struct serialization<ghex::gpu, LMap>
     template<typename UnPackIterationSpace>
     static void unpack(UnPackIterationSpace&& unpack_is, void* arg)
     {
-        using coordinate_type = typename UnPackIterationSpace::coordinate_t;
         auto              stream_ptr = reinterpret_cast<cudaStream_t*>(arg);
         const std::size_t num_threads =
             (unpack_is.m_buffer_desc.m_size + elements_per_thread - 1) / elements_per_thread;

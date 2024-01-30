@@ -92,7 +92,6 @@ __global__ void
 pack_kernel_u(device::kernel_argument<PackIterationSpace, N> args)
 {
     using layout_t = typename PackIterationSpace::layout_map;
-    using value_type = typename PackIterationSpace::value_t;
     using coordinate_type = typename PackIterationSpace::coordinate_t;
     static constexpr auto D = coordinate_type::size();
     const int             thread_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -176,10 +175,6 @@ struct packer<gpu>
     static void pack_u(Map& map, Requests& send_reqs, Communicator& comm)
     {
         using send_buffer_type = typename Map::send_buffer_type;
-        using field_info_type = typename send_buffer_type::field_info_type;
-        using index_container_type = typename field_info_type::index_container_type;
-        using dimension = typename index_container_type::value_type::dimension;
-        using array_t = gridtools::array<int, dimension::value>;
         using arg_t = typename FieldType::pack_iteration_space;
         constexpr int block_size = 128;
 

@@ -496,7 +496,7 @@ class bulk_communication_object
                 // loop over halos and set up source ranges
                 for (auto h_it = p.send_halos().begin(); h_it != p.send_halos().end(); ++h_it)
                 {
-                    int q = 0;
+                    [[maybe_unused]] int q = 0;
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
                         const auto& c = *it;
@@ -516,7 +516,7 @@ class bulk_communication_object
                 // loop over halos and set up target
                 for (auto h_it = p.recv_halos().begin(); h_it != p.recv_halos().end(); ++h_it)
                 {
-                    int q = 0;
+                    [[maybe_unused]] int q = 0;
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
                         const auto local =

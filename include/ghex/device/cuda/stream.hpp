@@ -28,8 +28,8 @@ struct stream
 
     stream()
     {
-        GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking));
-        GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming));
+        GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking))
+        GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming))
     }
 
     stream(const stream&) = delete;
@@ -41,8 +41,8 @@ struct stream
     {
         if (!m_moved)
         {
-            cudaStreamDestroy(m_stream);
-            cudaEventDestroy(m_event);
+            GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaStreamDestroy(m_stream))
+            GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(m_event))
         }
     }
 
@@ -55,9 +55,9 @@ struct stream
 
     void sync()
     {
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, m_stream));
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, m_stream))
         // busy wait here
-        GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
+        GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event))
     }
 };
 } // namespace device

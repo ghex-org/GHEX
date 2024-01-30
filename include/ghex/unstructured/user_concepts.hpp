@@ -209,10 +209,6 @@ class halo_generator
         /** @brief size of the halo */
         std::size_t               size() const noexcept { return m_local_indices.size(); }
         const local_indices_type& local_indices() const noexcept { return m_local_indices; }
-        void                      push_back(const global_index_type v, const local_index_type idx)
-        {
-            m_local_indices.push_back(idx);
-        }
 
         // print
         /** @brief print */

@@ -110,7 +110,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t,
 
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<cpu_to_gpu<SourceField, TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<TargetField>& t,
     rma::locality
 #ifdef GHEX_CUDACC
     //#ifdef GHEX_USE_GPU
@@ -134,7 +134,7 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t,
 
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<gpu_to_cpu<SourceField, TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<TargetField>& t,
     rma::locality
 #ifdef GHEX_USE_XPMEM
         loc
@@ -222,7 +222,7 @@ put_device_to_device_kernel(SourceRange sr, TargetRange tr)
 
 template<typename SourceField, typename TargetField>
 inline std::enable_if_t<gpu_to_gpu<SourceField, TargetField>::value>
-put(rma_range<SourceField>& s, rma_range<TargetField>& t,
+put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<TargetField>& t,
     rma::locality /*loc*/
 #ifdef GHEX_CUDACC
     //#ifdef GHEX_USE_GPU
