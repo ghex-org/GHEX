@@ -143,17 +143,33 @@ register_field_descriptor(pybind11::module& m)
                                 "field's first dimension must match the size of the domain");
                         }
                         bool levels_first = true;
+                        std::size_t outer_strides = 0u;
                         if (info.ndim == 2 && info.strides[1] != sizeof(T))
                         {
-                            if (info.strides[0] != sizeof(T))
-                                throw pybind11::type_error(
-                                    "field's strides are not compatible with GHEX");
                             levels_first = false;
+                            if (info.strides[0] != sizeof(T))
+                                throw pybind11::type_error("field's strides are not compatible with GHEX");
+                            outer_strides = info.strides[1] / sizeof(T);
+                            if (outer_strides*sizeof(T) != (std::size_t)(info.strides[1]))
+                                throw pybind11::type_error("field's strides are not compatible with GHEX");
+                        }
+                        else if (info.ndim == 2)
+                        {
+                            if (info.strides[1] != sizeof(T))
+                                throw pybind11::type_error("field's strides are not compatible with GHEX");
+                            outer_strides = info.strides[0] / sizeof(T);
+                            if (outer_strides*sizeof(T) != (std::size_t)(info.strides[0]))
+                                throw pybind11::type_error("field's strides are not compatible with GHEX");
+                        }
+                        else
+                        {
+                            if (info.strides[0] != sizeof(T))
+                                throw pybind11::type_error("field's strides are not compatible with GHEX");
                         }
                         std::size_t levels =
                             (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
 
-                        return type{dom, static_cast<T*>(info.ptr), levels, levels_first};
+                        return type{dom, static_cast<T*>(info.ptr), levels, levels_first, outer_strides};
                     }),
                     pybind11::keep_alive<0, 2>())
                 .def_property_readonly_static("__cpp_type__",
