@@ -288,7 +288,7 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
     // application data
     initialize_data(d, field, levels, levels_first);
     field.clone_to_device();
-    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), levels, levels_first, 0};
+    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), levels, levels_first, 0, 0};
 
     EXPECT_NO_THROW(co.exchange(patterns(data_gpu)).wait());
 
@@ -413,7 +413,7 @@ test_in_place_receive(ghex::context& ctxt)
     // application data
     initialize_data(d, field);
     field.clone_to_device();
-    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 1, true, 0};
+    data_descriptor_gpu_int_type data_gpu{d, field.device_data(), 1, true, 0, 0};
 
     // communication object
     auto co_gpu = ghex::unstructured::make_communication_object_ipr(ctxt, patterns(data_gpu));
