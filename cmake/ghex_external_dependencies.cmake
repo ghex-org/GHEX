@@ -136,27 +136,27 @@ cmake_dependent_option(GHEX_USE_BUNDLED_GTEST "Use bundled googletest lib." ON
 if (GHEX_WITH_TESTING)
     if(GHEX_USE_BUNDLED_GTEST)
         add_external_cmake_project(
-            NAME googletest
+            NAME googletest-ghex
             PATH ext/googletest
-            INTERFACE_NAME ext-gtest
+            INTERFACE_NAME ext-gtest-ghex
             LIBS libgtest.a libgtest_main.a
             CMAKE_ARGS
                 "-DCMAKE_BUILD_TYPE=release"
                 "-DBUILD_SHARED_LIBS=OFF"
                 "-DBUILD_GMOCK=OFF")
         # on some systems we need link explicitly against threads
-        if (TARGET ext-gtest)
+        if (TARGET ext-gtest-ghex)
             find_package (Threads)
-            target_link_libraries(ext-gtest INTERFACE Threads::Threads)
+            target_link_libraries(ext-gtest-ghex INTERFACE Threads::Threads)
         endif()
     else()
         # Use system provided google test
         find_package(GTest REQUIRED)
-        add_library(ext-gtest INTERFACE)
+        add_library(ext-gtest-ghex INTERFACE)
         if (${CMAKE_VERSION} VERSION_LESS "3.20.0")
-            target_link_libraries(ext-gtest INTERFACE GTest::GTest GTest::Main)
+            target_link_libraries(ext-gtest-ghex INTERFACE GTest::GTest GTest::Main)
         else()
-            target_link_libraries(ext-gtest INTERFACE GTest::gtest GTest::gtest_main)
+            target_link_libraries(ext-gtest-ghex INTERFACE GTest::gtest GTest::gtest_main)
         endif()
     endif()
 endif()
