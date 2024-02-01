@@ -1,6 +1,4 @@
 
-include(ghex_reg_test)
-
 ghex_compile_test(cubed_sphere_transform)
 ghex_reg_test(cubed_sphere_transform)
 

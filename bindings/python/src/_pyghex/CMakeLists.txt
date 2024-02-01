@@ -1,5 +1,3 @@
-include(ghex_copy_files)
-include(ghex_device)
 
 set(pyghex_source
     config.cpp
@@ -32,7 +30,7 @@ ghex_target_compile_options(pyghex_obj)
 target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
 # Add GPU support
-compile_as_cuda(${pyghex_source})
+compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
 
 # Add support for mpi4py if available.
 find_python_module(mpi4py)

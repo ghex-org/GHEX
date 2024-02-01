@@ -1,4 +1,3 @@
-include(ghex_compile_options)
 
 if (GHEX_FORTRAN_OPENMP)
     find_package(OpenMP REQUIRED)

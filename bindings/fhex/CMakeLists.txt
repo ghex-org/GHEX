@@ -1,4 +1,3 @@
-include(ghex_compile_options)
 
 add_library(fhex SHARED)
 set_target_properties(fhex PROPERTIES LINKER_LANGUAGE Fortran)

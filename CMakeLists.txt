@@ -36,11 +36,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # ---------------------------------------------------------------------
-# Define main library
-# ---------------------------------------------------------------------
-include(ghex_common)
-
-# ---------------------------------------------------------------------
 # GHEX options
 # ---------------------------------------------------------------------
 option(GHEX_GIT_SUBMODULE "Check submodules during build" OFF)
@@ -54,6 +49,19 @@ set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas b
 set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
 set(GHEX_BUILD_PYTHON_BINDINGS OFF CACHE BOOL "Set to true to build Python bindings")
 set(GHEX_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
+
+# ---------------------------------------------------------------------
+# Common includes
+# ---------------------------------------------------------------------
+include(ghex_device)
+include(ghex_compile_options)
+include(ghex_copy_files)
+include(ghex_reg_test)
+
+# ---------------------------------------------------------------------
+# Define main library
+# ---------------------------------------------------------------------
+include(ghex_common)
 
 # ---------------------------------------------------------------------
 # Dependencies

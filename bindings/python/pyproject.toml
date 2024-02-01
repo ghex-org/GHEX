@@ -47,8 +47,8 @@ wheel.license-files = []
 [tool.scikit-build.cmake.define]
 GHEX_USE_GPU = { env = "GHEX_USE_GPU", default = "OFF" }
 GHEX_GPU_TYPE = { env = "GHEX_GPU_TYPE", default = "AUTO" }
-#CMAKE_CUDA_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "60:70;75;80;90" }
-#CMAKE_HIP_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "gfx906;gfx900" }
+CMAKE_CUDA_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "60;70;75" }
+CMAKE_HIP_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "gfx900;gfx906" }
 
 [tool.black]
 exclude = '''
@@ -94,11 +94,13 @@ warn_unused_ignores = true
 # for cuda aware build:
 # export GHEX_USE_GPU=ON
 # export GHEX_GPU_TYPE=NVIDIA
+# export GHEX_GPU_ARCH="60;70;75;80"
 # pip install bindings/python
 
 # for hip aware build:
 # export GHEX_USE_GPU=ON
 # export GHEX_GPU_TYPE=AMD
+# export GHEX_GPU_ARCH="gfx906;gfx1035"
 # pip install bindings/python
 
 # from github:

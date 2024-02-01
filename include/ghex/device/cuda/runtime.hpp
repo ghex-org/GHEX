@@ -9,7 +9,9 @@
  */
 #pragma once
 
-#ifdef __HIP_PLATFORM_HCC__
+#include <ghex/config.hpp>
+
+#ifdef __HIP_PLATFORM_AMD__
 
 #include <hip/hip_runtime.h>
 #include <ghex/device/cuda/undef_cuda_macros.hpp>
@@ -67,8 +69,8 @@
 #define cudaStreamCreateWithFlags hipStreamCreateWithFlags
 #define cudaStreamNonBlocking hipStreamNonBlocking
 
-#else /* __HIP_PLATFORM_HCC__ */
+#else /* __HIP_PLATFORM_AMD__ */
 
 #include <cuda_runtime.h>
 
-#endif /* __HIP_PLATFORM_HCC__ */
+#endif /* __HIP_PLATFORM_AMD__ */

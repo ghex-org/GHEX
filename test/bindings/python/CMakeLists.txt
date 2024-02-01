@@ -1,4 +1,3 @@
-include(ghex_copy_files)
 
 get_target_property(python_mod_path pyghex LIBRARY_OUTPUT_DIRECTORY)
 get_filename_component(pyghex_test_workdir ${python_mod_path}/.. ABSOLUTE)
