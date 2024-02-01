@@ -442,7 +442,7 @@ class atlas_data_descriptor<ghex::gpu, DomainId, T, StorageTraits, FunctionSpace
                                            GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
             pack_kernel<<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0,
                 *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
-                is.local_indices().size(), &(is.local_indices()[0]), m_components, buffer);
+                is.local_indices().size(), is.local_indices().data(), m_components, buffer);
         }
     }
 
@@ -456,7 +456,7 @@ class atlas_data_descriptor<ghex::gpu, DomainId, T, StorageTraits, FunctionSpace
                                            GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK));
             unpack_kernel<<<n_blocks, GHEX_ATLAS_SERIALIZATION_THREADS_PER_BLOCK, 0,
                 *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer, is.local_indices().size(),
-                &(is.local_indices()[0]), m_values);
+                is.local_indices().data(), m_components, m_values);
         }
     }
 };
