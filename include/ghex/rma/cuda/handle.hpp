@@ -74,7 +74,7 @@ struct remote_data_holder
     {
         // detach rma resource
         if (m_on_gpu && m_loc == locality::process && m_attached)
-        { cudaIpcCloseMemHandle(m_cuda_ptr); }
+        { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaIpcCloseMemHandle(m_cuda_ptr)); }
     }
 
     void attach(resource_cache& cache, void* ptr)

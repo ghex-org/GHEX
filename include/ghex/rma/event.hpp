@@ -67,7 +67,7 @@ struct local_event
         ~data_holder()
         {
 #ifdef GHEX_CUDACC
-            if (m_loc != locality::remote) { cudaEventDestroy(m_event); }
+            if (m_loc != locality::remote) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(m_event)); }
 #endif
         }
 
@@ -147,7 +147,7 @@ struct remote_event
         ~data_holder()
         {
 #ifdef GHEX_CUDACC
-            if (m_source_on_gpu || m_target_on_gpu) cudaStreamDestroy(m_stream);
+            if (m_source_on_gpu || m_target_on_gpu) GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaStreamDestroy(m_stream));
 #endif
         }
 

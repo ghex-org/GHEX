@@ -11,6 +11,7 @@
 #include <ghex/config.hpp>
 #ifdef GHEX_CUDACC
 #include <ghex/device/cuda/runtime.hpp>
+#include <ghex/device/cuda/error.hpp>
 #endif
 #include <ghex/device/cuda/unified_memory_allocator.hpp>
 #include <vector>
@@ -56,7 +57,7 @@ run_test(const std::size_t n)
     // Launch kernels to access from GPU
     add_one<T><<<n / 32, 32>>>(ptr, n);       // n = k * 32, k = 1, 2, ...
     add_one<T><<<n / 32, 32>>>(&(vec[0]), n); // n = k * 32, k = 1, 2, ...
-    cudaDeviceSynchronize();
+    GHEX_CHECK_CUDA_RESULT(cudaDeviceSynchronize());
 
     // Access from the CPU and verify
     for (std::size_t i = 0; i < n; ++i)

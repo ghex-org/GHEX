@@ -289,7 +289,6 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     std::size_t    m_index_stride;
     std::size_t    m_level_stride;
 
-
   public:
     // constructors
     // TO DO: check consistency between constructors (const ptr, size and size checks. Here and for the GPU)
@@ -299,35 +298,41 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @param domain local domain instance
       * @param field field to be wrapped
       * @param levels number of levels
-      * @param levels_first level stride*/
+      * @param levels_first indicates whether levels have stide 1
+      * @param outer_stride outer dimension's stride measured in number of elements of type T (special value 0: no padding)*/
     template<class Container>
-    data_descriptor(const domain_descriptor_type& domain, Container& field, std::size_t levels = 1u, bool levels_first = true)
+    data_descriptor(const domain_descriptor_type& domain, Container& field, std::size_t levels = 1u,
+        bool levels_first = true, std::size_t outer_stride = 0u)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{levels}
     , m_values{&(field[0])}
     , m_levels_first{levels_first}
-    , m_index_stride{levels_first ? m_levels : 1u}
-    , m_level_stride{levels_first ? 1u : m_domain_size}
+    , m_index_stride{levels_first ? (outer_stride ? outer_stride : m_levels) : 1u}
+    , m_level_stride{levels_first ? 1u : (outer_stride ? outer_stride : m_domain_size)}
     {
-        assert(field.size() == (domain.size() * m_levels));
+        assert(field.size() == (levels_first ? domain.size() * m_index_stride : m_level_stride * m_levels));
+        assert(!(outer_stride) || (outer_stride >= (levels_first ? m_levels : m_domain_size)));
     }
 
     /** @brief constructs a CPU data descriptor using pointer and size for the field memory
       * @param domain local domain instance
       * @param field_ptr pointer to the field to be wrapped
       * @param levels number of levels
-      * @param levels_first stride of levels*/
-    data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr,
-        std::size_t levels = 1u, bool levels_first = true)
+      * @param levels_first stride of levels
+      * @param levels_first indicates whether levels have stide 1
+      * @param outer_stride outer dimension's stride measured in number of elements of type T (special value 0: no padding)*/
+    data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr, std::size_t levels = 1u,
+        bool levels_first = true, std::size_t outer_stride = 0u)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{levels}
     , m_values{field_ptr}
     , m_levels_first{levels_first}
-    , m_index_stride{levels_first ? m_levels : 1u}
-    , m_level_stride{levels_first ? 1u : m_domain_size}
+    , m_index_stride{levels_first ? (outer_stride ? outer_stride : m_levels) : 1u}
+    , m_level_stride{levels_first ? 1u : (outer_stride ? outer_stride : m_domain_size)}
     {
+        assert(!(outer_stride) || (outer_stride >= (levels_first ? m_levels : m_domain_size)));
     }
 
     /** @brief constructs a CPU data descriptor using domain parameters and pointer for the field memory
@@ -335,17 +340,19 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @param domain_size domain size
       * @param field_ptr pointer to the field to be wrapped
       * @param levels number of levels
-      * @param levels_first stride of levels*/
-    data_descriptor(domain_id_type domain_id, std::size_t domain_size, value_type* field_ptr,
-        std::size_t levels = 1u, bool levels_first = true)
+      * @param levels_first indicates whether levels have stide 1
+      * @param outer_stride outer dimension's stride measured in number of elements of type T (special value 0: no padding)*/
+    data_descriptor(domain_id_type domain_id, std::size_t domain_size, value_type* field_ptr, std::size_t levels = 1u,
+        bool levels_first = true, std::size_t outer_stride = 0u)
     : m_domain_id{domain_id}
     , m_domain_size{domain_size}
     , m_levels{levels}
     , m_values{field_ptr}
     , m_levels_first{levels_first}
-    , m_index_stride{levels_first ? m_levels : 1u}
-    , m_level_stride{levels_first ? 1u : m_domain_size}
+    , m_index_stride{levels_first ? (outer_stride ? outer_stride : m_levels) : 1u}
+    , m_level_stride{levels_first ? 1u : (outer_stride ? outer_stride : m_domain_size)}
     {
+        assert(!(outer_stride) || (outer_stride >= (levels_first ? m_levels : m_domain_size)));
     }
 
     // member functions
@@ -515,18 +522,19 @@ class data_descriptor<gpu, DomainId, Idx, T>
       * @param domain local domain instance
       * @param field data pointer, assumed to point to a contiguous memory region of size = domain size * n levels
       * @param levels number of levels
-      * @param levels_first level stride
+      * @param levels_first indicates whether levels have stide 1
+      * @param outer_stride outer dimension's stride measured in number of elements of type T (special value 0: no padding)
       * @param device_id device id*/
     data_descriptor(const domain_descriptor_type& domain, value_type* field,
-        std::size_t levels = 1u, bool levels_first = true, device_id_type device_id = arch_traits<arch_type>::current_id())
+        std::size_t levels = 1u, bool levels_first = true, std::size_t outer_stride = 0u, device_id_type device_id = arch_traits<arch_type>::current_id())
     : m_device_id{device_id}
     , m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{levels}
     , m_values{field}
     , m_levels_first{levels_first}
-    , m_index_stride{levels_first ? m_levels : 1u}
-    , m_level_stride{levels_first ? 1u : m_domain_size}
+    , m_index_stride{levels_first ? (outer_stride ? outer_stride : m_levels) : 1u}
+    , m_level_stride{levels_first ? 1u : (outer_stride ? outer_stride : m_domain_size)}
     {
     }
 
