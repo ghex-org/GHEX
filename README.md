@@ -71,9 +71,10 @@ python -m pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bin
 
 | Variable | Allowed Values | Default | Description |
 | --- | --- | --- | --- |
-| `GHEX_USE_GPU=`  | `{ON, OFF}`           | `OFF`                              | Enable GPU
-| `GHEX_GPU_TYPE=` | `{AUTO, NVIDIA, AMD}` | `AUTO`                             | Choose GPU type
-| `GHEX_GPU_ARCH=` | list of archs         | `"60;70;75;80"`/ `"gfx900;gfx906"` | GPU architecture
+| `GHEX_USE_GPU=`           | `{ON, OFF}`             | `OFF`                              | Enable GPU
+| `GHEX_GPU_TYPE=`          | `{AUTO, NVIDIA, AMD}`   | `AUTO`                             | Choose GPU type
+| `GHEX_GPU_ARCH=`          | list of archs           | `"60;70;75;80"`/ `"gfx900;gfx906"` | GPU architecture
+| `GHEX_TRANSPORT_BACKEND=` | `{MPI, UCX, LIBFABRIC}` | `MPI`                              | Choose transport backend
 
 ### Acknowledgements
 
