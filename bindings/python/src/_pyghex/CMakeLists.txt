@@ -63,7 +63,7 @@ if (SKBUILD_PROJECT_NAME)
     list(GET CMAKE_PREFIX_PATH 0 scikit_build_core_install_path)
     set(ghex_rpath ${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR})
 
-    set_target_properties(pyghex PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}:${ghex_rpath}")
+    set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${ghex_rpath}")
     install(TARGETS pyghex DESTINATION .)
 
     set_target_properties(ghex PROPERTIES INSTALL_RPATH "${ghex_rpath}")
