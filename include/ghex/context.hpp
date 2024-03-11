@@ -17,7 +17,7 @@
 namespace ghex
 {
 class barrier;
-class context
+class context : public std::enable_shared_from_this<context>
 {
     friend class barrier;
   public:

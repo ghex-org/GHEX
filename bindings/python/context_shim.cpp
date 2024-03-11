@@ -39,7 +39,7 @@ register_context(pybind11::module& m)
     using namespace std::string_literals;
     using namespace pybind11::literals;
 
-    pybind11::class_<context_shim>(m, "context")
+    pybind11::class_<context_shim, std::shared_ptr<context_shim>>(m, "context")
         .def(pybind11::init<mpi_comm_shim, bool>(), "mpi_comm"_a, "thread_safe"_a = false,
             "Create a ghex context")
         .def("__str__", util::to_string<context_shim>)
@@ -50,7 +50,8 @@ register_context(pybind11::module& m)
             "rank", [](const context_shim& c) { return c.m.rank(); }, "rank of this process")
         .def(
             "size", [](const context_shim& c) { return c.m.size(); },
-            "number of ranks within the communicator");
+            "number of ranks within the communicator")
+        .def("expose_context_ptr", [](const context_shim& self){ return reinterpret_cast<uintptr_t>(&self.m); });
 }
 
 } // namespace pyghex

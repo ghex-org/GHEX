@@ -21,7 +21,7 @@ namespace pyghex
 // A shim is required for MPI_Comm, because OpenMPI defines it as a pointer to
 // a forward-declared type, which pybind11 won't allow as an argument.
 // MPICH and its derivatives use an integer.
-struct mpi_comm_shim
+struct mpi_comm_shim : public std::enable_shared_from_this<mpi_comm_shim>
 {
     MPI_Comm comm = MPI_COMM_WORLD;
 

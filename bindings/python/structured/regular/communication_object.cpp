@@ -39,7 +39,7 @@ register_communication_object(pybind11::module& m)
 
             using type = gridtools::meta::first<decltype(l)>;
             auto name = util::demangle<type>();
-            auto cls = pybind11::class_<type>(m, name.c_str());
+            auto cls = pybind11::class_<type, std::shared_ptr<type>>(m, name.c_str());
 
             cls.def_property_readonly_static("__cpp_type__",
                 [name](const pybind11::object&) { return name; });

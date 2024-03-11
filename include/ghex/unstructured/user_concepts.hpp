@@ -35,7 +35,7 @@ namespace unstructured
  * @tparam DomainId domain id type
  * @tparam Idx global index type*/
 template<typename DomainId, typename Idx>
-class domain_descriptor
+class domain_descriptor : public std::enable_shared_from_this<domain_descriptor<DomainId, Idx>>
 {
   public:
     // member types

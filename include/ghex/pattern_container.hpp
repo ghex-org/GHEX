@@ -30,7 +30,7 @@ class pattern;
   * @tparam GridType indicates structured/unstructured grids
   * @tparam DomainIdType type to uniquely identify partail (local) domains*/
 template<typename GridType, typename DomainIdType>
-class pattern_container
+class pattern_container : public std::enable_shared_from_this<pattern_container<GridType, DomainIdType>>
 {
   public: // member tyes
     using communicator_type = context::communicator_type;

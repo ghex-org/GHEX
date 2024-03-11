@@ -37,7 +37,7 @@ register_domain_descriptor(pybind11::module& m)
             using local_index_type = typename type::local_index_type;
 
             auto type_name = util::demangle<type>();
-            pybind11::class_<type>(m, type_name.c_str())
+            pybind11::class_<type, std::shared_ptr<type>>(m, type_name.c_str())
                 .def(pybind11::init(
                     [](domain_id_type id, const std::vector<global_index_type>& gids,
                         const std::vector<local_index_type>& halo_lids) {
@@ -52,7 +52,8 @@ register_domain_descriptor(pybind11::module& m)
                     [](const type& d) -> std::vector<global_index_type> { return d.gids(); },
                     "Returns the indices")
                 .def_property_readonly_static("__cpp_type__",
-                    [type_name](const pybind11::object&) { return type_name; });
+                    [type_name](const pybind11::object&) { return type_name; })
+                .def("expose_domain_descriptor_ptr", [](const type& self){ return reinterpret_cast<uintptr_t>(&self); });
         });
 }
 
