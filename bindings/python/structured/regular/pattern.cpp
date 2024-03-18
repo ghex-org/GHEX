@@ -49,7 +49,7 @@ register_pattern(pybind11::module& m)
             using fields = field_descriptor_specializations_<dimension::value>;
 
             auto pattern_container_name = util::demangle<pattern_container>();
-            auto cls = pybind11::class_<pattern_container, std::shared_ptr<pattern_container>>(m, pattern_container_name.c_str());
+            auto cls = pybind11::class_<pattern_container>(m, pattern_container_name.c_str());
             cls.def_property_readonly_static("__cpp_type__",
                 [pattern_container_name](const pybind11::object&)
                 { return pattern_container_name; });

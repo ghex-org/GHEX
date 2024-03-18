@@ -109,7 +109,7 @@ class communication_handle
          * @tparam GridType grid tag type
          * @tparam DomainIdType domain id type*/
 template<typename GridType, typename DomainIdType>
-class communication_object : public std::enable_shared_from_this<communication_object<GridType, DomainIdType>>
+class communication_object
 {
   public: // member types
     /** @brief handle type returned by exhange operation */

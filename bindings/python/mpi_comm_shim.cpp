@@ -114,7 +114,7 @@ register_mpi(pybind11::module& m)
     using namespace std::string_literals;
     using namespace pybind11::literals;
 
-    pybind11::class_<mpi_comm_shim, std::shared_ptr<mpi_comm_shim>> mpi_comm(m, "mpi_comm");
+    pybind11::class_<mpi_comm_shim> mpi_comm(m, "mpi_comm");
     mpi_comm.def(pybind11::init<>())
         .def(pybind11::init([](pybind11::object o) { return mpi_comm_shim(o); }), "mpi_comm_obj"_a,
             "MPI communicator object.")

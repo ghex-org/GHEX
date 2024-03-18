@@ -16,7 +16,7 @@
 namespace pyghex
 {
 
-struct context_shim : public std::enable_shared_from_this<context_shim>
+struct context_shim
 {
     bool          m_thread_safe;
     ghex::context m;
