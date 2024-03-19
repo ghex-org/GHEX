@@ -78,14 +78,14 @@ PYBIND11_MODULE(_pyghex, m)
     pyghex::unstructured::register_pattern(m);
     pyghex::unstructured::register_communication_object(m);
 
-    m.def("expose_context_ptr", [](pyghex::context_shim* obj) {return reinterpret_cast<uintptr_t>(&obj->m);} );
+    m.def("expose_cpp_ptr", [](pyghex::context_shim* obj) {return reinterpret_cast<uintptr_t>(&obj->m);} );
     
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, pyghex::unstructured::communication_object_specializations>>(
         [&m](auto l)
         {
             using type = gridtools::meta::first<decltype(l)>;
-            m.def("expose_comm_ptr", [](type* obj) {return reinterpret_cast<uintptr_t>(obj);} );
+            m.def("expose_cpp_ptr", [](type* obj) {return reinterpret_cast<uintptr_t>(obj);} );
         });
 
     gridtools::for_each<
@@ -99,7 +99,7 @@ PYBIND11_MODULE(_pyghex, m)
             using pattern_container =
                 decltype(ghex::make_pattern<grid_type>(std::declval<ghex::context&>(),
                     std::declval<halo_gen&>(), std::declval<domain_range&>()));
-            m.def("expose_pattern_ptr", [](pattern_container* obj) {return reinterpret_cast<uintptr_t>(obj);} );
+            m.def("expose_cpp_ptr", [](pattern_container* obj) {return reinterpret_cast<uintptr_t>(obj);} );
         });
 
     gridtools::for_each<
@@ -107,6 +107,6 @@ PYBIND11_MODULE(_pyghex, m)
         [&m](auto l)
         {
             using type = gridtools::meta::first<decltype(l)>;
-            m.def("expose_domain_descriptor_ptr", [](type* obj) {return reinterpret_cast<uintptr_t>(obj);} );
+            m.def("expose_cpp_ptr", [](type* obj) {return reinterpret_cast<uintptr_t>(obj);} );
         });
 }
