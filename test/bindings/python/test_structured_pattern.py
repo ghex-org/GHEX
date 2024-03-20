@@ -13,7 +13,7 @@ import pytest
 # import cupy as cp
 
 from ghex.context import make_context
-from ghex.structured.grid import IndexSpace
+from ghex.structured.cartesian_sets import IndexSpace
 from ghex.structured.regular.communication_object import make_communication_object
 from ghex.structured.regular.domain_descriptor import DomainDescriptor
 from ghex.structured.regular.field_descriptor import make_field_descriptor

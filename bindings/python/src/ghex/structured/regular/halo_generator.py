@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ghex.structured.index_space import CartesianSet, ProductSet, union
+from ghex.structured.cartesian_sets import CartesianSet, ProductSet, union
 from ghex.util.cpp_wrapper import CppWrapper
 
 if TYPE_CHECKING:

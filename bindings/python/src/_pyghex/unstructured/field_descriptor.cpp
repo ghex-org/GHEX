@@ -130,6 +130,7 @@ register_field_descriptor(pybind11::module& m)
                     [](const domain_descriptor_type& dom, pybind11::object& b)
                     {
                         pybind11::buffer_info info = get_buffer_info<arch_type>(b);
+
                         if (info.format != pybind11::format_descriptor<T>::format())
                         {
                             std::stringstream error;
@@ -137,15 +138,18 @@ register_field_descriptor(pybind11::module& m)
                                   << " buffer.";
                             throw pybind11::type_error(error.str());
                         }
+
                         if (info.ndim > 2u)
                         {
                             throw pybind11::type_error("field has too many dimensions");
                         }
+
                         if (static_cast<std::size_t>(info.shape[0]) != dom.size())
                         {
                             throw pybind11::type_error(
                                 "field's first dimension must match the size of the domain");
                         }
+
                         bool levels_first = true;
                         std::size_t outer_strides = 0u;
                         if (info.ndim == 2 && info.strides[1] != sizeof(T))

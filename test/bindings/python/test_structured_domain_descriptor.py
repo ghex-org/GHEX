@@ -10,7 +10,7 @@
 import pytest
 
 from ghex.context import make_context
-from ghex.structured.grid import IndexSpace, UnitRange
+from ghex.structured.cartesian_sets import IndexSpace, UnitRange
 from ghex.structured.regular.domain_descriptor import DomainDescriptor
 from ghex.structured.regular.halo_generator import HaloGenerator
 
