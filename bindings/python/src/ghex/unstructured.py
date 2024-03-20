@@ -12,14 +12,17 @@ from typing import TYPE_CHECKING, overload, Optional
 
 from ghex.util.architecture import Architecture
 from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
+from ghex.context import context
 from ghex.pyghex import make_co_unstructured as _make_co_unstructured
+from ghex.pyghex import make_pattern_unstructured as _make_pattern_unstructured
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
-    from typing import Any, Optional
+    from typing import Any, Optional, List
 
     from ghex.context import context
     #from ghex.unstructured.domain_descriptor import DomainDescriptor
+    #from ghex.unstructured.halo_generator import HaloGenerator
 
 
 def make_communication_object(context: context):
@@ -88,3 +91,6 @@ class HaloGenerator(CppWrapper):
     def from_gids(cls, gids: ArrayLike) -> HaloGenerator:
         h = cls(gids)
         return h
+
+def make_pattern(context: context, halo_gen: HaloGenerator, domain_range: List[DomainDescriptor]):
+    return _make_pattern_unstructured(context, unwrap(halo_gen), [unwrap(d) for d in domain_range])
