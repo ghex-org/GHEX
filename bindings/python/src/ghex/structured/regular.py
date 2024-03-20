@@ -22,8 +22,10 @@ if TYPE_CHECKING:
     from typing import Any, Union
     from ghex.context import context
 
+
 def make_communication_object(context: context, pattern):
     return _make_co_regular(context, pattern)
+
 
 class DomainDescriptor(CppWrapper):
     def __init__(self, id_: int, sub_domain_indices: CartesianSet) -> None:
@@ -33,6 +35,7 @@ class DomainDescriptor(CppWrapper):
             sub_domain_indices[tuple(0 for _ in range(sub_domain_indices.dim))],
             sub_domain_indices[tuple(-1 for _ in range(sub_domain_indices.dim))],
         )
+
 
 def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
     if arch == Architecture.CPU:
@@ -57,6 +60,7 @@ def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
         if val in layout_map[:i]:
             layout_map[i] = max(layout_map) + 1
     return tuple(layout_map)
+
 
 def make_field_descriptor(
     domain_desc: DomainDescriptor,
@@ -92,13 +96,16 @@ def make_field_descriptor(
         unwrap(domain_desc), unwrap(field), unwrap(offsets), unwrap(extents)
     )
 
+
 def wrap_field(*args):
     return make_field_descriptor(*args)
+
 
 @dataclass
 class HaloContainer:
     local: CartesianSet
     global_: CartesianSet
+
 
 class HaloGenerator(CppWrapper):
     def __init__(
@@ -142,6 +149,7 @@ class HaloGenerator(CppWrapper):
             )
         )
         return HaloContainer(local, global_)
+
 
 def make_pattern(context: context, halo_gen: HaloGenerator, domain_range: List[DomainDescriptor]):
     return _make_pattern_regular(context, unwrap(halo_gen), [unwrap(d) for d in domain_range])

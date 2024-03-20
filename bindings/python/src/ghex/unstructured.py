@@ -24,11 +24,13 @@ if TYPE_CHECKING:
 def make_communication_object(context: context):
     return _make_co_unstructured(context)
 
+
 class DomainDescriptor(CppWrapper):
     def __init__(self, index: int, indices: ArrayLike, halo_indices: ArrayLike):
         super(DomainDescriptor, self).__init__(
             ("unstructured__domain_descriptor", "int", "int"), index, indices, halo_indices
         )
+
 
 def make_field_descriptor(
     domain_desc: DomainDescriptor,
@@ -64,6 +66,7 @@ def make_field_descriptor(
 def wrap_field(*args):
     return make_field_descriptor(*args)
 
+
 class HaloGenerator(CppWrapper):
     @overload
     def __init__(self) -> None:
@@ -75,9 +78,7 @@ class HaloGenerator(CppWrapper):
 
     def __init__(self, gids: Optional[ArrayLike] = None) -> None:
         if gids is None:
-            super(HaloGenerator, self).__init__(
-                ("unstructured__halo_generator", "int", "int")
-            )
+            super(HaloGenerator, self).__init__(("unstructured__halo_generator", "int", "int"))
         else:
             super(HaloGenerator, self).__init__(
                 ("unstructured__halo_generator", "int", "int"), gids
@@ -87,6 +88,7 @@ class HaloGenerator(CppWrapper):
     def from_gids(cls, gids: ArrayLike) -> HaloGenerator:
         h = cls(gids)
         return h
+
 
 def make_pattern(context: context, halo_gen: HaloGenerator, domain_range: List[DomainDescriptor]):
     return _make_pattern_unstructured(context, unwrap(halo_gen), [unwrap(d) for d in domain_range])

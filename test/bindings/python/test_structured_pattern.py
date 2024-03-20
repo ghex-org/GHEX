@@ -14,7 +14,13 @@ import pytest
 
 from ghex.context import make_context
 from ghex.structured.cartesian_sets import IndexSpace
-from ghex.structured.regular import make_communication_object, DomainDescriptor, make_field_descriptor, HaloGenerator, make_pattern
+from ghex.structured.regular import (
+    make_communication_object,
+    DomainDescriptor,
+    make_field_descriptor,
+    HaloGenerator,
+    make_pattern,
+)
 
 
 @pytest.mark.mpi

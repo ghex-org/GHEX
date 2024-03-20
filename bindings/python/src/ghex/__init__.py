@@ -8,7 +8,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ghex.pyghex import config, print_config, mpi_init, mpi_finalize, mpi_is_initialized, mpi_is_finalized, mpi_comm
+from ghex.pyghex import (
+    config,
+    print_config,
+    mpi_init,
+    mpi_finalize,
+    mpi_is_initialized,
+    mpi_is_finalized,
+    mpi_comm,
+)
 import os
 
 

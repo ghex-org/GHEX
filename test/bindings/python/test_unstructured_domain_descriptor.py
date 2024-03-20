@@ -230,7 +230,9 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
     co = make_communication_object(ctx)
 
     def make_field(order):
-        data = np.zeros([len(domains[ctx.rank()]["all"]), LEVELS], dtype=np.float64, order=order)
+        data = np.zeros(
+            [len(domains[ctx.rank()]["all"]), LEVELS], dtype=np.float64, order=order
+        )
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         for x in range(len(all_list)):
@@ -260,8 +262,8 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
         field = make_field_descriptor(domain_desc, data)
         return data, field
 
-    d1, f1 = make_field('C')
-    d2, f2 = make_field('F')
+    d1, f1 = make_field("C")
+    d2, f2 = make_field("F")
 
     # np.set_printoptions(precision=8, suppress=True)
     # with capsys.disabled():
