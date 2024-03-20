@@ -10,8 +10,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, overload, Optional
 
-from ghex.util.architecture import Architecture
-from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
+from ghex.util import Architecture
+from ghex.util import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
 from ghex.context import context
 from ghex.pyghex import make_co_unstructured as _make_co_unstructured
 from ghex.pyghex import make_pattern_unstructured as _make_pattern_unstructured

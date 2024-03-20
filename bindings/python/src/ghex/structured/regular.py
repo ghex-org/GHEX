@@ -13,8 +13,8 @@ from dataclasses import dataclass
 
 from ghex.pyghex import make_co_regular as _make_co_regular
 from ghex.pyghex import make_pattern_regular as _make_pattern_regular
-from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
-from ghex.util.architecture import Architecture
+from ghex.util import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
+from ghex.util import Architecture
 from ghex.structured.cartesian_sets import CartesianSet, ProductSet, union
 
 if TYPE_CHECKING:

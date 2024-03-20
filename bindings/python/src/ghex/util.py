@@ -7,8 +7,8 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-from enum import Enum
 from __future__ import annotations
+from enum import Enum
 import inspect
 from typing import TYPE_CHECKING
 
