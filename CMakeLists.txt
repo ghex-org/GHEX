@@ -11,7 +11,7 @@ set(GHEX_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 include(ghex_version)
-make_version(GHEX 0 3 0)
+make_version(GHEX 0 4 0)
 
 project(GHEX VERSION ${GHEX_VERSION} LANGUAGES C CXX)
 
