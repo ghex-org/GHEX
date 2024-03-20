@@ -11,8 +11,7 @@ import pytest
 
 from ghex.context import make_context
 from ghex.structured.cartesian_sets import IndexSpace, UnitRange
-from ghex.structured.regular.domain_descriptor import DomainDescriptor
-from ghex.structured.regular.halo_generator import HaloGenerator
+from ghex.structured.regular import DomainDescriptor, HaloGenerator
 
 
 # Domain configuration
