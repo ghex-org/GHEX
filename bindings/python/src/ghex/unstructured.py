@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload, Optional
 
 from ghex.util.architecture import Architecture
 from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
@@ -64,3 +64,27 @@ def make_field_descriptor(
 
 def wrap_field(*args):
     return make_field_descriptor(*args)
+
+class HaloGenerator(CppWrapper):
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, gids: ArrayLike) -> None:
+        ...
+
+    def __init__(self, gids: Optional[ArrayLike] = None) -> None:
+        if gids is None:
+            super(HaloGenerator, self).__init__(
+                ("unstructured__halo_generator", "int", "int")
+            )
+        else:
+            super(HaloGenerator, self).__init__(
+                ("unstructured__halo_generator", "int", "int"), gids
+            )
+
+    @classmethod
+    def from_gids(cls, gids: ArrayLike) -> HaloGenerator:
+        h = cls(gids)
+        return h
