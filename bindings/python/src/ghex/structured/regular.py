@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from dataclasses import dataclass
 
 from ghex.pyghex import make_co_regular as _make_co_regular
+from ghex.pyghex import make_pattern_regular as _make_pattern_regular
 from ghex.util.cpp_wrapper import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
 from ghex.util.architecture import Architecture
 from ghex.structured.cartesian_sets import CartesianSet, ProductSet, union
@@ -20,8 +21,9 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
     from typing import Any, Union
 
-    from ghex.structured.index_space import CartesianSet
     from ghex.context import context
+    from ghex.structured.index_space import CartesianSet
+    #from ghex.structured.regular.halo_generator import HaloGenerator
     #from ghex.structured.regular.domain_descriptor import DomainDescriptor
 
 def make_communication_object(context: context, pattern):
@@ -60,7 +62,6 @@ def _layout_order(field: NDArray, arch: Architecture) -> tuple[int, ...]:
             layout_map[i] = max(layout_map) + 1
     return tuple(layout_map)
 
-
 def make_field_descriptor(
     domain_desc: DomainDescriptor,
     field: NDArray,
@@ -95,7 +96,6 @@ def make_field_descriptor(
         unwrap(domain_desc), unwrap(field), unwrap(offsets), unwrap(extents)
     )
 
-
 def wrap_field(*args):
     return make_field_descriptor(*args)
 
@@ -103,7 +103,6 @@ def wrap_field(*args):
 class HaloContainer:
     local: CartesianSet
     global_: CartesianSet
-
 
 class HaloGenerator(CppWrapper):
     def __init__(
@@ -147,3 +146,6 @@ class HaloGenerator(CppWrapper):
             )
         )
         return HaloContainer(local, global_)
+
+def make_pattern(context: context, halo_gen: HaloGenerator, domain_range: List[DomainDescriptor]):
+    return _make_pattern_regular(context, unwrap(halo_gen), [unwrap(d) for d in domain_range])
