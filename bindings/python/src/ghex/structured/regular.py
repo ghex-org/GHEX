@@ -20,11 +20,7 @@ from ghex.structured.cartesian_sets import CartesianSet, ProductSet, union
 if TYPE_CHECKING:
     from numpy.typing import NDArray
     from typing import Any, Union
-
     from ghex.context import context
-    from ghex.structured.index_space import CartesianSet
-    #from ghex.structured.regular.halo_generator import HaloGenerator
-    #from ghex.structured.regular.domain_descriptor import DomainDescriptor
 
 def make_communication_object(context: context, pattern):
     return _make_co_regular(context, pattern)

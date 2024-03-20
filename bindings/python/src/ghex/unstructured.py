@@ -20,10 +20,6 @@ if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
     from typing import Any, Optional, List
 
-    from ghex.context import context
-    #from ghex.unstructured.domain_descriptor import DomainDescriptor
-    #from ghex.unstructured.halo_generator import HaloGenerator
-
 
 def make_communication_object(context: context):
     return _make_co_unstructured(context)

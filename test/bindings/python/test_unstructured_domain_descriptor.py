@@ -13,11 +13,11 @@ import numpy as np
 # import cupy as cp
 
 from ghex.context import make_context
-from ghex.unstructured.communication_object import make_communication_object
-from ghex.unstructured.domain_descriptor import DomainDescriptor
-from ghex.unstructured.halo_generator import HaloGenerator
-from ghex.unstructured.pattern import make_pattern
-from ghex.unstructured.field_descriptor import make_field_descriptor
+from ghex.unstructured import make_communication_object
+from ghex.unstructured import DomainDescriptor
+from ghex.unstructured import HaloGenerator
+from ghex.unstructured import make_pattern
+from ghex.unstructured import make_field_descriptor
 
 # fmt: off
 # Exchange of unstructured domain
