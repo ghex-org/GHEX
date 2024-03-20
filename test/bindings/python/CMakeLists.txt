@@ -16,6 +16,7 @@ function(ghex_reg_pytest t)
         NAME py_${t}
         COMMAND ${PYTHON_EXECUTABLE} -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
         WORKING_DIRECTORY ${pyghex_test_workdir})
+    set_tests_properties(py_${t} PROPERTIES RUN_SERIAL ON)
 endfunction()
 
 function(ghex_reg_parallel_pytest t n)
@@ -26,6 +27,7 @@ function(ghex_reg_parallel_pytest t n)
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
         ${PYTHON_EXECUTABLE} -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
         WORKING_DIRECTORY ${pyghex_test_workdir})
+    set_tests_properties(py_${t}_parallel PROPERTIES RUN_SERIAL ON)
 endfunction()
 
 ghex_reg_pytest(context)
