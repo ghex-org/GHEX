@@ -7,12 +7,9 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
 #include <gridtools/common/for_each.hpp>
 
-#include <util/demangle.hpp>
+#include <register_class.hpp>
 #include <unstructured/halo_generator.hpp>
 
 namespace pyghex
@@ -33,18 +30,13 @@ register_halo_generator(pybind11::module& m)
             using global_index_type = typename type::global_index_type;
             using halo = typename type::halo;
 
-            auto type_name = util::demangle<type>();
-            pybind11::class_<type>(m, type_name.c_str())
+            auto _halo_generator = register_class<type>(m);
+            /*auto _halo = */register_class<halo>(m);
+
+            _halo_generator
                 .def(pybind11::init<>(), "Create a halo generator")
                 .def(pybind11::init([](const std::vector<global_index_type>& gids){ return type{gids};}))
-                .def("__call__", &type::operator())
-                .def_property_readonly_static("__cpp_type__",
-                    [type_name](const pybind11::object&) { return type_name; });
-
-            auto halo_name = util::demangle<halo>();
-            pybind11::class_<halo>(m, halo_name.c_str())
-                .def_property_readonly_static("__cpp_type__",
-                    [halo_name](const pybind11::object&) { return halo_name; });
+                .def("__call__", &type::operator());
         });
 }
 

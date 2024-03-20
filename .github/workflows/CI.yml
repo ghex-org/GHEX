@@ -7,269 +7,159 @@ on:
       - master
 
 jobs:
-  build-cpu-mpi:
+  build-all:
+    name: "Build GHEX and run unit tests"
     runs-on: ubuntu-latest
-    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Configure
-        run: |
-          echo "WORKFLOW"
-          export SHLVL=1
-          env
-          ulimit -a
-          ipcs -lm
-          df
-          cat /proc/cpuinfo
-          mkdir -p build && cd build
-          eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DGHEX_GIT_SUBMODULE=OFF \
-            -DGHEX_USE_BUNDLED_LIBS=ON \
-            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
-            -DBUILD_TESTING=OFF \
-            -DGT_BUILD_TESTING=OFF \
-            -DGT_INSTALL_EXAMPLES=OFF \
-            -DGHEX_TRANSPORT_BACKEND=MPI \
-            -DGHEX_USE_BUNDLED_OOMPH=ON \
-            -DGHEX_USE_XPMEM=OFF \
-            -DGHEX_WITH_TESTING=ON \
-            -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
-            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
-            -DMETIS_INCLUDE_DIR=/opt/metis/include \
-            -DMETIS_LIB_DIR=/opt/metis/lib \
-            -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
-            -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DGHEX_USE_GPU=OFF
-      - name: Build
-        run: cmake --build build --parallel 2
-      - name: Execute tests
-        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env && ctest
+    container: ${{ matrix.config.container }}
 
-  build-cpu-ucx:
-    runs-on: ubuntu-latest
-    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Configure
-        run: |
-          echo "WORKFLOW"
-          export SHLVL=1
-          env
-          ulimit -a
-          ipcs -lm
-          df
-          cat /proc/cpuinfo
-          mkdir -p build && cd build
-          eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DGHEX_GIT_SUBMODULE=OFF \
-            -DGHEX_USE_BUNDLED_LIBS=ON \
-            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
-            -DBUILD_TESTING=OFF \
-            -DGT_BUILD_TESTING=OFF \
-            -DGT_INSTALL_EXAMPLES=OFF \
-            -DGHEX_USE_BUNDLED_OOMPH=ON \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DUCX_DIR=/opt/ucx \
-            -DGHEX_USE_XPMEM=OFF \
-            -DGHEX_WITH_TESTING=ON \
-            -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
-            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
-            -DMETIS_INCLUDE_DIR=/opt/metis/include \
-            -DMETIS_LIB_DIR=/opt/metis/lib \
-            -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
-            -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DGHEX_USE_GPU=OFF
-      - name: Build
-        run: cmake --build build --parallel 2
-      - name: Execute tests
-        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env && ctest
+    strategy:
+      matrix:
+        config:
+        - {
+            name:      "cpu-gcc-mpi-atlas-parmetis",
+            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis",
+            cc:        "gcc",
+            cxx:       "g++",
+            fortran:   "ON",
+            gpu:       "OFF",
+            gpu_type:  "AUTO",
+            run:       "ON",
+            atlas:     "ON",
+            parmetis:  "ON",
+            backend:   "MPI",
+          }
 
-  build-cpu-mpi-clang:
-    runs-on: ubuntu-latest
-    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Configure
-        run: |
-          echo "WORKFLOW"
-          export SHLVL=1
-          env
-          ulimit -a
-          ipcs -lm
-          df
-          cat /proc/cpuinfo
-          mkdir -p build && cd build
-          CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DGHEX_GIT_SUBMODULE=OFF \
-            -DGHEX_USE_BUNDLED_LIBS=ON \
-            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
-            -DBUILD_TESTING=OFF \
-            -DGT_BUILD_TESTING=OFF \
-            -DGT_INSTALL_EXAMPLES=OFF \
-            -DGHEX_USE_BUNDLED_OOMPH=ON \
-            -DGHEX_TRANSPORT_BACKEND=MPI \
-            -DGHEX_USE_XPMEM=OFF \
-            -DGHEX_WITH_TESTING=ON \
-            -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=OFF \
-            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
-            -DMETIS_INCLUDE_DIR=/opt/metis/include \
-            -DMETIS_LIB_DIR=/opt/metis/lib \
-            -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
-            -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DGHEX_USE_GPU=OFF
-      - name: Build
-        run: cmake --build build --parallel 2
-      - name: Execute tests
-        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env && ctest
+        - {
+            name:      "cpu-gcc-ucx-atlas-parmetis",
+            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis",
+            cc:        "gcc",
+            cxx:       "g++",
+            fortran:   "ON",
+            gpu:       "OFF",
+            gpu_type:  "AUTO",
+            run:       "ON",
+            atlas:     "ON",
+            parmetis:  "ON",
+            backend:   "UCX",
+          }
 
-  build-cpu-ucx_clang:
-    runs-on: ubuntu-latest
-    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Configure
-        run: |
-          echo "WORKFLOW"
-          export SHLVL=1
-          env
-          ulimit -a
-          ipcs -lm
-          df
-          cat /proc/cpuinfo
-          mkdir -p build && cd build
-          CXX=/opt/rocm/llvm/bin/clang++ eckit_DIR=/opt/eckit Atlas_DIR=/opt/atlas cmake .. \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DGHEX_GIT_SUBMODULE=OFF \
-            -DGHEX_USE_BUNDLED_LIBS=ON \
-            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
-            -DBUILD_TESTING=OFF \
-            -DGT_BUILD_TESTING=OFF \
-            -DGT_INSTALL_EXAMPLES=OFF \
-            -DGHEX_USE_BUNDLED_OOMPH=ON \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DUCX_DIR=/opt/ucx \
-            -DGHEX_USE_XPMEM=OFF \
-            -DGHEX_WITH_TESTING=ON \
-            -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=OFF \
-            -DGHEX_ENABLE_ATLAS_BINDINGS=ON \
-            -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
-            -DMETIS_INCLUDE_DIR=/opt/metis/include \
-            -DMETIS_LIB_DIR=/opt/metis/lib \
-            -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
-            -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DGHEX_USE_GPU=OFF
-      - name: Build
-        run: cmake --build build --parallel 2
-      - name: Execute tests
-        run: cd build && export SHLVL=1 && export OMPI_ALLOW_RUN_AS_ROOT=1 && export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 && export CTEST_OUTPUT_ON_FAILURE=1 && env && ctest
+        - {
+            name:      "cpu-clang-mpi-atlas-parmetis",
+            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip",
+            cc:        "/opt/rocm/llvm/bin/clang",
+            cxx:       "/opt/rocm/llvm/bin/clang++",
+            fortran:   "OFF",
+            gpu:       "OFF",
+            gpu_type:  "AUTO",
+            run:       "ON",
+            atlas:     "ON",
+            parmetis:  "ON",
+            backend:   "MPI",
+          }
 
-  build-gpu-amd:
-    runs-on: ubuntu-latest
-    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Configure
-        run: |
-          echo "WORKFLOW"
-          export SHLVL=1
-          env
-          ulimit -a
-          ipcs -lm
-          df
-          cat /proc/cpuinfo
-          mkdir -p build && cd build
-          CXX=/opt/rocm/llvm/bin/clang++ cmake .. \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DGHEX_GIT_SUBMODULE=OFF \
-            -DGHEX_USE_BUNDLED_LIBS=ON \
-            -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
-            -DBUILD_TESTING=OFF \
-            -DGT_BUILD_TESTING=OFF \
-            -DGT_INSTALL_EXAMPLES=OFF \
-            -DGHEX_USE_BUNDLED_OOMPH=ON \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DUCX_DIR=/opt/ucx \
-            -DGHEX_USE_XPMEM=OFF \
-            -DGHEX_WITH_TESTING=ON \
-            -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
-            -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
-            -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
-            -DMETIS_INCLUDE_DIR=/opt/metis/include \
-            -DMETIS_LIB_DIR=/opt/metis/lib \
-            -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
-            -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
-            -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DGHEX_USE_GPU=ON \
-            -DGHEX_GPU_TYPE=AMD
-      - name: Build
-        run: cmake --build build --parallel 2
+        - {
+            name:      "cpu-clang-ucx-atlas-parmetis",
+            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip",
+            cc:        "/opt/rocm/llvm/bin/clang",
+            cxx:       "/opt/rocm/llvm/bin/clang++",
+            fortran:   "OFF",
+            gpu:       "OFF",
+            gpu_type:  "AUTO",
+            run:       "ON",
+            atlas:     "ON",
+            parmetis:  "ON",
+            backend:   "UCX",
+          }
 
-  build-gpu-nvidia:
-    runs-on: ubuntu-latest
-    container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
+        - {
+            name:      "gpu-hip-mpi-atlas-parmetis",
+            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip",
+            cc:        "/opt/rocm/llvm/bin/clang",
+            cxx:       "/opt/rocm/llvm/bin/clang++",
+            fortran:   "OFF",
+            gpu:       "ON",
+            gpu_type:  "AMD",
+            run:       "OFF",
+            atlas:     "ON",
+            parmetis:  "ON",
+            backend:   "MPI",
+          }
+
+        - {
+            name:      "gpu-cuda-mpi-atlas-parmetis",
+            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11",
+            cc:        "gcc",
+            cxx:       "g++",
+            fortran:   "ON",
+            gpu:       "ON",
+            gpu_type:  "NVIDIA",
+            run:       "OFF",
+            atlas:     "ON",
+            parmetis:  "ON",
+            backend:   "MPI",
+          }
+
+    env:
+      CC:                             ${{ matrix.config.cc }}
+      CXX:                            ${{ matrix.config.cxx }}
+      GHEX_USE_GPU:                   ${{ matrix.config.gpu }}
+      GHEX_GPU_TYPE:                  ${{ matrix.config.gpu_type }}
+      eckit_DIR:                      ${{ matrix.eckit }}
+      Atlas_DIR:                      ${{ matrix.atlas }}
+      SHLVL:                          "1"
+      OMPI_ALLOW_RUN_AS_ROOT:         "1"
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: "1"
+      CTEST_OUTPUT_ON_FAILURE:        "1"
+      UCX_DIR:                        "/opt/ucx"
+      #ECKIT_DIR:                      "/opt/eckit"
+      #ATLAS_DIR:                      "/opt/atlas"
+      METIS_INCLUDE_DIR:              "/opt/metis/include"
+      METIS_LIB_DIR:                  "/opt/metis/lib"
+      PARMETIS_INCLUDE_DIR:           "/opt/parmetis/include"
+      PARMETIS_LIB_DIR:               "/opt/parmetis/lib"
+
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Install packages
+        run: |
+          apt update
+          apt-get -y install python3-dev python3-venv python3-pybind11 ninja-build
+
+      - name: Clone w/ submodules
+        uses: actions/checkout@v3
         with:
           submodules: recursive
+
       - name: Configure
         run: |
-          echo "WORKFLOW"
-          export SHLVL=1
-          env
-          ulimit -a
-          ipcs -lm
-          df
-          cat /proc/cpuinfo
-          mkdir -p build && cd build
+          mkdir -p build
+          cd build
           cmake .. \
+            -GNinja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DGHEX_GIT_SUBMODULE=OFF \
             -DGHEX_USE_BUNDLED_LIBS=ON \
             -DGHEX_USE_BUNDLED_GRIDTOOLS=ON \
-            -DBUILD_TESTING=OFF \
-            -DGT_BUILD_TESTING=OFF \
-            -DGT_INSTALL_EXAMPLES=OFF \
+            -DUCX_DIR=${UCX_DIR} \
+            -DGHEX_TRANSPORT_BACKEND=${{ matrix.config.backend }} \
             -DGHEX_USE_BUNDLED_OOMPH=ON \
-            -DGHEX_TRANSPORT_BACKEND=UCX \
-            -DUCX_DIR=/opt/ucx \
-            -DGHEX_USE_XPMEM=OFF \
             -DGHEX_WITH_TESTING=ON \
-            -DGHEX_BUILD_BENCHMARKS=ON \
-            -DGHEX_BUILD_FORTRAN=ON \
-            -DGHEX_ENABLE_ATLAS_BINDINGS=OFF \
-            -DGHEX_ENABLE_PARMETIS_BINDINGS=ON \
-            -DMETIS_INCLUDE_DIR=/opt/metis/include \
-            -DMETIS_LIB_DIR=/opt/metis/lib \
-            -DPARMETIS_INCLUDE_DIR=/opt/parmetis/include \
-            -DPARMETIS_LIB_DIR=/opt/parmetis/lib \
+            -DGHEX_BUILD_PYTHON_BINDINGS=ON \
+            -DGHEX_BUILD_FORTRAN=${{ matrix.config.fortran }} \
+            -DGHEX_ENABLE_ATLAS_BINDINGS=${{ matrix.config.atlas }} \
+            -DGHEX_ENABLE_PARMETIS_BINDINGS=${{ matrix.config.parmetis }} \
+            -DMETIS_INCLUDE_DIR=${METIS_INCLUDE_DIR} \
+            -DMETIS_LIB_DIR=${METIS_LIB_DIR} \
+            -DPARMETIS_INCLUDE_DIR=${PARMETIS_INCLUDE_DIR} \
+            -DPARMETIS_LIB_DIR=${PARMETIS_LIB_DIR} \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
-            -DGHEX_USE_GPU=ON \
-            -DGHEX_GPU_TYPE=NVIDIA
+            -DGHEX_USE_GPU=${{ matrix.config.gpu }} \
+            -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }}
+
       - name: Build
-        run: cmake --build build --parallel 2
+        run: cmake --build build --parallel 4
+
+      - if: ${{ matrix.config.run == 'ON' }}
+        name: Execute tests
+        run: cd build && ctest
 

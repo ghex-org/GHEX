@@ -1,6 +1,4 @@
 
-include(ghex_reg_test)
-
 ghex_compile_test(regular_domain)
 ghex_reg_parallel_test(regular_domain 4 false)
 ghex_reg_parallel_test(regular_domain 4 true)

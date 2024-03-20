@@ -171,4 +171,25 @@ wrap_field(const DomainDescriptor& dom, T* data, const Array& offsets, const Arr
 {
     return {dom, data, offsets, extents, 1, false, device_id};
 }
+
+/** @brief wrap a N-dimensional array (field)
+     * @tparam Arch device type the data lives on
+     * @tparam Layout storage layout (N-1 -> stride=1)
+     * @tparam DomainDescriptor domain type
+     * @tparam T field value type
+     * @tparam Array coordinate-like type
+     * @param dom local domain
+     * @param data pointer to data
+     * @param offsets coordinate of first physical coordinate (not buffer) from the orign of the wrapped N-dimensional array
+     * @param extents extent of the wrapped N-dimensional array (including buffer regions)
+     * @param strides array strides
+     * @return wrapped field*/
+template<typename Arch, typename Layout, typename Strides, typename DomainDescriptor, typename T, typename Array>
+structured::regular::field_descriptor<T, Arch, DomainDescriptor, Layout>
+wrap_field(const DomainDescriptor& dom, T* data, const Array& offsets, const Array& extents,
+    const Strides& strides,
+    typename arch_traits<Arch>::device_id_type device_id = arch_traits<Arch>::current_id())
+{
+    return {dom, data, offsets, extents, strides, 1, false, device_id};
+}
 } // namespace ghex

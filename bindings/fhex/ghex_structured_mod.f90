@@ -171,7 +171,7 @@ CONTAINS
     integer, optional :: device_id
     procedure(f_cart_rank_neighbor), pointer :: lcart_nbor
 
-    ! This is needed for GCC. Otherwise c_funloc(cart_nbor) doesn't work correctly
+    ! This is needed for GCC. Otherwise c_funloc(cart_nbor) does not work correctly
     ! This is a difference wrt. Intel compiler
     if (present(cart_nbor)) then
       lcart_nbor => cart_nbor

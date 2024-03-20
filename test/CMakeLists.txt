@@ -1,6 +1,4 @@
 
-include(ghex_reg_test)
-
 add_subdirectory(mpi_runner)
 
 set(serial_tests decomposition)

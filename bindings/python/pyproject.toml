@@ -1,33 +1,35 @@
 [build-system]
+build-backend = 'scikit_build_core.build'
 requires = [
-    "scikit-build-core",
-    "mpi4py",
-    "pybind11"
+    'cmake',
+    'mpi4py>=3.1',
+    'pybind11>=2.6',
+    #'scikit-build-core',
+    'scikit-build-core@git+https://github.com/scikit-build/scikit-build-core#egg=37ba268d04ab0816816bb8c7b0b1bc3388f91308',
+    'wheel',
 ]
-build-backend = "scikit_build_core.build"
 
 [project]
-name = "pyghex"
-version = "0.3.0" # needs to be adapted
-description = "Generic Halo Exchanges: Python API"
-readme = {file = "../../README.md", content-type = "text/markdown"}
-license = {file = "../../LICENSE"}
-dependencies = [
-    "numpy",
-    "mpi4py",
-    "pybind11"
-]
+dependencies = ['mpi4py>=3.1', 'numpy>=1.21']
+description = 'Generic Halo Exchanges: Python API'
+name = 'ghex'
+version = '0.3.0'  # needs to be adapted
+# note(stubbiali): the following fields are temporarily commented out since both LICENSE and README
+#  files live in a parent directory
+# license = {file = '../../LICENSE'}
+# readme = {file = '../../README.md', content-type = 'text/markdown'}
 
 [project.urls]
-repository = "https://github.com/ghex-org/GHEX"
+repository = 'https://github.com/ghex-org/GHEX'
 
 [project.optional-dependencies]
-test = [
-    "pytest",
-]
+test = ['pytest', 'pytest-mpi']
 
 [tool.scikit-build]
-cmake.minimum-version = "3.17"
+logging.level = 'INFO'
+minimum-version = '0.5'
+cmake.minimum-version = '3.21'
+cmake.verbose = true
 cmake.source-dir = "../.."
 cmake.build-type = "Release"
 cmake.args = [
@@ -35,8 +37,73 @@ cmake.args = [
     "-DGHEX_USE_BUNDLED_LIBS=ON",
     "-DGHEX_USE_BUNDLED_GRIDTOOLS=ON",
     "-DGHEX_USE_BUNDLED_OOMPH=ON",
+    "-DHAVE_MPI4PY=True",
 ]
 wheel.expand-macos-universal-tags = true
 wheel.install-dir = "ghex"
 wheel.packages = []
 wheel.license-files = []
+
+[tool.scikit-build.cmake.define]
+GHEX_USE_GPU = { env = "GHEX_USE_GPU", default = "OFF" }
+GHEX_GPU_TYPE = { env = "GHEX_GPU_TYPE", default = "AUTO" }
+CMAKE_CUDA_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "60;70;75" }
+CMAKE_HIP_ARCHITECTURES = { env = "GHEX_GPU_ARCH", default = "gfx900;gfx906" }
+AMDGPU_TARGETS = { env = "GHEX_GPU_ARCH", default = "gfx900;gfx906" }
+GHEX_TRANSPORT_BACKEND = { env = "GHEX_TRANSPORT_BACKEND", default = "MPI" }
+
+[tool.black]
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.gt_cache
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+
+  # The following are specific to Black, you probably don't want those.
+  | blib2to3
+  | tests/data
+  | profiling
+)/
+'''
+include = '\.pyi?$'
+line-length = 100
+
+[tool.mypy]
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+install_types = true
+namespace_packages = false
+no_implicit_optional = true
+no_implicit_reexport = true
+# pretty = true
+show_column_numbers = true
+show_error_codes = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+# Pip installation:
+###################
+
+# for cuda aware build:
+# export GHEX_USE_GPU=ON
+# export GHEX_GPU_TYPE=NVIDIA
+# export GHEX_GPU_ARCH="60;70;75;80"
+# pip install bindings/python
+
+# for hip aware build:
+# export GHEX_USE_GPU=ON
+# export GHEX_GPU_TYPE=AMD
+# export GHEX_GPU_ARCH="gfx906;gfx1035"
+# pip install bindings/python
+
+# from github:
+#pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bindings/python'

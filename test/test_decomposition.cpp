@@ -141,7 +141,6 @@ test_decomposition_3_4(int node_X, int node_Y, int node_Z, int numa_X, int numa_
                                 for (int rank_y = 0; rank_y < rank_Y; ++rank_y)
                                     for (int rank_x = 0; rank_x < rank_X; ++rank_x)
                                     {
-                                        int rank_res = 0;
                                         int thread_idx = 0;
                                         for (int thread_z = 0; thread_z < thread_Z; ++thread_z)
                                             for (int thread_y = 0; thread_y < thread_Y; ++thread_y)
@@ -187,7 +186,6 @@ test_decomposition_3_4(int node_X, int node_Y, int node_Z, int numa_X, int numa_
                                                     ++thread_idx;
                                                     ++node_res;
                                                     ++numa_res;
-                                                    ++rank_res;
                                                 }
                                         ++rank_idx;
                                     }

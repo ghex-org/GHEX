@@ -15,16 +15,13 @@
 #include <numeric>
 #include <algorithm>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
 #include <gridtools/common/for_each.hpp>
 
 #include <ghex/buffer_info.hpp>
 #include <ghex/structured/grid.hpp>
 #include <ghex/structured/pattern.hpp>
 
-#include <util/demangle.hpp>
+#include <register_class.hpp>
 #include <structured/regular/field_descriptor.hpp>
 
 namespace pyghex
@@ -58,7 +55,11 @@ struct buffer_info_accessor<ghex::gpu>
     static pybind11::buffer_info get(pybind11::object& buffer)
     {
         using namespace pybind11::literals;
+#ifdef __HIP_PLATFORM_HCC__
+        pybind11::dict info = buffer.attr("__hip_array_interface__");
+#else
         pybind11::dict info = buffer.attr("__cuda_array_interface__");
+#endif
 
         [[maybe_unused]] bool readonly = info["data"].cast<pybind11::tuple>()[1].cast<bool>();
         assert(!readonly);
@@ -92,12 +93,13 @@ struct buffer_info_accessor<ghex::gpu>
             assert(pybind11::ssize_t(strides.size()) == ndim);
         }
 
-        return pybind11::buffer_info(ptr, /* Pointer to buffer */
-            itemsize,                     /* Size of one scalar */
-            format,                       /* Python struct-style format descriptor */
-            ndim,                         /* Number of dimensions */
-            shape,                        /* Buffer dimensions */
-            strides                       /* Strides (in bytes) for each index */
+        return pybind11::buffer_info(
+            ptr,        /* Pointer to buffer */
+            itemsize,   /* Size of one scalar */
+            format,     /* Python struct-style format descriptor */
+            ndim,       /* Number of dimensions */
+            shape,      /* Buffer dimensions */
+            strides     /* Strides (in bytes) for each index */
         );
     }
 };
@@ -120,20 +122,22 @@ register_field_descriptor(pybind11::module& m)
             using namespace std::string_literals;
             using namespace pybind11::literals;
 
-            using type = gridtools::meta::first<decltype(l)>;
-            using T = typename type::value_type;
-            using domain_id_type = typename type::domain_id_type;
-            using domain_descriptor_type = typename type::domain_descriptor_type;
-            using arch_type = typename type::arch_type;
-            using layout_map = typename type::layout_map;
-            using dimension = typename type::dimension;
+            using field_descriptor_type = gridtools::meta::first<decltype(l)>;
+            using T = typename field_descriptor_type::value_type;
+            using domain_id_type = typename field_descriptor_type::domain_id_type;
+            using domain_descriptor_type = typename field_descriptor_type::domain_descriptor_type;
+            using arch_type = typename field_descriptor_type::arch_type;
+            using layout_map = typename field_descriptor_type::layout_map;
+            using dimension = typename field_descriptor_type::dimension;
             using array = std::array<int, dimension::value>;
             using grid_type = ghex::structured::grid::template type<domain_descriptor_type>;
             using pattern_type = ghex::pattern<grid_type, domain_id_type>;
-            using buffer_info_type = ghex::buffer_info<pattern_type, arch_type, type>;
+            using buffer_info_type = ghex::buffer_info<pattern_type, arch_type, field_descriptor_type>;
 
-            auto type_name = util::demangle<type>();
-            pybind11::class_<type>(m, type_name.c_str())
+            auto _field_descriptor = register_class<field_descriptor_type>(m);
+            /*auto _buffer_info =*/ register_class<buffer_info_type>(m);
+
+            _field_descriptor
                 .def(pybind11::init(
                          [](const domain_descriptor_type& dom, pybind11::object& b,
                              const array& offsets, const array& extents)
@@ -147,31 +151,22 @@ register_field_descriptor(pybind11::module& m)
                                        << " buffer.";
                                  throw pybind11::type_error(error.str());
                              }
-                             std::array<int, dimension::value> buffer_order;
-                             std::iota(buffer_order.begin(), buffer_order.end(), 0);
-                             std::sort(buffer_order.begin(), buffer_order.end(),
-                                 [&info](int a, int b)
-                                 { return info.strides[a] > info.strides[b]; });
-                             for (size_t i = 0; i < dimension::value; ++i)
-                             {
-                                 if (buffer_order[i] != layout_map::at(i))
-                                 {
-                                     throw pybind11::type_error(
-                                         "Buffer has a different layout than specified.");
+
+                             auto ordered_strides = info.strides;
+                             std::sort(ordered_strides.begin(), ordered_strides.end(), [](int a, int b) { return a > b; });
+                             array b_layout_map;
+                             for (size_t i = 0; i < dimension::value; ++i) {
+                                 auto it = std::find(ordered_strides.begin(), ordered_strides.end(), info.strides[i]);
+                                 b_layout_map[i] = std::distance(ordered_strides.begin(), it);
+                                 if (b_layout_map[i] != layout_map::at(i)) {
+                                     throw pybind11::type_error("Buffer has a different layout than specified.");
                                  }
                              }
 
                              return ghex::wrap_field<arch_type, layout_map>(dom,
-                                 static_cast<T*>(info.ptr), offsets, extents);
+                                 static_cast<T*>(info.ptr), offsets, extents, info.strides);
                          }),
-                    pybind11::keep_alive<0, 2>())
-                .def_property_readonly_static("__cpp_type__",
-                    [type_name](const pybind11::object&) { return type_name; });
-
-            auto buffer_info_name = util::demangle<buffer_info_type>();
-            pybind11::class_<buffer_info_type>(m, buffer_info_name.c_str())
-                .def_property_readonly_static("__cpp_type__",
-                    [buffer_info_name](const pybind11::object&) { return buffer_info_name; });
+                    pybind11::keep_alive<0, 2>());
         });
 }
 

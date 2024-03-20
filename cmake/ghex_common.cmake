@@ -1,4 +1,3 @@
-include(ghex_compile_options)
 
 # ---------------------------------------------------------------------
 # interface library
@@ -13,14 +12,6 @@ add_library(ghex SHARED)
 add_library(GHEX::lib ALIAS ghex)
 target_link_libraries(ghex PUBLIC ghex_common)
 ghex_target_compile_options(ghex)
-
-# ---------------------------------------------------------------------
-# device setup
-# ---------------------------------------------------------------------
-include(ghex_device)
-if (ghex_gpu_mode STREQUAL "hip")
-    target_link_libraries(ghex PUBLIC hip::device)
-endif()
 
 # ---------------------------------------------------------------------
 # install rules

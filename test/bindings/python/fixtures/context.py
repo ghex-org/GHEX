@@ -7,23 +7,23 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 #
+import mpi4py
+from mpi4py import MPI
 import pytest
 
-# import mpi4py
-import mpi4py
+from ghex.context import make_context
+
+
 mpi4py.rc.initialize = True
 mpi4py.rc.finalize = True
-mpi4py.rc.threads=True
-mpi4py.rc.thread_level="multiple"
-from mpi4py import MPI
+mpi4py.rc.threads = True
+mpi4py.rc.thread_level = "multiple"
 
-import ghex
 
 @pytest.fixture
 def context():
-    comm = ghex.mpi_comm(MPI.COMM_WORLD)
-    ctx = ghex.context(comm, True)
-    return ctx
+    return make_context(MPI.COMM_WORLD, True)
+
 
 @pytest.fixture
 def mpi_cart_comm():
@@ -32,8 +32,7 @@ def mpi_cart_comm():
     mpi_cart_comm = mpi_comm.Create_cart(dims=dims, periods=[False, False, False])
     return mpi_cart_comm
 
+
 @pytest.fixture
 def cart_context(mpi_cart_comm):
-    comm = ghex.mpi_comm(mpi_cart_comm)
-    ctx = ghex.context(comm, True)
-    return ctx
+    return make_context(mpi_cart_comm, True)

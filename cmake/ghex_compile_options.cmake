@@ -10,7 +10,7 @@ function(ghex_target_compile_options target)
     target_compile_options(${target} PRIVATE
     # flags for CXX builds
     $<${c_cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic -Wno-unknown-pragmas>>
-    $<${c_cxx_lang_clang}:$<BUILD_INTERFACE:-Wno-c++17-extensions -Wno-unused-lambda-capture -std=c++14>>
+    $<${c_cxx_lang_clang}:$<BUILD_INTERFACE:-Wno-unused-lambda-capture>>
     # flags for CUDA builds
     $<${cuda_lang}:$<BUILD_INTERFACE:-Xcompiler=-Wall -Wextra -Wno-unknown-pragmas --default-stream per-thread>>
     # flags for Fortran builds
@@ -23,13 +23,24 @@ function(ghex_target_compile_options target)
 endfunction()
 
 function(compile_as_cuda)
+    cmake_parse_arguments(P "" "DIRECTORY" "SOURCES" ${ARGN})
+    if(NOT P_DIRECTORY)
+        message(FATAL_ERROR "You must provide a directory")
+    endif()
     if (ghex_gpu_mode STREQUAL "cuda")
-        set_source_files_properties(${ARGN} PROPERTIES LANGUAGE CUDA)
+        set_source_files_properties(${P_SOURCES} PROPERTIES LANGUAGE CUDA DIRECTORY ${P_DIRECTORY})
+    endif()
+    if (ghex_gpu_mode STREQUAL "hip")
+        if (NOT ghex_amd_legacy)
+            set_source_files_properties(${P_SOURCES} PROPERTIES LANGUAGE HIP DIRECTORY ${P_DIRECTORY})
+        endif()
     endif()
 endfunction()
 
 function(link_device_runtime target)
     if (ghex_gpu_mode STREQUAL "hip")
-        target_link_libraries(${target} PRIVATE hip::device)
+        if (ghex_amd_legacy)
+            target_link_libraries(${target} PRIVATE hip::device)
+        endif()
     endif()
 endfunction()

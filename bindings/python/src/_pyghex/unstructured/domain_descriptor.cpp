@@ -9,12 +9,9 @@
  */
 #include <vector>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
 #include <gridtools/common/for_each.hpp>
 
-#include <util/demangle.hpp>
+#include <register_class.hpp>
 #include <unstructured/domain_descriptor.hpp>
 
 namespace pyghex
@@ -36,8 +33,9 @@ register_domain_descriptor(pybind11::module& m)
             using global_index_type = typename type::global_index_type;
             using local_index_type = typename type::local_index_type;
 
-            auto type_name = util::demangle<type>();
-            pybind11::class_<type>(m, type_name.c_str())
+            auto _domain_descriptor = register_class<type>(m);
+
+            _domain_descriptor
                 .def(pybind11::init(
                     [](domain_id_type id, const std::vector<global_index_type>& gids,
                         const std::vector<local_index_type>& halo_lids) {
@@ -50,9 +48,7 @@ register_domain_descriptor(pybind11::module& m)
                 .def(
                     "indices",
                     [](const type& d) -> std::vector<global_index_type> { return d.gids(); },
-                    "Returns the indices")
-                .def_property_readonly_static("__cpp_type__",
-                    [type_name](const pybind11::object&) { return type_name; });
+                    "Returns the indices");
         });
 }
 
