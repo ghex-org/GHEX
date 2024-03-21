@@ -82,7 +82,9 @@ jobs:
           cat <<EOF > spack/etc/spack/packages.yaml
           packages:
             all:
-              require: target=${{ matrix.micro-arch }}
+              require:
+              - 'target=${{ matrix.micro-arch }}'
+              - '%gcc'
           EOF
 
           mkdir -p spack/var/spack/environments
