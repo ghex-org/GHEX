@@ -110,9 +110,9 @@ jobs:
           spack compiler find
           #sed -i '/target:/c\    target: ${{ matrix.micro-arch }}' spack/etc/spack/linux/compilers.yaml
           #cat spack/etc/spack/linux/compilers.yaml
-          spack mirror add --unsigned spack-buildcache oci://ghcr.io/spack/github-actions-buildcache
+          #spack mirror add --unsigned spack-buildcache oci://ghcr.io/spack/github-actions-buildcache
           #spack mirror add --unsigned local-buildcache oci://ghcr.io/ghex-org/spack-buildcache
-          #spack mirror add --unsigned local-buildcache oci://ghcr.io/boeschf/spack-buildcache
+          spack mirror add --unsigned local-buildcache oci://ghcr.io/boeschf/spack-buildcache
           spack repo add repos
           spack reindex
           spack config blame
@@ -126,34 +126,34 @@ jobs:
       #      - +rocm
       #      - amdgpu_target=gfx_906
 
-      #- name: test install
-      #  run: |
-      #    source spack/share/spack/setup-env.sh
-      #    spack install bzip2
-
-      #- name: Push packages and update index
-      #  run: |
-      #    source spack/share/spack/setup-env.sh
-      #    spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
-      #    spack buildcache push --base-image ubuntu:22.04 --unsigned --update-index local-buildcache bzip2
-
-      - name: build and install ghex through spack dev-build
+      - name: test install
         run: |
           source spack/share/spack/setup-env.sh
-          spack spec -I ghex@develop \
-            ^python@${{ matrix.python-version }} \
-            ^oomph backend=${{ matrix.config.backend }}
-          spack install --no-check-signature --only dependencies ghex@develop \
-            ^python@${{ matrix.python-version }} \
-            ^oomph backend=${{ matrix.config.backend }}
-          # dev-build does not respect test dependencies - workaround
-          #spack install --reuse googletest
-          #spack load googletest
-          # need `--dirty` here for environment variables and googletest test dependency to propagate
-          spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
-            ^python@${{ matrix.python-version }} \
-            ^oomph backend=${{ matrix.config.backend }}
-          cat ghex/install-time-test-log.txt
+          spack install bzip2
+
+      - name: Push packages and update index
+        run: |
+          source spack/share/spack/setup-env.sh
+          spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
+          spack buildcache push --base-image ubuntu:22.04 --unsigned --update-index local-buildcache bzip2
+
+      #- name: build and install ghex through spack dev-build
+      #  run: |
+      #    source spack/share/spack/setup-env.sh
+      #    spack spec -I ghex@develop \
+      #      ^python@${{ matrix.python-version }} \
+      #      ^oomph backend=${{ matrix.config.backend }}
+      #    spack install --no-check-signature --only dependencies ghex@develop \
+      #      ^python@${{ matrix.python-version }} \
+      #      ^oomph backend=${{ matrix.config.backend }}
+      #    # dev-build does not respect test dependencies - workaround
+      #    #spack install --reuse googletest
+      #    #spack load googletest
+      #    # need `--dirty` here for environment variables and googletest test dependency to propagate
+      #    spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
+      #      ^python@${{ matrix.python-version }} \
+      #      ^oomph backend=${{ matrix.config.backend }}
+      #    cat ghex/install-time-test-log.txt
 
       #- name: Push packages and update index
       #  run: |
