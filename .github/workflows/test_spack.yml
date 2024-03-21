@@ -55,24 +55,26 @@ jobs:
       - name: initialize spack, make environment and add online buildcache
         run: |
           cat <<EOF > spack/etc/spack/config.yaml
-config:
-  build_jobs: 4
-EOF
+          config:
+            build_jobs: 4
+          EOF
+
           mkdir spack/var/spack/environments/test-env 
           cat <<EOF > spack/var/spack/environments/test-env/spack.yaml
-spack:
-  specs:
-  - openmpi
-  - python@${{ matrix.python-version }}
-  view: true
-  concretizer:
-    unify: true
-  packages:
-    all:
-      target: ['x86_64_v2']
-      variants:
-      - +mpi
-EOF
+          spack:
+            specs:
+            - openmpi
+            - python@${{ matrix.python-version }}
+            view: true
+            concretizer:
+              unify: true
+            packages:
+              all:
+                target: ['x86_64_v2']
+                variants:
+                - +mpi
+          EOF
+
           cat spack/var/spack/environments/test-env/spack.yaml
           source spack/share/spack/setup-env.sh
           spack compiler find
