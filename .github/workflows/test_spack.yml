@@ -1,0 +1,86 @@
+name: spack
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-spack:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+
+      matrix:
+
+        config:
+        - {
+            backend: 'mpi',
+            tests: true,
+            cuda: false,
+            rocm: false,
+          }
+
+        python-version: ['3.11']
+
+        spack-version: ['develop']
+
+      fail-fast: false
+
+    steps:
+  
+      - name: install additional ubuntu packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gfortran libblas-dev
+
+      - name: clone ghex
+        uses: actions/checkout@v4
+        with:
+          path: ghex
+          submodules: recursive
+
+      - name: clone spack
+        run: |
+          git clone -c feature.manyFiles=true --depth 1 \
+            --branch ${{ matrix.spack-version }} \
+            https://github.com/spack/spack.git \
+            spack
+
+      - name: initialize spack, make environment and add online buildcache
+        run: |
+          cat <<EOF > spack/etc/spack/config.yaml
+config:
+  build_jobs: 4
+EOF
+          mkdir spack/var/spack/environments/test-env 
+          cat <<EOF > spack/var/spack/environments/test-env/spack.yaml
+spack:
+  specs:
+  - openmpi
+  - python@${{ matrix.python-version }}
+  view: true
+  concretizer:
+    unify: true
+  packages:
+    all:
+      target: ['x86_64_v2']
+      variants:
+      - +mpi
+EOF
+          cat spack/var/spack/environments/test-env/spack.yaml
+          source spack/share/spack/setup-env.sh
+          spack compiler find
+          spack mirror add spack-buildcache oci://ghcr.io/spack/github-actions-buildcache
+          spack -e test-env concretize
+
+          #      - +cuda
+          #      - cuda_arch=90
+          #
+          #      - +rocm
+          #      - amdgpu_target=gfx_906
