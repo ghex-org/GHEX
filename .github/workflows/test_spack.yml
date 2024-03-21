@@ -133,7 +133,7 @@ jobs:
           source spack/share/spack/setup-env.sh
           spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
           spack buildcache push --base-image ubuntu:22.04 --unsigned --update-index local-buildcache bzip2
-          if: ${{ !cancelled() }}
+          #if: ${{ !cancelled() }}
 
       #- name: build and install ghex through spack dev-build
       #  run: |
