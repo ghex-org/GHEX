@@ -108,6 +108,7 @@ jobs:
           cat spack/var/spack/environments/test-env/spack.yaml
           source spack/share/spack/setup-env.sh
           spack compiler find
+          echo "actor = ${{ github.actor }}"
           #sed -i '/target:/c\    target: ${{ matrix.micro-arch }}' spack/etc/spack/linux/compilers.yaml
           #cat spack/etc/spack/linux/compilers.yaml
           #spack mirror add --unsigned spack-buildcache oci://ghcr.io/spack/github-actions-buildcache
