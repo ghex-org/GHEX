@@ -146,10 +146,11 @@ jobs:
           #spack install --reuse googletest
           #spack load googletest
           # need `--dirty` here for environment variables and googletest test dependency to propagate
-      #    spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
-      #      ^python@${{ matrix.python-version }} \
-      #      ^oomph backend=${{ matrix.config.backend }}
-      #    cat ghex/install-time-test-log.txt
+          #spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
+          spack dev-build --dirty --reuse --source-path ghex ghex@develop \
+            ^python@${{ matrix.python-version }} \
+            ^oomph backend=${{ matrix.config.backend }}
+          cat ghex/install-time-test-log.txt
 
       - name: Push packages and update index
         if: ${{ 'boeschf' == github.repository_owner }}
