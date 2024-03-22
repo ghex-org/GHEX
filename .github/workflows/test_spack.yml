@@ -43,13 +43,9 @@ jobs:
       OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: "1"
       SPACK_DISABLE_LOCAL_CONFIG:     "true"
       SPACK_USER_CACHE_PATH:          "/tmp/spack"
-      GITHUB_CONTEXT: ${{ toJSON(github) }}
 
     steps:
   
-      - name: dump context
-        run: echo "$GITHUB_CONTEXT"
-
       - name: install additional ubuntu packages
         run: |
           sudo apt-get update -qq
@@ -146,8 +142,7 @@ jobs:
           #spack install --reuse googletest
           #spack load googletest
           # need `--dirty` here for environment variables and googletest test dependency to propagate
-          #spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
-          spack dev-build --dirty --reuse --source-path ghex ghex@develop \
+          spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
             ^python@${{ matrix.python-version }} \
             ^oomph backend=${{ matrix.config.backend }}
 
