@@ -43,9 +43,13 @@ jobs:
       OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: "1"
       SPACK_DISABLE_LOCAL_CONFIG:     "true"
       SPACK_USER_CACHE_PATH:          "/tmp/spack"
+      GITHUB_CONTEXT: ${{ toJSON(github) }}
 
     steps:
   
+      - name: dump context
+        run: echo "$GITHUB_CONTEXT"
+
       - name: install additional ubuntu packages
         run: |
           sudo apt-get update -qq
@@ -108,6 +112,7 @@ jobs:
           cat spack/var/spack/environments/test-env/spack.yaml
           source spack/share/spack/setup-env.sh
           spack compiler find
+          echo "owner = ${{ github.repository_owner }}"
           echo "actor = ${{ github.actor }}"
           #sed -i '/target:/c\    target: ${{ matrix.micro-arch }}' spack/etc/spack/linux/compilers.yaml
           #cat spack/etc/spack/linux/compilers.yaml
