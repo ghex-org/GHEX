@@ -140,7 +140,7 @@ jobs:
           spack install tar
 
       - name: Push packages and update index
-        if: ${{ 'boeschf' == github.actor }}
+        if: ${{ 'boeschf' == github.repository_owner }}
         run: |
           source spack/share/spack/setup-env.sh
           spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
