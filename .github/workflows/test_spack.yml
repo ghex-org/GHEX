@@ -150,10 +150,9 @@ jobs:
           spack dev-build --dirty --reuse --source-path ghex ghex@develop \
             ^python@${{ matrix.python-version }} \
             ^oomph backend=${{ matrix.config.backend }}
-          cat ghex/install-time-test-log.txt
 
       - name: Push packages and update index
-        if: ${{ 'boeschf' == github.repository_owner }}
+        ###if: ${{ 'boeschf' == github.repository_owner }}
         run: |
           source spack/share/spack/setup-env.sh
           spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
