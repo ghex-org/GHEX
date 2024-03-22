@@ -146,6 +146,25 @@ jobs:
             ^python@${{ matrix.python-version }} \
             ^oomph backend=${{ matrix.config.backend }}
 
+      - name: inspect
+        if: always()
+        run: |
+          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-out.txt
+          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/install-time-test-log.txt
+
+      - name: inspect2
+        if: always()
+        run: |
+          echo "ghex/spack-build-01-cmake-out.txt"
+          cat ghex/spack-build-01-cmake-out.txt
+          echo "ghex/spack-build-02-build-out.txt"
+          cat ghex/spack-build-02-build-out.txt
+          #echo "ghex/spack-build-03-install-out.txt"
+          #cat ghex/spack-build-03-install-out.txt
+          echo "ghex/install-time-test-log.txt"
+          cat ghex/install-time-test-log.txt
+
+
       - name: Push packages and update index
         ###if: ${{ 'boeschf' == github.repository_owner }}
         run: |
