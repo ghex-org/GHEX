@@ -118,8 +118,8 @@ jobs:
           #cat spack/etc/spack/linux/compilers.yaml
           #spack mirror add --unsigned spack-buildcache oci://ghcr.io/spack/github-actions-buildcache
           #spack mirror add --unsigned local-buildcache oci://ghcr.io/ghex-org/spack-buildcache
-          spack mirror add --unsigned local-buildcache oci://ghcr.io/${{ github.actor }}/spack-buildcache
-          spack mirror set --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
+          spack mirror add --unsigned local-buildcache oci://ghcr.io/boeschf/spack-buildcache
+          #spack mirror set --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
           spack repo add repos
           spack reindex
           spack config blame
@@ -140,10 +140,10 @@ jobs:
           spack install tar
 
       - name: Push packages and update index
-        if: ${{ github.repository_owner == github.actor }}
+        if: ${{ 'boeschf' == github.actor }}
         run: |
           source spack/share/spack/setup-env.sh
-          #spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
+          spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
           spack buildcache push --base-image ubuntu:22.04 --unsigned --update-index local-buildcache bzip2
           spack buildcache push --base-image ubuntu:22.04 --unsigned --update-index local-buildcache tar
 
