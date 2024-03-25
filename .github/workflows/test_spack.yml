@@ -132,12 +132,12 @@ jobs:
       - name: build and install ghex through spack dev-build
         run: |
           source spack/share/spack/setup-env.sh
-          spack spec -I ghex@develop \
-            ^python@${{ matrix.python-version }} \
-            ^oomph backend=${{ matrix.config.backend }}
-          spack install --no-check-signature --only dependencies ghex@develop \
-            ^python@${{ matrix.python-version }} \
-            ^oomph backend=${{ matrix.config.backend }}
+          #spack spec -I ghex@develop \
+          #  ^python@${{ matrix.python-version }} \
+          #  ^oomph backend=${{ matrix.config.backend }}
+          #spack install --no-check-signature --only dependencies ghex@develop \
+          #  ^python@${{ matrix.python-version }} \
+          #  ^oomph backend=${{ matrix.config.backend }}
           # dev-build does not respect test dependencies - workaround
           #spack install --reuse googletest
           #spack load googletest
