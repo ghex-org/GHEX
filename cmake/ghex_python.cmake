@@ -20,6 +20,7 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
         # Here is the trick
         ## update the environment with VIRTUAL_ENV variable (mimic the activate script)
         set (ENV{VIRTUAL_ENV} "${venv}")
+        set (ENV{Python3_ROOT_DIR} "${venv}")
         message(STATUS "the venv directory = $ENV{VIRTUAL_ENV}")
         ## change the context of the search
         set (Python3_FIND_VIRTUALENV ONLY)
