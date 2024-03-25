@@ -24,6 +24,8 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
         set (Python3_FIND_VIRTUALENV FIRST)
         ## unset Python3_EXECUTABLE because it is also an input variable (see documentation, Artifacts Specification section)
         unset (Python3_EXECUTABLE)
+        message(STATUS "the Python_ROOT_DIR = $ENV{Python_ROOT_DIR}")
+        message(STATUS "the Python3_ROOT_DIR = $ENV{Python3_ROOT_DIR}")
         ## Launch a new search
         find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
     else()
