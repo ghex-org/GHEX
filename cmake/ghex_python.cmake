@@ -20,15 +20,10 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
         # Here is the trick
         ## update the environment with VIRTUAL_ENV variable (mimic the activate script)
         set (ENV{VIRTUAL_ENV} "${venv}")
-        #set (ENV{Python3_ROOT_DIR} "${venv}")
-        set (Python3_ROOT_DIR ${venv})
-        message(STATUS "the venv directory = $ENV{VIRTUAL_ENV}")
         ## change the context of the search
         set (Python3_FIND_VIRTUALENV ONLY)
         ## unset Python3_EXECUTABLE because it is also an input variable (see documentation, Artifacts Specification section)
         unset (Python3_EXECUTABLE)
-        message(STATUS "the Python_ROOT_DIR = $ENV{Python_ROOT_DIR}")
-        message(STATUS "the Python3_ROOT_DIR = $ENV{Python3_ROOT_DIR}")
         ## Launch a new search
         find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
     else()
