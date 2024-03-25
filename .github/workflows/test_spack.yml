@@ -22,23 +22,21 @@ jobs:
         config:
         - {
             backend: 'mpi',
-            backend_spec: 'openmpi'
+            backend_spec: 'openmpi',
             tests: true,
             cuda: false,
             rocm: false,
           }
-
         - {
             backend: 'ucx',
-            backend_spec: 'ucx +thread_multiple'
+            backend_spec: 'ucx +thread_multiple',
             tests: true,
             cuda: false,
             rocm: false,
           }
-
         - {
             backend: 'libfabric',
-            backend_spec: 'libfabric'
+            backend_spec: 'libfabric',
             tests: true,
             cuda: false,
             rocm: false,
