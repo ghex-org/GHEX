@@ -1,4 +1,4 @@
-name: spack
+name: Test spack
 
 on:
   push:
@@ -81,7 +81,7 @@ jobs:
             https://github.com/spack/spack.git \
             spack
 
-      - name: initialize spack, make environment and add online buildcache
+      - name: initialize spack and add online buildcache
         run: |
           cat <<EOF > spack/etc/spack/config.yaml
           config:
@@ -161,12 +161,12 @@ jobs:
             ^oomph backend=${{ matrix.config.backend }} \
             ^${{ matrix.config.backend_spec }}
 
-      #- name: inspect
-      #  if: always()
-      #  run: |
-      #    cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-out.txt
-      #    cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/install-time-test-log.txt
-      #    cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-*/Testing/Temporary/LastTest.log
+      - name: inspect
+        if: ${{ failure() }}
+        run: |
+          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-out.txt
+          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/install-time-test-log.txt
+          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-*/Testing/Temporary/LastTest.log
 
       #- name: inspect2
       #  if: always()
