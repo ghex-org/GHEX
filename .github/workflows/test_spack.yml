@@ -18,9 +18,7 @@ jobs:
         shell: bash
 
     strategy:
-
       matrix:
-
         config:
         - {
             backend: 'mpi',
@@ -67,8 +65,6 @@ jobs:
             --branch ${{ matrix.spack-version }} \
             https://github.com/spack/spack.git \
             spack
-          pwd
-          ls spack
 
       - name: initialize spack, make environment and add online buildcache
         run: |
@@ -87,29 +83,29 @@ jobs:
               - '%gcc'
           EOF
 
-          mkdir -p spack/var/spack/environments
-          mkdir spack/var/spack/environments/test-env 
-          cat <<EOF > spack/var/spack/environments/test-env/spack.yaml
-          spack:
-            specs:
-            - openmpi
-            - python@${{ matrix.python-version }}
-            - googletest
-            view: true
-            concretizer:
-              unify: true
-            packages:
-              all:
-                #target: ['${{ matrix.micro-arch }}']
-                variants:
-                - +mpi
-          EOF
+          #mkdir -p spack/var/spack/environments
+          #mkdir spack/var/spack/environments/test-env 
+          #cat <<EOF > spack/var/spack/environments/test-env/spack.yaml
+          #spack:
+          #  specs:
+          #  - openmpi
+          #  - python@${{ matrix.python-version }}
+          #  - googletest
+          #  view: true
+          #  concretizer:
+          #    unify: true
+          #  packages:
+          #    all:
+          #      #target: ['${{ matrix.micro-arch }}']
+          #      variants:
+          #      - +mpi
+          #EOF
 
-          cat spack/var/spack/environments/test-env/spack.yaml
+          #cat spack/var/spack/environments/test-env/spack.yaml
           source spack/share/spack/setup-env.sh
           spack compiler find
-          echo "owner = ${{ github.repository_owner }}"
-          echo "actor = ${{ github.actor }}"
+          #echo "owner = ${{ github.repository_owner }}"
+          #echo "actor = ${{ github.actor }}"
           #sed -i '/target:/c\    target: ${{ matrix.micro-arch }}' spack/etc/spack/linux/compilers.yaml
           #cat spack/etc/spack/linux/compilers.yaml
           #spack mirror add --unsigned spack-buildcache oci://ghcr.io/spack/github-actions-buildcache
@@ -118,9 +114,9 @@ jobs:
           #spack mirror set --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
           spack repo add repos
           spack reindex
-          spack config blame
+          #spack config blame
           #spack info ghex
-          spack -e test-env concretize
+          #spack -e test-env concretize
           #spack -e test-env install
 
       #      - +cuda
@@ -141,6 +137,9 @@ jobs:
           # dev-build does not respect test dependencies - workaround
           #spack install --reuse googletest
           #spack load googletest
+          # dev-build does not respect test dependencies - workaround
+          spack install --reuse googletest
+          spack load googletest
           # need `--dirty` here for environment variables and googletest test dependency to propagate
           spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
             ^python@${{ matrix.python-version }} \
