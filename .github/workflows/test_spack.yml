@@ -22,21 +22,12 @@ jobs:
         config:
         - {
             backend: 'mpi',
-            backend_spec: 'openmpi',
             tests: true,
             cuda: false,
             rocm: false,
           }
         - {
             backend: 'ucx',
-            backend_spec: 'ucx +thread_multiple',
-            tests: true,
-            cuda: false,
-            rocm: false,
-          }
-        - {
-            backend: 'libfabric',
-            backend_spec: 'libfabric',
             tests: true,
             cuda: false,
             rocm: false,
@@ -157,9 +148,8 @@ jobs:
           spack load googletest
           # need `--dirty` here for environment variables and googletest test dependency to propagate
           spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
-            ^python@${{ matrix.python-version }} \
-            ^oomph backend=${{ matrix.config.backend }} \
-            ^${{ matrix.config.backend_spec }}
+            backend=${{ matrix.config.backend }} \
+            ^python@${{ matrix.python-version }}
 
       - name: inspect
         if: ${{ failure() }}
