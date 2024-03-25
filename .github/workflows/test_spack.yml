@@ -27,6 +27,7 @@ jobs:
             cuda: false,
             rocm: false,
           }
+
         - {
             backend: 'ucx',
             backend_spec: 'ucx +thread_multiple'
@@ -34,6 +35,7 @@ jobs:
             cuda: false,
             rocm: false,
           }
+
         - {
             backend: 'libfabric',
             backend_spec: 'libfabric'
