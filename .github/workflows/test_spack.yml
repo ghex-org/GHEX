@@ -146,12 +146,12 @@ jobs:
             ^python@${{ matrix.python-version }} \
             ^oomph backend=${{ matrix.config.backend }}
 
-      - name: inspect
-        if: always()
-        run: |
-          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-out.txt
-          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/install-time-test-log.txt
-          cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-*/Testing/Temporary/LastTest.log
+      #- name: inspect
+      #  if: always()
+      #  run: |
+      #    cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-out.txt
+      #    cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/install-time-test-log.txt
+      #    cat /tmp/runner/spack-stage/spack-stage-ghex-develop-*/spack-build-*/Testing/Temporary/LastTest.log
 
       #- name: inspect2
       #  if: always()
