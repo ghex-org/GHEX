@@ -90,11 +90,11 @@ git clone --depth=1 ttps://github.com/boeschf/spack-repos.git path/to/ghex-repos
 spack repo add path/to/ghex-repos
 spack reindex
 ```
-- Install GHEX using spack
+- install GHEX using spack
 ```
 spack install ghex backend=mpi
 ```
-- For more build/install options see
+- for more build/install options, see
 ```
 spack info ghex
 ```
