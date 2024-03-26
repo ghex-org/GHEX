@@ -30,11 +30,6 @@ jobs:
             tests: true,
             device: '',
           }
-        #- {
-        #    backend: 'mpi',
-        #    tests: true,
-        #    device: '+cuda cuda_arch=90',
-        #  }
 
         python-version: ['3.11']
 
@@ -130,8 +125,3 @@ jobs:
             ${{ matrix.config.device }} \
             ^python@${{ matrix.python-version }}
 
-      - name: Push packages and update index
-        run: |
-          source spack/share/spack/setup-env.sh
-          spack mirror set --push --oci-username ${{ github.actor }} --oci-password "${{ secrets.GITHUB_TOKEN }}" local-buildcache
-          spack buildcache push --base-image ubuntu:22.04 --unsigned --update-index --only dependencies local-buildcache ghex@develop
