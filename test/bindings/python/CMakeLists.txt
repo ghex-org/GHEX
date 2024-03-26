@@ -14,7 +14,7 @@ function(ghex_reg_pytest t)
         ${CMAKE_CURRENT_SOURCE_DIR}/test_${t}.py)
     add_test(
         NAME py_${t}
-        COMMAND ${PYTHON_EXECUTABLE} -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
+        COMMAND ${venv_bin_dir}/python -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
         WORKING_DIRECTORY ${pyghex_test_workdir})
     set_tests_properties(py_${t} PROPERTIES RUN_SERIAL ON)
 endfunction()
@@ -25,7 +25,7 @@ function(ghex_reg_parallel_pytest t n)
     add_test(
         NAME py_${t}_parallel
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-        ${PYTHON_EXECUTABLE} -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
+        ${venv_bin_dir}/python -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
         WORKING_DIRECTORY ${pyghex_test_workdir})
     set_tests_properties(py_${t}_parallel PROPERTIES RUN_SERIAL ON)
 endfunction()
@@ -36,5 +36,4 @@ ghex_reg_parallel_pytest(context 4)
 ghex_reg_parallel_pytest(structured_domain_descriptor 4)
 ghex_reg_parallel_pytest(structured_pattern 4)
 
-#ghex_reg_pytest(unstructured_domain_descriptor)
 ghex_reg_parallel_pytest(unstructured_domain_descriptor 4)
