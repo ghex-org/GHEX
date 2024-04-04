@@ -53,7 +53,7 @@ def test_pattern(capsys, mpi_cart_comm):
         print(pattern.grid_type)
         print(pattern.domain_id_type)
 
-    co = make_communication_object(ctx, pattern)
+    co = make_communication_object(ctx)
 
     def make_field():
         field_1 = np.zeros(
