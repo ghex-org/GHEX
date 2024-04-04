@@ -72,15 +72,13 @@ struct communication_object_shim {
     template<typename P>
     using get_did = typename P::domain_id_type;
 
+    // helper function for iterators
     template<typename... Its, std::size_t... Is>
     auto exchange_from_iterators(std::tuple<Its...> t, std::index_sequence<Is...>) {
         using begins = decltype(std::make_tuple(std::get<Is>(t)...));
-        using ends = decltype(std::make_tuple(std::get<Is+1>(t)...));
-        static_assert( std::is_same_v<begins, ends> );
         static constexpr std::size_t half_size = sizeof...(Is);
         return get_co<gridtools::meta::transform<get_pattern_t, begins>>().exchange(
-            std::get<Is>(t)..., std::get<Is + half_size>(t)...
-        );
+            std::get<Is>(t)..., std::get<Is + half_size>(t)...);
     }
 
     // get the required communcation object specialization from the variant based on a list of pattern types
@@ -89,18 +87,12 @@ struct communication_object_shim {
     template<typename PatternList>
     auto& get_co() {
         // extract and deduplicate grids from patterns
-        using grids = gridtools::meta::dedup<
-            gridtools::meta::transform<
-                get_grid,
-                PatternList>>;
+        using grids = gridtools::meta::dedup<gridtools::meta::transform<get_grid, PatternList>>;
         // check that all grids are of same type
         static_assert(gridtools::meta::length<grids>::value == 1);
 
         // extract and deduplicate domain ids from patterns
-        using dids = gridtools::meta::dedup<
-            gridtools::meta::transform<
-                get_did,
-                PatternList>>;
+        using dids = gridtools::meta::dedup<gridtools::meta::transform<get_did, PatternList>>;
         // check that all domain ids are of the same type
         static_assert(gridtools::meta::length<dids>::value == 1);
 
@@ -108,8 +100,7 @@ struct communication_object_shim {
         using co_t = ghex::communication_object<gridtools::meta::at_c<grids, 0>, gridtools::meta::at_c<dids, 0>>;
 
         // check whether co_t is in variant
-        static_assert(
-            gridtools::meta::find<communication_object_specializations, co_t>::value <
+        static_assert(gridtools::meta::find<communication_object_specializations, co_t>::value <
             gridtools::meta::length<communication_object_specializations>::value);
 
         // initialize variant with communication object if necessary
