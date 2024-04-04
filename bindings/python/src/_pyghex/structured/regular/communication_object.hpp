@@ -37,8 +37,7 @@ using communication_object_specializations =
 
 // Communication object specializations are stored in a variant and constructed on demand before the first exchange.
 // - this removes the need to inject the pattern type at construction, i.e.
-//   in the python code `make_communication_object` takes only the context as argument instead of one
-//   of the pattern objects which was confusing
+//   in the python function `make_communication_object` doesn't require a pattern object to infer the type anymore
 // - if this communication object shim is later used with a different *type* of pattern, for example
 //   a 2d pattern instead of a 3d pattern, the exchange will fail with an exception
 struct communication_object_shim {
@@ -75,7 +74,8 @@ struct communication_object_shim {
     // helper function for iterators
     template<typename... Its, std::size_t... Is>
     auto exchange_from_iterators(std::tuple<Its...> t, std::index_sequence<Is...>) {
-        using begins = decltype(std::make_tuple(std::get<Is>(t)...));
+        // every second iterator is a begin
+        using begins = decltype(std::make_tuple(std::get<Is*2>(t)...));
         static constexpr std::size_t half_size = sizeof...(Is);
         return get_co<gridtools::meta::transform<get_pattern_t, begins>>().exchange(
             std::get<Is>(t)..., std::get<Is + half_size>(t)...);
