@@ -8,11 +8,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <pybind11/pybind11.h>
-#include <gridtools/common/for_each.hpp>
-#include <context_shim.hpp>
-#include <unstructured/communication_object.hpp>
-#include <unstructured/pattern.hpp>
-#include <unstructured/domain_descriptor.hpp>
 
 namespace py = pybind11;
 
