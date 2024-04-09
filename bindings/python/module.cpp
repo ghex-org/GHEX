@@ -7,7 +7,6 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <cstdint>
 #include <pybind11/pybind11.h>
 #include <gridtools/common/for_each.hpp>
 #include <context_shim.hpp>
@@ -78,36 +77,4 @@ PYBIND11_MODULE(_pyghex, m)
     pyghex::unstructured::register_field_descriptor(m);
     pyghex::unstructured::register_pattern(m);
     pyghex::unstructured::register_communication_object(m);
-
-    m.def("expose_cpp_ptr", [](pyghex::context_shim* obj) {return reinterpret_cast<std::uintptr_t>(&obj->m);} );
-    
-    gridtools::for_each<
-        gridtools::meta::transform<gridtools::meta::list, pyghex::unstructured::communication_object_specializations>>(
-        [&m](auto l)
-        {
-            using type = gridtools::meta::first<decltype(l)>;
-            m.def("expose_cpp_ptr", [](type* obj) {return reinterpret_cast<std::uintptr_t>(obj);} );
-        });
-
-    gridtools::for_each<
-        gridtools::meta::transform<gridtools::meta::list, pyghex::unstructured::make_pattern_traits_specializations>>(
-        [&m](auto l)
-        {
-            using type = gridtools::meta::first<decltype(l)>;
-            using halo_gen = typename type::halo_gen;
-            using domain_range = typename type::domain_range;
-            using grid_type = ghex::unstructured::grid;
-            using pattern_container =
-                decltype(ghex::make_pattern<grid_type>(std::declval<ghex::context&>(),
-                    std::declval<halo_gen&>(), std::declval<domain_range&>()));
-            m.def("expose_cpp_ptr", [](pattern_container* obj) {return reinterpret_cast<std::uintptr_t>(obj);} );
-        });
-
-    gridtools::for_each<
-        gridtools::meta::transform<gridtools::meta::list, pyghex::unstructured::domain_descriptor_specializations>>(
-        [&m](auto l)
-        {
-            using type = gridtools::meta::first<decltype(l)>;
-            m.def("expose_cpp_ptr", [](type* obj) {return reinterpret_cast<std::uintptr_t>(obj);} );
-        });
 }

@@ -7,6 +7,7 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdint>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -68,6 +69,8 @@ register_pattern(pybind11::module& m)
                     cls.def("__call__", &pattern_container::template operator()<field>,
                         pybind11::keep_alive<0, 2>());
                 });
+            
+            m.def("expose_cpp_ptr", [](pattern_container* obj){return reinterpret_cast<std::uintptr_t>(obj);});
         });
 }
 

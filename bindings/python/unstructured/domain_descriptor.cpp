@@ -7,6 +7,7 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdint>
 #include <vector>
 
 #include <pybind11/pybind11.h>
@@ -53,6 +54,8 @@ register_domain_descriptor(pybind11::module& m)
                     "Returns the indices")
                 .def_property_readonly_static("__cpp_type__",
                     [type_name](const pybind11::object&) { return type_name; });
+            
+            m.def("expose_cpp_ptr", [](type* obj){return reinterpret_cast<std::uintptr_t>(obj);});
         });
 }
 
