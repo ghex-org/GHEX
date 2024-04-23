@@ -351,6 +351,9 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
         assert(!(outer_stride) || (outer_stride >= (levels_first ? m_levels : m_domain_size)));
     }
 
+    /** @brief empty constructor*/
+    data_descriptor(){}
+
     // member functions
 
     device_id_type device_id() const noexcept { return arch_traits<arch_type>::default_id(); }
@@ -533,6 +536,9 @@ class data_descriptor<gpu, DomainId, Idx, T>
     , m_level_stride{levels_first ? 1u : (outer_stride ? outer_stride : m_domain_size)}
     {
     }
+
+    /** @brief empty constructor*/
+    data_descriptor(){}
 
     // member functions
 

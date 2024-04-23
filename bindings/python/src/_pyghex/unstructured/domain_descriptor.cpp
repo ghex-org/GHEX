@@ -7,6 +7,7 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdint>
 #include <vector>
 
 #include <gridtools/common/for_each.hpp>
@@ -49,6 +50,8 @@ register_domain_descriptor(pybind11::module& m)
                     "indices",
                     [](const type& d) -> std::vector<global_index_type> { return d.gids(); },
                     "Returns the indices");
+
+             m.def("expose_cpp_ptr", [](type* obj){return reinterpret_cast<std::uintptr_t>(obj);});
         });
 }
 
