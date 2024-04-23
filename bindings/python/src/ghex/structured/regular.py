@@ -23,8 +23,8 @@ if TYPE_CHECKING:
     from ghex.context import context
 
 
-def make_communication_object(context: context, pattern):
-    return _make_co_regular(context, pattern)
+def make_communication_object(context: context):
+    return _make_co_regular(context)
 
 
 class DomainDescriptor(CppWrapper):
