@@ -177,7 +177,7 @@ register_field_descriptor(pybind11::module& m)
                         std::size_t levels =
                             (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
 
-                        return type{dom, static_cast<T*>(info.ptr), levels, levels_first};
+                        return type{dom, static_cast<T*>(info.ptr), levels, levels_first, outer_strides};
                 }),
                 pybind11::keep_alive<0, 2>());
         });
