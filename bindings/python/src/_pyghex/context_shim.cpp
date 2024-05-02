@@ -7,6 +7,7 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdint>
 #include <pybind11/pybind11.h>
 
 #include <context_shim.hpp>
@@ -51,6 +52,8 @@ register_context(pybind11::module& m)
         .def(
             "size", [](const context_shim& c) { return c.m.size(); },
             "number of ranks within the communicator");
+
+    m.def("expose_cpp_ptr", [](context_shim* obj){return reinterpret_cast<std::uintptr_t>(&obj->m);});
 }
 
 } // namespace pyghex

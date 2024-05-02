@@ -7,6 +7,8 @@
  * Please, refer to the LICENSE file in the root directory.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdint>
+
 #include <gridtools/common/for_each.hpp>
 
 #include <ghex/pattern_container.hpp>
@@ -68,6 +70,8 @@ register_pattern(pybind11::module& m)
                         { return pattern(f); },
                         pybind11::keep_alive<0, 2>());
                 });
+
+            m.def("expose_cpp_ptr", [](pattern_container* obj){return reinterpret_cast<std::uintptr_t>(obj);});
         });
 }
 

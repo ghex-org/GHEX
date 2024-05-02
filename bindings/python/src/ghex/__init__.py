@@ -16,6 +16,7 @@ from ghex.pyghex import (
     mpi_is_initialized,
     mpi_is_finalized,
     mpi_comm,
+    expose_cpp_ptr,
 )
 import os
 
