@@ -1,6 +1,7 @@
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![CI](https://github.com/ghex-org/GHEX/actions/workflows/CI.yml/badge.svg)](https://github.com/ghex-org/GHEX/actions/workflows/CI.yml)
 [![Pip](https://github.com/ghex-org/GHEX/actions/workflows/test_pip.yml/badge.svg)](https://github.com/ghex-org/GHEX/actions/workflows/test_pip.yml)
+[![Spack](https://github.com/ghex-org/GHEX/actions/workflows/test_spack.yml/badge.svg)](https://github.com/ghex-org/GHEX/actions/workflows/test_spack.yml)
 # GHEX
 Generic exascale-ready library for halo-exchange operations on variety of grids/meshes.
 
@@ -75,6 +76,29 @@ python -m pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bin
 | `GHEX_GPU_TYPE=`          | `{AUTO, NVIDIA, AMD}`   | `AUTO`                             | Choose GPU type
 | `GHEX_GPU_ARCH=`          | list of archs           | `"60;70;75;80"`/ `"gfx900;gfx906"` | GPU architecture
 | `GHEX_TRANSPORT_BACKEND=` | `{MPI, UCX, LIBFABRIC}` | `MPI`                              | Choose transport backend
+
+#### Spack Install
+
+- make sure you have an up-to-date [spack installation](https://github.com/spack/spack)
+- clone the ghex spack repo
+```
+git clone https://github.com/ghex-org/spack-repos.git
+git clone --depth=1 ttps://github.com/boeschf/spack-repos.git path/to/ghex-repos
+```
+-  add the repo to spack
+```
+spack repo add path/to/ghex-repos
+spack reindex
+```
+- install GHEX using spack
+```
+spack install ghex backend=mpi
+```
+- for more build/install options, see
+```
+spack info ghex
+```
+
 
 ### Acknowledgements
 

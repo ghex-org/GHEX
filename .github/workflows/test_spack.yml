@@ -1,0 +1,127 @@
+name: Test spack
+
+on:
+  push:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test-spack:
+    runs-on: ubuntu-22.04
+
+    permissions:
+      packages: write
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      matrix:
+        config:
+        - {
+            backend: 'mpi',
+            tests: true,
+            device: '',
+          }
+        - {
+            backend: 'ucx',
+            tests: true,
+            device: '',
+          }
+
+        python-version: ['3.11']
+
+        spack-version: ['develop']
+
+        micro-arch: ['x86_64_v3']
+
+      fail-fast: false
+
+    env:
+      SHLVL:                          "1"
+      OMPI_ALLOW_RUN_AS_ROOT:         "1"
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: "1"
+      SPACK_DISABLE_LOCAL_CONFIG:     "true"
+      SPACK_USER_CACHE_PATH:          "/tmp/spack"
+
+    steps:
+  
+      - name: install additional ubuntu packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gfortran libblas-dev
+
+      - name: clone ghex
+        uses: actions/checkout@v4
+        with:
+          path: ghex
+          submodules: recursive
+
+      - name: clone ghex spack repo
+        run: |
+          git clone --depth=1 --branch add_ghex https://github.com/boeschf/spack-repos.git repos
+
+      - name: clone spack
+        run: |
+          git clone -c feature.manyFiles=true --depth 1 \
+            --branch ${{ matrix.spack-version }} \
+            https://github.com/spack/spack.git \
+            spack
+
+      - name: initialize spack and add online buildcache
+        run: |
+          cat <<EOF > spack/etc/spack/config.yaml
+          config:
+            install_tree:
+              padded_length: 128
+            build_jobs: 4
+          EOF
+
+          cat <<EOF > spack/etc/spack/packages.yaml
+          packages:
+            all:
+              require:
+              - 'target=${{ matrix.micro-arch }}'
+              - '%gcc'
+          EOF
+
+
+          source spack/share/spack/setup-env.sh
+          spack compiler find
+          spack mirror add --unsigned local-buildcache oci://ghcr.io/boeschf/spack-buildcache
+          spack repo add repos
+          spack reindex
+
+      - name: build and install ghex through spack dev-build (CPU)
+        if: ${{ !matrix.config.device }}
+        run: |
+          source spack/share/spack/setup-env.sh
+          # print dependencies
+          spack spec -I --reuse ghex@develop \
+            backend=${{ matrix.config.backend }} \
+            ^python@${{ matrix.python-version }}
+          # dev-build does not respect test dependencies - workaround
+          spack install --reuse googletest
+          spack load googletest
+          # need `--dirty` here for environment variables and googletest test dependency to propagate
+          spack dev-build --test=root --dirty --reuse --source-path ghex ghex@develop \
+            backend=${{ matrix.config.backend }} \
+            ^python@${{ matrix.python-version }}
+
+      - name: build and install ghex through spack dev-build (GPU)
+        if: ${{ matrix.config.device }}
+        run: |
+          source spack/share/spack/setup-env.sh
+          # print dependencies
+          spack spec -I --reuse ghex@develop \
+            backend=${{ matrix.config.backend }} \
+            ${{ matrix.config.device }} \
+            ^python@${{ matrix.python-version }}
+          # dev-build
+          spack dev-build --dirty --reuse --source-path ghex ghex@develop \
+            backend=${{ matrix.config.backend }} \
+            ${{ matrix.config.device }} \
+            ^python@${{ matrix.python-version }}
+
