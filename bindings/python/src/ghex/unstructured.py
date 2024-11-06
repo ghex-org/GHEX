@@ -36,7 +36,7 @@ def make_field_descriptor(
     domain_desc: DomainDescriptor,
     field: NDArray,
     *,
-    arch: Optional[Architecture] = Architecture.CPU,
+    arch: Optional[Architecture] = None,
 ) -> Any:
     if not arch:
         if hasattr(field, "__cuda_array_interface__") or hasattr(field, "__hip_array_interface__"):
