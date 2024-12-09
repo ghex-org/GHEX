@@ -61,19 +61,17 @@ ghex_link_to_oomph(ghex)
 
 # Set RPaths such that the python module is able to find libghex
 if (SKBUILD_PROJECT_NAME)
-    list(GET CMAKE_PREFIX_PATH 0 scikit_build_core_install_path)
-    set(ghex_rpath ${scikit_build_core_install_path}/ghex/${CMAKE_INSTALL_LIBDIR})
-
-    set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${ghex_rpath}")
+    set_target_properties(pyghex PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}") # resolves to the relative path where ghex, hwmalloc, oomph_xxx are located
     install(TARGETS pyghex DESTINATION .)
 
-    set_target_properties(ghex PROPERTIES INSTALL_RPATH "${ghex_rpath}")
+    # all other packages are installed to ${CMAKE_INSTALL_LIBDIR}, therefore can resolve to each other via $ORIGIN
+    set_target_properties(ghex PROPERTIES INSTALL_RPATH "$ORIGIN")
     if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
-        set_target_properties(oomph_libfabric PROPERTIES INSTALL_RPATH "${ghex_rpath}")
+	    set_target_properties(oomph_libfabric PROPERTIES INSTALL_RPATH "$ORIGIN")
     elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
-        set_target_properties(oomph_ucx PROPERTIES INSTALL_RPATH "${ghex_rpath}")
+	    set_target_properties(oomph_ucx PROPERTIES INSTALL_RPATH "$ORIGIN")
     else()
-        set_target_properties(oomph_mpi PROPERTIES INSTALL_RPATH "${ghex_rpath}")
+	    set_target_properties(oomph_mpi PROPERTIES INSTALL_RPATH "$ORIGIN")
     endif()
 else()
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
