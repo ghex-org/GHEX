@@ -72,13 +72,8 @@ jobs:
         run: |
           . ~/env/bin/activate
           python3 -m pip install --upgrade pip
+          python3 -m pip install -r ./bindings/python/requirements-test.txt # before ghex installation to avoid mpi4py version conflict
           python3 -m pip install -v ./bindings/python
-
-      - if: ${{ matrix.config.run == 'ON' }}
-        name: Install pytest etc
-        run: |
-          . ~/env/bin/activate
-          python3 -m pip install -r ./bindings/python/requirements-test.txt
 
       - if: ${{ matrix.config.run == 'ON' }}
         name: Run Python tests
@@ -86,4 +81,3 @@ jobs:
           . ~/env/bin/activate
           python3 -m pytest -s ./test/bindings/python/
           mpirun --oversubscribe -np 4 python3 -m pytest -s --with-mpi ./test/bindings/python/
-
