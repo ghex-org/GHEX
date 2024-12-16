@@ -14,7 +14,7 @@ Documentation and instructions at [GHEX Documentation](https://ghex-org.github.i
 ```
 python -m venv ghex_venv
 . ghex_venv/bin/activate
-python -m pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bindings/python'
+python -m pip install ghex
 ```
 
 ##### Pertinent environment variables
