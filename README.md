@@ -1,6 +1,7 @@
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![CI](https://github.com/ghex-org/GHEX/actions/workflows/CI.yml/badge.svg)](https://github.com/ghex-org/GHEX/actions/workflows/CI.yml)
 [![Pip](https://github.com/ghex-org/GHEX/actions/workflows/test_pip.yml/badge.svg)](https://github.com/ghex-org/GHEX/actions/workflows/test_pip.yml)
+[![Deploy Python Distribution](https://github.com/ghex-org/GHEX/actions/workflows/pypi_deploy.yml/badge.svg)](https://github.com/ghex-org/GHEX/actions/workflows/pypi_deploy.yml)
 # GHEX
 Generic exascale-ready library for halo-exchange operations on variety of grids/meshes.
 
