@@ -12,7 +12,7 @@ function(ghex_target_compile_options target)
     $<${c_cxx_lang}:$<BUILD_INTERFACE:-Wall -Wextra -Wpedantic -Wno-unknown-pragmas>>
     $<${c_cxx_lang_clang}:$<BUILD_INTERFACE:-Wno-unused-lambda-capture>>
     # flags for CUDA builds
-    $<${cuda_lang}:$<BUILD_INTERFACE:-Xcompiler=-Wall -Wextra -Wno-unknown-pragmas --default-stream per-thread>>
+    $<${cuda_lang}:$<BUILD_INTERFACE:-Xcompiler=-Wall -Wextra --default-stream per-thread>>
     # flags for Fortran builds
     $<${fortran_lang_intel}:$<BUILD_INTERFACE:-cpp>>
     $<${fortran_lang_cray}:$<BUILD_INTERFACE:-eZ>>
