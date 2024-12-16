@@ -11,6 +11,9 @@ set(GHEX_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 include(ghex_version)
+# note: version should not be changed manually, use bump-my-version instead:
+# install: pip install bump-my-version
+# example: bump-my-version bump patch
 make_version(GHEX 0 4 0)
 
 project(GHEX VERSION ${GHEX_VERSION} LANGUAGES C CXX)
