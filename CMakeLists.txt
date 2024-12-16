@@ -163,3 +163,16 @@ install(
 
 export(EXPORT ghex-targets
     FILE "${CMAKE_CURRENT_BINARY_DIR}/ghex-targets.cmake")
+
+# set rpaths for bundled oomph libraries
+if(GHEX_USE_BUNDLED_OOMPH)
+    include(ghex_rpath)
+    set_target_properties(ghex PROPERTIES INSTALL_RPATH "${rpath_origin}")
+    if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
+        set_target_properties(oomph_libfabric PROPERTIES INSTALL_RPATH "${rpath_origin}")
+    elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
+        set_target_properties(oomph_ucx PROPERTIES INSTALL_RPATH "${rpath_origin}")
+    else()
+        set_target_properties(oomph_mpi PROPERTIES INSTALL_RPATH "${rpath_origin}")
+    endif()
+endif()

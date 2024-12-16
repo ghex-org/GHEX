@@ -60,29 +60,10 @@ target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
 
 # Set RPaths such that the python module is able to find libghex
+include(ghex_rpath)
 if (SKBUILD_PROJECT_NAME)
-    # rpath_origin for libraries that have their dependencies in the same directory (installed in ${CMAKE_INSTALL_LIBDIR})
-    # rpath_origin_install_libdir for the pyghex library that has its dependencies in ${CMAKE_INSTALL_LIBDIR} relative to its directory
-    if(APPLE)
-        set(rpath_origin "@loader_path")
-        set(rpath_origin_install_libdir "@loader_path/${CMAKE_INSTALL_LIBDIR}")
-    else()
-        set(rpath_origin "$ORIGIN")
-        set(rpath_origin_install_libdir "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
-    endif()
-
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${rpath_origin_install_libdir}")
     install(TARGETS pyghex DESTINATION .)
-
-    # all other packages are installed to ${CMAKE_INSTALL_LIBDIR}, therefore can resolve to each other via $ORIGIN
-    set_target_properties(ghex PROPERTIES INSTALL_RPATH "${rpath_origin}")
-    if (GHEX_TRANSPORT_BACKEND STREQUAL "LIBFABRIC")
-        set_target_properties(oomph_libfabric PROPERTIES INSTALL_RPATH "${rpath_origin}")
-    elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
-        set_target_properties(oomph_ucx PROPERTIES INSTALL_RPATH "${rpath_origin}")
-    else()
-        set_target_properties(oomph_mpi PROPERTIES INSTALL_RPATH "${rpath_origin}")
-    endif()
 else()
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
     install(TARGETS pyghex DESTINATION ${GHEX_PYTHON_LIB_PATH}/ghex)
