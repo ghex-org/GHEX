@@ -64,7 +64,7 @@ make test
 ```
 python -m venv ghex_venv
 . ghex_venv/bin/activate
-python -m pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bindings/python'
+python -m pip install ghex
 ```
 
 ##### Pertinent environment variables
@@ -89,4 +89,3 @@ Switzerland, GCS representing Germany and GENCI representing France). The
 Implementation Phase of PRACE receives funding from the EU’s Horizon 2020
 Research and Innovation Programme (2014-2020) under grant agreement 823767. For
 more information, see www.prace-ri.eu.
-

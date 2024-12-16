@@ -16,10 +16,8 @@ name = 'ghex'
 # install: pip install bump-my-version
 # example: bump-my-version bump patch
 version = '0.4.0'
-# note(stubbiali): the following fields are temporarily commented out since both LICENSE and README
-#  files live in a parent directory
-# license = {file = '../../LICENSE'}
-# readme = {file = '../../README.md', content-type = 'text/markdown'}
+license = {file = '../../LICENSE'}
+readme = {file = 'README.md', content-type = 'text/markdown'}
 
 [project.urls]
 repository = 'https://github.com/ghex-org/GHEX'
