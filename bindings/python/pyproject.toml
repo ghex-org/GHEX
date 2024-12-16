@@ -4,8 +4,7 @@ requires = [
     'cmake',
     'mpi4py>=3.1',
     'pybind11>=2.6',
-    #'scikit-build-core',
-    'scikit-build-core@git+https://github.com/scikit-build/scikit-build-core#egg=37ba268d04ab0816816bb8c7b0b1bc3388f91308',
+    'scikit-build-core',
     'wheel',
 ]
 
