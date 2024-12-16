@@ -16,7 +16,7 @@ name = 'ghex'
 # install: pip install bump-my-version
 # example: bump-my-version bump patch
 version = '0.4.0'
-license = {file = '../../LICENSE'}
+license = {text = "BSD-3 License"}
 readme = {file = 'README.md', content-type = 'text/markdown'}
 
 [project.urls]
