@@ -17,7 +17,7 @@ name = 'ghex'
 # example: bump-my-version bump patch
 version = '0.4.0'
 license = {text = "BSD-3 License"}
-readme = {file = 'README.md', content-type = 'text/markdown'}
+readme = {file = 'bindings/python/README.md', content-type = 'text/markdown'}
 
 [project.urls]
 repository = 'https://github.com/ghex-org/GHEX'
@@ -30,7 +30,7 @@ logging.level = 'INFO'
 minimum-version = '0.5'
 cmake.minimum-version = '3.21'
 cmake.verbose = true
-cmake.source-dir = "../.."
+cmake.source-dir = "."
 cmake.build-type = "Release"
 cmake.args = [
     "-DGHEX_BUILD_PYTHON_BINDINGS=ON",
@@ -106,4 +106,4 @@ warn_unused_ignores = true
 # pip install bindings/python
 
 # from github:
-#pip install 'git+https://github.com/ghex-org/GHEX.git#subdirectory=bindings/python'
+#pip install 'git+https://github.com/ghex-org/GHEX.git'
