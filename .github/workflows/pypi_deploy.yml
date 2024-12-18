@@ -29,7 +29,7 @@ jobs:
     - name: Test sdist
       run: |
         python -m venv .venv
-        source .venv/bin/activate
+        . .venv/bin/activate
         python -m pip install -r ./bindings/python/requirements-test.txt # before ghex installation to avoid mpi4py version conflict  
         python -m pip install dist/*.tar.gz
         python -c "import ghex"
