@@ -26,6 +26,14 @@ jobs:
     - name: Build source tarball
       run: |
         python -m build --sdist --outdir dist/
+    - name: Test sdist
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        python -m pip install -r ./bindings/python/requirements-test.txt # before ghex installation to avoid mpi4py version conflict  
+        python -m pip install dist/*.tar.gz
+        python -c "import ghex"
+        python -m pytest -s ./test/bindings/python/
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
@@ -70,3 +78,4 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
+        verbose: true
