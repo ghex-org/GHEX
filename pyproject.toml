@@ -2,7 +2,7 @@
 build-backend = 'scikit_build_core.build'
 requires = [
     'cmake',
-    #'mpi4py>=3.1',
+    'mpi4py>=3.1',
     'pybind11>=2.6',
     'scikit-build-core',
     'wheel',
