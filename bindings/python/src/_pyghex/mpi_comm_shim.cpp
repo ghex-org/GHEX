@@ -11,9 +11,7 @@
 #include <string>
 #include <sstream>
 
-#ifdef GHEX_ENABLE_MPI4PY
 #include <mpi4py.hpp>
-#endif
 #include <mpi_comm_shim.hpp>
 #include <util/to_string.hpp>
 
@@ -35,10 +33,8 @@ namespace
 inline bool
 can_convert_to_mpi_comm(pybind11::object o)
 {
-#ifdef GHEX_ENABLE_MPI4PY
     import_mpi4py();
     if (PyObject_TypeCheck(o.ptr(), &PyMPIComm_Type)) return true;
-#endif
     return false;
 }
 
@@ -46,9 +42,7 @@ can_convert_to_mpi_comm(pybind11::object o)
 inline MPI_Comm
 convert_to_mpi_comm(pybind11::object o)
 {
-#ifdef GHEX_ENABLE_MPI4PY
     if (can_convert_to_mpi_comm(o)) return *PyMPIComm_Get(o.ptr());
-#endif
     throw pybind11::type_error("Argument must be `mpi4py.MPI.Comm`");
 }
 
@@ -125,9 +119,7 @@ register_mpi(pybind11::module& m)
     m.def("mpi_is_initialized", &mpi_is_initialized, "Check if MPI is initialized.");
     m.def("mpi_is_finalized", &mpi_is_finalized, "Check if MPI is finalized.");
 
-    #ifdef GHEX_ENABLE_MPI4PY
     m.attr("MPI4PY_BUILD_VERSION") = mpi4py_version;
-    #endif
 }
 
 } // namespace pyghex

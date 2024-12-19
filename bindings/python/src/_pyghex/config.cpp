@@ -30,12 +30,6 @@ config()
 
     pybind11::dict dict;
 
-#ifdef GHEX_ENABLE_MPI4PY
-    dict[pybind11::str("mpi4py")] = pybind11::bool_(true);
-#else
-    dict[pybind11::str("mpi4py")] = pybind11::bool_(false);
-#endif
-
     dict[pybind11::str("transport")] = pybind11::str(mk_str(GHEX_TRANSPORT_BACKEND));
 
 #ifdef GHEX_USE_GPU
