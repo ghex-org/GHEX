@@ -1,0 +1,7 @@
+iniconfig
+mpi4py
+numpy
+packaging
+pluggy
+pytest
+pytest-mpi

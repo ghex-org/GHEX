@@ -18,6 +18,12 @@ from ghex.pyghex import (
     mpi_comm,
     expose_cpp_ptr,
 )
+
+try:
+    from ghex.pyghex import MPI4PY_BUILD_VERSION
+except ImportError:
+    MPI4PY_BUILD_VERSION = None
+
 import os
 
 

@@ -11,10 +11,7 @@
 #include <string>
 #include <sstream>
 
-#ifdef GHEX_ENABLE_MPI4PY
-#include <mpi4py/mpi4py.h>
-#endif
-
+#include <mpi4py.hpp>
 #include <mpi_comm_shim.hpp>
 #include <util/to_string.hpp>
 
@@ -125,6 +122,10 @@ register_mpi(pybind11::module& m)
     m.def("mpi_finalize", &mpi_finalize, "Finalize MPI (calls MPI_Finalize)");
     m.def("mpi_is_initialized", &mpi_is_initialized, "Check if MPI is initialized.");
     m.def("mpi_is_finalized", &mpi_is_finalized, "Check if MPI is finalized.");
+
+    #ifdef GHEX_ENABLE_MPI4PY
+    m.attr("MPI4PY_BUILD_VERSION") = mpi4py_version;
+    #endif
 }
 
 } // namespace pyghex
