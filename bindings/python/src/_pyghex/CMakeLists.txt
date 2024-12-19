@@ -1,3 +1,22 @@
+# Add support for mpi4py if available.
+find_python_module(mpi4py)
+if (HAVE_MPI4PY)
+    # Query mpi4py version using Python
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "from mpi4py import __version__; print(__version__)"
+        OUTPUT_VARIABLE MPI4PY_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Write the detected version to a configuration header
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/mpi4py.hpp.in
+        ${CMAKE_CURRENT_BINARY_DIR}/mpi4py.hpp
+        @ONLY
+    )
+
+    message(STATUS "Detected mpi4py version: ${MPI4PY_VERSION}")
+endif()
 
 set(pyghex_source
     config.cpp
@@ -26,6 +45,10 @@ target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
+if (HAVE_MPI4PY)
+    target_include_directories(pyghex_obj PRIVATE "${PY_MPI4PY}/include")
+    target_compile_definitions(pyghex_obj PRIVATE -DGHEX_ENABLE_MPI4PY)
+endif()
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
 link_device_runtime(pyghex_obj)
@@ -33,29 +56,6 @@ target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
 # Add GPU support
 compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
-
-# Add support for mpi4py if available.
-find_python_module(mpi4py)
-if (HAVE_MPI4PY)
-    target_include_directories(pyghex_obj PRIVATE "${PY_MPI4PY}/include")
-    target_compile_definitions(pyghex_obj PRIVATE -DGHEX_ENABLE_MPI4PY)
-
-    # Query mpi4py version using Python
-    execute_process(
-        COMMAND ${Python3_EXECUTABLE} -c "from mpi4py import __version__; print(__version__)"
-        OUTPUT_VARIABLE MPI4PY_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
-    # Write the detected version to a configuration header
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/mpi4py.hpp.in
-        ${CMAKE_CURRENT_BINARY_DIR}/mpi4py.hpp
-        @ONLY
-    )
-
-    message(STATUS "Detected mpi4py version: ${MPI4PY_VERSION}")
-endif()
 
 # The Python module
 # ==================

@@ -72,6 +72,8 @@ jobs:
         run: |
           . ~/env/bin/activate
           python3 -m pip install --upgrade pip
+          python3 -m pip install pip-tools
+          pip-compile ./bindings/python/requirements-test.in --annotation-style=line --strip-extras --output-file=./bindings/python/requirements-test.txt
           python3 -m pip install -r ./bindings/python/requirements-test.txt # before ghex installation to avoid mpi4py version conflict
           python3 -m pip install -v .
 

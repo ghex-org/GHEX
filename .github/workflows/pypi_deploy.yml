@@ -32,6 +32,9 @@ jobs:
       run: |
         python -m venv .venv
         . .venv/bin/activate
+        python -m pip install --upgrade pip
+        python -m pip install pip-tools
+        pip-compile ./bindings/python/requirements-test.in --annotation-style=line --strip-extras --output-file=./bindings/python/requirements-test.txt
         python -m pip install -r ./bindings/python/requirements-test.txt # before ghex installation to avoid mpi4py version conflict  
         python -m pip install dist/*.tar.gz
         python -c "import ghex"
