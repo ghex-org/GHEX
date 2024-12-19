@@ -11,7 +11,9 @@
 #include <string>
 #include <sstream>
 
+#ifdef GHEX_ENABLE_MPI4PY
 #include <mpi4py.hpp>
+#endif
 #include <mpi_comm_shim.hpp>
 #include <util/to_string.hpp>
 

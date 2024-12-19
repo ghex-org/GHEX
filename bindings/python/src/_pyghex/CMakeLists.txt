@@ -1,23 +1,3 @@
-# Add support for mpi4py if available.
-find_python_module(mpi4py)
-if (HAVE_MPI4PY)
-    # Query mpi4py version using Python
-    execute_process(
-        COMMAND ${Python3_EXECUTABLE} -c "from mpi4py import __version__; print(__version__)"
-        OUTPUT_VARIABLE MPI4PY_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
-    # Write the detected version to a configuration header
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/mpi4py.hpp.in
-        ${CMAKE_CURRENT_BINARY_DIR}/mpi4py.hpp
-        @ONLY
-    )
-
-    message(STATUS "Detected mpi4py version: ${MPI4PY_VERSION}")
-endif()
-
 set(pyghex_source
     config.cpp
     context_shim.cpp
@@ -45,10 +25,6 @@ target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
-if (HAVE_MPI4PY)
-    target_include_directories(pyghex_obj PRIVATE "${PY_MPI4PY}/include")
-    target_compile_definitions(pyghex_obj PRIVATE -DGHEX_ENABLE_MPI4PY)
-endif()
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
 link_device_runtime(pyghex_obj)
@@ -56,6 +32,24 @@ target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
 # Add GPU support
 compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
+
+# Add support for mpi4py if available.
+find_python_module(mpi4py)
+if (HAVE_MPI4PY)
+    # custom command to generate mpi4py.hpp via python script
+    set(MPI4PY_HEADER "${CMAKE_CURRENT_BINARY_DIR}/mpi4py.hpp")
+    add_custom_command(
+        OUTPUT ${MPI4PY_HEADER}
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate_mpi4py_header.py ${MPI4PY_HEADER}
+        COMMENT "Generating mpi4py.hpp with mpi4py version information"
+    )
+    # we need custom target to establish dependency
+    add_custom_target(generate_mpi4py_header DEPENDS ${MPI4PY_HEADER})
+    add_dependencies(pyghex_obj generate_mpi4py_header)
+    # add mpi4py include directories and define macro
+    target_include_directories(pyghex_obj PRIVATE "${PY_MPI4PY}/include")
+    target_compile_definitions(pyghex_obj PRIVATE -DGHEX_ENABLE_MPI4PY)
+endif()
 
 # The Python module
 # ==================
