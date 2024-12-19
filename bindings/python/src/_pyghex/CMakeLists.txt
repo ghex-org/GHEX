@@ -24,6 +24,7 @@ add_library(pyghex_obj OBJECT ${pyghex_source})
 set_property(TARGET pyghex_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
@@ -38,6 +39,22 @@ find_python_module(mpi4py)
 if (HAVE_MPI4PY)
     target_include_directories(pyghex_obj PRIVATE "${PY_MPI4PY}/include")
     target_compile_definitions(pyghex_obj PRIVATE -DGHEX_ENABLE_MPI4PY)
+
+    # Query mpi4py version using Python
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "from mpi4py import __version__; print(__version__)"
+        OUTPUT_VARIABLE MPI4PY_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Write the detected version to a configuration header
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/mpi4py.hpp.in
+        ${CMAKE_CURRENT_BINARY_DIR}/mpi4py.hpp
+        @ONLY
+    )
+
+    message(STATUS "Detected mpi4py version: ${MPI4PY_VERSION}")
 endif()
 
 # The Python module
