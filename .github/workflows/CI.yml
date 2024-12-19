@@ -120,6 +120,11 @@ jobs:
 
 
     steps:
+      - name: Install packages
+        run: |
+          apt update
+          apt-get -y install ninja-build
+
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
