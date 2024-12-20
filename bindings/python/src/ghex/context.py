@@ -16,5 +16,6 @@ from ghex.pyghex import context
 if TYPE_CHECKING:
     from mpi4py.MPI import Comm
 
+
 def make_context(comm: Comm, thread_safe: bool = False) -> context:
     return context(mpi_comm(comm), thread_safe)

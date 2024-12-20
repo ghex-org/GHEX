@@ -23,7 +23,6 @@ add_library(pyghex_obj OBJECT ${pyghex_source})
 set_property(TARGET pyghex_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
