@@ -4,8 +4,7 @@
 # virtual environment
 set(venv_dir "${CMAKE_BINARY_DIR}/test_venv")
 # test requirements
-set(reqs_in "${CMAKE_SOURCE_DIR}/bindings/python/requirements-test.in")
-set(reqs "${CMAKE_BINARY_DIR}/bindings/python/requirements-test.txt")
+set(reqs "${CMAKE_SOURCE_DIR}/bindings/python/min-requirements-test.txt")
 # get the path to the pyghex module's parent directory
 get_target_property(python_mod_path pyghex LIBRARY_OUTPUT_DIRECTORY)
 get_filename_component(pyghex_test_workdir ${python_mod_path}/.. ABSOLUTE)
@@ -30,31 +29,11 @@ add_custom_command(
     COMMENT "Upgrading pip in virtual environment"
 )
 
-# command to install pip-tools if not already available
-add_custom_command(
-    OUTPUT ${venv_dir}/bin/pip-compile
-    COMMAND ${venv_dir}/bin/pip install pip-tools
-    DEPENDS ${venv_dir}/bin/pip-upgraded
-    COMMENT "Installing pip-tools in virtual environment"
-)
-
-# command to dynamically generate requirements-test.txt
-add_custom_command(
-    OUTPUT ${reqs}
-    COMMAND ${venv_dir}/bin/pip-compile
-            ${reqs_in}
-            --annotation-style=line
-            --output-file=${reqs}
-            --strip-extras
-    DEPENDS ${reqs_in} ${venv_dir}/bin/pip-compile
-    COMMENT "Generating requirements-test.txt"
-)
-
 # command to install test dependencies into the virtual environment
 add_custom_command(
     OUTPUT ${venv_dir}/bin/pytest
     COMMAND ${venv_dir}/bin/pip install -r ${reqs}
-    DEPENDS ${reqs}
+    DEPENDS ${venv_dir}/bin/pip-upgraded
     COMMENT "Installing test dependencies"
 )
 
