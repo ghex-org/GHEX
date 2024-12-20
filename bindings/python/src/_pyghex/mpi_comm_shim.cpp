@@ -11,10 +11,6 @@
 #include <string>
 #include <sstream>
 
-#ifdef GHEX_ENABLE_MPI4PY
-#include <mpi4py/mpi4py.h>
-#endif
-
 #include <mpi_comm_shim.hpp>
 #include <util/to_string.hpp>
 
@@ -32,25 +28,13 @@ struct mpi_error : std::runtime_error
 namespace
 {
 
-// Test if a Python object can be converted to an mpi_comm_shim.
-inline bool
-can_convert_to_mpi_comm(pybind11::object o)
-{
-#ifdef GHEX_ENABLE_MPI4PY
-    import_mpi4py();
-    if (PyObject_TypeCheck(o.ptr(), &PyMPIComm_Type)) return true;
-#endif
-    return false;
-}
-
 // Convert a Python object to an MPI Communicator.
 inline MPI_Comm
 convert_to_mpi_comm(pybind11::object o)
 {
-#ifdef GHEX_ENABLE_MPI4PY
-    if (can_convert_to_mpi_comm(o)) return *PyMPIComm_Get(o.ptr());
-#endif
-    throw pybind11::type_error("Argument must be `mpi4py.MPI.Comm`");
+    if (!pybind11::hasattr(o, "py2f"))
+        throw pybind11::type_error("Argument must be `mpi4py.MPI.Comm`");
+    return MPI_Comm_f2c(o.attr("py2f")().cast<MPI_Fint>());
 }
 
 } // anonymous namespace
@@ -125,6 +109,7 @@ register_mpi(pybind11::module& m)
     m.def("mpi_finalize", &mpi_finalize, "Finalize MPI (calls MPI_Finalize)");
     m.def("mpi_is_initialized", &mpi_is_initialized, "Check if MPI is initialized.");
     m.def("mpi_is_finalized", &mpi_is_finalized, "Check if MPI is finalized.");
+
 }
 
 } // namespace pyghex

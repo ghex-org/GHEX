@@ -2,7 +2,6 @@
 build-backend = 'scikit_build_core.build'
 requires = [
     'cmake',
-    'mpi4py>=3.1',
     'pybind11>=2.6',
     'scikit-build-core',
     'wheel',
@@ -15,7 +14,7 @@ name = 'ghex'
 # note: version should not be changed manually, use bump-my-version instead:
 # install: pip install bump-my-version
 # example: bump-my-version bump patch
-version = '0.4.0'
+version = '0.4.1'
 license = {text = "BSD-3 License"}
 readme = {file = 'bindings/python/README.md', content-type = 'text/markdown'}
 
