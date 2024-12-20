@@ -17,7 +17,6 @@ from ghex.pyghex import (
     mpi_is_finalized,
     mpi_comm,
     expose_cpp_ptr,
-    MPI4PY_BUILD_VERSION,
 )
 import os
 

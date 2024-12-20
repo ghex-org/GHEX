@@ -33,25 +33,6 @@ target_link_libraries(pyghex_obj PUBLIC ghex_common)
 # Add GPU support
 compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
 
-# Add MPI4PY support
-find_python_module(mpi4py)
-if(NOT HAVE_MPI4PY)
-    message(FATAL_ERROR "mpi4py support is required for this build.")
-endif()
-
-# custom command to generate mpi4py.hpp via python script
-set(MPI4PY_HEADER "${CMAKE_CURRENT_BINARY_DIR}/mpi4py.hpp")
-add_custom_command(
-    OUTPUT ${MPI4PY_HEADER}
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate_mpi4py_header.py ${MPI4PY_HEADER}
-    COMMENT "Generating mpi4py.hpp with mpi4py version information"
-)
-# we need custom target to establish dependency
-add_custom_target(generate_mpi4py_header DEPENDS ${MPI4PY_HEADER})
-add_dependencies(pyghex_obj generate_mpi4py_header)
-# add mpi4py include directories
-target_include_directories(pyghex_obj PRIVATE "${PY_MPI4PY}/include")
-
 # The Python module
 # ==================
 # Create the Python module in the build directory.
