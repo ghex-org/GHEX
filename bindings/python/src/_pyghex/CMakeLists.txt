@@ -4,6 +4,7 @@ set(pyghex_source
     context_shim.cpp
     module.cpp
     mpi_comm_shim.cpp
+    py_dtype_to_cpp_name.cpp
     structured/regular/communication_object.cpp
     structured/regular/domain_descriptor.cpp
     structured/regular/field_descriptor.cpp

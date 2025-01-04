@@ -16,6 +16,7 @@ namespace pyghex
 void register_config(pybind11::module& m);
 void register_mpi(pybind11::module& m);
 void register_context(pybind11::module& m);
+void register_py_dtype_to_cpp_name(pybind11::module& m);
 
 namespace structured
 {
@@ -47,6 +48,7 @@ PYBIND11_MODULE(_pyghex, m)
     pyghex::register_config(m);
     pyghex::register_mpi(m);
     pyghex::register_context(m);
+    pyghex::register_py_dtype_to_cpp_name(m);
 
     pyghex::structured::regular::register_domain_descriptor(m);
     pyghex::structured::regular::register_halo_generator(m);
