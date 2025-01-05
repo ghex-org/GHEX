@@ -28,8 +28,8 @@ std::string py_dtype_to_cpp_name(py::dtype dtype) {
     gridtools::for_each<pyghex::types::data>([&cpp_name, &dtype](auto l) {
         using type = decltype(l);
 
-        assert(cpp_name.empty());
         if (dtype.is(py::dtype::of<type>())) {
+            assert(cpp_name.empty());
             cpp_name = util::demangle<type>();
         }
     });
