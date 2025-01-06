@@ -209,9 +209,9 @@ domains = {
 
 LEVELS = 2
 
-
+@pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
 @pytest.mark.mpi
-def test_domain_descriptor(capsys, mpi_cart_comm):
+def test_domain_descriptor(capsys, mpi_cart_comm, dtype):
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
 
@@ -231,7 +231,7 @@ def test_domain_descriptor(capsys, mpi_cart_comm):
 
     def make_field(order):
         data = np.zeros(
-            [len(domains[ctx.rank()]["all"]), LEVELS], dtype=np.float64, order=order
+            [len(domains[ctx.rank()]["all"]), LEVELS], dtype=dtype, order=order
         )
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
