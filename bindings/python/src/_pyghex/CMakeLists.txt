@@ -1,4 +1,3 @@
-
 set(pyghex_source
     config.cpp
     context_shim.cpp
@@ -32,13 +31,6 @@ target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
 # Add GPU support
 compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
-
-# Add support for mpi4py if available.
-find_python_module(mpi4py)
-if (HAVE_MPI4PY)
-    target_include_directories(pyghex_obj PRIVATE "${PY_MPI4PY}/include")
-    target_compile_definitions(pyghex_obj PRIVATE -DGHEX_ENABLE_MPI4PY)
-endif()
 
 # The Python module
 # ==================

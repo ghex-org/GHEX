@@ -1,0 +1,7 @@
+iniconfig>=2.0.0
+mpi4py>=1.21
+numpy>=1.21
+packaging>=23.1
+pluggy>=1.3.0
+pytest>=7.4.3
+pytest-mpi>=0.6
