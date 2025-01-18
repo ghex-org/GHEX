@@ -11,10 +11,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, overload, Optional
 
 from ghex.util import Architecture
-from ghex.util import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
+from ghex.util import CppWrapper, cls_from_cpp_type_spec, unwrap
 from ghex.context import context
 from ghex.pyghex import make_co_unstructured as _make_co_unstructured
 from ghex.pyghex import make_pattern_unstructured as _make_pattern_unstructured
+from ghex.pyghex import py_dtype_to_cpp_name as _py_dtype_to_cpp_name
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
@@ -58,7 +59,7 @@ def make_field_descriptor(
         arch.value,
         "int",
         "int",
-        dtype_to_cpp(field.dtype),
+        _py_dtype_to_cpp_name(field.dtype),
     )
     return cls_from_cpp_type_spec(type_spec)(unwrap(domain_desc), field)
 

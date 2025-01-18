@@ -131,7 +131,7 @@ register_field_descriptor(pybind11::module& m)
                     {
                         pybind11::buffer_info info = get_buffer_info<arch_type>(b);
 
-                        if (info.format != pybind11::format_descriptor<T>::format())
+                        if (!info.item_type_is_equivalent_to<T>())
                         {
                             std::stringstream error;
                             error << "Incompatible format: expected a " << typeid(T).name()
