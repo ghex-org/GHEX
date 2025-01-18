@@ -19,8 +19,6 @@
 #include <register_class.hpp>
 #include <unstructured/field_descriptor.hpp>
 
-#include <util/demangle.hpp>
-
 namespace pyghex
 {
 namespace unstructured
