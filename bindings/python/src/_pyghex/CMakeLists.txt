@@ -28,6 +28,9 @@ target_include_directories(pyghex_obj PRIVATE
 )
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(pyghex_obj PRIVATE -ftemplate-depth=512)
+endif()
 link_device_runtime(pyghex_obj)
 target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
