@@ -30,7 +30,7 @@ std::string py_dtype_to_cpp_name(py::dtype dtype) {
 
         if (dtype.is(py::dtype::of<type>())) {
             assert(cpp_name.empty());
-            cpp_name = util::demangle<type>();
+            cpp_name = util::mangle_python<type>();
         }
     });
 
