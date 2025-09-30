@@ -28,13 +28,6 @@ def unwrap(arg: Any) -> Any:
     return arg.__wrapped__ if isinstance(arg, CppWrapper) else arg
 
 
-def dtype_to_cpp(dtype: DTypeLike) -> str:
-    """Convert numpy dtype to c++ type"""
-    import numpy as np
-
-    return {np.float64: "double", np.float32: "float"}[dtype.type]
-
-
 def cls_from_cpp_type_spec(cpp_type_spec: Union[str, tuple[str, ...]]) -> Any:
     if isinstance(cpp_type_spec, str):
         return getattr(_pyghex, cpp_type_spec)

@@ -13,7 +13,8 @@ from dataclasses import dataclass
 
 from ghex.pyghex import make_co_regular as _make_co_regular
 from ghex.pyghex import make_pattern_regular as _make_pattern_regular
-from ghex.util import CppWrapper, cls_from_cpp_type_spec, dtype_to_cpp, unwrap
+from ghex.pyghex import py_dtype_to_cpp_name as _py_dtype_to_cpp_name
+from ghex.util import CppWrapper, cls_from_cpp_type_spec, unwrap
 from ghex.util import Architecture
 from ghex.structured.cartesian_sets import CartesianSet, ProductSet, union
 
@@ -87,7 +88,7 @@ def make_field_descriptor(
 
     type_spec = (
         "structured__regular__field_descriptor",
-        dtype_to_cpp(field.dtype),
+        _py_dtype_to_cpp_name(field.dtype),
         arch.value,
         domain_desc.__wrapped__.__class__.__name__,
         f"gridtools__layout_map_impl__layout_map_{'_'.join(map(str,_layout_order(field, arch)))}_",

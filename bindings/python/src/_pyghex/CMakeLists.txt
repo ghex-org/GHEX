@@ -3,6 +3,7 @@ set(pyghex_source
     context_shim.cpp
     module.cpp
     mpi_comm_shim.cpp
+    py_dtype_to_cpp_name.cpp
     structured/regular/communication_object.cpp
     structured/regular/domain_descriptor.cpp
     structured/regular/field_descriptor.cpp
@@ -26,6 +27,9 @@ target_include_directories(pyghex_obj PRIVATE
 )
 target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(pyghex_obj PRIVATE -fbracket-depth=512)
+endif()
 link_device_runtime(pyghex_obj)
 target_link_libraries(pyghex_obj PUBLIC ghex_common)
 
