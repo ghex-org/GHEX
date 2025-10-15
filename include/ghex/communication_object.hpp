@@ -12,6 +12,7 @@
 #include <ghex/config.hpp>
 #include <ghex/context.hpp>
 #include <ghex/util/for_each.hpp>
+#include <ghex/util/moved_bit.hpp>
 #include <ghex/util/test_eq.hpp>
 #include <ghex/pattern_container.hpp>
 #include <ghex/device/stream.hpp>
@@ -23,6 +24,9 @@
 #include <map>
 #include <stdio.h>
 #include <functional>
+#ifdef GHEX_USE_NCCL
+#include <nccl.h>
+#endif
 
 namespace ghex
 {
@@ -207,22 +211,105 @@ class communication_object
     using disable_if_buffer_info = std::enable_if_t<!is_buffer_info<T>::value, R>;
 
   private: // members
+    ghex::util::moved_bit          m_moved;
     bool                           m_valid;
     communicator_type              m_comm;
     memory_type                    m_mem;
     std::vector<send_request_type> m_send_reqs;
     std::vector<recv_request_type> m_recv_reqs;
+    ncclComm_t m_nccl_comm;
 
   public: // ctors
     communication_object(context& c)
     : m_valid(false)
     , m_comm(c.transport_context()->get_communicator())
     {
+      // ncclConfig_t config = NCCL_CONFIG_INITIALIZER;
+      // config.blocking = 0;
+      ncclUniqueId id;
+      if (m_comm.rank() == 0) {
+        ncclGetUniqueId(&id);
+      }
+      MPI_Comm mpi_comm = m_comm.mpi_comm();
+
+      // std::ostringstream msg;
+      // msg << "doing MPI_Bcast on rank " << m_comm.rank() << "/" << m_comm.size() << '\n';
+      // std::cerr << msg.str();
+
+      MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, mpi_comm);
+      // TODO: Is this needed?
+      MPI_Barrier(mpi_comm);
+
+      // std::ostringstream msg_done;
+      // msg_done << "finished MPI_Bcast on rank " << m_comm.rank() << "/" << m_comm.size() << '\n';
+      // std::cerr << msg_done.str();
+
+      // std::ostringstream msg_init;
+      // msg_init << "initializing nccl communicator on rank " << m_comm.rank() << "/" << m_comm.size() << '\n';
+      // std::cerr << msg_init.str();
+
+      // GHEX_CHECK_NCCL_RESULT(ncclCommInitRankConfig(&m_nccl_comm, m_comm.size(), id, m_comm.rank(), &config));
+      GHEX_CHECK_NCCL_RESULT(ncclCommInitRank(&m_nccl_comm, m_comm.size(), id, m_comm.rank()));
+      ncclResult_t state;
+      do {
+        // std::ostringstream msg_ready;
+        // msg_ready << "checking if nccl communicator init is still in progress on rank " << m_comm.rank() << "/" << m_comm.size() << '\n';
+        // std::cerr << msg_ready.str();
+
+        GHEX_CHECK_NCCL_RESULT(ncclCommGetAsyncError(m_nccl_comm, &state));
+      } while(state == ncclInProgress);
+
+      // std::ostringstream msg_init_done;
+      // msg_init_done << "nccl communicator init done on rank " << m_comm.rank() << "/" << m_comm.size() << '\n';
+      // std::cerr << msg_init_done.str();
+      // GHEX_CHECK_CUDA_RESULT(cudaDeviceSynchronize());
+    }
+    ~communication_object() noexcept {
+      // TODO: nothrow
+      // std::ostringstream msg_destroy;
+      // msg_destroy << "~communication_object destroying nccl communicator";
+      // if (m_moved) {
+      //   msg_destroy << ", comm is valid\n";
+        // GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaDeviceSynchronize());
+        // GHEX_CHECK_NCCL_RESULT_NO_THROW(ncclCommDestroy(m_nccl_comm));
+      // } else {
+      //   msg_destroy << ", comm is moved, skipping ncclCommDestroy\n";
+      // }
+      // std::cerr << msg_destroy.str();
     }
     communication_object(const communication_object&) = delete;
     communication_object(communication_object&&) = default;
 
     communicator_type& communicator() { return m_comm; }
+
+  private:
+    template<typename... Archs, typename... Fields>
+    void nccl_exchange_impl(buffer_info_type<Archs, Fields>... buffer_infos) {
+      // GHEX_CHECK_CUDA_RESULT(cudaDeviceSynchronize());
+      // pack
+      // send
+      // std::cerr << "starting packing\n";
+      for_each(m_mem, [this](std::size_t, auto& m) {
+          using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+          packer<arch_type>::pack2_nccl(m, m_send_reqs, m_comm);
+      });
+      // std::cerr << "packing done\n";
+
+      // std::cerr << "starting group\n";
+      ncclGroupStart();
+      post_sends_nccl();
+
+      // recv
+      // unpack
+      // std::cerr << "starting recvs\n";
+      post_recvs_nccl();
+      // std::cerr << "recvs done\n";
+      ncclGroupEnd();
+      // std::cerr << "ending group\n";
+      unpack_nccl();
+      // GHEX_CHECK_CUDA_RESULT(cudaDeviceSynchronize());
+    }
+
 
   public: // exchange arbitrary field-device-pattern combinations
     /** @brief non-blocking exchange of halo data
@@ -233,9 +320,20 @@ class communication_object
     template<typename... Archs, typename... Fields>
     [[nodiscard]] handle_type exchange(buffer_info_type<Archs, Fields>... buffer_infos)
     {
+        // std::cerr << "using first exchange overload\n";
         exchange_impl(buffer_infos...);
-        post_recvs();
-        pack();
+        nccl_exchange_impl();
+        // // TODO: Assymetry here.
+        // //
+        // // post_recvs iterates through memory and fields here in the
+        // // communication object, installs callbacks for unpacking per field
+        // // (though one loop remains inside unpack).
+        // //
+        // // pack passes send_reqs and comm to pack, which does the iterating and
+        // // installing callback. pack, however, waits for packs to complete to
+        // // trigger sends.
+        // post_recvs();
+        // pack();
         return {this};
     }
 
@@ -248,6 +346,7 @@ class communication_object
     [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(
         Iterator first, Iterator last)
     {
+        // std::cerr << "using exchange_u overload\n";
         // call special function for a single range
         return exchange_u(first, last);
     }
@@ -266,6 +365,7 @@ class communication_object
     [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(
         Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
     {
+        // std::cerr << "using exchange with iterators overload\n";
         static_assert(
             sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
         // call helper function to turn iterators into pairs of iterators
@@ -278,9 +378,12 @@ class communication_object
     template<typename... Iterators>
     [[nodiscard]] handle_type exchange(std::pair<Iterators, Iterators>... iter_pairs)
     {
+        // std::cerr << "using private exchange with iterators overload\n";
+
         exchange_impl(iter_pairs...);
-        post_recvs();
-        pack();
+        nccl_exchange_impl();
+        // post_recvs();
+        // pack();
         return {this};
     }
 
@@ -304,6 +407,7 @@ class communication_object
 #endif
     exchange_u(Iterator first, Iterator last)
     {
+        // std::cerr << "using private exchange_u with iterators overload\n";
         // call exchange with a pair of iterators
         return exchange(std::make_pair(first, last));
     }
@@ -355,6 +459,7 @@ class communication_object
     template<typename... Iterators>
     void exchange_impl(std::pair<Iterators, Iterators>... iter_pairs)
     {
+        // std::cerr << "using first exchange_impl overload\n";
         const std::tuple<std::pair<Iterators, Iterators>...> iter_pairs_t{iter_pairs...};
 
         if (m_valid) throw std::runtime_error("earlier exchange operation was not finished");
@@ -386,12 +491,14 @@ class communication_object
                     mem, it->get_pattern(), field_ptr, my_dom_id, it->device_id(), tag_offset);
             }
         });
+        // std::cerr << "done in first exchange_impl overload\n";
     }
 
     // helper function to set up communicaton buffers (compile-time case)
     template<typename... Archs, typename... Fields>
     void exchange_impl(buffer_info_type<Archs, Fields>... buffer_infos)
     {
+        // std::cerr << "using second exchange_impl overload\n";
         // check that arguments are compatible
         using test_t = pattern_container<grid_type, domain_id_type>;
         static_assert(
@@ -462,6 +569,108 @@ class communication_object
         });
     }
 
+    void post_sends_nccl()
+    {
+        for_each(m_mem, [this](std::size_t, auto& map) {
+            for (auto& p0 : map.send_memory)
+            {
+                const auto device_id = p0.first;
+                for (auto& p1 : p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        device::guard g(p1.second.buffer);
+                        GHEX_CHECK_NCCL_RESULT(ncclSend(static_cast<const void*>(g.data()), p1.second.buffer.size() /* * sizeof(typename decltype(p1.second.buffer)::value_type) */, ncclChar, p1.second.rank, m_nccl_comm, p1.second.m_stream.get()));
+                    }
+                }
+            }
+        });
+    }
+
+    void post_recvs_nccl()
+    {
+        for_each(m_mem, [this](std::size_t, auto& m) {
+            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+            for (auto& p0 : m.recv_memory)
+            {
+                const auto device_id = p0.first;
+                for (auto& p1 : p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+                            || p1.second.buffer.device_id() != device_id
+#endif
+                        )
+                        // std::cerr << "post_recvs_nccl: making message\n";
+                        p1.second.buffer = arch_traits<arch_type>::make_message(
+                            m_comm, p1.second.size, device_id);
+                        // std::cerr << "post_recvs_nccl: triggering ncclRecv\n";
+                        // std::cerr << "post_recvs_nccl: ptr is " << static_cast<void*>(p1.second.buffer.device_data()) << "\n";
+                        GHEX_CHECK_NCCL_RESULT(ncclRecv(p1.second.buffer.device_data(), p1.second.buffer.size() /* * sizeof(typename decltype(p1.second.buffer)::value_type) */, ncclChar, p1.second.rank, m_nccl_comm, p1.second.m_stream.get()));
+                        // std::cerr << "post_recvs_nccl: triggered ncclRecv\n";
+                        device::guard g(p1.second.buffer);
+                        // std::cerr << "post_recvs_nccl: triggering unpack\n";
+                        // TODO: This doesn't seem to happen after the recv, schedule outside ncclCommGroup?
+                        // packer<arch_type>::unpack(p1.second, g.data());
+                        // std::cerr << "post_recvs_nccl: triggered unpack\n";
+
+                        // use callbacks for unpacking
+                        // m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank,
+                        //     p1.second.tag,
+                        //     [ptr](context::message_type& m, context::rank_type, context::tag_type) {
+                        //         device::guard g(m);
+                        //         packer<arch_type>::unpack(*ptr, g.data());
+                        //     }));
+                    }
+                }
+            }
+        });
+    }
+
+    void unpack_nccl()
+    {
+        for_each(m_mem, [this](std::size_t, auto& m) {
+            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+            for (auto& p0 : m.recv_memory)
+            {
+                const auto device_id = p0.first;
+                for (auto& p1 : p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+                            || p1.second.buffer.device_id() != device_id
+#endif
+                        )
+                        // std::cerr << "post_recvs_nccl: making message\n";
+                        p1.second.buffer = arch_traits<arch_type>::make_message(
+                            m_comm, p1.second.size, device_id);
+                        // std::cerr << "post_recvs_nccl: triggering ncclRecv\n";
+                        // std::cerr << "post_recvs_nccl: ptr is " << static_cast<void*>(p1.second.buffer.device_data()) << "\n";
+                        // GHEX_CHECK_NCCL_RESULT(ncclRecv(p1.second.buffer.device_data(), p1.second.buffer.size() /* * sizeof(typename decltype(p1.second.buffer)::value_type) */, ncclChar, p1.second.rank, m_nccl_comm, p1.second.m_stream.get()));
+                        // std::cerr << "post_recvs_nccl: triggered ncclRecv\n";
+                        device::guard g(p1.second.buffer);
+                        // std::cerr << "post_recvs_nccl: triggering unpack\n";
+                        // TODO: This doesn't seem to happen after the recv, schedule outside ncclCommGroup?
+                        packer<arch_type>::unpack(p1.second, g.data());
+                        // std::cerr << "post_recvs_nccl: triggered unpack\n";
+
+                        // use callbacks for unpacking
+                        // m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank,
+                        //     p1.second.tag,
+                        //     [ptr](context::message_type& m, context::rank_type, context::tag_type) {
+                        //         device::guard g(m);
+                        //         packer<arch_type>::unpack(*ptr, g.data());
+                        //     }));
+                    }
+                }
+            }
+        });
+    }
+
     void pack()
     {
         for_each(m_mem, [this](std::size_t, auto& m) {
@@ -473,38 +682,38 @@ class communication_object
   private: // wait functions
     void progress()
     {
-        if (!m_valid) return;
-        m_comm.progress();
+        // if (!m_valid) return;
+        // m_comm.progress();
     }
 
     bool is_ready()
     {
-        if (!m_valid) return true;
-        if (m_comm.is_ready())
-        {
-#ifdef GHEX_CUDACC
-            sync_streams();
-#endif
-            clear();
-            return true;
-        }
-        m_comm.progress();
-        if (m_comm.is_ready())
-        {
-#ifdef GHEX_CUDACC
-            sync_streams();
-#endif
-            clear();
-            return true;
-        }
+        // if (!m_valid) return true;
+//         if (m_comm.is_ready())
+//         {
+// #ifdef GHEX_CUDACC
+//             sync_streams();
+// #endif
+//             clear();
+//             return true;
+//         }
+//         m_comm.progress();
+//         if (m_comm.is_ready())
+//         {
+// #ifdef GHEX_CUDACC
+//             sync_streams();
+// #endif
+//             clear();
+//             return true;
+//         }
         return false;
     }
 
     void wait()
     {
-        if (!m_valid) return;
-        // wait for data to arrive (unpack callback will be invoked)
-        m_comm.wait_all();
+//         if (!m_valid) return;
+//         // wait for data to arrive (unpack callback will be invoked)
+//         m_comm.wait_all();
 #ifdef GHEX_CUDACC
         sync_streams();
 #endif
