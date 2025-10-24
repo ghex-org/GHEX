@@ -273,6 +273,7 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
     // application data
     auto& d = local_domains[0];
     ghex::test::util::memory<int> field(d.size()*levels, 0);
+#ifndef GHEX_USE_NCCL
     initialize_data(d, field, levels, levels_first);
     data_descriptor_cpu_int_type data{d, field, levels, levels_first};
 
@@ -283,6 +284,7 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 
     // check exchanged data
     check_exchanged_data(d, field, patterns[0], levels, levels_first);
+#endif
 
 #ifdef GHEX_CUDACC
     // application data
@@ -293,6 +295,9 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
     EXPECT_NO_THROW(co.exchange(patterns(data_gpu)).wait());
 
     auto h_gpu = co.exchange(patterns(data_gpu));
+#ifdef GHEX_USE_NCCL
+    cudaDeviceSynchronize();
+#endif
     h_gpu.wait();
 
     // check exchanged data
