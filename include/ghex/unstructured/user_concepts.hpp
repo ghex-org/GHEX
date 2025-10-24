@@ -455,7 +455,7 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 #ifdef GHEX_CUDACC
 
 #define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X 32
-#define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y 8
+#define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y 1
 
 template<typename T>
 __global__ void
