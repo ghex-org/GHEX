@@ -83,7 +83,7 @@ test_distribution_3(int X, int Y, int Z)
             }
 }
 
-TEST(decompostion, distribution)
+TEST(decomposition, distribution)
 {
     for (int i = 0; i < 5; ++i) test_distribution_1(i);
 
@@ -195,7 +195,7 @@ test_decomposition_3_4(int node_X, int node_Y, int node_Z, int numa_X, int numa_
             }
 }
 
-TEST(decompostion, decomposition)
+TEST(decomposition, decomposition)
 {
     std::random_device              rd;
     std::mt19937                    gen(rd());
