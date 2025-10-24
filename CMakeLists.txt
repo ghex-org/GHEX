@@ -52,6 +52,7 @@ set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas b
 set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
 set(GHEX_BUILD_PYTHON_BINDINGS OFF CACHE BOOL "Set to true to build Python bindings")
 set(GHEX_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
+# TODO: Add FindNCCL.cmake module.
 set(GHEX_USE_NCCL ON CACHE BOOL "Use NCCL")
 
 # ---------------------------------------------------------------------
