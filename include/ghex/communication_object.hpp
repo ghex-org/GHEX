@@ -515,6 +515,10 @@ class communication_object
   private: // synchronize (unpacking) streams
     void sync_streams()
     {
+        constexpr std::size_t num_events{128};
+        static std::vector<device::cuda_event> events(num_events);
+        static std::size_t event_index{0};
+
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
@@ -523,7 +527,15 @@ class communication_object
             {
                 if (p1.second.size > 0u)
                 {
-                    p1.second.m_stream.sync();
+                    // p1.second.m_stream.sync();
+                    // Instead of doing a blocking wait, create events on each
+                    // stream that the default stream waits for. This assumes
+                    // that all kernels that need the unpacked data will use or
+                    // synchronize with the default stream.
+                    cudaEvent_t& e = events[event_index].get();
+                    event_index = (event_index + 1) % num_events;
+                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, p1.second.m_stream.get()));
+                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(0, e));
                 }
             }
         }
