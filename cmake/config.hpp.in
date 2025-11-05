@@ -21,6 +21,7 @@
 #cmakedefine GHEX_USE_XPMEM
 #cmakedefine GHEX_USE_XPMEM_ACCESS_GUARD
 #cmakedefine GHEX_USE_GPU
+#cmakedefine GHEX_USE_NCCL
 #define GHEX_GPU_MODE @ghex_gpu_mode@
 #cmakedefine GHEX_GPU_MODE_EMULATE
 #define @GHEX_DEVICE@

@@ -12,6 +12,7 @@
 #include <ghex/config.hpp>
 #include <ghex/context.hpp>
 #include <ghex/util/for_each.hpp>
+#include <ghex/util/moved_bit.hpp>
 #include <ghex/util/test_eq.hpp>
 #include <ghex/pattern_container.hpp>
 #include <ghex/device/stream.hpp>
@@ -23,6 +24,10 @@
 #include <map>
 #include <stdio.h>
 #include <functional>
+
+#ifdef GHEX_USE_NCCL
+#include <nccl.h>
+#endif
 
 namespace ghex
 {
@@ -207,8 +212,12 @@ class communication_object
     using disable_if_buffer_info = std::enable_if_t<!is_buffer_info<T>::value, R>;
 
   private: // members
+    ghex::util::moved_bit          m_moved;
     bool                           m_valid;
     communicator_type              m_comm;
+#ifdef GHEX_USE_NCCL
+    ncclComm_t m_nccl_comm;
+#endif
     memory_type                    m_mem;
     std::vector<send_request_type> m_send_reqs;
     std::vector<recv_request_type> m_recv_reqs;
@@ -218,11 +227,44 @@ class communication_object
     : m_valid(false)
     , m_comm(c.transport_context()->get_communicator())
     {
+      ncclUniqueId id;
+      if (m_comm.rank() == 0) {
+        ncclGetUniqueId(&id);
+      }
+      MPI_Comm mpi_comm = m_comm.mpi_comm();
+
+      MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, mpi_comm);
+
+      GHEX_CHECK_NCCL_RESULT(ncclCommInitRank(&m_nccl_comm, m_comm.size(), id, m_comm.rank()));
+      ncclResult_t state;
+      do {
+        GHEX_CHECK_NCCL_RESULT(ncclCommGetAsyncError(m_nccl_comm, &state));
+      } while(state == ncclInProgress);
+    }
+    ~communication_object() noexcept {
+      if (!m_moved) {
+        GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaDeviceSynchronize());
+        GHEX_CHECK_NCCL_RESULT_NO_THROW(ncclCommDestroy(m_nccl_comm));
+      }
     }
     communication_object(const communication_object&) = delete;
     communication_object(communication_object&&) = default;
 
     communicator_type& communicator() { return m_comm; }
+
+  private:
+    template<typename... Archs, typename... Fields>
+    void nccl_exchange_impl(buffer_info_type<Archs, Fields>... buffer_infos) {
+      pack_nccl();
+
+      ncclGroupStart();
+      post_sends_nccl();
+      post_recvs_nccl();
+      ncclGroupEnd();
+
+      unpack_nccl();
+    }
+
 
   public: // exchange arbitrary field-device-pattern combinations
     /** @brief non-blocking exchange of halo data
@@ -234,8 +276,12 @@ class communication_object
     [[nodiscard]] handle_type exchange(buffer_info_type<Archs, Fields>... buffer_infos)
     {
         exchange_impl(buffer_infos...);
+#ifdef GHEX_USE_NCCL
+        nccl_exchange_impl();
+#else
         post_recvs();
         pack();
+#endif
         return {this};
     }
 
@@ -248,7 +294,6 @@ class communication_object
     [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(
         Iterator first, Iterator last)
     {
-        // call special function for a single range
         return exchange_u(first, last);
     }
 
@@ -279,8 +324,12 @@ class communication_object
     [[nodiscard]] handle_type exchange(std::pair<Iterators, Iterators>... iter_pairs)
     {
         exchange_impl(iter_pairs...);
+#ifdef GHEX_USE_NCCL
+        nccl_exchange_impl();
+#else
         post_recvs();
         pack();
+#endif
         return {this};
     }
 
@@ -462,6 +511,89 @@ class communication_object
         });
     }
 
+    void post_sends_nccl()
+    {
+        for_each(m_mem, [this](std::size_t, auto& map) {
+            for (auto& p0 : map.send_memory)
+            {
+                const auto device_id = p0.first;
+                for (auto& p1 : p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        device::guard g(p1.second.buffer);
+			// TODO: Check why element size isn't relevant for the
+			// buffer size (also for recv).
+                        GHEX_CHECK_NCCL_RESULT(
+                            ncclSend(static_cast<const void*>(g.data()), p1.second.buffer.size(),
+                            ncclChar, p1.second.rank, m_nccl_comm, p1.second.m_stream.get()));
+                    }
+                }
+            }
+        });
+    }
+
+    void post_recvs_nccl()
+    {
+        for_each(m_mem, [this](std::size_t, auto& m) {
+            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+            for (auto& p0 : m.recv_memory)
+            {
+                const auto device_id = p0.first;
+                for (auto& p1 : p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+                            || p1.second.buffer.device_id() != device_id
+#endif
+                        )
+                        p1.second.buffer = arch_traits<arch_type>::make_message(
+                            m_comm, p1.second.size, device_id);
+                        GHEX_CHECK_NCCL_RESULT(
+                            ncclRecv(p1.second.buffer.device_data(), p1.second.buffer.size(),
+                                     ncclChar, p1.second.rank, m_nccl_comm, p1.second.m_stream.get()));
+                    }
+                }
+            }
+        });
+    }
+
+    void pack_nccl()
+    {
+      for_each(m_mem, [this](std::size_t, auto& m) {
+          using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+          packer<arch_type>::pack2_nccl(m, m_send_reqs, m_comm);
+      });
+    }
+
+    void unpack_nccl()
+    {
+        for_each(m_mem, [this](std::size_t, auto& m) {
+            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+            for (auto& p0 : m.recv_memory)
+            {
+                const auto device_id = p0.first;
+                for (auto& p1 : p0.second)
+                {
+                    if (p1.second.size > 0u)
+                    {
+                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+                            || p1.second.buffer.device_id() != device_id
+#endif
+                        )
+                        p1.second.buffer = arch_traits<arch_type>::make_message(
+                            m_comm, p1.second.size, device_id);
+                        device::guard g(p1.second.buffer);
+                        packer<arch_type>::unpack(p1.second, g.data());
+                    }
+                }
+            }
+        });
+    }
+
     void pack()
     {
         for_each(m_mem, [this](std::size_t, auto& m) {
@@ -473,12 +605,19 @@ class communication_object
   private: // wait functions
     void progress()
     {
+#ifdef GHEX_USE_NCCL
+        // TODO: No progress needed?
+#else
         if (!m_valid) return;
         m_comm.progress();
+#endif
     }
 
     bool is_ready()
     {
+#ifdef GHEX_USE_NCCL
+        // TODO: Check if streams are idle?
+#else
         if (!m_valid) return true;
         if (m_comm.is_ready())
         {
@@ -497,14 +636,17 @@ class communication_object
             clear();
             return true;
         }
+#endif
         return false;
     }
 
     void wait()
     {
+#ifndef GHEX_USE_NCCL
         if (!m_valid) return;
         // wait for data to arrive (unpack callback will be invoked)
         m_comm.wait_all();
+#endif
 #ifdef GHEX_CUDACC
         sync_streams();
 #endif
@@ -515,6 +657,10 @@ class communication_object
   private: // synchronize (unpacking) streams
     void sync_streams()
     {
+        constexpr std::size_t num_events{128};
+        static std::vector<device::cuda_event> events(num_events);
+        static std::size_t event_index{0};
+ 
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
@@ -523,7 +669,18 @@ class communication_object
             {
                 if (p1.second.size > 0u)
                 {
+#ifdef GHEX_USE_NCCL
+                    // Instead of doing a blocking wait, create events on each
+                    // stream that the default stream waits for. This assumes
+                    // that all kernels that need the unpacked data will use or
+                    // synchronize with the default stream.
+                    cudaEvent_t& e = events[event_index].get();
+                    event_index = (event_index + 1) % num_events;
+                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, p1.second.m_stream.get()));
+                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(0, e));
+#else
                     p1.second.m_stream.sync();
+#endif
                 }
             }
         }
