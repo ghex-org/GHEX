@@ -454,39 +454,71 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
 
 #ifdef GHEX_CUDACC
 
-#define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK 32
+#define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X 32
+#define GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y 8
 
 template<typename T>
 __global__ void
-pack_kernel(const T* values, const std::size_t local_indices_size,
+pack_kernel_levels_first(const T* values, const std::size_t local_indices_size,
     const std::size_t* local_indices, const std::size_t levels, T* buffer,
-    const std::size_t index_stride, const std::size_t level_stride,
-    const std::size_t buffer_index_stride, const std::size_t buffer_level_stride)
+    const std::size_t index_stride, const std::size_t buffer_index_stride)
 {
-    const std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (idx < local_indices_size)
+    const std::size_t level = threadIdx.x + (blockIdx.x * blockDim.x);
+    const std::size_t idx = threadIdx.y + (blockIdx.y * blockDim.y);
+
+    if (idx < local_indices_size && level < levels)
     {
-        for (std::size_t level = 0; level < levels; ++level)
-        {
-            buffer[idx * buffer_index_stride + level * buffer_level_stride] = values[local_indices[idx] * index_stride + level * level_stride];
-        }
+        auto const local_index = local_indices[idx];
+        buffer[idx * buffer_index_stride + level] = values[local_index * index_stride + level];
     }
 }
 
 template<typename T>
 __global__ void
-unpack_kernel(const T* buffer, const std::size_t local_indices_size,
-    const std::size_t* local_indices, const std::size_t levels, T* values,
-    const std::size_t index_stride, const std::size_t level_stride,
-    const std::size_t buffer_index_stride, const std::size_t buffer_level_stride)
+pack_kernel_levels_last(const T* values, const std::size_t local_indices_size,
+    const std::size_t* local_indices, const std::size_t levels, T* buffer,
+    const std::size_t level_stride, const std::size_t buffer_level_stride)
 {
     const std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (idx < local_indices_size)
+    const std::size_t level = threadIdx.y + (blockIdx.y * blockDim.y);
+
+    if (idx < local_indices_size && level < levels)
     {
-        for (std::size_t level = 0; level < levels; ++level)
-        {
-            values[local_indices[idx] * index_stride + level * level_stride] = buffer[idx * buffer_index_stride + level * buffer_level_stride];
-        }
+        auto const local_index = local_indices[idx];
+        buffer[idx + level * buffer_level_stride] = values[local_index + level * level_stride];
+    }
+}
+
+template<typename T>
+__global__ void
+unpack_kernel_levels_first(const T* buffer, const std::size_t local_indices_size,
+    const std::size_t* local_indices, const std::size_t levels, T* values,
+
+    const std::size_t index_stride, const std::size_t buffer_index_stride)
+{
+    const std::size_t level = threadIdx.x + (blockIdx.x * blockDim.x);
+    const std::size_t idx = threadIdx.y + (blockIdx.y * blockDim.y);
+
+    if (idx < local_indices_size && level < levels)
+    {
+        auto const local_index = local_indices[idx];
+        values[local_index * index_stride + level] = buffer[idx * buffer_index_stride + level];
+    }
+}
+
+template<typename T>
+__global__ void
+unpack_kernel_levels_last(const T* buffer, const std::size_t local_indices_size,
+    const std::size_t* local_indices, const std::size_t levels, T* values,
+    const std::size_t level_stride, const std::size_t buffer_level_stride)
+{
+    const std::size_t idx = threadIdx.x + (blockIdx.x * blockDim.x);
+    const std::size_t level = threadIdx.y + (blockIdx.y * blockDim.y);
+
+    if (idx < local_indices_size && level < levels)
+    {
+        auto const local_index = local_indices[idx];
+        values[local_index + level * level_stride] = buffer[idx + level * buffer_level_stride];
     }
 }
 
@@ -522,7 +554,8 @@ class data_descriptor<gpu, DomainId, Idx, T>
       * @param outer_stride outer dimension's stride measured in number of elements of type T (special value 0: no padding)
       * @param device_id device id*/
     data_descriptor(const domain_descriptor_type& domain, value_type* field,
-        std::size_t levels = 1u, bool levels_first = true, std::size_t outer_stride = 0u, device_id_type device_id = arch_traits<arch_type>::current_id())
+        std::size_t levels = 1u, bool levels_first = true, std::size_t outer_stride = 0u,
+        device_id_type device_id = arch_traits<arch_type>::current_id())
     : m_device_id{device_id}
     , m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
@@ -549,34 +582,86 @@ class data_descriptor<gpu, DomainId, Idx, T>
     template<typename IndexContainer>
     void pack(value_type* buffer, const IndexContainer& c, void* stream_ptr)
     {
+        const dim3 threads_per_block(GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X,
+            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y);
+
         for (const auto& is : c)
         {
-            const int n_blocks =
-                static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
-                                           GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
-            const std::size_t buffer_index_stride = m_levels_first ? m_levels : 1u;
-            const std::size_t buffer_level_stride = m_levels_first ? 1u : is.local_indices().size();
-            pack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
-                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
-                is.local_indices().size(), is.local_indices().data(), m_levels, buffer,
-                m_index_stride, m_level_stride, buffer_index_stride, buffer_level_stride);
+            if (m_levels_first)
+            {
+                const int blocks_levels = static_cast<int>(
+                    std::ceil(static_cast<double>(m_levels) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X));
+                const int blocks_indices = static_cast<int>(
+                    std::ceil(static_cast<double>(is.local_indices().size()) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y));
+
+                const dim3 blocks(blocks_levels, blocks_indices);
+
+                pack_kernel_levels_first<value_type><<<blocks, threads_per_block, 0,
+                    *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
+                    is.local_indices().size(), is.local_indices().data(), m_levels, buffer,
+                    m_index_stride, m_levels);
+            }
+            else
+            {
+                const int blocks_indices = static_cast<int>(
+                    std::ceil(static_cast<double>(is.local_indices().size()) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X));
+                const int blocks_levels = static_cast<int>(
+                    std::ceil(static_cast<double>(m_levels) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y));
+
+                const dim3 blocks(blocks_indices, blocks_levels);
+
+                pack_kernel_levels_last<value_type><<<blocks, threads_per_block, 0,
+                    *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(m_values,
+                    is.local_indices().size(), is.local_indices().data(), m_levels, buffer,
+                    m_level_stride, is.local_indices().size());
+            }
         }
     }
 
     template<typename IndexContainer>
     void unpack(const value_type* buffer, const IndexContainer& c, void* stream_ptr)
     {
+        const dim3 threads_per_block(GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X,
+            GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y);
+
         for (const auto& is : c)
         {
-            const int n_blocks =
-                static_cast<int>(std::ceil(static_cast<double>(is.local_indices().size()) /
-                                           GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK));
-            const std::size_t buffer_index_stride = m_levels_first ? m_levels : 1u;
-            const std::size_t buffer_level_stride = m_levels_first ? 1u : is.local_indices().size();
-            unpack_kernel<value_type><<<n_blocks, GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK,
-                0, *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer,
-                is.local_indices().size(), is.local_indices().data(), m_levels, m_values,
-                m_index_stride, m_level_stride, buffer_index_stride, buffer_level_stride);
+            if (m_levels_first)
+            {
+                const int blocks_levels = static_cast<int>(
+                    std::ceil(static_cast<double>(m_levels) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X));
+                const int blocks_indices = static_cast<int>(
+                    std::ceil(static_cast<double>(is.local_indices().size()) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y));
+
+                const dim3 blocks(blocks_levels, blocks_indices);
+
+                unpack_kernel_levels_first<value_type><<<blocks, threads_per_block, 0,
+                    *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer,
+                    is.local_indices().size(), is.local_indices().data(), m_levels, m_values,
+                    m_index_stride, m_levels);
+            }
+            else
+            {
+                const int blocks_indices = static_cast<int>(
+                    std::ceil(static_cast<double>(is.local_indices().size()) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_X));
+                const int blocks_levels = static_cast<int>(
+                    std::ceil(static_cast<double>(m_levels) /
+                              GHEX_UNSTRUCTURED_SERIALIZATION_THREADS_PER_BLOCK_Y));
+
+                const dim3 blocks(blocks_indices, blocks_levels);
+
+                unpack_kernel_levels_last<value_type><<<blocks, threads_per_block, 0,
+                    *(reinterpret_cast<cudaStream_t*>(stream_ptr))>>>(buffer,
+                    is.local_indices().size(), is.local_indices().data(), m_levels, m_values,
+                    m_level_stride, is.local_indices().size());
+            }
         }
     }
 };
