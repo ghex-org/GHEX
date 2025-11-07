@@ -87,7 +87,7 @@ jobs:
 
         - {
             name:      "gpu-cuda-mpi-atlas-parmetis",
-            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11",
+            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-12.5",
             cc:        "gcc",
             cxx:       "g++",
             fortran:   "ON",
