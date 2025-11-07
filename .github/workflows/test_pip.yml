@@ -34,16 +34,6 @@ jobs:
             run:       "OFF",
           }
 
-        - {
-            name:      "gpu-hip",
-            container: "ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip",
-            cc:        "/opt/rocm/llvm/bin/clang",
-            cxx:       "/opt/rocm/llvm/bin/clang++",
-            gpu:       "ON",
-            gpu_type:  "AMD",
-            run:       "OFF",
-          }
-
     env:
       CC:                             ${{ matrix.config.cc }}
       CXX:                            ${{ matrix.config.cxx }}
