@@ -123,10 +123,6 @@ struct packer<gpu>
         using future_type = device::future<send_buffer_type*>;
         std::size_t num_streams = 0;
 
-        constexpr std::size_t num_events{128};
-        static std::vector<device::cuda_event> events(num_events);
-        static std::size_t event_index{0};
-
         for (auto& p0 : map.send_memory)
         {
             const auto device_id = p0.first;
@@ -146,23 +142,12 @@ struct packer<gpu>
         stream_futures.reserve(num_streams);
         num_streams = 0;
 
-        // Assume that send memory synchronizes with the default
-        // stream so schedule pack kernels after an event on the
-        // default stream.
-        cudaEvent_t& e = events[event_index].get();
-        event_index = (event_index + 1) % num_events;
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, 0));
-
         for (auto& p0 : map.send_memory)
         {
             for (auto& p1 : p0.second)
             {
                 if (p1.second.size > 0u)
                 {
-                    // Make sure stream used for packing synchronizes with the
-                    // default stream.
-                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(), e));
-
                     for (const auto& fb : p1.second.field_infos)
                     {
                         device::guard g(p1.second.buffer);
