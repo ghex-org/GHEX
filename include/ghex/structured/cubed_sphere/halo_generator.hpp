@@ -154,7 +154,9 @@ class halo_generator
             const auto h_i = intersect(h_box, tile_box);
             if ((h_i.global().first()[1] <= h_i.global().last()[1]) &&
                 (h_i.global().first()[2] <= h_i.global().last()[2]))
-            { result.push_back(h_i); }
+            {
+                result.push_back(h_i);
+            }
             // intersect with the 4 neighbor tiles
             for (int n = 0; n < 4; ++n)
             {
@@ -277,10 +279,7 @@ class halo_generator
             }
             return {box{first_a_local_new, last_a_local_new}, x};
         }
-        else
-        {
-            return intersect(box2{b_a_local, b_a_global}, b_b_global);
-        }
+        else { return intersect(box2{b_a_local, b_a_global}, b_b_global); }
     }
 };
 

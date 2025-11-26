@@ -129,8 +129,7 @@ class communication_handle
 template<typename GridType, typename DomainIdType>
 class communication_object
 {
-	//TODO: Can we add the event pool as a member here? is this nice and okay from a MT point?
-
+    //TODO: Can we add the event pool as a member here? is this nice and okay from a MT point?
 
   public: // member types
     /** @brief handle type returned by exhange operation */
@@ -279,23 +278,23 @@ class communication_object
      */
     template<typename... Archs, typename... Fields>
     [[nodiscard]] handle_type schedule_exchange(
-	// TODO: Accept unmanaged (i.e. one that isn't freed) device::stream
-	// and construct implicitly from cudaStream_t or hipStream_t?
+        // TODO: Accept unmanaged (i.e. one that isn't freed) device::stream
+        // and construct implicitly from cudaStream_t or hipStream_t?
         cudaStream_t stream, buffer_info_type<Archs, Fields>... buffer_infos)
     {
         std::cerr << "Using main schedule_exchange overload\n";
         std::cerr << "stream is " << stream << "\n";
 
         // make sure previous exchange finished
-	// TODO: skip this? instead just keep adding to request vectors etc.
-	// and require wait before destruction? allow explicitly calling
-	// progress (currently private)?
-	// Comment(phimuell): I do not think that keep appending is a good idea, because at one point
-	// 	the thing becomes too big, so I would say we should clear it, but implement it as lightweight
-	// 	as possible.
+        // TODO: skip this? instead just keep adding to request vectors etc.
+        // and require wait before destruction? allow explicitly calling
+        // progress (currently private)?
+        // Comment(phimuell): I do not think that keep appending is a good idea, because at one point
+        // 	the thing becomes too big, so I would say we should clear it, but implement it as lightweight
+        // 	as possible.
         wait();
 
-	//Allocate memory, probably for the reciving buffers.
+        //Allocate memory, probably for the reciving buffers.
         exchange_impl(buffer_infos...);
 
         //Create the MPI handle for the reciving, are they using `IRecv`?
@@ -313,17 +312,17 @@ class communication_object
 
         return {this};
 
-	// TODO: NCCL and MPI backends can be scheduled differently with
-	// "async" functionality, but that exposes implementation details.
-	// Should both be allowed? Can one be emulated in terms of the other to
-	// support both modes? Caller has to know which mode to use...?
-	// Concretely:
-	// - MPI can be split into two (or three) phases: 1. post recv and trigger
-	//   packing, 2. post sends, (3.) wait for recv, trigger unpacking
-	// - NCCL can be scheduled all in one go, and should be scheduled all
-	//   in one go as part of a single NCCL group (posting receives before
-	//   sends can lead to deadlocks). But synchronizing unpacking should
-	//   be done in a separate stage.
+        // TODO: NCCL and MPI backends can be scheduled differently with
+        // "async" functionality, but that exposes implementation details.
+        // Should both be allowed? Can one be emulated in terms of the other to
+        // support both modes? Caller has to know which mode to use...?
+        // Concretely:
+        // - MPI can be split into two (or three) phases: 1. post recv and trigger
+        //   packing, 2. post sends, (3.) wait for recv, trigger unpacking
+        // - NCCL can be scheduled all in one go, and should be scheduled all
+        //   in one go as part of a single NCCL group (posting receives before
+        //   sends can lead to deadlocks). But synchronizing unpacking should
+        //   be done in a separate stage.
     }
 #endif
 
@@ -333,8 +332,8 @@ class communication_object
                   * @param last points to the end of the range
                   * @return handle to await communication */
     template<typename Iterator>
-    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(
-        Iterator first, Iterator last)
+    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(Iterator first,
+        Iterator                                                                  last)
     {
         // call special function for a single range
         return exchange_u(first, last);
@@ -351,11 +350,11 @@ class communication_object
                   * @param iters first and last iterators for further ranges
                   * @return handle to await communication */
     template<typename Iterator0, typename Iterator1, typename... Iterators>
-    [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(
-        Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
+    [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(Iterator0 first0,
+        Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
     {
-        static_assert(
-            sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
+        static_assert(sizeof...(Iterators) % 2 == 0,
+            "need even number of iteratiors: (begin,end) pairs");
         // call helper function to turn iterators into pairs of iterators
         return exchange_make_pairs(std::make_index_sequence<2 + sizeof...(iters) / 2>(), first0,
             last0, first1, last1, iters...);
@@ -425,7 +424,8 @@ class communication_object
                     auto ptr = &p1.second;
                     m_recv_reqs.push_back(
                         m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
-                            [ptr](context::message_type& m, context::rank_type, context::tag_type) {
+                            [ptr](context::message_type& m, context::rank_type, context::tag_type)
+                            {
                                 device::guard g(m);
                                 packer<gpu>::unpack(*ptr, g.data());
                             }));
@@ -452,28 +452,33 @@ class communication_object
         using test_t = pattern_container<grid_type, domain_id_type>;
         std::map<const test_t*, int> pat_ptr_map;
         int                          max_tag = 0;
-        for_each(iter_pairs_t, [&pat_ptr_map, &max_tag](std::size_t, auto iter_pair) {
-            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+        for_each(iter_pairs_t,
+            [&pat_ptr_map, &max_tag](std::size_t, auto iter_pair)
             {
-                auto ptr = &(it->get_pattern_container());
-                auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
-                if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
-            }
-        });
-        for_each(iter_pairs_t, [this, &pat_ptr_map](std::size_t, auto iter_pair) {
-            using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
-            using arch_t = typename buffer_info_t::arch_type;
-            using value_t = typename buffer_info_t::value_type;
-            auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
-            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                {
+                    auto ptr = &(it->get_pattern_container());
+                    auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
+                    if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
+                }
+            });
+        for_each(iter_pairs_t,
+            [this, &pat_ptr_map](std::size_t, auto iter_pair)
             {
-                auto       field_ptr = &(it->get_field());
-                auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
-                const auto my_dom_id = it->get_field().domain_id();
-                allocate<arch_t, value_t>(
-                    mem, it->get_pattern(), field_ptr, my_dom_id, it->device_id(), tag_offset);
-            }
-        });
+                using buffer_info_t =
+                    typename std::remove_reference<decltype(*iter_pair.first)>::type;
+                using arch_t = typename buffer_info_t::arch_type;
+                using value_t = typename buffer_info_t::value_type;
+                auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
+                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                {
+                    auto       field_ptr = &(it->get_field());
+                    auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
+                    const auto my_dom_id = it->get_field().domain_id();
+                    allocate<arch_t, value_t>(mem, it->get_pattern(), field_ptr, my_dom_id,
+                        it->device_id(), tag_offset);
+                }
+            });
     }
 
     // helper function to set up communicaton buffers (compile-time case)
@@ -508,22 +513,21 @@ class communication_object
         buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
         memory_t           memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
         // loop over buffer_infos/memory and compute required space
-        for_each(memory_tuple, buffer_info_tuple, [this, &tag_offsets](std::size_t i, auto mem, auto bi) {
-            using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
-            using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
-            auto                 field_ptr = &(bi->get_field());
-            const domain_id_type my_dom_id = bi->get_field().domain_id();
-            allocate<arch_type, value_type>(
-                mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
-        });
+        for_each(memory_tuple, buffer_info_tuple,
+            [this, &tag_offsets](std::size_t i, auto mem, auto bi)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
+                using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
+                auto                 field_ptr = &(bi->get_field());
+                const domain_id_type my_dom_id = bi->get_field().domain_id();
+                allocate<arch_type, value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id,
+                    bi->device_id(), tag_offsets[i]);
+            });
     }
 
     /* Create the receve calls in blocking case. */
 
-    void post_recvs()
-    {
-    	    post_recvs_impl<false>();
-    }
+    void post_recvs() { post_recvs_impl<false>(); }
 
 #ifdef GHEX_CUDACC
     /**
@@ -533,99 +537,98 @@ class communication_object
      */
     void post_recvs(cudaStream_t stream)
     {
-    	    //TODO: Maybe rename this function to `schedule_post_recvs()`?
-    	    post_recvs_impl<true>(stream);
+        //TODO: Maybe rename this function to `schedule_post_recvs()`?
+        post_recvs_impl<true>(stream);
     }
 #endif
 
-    template<
-    	    bool 	UseAsyncStream,
-    	    typename... StreamType>
-    void post_recvs_impl(
-    		    StreamType&&... 	sync_streams)
+    template<bool UseAsyncStream, typename... StreamType>
+    void post_recvs_impl(StreamType&&... sync_streams)
     {
-    	static_assert(UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
+        static_assert(
+            UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
 
-        for_each(m_mem, [this, sync_streams...](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            for (auto& p0 : m.recv_memory)
+        for_each(m_mem,
+            [this, sync_streams...](std::size_t, auto& m)
             {
-                const auto device_id = p0.first;
-                for (auto& p1 : p0.second)
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                for (auto& p0 : m.recv_memory)
                 {
-                    if (p1.second.size > 0u)
+                    const auto device_id = p0.first;
+                    for (auto& p1 : p0.second)
                     {
-                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+                        if (p1.second.size > 0u)
+                        {
+                            if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-                            || p1.second.buffer.device_id() != device_id
+                                || p1.second.buffer.device_id() != device_id
 #endif
-                        )
-                            p1.second.buffer = arch_traits<arch_type>::make_message(
-                                m_comm, p1.second.size, device_id);
-                        auto ptr = &p1.second;
-                        // use callbacks for unpacking
-                        // TODO: Reserve space in vector?
-                        // TODO: Also think of where the vector is freed, depending on where we do wait.
-                        m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank,
-                            p1.second.tag,
-                            [ptr, sync_streams...](context::message_type& m, context::rank_type, context::tag_type) {
-                                device::guard g(m); 
-                                packer<arch_type>::unpack(*ptr, g.data());
+                            )
+                                p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
+                                    p1.second.size, device_id);
+                            auto ptr = &p1.second;
+                            // use callbacks for unpacking
+                            // TODO: Reserve space in vector?
+                            // TODO: Also think of where the vector is freed, depending on where we do wait.
+                            m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank,
+                                p1.second.tag,
+                                [ptr, sync_streams...](context::message_type& m, context::rank_type,
+                                    context::tag_type)
+                                {
+                                    device::guard g(m);
+                                    packer<arch_type>::unpack(*ptr, g.data());
 
 #ifdef GHEX_CUDACC
-                                if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
-                                {
-				    // TODO: Cache/pool events. Relatively cheap to
-				    // create, but not free.
-				    // TODO: Ideally we would write `StreamType` here, but this is not possible for some reason.
-				    // In that case we could drop the `ifdef`.
-				    auto record_streams = [ptr](cudaStream_t stream) -> std::uintptr_t {
-				    	// NOTE: No race condition here, the event destruction, through the destructor of
-				    	// 	`device::cuda_event`, will only be scheduled and performed by the runtime, when
-				    	// 	the event happened.
-                                    	device::cuda_event event;
-                                    	GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), ptr->m_stream));
-                                    	GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, event.get()));
-                                    	return (std::uintptr_t)stream;
-                                    };
-				    std::uintptr_t _[] = {record_streams(sync_streams)...};
-                                }
+                                    if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
+                                    {
+                                        // TODO: Cache/pool events. Relatively cheap to
+                                        // create, but not free.
+                                        // TODO: Ideally we would write `StreamType` here, but this is not possible for some reason.
+                                        // In that case we could drop the `ifdef`.
+                                        auto record_streams =
+                                            [ptr](cudaStream_t stream) -> std::uintptr_t
+                                        {
+                                            // NOTE: No race condition here, the event destruction, through the destructor of
+                                            // 	`device::cuda_event`, will only be scheduled and performed by the runtime, when
+                                            // 	the event happened.
+                                            device::cuda_event event;
+                                            GHEX_CHECK_CUDA_RESULT(
+                                                cudaEventRecord(event.get(), ptr->m_stream));
+                                            GHEX_CHECK_CUDA_RESULT(
+                                                cudaStreamWaitEvent(stream, event.get()));
+                                            return (std::uintptr_t)stream;
+                                        };
+                                        std::uintptr_t _[] = {record_streams(sync_streams)...};
+                                    }
 #endif
-                            }));
+                                }));
+                        }
                     }
                 }
-            }
-        });
+            });
     }
 
     //Blocking version of `pack_and_send()`.
-    void pack_and_send()
-    {
-    	    pack_and_send<false>();
-    }
-
+    void pack_and_send() { pack_and_send<false>(); }
 
 #ifdef GHEX_CUDACC
     //Non-blocking version of `pack_and_send()` that will make sure that packing will wait until
     // everything submitted to stream `stream` has finished.
-    void pack_and_send(cudaStream_t stream)
-    {
-    	    pack_and_send<true>(stream);
-    };
+    void pack_and_send(cudaStream_t stream) { pack_and_send<true>(stream); };
 #endif
 
-    template<
-    	    bool 	UseAsyncStream,
-    	    typename... StreamType>
-    void pack_and_send(
-    		    StreamType&&... 	sync_streams)
+    template<bool UseAsyncStream, typename... StreamType>
+    void pack_and_send(StreamType&&... sync_streams)
     {
-    	static_assert(UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
-        for_each(m_mem, [this, sync_streams...](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-#ifdef GHEX_CUDACC
-            if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
+        static_assert(
+            UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
+        for_each(m_mem,
+            [this, sync_streams...](std::size_t, auto& m)
             {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+#ifdef GHEX_CUDACC
+                if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
+                {
                     std::cerr << "creating cuda event\n";
 
                     //Put an event on the stream on which the packing is supposed to wait.
@@ -633,13 +636,15 @@ class communication_object
                     //	be recorded to a single stream.
                     device::cuda_event event;
                     static_assert(sizeof...(sync_streams) == 1);
-                    auto record_capturer = [&event](cudaStream_t stream) -> std::uintptr_t {
-                    	std::cerr << "recording event on stream " << stream << "\n";
-                    	//TODO: Is a device guard needed here? What should be the memory?
-                    	GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
-                    	return (std::uintptr_t)stream;
+                    auto record_capturer = [&event](cudaStream_t stream) -> std::uintptr_t
+                    {
+                        std::cerr << "recording event on stream " << stream << "\n";
+                        //TODO: Is a device guard needed here? What should be the memory?
+                        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
+                        return (std::uintptr_t)stream;
                     };
-                    const std::uintptr_t _[] = {record_capturer(std::forward<StreamType>(sync_streams))...};
+                    const std::uintptr_t _[] = {
+                        record_capturer(std::forward<StreamType>(sync_streams))...};
 
                     for (auto& p0 : m.send_memory)
                     {
@@ -647,22 +652,24 @@ class communication_object
                         {
                             if (p1.second.size > 0u)
                             {
-                                std::cerr << "adding wait on stream " << p1.second.m_stream.get() << "\n";
+                                std::cerr << "adding wait on stream " << p1.second.m_stream.get()
+                                          << "\n";
                                 //Add the event to any stream that is used for packing, before starting the actuall
                                 // packing. This ensures that packing will only start if any work has concluded.
-                        	//Is this device guard correct?
-                        	device::guard g(p1.second.buffer);
-                                GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(), event.get()));
+                                //Is this device guard correct?
+                                device::guard g(p1.second.buffer);
+                                GHEX_CHECK_CUDA_RESULT(
+                                    cudaStreamWaitEvent(p1.second.m_stream.get(), event.get()));
                             }
                         }
                     }
-            }
+                }
 #endif
 
-            //NOTE: This function currently blocks until the send has been fully scheduled.
-            std::cerr << "starting packing and creating the send request\n";
-            packer<arch_type>::pack(m, m_send_reqs, m_comm);
-        });
+                //NOTE: This function currently blocks until the send has been fully scheduled.
+                std::cerr << "starting packing and creating the send request\n";
+                packer<arch_type>::pack(m, m_send_reqs, m_comm);
+            });
     }
 
   private: // wait functions
@@ -724,24 +731,20 @@ class communication_object
 
 #ifdef GHEX_CUDACC
   private: // synchronize (unpacking) streams
-
     //Ensures that all communication has finished.
     void sync_streams()
     {
-	//NOTE: Depending on how `pack_and_send()` is modified here might be a race condition.
-	//	This is because currently `pack_and_send()` waits until everything has been send,
-	//	thus if we are here, we know that the send operations have concluded and we only
-	//	have to check the recive buffer.
+        //NOTE: Depending on how `pack_and_send()` is modified here might be a race condition.
+        //	This is because currently `pack_and_send()` waits until everything has been send,
+        //	thus if we are here, we know that the send operations have concluded and we only
+        //	have to check the recive buffer.
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
         {
-            for (auto& p1: p0.second)
+            for (auto& p1 : p0.second)
             {
-                if (p1.second.size > 0u)
-                {
-                    p1.second.m_stream.sync();
-                }
+                if (p1.second.size > 0u) { p1.second.m_stream.sync(); }
             }
         }
     }
@@ -751,9 +754,9 @@ class communication_object
     void schedule_sync_streams(cudaStream_t stream)
     {
         // TODO: Pool events.
-        constexpr std::size_t num_events{128};
+        constexpr std::size_t                  num_events{128};
         static std::vector<device::cuda_event> events(num_events);
-        static std::size_t event_index{0};
+        static std::size_t                     event_index{0};
 
         //TODO: We only iterate over the recive buffers and not over the send streams.
         //	Currently this is not needed, because of how `pack_and_send()` is implemented,
@@ -763,7 +766,7 @@ class communication_object
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
         {
-            for (auto& p1: p0.second)
+            for (auto& p1 : p0.second)
             {
                 if (p1.second.size > 0u)
                 {
@@ -792,20 +795,22 @@ class communication_object
 #endif
         m_send_reqs.clear();
         m_recv_reqs.clear();
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            for (auto& p0 : m.send_memory)
-                for (auto& p1 : p0.second)
-                {
-                    p1.second.size = 0;
-                    p1.second.field_infos.resize(0);
-                }
-            for (auto& p0 : m.recv_memory)
-                for (auto& p1 : p0.second)
-                {
-                    p1.second.size = 0;
-                    p1.second.field_infos.resize(0);
-                }
-        });
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                for (auto& p0 : m.send_memory)
+                    for (auto& p1 : p0.second)
+                    {
+                        p1.second.size = 0;
+                        p1.second.field_infos.resize(0);
+                    }
+                for (auto& p0 : m.recv_memory)
+                    for (auto& p1 : p0.second)
+                    {
+                        p1.second.size = 0;
+                        p1.second.field_infos.resize(0);
+                    }
+            });
     }
 
     //  private: // allocation member functions
@@ -815,16 +820,14 @@ class communication_object
     {
         allocate<Arch, T, typename buffer_memory<Arch>::recv_buffer_type>(
             mem->recv_memory[device_id], pattern.recv_halos(),
-            [field_ptr](const void* buffer, const index_container_type& c, void* arg) {
-                field_ptr->unpack(reinterpret_cast<const T*>(buffer), c, arg);
-            },
-            dom_id, tag_offset, true, field_ptr);
+            [field_ptr](const void* buffer, const index_container_type& c, void* arg)
+            { field_ptr->unpack(reinterpret_cast<const T*>(buffer), c, arg); }, dom_id, tag_offset,
+            true, field_ptr);
         allocate<Arch, T, typename buffer_memory<Arch>::send_buffer_type>(
             mem->send_memory[device_id], pattern.send_halos(),
-            [field_ptr](void* buffer, const index_container_type& c, void* arg) {
-                field_ptr->pack(reinterpret_cast<T*>(buffer), c, arg);
-            },
-            dom_id, tag_offset, false, field_ptr);
+            [field_ptr](void* buffer, const index_container_type& c, void* arg)
+            { field_ptr->pack(reinterpret_cast<T*>(buffer), c, arg); }, dom_id, tag_offset, false,
+            field_ptr);
     }
 
     // compute memory requirements to be allocated on the device
@@ -856,9 +859,9 @@ class communication_object
             if (it == memory.end())
             {
                 it = memory
-                         .insert(std::make_pair(
-                             d_p, BufferType{remote_rank, p_id_c.first.tag + tag_offset, {}, 0,
-                                      std::vector<typename BufferType::field_info_type>(), {}}))
+                         .insert(std::make_pair(d_p,
+                             BufferType{remote_rank, p_id_c.first.tag + tag_offset, {}, 0,
+                                 std::vector<typename BufferType::field_info_type>(), {}}))
                          .first;
             }
             else if (it->second.size == 0)

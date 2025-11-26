@@ -74,8 +74,9 @@ await_futures(std::vector<Future>& range, Continuation&& cont)
     auto       end = index_list.end();
     while (begin != end)
     {
-        end =
-            std::remove_if(begin, end, [&range, cont = std::forward<Continuation>(cont)](int idx) {
+        end = std::remove_if(begin, end,
+            [&range, cont = std::forward<Continuation>(cont)](int idx)
+            {
                 if (range[idx].test())
                 {
                     cont(range[idx].get());
@@ -163,9 +164,8 @@ struct packer<gpu>
         //	we start the the sending, wich is in itself asynchronous. Best would be
         //	that this function here woudl instead also run asynchronous.
         //	However, it ensures that progress is made.
-        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
-            send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
-        });
+        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b)
+            { send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag)); });
     }
 
     template<typename Buffer>
@@ -279,9 +279,8 @@ struct packer<gpu>
                 }
             }
         }
-        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
-            send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
-        });
+        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b)
+            { send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag)); });
     }
 };
 #endif

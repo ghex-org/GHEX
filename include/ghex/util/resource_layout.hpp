@@ -25,8 +25,8 @@ struct dist_1D_generator<std::index_sequence<Is...>>
     using dist_1D_tuple_type = std::tuple<hierarchical_distribution<sizeof...(Is) - Is>...>;
 
     template<typename Dims, std::size_t... Js>
-    static hierarchical_distribution<sizeof...(Js)> generate_1(
-        const Dims& dims, std::index_sequence<Js...>) noexcept
+    static hierarchical_distribution<sizeof...(Js)> generate_1(const Dims& dims,
+        std::index_sequence<Js...>) noexcept
     {
         return {{dims[sizeof...(Is) - sizeof...(Js) + 1 + Js].size()...}, false};
     }
@@ -68,8 +68,8 @@ class hierarchical_resource_layout
 
   private:
     template<std::size_t... Is>
-    static distribution_type make_dist(
-        const dims_map_array_type& d, std::index_sequence<Is...>) noexcept
+    static distribution_type make_dist(const dims_map_array_type& d,
+        std::index_sequence<Is...>) noexcept
     {
         return {{d[Is].size()...}, true};
     }
@@ -131,15 +131,15 @@ class hierarchical_resource_layout
     }
 
   private:
-    size_type relative_resource(
-        size_type idx, std::integral_constant<unsigned int, 0>) const noexcept
+    size_type relative_resource(size_type idx,
+        std::integral_constant<unsigned int, 0>) const noexcept
     {
         return idx - index<0>(idx) * std::get<0>(m_1D_dist).size();
     }
 
     template<unsigned int I>
-    size_type relative_resource(
-        size_type idx, std::integral_constant<unsigned int, I>) const noexcept
+    size_type relative_resource(size_type idx,
+        std::integral_constant<unsigned int, I>) const noexcept
     {
         return relative_resource(idx, std::integral_constant<unsigned int, I - 1>()) -
                index<I>(idx) * std::get<I>(m_1D_dist).size();

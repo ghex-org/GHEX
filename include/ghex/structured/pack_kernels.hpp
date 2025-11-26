@@ -44,10 +44,8 @@ struct serialization
     {
         using coordinate_type = typename PackIterationSpace::coordinate_t;
         static constexpr auto D = coordinate_type::size();
-        ::ghex::for_loop<D, D, LayoutMap>::template apply(
-            [&pack_is](auto... xs) {
-                pack_is.buffer(coordinate_type{xs...}) = pack_is.data(coordinate_type{xs...});
-            },
+        ::ghex::for_loop<D, D, LayoutMap>::template apply([&pack_is](auto... xs)
+            { pack_is.buffer(coordinate_type{xs...}) = pack_is.data(coordinate_type{xs...}); },
             pack_is.m_data_is.m_first, pack_is.m_data_is.m_last);
     }
 
@@ -56,10 +54,8 @@ struct serialization
     {
         using coordinate_type = typename UnPackIterationSpace::coordinate_t;
         static constexpr auto D = coordinate_type::size();
-        ::ghex::for_loop<D, D, LayoutMap>::template apply(
-            [&unpack_is](auto... xs) {
-                unpack_is.data(coordinate_type{xs...}) = unpack_is.buffer(coordinate_type{xs...});
-            },
+        ::ghex::for_loop<D, D, LayoutMap>::template apply([&unpack_is](auto... xs)
+            { unpack_is.data(coordinate_type{xs...}) = unpack_is.buffer(coordinate_type{xs...}); },
             unpack_is.m_data_is.m_first, unpack_is.m_data_is.m_last);
     }
 
@@ -84,7 +80,8 @@ struct serialization
             last[j++] = pack_is.m_data_is.m_last[i];
         }
         ::ghex::for_loop<D - 1, D - 1, LayoutMap2>::template apply(
-            [&pack_is, &x_first, &x_last](auto... xs) {
+            [&pack_is, &x_first, &x_last](auto... xs)
+            {
                 const cont_coord_type x0{xs...};
                 coordinate_type       x1;
                 x1[cont_idx] = x_first;
@@ -121,7 +118,8 @@ struct serialization
             last[j++] = unpack_is.m_data_is.m_last[i];
         }
         ::ghex::for_loop<D - 1, D - 1, LayoutMap2>::template apply(
-            [&unpack_is, &x_first, &x_last](auto... xs) {
+            [&unpack_is, &x_first, &x_last](auto... xs)
+            {
                 const cont_coord_type x0{xs...};
                 coordinate_type       x1;
                 x1[cont_idx] = x_first;

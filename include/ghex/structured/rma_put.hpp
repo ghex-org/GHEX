@@ -72,7 +72,8 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t,
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
     for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
-        [&s, &t](auto... c) {
+        [&s, &t](auto... c)
+        {
             auto dst = t.ptr(coordinate{c...});
             auto src = s.ptr(coordinate{c...});
             for (unsigned int i = 0; i < s.m_chunk_size_; ++i) { dst[i] = src[i]; }
@@ -96,7 +97,8 @@ put(rma_range<SourceField>& s, rma_range<TargetField>& t,
     using coordinate = typename sv_t::coordinate;
     const auto nc = s.m_field.num_components();
     for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 2>::apply(
-        [&s, &t, nc](auto... c) {
+        [&s, &t, nc](auto... c)
+        {
             std::memcpy(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}), s.m_chunk_size * nc);
             // auto dst = t.ptr(coordinate{c...});
             // auto src = s.ptr(coordinate{c...});
@@ -124,7 +126,8 @@ put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<Targe
     using sv_t = rma_range<SourceField>;
     using coordinate = typename sv_t::coordinate;
     for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
-        [&s, &t, &st](auto... c) {
+        [&s, &t, &st](auto... c)
+        {
             GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}),
                 s.m_chunk_size, cudaMemcpyHostToDevice, st));
         },
@@ -152,7 +155,8 @@ put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<Targe
     using coordinate = typename sv_t::coordinate;
 #ifndef GHEX_USE_XPMEM
     for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
-        [&s, &t, &st](auto... c) {
+        [&s, &t, &st](auto... c)
+        {
             GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(t.ptr(coordinate{c...}), s.ptr(coordinate{c...}),
                 s.m_chunk_size, cudaMemcpyDeviceToHost, st));
         },
@@ -161,7 +165,8 @@ put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<Targe
     if (loc != rma::locality::process)
     {
         for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
-            [&s, &t, &st](auto... c) {
+            [&s, &t, &st](auto... c)
+            {
                 GHEX_CHECK_CUDA_RESULT(cudaMemcpyAsync(t.ptr(coordinate{c...}),
                     s.ptr(coordinate{c...}), s.m_chunk_size, cudaMemcpyDeviceToHost, st));
             },
@@ -175,7 +180,8 @@ put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<Targe
         ghex::device::stream                                        st2;
         unsigned int                                                i = 0;
         for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
-            [&s, &t, &st, &i, &st2](auto... c) {
+            [&s, &t, &st, &i, &st2](auto... c)
+            {
                 if (data.size() < i + 1) data.push_back(std::vector<unsigned char>(s.m_chunk_size));
                 else
                     data[i].resize(s.m_chunk_size);
@@ -186,10 +192,9 @@ put([[maybe_unused]] rma_range<SourceField>& s, [[maybe_unused]] rma_range<Targe
         st2.sync();
         i = 0;
         for_loop<sv_t::dimension::value, sv_t::dimension::value, typename sv_t::layout, 1>::apply(
-            [&s, &t, &i](auto... c) {
-                std::memcpy(t.ptr(coordinate{c...}), data[i++].data(), s.m_chunk_size);
-            },
-            s.m_begin, s.m_end);
+            [&s, &t, &i](auto... c)
+            { std::memcpy(t.ptr(coordinate{c...}), data[i++].data(), s.m_chunk_size); }, s.m_begin,
+            s.m_end);
     }
 #endif
 #endif

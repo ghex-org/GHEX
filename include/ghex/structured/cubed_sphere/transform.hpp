@@ -114,18 +114,18 @@ static constexpr std::array<std::array<transform, 4>, 6> transform_lu = {
 
 // inverse transform: neigbhor tile coordinates to this tile coordinates
 static constexpr std::array<std::array<transform, 4>, 6> inverse_transform_lu = {
-    std::array<transform, 4>{
-        transform_lu[4][3], transform_lu[1][0], transform_lu[5][3], transform_lu[2][0]},
-    std::array<transform, 4>{
-        transform_lu[0][1], transform_lu[3][2], transform_lu[5][1], transform_lu[2][2]},
-    std::array<transform, 4>{
-        transform_lu[0][3], transform_lu[3][0], transform_lu[1][3], transform_lu[4][0]},
-    std::array<transform, 4>{
-        transform_lu[2][1], transform_lu[5][2], transform_lu[1][1], transform_lu[4][2]},
-    std::array<transform, 4>{
-        transform_lu[2][3], transform_lu[5][0], transform_lu[3][3], transform_lu[0][0]},
-    std::array<transform, 4>{
-        transform_lu[4][1], transform_lu[1][2], transform_lu[3][1], transform_lu[0][2]}};
+    std::array<transform, 4>{transform_lu[4][3], transform_lu[1][0], transform_lu[5][3],
+        transform_lu[2][0]},
+    std::array<transform, 4>{transform_lu[0][1], transform_lu[3][2], transform_lu[5][1],
+        transform_lu[2][2]},
+    std::array<transform, 4>{transform_lu[0][3], transform_lu[3][0], transform_lu[1][3],
+        transform_lu[4][0]},
+    std::array<transform, 4>{transform_lu[2][1], transform_lu[5][2], transform_lu[1][1],
+        transform_lu[4][2]},
+    std::array<transform, 4>{transform_lu[2][3], transform_lu[5][0], transform_lu[3][3],
+        transform_lu[0][0]},
+    std::array<transform, 4>{transform_lu[4][1], transform_lu[1][2], transform_lu[3][1],
+        transform_lu[0][2]}};
 
 } // namespace cubed_sphere
 } // namespace structured
