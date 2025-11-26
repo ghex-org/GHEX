@@ -637,7 +637,7 @@ class communication_object
                     //	be recorded to a single stream.
                     //NOTE: See not about `StreamType` in `post_recvs()`.
                     device::cuda_event event;
-                    static_assert(sizeof...(sync_streams) == 1);
+                    static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
                     auto record_capturer = [&event](cudaStream_t stream) -> std::uintptr_t
                     {
                         std::cerr << "recording event on stream " << stream << "\n";
