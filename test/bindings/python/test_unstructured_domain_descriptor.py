@@ -281,3 +281,68 @@ def test_domain_descriptor(capsys, mpi_cart_comm, dtype):
 
     check_field(d1)
     check_field(d2)
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
+@pytest.mark.mpi
+def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
+    ctx = make_context(mpi_cart_comm, True)
+    assert ctx.size() == 4
+
+    domain_desc = DomainDescriptor(
+        ctx.rank(), domains[ctx.rank()]["all"], domains[ctx.rank()]["outer_lids"]
+    )
+
+    assert domain_desc.domain_id() == ctx.rank()
+    assert domain_desc.size() == len(domains[ctx.rank()]["all"])
+    assert domain_desc.inner_size() == len(domains[ctx.rank()]["inner"])
+
+    halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
+
+    pattern = make_pattern(ctx, halo_gen, [domain_desc])
+
+    co = make_communication_object(ctx)
+
+    def make_field(order):
+        data = np.zeros(
+            [len(domains[ctx.rank()]["all"]), LEVELS], dtype=dtype, order=order
+        )
+        inner_set = set(domains[ctx.rank()]["inner"])
+        all_list = domains[ctx.rank()]["all"]
+        for x in range(len(all_list)):
+            gid = all_list[x]
+            for l in range(LEVELS):
+                if gid in inner_set:
+                    data[x, l] = ctx.rank() * 1000 + 10 * gid + l
+                else:
+                    data[x, l] = -1
+
+        field = make_field_descriptor(domain_desc, data)
+        return data, field
+
+    def check_field(data):
+        inner_set = set(domains[ctx.rank()]["inner"])
+        all_list = domains[ctx.rank()]["all"]
+        for x in range(len(all_list)):
+            gid = all_list[x]
+            for l in range(LEVELS):
+                if gid in inner_set:
+                    assert data[x, l] == ctx.rank() * 1000 + 10 * gid + l
+                else:
+                    assert (
+                        data[x, l] - 1000 * int((data[x, l]) / 1000)
+                    ) == 10 * gid + l
+
+        field = make_field_descriptor(domain_desc, data)
+        return data, field
+
+    d1, f1 = make_field("C")
+    # d2, f2 = make_field("F")
+
+    # res = co.schedule_exchange(0, [pattern(f1), pattern(f2)])
+    res = co.schedule_exchange(None, pattern(f1))
+    res.schedule_wait(None)
+    res.wait();
+
+    check_field(d1)
+    # check_field(d2)

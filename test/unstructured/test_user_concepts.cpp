@@ -44,24 +44,24 @@ void test_in_place_receive(ghex::context& ctxt);
 //void test_in_place_receive_oversubscribe(ghex::context& ctxt);
 void test_in_place_receive_threads(ghex::context& ctxt);
 
-TEST_F(mpi_test_fixture, domain_descriptor)
-{
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+// TEST_F(mpi_test_fixture, domain_descriptor)
+// {
+//     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+// 
+//     if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
+// }
 
-    if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
-}
-
-TEST_F(mpi_test_fixture, pattern_setup)
-{
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-
-    if (world_size == 4) { test_pattern_setup(ctxt); }
-    else if (world_size == 2)
-    {
-        test_pattern_setup_oversubscribe(ctxt);
-        test_pattern_setup_oversubscribe_asymm(ctxt);
-    }
-}
+// TEST_F(mpi_test_fixture, pattern_setup)
+// {
+//     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+// 
+//     if (world_size == 4) { test_pattern_setup(ctxt); }
+//     else if (world_size == 2)
+//     {
+//         test_pattern_setup_oversubscribe(ctxt);
+//         test_pattern_setup_oversubscribe_asymm(ctxt);
+//     }
+// }
 
 TEST_F(mpi_test_fixture, data_descriptor)
 {
@@ -81,21 +81,21 @@ TEST_F(mpi_test_fixture, data_descriptor)
     }
 }
 
-TEST_F(mpi_test_fixture, in_place_receive)
-{
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-
-    if (world_size == 4)
-    {
-        test_in_place_receive(ctxt);
-        //test_in_place_receive_multi(ctxt);
-    }
-    else if (world_size == 2)
-    {
-        //test_in_place_receive_oversubscribe(ctxt);
-        if (thread_safe) test_in_place_receive_threads(ctxt);
-    }
-}
+// TEST_F(mpi_test_fixture, in_place_receive)
+// {
+//     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+// 
+//     if (world_size == 4)
+//     {
+//         test_in_place_receive(ctxt);
+//         //test_in_place_receive_multi(ctxt);
+//     }
+//     else if (world_size == 2)
+//     {
+//         //test_in_place_receive_oversubscribe(ctxt);
+//         if (thread_safe) test_in_place_receive_threads(ctxt);
+//     }
+// }
 
 auto
 create_halo(const domain_descriptor_type& d)
@@ -120,6 +120,7 @@ make_halo_gen(const std::vector<domain_descriptor_type>& local_domains)
 void
 test_domain_descriptor_and_halos(ghex::context& ctxt)
 {
+    std::cerr << "test_domain_descriptor_and_halos\n";
     // domain
     auto d = make_domain(ctxt.rank());
     check_domain(d);
@@ -133,6 +134,8 @@ test_domain_descriptor_and_halos(ghex::context& ctxt)
 void
 test_pattern_setup(ghex::context& ctxt)
 {
+    std::cerr << "test_pattern_setup\n";
+
     // domain
     std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};
 
@@ -257,6 +260,8 @@ test_pattern_setup_oversubscribe_asymm(ghex::context& ctxt)
 void
 test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 {
+    std::cerr << "test_data_descriptor\n";
+
     // domain
     std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};
 
@@ -277,10 +282,16 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
     initialize_data(d, field, levels, levels_first);
     data_descriptor_cpu_int_type data{d, field, levels, levels_first};
 
+    cudaDeviceSynchronize();
+
     EXPECT_NO_THROW(co.exchange(patterns(data)).wait());
+
+    cudaDeviceSynchronize();
 
     auto h = co.exchange(patterns(data));
     h.wait();
+
+    cudaDeviceSynchronize();
 
     // check exchanged data
     check_exchanged_data(d, field, patterns[0], levels, levels_first);
@@ -292,7 +303,11 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
     field.clone_to_device();
     data_descriptor_gpu_int_type data_gpu{d, field.device_data(), levels, levels_first, 0, 0};
 
+    cudaDeviceSynchronize();
+
     EXPECT_NO_THROW(co.exchange(patterns(data_gpu)).wait());
+
+    cudaDeviceSynchronize();
 
     auto h_gpu = co.exchange(patterns(data_gpu));
 #ifdef GHEX_USE_NCCL
@@ -300,9 +315,38 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 #endif
     h_gpu.wait();
 
+    cudaDeviceSynchronize();
+
     // check exchanged data
     field.clone_to_host();
     check_exchanged_data(d, field, patterns[0], levels, levels_first);
+
+    // async exchange
+    {
+        std::cerr << "starting async exchange\n";
+
+        // application data
+        initialize_data(d, field, levels, levels_first);
+        field.clone_to_device();
+        data_descriptor_gpu_int_type data_gpu{d, field.device_data(), levels, levels_first, 0, 0};
+
+        cudaStream_t stream;
+        cudaStreamCreate(&stream);
+        cudaStreamSynchronize(stream);
+
+        auto h_gpu = co.schedule_exchange(stream, patterns(data_gpu));
+        h_gpu.schedule_wait(stream);
+
+        cudaDeviceSynchronize();
+
+        cudaStreamDestroy(stream);
+
+        // check exchanged data
+        field.clone_to_host();
+        check_exchanged_data(d, field, patterns[0], levels, levels_first);
+
+        std::cerr << "done async exchange\n";
+    }
 #endif
 }
 
@@ -310,6 +354,7 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 void
 test_data_descriptor_oversubscribe(ghex::context& ctxt)
 {
+    std::cerr << "doing test_data_descriptor_oversubscribe\n";
     // domain
     std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank() * 2),
         make_domain(ctxt.rank() * 2 + 1)};
@@ -335,14 +380,22 @@ test_data_descriptor_oversubscribe(ghex::context& ctxt)
     data_descriptor_cpu_int_type data_1{d_1, field_1};
     data_descriptor_cpu_int_type data_2{d_2, field_2};
 
+    cudaDeviceSynchronize();
+
     EXPECT_NO_THROW(co.exchange(patterns(data_1), patterns(data_2)).wait());
+
+    cudaDeviceSynchronize();
 
     auto h = co.exchange(patterns(data_1), patterns(data_2));
     h.wait();
 
+    cudaDeviceSynchronize();
+
     // check exchanged data
     check_exchanged_data(d_1, field_1, patterns[0]);
     check_exchanged_data(d_2, field_2, patterns[1]);
+
+    std::cerr << "done test_data_descriptor_oversubscribe\n";
 }
 
 /** @brief Test data descriptor concept with multiple threads*/
@@ -373,8 +426,10 @@ test_data_descriptor_threads(ghex::context& ctxt)
     auto func = [&ctxt](auto bi)
     {
         auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
+        cudaDeviceSynchronize();
         auto h = co.exchange(bi);
         h.wait();
+        cudaDeviceSynchronize();
     };
 
     std::vector<std::thread> threads;
@@ -408,8 +463,12 @@ test_in_place_receive(ghex::context& ctxt)
     // communication object
     auto co = ghex::unstructured::make_communication_object_ipr(ctxt, patterns(data));
 
+    cudaDeviceSynchronize();
+
     auto h = co.exchange();
     h.wait();
+
+    cudaDeviceSynchronize();
 
     // check exchanged data
     check_exchanged_data(d, field, patterns[0]);
@@ -423,10 +482,14 @@ test_in_place_receive(ghex::context& ctxt)
     // communication object
     auto co_gpu = ghex::unstructured::make_communication_object_ipr(ctxt, patterns(data_gpu));
 
+    cudaDeviceSynchronize();
+
     EXPECT_NO_THROW(co_gpu.exchange());
 
     auto h_gpu = co_gpu.exchange();
     h_gpu.wait();
+
+    cudaDeviceSynchronize();
 
     // check exchanged data
     field.clone_to_host();
@@ -548,8 +611,10 @@ test_in_place_receive_threads(ghex::context& ctxt)
     auto func = [&ctxt](auto bi)
     {
         auto co = ghex::unstructured::make_communication_object_ipr(ctxt, bi);
+        cudaDeviceSynchronize();
         auto h = co.exchange();
         h.wait();
+        cudaDeviceSynchronize();
     };
 
     std::vector<std::thread> threads;

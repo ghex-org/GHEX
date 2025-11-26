@@ -14,6 +14,10 @@
 #include <ghex/buffer_info.hpp>
 #include <ghex/unstructured/pattern.hpp>
 
+#ifdef GHEX_CUDACC
+#include <ghex/device/cuda/runtime.hpp>
+#endif
+
 #include <context_shim.hpp>
 #include <register_class.hpp>
 #include <unstructured/field_descriptor.hpp>
@@ -43,6 +47,9 @@ register_communication_object(pybind11::module& m)
 
             _handle
                 .def("wait", &handle::wait)
+                .def(
+                    "schedule_wait", [](typename type::handle_type& h, void* s) { return h.schedule_wait(static_cast<cudaStream_t>(s)); },
+                    pybind11::keep_alive<0, 1>())
                 .def("is_ready", &handle::is_ready)
                 .def("progress", &handle::progress);
 
@@ -71,7 +78,26 @@ register_communication_object(pybind11::module& m)
                             "exchange",
                             [](type& co, buffer_info_type& b0, buffer_info_type& b1,
                                 buffer_info_type& b2) { return co.exchange(b0, b1, b2); },
-                            pybind11::keep_alive<0, 1>());
+                            pybind11::keep_alive<0, 1>())
+                        // .def(
+                        //     "schedule_exchange",
+                        //     [](type& co, void* s, std::vector<buffer_info_type> b)
+                        //     { return co.schedule_exchange(static_cast<cudaStream_t>(s), b.begin(), b.end()); },
+                        //     pybind11::keep_alive<0, 1>())
+                        .def(
+                            "schedule_exchange", [](type& co, void* s, buffer_info_type& b) { return co.schedule_exchange(static_cast<cudaStream_t>(s), b); },
+                            pybind11::keep_alive<0, 1>())
+                        .def(
+                            "schedule_exchange",
+                            [](type& co, void* s, buffer_info_type& b0, buffer_info_type& b1)
+                            { return co.schedule_exchange(static_cast<cudaStream_t>(s), b0, b1); },
+                            pybind11::keep_alive<0, 1>())
+                        .def(
+                            "schedule_exchange",
+                            [](type& co, void* s, buffer_info_type& b0, buffer_info_type& b1,
+                                buffer_info_type& b2) { return co.schedule_exchange(static_cast<cudaStream_t>(s), b0, b1, b2); },
+                            pybind11::keep_alive<0, 1>())
+                        ;
                 });
 
             m.def("make_co_unstructured",
