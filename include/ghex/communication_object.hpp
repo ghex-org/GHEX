@@ -259,11 +259,10 @@ class communication_object
     }
 
 #if defined(GHEX_CUDACC) // TODO
-    /**
-     * \brief	Schedule an asynchronous exchange.
+    /** @brief	Schedule an asynchronous exchange.
      *
      * In the asynchronous exchange the function does not block but schedules everything
-     * on the device. The function will schedule all packing, i.e. putting the hallos
+     * on the device. The function will schedule all packing, i.e. putting the halos
      * into continious memory, such that they wait on the passed stream. Thus no
      * packing will start before all work, that has been scheduled in `stream` has finished.
      *
@@ -274,6 +273,8 @@ class communication_object
      *
      * Note that this function must be matched by a call to `schedule_wait()` on the returned
      * handle.
+     *
+     * TODO: Allow multiple for different cuda stream, i.e. one for sending and one for unpacking.
      */
     template<typename... Archs, typename... Fields>
     [[nodiscard]] handle_type schedule_exchange(
@@ -296,7 +297,10 @@ class communication_object
         //Allocate memory, probably for the reciving buffers.
         exchange_impl(buffer_infos...);
 
-        //Create the MPI handle for the reciving, are they using `IRecv`?
+        /* QUESTION: Does this work? I mean we post the receives first and then the send, should this not deadlock
+         * 	if we are using the same stream?
+         * 	Probably I am missing something. */
+        //Set up the receives, also make sure that everything synchronizes with `stream`.
         post_recvs(stream);
 
         //TODO: the function will wait until the sends have been concluded, so it is not truely asynchronous.
@@ -524,15 +528,22 @@ class communication_object
             });
     }
 
-    /* Create the receve calls in blocking case. */
-
+    /** \brief	Non synchronizing version of `post_recvs()`.
+     *
+     * Create the receives request to transmit data and also register the
+     * unpacker callbacks. The function will return after the receives calls
+     * have been posted.
+     */
     void post_recvs() { post_recvs_impl<false>(); }
 
 #ifdef GHEX_CUDACC
     /**
-     * \brief	Create the receive calls for the asynchronous case.
+     * \brief	The synchronizing version of `post_recvs()`.
      *
-     * Packing will wait until all work on `stream` has finished.
+     * The function is essentially the same as its non synchronizing variant.
+     * However, it will ensure that unpacking synchronizes with `stream`.
+     * This means that all work submitted to `stream` will only start after
+     * everything has been unpacked.
      */
     void post_recvs(cudaStream_t stream)
     {
@@ -587,9 +598,8 @@ class communication_object
                                         auto record_streams =
                                             [ptr](cudaStream_t stream) -> std::uintptr_t
                                         {
-                                            // NOTE: No race condition here, the event destruction, through the destructor of
-                                            // 	`device::cuda_event`, will only be scheduled and performed by the runtime, when
-                                            // 	the event happened.
+                                            //NOTE:  First there is no race condition with the destruction of the `event`. The
+                                            //	runtime will make sure that it is maintained until it is no longer needed.
                                             device::cuda_event event;
                                             GHEX_CHECK_CUDA_RESULT(
                                                 cudaEventRecord(event.get(), ptr->m_stream));
@@ -609,12 +619,23 @@ class communication_object
             });
     }
 
-    //Blocking version of `pack_and_send()`.
+    /** \brief	Non synchronizing variant of `pack_and_send()`.
+     *
+     * The function will collect copy the halos into a continuous buffers
+     * and send them to the destination.
+     * It is important that the function will start to pack the data
+     * immediately and only return once the send has been completed.
+     */
     void pack_and_send() { pack_and_send<false>(); }
 
 #ifdef GHEX_CUDACC
-    //Non-blocking version of `pack_and_send()` that will make sure that packing will wait until
-    // everything submitted to stream `stream` has finished.
+    /** \brief	Synchronizing variant of `pack_and_send()`.
+     *
+     * As its non synchronizing version, the function packs the halos into
+     * continuous buffers and send them to their destinations. What is
+     * different is, that the packing will not start before all work, that was
+     * previously submitted to `stream` has finished.
+     */
     void pack_and_send(cudaStream_t stream) { pack_and_send<true>(stream); };
 #endif
 
@@ -635,11 +656,11 @@ class communication_object
                     //Put an event on the stream on which the packing is supposed to wait.
                     //NOTE: Currently only works for one stream because an event can only
                     //	be recorded to a single stream.
-                    //NOTE: See not about `StreamType` in `post_recvs()`.
                     device::cuda_event event;
                     static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
                     auto record_capturer = [&event](cudaStream_t stream) -> std::uintptr_t
                     {
+                        //NOTE: See not about `StreamType` in `post_recvs()`.
                         std::cerr << "recording event on stream " << stream << "\n";
                         //TODO: Is a device guard needed here? What should be the memory?
                         GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
