@@ -23,7 +23,6 @@
 #include <map>
 #include <stdio.h>
 #include <functional>
-#include <optional>
 
 namespace ghex
 {
@@ -583,7 +582,7 @@ class communication_object
                                     {
                                         // TODO: Cache/pool events. Relatively cheap to
                                         // create, but not free.
-                                        // TODO: Ideally we would write `StreamType` here, but this is not possible for some reason.
+                                        // NOTE: Ideally we would write `StreamType` here, but this is not possible for some reason.
                                         // In that case we could drop the `ifdef`.
                                         auto record_streams =
                                             [ptr](cudaStream_t stream) -> std::uintptr_t
@@ -598,7 +597,9 @@ class communication_object
                                                 cudaStreamWaitEvent(stream, event.get()));
                                             return (std::uintptr_t)stream;
                                         };
-                                        std::uintptr_t _[] = {record_streams(sync_streams)...};
+                                        std::uintptr_t unused_variable_for_expansion[] = {
+                                            record_streams(sync_streams)...};
+                                        (void)unused_variable_for_expansion;
                                     }
 #endif
                                 }));
@@ -634,6 +635,7 @@ class communication_object
                     //Put an event on the stream on which the packing is supposed to wait.
                     //NOTE: Currently only works for one stream because an event can only
                     //	be recorded to a single stream.
+                    //NOTE: See not about `StreamType` in `post_recvs()`.
                     device::cuda_event event;
                     static_assert(sizeof...(sync_streams) == 1);
                     auto record_capturer = [&event](cudaStream_t stream) -> std::uintptr_t
@@ -643,8 +645,9 @@ class communication_object
                         GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
                         return (std::uintptr_t)stream;
                     };
-                    const std::uintptr_t _[] = {
-                        record_capturer(std::forward<StreamType>(sync_streams))...};
+                    const std::uintptr_t unused_variable_for_expansion[] = {
+                        record_capturer(sync_streams)...};
+                    (void)unused_variable_for_expansion;
 
                     for (auto& p0 : m.send_memory)
                     {
@@ -790,9 +793,6 @@ class communication_object
     void clear()
     {
         m_valid = false;
-#if defined(GHEX_CUDACC) // TODO
-        m_stream = std::nullopt;
-#endif
         m_send_reqs.clear();
         m_recv_reqs.clear();
         for_each(m_mem,
