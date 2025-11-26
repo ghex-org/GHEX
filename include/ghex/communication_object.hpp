@@ -233,10 +233,6 @@ class communication_object
     memory_type                    m_mem;
     std::vector<send_request_type> m_send_reqs;
     std::vector<recv_request_type> m_recv_reqs;
-#if defined(GHEX_CUDACC) // TODO
-    // TODO: Avoid storing this in state, just pass it to the functions that need it?
-    std::optional<cudaStream_t>    m_stream{std::nullopt}; // schedule packing/unpacking relative to stream
-#endif
 
   public: // ctors
     communication_object(context& c)
@@ -290,9 +286,6 @@ class communication_object
         std::cerr << "Using main schedule_exchange overload\n";
         std::cerr << "stream is " << stream << "\n";
 
-        //TODO(phimuell): Think of it to add it to the handle type.
-        m_stream = stream;
-
         // make sure previous exchange finished
 	// TODO: skip this? instead just keep adding to request vectors etc.
 	// and require wait before destruction? allow explicitly calling
@@ -309,7 +302,8 @@ class communication_object
         post_recvs(stream);
 
         //TODO: the function will wait until the sends have been concluded, so it is not truely asynchronous.
-        pack_and_send();
+        //	It is hard because this might lead to race conditions somewhere else.
+        pack_and_send(stream);
 
         // Trigger unpacking, but don't wait for unpacking.
         // TODO: Not sure if this needed, because it makes it even less asynchrnous.
@@ -579,20 +573,22 @@ class communication_object
                                 packer<arch_type>::unpack(*ptr, g.data());
 
 #ifdef GHEX_CUDACC
-                                if constexpr (UseAsyncStream)
+                                if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
                                 {
 				    // TODO: Cache/pool events. Relatively cheap to
 				    // create, but not free.
-				    auto record_streams = [ptr](cudaStream_t stream) -> int {
+				    // TODO: Ideally we would write `StreamType` here, but this is not possible for some reason.
+				    // In that case we could drop the `ifdef`.
+				    auto record_streams = [ptr](cudaStream_t stream) -> std::uintptr_t {
 				    	// NOTE: No race condition here, the event destruction, through the destructor of
 				    	// 	`device::cuda_event`, will only be scheduled and performed by the runtime, when
 				    	// 	the event happened.
                                     	device::cuda_event event;
                                     	GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), ptr->m_stream));
                                     	GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, event.get()));
-                                    	return 0;
+                                    	return (std::uintptr_t)stream;
                                     };
-                                    int _[] = {record_streams(sync_streams)...};
+				    std::uintptr_t _[] = {record_streams(sync_streams)...};
                                 }
 #endif
                             }));
@@ -602,21 +598,48 @@ class communication_object
         });
     }
 
+    //Blocking version of `pack_and_send()`.
     void pack_and_send()
     {
-        for_each(m_mem, [&, this](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            if constexpr (std::is_same_v<arch_type, gpu>) {
-                // TODO: Same as in post_recvs.
-#ifdef GHEX_CUDACC
-                if (m_stream)
-                {
-                    std::cerr << "creating cuda event\n";
-                    //TODO: Is a device guard needed here? I think so.
-                    device::cuda_event event;
+    	    pack_and_send<false>();
+    }
 
-                    std::cerr << "recording event on stream " << (m_stream ? m_stream.value() : cudaStream_t(-1)) << "\n";
-                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), m_stream.value()));
+
+#ifdef GHEX_CUDACC
+    //Non-blocking version of `pack_and_send()` that will make sure that packing will wait until
+    // everything submitted to stream `stream` has finished.
+    void pack_and_send(cudaStream_t stream)
+    {
+    	    pack_and_send<true>(stream);
+    };
+#endif
+
+    template<
+    	    bool 	UseAsyncStream,
+    	    typename... StreamType>
+    void pack_and_send(
+    		    StreamType&&... 	sync_streams)
+    {
+    	static_assert(UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
+        for_each(m_mem, [this, sync_streams...](std::size_t, auto& m) {
+            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+#ifdef GHEX_CUDACC
+            if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
+            {
+                    std::cerr << "creating cuda event\n";
+
+                    //Put an event on the stream on which the packing is supposed to wait.
+                    //NOTE: Currently only works for one stream because an event can only
+                    //	be recorded to a single stream.
+                    device::cuda_event event;
+                    static_assert(sizeof...(sync_streams) == 1);
+                    auto record_capturer = [&event](cudaStream_t stream) -> std::uintptr_t {
+                    	std::cerr << "recording event on stream " << stream << "\n";
+                    	//TODO: Is a device guard needed here? What should be the memory?
+                    	GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
+                    	return (std::uintptr_t)stream;
+                    };
+                    const std::uintptr_t _[] = {record_capturer(std::forward<StreamType>(sync_streams))...};
 
                     for (auto& p0 : m.send_memory)
                     {
@@ -624,18 +647,17 @@ class communication_object
                         {
                             if (p1.second.size > 0u)
                             {
-                                // Make sure stream used for packing synchronizes with the
-                                // given stream. 
                                 std::cerr << "adding wait on stream " << p1.second.m_stream.get() << "\n";
+                                //Add the event to any stream that is used for packing, before starting the actuall
+                                // packing. This ensures that packing will only start if any work has concluded.
                         	//Is this device guard correct?
                         	device::guard g(p1.second.buffer);
                                 GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(), event.get()));
                             }
                         }
                     }
-                }
-#endif
             }
+#endif
 
             //NOTE: This function currently blocks until the send has been fully scheduled.
             std::cerr << "starting packing and creating the send request\n";
