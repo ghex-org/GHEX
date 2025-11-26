@@ -159,6 +159,10 @@ struct packer<gpu>
                 }
             }
         }
+        //TODO: This is blocking, we wait until the whole packing has concluded and then
+        //	we start the the sending, wich is in itself asynchronous. Best would be
+        //	that this function here woudl instead also run asynchronous.
+        //	However, it ensures that progress is made.
         await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
             send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
         });
