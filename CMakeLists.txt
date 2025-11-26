@@ -85,6 +85,10 @@ if (GHEX_USE_XPMEM)
     target_link_libraries(ghex_common INTERFACE XPMEM::libxpmem)
     target_link_libraries(ghex PRIVATE XPMEM::libxpmem)
 endif()
+if (GHEX_USE_NCCL)
+    target_link_libraries(ghex_common INTERFACE NCCL::nccl)
+    target_link_libraries(ghex PRIVATE NCCL::nccl)
+endif()
 
 # ---------------------------------------------------------------------
 # include paths

@@ -99,7 +99,8 @@ endif()
 # nccl setup
 # ---------------------------------------------------------------------
 if(GHEX_USE_NCCL)
-  link_libraries("-lnccl")
+  find_package(NCCL REQUIRED)
+  # link_libraries("-lnccl")
   # include_directories("")
 endif()
 
