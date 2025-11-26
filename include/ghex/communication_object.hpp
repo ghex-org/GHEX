@@ -306,7 +306,7 @@ class communication_object
         exchange_impl(buffer_infos...);
 
         //Create the MPI handle for the reciving, are they using `IRecv`?
-        post_recvs();
+        post_recvs(stream);
 
         //TODO: the function will wait until the sends have been concluded, so it is not truely asynchronous.
         pack_and_send();
@@ -524,9 +524,35 @@ class communication_object
         });
     }
 
+    /* Create the receve calls in blocking case. */
+
     void post_recvs()
     {
-        for_each(m_mem, [this](std::size_t, auto& m) {
+    	    post_recvs_impl<false>();
+    }
+
+#ifdef GHEX_CUDACC
+    /**
+     * \brief	Create the receive calls for the asynchronous case.
+     *
+     * Packing will wait until all work on `stream` has finished.
+     */
+    void post_recvs(cudaStream_t stream)
+    {
+    	    //TODO: Maybe rename this function to `schedule_post_recvs()`?
+    	    post_recvs_impl<true>(stream);
+    }
+#endif
+
+    template<
+    	    bool 	UseAsyncStream,
+    	    typename... StreamType>
+    void post_recvs_impl(
+    		    StreamType&&... 	sync_streams)
+    {
+    	static_assert(UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
+
+        for_each(m_mem, [this, sync_streams...](std::size_t, auto& m) {
             using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
             for (auto& p0 : m.recv_memory)
             {
@@ -548,24 +574,25 @@ class communication_object
                         // TODO: Also think of where the vector is freed, depending on where we do wait.
                         m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank,
                             p1.second.tag,
-                            [ptr, m_stream=m_stream](context::message_type& m, context::rank_type, context::tag_type) {
+                            [ptr, sync_streams...](context::message_type& m, context::rank_type, context::tag_type) {
                                 device::guard g(m); 
                                 packer<arch_type>::unpack(*ptr, g.data());
 
 #ifdef GHEX_CUDACC
-				// TODO: Branching elsewhere? This allows
-				// reusing this function for blocking and
-				// nonblocking cases. Better options?
-                                if (m_stream)
+                                if constexpr (UseAsyncStream)
                                 {
 				    // TODO: Cache/pool events. Relatively cheap to
 				    // create, but not free.
-				    // NOTE: No race condition here, the event destruction, through the destructor of
-				    // 	`device::cuda_event`, will only be scheduled and performed by the runtime, when
-				    // 	the event happened.
-                                    device::cuda_event event;
-                                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), ptr->m_stream));
-                                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(m_stream.value(), event.get()));
+				    auto record_streams = [ptr](cudaStream_t stream) -> int {
+				    	// NOTE: No race condition here, the event destruction, through the destructor of
+				    	// 	`device::cuda_event`, will only be scheduled and performed by the runtime, when
+				    	// 	the event happened.
+                                    	device::cuda_event event;
+                                    	GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), ptr->m_stream));
+                                    	GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, event.get()));
+                                    	return 0;
+                                    };
+                                    int _[] = {record_streams(sync_streams)...};
                                 }
 #endif
                             }));
@@ -581,6 +608,7 @@ class communication_object
             using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
             if constexpr (std::is_same_v<arch_type, gpu>) {
                 // TODO: Same as in post_recvs.
+#ifdef GHEX_CUDACC
                 if (m_stream)
                 {
                     std::cerr << "creating cuda event\n";
@@ -606,6 +634,7 @@ class communication_object
                         }
                     }
                 }
+#endif
             }
 
             //NOTE: This function currently blocks until the send has been fully scheduled.
