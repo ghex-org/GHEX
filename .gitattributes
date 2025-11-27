@@ -1,0 +1,5 @@
+
+# Apply auto formating to code
+*.hpp filter=code_formater
+*.cpp filter=code_formater
+*.cu filter=code_formater

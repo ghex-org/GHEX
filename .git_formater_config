@@ -1,0 +1,5 @@
+[filter "code_formater"]
+	clean = bash "$(git rev-parse --show-toplevel)/scripts/apply_formating.sh"
+        required
+        smudge = cat
+
