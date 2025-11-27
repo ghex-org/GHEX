@@ -231,6 +231,9 @@ class communication_object
     memory_type                    m_mem;
     std::vector<send_request_type> m_send_reqs;
     std::vector<recv_request_type> m_recv_reqs;
+#if defined(GHEX_CUDACC)
+    device::event_pool m_events{128}; //TODO: Is there a better size?
+#endif
 
   public: // ctors
     communication_object(context& c)
@@ -582,8 +585,8 @@ class communication_object
                             // TODO: Also think of where the vector is freed, depending on where we do wait.
                             m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank,
                                 p1.second.tag,
-                                [ptr, sync_streams...](context::message_type& m, context::rank_type,
-                                    context::tag_type)
+                                [&event_pool = m_events, ptr, sync_streams...](
+                                    context::message_type& m, context::rank_type, context::tag_type)
                                 {
                                     device::guard g(m);
                                     packer<arch_type>::unpack(*ptr, g.data());
@@ -596,11 +599,10 @@ class communication_object
                                         // NOTE: Ideally we would write `StreamType` here, but this is not possible for some reason.
                                         // In that case we could drop the `ifdef`.
                                         auto record_streams =
-                                            [ptr](cudaStream_t stream) -> std::uintptr_t
+                                            [&event_pool, ptr](
+                                                cudaStream_t stream) -> std::uintptr_t
                                         {
-                                            //NOTE:  First there is no race condition with the destruction of the `event`. The
-                                            //	runtime will make sure that it is maintained until it is no longer needed.
-                                            device::cuda_event event;
+                                            device::cuda_event& event = event_pool.get_event(true);
                                             GHEX_CHECK_CUDA_RESULT(
                                                 cudaEventRecord(event.get(), ptr->m_stream));
                                             GHEX_CHECK_CUDA_RESULT(
@@ -626,7 +628,7 @@ class communication_object
      * It is important that the function will start to pack the data
      * immediately and only return once the send has been completed.
      */
-    void pack_and_send() { pack_and_send<false>(); }
+    void pack_and_send() { pack_and_send_impl<false>(); }
 
 #ifdef GHEX_CUDACC
     /** \brief	Synchronizing variant of `pack_and_send()`.
@@ -636,11 +638,11 @@ class communication_object
      * different is, that the packing will not start before all work, that was
      * previously submitted to `stream` has finished.
      */
-    void pack_and_send(cudaStream_t stream) { pack_and_send<true>(stream); };
+    void pack_and_send(cudaStream_t stream) { pack_and_send_impl<true>(stream); };
 #endif
 
     template<bool UseAsyncStream, typename... StreamType>
-    void pack_and_send(StreamType&&... sync_streams)
+    void pack_and_send_impl(StreamType&&... sync_streams)
     {
         static_assert(
             UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
@@ -656,14 +658,15 @@ class communication_object
                     //Put an event on the stream on which the packing is supposed to wait.
                     //NOTE: Currently only works for one stream because an event can only
                     //	be recorded to a single stream.
-                    device::cuda_event event;
                     static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
-                    auto record_capturer = [&event](cudaStream_t stream) -> std::uintptr_t
+                    auto record_capturer = [&event_pool = m_events](
+                                               cudaStream_t stream) -> std::uintptr_t
                     {
                         //NOTE: See not about `StreamType` in `post_recvs()`.
                         std::cerr << "recording event on stream " << stream << "\n";
                         //TODO: Is a device guard needed here? What should be the memory?
-                        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
+                        GHEX_CHECK_CUDA_RESULT(
+                            cudaEventRecord(event_pool.get_event(true).get(), stream));
                         return (std::uintptr_t)stream;
                     };
                     const std::uintptr_t unused_variable_for_expansion[] = {
@@ -777,11 +780,6 @@ class communication_object
     // the description of `communication_handle::schedule_wait()`.
     void schedule_sync_streams(cudaStream_t stream)
     {
-        // TODO: Pool events.
-        constexpr std::size_t                  num_events{128};
-        static std::vector<device::cuda_event> events(num_events);
-        static std::size_t                     event_index{0};
-
         //TODO: We only iterate over the recive buffers and not over the send streams.
         //	Currently this is not needed, because of how `pack_and_send()` is implemented,
         //	as it will wait until send has been completed, but depending on how the
@@ -798,8 +796,7 @@ class communication_object
                     // stream that the default stream waits for. This assumes
                     // that all kernels that need the unpacked data will use or
                     // synchronize with the default stream.
-                    cudaEvent_t& e = events[event_index].get();
-                    event_index = (event_index + 1) % num_events;
+                    cudaEvent_t& e = m_events.get_event(true).get();
                     GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, p1.second.m_stream.get()));
                     GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e));
                 }
