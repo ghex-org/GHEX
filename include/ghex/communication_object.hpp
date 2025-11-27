@@ -245,8 +245,8 @@ class communication_object
                   * @param last points to the end of the range
                   * @return handle to await communication */
     template<typename Iterator>
-    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(
-        Iterator first, Iterator last)
+    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(Iterator first,
+        Iterator                                                                  last)
     {
         // call special function for a single range
         return exchange_u(first, last);
@@ -263,11 +263,11 @@ class communication_object
                   * @param iters first and last iterators for further ranges
                   * @return handle to await communication */
     template<typename Iterator0, typename Iterator1, typename... Iterators>
-    [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(
-        Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
+    [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(Iterator0 first0,
+        Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
     {
-        static_assert(
-            sizeof...(Iterators) % 2 == 0, "need even number of iteratiors: (begin,end) pairs");
+        static_assert(sizeof...(Iterators) % 2 == 0,
+            "need even number of iteratiors: (begin,end) pairs");
         // call helper function to turn iterators into pairs of iterators
         return exchange_make_pairs(std::make_index_sequence<2 + sizeof...(iters) / 2>(), first0,
             last0, first1, last1, iters...);
@@ -337,7 +337,8 @@ class communication_object
                     auto ptr = &p1.second;
                     m_recv_reqs.push_back(
                         m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
-                            [ptr](context::message_type& m, context::rank_type, context::tag_type) {
+                            [ptr](context::message_type& m, context::rank_type, context::tag_type)
+                            {
                                 device::guard g(m);
                                 packer<gpu>::unpack(*ptr, g.data());
                             }));
@@ -364,28 +365,33 @@ class communication_object
         using test_t = pattern_container<grid_type, domain_id_type>;
         std::map<const test_t*, int> pat_ptr_map;
         int                          max_tag = 0;
-        for_each(iter_pairs_t, [&pat_ptr_map, &max_tag](std::size_t, auto iter_pair) {
-            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+        for_each(iter_pairs_t,
+            [&pat_ptr_map, &max_tag](std::size_t, auto iter_pair)
             {
-                auto ptr = &(it->get_pattern_container());
-                auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
-                if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
-            }
-        });
-        for_each(iter_pairs_t, [this, &pat_ptr_map](std::size_t, auto iter_pair) {
-            using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
-            using arch_t = typename buffer_info_t::arch_type;
-            using value_t = typename buffer_info_t::value_type;
-            auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
-            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                {
+                    auto ptr = &(it->get_pattern_container());
+                    auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
+                    if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
+                }
+            });
+        for_each(iter_pairs_t,
+            [this, &pat_ptr_map](std::size_t, auto iter_pair)
             {
-                auto       field_ptr = &(it->get_field());
-                auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
-                const auto my_dom_id = it->get_field().domain_id();
-                allocate<arch_t, value_t>(
-                    mem, it->get_pattern(), field_ptr, my_dom_id, it->device_id(), tag_offset);
-            }
-        });
+                using buffer_info_t =
+                    typename std::remove_reference<decltype(*iter_pair.first)>::type;
+                using arch_t = typename buffer_info_t::arch_type;
+                using value_t = typename buffer_info_t::value_type;
+                auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
+                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                {
+                    auto       field_ptr = &(it->get_field());
+                    auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
+                    const auto my_dom_id = it->get_field().domain_id();
+                    allocate<arch_t, value_t>(mem, it->get_pattern(), field_ptr, my_dom_id,
+                        it->device_id(), tag_offset);
+                }
+            });
     }
 
     // helper function to set up communicaton buffers (compile-time case)
@@ -420,54 +426,62 @@ class communication_object
         buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
         memory_t           memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
         // loop over buffer_infos/memory and compute required space
-        for_each(memory_tuple, buffer_info_tuple, [this, &tag_offsets](std::size_t i, auto mem, auto bi) {
-            using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
-            using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
-            auto                 field_ptr = &(bi->get_field());
-            const domain_id_type my_dom_id = bi->get_field().domain_id();
-            allocate<arch_type, value_type>(
-                mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
-        });
+        for_each(memory_tuple, buffer_info_tuple,
+            [this, &tag_offsets](std::size_t i, auto mem, auto bi)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
+                using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
+                auto                 field_ptr = &(bi->get_field());
+                const domain_id_type my_dom_id = bi->get_field().domain_id();
+                allocate<arch_type, value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id,
+                    bi->device_id(), tag_offsets[i]);
+            });
     }
 
     void post_recvs()
     {
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            for (auto& p0 : m.recv_memory)
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
             {
-                const auto device_id = p0.first;
-                for (auto& p1 : p0.second)
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                for (auto& p0 : m.recv_memory)
                 {
-                    if (p1.second.size > 0u)
+                    const auto device_id = p0.first;
+                    for (auto& p1 : p0.second)
                     {
-                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+                        if (p1.second.size > 0u)
+                        {
+                            if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-                            || p1.second.buffer.device_id() != device_id
+                                || p1.second.buffer.device_id() != device_id
 #endif
-                        )
-                            p1.second.buffer = arch_traits<arch_type>::make_message(
-                                m_comm, p1.second.size, device_id);
-                        auto ptr = &p1.second;
-                        // use callbacks for unpacking
-                        m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank,
-                            p1.second.tag,
-                            [ptr](context::message_type& m, context::rank_type, context::tag_type) {
-                                device::guard g(m);
-                                packer<arch_type>::unpack(*ptr, g.data());
-                            }));
+                            )
+                                p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
+                                    p1.second.size, device_id);
+                            auto ptr = &p1.second;
+                            // use callbacks for unpacking
+                            m_recv_reqs.push_back(
+                                m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
+                                    [ptr](context::message_type& m, context::rank_type,
+                                        context::tag_type)
+                                    {
+                                        device::guard g(m);
+                                        packer<arch_type>::unpack(*ptr, g.data());
+                                    }));
+                        }
                     }
                 }
-            }
-        });
+            });
     }
 
     void pack()
     {
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            packer<arch_type>::pack(m, m_send_reqs, m_comm);
-        });
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                packer<arch_type>::pack(m, m_send_reqs, m_comm);
+            });
     }
 
   private: // wait functions
@@ -519,12 +533,9 @@ class communication_object
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
         {
-            for (auto& p1: p0.second)
+            for (auto& p1 : p0.second)
             {
-                if (p1.second.size > 0u)
-                {
-                    p1.second.m_stream.sync();
-                }
+                if (p1.second.size > 0u) { p1.second.m_stream.sync(); }
             }
         }
     }
@@ -538,20 +549,22 @@ class communication_object
         m_valid = false;
         m_send_reqs.clear();
         m_recv_reqs.clear();
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            for (auto& p0 : m.send_memory)
-                for (auto& p1 : p0.second)
-                {
-                    p1.second.size = 0;
-                    p1.second.field_infos.resize(0);
-                }
-            for (auto& p0 : m.recv_memory)
-                for (auto& p1 : p0.second)
-                {
-                    p1.second.size = 0;
-                    p1.second.field_infos.resize(0);
-                }
-        });
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                for (auto& p0 : m.send_memory)
+                    for (auto& p1 : p0.second)
+                    {
+                        p1.second.size = 0;
+                        p1.second.field_infos.resize(0);
+                    }
+                for (auto& p0 : m.recv_memory)
+                    for (auto& p1 : p0.second)
+                    {
+                        p1.second.size = 0;
+                        p1.second.field_infos.resize(0);
+                    }
+            });
     }
 
     //  private: // allocation member functions
@@ -561,16 +574,14 @@ class communication_object
     {
         allocate<Arch, T, typename buffer_memory<Arch>::recv_buffer_type>(
             mem->recv_memory[device_id], pattern.recv_halos(),
-            [field_ptr](const void* buffer, const index_container_type& c, void* arg) {
-                field_ptr->unpack(reinterpret_cast<const T*>(buffer), c, arg);
-            },
-            dom_id, tag_offset, true, field_ptr);
+            [field_ptr](const void* buffer, const index_container_type& c, void* arg)
+            { field_ptr->unpack(reinterpret_cast<const T*>(buffer), c, arg); }, dom_id, tag_offset,
+            true, field_ptr);
         allocate<Arch, T, typename buffer_memory<Arch>::send_buffer_type>(
             mem->send_memory[device_id], pattern.send_halos(),
-            [field_ptr](void* buffer, const index_container_type& c, void* arg) {
-                field_ptr->pack(reinterpret_cast<T*>(buffer), c, arg);
-            },
-            dom_id, tag_offset, false, field_ptr);
+            [field_ptr](void* buffer, const index_container_type& c, void* arg)
+            { field_ptr->pack(reinterpret_cast<T*>(buffer), c, arg); }, dom_id, tag_offset, false,
+            field_ptr);
     }
 
     // compute memory requirements to be allocated on the device
@@ -602,9 +613,9 @@ class communication_object
             if (it == memory.end())
             {
                 it = memory
-                         .insert(std::make_pair(
-                             d_p, BufferType{remote_rank, p_id_c.first.tag + tag_offset, {}, 0,
-                                      std::vector<typename BufferType::field_info_type>(), {}}))
+                         .insert(std::make_pair(d_p,
+                             BufferType{remote_rank, p_id_c.first.tag + tag_offset, {}, 0,
+                                 std::vector<typename BufferType::field_info_type>(), {}}))
                          .first;
             }
             else if (it->second.size == 0)

@@ -43,7 +43,7 @@ struct local_access_guard
 
         impl(access_mode m)
         : m_handle(&m_ptr, sizeof(access_state), false)
-        , m_state{*(new (m_ptr) access_state{m, {}, {}})}
+        , m_state{*(new(m_ptr) access_state{m, {}, {}})}
         {
         }
     };
@@ -69,8 +69,8 @@ struct local_access_guard
     void start_target_epoch()
     {
         lock_type lk{m_impl->m_state.m_mtx};
-        m_impl->m_state.m_cv.wait(
-            lk, [this] { return m_impl->m_state.m_mode == access_mode::local; });
+        m_impl->m_state.m_cv.wait(lk,
+            [this] { return m_impl->m_state.m_mode == access_mode::local; });
     }
 
     bool try_start_target_epoch()

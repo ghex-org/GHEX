@@ -324,14 +324,14 @@ class bulk_communication_object
             local_handle_map& l_handle_map, pattern_map& local_map, pattern_map& remote_map)
         : m_field{f}
         , m_local_handle(l_handle_map.insert(std::make_pair((void*)(f.data()), rma::local_handle{}))
-                             .first->second)
+                  .first->second)
         , m_remote_pattern(remote_map.insert(std::make_pair(&pattern, pattern)).first->second)
         , m_local_pattern(local_map.insert(std::make_pair(&pattern, pattern)).first->second)
         {
             // initialize the remote handle - this will effectively publish the rma pointers
             // will do nothing if already initialized
-            m_local_handle.init(
-                f.data(), f.bytes(), std::is_same<typename Field::arch_type, gpu>::value);
+            m_local_handle.init(f.data(), f.bytes(),
+                std::is_same<typename Field::arch_type, gpu>::value);
 
             // prepare local and remote patterns
             // =================================
@@ -500,14 +500,15 @@ class bulk_communication_object
                     for (auto it = h_it->second.rbegin(); it != h_it->second.rend(); ++it)
                     {
                         const auto& c = *it;
-                        s_range.m_ranges.back().emplace_back(
-                            m_co->communicator(), f, c, h_it->first.mpi_rank
+                        s_range.m_ranges.back().emplace_back(m_co->communicator(), f, c,
+                            h_it->first.mpi_rank
 #ifdef GHEX_BULK_UNIQUE_TAGS
                             ,
                             (m_it->second + h_it->first.tag + 1) * 10000 + q
 #else
                             // alternatively rely on message ordering:
-                            , h_it->first.tag
+                            ,
+                            h_it->first.tag
 #endif
                         );
                         ++q;
@@ -554,11 +555,13 @@ class bulk_communication_object
         auto bis_tp = std::make_tuple(bis...);
         for (std::size_t i = 0; i < sizeof...(F); ++i)
         {
-            boost::mp11::mp_with_index<sizeof...(F)>(i, [this, &bis_tp](auto i) {
-                // get the field Index
-                using I = decltype(i);
-                add_field(std::get<I::value>(bis_tp));
-            });
+            boost::mp11::mp_with_index<sizeof...(F)>(i,
+                [this, &bis_tp](auto i)
+                {
+                    // get the field Index
+                    using I = decltype(i);
+                    add_field(std::get<I::value>(bis_tp));
+                });
         }
     }
 
@@ -574,79 +577,89 @@ class bulk_communication_object
         // loop over Fields
         for (std::size_t i = 0; i < boost::mp11::mp_size<field_types>::value; ++i)
         {
-            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i, [this](auto i) {
-                // get the field Index
-                using I = decltype(i);
-                // get source and target ranges
-                auto& bi_cont = std::get<I::value>(m_buffer_info_container_tuple);
-                auto& f_cont = std::get<I::value>(m_field_container_tuple);
-                // add remote exchange
-                for (auto& f : f_cont) bi_cont.push_back(f.m_remote_pattern(f.m_field));
-            });
+            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
+                [this](auto i)
+                {
+                    // get the field Index
+                    using I = decltype(i);
+                    // get source and target ranges
+                    auto& bi_cont = std::get<I::value>(m_buffer_info_container_tuple);
+                    auto& f_cont = std::get<I::value>(m_field_container_tuple);
+                    // add remote exchange
+                    for (auto& f : f_cont) bi_cont.push_back(f.m_remote_pattern(f.m_field));
+                });
         }
         for (std::size_t i = 0; i < boost::mp11::mp_size<field_types>::value; ++i)
         {
-            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i, [this](auto i) {
-                // get the field Index
-                using I = decltype(i);
-                // get source and target ranges
-                auto& s_range = std::get<I::value>(m_source_ranges_tuple);
-                // complete the handshake
-                for (auto& s_vec : s_range.m_ranges)
-                    for (auto& r : s_vec) r.recv();
-            });
+            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
+                [this](auto i)
+                {
+                    // get the field Index
+                    using I = decltype(i);
+                    // get source and target ranges
+                    auto& s_range = std::get<I::value>(m_source_ranges_tuple);
+                    // complete the handshake
+                    for (auto& s_vec : s_range.m_ranges)
+                        for (auto& r : s_vec) r.recv();
+                });
         }
         for (std::size_t i = 0; i < boost::mp11::mp_size<field_types>::value; ++i)
         {
-            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i, [this](auto i) {
-                // get the field Index
-                using I = decltype(i);
-                // get source and target ranges
-                auto& t_range = std::get<I::value>(m_target_ranges_tuple);
-                // complete the handshake
-                for (auto& t_vec : t_range.m_ranges)
-                    for (auto& r : t_vec) r.send();
-            });
+            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
+                [this](auto i)
+                {
+                    // get the field Index
+                    using I = decltype(i);
+                    // get source and target ranges
+                    auto& t_range = std::get<I::value>(m_target_ranges_tuple);
+                    // complete the handshake
+                    for (auto& t_vec : t_range.m_ranges)
+                        for (auto& r : t_vec) r.send();
+                });
         }
 
         // loop over Fields
         for (std::size_t i = 0; i < boost::mp11::mp_size<field_types>::value; ++i)
         {
-            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i, [this](auto i) {
-                // get the field Index
-                using I = decltype(i);
+            boost::mp11::mp_with_index<boost::mp11::mp_size<field_types>::value>(i,
+                [this](auto i)
+                {
+                    // get the field Index
+                    using I = decltype(i);
 
-                // get target ranges for fields
-                auto& t_range = std::get<I::value>(m_target_ranges_tuple);
-                for (auto& t_vec : t_range.m_ranges)
-                    for (auto& r : t_vec)
-                    {
-                        // register open functions
-                        m_open_funcs.push_back([&r]() { r.end_target_epoch(); });
-                        // register wait functions
-                        m_wait_funcs.push_back(func_request{std::function<bool()>(
-                            [&r]() -> bool { return r.try_start_target_epoch(); })});
-                    }
+                    // get target ranges for fields
+                    auto& t_range = std::get<I::value>(m_target_ranges_tuple);
+                    for (auto& t_vec : t_range.m_ranges)
+                        for (auto& r : t_vec)
+                        {
+                            // register open functions
+                            m_open_funcs.push_back([&r]() { r.end_target_epoch(); });
+                            // register wait functions
+                            m_wait_funcs.push_back(func_request{std::function<bool()>(
+                                [&r]() -> bool { return r.try_start_target_epoch(); })});
+                        }
 
-                // get source ranges for fields
-                auto& s_range = std::get<I::value>(m_source_ranges_tuple);
-                // put data
-                for (auto& s_vec : s_range.m_ranges)
-                    for (auto& r : s_vec)
-                    {
-                        // register put functions
-                        m_put_funcs.push_back(func_request{std::function<bool()>([&r]() -> bool {
-                            if (r.try_start_source_epoch())
-                            {
-                                r.put();
-                                r.end_source_epoch();
-                                return true;
-                            }
-                            else
-                                return false;
-                        })});
-                    }
-            });
+                    // get source ranges for fields
+                    auto& s_range = std::get<I::value>(m_source_ranges_tuple);
+                    // put data
+                    for (auto& s_vec : s_range.m_ranges)
+                        for (auto& r : s_vec)
+                        {
+                            // register put functions
+                            m_put_funcs.push_back(func_request{std::function<bool()>(
+                                [&r]() -> bool
+                                {
+                                    if (r.try_start_source_epoch())
+                                    {
+                                        r.put();
+                                        r.end_source_epoch();
+                                        return true;
+                                    }
+                                    else
+                                        return false;
+                                })});
+                        }
+                });
         }
         m_initialized = true;
     }
