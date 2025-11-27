@@ -685,8 +685,8 @@ class communication_object
                                 // packing. This ensures that packing will only start if any work has concluded.
                                 //Is this device guard correct?
                                 device::guard g(p1.second.buffer);
-                                GHEX_CHECK_CUDA_RESULT(
-                                    cudaStreamWaitEvent(p1.second.m_stream.get(), event.get()));
+                                GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(),
+                                    m_events.get_event(true).get()));
                             }
                         }
                     }
