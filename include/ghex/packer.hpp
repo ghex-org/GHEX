@@ -141,7 +141,6 @@ struct packer<gpu>
         }
         std::vector<future_type> stream_futures;
         stream_futures.reserve(num_streams);
-        num_streams = 0;
 
         for (auto& p0 : map.send_memory)
         {
@@ -156,7 +155,6 @@ struct packer<gpu>
                             (void*)(&p1.second.m_stream.get()));
                     }
                     stream_futures.push_back(future_type{&(p1.second), p1.second.m_stream});
-                    ++num_streams;
                 }
             }
         }
