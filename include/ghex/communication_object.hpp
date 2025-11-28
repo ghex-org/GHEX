@@ -610,13 +610,11 @@ class communication_object
                     //NOTE: Currently only works for one stream because an event can only
                     //	be recorded to a single stream.
                     static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
-                    auto record_capturer = [&event_pool = m_event_pool](
-                                               cudaStream_t stream) -> std::uintptr_t
+                    device::cuda_event& sync_event = m_event_pool.get_event();
+                    auto record_capturer = [&sync_event](cudaStream_t stream) -> std::uintptr_t
                     {
-                        //NOTE: See not about `StreamType` in `post_recvs()`.
                         //TODO: Is a device guard needed here? What should be the memory?
-                        GHEX_CHECK_CUDA_RESULT(
-                            cudaEventRecord(event_pool.get_event().get(), stream));
+                        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), stream));
                         return (std::uintptr_t)stream;
                     };
                     const std::uintptr_t unused_variable_for_expansion[] = {
@@ -629,14 +627,12 @@ class communication_object
                         {
                             if (p1.second.size > 0u)
                             {
-                                //Add the event to any stream that is used for packing, before starting the actuall
-                                // packing. This ensures that packing will only start if any work has concluded.
+                                //Add the event to any stream that is used for packing. Thus any packing is
+                                //postponed after the work, that was scheduled on `stream` has concluded.
                                 //Is this device guard correct?
-                                //POSSIBLE BUG: We most likely have to use the element from above and not a new one.
-                                assert(false);
                                 device::guard g(p1.second.buffer);
                                 GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(),
-                                    m_event_pool.get_event().get()));
+                                    sync_event.get()));
                             }
                         }
                     }
@@ -744,9 +740,10 @@ class communication_object
                 if (p1.second.size > 0u)
                 {
                     // Instead of doing a blocking wait, create events on each
-                    // stream that the default stream waits for. This assumes
-                    // that all kernels that need the unpacked data will use or
-                    // synchronize with the default stream.
+                    // unpacking stream and made `stream` wait on that event.
+                    // This ensures that nothing that will be submitted to
+                    // `stream` after this function starts before the unpacking
+                    // has finished.
                     cudaEvent_t& e = m_event_pool.get_event().get();
                     GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, p1.second.m_stream.get()));
                     GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e));
@@ -761,7 +758,7 @@ class communication_object
         //	last event function.
         //TODO: Find out what happens to the event if `stream` is destroyed.
         device::cuda_event& all_done = m_event_pool.get_event();
-        GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, all_done.get()));
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(all_done.get(), stream));
         m_last_scheduled_exchange = &all_done;
     }
 #endif
