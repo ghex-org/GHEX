@@ -99,11 +99,11 @@ struct event_pool
     ghex::util::moved_bit   m_moved;
 
   public: // constructors
-    event_pool(std::size_t pool_size)
-    : m_events(pool_size)
-    , m_next_event(0)
-    {
-        if (pool_size == 0) { throw std::invalid_argument("ERROR: Pool size can not be zero."); };
+    event_pool(std::size_t expected_pool_size)
+    : m_events(expected_pool_size)
+    , m_next_event(0) {
+        //We do not use `reserve()` to ensure that the events are initialized now
+        // and not in the hot path when they are actually queried.
     };
 
     event_pool(const event_pool&) = delete;
@@ -113,29 +113,19 @@ struct event_pool
 
   public:
     /** @brief	Get the next event of a pool.
-	 *
-	 * The function returns the next not yet used event.
-	 * If the pool is exhausted the behaviour depends on `wrap_around`.
-	 * If it is `true`, then the event that was returned at the beginning
-	 * is returned again. Because this might be dangerous, the default
-	 * behaviour is to generate an error.
-	 */
-    cuda_event& get_event(bool wrap_around)
+     *
+     * The function returns a new event that is not in use every time
+     * it is called. If the pool is exhausted new elements are created
+     * on demand.
+     */
+    cuda_event& get_event()
     {
-        if (m_next_event <= m_events.size())
-        {
-            if (m_moved) { throw std::runtime_error("ERROR: pool has been moved."); };
-            if (wrap_around) { m_next_event = 0; }
-            else { throw std::runtime_error("ERROR: Exhausted event pool"); };
-        };
+        while (!(m_next_event < m_events.size())) { m_events.emplace_back(cuda_event()); };
 
         const std::size_t event_to_use = m_next_event;
         m_next_event += 1;
-        assert(m_next_event < m_events.size());
         return m_events[event_to_use];
     };
-
-    cuda_event& get_event() { return get_event(false); };
 
     /** @brief	Mark all events in the pool as unused.
 	 *
@@ -162,13 +152,9 @@ struct event_pool
     {
         if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); };
 
-        const auto old_size = m_events.size();
         //NOTE: If an event is still enqueued somewhere, the CUDA runtime
         //	will made sure that it is kept alive as long as it is still used.
-        //NOTE: Without wrap around we could just recreate the events that have
-        //	been used, but without knowing it, we must recreate all.
         m_events.clear();
-        m_events.resize(old_size);
         m_next_event = 0;
     };
 };
