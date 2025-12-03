@@ -41,6 +41,7 @@ namespace ghex
 template<typename Arch>
 struct packer
 {
+    // TODO: Remove this overload?
     template<typename Map, typename Requests, typename Communicator>
     static void pack(Map& map, Requests& send_reqs, Communicator& comm)
     {
@@ -57,21 +58,21 @@ struct packer
                     device::guard g(p1.second.buffer);
                     auto          data = g.data();
                     for (const auto& fb : p1.second.field_infos)
+                        // Directly call pack functionality instead of going through callback?
                         fb.call_back(data + fb.offset, *fb.index_container, nullptr);
-                    send_reqs.push_back(comm.send(p1.second.buffer, p1.second.rank, p1.second.tag));
+                        // TODO: Only do packing, don't mix sending here. Good idea?
                 }
             }
         }
     }
 
-    template<typename Map, typename Requests, typename Communicator>
-    static void pack2(Map& map, Requests& send_reqs, Communicator& comm)
+    template<typename Buffer>
+    static void pack(Buffer& buffer, unsigned char* data)
     {
-        pack(map, send_reqs, comm);
+        for (const auto& fb : buffer.field_infos)
+            fb.call_back(data + fb.offset, *fb.index_container, nullptr);
     }
 
-    template<typename Map, typename Requests, typename Communicator>
-    static void pack2_nccl(Map&, Requests&, Communicator&) {}
 
     template<typename Buffer>
     static void unpack(Buffer& buffer, unsigned char* data)
@@ -138,13 +139,10 @@ pack_kernel_u(device::kernel_argument<PackIterationSpace, N> args)
 template<>
 struct packer<gpu>
 {
+    // TODO: Remove this overload?
     template<typename Map, typename Requests, typename Communicator>
     static void pack(Map& map, Requests& send_reqs, Communicator& comm)
     {
-        using send_buffer_type = typename Map::send_buffer_type;
-        using future_type = device::future<send_buffer_type*>;
-        std::size_t num_streams = 0;
-
         for (auto& p0 : map.send_memory)
         {
             const auto device_id = p0.first;
@@ -154,125 +152,29 @@ struct packer<gpu>
                 {
                     if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
                         p1.second.buffer.device_id() != device_id)
+                        {
                         p1.second.buffer =
                             arch_traits<gpu>::make_message(comm, p1.second.size, device_id);
-                    ++num_streams;
-                }
-            }
-        }
-        std::vector<future_type> stream_futures;
-        stream_futures.reserve(num_streams);
-        num_streams = 0;
+                            }
 
-        for (auto& p0 : map.send_memory)
-        {
-            for (auto& p1 : p0.second)
-            {
-                if (p1.second.size > 0u)
-                {
                     for (const auto& fb : p1.second.field_infos)
                     {
                         device::guard g(p1.second.buffer);
                         fb.call_back(g.data() + fb.offset, *fb.index_container,
                             (void*)(&p1.second.m_stream.get()));
                     }
-                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_stream});
-                    ++num_streams;
                 }
             }
         }
-        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
-            send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
-        });
+        // TODO: Don't trigger send here, but in caller?
     }
 
-    template<typename Map, typename Requests, typename Communicator>
-    static void pack2_nccl(Map& map, Requests&, Communicator& comm)
+    template<typename Buffer>
+    static void pack(Buffer& buffer, unsigned char* data)
     {
-#if 0
-        constexpr std::size_t num_extra_streams{32};
-        static std::vector<device::stream> streams(num_extra_streams);
-        static std::size_t stream_index{0};
-#endif
-
-        constexpr std::size_t num_events{128};
-        static std::vector<device::cuda_event> events(num_events);
-        static std::size_t event_index{0};
-
-        // Assume that send memory synchronizes with the default
-        // stream so schedule pack kernels after an event on the
-        // default stream.
-        cudaEvent_t& e = events[event_index].get();
-        event_index = (event_index + 1) % num_events;
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, 0));
-        for (auto& p0 : map.send_memory)
-        {
-            const auto device_id = p0.first;
-            for (auto& p1 : p0.second)
-            {
-                if (p1.second.size > 0u)
-                {
-                    if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
-                        p1.second.buffer.device_id() != device_id)
-                    {
-                        // std::cerr << "pack2_nccl: making message\n";
-                        p1.second.buffer =
-                            arch_traits<gpu>::make_message(comm, p1.second.size, device_id);
-                    }
-
-                    device::guard g(p1.second.buffer);
-#if 0
-                    int count = 0;
-#endif
-		    // Make sure stream used for packing synchronizes with the
-		    // default stream.
-                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(), e));
-                    for (const auto& fb : p1.second.field_infos)
-                    {
-                        // TODO:
-                        // 1. launch pack kernels on separate streams for all data
-                        // 1. (alternative) pack them all into the same kernel
-                        // 2. trigger the send from a cuda host function
-                        // 3. don't wait for futures here, but mixed with polling mpi for receives
-#if 0
-                        if (count == 0) {
-#endif
-                                // std::cerr << "pack2_nccl: calling pack call_back\n";
-				fb.call_back(g.data() + fb.offset, *fb.index_container, (void*)(&p1.second.m_stream.get()));
-#if 0
-                        } else {
-                                cudaStream_t& s = streams[stream_index].get();
-                                stream_index = (stream_index + 1) % num_extra_streams;
-
-				cudaEvent_t& e = events[event_index].get();
-                                event_index = (event_index + 1) % num_events;
-
-				fb.call_back(g.data() + fb.offset, *fb.index_container, (void*)(&s));
-
-				// Use the main stream only to synchronize. Launch
-				// the work on a separate stream and insert an event
-				// to allow waiting for all work on the main stream.
-				GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, s));
-				GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(), e));
-                        }
-                        ++count;
-#endif
-                    }
-
-                    // Warning: tag is not used. Messages have to be correctly ordered.
-                    // This is just for debugging, don't do mpi and nccl send
-                    // std::cerr << "pack2_nccl: triggering mpi_isend\n";
-                    // comm.send(p1.second.buffer, p1.second.rank, p1.second.tag);
-                    // std::cerr << "pack2_nccl: triggering ncclSend\n";
-                    // std::cerr << "pack2_nccl: ptr is " << static_cast<void*>(p1.second.buffer.device_data()) << "\n";
-                    // std::cerr << "pack2_nccl: g.data() is " << static_cast<void*>(g.data()) << "\n";
-                    // std::cerr << "pack2_nccl: size is " << p1.second.buffer.size() << "\n";
-                    // std::cerr << "pack2_nccl: ptr on device " << p1.second.buffer.on_device() << "\n";
-                    // GHEX_CHECK_NCCL_RESULT(ncclSend(static_cast<const void*>(g.data()), p1.second.buffer.size() /* * sizeof(typename decltype(p1.second.buffer)::value_type) */, ncclChar, p1.second.rank, nccl_comm, p1.second.m_stream.get()));
-                    // std::cerr << "pack2_nccl: triggered ncclSend\n";
-                }
-            }
-        }
+        auto& stream = buffer.m_stream;
+        for (const auto& fb : buffer.field_infos)
+            fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
     }
 
     template<typename Buffer>

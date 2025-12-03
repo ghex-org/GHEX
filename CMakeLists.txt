@@ -52,8 +52,6 @@ set(GHEX_ENABLE_ATLAS_BINDINGS OFF CACHE BOOL "Set to true to build with Atlas b
 set(GHEX_BUILD_FORTRAN OFF CACHE BOOL "True if FORTRAN bindings shall be built")
 set(GHEX_BUILD_PYTHON_BINDINGS OFF CACHE BOOL "Set to true to build Python bindings")
 set(GHEX_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
-# TODO: Add FindNCCL.cmake module.
-set(GHEX_USE_NCCL ON CACHE BOOL "Use NCCL")
 
 # ---------------------------------------------------------------------
 # Common includes
@@ -84,10 +82,6 @@ target_link_libraries(ghex INTERFACE oomph::oomph)
 if (GHEX_USE_XPMEM)
     target_link_libraries(ghex_common INTERFACE XPMEM::libxpmem)
     target_link_libraries(ghex PRIVATE XPMEM::libxpmem)
-endif()
-if (GHEX_USE_NCCL)
-    target_link_libraries(ghex_common INTERFACE NCCL::nccl)
-    target_link_libraries(ghex PRIVATE NCCL::nccl)
 endif()
 
 # ---------------------------------------------------------------------
@@ -178,6 +172,9 @@ if(GHEX_USE_BUNDLED_OOMPH)
         set_target_properties(oomph_libfabric PROPERTIES INSTALL_RPATH "${rpath_origin}")
     elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
         set_target_properties(oomph_ucx PROPERTIES INSTALL_RPATH "${rpath_origin}")
+    elseif (GHEX_TRANSPORT_BACKEND STREQUAL "NCCL")
+        message("Using NCCL backend")
+        set_target_properties(oomph_nccl PROPERTIES INSTALL_RPATH "${rpath_origin}")
     else()
         set_target_properties(oomph_mpi PROPERTIES INSTALL_RPATH "${rpath_origin}")
     endif()
