@@ -31,11 +31,11 @@ register_halo_generator(pybind11::module& m)
             using halo = typename type::halo;
 
             auto _halo_generator = register_class<type>(m);
-            /*auto _halo = */register_class<halo>(m);
+            /*auto _halo = */ register_class<halo>(m);
 
-            _halo_generator
-                .def(pybind11::init<>(), "Create a halo generator")
-                .def(pybind11::init([](const std::vector<global_index_type>& gids){ return type{gids};}))
+            _halo_generator.def(pybind11::init<>(), "Create a halo generator")
+                .def(pybind11::init(
+                    [](const std::vector<global_index_type>& gids) { return type{gids}; }))
                 .def("__call__", &type::operator());
         });
 }

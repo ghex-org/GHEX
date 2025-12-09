@@ -325,17 +325,17 @@ ghex_struct_exchange(obj_wrapper* cowrapper, obj_wrapper* ewrapper)
     if (!bcowr.eh)
     {
         for (auto it = pattern_fields_array[0].second.begin();
-             it != pattern_fields_array[0].second.end(); ++it)
+            it != pattern_fields_array[0].second.end(); ++it)
         {
             bcowr.bco_x.add_field(*it);
         }
         for (auto it = pattern_fields_array[1].second.begin();
-             it != pattern_fields_array[1].second.end(); ++it)
+            it != pattern_fields_array[1].second.end(); ++it)
         {
             bcowr.bco_y.add_field(*it);
         }
         for (auto it = pattern_fields_array[2].second.begin();
-             it != pattern_fields_array[2].second.end(); ++it)
+            it != pattern_fields_array[2].second.end(); ++it)
         {
             bcowr.bco_z.add_field(*it);
         }
