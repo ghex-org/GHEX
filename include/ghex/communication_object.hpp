@@ -559,8 +559,8 @@ class communication_object
                             // TODO: Reserve space in vector?
                             m_recv_reqs.push_back(
                                 m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
-                                    [&event_pool = m_event_pool, ptr](context::message_type& m,
-                                        context::rank_type, context::tag_type)
+                                    [ptr](context::message_type& m, context::rank_type,
+                                        context::tag_type)
                                     {
                                         device::guard g(m);
                                         packer<arch_type>::unpack(*ptr, g.data());
@@ -789,9 +789,11 @@ class communication_object
                     }
             });
 
+#ifdef GHEX_CUDACC
         //This is only needed for `schedule_exchange()`. It is enough to
         //simply rewind the pool, we do not need to reset it.
         m_event_pool.rewind_pool();
+#endif
     }
 
     //  private: // allocation member functions
