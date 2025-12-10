@@ -31,12 +31,16 @@ namespace
 {
 #ifdef GHEX_CUDACC
 cudaStream_t
-extract_cuda_stream(pybind11::object)
+extract_cuda_stream(pybind11::object py_stream)
 {
-    if (object.is_none()) { return static_cast<cudaStream_t>(nullptr); };
-    void* stream_ptr = stream.getattr(
-        "ptr"); //See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
-    return static_cast<cudaStream_t>(stream_ptr);
+    if (py_stream.is_none()) { return static_cast<cudaStream_t>(nullptr); }
+    else
+    {
+        //See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
+        std::uintptr_t stream_address = py_stream.attr("ptr").cast<std::uintptr_t>();
+        static_assert(std::is_pointer<cudaStream_t>::value);
+        return reinterpret_cast<cudaStream_t>(stream_address);
+    };
 };
 #endif
 } // namespace
@@ -98,7 +102,7 @@ register_communication_object(pybind11::module& m)
 #ifdef GHEX_CUDACC
                         .def(
                             "schedule_exchange",
-                            [](type& self,
+                            [](type& co,
                                 //This should be okay with reference counting?
                                 pybind11::object python_stream, buffer_info_type& b)
                             { return co.schedule_exchange(extract_cuda_stream(python_stream), b); },
