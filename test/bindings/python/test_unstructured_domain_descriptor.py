@@ -10,7 +10,10 @@
 import pytest
 import numpy as np
 
-# import cupy as cp
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
 
 from ghex.context import make_context
 from ghex.unstructured import make_communication_object
@@ -317,6 +320,8 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
                     data[x, l] = ctx.rank() * 1000 + 10 * gid + l
                 else:
                     data[x, l] = -1
+        if use_gpu:
+            data = cp.array(data)
 
         field = make_field_descriptor(domain_desc, data)
         return data, field
@@ -324,6 +329,9 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
     def check_field(data):
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
+        if use_gpu:
+            data = cp.asnumpy(data)
+
         for x in range(len(all_list)):
             gid = all_list[x]
             for l in range(LEVELS):
@@ -342,7 +350,6 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
 
     # res = co.schedule_exchange(0, [pattern(f1), pattern(f2)])
     if use_gpu:
-        import cupy as cp
         s1 = cp.cuda.Stream(non_blocking=True)
         res = co.schedule_exchange(s1, pattern(f1))
         res.schedule_wait(s1)
