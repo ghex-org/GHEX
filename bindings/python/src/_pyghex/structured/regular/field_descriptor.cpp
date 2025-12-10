@@ -93,13 +93,12 @@ struct buffer_info_accessor<ghex::gpu>
             assert(pybind11::ssize_t(strides.size()) == ndim);
         }
 
-        return pybind11::buffer_info(
-            ptr,        /* Pointer to buffer */
-            itemsize,   /* Size of one scalar */
-            format,     /* Python struct-style format descriptor */
-            ndim,       /* Number of dimensions */
-            shape,      /* Buffer dimensions */
-            strides     /* Strides (in bytes) for each index */
+        return pybind11::buffer_info(ptr, /* Pointer to buffer */
+            itemsize,                     /* Size of one scalar */
+            format,                       /* Python struct-style format descriptor */
+            ndim,                         /* Number of dimensions */
+            shape,                        /* Buffer dimensions */
+            strides                       /* Strides (in bytes) for each index */
         );
     }
 };
@@ -132,41 +131,47 @@ register_field_descriptor(pybind11::module& m)
             using array = std::array<int, dimension::value>;
             using grid_type = ghex::structured::grid::template type<domain_descriptor_type>;
             using pattern_type = ghex::pattern<grid_type, domain_id_type>;
-            using buffer_info_type = ghex::buffer_info<pattern_type, arch_type, field_descriptor_type>;
+            using buffer_info_type =
+                ghex::buffer_info<pattern_type, arch_type, field_descriptor_type>;
 
             auto _field_descriptor = register_class<field_descriptor_type>(m);
-            /*auto _buffer_info =*/ register_class<buffer_info_type>(m);
+            /*auto _buffer_info =*/register_class<buffer_info_type>(m);
 
-            _field_descriptor
-                .def(pybind11::init(
-                         [](const domain_descriptor_type& dom, pybind11::object& b,
-                             const array& offsets, const array& extents)
-                         {
-                             pybind11::buffer_info info = get_buffer_info<arch_type>(b);
+            _field_descriptor.def(
+                pybind11::init(
+                    [](const domain_descriptor_type& dom, pybind11::object& b, const array& offsets,
+                        const array& extents)
+                    {
+                        pybind11::buffer_info info = get_buffer_info<arch_type>(b);
 
-                             if (!info.item_type_is_equivalent_to<T>())
-                             {
-                                 std::stringstream error;
-                                 error << "Incompatible format: expected a " << typeid(T).name()
-                                       << " buffer.";
-                                 throw pybind11::type_error(error.str());
-                             }
+                        if (!info.item_type_is_equivalent_to<T>())
+                        {
+                            std::stringstream error;
+                            error << "Incompatible format: expected a " << typeid(T).name()
+                                  << " buffer.";
+                            throw pybind11::type_error(error.str());
+                        }
 
-                             auto ordered_strides = info.strides;
-                             std::sort(ordered_strides.begin(), ordered_strides.end(), [](int a, int b) { return a > b; });
-                             array b_layout_map;
-                             for (size_t i = 0; i < dimension::value; ++i) {
-                                 auto it = std::find(ordered_strides.begin(), ordered_strides.end(), info.strides[i]);
-                                 b_layout_map[i] = std::distance(ordered_strides.begin(), it);
-                                 if (b_layout_map[i] != layout_map::at(i)) {
-                                     throw pybind11::type_error("Buffer has a different layout than specified.");
-                                 }
-                             }
+                        auto ordered_strides = info.strides;
+                        std::sort(ordered_strides.begin(), ordered_strides.end(),
+                            [](int a, int b) { return a > b; });
+                        array b_layout_map;
+                        for (size_t i = 0; i < dimension::value; ++i)
+                        {
+                            auto it = std::find(ordered_strides.begin(), ordered_strides.end(),
+                                info.strides[i]);
+                            b_layout_map[i] = std::distance(ordered_strides.begin(), it);
+                            if (b_layout_map[i] != layout_map::at(i))
+                            {
+                                throw pybind11::type_error(
+                                    "Buffer has a different layout than specified.");
+                            }
+                        }
 
-                             return ghex::wrap_field<arch_type, layout_map>(dom,
-                                 static_cast<T*>(info.ptr), offsets, extents, info.strides);
-                         }),
-                    pybind11::keep_alive<0, 2>());
+                        return ghex::wrap_field<arch_type, layout_map>(dom,
+                            static_cast<T*>(info.ptr), offsets, extents, info.strides);
+                    }),
+                pybind11::keep_alive<0, 2>());
         });
 }
 

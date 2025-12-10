@@ -27,4 +27,3 @@ using halo_generator_specializations = gridtools::meta::transform<
 } // namespace
 } // namespace unstructured
 } // namespace pyghex
-

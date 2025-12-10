@@ -39,7 +39,8 @@ register_domain_descriptor(pybind11::module& m)
             _domain_descriptor
                 .def(pybind11::init(
                     [](domain_id_type id, const std::vector<global_index_type>& gids,
-                        const std::vector<local_index_type>& halo_lids) {
+                        const std::vector<local_index_type>& halo_lids)
+                    {
                         return type{id, gids.begin(), gids.end(), halo_lids.begin(),
                             halo_lids.end()};
                     }))
@@ -47,11 +48,11 @@ register_domain_descriptor(pybind11::module& m)
                 .def("size", &type::size, "Returns the size")
                 .def("inner_size", &type::inner_size, "Returns the inner size")
                 .def(
-                    "indices",
-                    [](const type& d) -> std::vector<global_index_type> { return d.gids(); },
-                    "Returns the indices");
+                    "indices", [](const type& d) -> std::vector<global_index_type>
+                    { return d.gids(); }, "Returns the indices");
 
-             m.def("expose_cpp_ptr", [](type* obj){return reinterpret_cast<std::uintptr_t>(obj);});
+            m.def("expose_cpp_ptr",
+                [](type* obj) { return reinterpret_cast<std::uintptr_t>(obj); });
         });
 }
 

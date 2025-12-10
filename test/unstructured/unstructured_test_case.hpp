@@ -344,27 +344,29 @@ check_recv_halos_indices(const pattern_type& p)
 
 template<typename Container>
 void
-initialize_data(const domain_descriptor_type& d, Container& field, std::size_t levels = 1u, bool levels_first = true)
+initialize_data(const domain_descriptor_type& d, Container& field, std::size_t levels = 1u,
+    bool levels_first = true)
 {
     assert(field.size() == d.size() * levels);
     if (levels_first)
         for (const auto& x : d.inner_ids())
             for (std::size_t level = 0u; level < levels; ++level)
-                field[x.second * levels + level] = d.domain_id() * 10000 + x.first*100 + level;
+                field[x.second * levels + level] = d.domain_id() * 10000 + x.first * 100 + level;
     else
         for (std::size_t level = 0u; level < levels; ++level)
             for (const auto& x : d.inner_ids())
-                field[x.second + level*d.size()] = d.domain_id() * 10000 + x.first*100 + level;
+                field[x.second + level * d.size()] = d.domain_id() * 10000 + x.first * 100 + level;
 }
 
 template<typename Container>
 void
-check_exchanged_data(const domain_descriptor_type& d, const Container& field, const pattern_type& p, std::size_t levels = 1u, bool levels_first = true)
+check_exchanged_data(const domain_descriptor_type& d, const Container& field, const pattern_type& p,
+    std::size_t levels = 1u, bool levels_first = true)
 {
     using value_type = typename Container::value_type;
     using index_type = pattern_type::index_type;
     std::map<index_type, domain_id_type> halo_map{};
-    for (const auto& [edid, c]: p.recv_halos())
+    for (const auto& [edid, c] : p.recv_halos())
     {
         for (const auto idx : c.front().local_indices())
         {
@@ -374,11 +376,15 @@ check_exchanged_data(const domain_descriptor_type& d, const Container& field, co
     if (levels_first)
         for (auto [idx, did] : halo_map)
             for (std::size_t level = 0u; level < levels; ++level)
-                EXPECT_EQ(field[idx * levels + level], static_cast<value_type>(did * 10000 + d.global_index(idx).value()*100 + level));
+                EXPECT_EQ(field[idx * levels + level],
+                    static_cast<value_type>(
+                        did * 10000 + d.global_index(idx).value() * 100 + level));
     else
         for (std::size_t level = 0u; level < levels; ++level)
             for (auto [idx, did] : halo_map)
-                EXPECT_EQ(field[idx + level * d.size()], static_cast<value_type>(did * 10000 + d.global_index(idx).value()*100 + level));
+                EXPECT_EQ(field[idx + level * d.size()],
+                    static_cast<value_type>(
+                        did * 10000 + d.global_index(idx).value() * 100 + level));
 }
 
 /** @brief Helper functor type, used as default template argument below*/
