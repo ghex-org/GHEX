@@ -64,10 +64,12 @@ register_communication_object(pybind11::module& m)
             auto _handle = register_class<handle>(m);
 
             _handle.def("wait", &handle::wait)
+#ifdef GHEX_CUDACC
                 .def(
-                    "schedule_wait", [](typename type::handle_type& h, void* s)
-                    { return h.schedule_wait(static_cast<cudaStream_t>(s)); },
+                    "schedule_wait", [](typename type::handle_type& h, pybind11::object py_stream)
+                    { return h.schedule_wait(extract_cuda_stream(py_stream)); },
                     pybind11::keep_alive<0, 1>())
+#endif
                 .def("is_ready", &handle::is_ready)
                 .def("progress", &handle::progress);
 
