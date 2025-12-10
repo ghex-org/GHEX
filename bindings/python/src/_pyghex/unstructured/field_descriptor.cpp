@@ -72,7 +72,9 @@ struct buffer_info_accessor<ghex::gpu>
         std::vector<pybind11::ssize_t> strides(ndim);
         if (pybind11::isinstance<pybind11::none>(info["strides"]))
         {
-            strides[ndim - 1] = 1;
+            //It `strides` field is `None` then it is contiguous C-style
+            //see https://numpy.org/devdocs/reference/arrays.interface.html
+            strides[ndim - 1] = itemsize;
             for (int i = ndim - 2; i >= 0; --i)
             {
                 strides[i] = (strides[i + 1] * shape[i + 1]) * itemsize;
