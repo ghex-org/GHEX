@@ -77,7 +77,7 @@ struct buffer_info_accessor<ghex::gpu>
             strides[ndim - 1] = itemsize;
             for (int i = ndim - 2; i >= 0; --i)
             {
-                strides[i] = (strides[i + 1] * shape[i + 1]) * itemsize;
+                strides[i] = strides[i + 1] * shape[i + 1];
             }
         }
         else
