@@ -286,6 +286,7 @@ def test_domain_descriptor(capsys, mpi_cart_comm, dtype):
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
 @pytest.mark.mpi
 def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
+    import cupy as cp
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
 
@@ -340,8 +341,11 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
     # d2, f2 = make_field("F")
 
     # res = co.schedule_exchange(0, [pattern(f1), pattern(f2)])
-    res = co.schedule_exchange(None, pattern(f1))
-    res.schedule_wait(None)
+    #res = co.schedule_exchange(None, pattern(f1))
+    #res.schedule_wait(None)
+    s1 = cp.cuda.Stream(non_blocking=True)
+    res = co.schedule_exchange(s1, pattern(f1))
+    res.schedule_wait(s1)
     res.wait();
 
     check_field(d1)
