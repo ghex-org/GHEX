@@ -169,7 +169,7 @@ register_field_descriptor(pybind11::module& m)
                                       << sizeof(T) << " but got " << (std::size_t)(info.strides[0]);
                                 throw pybind11::type_error(error.str());
                             }
-                            if (((std::size_t)(info.strides[1]) % sizeof(T)) == 0)
+                            if (((std::size_t)(info.strides[1]) % sizeof(T)) != 0)
                             {
                                 std::stringstream error;
                                 error << "field's strides are not compatible with GHEX! Expected "
@@ -191,7 +191,7 @@ register_field_descriptor(pybind11::module& m)
                                       << sizeof(T) << " but got " << (std::size_t)(info.strides[1]);
                                 throw pybind11::type_error(error.str());
                             }
-                            if (((std::size_t)(info.strides[0]) % sizeof(T)) == 0)
+                            if (((std::size_t)(info.strides[0]) % sizeof(T)) != 0)
                             {
                                 std::stringstream error;
                                 error << "field's strides are not compatible with GHEX! Expected "
