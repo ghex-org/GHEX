@@ -38,9 +38,21 @@ struct cuda_event
     }
 
     operator bool() const noexcept { return m_moved; }
-    operator cudaEvent_t() const noexcept { return m_event; }
-    cudaEvent_t&       get() noexcept { return m_event; }
-    const cudaEvent_t& get() const noexcept { return m_event; }
+    operator cudaEvent_t() const noexcept
+    {
+        assert(!m_moved);
+        return m_event;
+    }
+    cudaEvent_t& get() noexcept
+    {
+        assert(!m_moved);
+        return m_event;
+    }
+    const cudaEvent_t& get() const noexcept
+    {
+        assert(!m_moved);
+        return m_event;
+    }
 };
 
 /** @brief thin wrapper around a cuda stream */
@@ -63,14 +75,27 @@ struct stream
 
     operator bool() const noexcept { return m_moved; }
 
-    operator cudaStream_t() const noexcept { return m_stream; }
+    operator cudaStream_t() const noexcept
+    {
+        assert(!m_moved);
+        return m_stream;
+    }
 
-    cudaStream_t&       get() noexcept { return m_stream; }
-    const cudaStream_t& get() const noexcept { return m_stream; }
+    cudaStream_t& get() noexcept
+    {
+        assert(!m_moved);
+        return m_stream;
+    }
+    const cudaStream_t& get() const noexcept
+    {
+        assert(!m_moved);
+        return m_stream;
+    }
 
     void sync()
     {
         // busy wait here
+        assert(!m_moved);
         GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(m_stream))
     }
 };
@@ -120,9 +145,11 @@ struct event_pool
      */
     cuda_event& get_event()
     {
+        assert(!m_moved); //Ensure that `*this` was not moved.
         while (!(m_next_event < m_events.size())) { m_events.emplace_back(cuda_event()); };
 
         const std::size_t event_to_use = m_next_event;
+        assert(!bool(m_events[event_to_use])); //Ensure that event was not moved.
         m_next_event += 1;
         return m_events[event_to_use];
     };
@@ -137,7 +164,7 @@ struct event_pool
 	 */
     void rewind_pool()
     {
-        assert(!m_moved);
+        if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); };
         m_next_event = 0;
     };
 
