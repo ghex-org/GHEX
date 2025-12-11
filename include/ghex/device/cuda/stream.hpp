@@ -38,11 +38,7 @@ struct cuda_event
     }
 
     operator bool() const noexcept { return m_moved; }
-    operator cudaEvent_t() const noexcept
-    {
-        assert(!m_moved);
-        return m_event;
-    }
+
     cudaEvent_t& get() noexcept
     {
         assert(!m_moved);
