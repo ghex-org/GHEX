@@ -151,6 +151,8 @@ register_field_descriptor(pybind11::module& m)
                                 "field's first dimension must match the size of the domain");
                         }
 
+                        /* NOTE: IN `buffer_info` the strides are in bytes, but in GHEX they are
+                         * 	in elements. */
                         bool        levels_first = true;
                         std::size_t outer_strides = 0u;
                         if (info.ndim == 2 && info.strides[1] != sizeof(T))
@@ -159,20 +161,20 @@ register_field_descriptor(pybind11::module& m)
                             if (info.strides[0] != sizeof(T))
                                 throw pybind11::type_error(
                                     "field's strides are not compatible with GHEX");
-                            outer_strides = info.strides[1] / sizeof(T);
-                            if (outer_strides * sizeof(T) != (std::size_t)(info.strides[1]))
+                            if (((std::size_t)(info.strides[1]) % sizeof(T)) == 0)
                                 throw pybind11::type_error(
                                     "field's strides are not compatible with GHEX");
+                            outer_strides = info.strides[1] / sizeof(T);
                         }
                         else if (info.ndim == 2)
                         {
                             if (info.strides[1] != sizeof(T))
                                 throw pybind11::type_error(
                                     "field's strides are not compatible with GHEX");
-                            outer_strides = info.strides[0] / sizeof(T);
-                            if (outer_strides * sizeof(T) != (std::size_t)(info.strides[0]))
+                            if (((std::size_t)(info.strides[0]) % sizeof(T)) == 0)
                                 throw pybind11::type_error(
                                     "field's strides are not compatible with GHEX");
+                            outer_strides = info.strides[0] / sizeof(T);
                         }
                         else
                         {
