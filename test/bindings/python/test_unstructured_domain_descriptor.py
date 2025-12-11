@@ -255,7 +255,7 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
     def check_field(data):
         if on_gpu:
             # NOTE: Without the explicit order it fails sometimes.
-            data = cp.asnumpy(data, order='C')
+            data = cp.asnumpy(data, order='F')
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         for x in range(len(all_list)):
@@ -329,7 +329,7 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
         all_list = domains[ctx.rank()]["all"]
         if on_gpu:
             # NOTE: Without the explicit order it fails sometimes.
-            data = cp.asnumpy(data, order='C')
+            data = cp.asnumpy(data, order='F')
 
         for x in range(len(all_list)):
             gid = all_list[x]
