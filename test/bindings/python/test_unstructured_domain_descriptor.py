@@ -355,7 +355,7 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
     stream = cp.cuda.Stream(non_blocking=True) if on_gpu else None
     # handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
     handle = co.schedule_exchange(stream, pattern(f1))
-    handle.schedule_wait(s1)
+    handle.schedule_wait(stream)
 
     # TODO: Do we really need it.
     handle.wait();
