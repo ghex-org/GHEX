@@ -213,8 +213,13 @@ domains = {
 LEVELS = 2
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
+@pytest.mark.parametrize("on_gpu", [True, False])
 @pytest.mark.mpi
-def test_domain_descriptor(capsys, mpi_cart_comm, dtype):
+def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
+
+    if on_gpu and cp is None:
+        pytest.skip(reason="`CuPy` is not installed.")
+
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
 
@@ -226,13 +231,8 @@ def test_domain_descriptor(capsys, mpi_cart_comm, dtype):
     assert domain_desc.size() == len(domains[ctx.rank()]["all"])
     assert domain_desc.inner_size() == len(domains[ctx.rank()]["inner"])
 
-    halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
-
-    pattern = make_pattern(ctx, halo_gen, [domain_desc])
-
-    co = make_communication_object(ctx)
-
     def make_field(order):
+        # Creation is always on host.
         data = np.zeros(
             [len(domains[ctx.rank()]["all"]), LEVELS], dtype=dtype, order=order
         )
@@ -246,10 +246,16 @@ def test_domain_descriptor(capsys, mpi_cart_comm, dtype):
                 else:
                     data[x, l] = -1
 
+        if on_gpu:
+            data = cp.array(data, order=order)
+
         field = make_field_descriptor(domain_desc, data)
         return data, field
 
     def check_field(data):
+        if on_gpu:
+            # NOTE: Without the explicit order it fails sometimes.
+            data = cp.asnumpy(data, order='C')
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         for x in range(len(all_list)):
@@ -262,34 +268,32 @@ def test_domain_descriptor(capsys, mpi_cart_comm, dtype):
                         data[x, l] - 1000 * int((data[x, l]) / 1000)
                     ) == 10 * gid + l
 
-        field = make_field_descriptor(domain_desc, data)
-        return data, field
+        # TODO: Find out if there is a side effect that makes it important to keep them.
+        #field = make_field_descriptor(domain_desc, data)
+        #return data, field
+
+    halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
+    pattern = make_pattern(ctx, halo_gen, [domain_desc])
+    co = make_communication_object(ctx)
 
     d1, f1 = make_field("C")
     d2, f2 = make_field("F")
 
-    # np.set_printoptions(precision=8, suppress=True)
-    # with capsys.disabled():
-    #    print("")
-    #    print(d1)
-
-    res = co.exchange([pattern(f1), pattern(f2)])
-    res.wait()
-
-    # with capsys.disabled():
-    #    print("")
-    #    print("")
-    #    print("")
-    #    print(d1)
+    handle = co.exchange([pattern(f1), pattern(f2)])
+    handle.wait()
 
     check_field(d1)
     check_field(d2)
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
+@pytest.mark.parametrize("on_gpu", [True, False])
 @pytest.mark.mpi
-def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
-    use_gpu = False
+def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
+
+    if on_gpu and cp is None:
+        pytest.skip(reason="`CuPy` is not installed.")
+
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
 
@@ -300,12 +304,6 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
     assert domain_desc.domain_id() == ctx.rank()
     assert domain_desc.size() == len(domains[ctx.rank()]["all"])
     assert domain_desc.inner_size() == len(domains[ctx.rank()]["inner"])
-
-    halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
-
-    pattern = make_pattern(ctx, halo_gen, [domain_desc])
-
-    co = make_communication_object(ctx)
 
     def make_field(order):
         data = np.zeros(
@@ -320,8 +318,8 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
                     data[x, l] = ctx.rank() * 1000 + 10 * gid + l
                 else:
                     data[x, l] = -1
-        if use_gpu:
-            data = cp.array(data)
+        if on_gpu:
+            data = cp.array(data, order=order)
 
         field = make_field_descriptor(domain_desc, data)
         return data, field
@@ -329,8 +327,9 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
     def check_field(data):
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
-        if use_gpu:
-            data = cp.asnumpy(data)
+        if on_gpu:
+            # NOTE: Without the explicit order it fails sometimes.
+            data = cp.asnumpy(data, order='C')
 
         for x in range(len(all_list)):
             gid = all_list[x]
@@ -342,21 +341,24 @@ def test_domain_descriptor_async(capsys, mpi_cart_comm, dtype):
                         data[x, l] - 1000 * int((data[x, l]) / 1000)
                     ) == 10 * gid + l
 
-        field = make_field_descriptor(domain_desc, data)
-        return data, field
+        # TODO: Find out if there is a side effect that makes it important to keep them.
+        #field = make_field_descriptor(domain_desc, data)
+        #return data, field
+
+    halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
+    pattern = make_pattern(ctx, halo_gen, [domain_desc])
+    co = make_communication_object(ctx)
 
     d1, f1 = make_field("C")
     # d2, f2 = make_field("F")
 
-    # res = co.schedule_exchange(0, [pattern(f1), pattern(f2)])
-    if use_gpu:
-        s1 = cp.cuda.Stream(non_blocking=True)
-        res = co.schedule_exchange(s1, pattern(f1))
-        res.schedule_wait(s1)
-    else:
-        res = co.schedule_exchange(None, pattern(f1))
-        res.schedule_wait(None)
-    res.wait();
+    stream = cp.cuda.Stream(non_blocking=True) if on_gpu else None
+    # handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
+    handle = co.schedule_exchange(stream, pattern(f1))
+    handle.schedule_wait(s1)
+
+    # TODO: Do we really need it.
+    handle.wait();
 
     check_field(d1)
     # check_field(d2)
