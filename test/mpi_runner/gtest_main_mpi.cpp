@@ -23,7 +23,7 @@ main(int argc, char** argv)
     if (provided < required)
         throw std::runtime_error("MPI does not support required threading level");
 #else
-    MPI_Init(&argc,&argv);
+    MPI_Init(&argc, &argv);
 #endif
 
     // printf("Running main() from %s\n", __FILE__);

@@ -63,7 +63,8 @@ register_communication_object(pybind11::module& m)
             auto _communication_object = register_class<type>(m);
             auto _handle = register_class<handle>(m);
 
-            _handle.def("wait", &handle::wait)
+            _handle
+                .def("wait", &handle::wait)
 #ifdef GHEX_CUDACC
                 .def(
                     "schedule_wait", [](typename type::handle_type& h, pybind11::object py_stream)
