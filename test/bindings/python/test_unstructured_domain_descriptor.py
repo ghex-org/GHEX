@@ -252,10 +252,10 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
         field = make_field_descriptor(domain_desc, data)
         return data, field
 
-    def check_field(data):
+    def check_field(data, order):
         if on_gpu:
             # NOTE: Without the explicit order it fails sometimes.
-            data = cp.asnumpy(data, order='F')
+            data = cp.asnumpy(data, order=order)
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         for x in range(len(all_list)):
@@ -282,8 +282,8 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
     handle = co.exchange([pattern(f1), pattern(f2)])
     handle.wait()
 
-    check_field(d1)
-    check_field(d2)
+    check_field(d1, "C")
+    check_field(d2, "F")
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
@@ -324,12 +324,12 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
         field = make_field_descriptor(domain_desc, data)
         return data, field
 
-    def check_field(data):
+    def check_field(data, order):
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         if on_gpu:
             # NOTE: Without the explicit order it fails sometimes.
-            data = cp.asnumpy(data, order='F')
+            data = cp.asnumpy(data, order=order)
 
         for x in range(len(all_list)):
             gid = all_list[x]
@@ -360,5 +360,5 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
     # TODO: Do we really need it.
     handle.wait();
 
-    check_field(d1)
-    # check_field(d2)
+    check_field(d1, "C")
+    # check_field(d2, "F")
