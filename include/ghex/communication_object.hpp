@@ -629,8 +629,7 @@ class communication_object
                             {
                                 //Add the event to any stream that is used for packing. Thus any packing is
                                 //postponed after the work, that was scheduled on `stream` has concluded.
-                                //Is this device guard correct?
-                                device::guard g(p1.second.buffer);
+                                //NOTE: If a device guard here leads to a segmentation fault.
                                 GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(),
                                     sync_event.get()));
                             }
