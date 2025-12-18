@@ -39,8 +39,7 @@ register_domain_descriptor(pybind11::module& m)
             _domain_descriptor
                 .def(pybind11::init(
                     [](domain_id_type id, const std::vector<global_index_type>& gids,
-                        const std::vector<local_index_type>& halo_lids)
-                    {
+                        const std::vector<local_index_type>& halo_lids) {
                         return type{id, gids.begin(), gids.end(), halo_lids.begin(),
                             halo_lids.end()};
                     }))

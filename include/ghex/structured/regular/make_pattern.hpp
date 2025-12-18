@@ -243,8 +243,7 @@ make_staged_pattern(ghex::context& ctxt, DomainRange&& d_range, DomainLookUp&& d
                 domain_id_type source_id = p.domain_id();
                 domain_id_type dest_id = id_is_pair.first.id;
                 auto           tag = std::find_if(ti_vec.begin(), ti_vec.end(),
-                              [source_id, dest_id](const auto& x)
-                              {
+                              [source_id, dest_id](const auto& x) {
                         return x.source_id == source_id && x.dest_id == dest_id;
                     })->tag;
                 const_cast<extended_domain_id_type&>(id_is_pair.first).tag = tag;

@@ -145,7 +145,7 @@ test_decomposition_3_4(int node_X, int node_Y, int node_Z, int numa_X, int numa_
                                         for (int thread_z = 0; thread_z < thread_Z; ++thread_z)
                                             for (int thread_y = 0; thread_y < thread_Y; ++thread_y)
                                                 for (int thread_x = 0; thread_x < thread_X;
-                                                    ++thread_x)
+                                                     ++thread_x)
                                                 {
                                                     // check level indices
                                                     EXPECT_EQ(decomp.node_index(idx), node_idx);

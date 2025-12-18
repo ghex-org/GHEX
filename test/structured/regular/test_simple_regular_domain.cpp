@@ -200,7 +200,7 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     co.exchange(pattern(field)).wait();
 #endif
 
-    // check field
+        // check field
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id != 0) raw_field.clone_to_host();
 #endif
@@ -212,10 +212,10 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     if (thread_id != 0) raw_field.clone_to_device();
 #endif
 
-    //barrier(comm);
+        //barrier(comm);
 
-    // using stages
-    // ------------
+        // using stages
+        // ------------
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     if (thread_id == 0)
@@ -245,13 +245,13 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     if (thread_id != 0) raw_field.clone_to_device();
 #endif
 
-    //barrier(comm);
+        //barrier(comm);
 
-    // bulk exchange (rma)
-    // ===================
+        // bulk exchange (rma)
+        // ===================
 
-    // classical
-    // ---------
+        // classical
+        // ---------
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     auto bco = bulk_communication_object<structured::rma_range_generator, Pattern, decltype(field),
@@ -280,10 +280,10 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
     if (thread_id != 0) raw_field.clone_to_device();
 #endif
 
-    //barrier(comm);
+        //barrier(comm);
 
-    // using stages
-    // ------------
+        // using stages
+        // ------------
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     auto bco_x = bulk_communication_object<structured::rma_range_generator, Pattern,

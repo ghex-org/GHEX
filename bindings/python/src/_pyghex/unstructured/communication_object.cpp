@@ -113,8 +113,7 @@ register_communication_object(pybind11::module& m)
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b0,
-                                buffer_info_type& b1)
-                            {
+                                buffer_info_type& b1) {
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1);
                             },
@@ -122,8 +121,7 @@ register_communication_object(pybind11::module& m)
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b0,
-                                buffer_info_type& b1, buffer_info_type& b2)
-                            {
+                                buffer_info_type& b1, buffer_info_type& b2) {
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1, b2);
                             },

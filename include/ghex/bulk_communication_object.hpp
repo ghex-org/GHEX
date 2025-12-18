@@ -324,7 +324,7 @@ class bulk_communication_object
             local_handle_map& l_handle_map, pattern_map& local_map, pattern_map& remote_map)
         : m_field{f}
         , m_local_handle(l_handle_map.insert(std::make_pair((void*)(f.data()), rma::local_handle{}))
-                  .first->second)
+                             .first->second)
         , m_remote_pattern(remote_map.insert(std::make_pair(&pattern, pattern)).first->second)
         , m_local_pattern(local_map.insert(std::make_pair(&pattern, pattern)).first->second)
         {
