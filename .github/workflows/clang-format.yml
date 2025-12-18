@@ -1,0 +1,81 @@
+name: clang-format
+
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  clang_format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Optional: login so pulls from GHCR work for private repos / internal packages.
+      # For PRs from forks, this is skipped and format script will fall back to local build.
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine files to check
+        id: files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+
+          out="/tmp/clang_format_files.txt"
+          : > "$out"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.sha }}"
+            git diff --name-only "$base" "$head" --diff-filter=ACMRT \
+              | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' > "$out" || true
+          else
+            before="${{ github.event.before }}"
+            head="${{ github.sha }}"
+            if [[ "$before" =~ ^0+$ ]]; then
+              git ls-files | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' > "$out" || true
+            else
+              git diff --name-only "$before" "$head" --diff-filter=ACMRT \
+                | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' > "$out" || true
+            fi
+          fi
+
+          count="$(wc -l < "$out" | tr -d ' ')"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Found $count file(s) to check."
+
+      - name: Run clang-format check (container)
+        if: steps.files.outputs.count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+
+          # IMPORTANT: source it (so exports are available in this shell)
+          source scripts/container_clang_format.sh
+          echo "Using clang-format image: $IMAGE_TAG"
+
+          while IFS= read -r FILE; do
+            $OCIRUN run --rm $USER_FLAG \
+              -v "$GITHUB_WORKSPACE":/work -w /work \
+              "$IMAGE_TAG" --dry-run -Werror --style=file "$FILE"
+          done < /tmp/clang_format_files.txt
+
+      - name: No C/C++ files to check
+        if: steps.files.outputs.count == '0'
+        run: echo "No C/C++ files to check."
