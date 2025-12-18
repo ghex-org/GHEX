@@ -22,13 +22,8 @@ jobs:
       # Optional: login so pulls from GHCR work for private repos / internal packages.
       # For PRs from forks, this is skipped and format script will fall back to local build.
       - name: Login to GHCR
-        if: >
-          env.ACT != 'true' &&
-          secrets.GITHUB_TOKEN != '' &&
-          (
-            github.event_name != 'pull_request' ||
-            github.event.pull_request.head.repo.fork == false
-          )
+        if: ${{ env.ACT != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
