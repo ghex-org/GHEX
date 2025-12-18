@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   build_and_push:
+    if: env.ACT != 'true'
     runs-on: ubuntu-latest
 
     steps:
