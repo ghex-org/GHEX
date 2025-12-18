@@ -5,6 +5,7 @@ on:
     branches: [ master, format ]
     paths:
       - .container/clang-format/Containerfile
+      - .github/workflows/publish-clang-format-image.yml
   workflow_dispatch:
 
 permissions:
