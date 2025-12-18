@@ -33,13 +33,50 @@ namespace
 cudaStream_t
 extract_cuda_stream(pybind11::object py_stream)
 {
-    if (py_stream.is_none()) { return static_cast<cudaStream_t>(nullptr); }
+    static_assert(std::is_pointer<cudaStream_t>::value);
+    if (py_stream.is_none())
+    {
+        //NOTE: This is very C++ like, maybe remove and consider as an error?
+        return static_cast<cudaStream_t>(nullptr);
+    }
     else
     {
-        //See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
-        std::uintptr_t stream_address = py_stream.attr("ptr").cast<std::uintptr_t>();
-        static_assert(std::is_pointer<cudaStream_t>::value);
-        return reinterpret_cast<cudaStream_t>(stream_address);
+        if (pybind11::hasattr(py_stream, "__cuda_stream__"))
+        {
+            //CUDA stream protocol: https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol
+            pybind11::tuple cuda_stream_protocol =
+                pybind11::getattr(py_stream, "__cuda_stream__")();
+            if (cuda_stream_protocol.size() != 2)
+            {
+                std::stringstream error;
+                error << "Expected a tuple of length 2, but got one with length "
+                      << cuda_stream_protocol.size();
+                throw pybind11::type_error(error.str());
+            }
+
+            const auto protocol_version = cuda_stream_protocol[0].cast<std::size_t>();
+            if (protocol_version == 0)
+            {
+                std::stringstream error;
+                error << "Expected `__cuda_stream__` protocol version 0, but got "
+                      << protocol_version;
+                throw pybind11::type_error(error.str());
+            };
+
+            //Is allowed to be `0`.
+            const auto stream_address = cuda_stream_protocol[1].cast<std::uintptr_t>();
+            return reinterpret_cast<cudaStream_t>(stream_address);
+        }
+        else if (pybind11::hasattr(py_stream, "ptr"))
+        {
+            // CuPy stream: See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
+            std::uintptr_t stream_address = py_stream.attr("ptr").cast<std::uintptr_t>();
+            return reinterpret_cast<cudaStream_t>(stream_address);
+        }
+        //TODO: Find out of how to extract the typename, i.e. `type(py_stream).__name__`.
+        std::stringstream error;
+        error << "Failed to convert the stream object into a CUDA stream.";
+        throw pybind11::type_error(error.str());
     };
 };
 #endif
