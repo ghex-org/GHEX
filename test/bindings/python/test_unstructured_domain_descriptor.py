@@ -350,15 +350,14 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
     co = make_communication_object(ctx)
 
     d1, f1 = make_field("C")
-    # d2, f2 = make_field("F")
+    d2, f2 = make_field("F")
 
     stream = cp.cuda.Stream(non_blocking=True) if on_gpu else None
-    # handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
-    handle = co.schedule_exchange(stream, pattern(f1))
+    handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
     handle.schedule_wait(stream)
 
     # TODO: Do we really need it.
     handle.wait();
 
     check_field(d1, "C")
-    # check_field(d2, "F")
+    check_field(d2, "F")
