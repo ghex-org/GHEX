@@ -16,7 +16,9 @@ context::context(
     MPI_Comm comm, bool thread_safe)
 : m_ctxt{
     std::make_unique<oomph::context>(comm, thread_safe)}
+
 {
+
     GHEX_CHECK_MPI_RESULT(
             MPI_Comm_rank(mpi_comm(), &m_rank));
     GHEX_CHECK_MPI_RESULT(
