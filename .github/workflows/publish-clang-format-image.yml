@@ -52,6 +52,6 @@ jobs:
           file: .container/clang-format/Containerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/clang-format:${{ steps.tag.outputs.blob }}
+            ghcr.io/${{ toLower(github.repository) }}/clang-format:${{ steps.tag.outputs.blob }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
