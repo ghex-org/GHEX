@@ -2,10 +2,9 @@ name: publish-clang-format-image
 
 on:
   push:
-    branches: [ master, format ]
+    branches: [ master ]
     paths:
       - .container/clang-format/Containerfile
-      - .github/workflows/publish-clang-format-image.yml
   workflow_dispatch:
 
 permissions:
