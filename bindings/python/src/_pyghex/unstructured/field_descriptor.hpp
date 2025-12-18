@@ -19,8 +19,8 @@ namespace unstructured
 {
 namespace
 {
-using field_descriptor_args = gridtools::meta::cartesian_product<types::archs,
-types::domain_ids, types::global_ids, types::data>;
+using field_descriptor_args = gridtools::meta::cartesian_product<types::archs, types::domain_ids,
+    types::global_ids, types::data>;
 
 using field_descriptor_specializations = gridtools::meta::transform<
     gridtools::meta::rename<ghex::unstructured::data_descriptor>::template apply,
@@ -28,4 +28,3 @@ using field_descriptor_specializations = gridtools::meta::transform<
 } // namespace
 } // namespace unstructured
 } // namespace pyghex
-

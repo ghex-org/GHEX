@@ -43,8 +43,7 @@ register_communication_object(pybind11::module& m)
 
             auto _handle = register_class<handle_type>(m);
 
-            _handle
-                .def("wait", &handle_type::wait)
+            _handle.def("wait", &handle_type::wait)
                 .def("is_ready", &handle_type::is_ready)
                 .def("progress", &handle_type::progress);
 
@@ -62,28 +61,26 @@ register_communication_object(pybind11::module& m)
                             { return co.exchange(b.begin(), b.end()); },
                             pybind11::keep_alive<0, 1>())
                         .def(
+                            "exchange", [](communication_object_shim& co, buffer_info_type& b)
+                            { return co.exchange(b); }, pybind11::keep_alive<0, 1>())
+                        .def(
                             "exchange",
-                            [](communication_object_shim& co, buffer_info_type& b)
-                            { return co.exchange(b); },
+                            [](communication_object_shim& co, buffer_info_type& b0,
+                                buffer_info_type& b1) { return co.exchange(b0, b1); },
                             pybind11::keep_alive<0, 1>())
                         .def(
                             "exchange",
-                            [](communication_object_shim& co, buffer_info_type& b0, buffer_info_type& b1)
-                            { return co.exchange(b0, b1); },
-                            pybind11::keep_alive<0, 1>())
-                        .def(
-                            "exchange",
-                            [](communication_object_shim& co, buffer_info_type& b0, buffer_info_type& b1, buffer_info_type& b2)
+                            [](communication_object_shim& co, buffer_info_type& b0,
+                                buffer_info_type& b1, buffer_info_type& b2)
                             { return co.exchange(b0, b1, b2); },
                             pybind11::keep_alive<0, 1>());
                 });
         });
 
-        m.def(
-            "make_co_regular",
-            [](context_shim& c){ return communication_object_shim{&c.m, std::monostate{}}; },
-            pybind11::keep_alive<0, 1>());
-
+    m.def(
+        "make_co_regular",
+        [](context_shim& c) { return communication_object_shim{&c.m, std::monostate{}}; },
+        pybind11::keep_alive<0, 1>());
 }
 
 } //namespace regular

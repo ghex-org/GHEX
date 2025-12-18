@@ -84,8 +84,9 @@ struct simulation_1
     std::vector<domain_descriptor_type> local_domains;
     std::array<int, 6>                  halos;
     halo_generator_type                 halo_gen;
-    using pattern_type = std::remove_reference_t<decltype(
-        ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains))>;
+    using pattern_type =
+        std::remove_reference_t<decltype(ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen,
+            local_domains))>;
     pattern_type                                   pattern;
     field_descriptor_type<TT1, ghex::cpu, 2, 1, 0> field_1a;
     field_descriptor_type<TT1, ghex::cpu, 2, 1, 0> field_1b;
@@ -126,44 +127,38 @@ struct simulation_1
                         std::array<int, 3>{((ctxt.rank() % 2) * 2 + 1) * local_ext[0] - 1,
                             (ctxt.rank() / 2 + 1) * local_ext[1] - 1, local_ext[2] - 1}},
           domain_descriptor_type{ctxt.rank() * 2 + 1,
-              std::array<int, 3>{
-                  ((ctxt.rank() % 2) * 2 + 1) * local_ext[0], (ctxt.rank() / 2) * local_ext[1], 0},
+              std::array<int, 3>{((ctxt.rank() % 2) * 2 + 1) * local_ext[0],
+                  (ctxt.rank() / 2) * local_ext[1], 0},
               std::array<int, 3>{((ctxt.rank() % 2) * 2 + 2) * local_ext[0] - 1,
                   (ctxt.rank() / 2 + 1) * local_ext[1] - 1, local_ext[2] - 1}}}
     , halos{2, 2, 2, 2, 2, 2}
     , halo_gen(g_first, g_last, halos, periodic)
     , pattern{ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains)}
-    , field_1a{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
-          local_domains[0], field_1a_raw.data(), offset, local_ext_buffer)}
-    , field_1b{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
-          local_domains[1], field_1b_raw.data(), offset, local_ext_buffer)}
-    , field_2a{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
-          local_domains[0], field_2a_raw.data(), offset, local_ext_buffer)}
-    , field_2b{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
-          local_domains[1], field_2b_raw.data(), offset, local_ext_buffer)}
-    , field_3a{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
-          local_domains[0], field_3a_raw.data(), offset, local_ext_buffer)}
-    , field_3b
-    {
-        ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
-            local_domains[1], field_3b_raw.data(), offset, local_ext_buffer)
-    }
+    , field_1a{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(local_domains[0],
+          field_1a_raw.data(), offset, local_ext_buffer)}
+    , field_1b{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(local_domains[1],
+          field_1b_raw.data(), offset, local_ext_buffer)}
+    , field_2a{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(local_domains[0],
+          field_2a_raw.data(), offset, local_ext_buffer)}
+    , field_2b{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(local_domains[1],
+          field_2b_raw.data(), offset, local_ext_buffer)}
+    , field_3a{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(local_domains[0],
+          field_3a_raw.data(), offset, local_ext_buffer)}
+    , field_3b{ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(local_domains[1],
+          field_3b_raw.data(), offset, local_ext_buffer)}
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-    , field_1a_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
-          local_domains[0], field_1a_raw.device_data(), offset, local_ext_buffer)},
-        field_1b_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
-            local_domains[1], field_1b_raw.device_data(), offset, local_ext_buffer)},
-        field_2a_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
-            local_domains[0], field_2a_raw.device_data(), offset, local_ext_buffer)},
-        field_2b_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
-            local_domains[1], field_2b_raw.device_data(), offset, local_ext_buffer)},
-        field_3a_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
-            local_domains[0], field_3a_raw.device_data(), offset, local_ext_buffer)},
-        field_3b_gpu
-    {
-        ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
-            local_domains[1], field_3b_raw.device_data(), offset, local_ext_buffer)
-    }
+    , field_1a_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(local_domains[0],
+          field_1a_raw.device_data(), offset, local_ext_buffer)}
+    , field_1b_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(local_domains[1],
+          field_1b_raw.device_data(), offset, local_ext_buffer)}
+    , field_2a_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(local_domains[0],
+          field_2a_raw.device_data(), offset, local_ext_buffer)}
+    , field_2b_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(local_domains[1],
+          field_2b_raw.device_data(), offset, local_ext_buffer)}
+    , field_3a_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(local_domains[0],
+          field_3a_raw.device_data(), offset, local_ext_buffer)}
+    , field_3b_gpu{ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(local_domains[1],
+          field_3b_raw.device_data(), offset, local_ext_buffer)}
 #endif
     , mt{multithread}
     {
@@ -296,7 +291,9 @@ struct simulation_1
             {
                 int zl = 0;
                 for (int z = d.first()[2]; z <= d.last()[2]; ++z, ++zl)
-                { f(xl, yl, zl) = array_type<T, 3>{(T)x, (T)y, (T)z}; }
+                {
+                    f(xl, yl, zl) = array_type<T, 3>{(T)x, (T)y, (T)z};
+                }
             }
         }
     }
@@ -320,7 +317,9 @@ struct simulation_1
             hxl = 0;
         }
         if (i == 1 && size == 1) //comm.rank()%2 == 0 && comm.rank()+1 == comm.size())
-        { hxr = 0; }
+        {
+            hxr = 0;
+        }
         // hack end
         for (int x = d.first()[0] - hxl; x <= d.last()[0] + hxr; ++x, ++xl)
         {

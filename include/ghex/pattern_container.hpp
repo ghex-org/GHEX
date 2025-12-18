@@ -96,8 +96,8 @@ class pattern_container
 
   private: // members
     oomph::context* m_ctxt;
-    data_type m_patterns;
-    int       m_max_tag;
+    data_type       m_patterns;
+    int             m_max_tag;
 };
 
 /** @brief construct a pattern for each domain and establish neighbor relationships
@@ -115,8 +115,8 @@ make_pattern(context& c, HaloGenerator&& hgen, DomainRange&& d_range)
 {
     using grid_type =
         typename GridType::template type<typename std::remove_reference_t<DomainRange>::value_type>;
-    return detail::make_pattern_impl<grid_type>::apply(
-        c, std::forward<HaloGenerator>(hgen), std::forward<DomainRange>(d_range));
+    return detail::make_pattern_impl<grid_type>::apply(c, std::forward<HaloGenerator>(hgen),
+        std::forward<DomainRange>(d_range));
 }
 
 /** @brief construct a pattern for each domain and establish neighbor relationships, with
@@ -136,8 +136,8 @@ make_pattern(context& c, HaloGenerator&& hgen, DomainRange&& d_range)
  * @return iterable of patterns (one per domain) */
 template<typename GridType, typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
 auto
-make_pattern(
-    context& c, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen, DomainRange&& d_range)
+make_pattern(context& c, HaloGenerator&& hgen, RecvDomainIdsGen&& recv_domain_ids_gen,
+    DomainRange&& d_range)
 {
     using grid_type =
         typename GridType::template type<typename std::remove_reference_t<DomainRange>::value_type>;

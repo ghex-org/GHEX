@@ -26,11 +26,8 @@ struct stream
     cudaEvent_t           m_event;
     ghex::util::moved_bit m_moved;
 
-    stream()
-    {
-        GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking))
-        GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming))
-    }
+    stream(){GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking))
+            GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming))}
 
     stream(const stream&) = delete;
     stream& operator=(const stream&) = delete;
