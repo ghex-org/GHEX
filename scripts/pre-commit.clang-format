@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+echo "[pre-commit] running..." >&2
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Find staged C/C++ files
+FILES="$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' || true)"
+
+if [[ -z "$FILES" ]]; then
+    echo "No staged C++ files to format."
+    exit 0
+fi
+
+# shellcheck disable=SC2086
+./scripts/format --check $FILES
