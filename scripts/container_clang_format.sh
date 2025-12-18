@@ -41,7 +41,7 @@ LOCAL_IMAGE_TAG="${IMAGE_NAME}:${IMAGE_VERSION}"
 #   CLANG_FORMAT_GHCR_REPO=ghcr.io/owner/repo/clang-format
 REMOTE_REPO="${CLANG_FORMAT_GHCR_REPO:-}"
 if [[ -z "$REMOTE_REPO" && -n "${GITHUB_REPOSITORY:-}" ]]; then
-    REMOTE_REPO="ghcr.io/${GITHUB_REPOSITORY}/clang-format"
+    REMOTE_REPO="ghcr.io/${GITHUB_REPOSITORY,,}/clang-format"
 fi
 REMOTE_IMAGE_TAG=""
 if [[ -n "$REMOTE_REPO" ]]; then
