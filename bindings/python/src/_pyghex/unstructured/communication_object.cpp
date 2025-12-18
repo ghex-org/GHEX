@@ -97,17 +97,19 @@ register_communication_object(pybind11::module& m)
                             [](type& co, buffer_info_type& b0, buffer_info_type& b1,
                                 buffer_info_type& b2) { return co.exchange(b0, b1, b2); },
                             pybind11::keep_alive<0, 1>())
-            // .def(
-            //     "schedule_exchange",
-            //     [](type& co, void* s, std::vector<buffer_info_type> b)
-            //     { return co.schedule_exchange(static_cast<cudaStream_t>(s), b.begin(), b.end()); },
-            //     pybind11::keep_alive<0, 1>())
 #ifdef GHEX_CUDACC
                         .def(
                             "schedule_exchange",
                             [](type& co,
                                 //This should be okay with reference counting?
-                                pybind11::object python_stream, buffer_info_type& b)
+                                pybind11::object python_stream, std::vector<buffer_info_type> b) {
+                                return co.schedule_exchange(extract_cuda_stream(python_stream),
+                                    b.begin(), b.end());
+                            },
+                            pybind11::keep_alive<0, 1>())
+                        .def(
+                            "schedule_exchange",
+                            [](type& co, pybind11::object python_stream, buffer_info_type& b)
                             { return co.schedule_exchange(extract_cuda_stream(python_stream), b); },
                             pybind11::keep_alive<0, 1>())
                         .def(
@@ -126,6 +128,7 @@ register_communication_object(pybind11::module& m)
                                     b1, b2);
                             },
                             pybind11::keep_alive<0, 1>())
+
 #endif
                         ;
                 });

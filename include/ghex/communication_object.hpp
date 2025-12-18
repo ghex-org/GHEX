@@ -327,6 +327,24 @@ class communication_object
         //   sends can lead to deadlocks). But synchronizing unpacking should
         //   be done in a separate stage.
     }
+
+    template<typename Iterator>
+    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> schedule_exchange(
+        cudaStream_t stream, Iterator first, Iterator last)
+    {
+        //See `schedule_exchange(buffer_info...)` for more.
+        if (m_last_scheduled_exchange)
+        {
+            GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_last_scheduled_exchange->get()));
+            m_last_scheduled_exchange = nullptr;
+        }
+        clear();
+        exchange_impl(std::make_pair(std::move(first), std::move(last)));
+        post_recvs();
+        pack_and_send(stream);
+
+        return {this};
+    }
 #endif
 
     /** @brief  non-blocking exchange of halo data
