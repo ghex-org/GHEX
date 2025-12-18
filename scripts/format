@@ -1,21 +1,47 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 SCRIPT_DIR="$REPO_ROOT/scripts"
 source "$SCRIPT_DIR/container_clang_format.sh"
 
+usage() {
+    cat <<'EOF'
+Usage:
+  scripts/format [--check] [--] [files...]
+  scripts/format                     # format all tracked C/C++ files
+  scripts/format foo.cpp bar.hpp
+  scripts/format --check             # check formatting (no changes), all tracked files
+  scripts/format --check foo.cpp
+
+Options:
+  --check   Don't modify files; fail if formatting differs (clang-format --dry-run -Werror)
+  -h,--help Show help
+EOF
+}
+
+CHECK=0
+args=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --check) CHECK=1; shift ;;
+    --) shift; args+=("$@"); break ;;
+    -h|--help) usage; exit 0 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+
 # Collect files to format:
-# - No args: all tracked C/C++ files.
-# - With args: normalize each to repo-root–relative.
+# - No file args: all tracked C/C++ files.
+# - With file args: normalize each to repo-root–relative.
 files=()
-if [ "$#" -eq 0 ]; then
-    # Tracked files only
+if [[ ${#args[@]} -eq 0 ]]; then
     while IFS= read -r f; do files+=("$f"); done < <(
         git -C "$REPO_ROOT" ls-files | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' || true
     )
 else
-    for arg in "$@"; do
+    for arg in "${args[@]}"; do
         # If tracked, get repo-relative path directly
         if rel="$(git -C "$REPO_ROOT" ls-files --full-name -- "$arg" 2>/dev/null)"; then
             if [ -n "$rel" ]; then files+=("$rel"); continue; fi
@@ -49,11 +75,28 @@ if [ "${#files[@]}" -eq 0 ]; then
     exit 0
 fi
 
+# clang-format args (fix vs check)
+if [[ "$CHECK" -eq 1 ]]; then
+    CF_ARGS=(--dry-run -Werror --style=file)
+else
+    CF_ARGS=(-i --style=file)
+fi
+
+FAILED=0
+
 for FILE in "${files[@]}"; do
     # shellcheck disable=SC2086
     $OCIRUN run --rm $USER_FLAG \
         -v "$REPO_ROOT":/work -w /work \
-        "$IMAGE_TAG" -i --style=file "$FILE"
+        "$IMAGE_TAG" "${CF_ARGS[@]}" "$FILE" || FAILED=1
 done
 
-echo "Formatting complete."
+if [[ "$CHECK" -eq 1 ]]; then
+    if [[ "$FAILED" -ne 0 ]]; then
+        echo "Clang-format check failed. Run: scripts/format <files> (without --check) to fix."
+        exit 1
+    fi
+    echo "Clang-format check passed."
+else
+    echo "Formatting complete."
+fi
