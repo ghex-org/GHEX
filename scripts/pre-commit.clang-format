@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+echo "[pre-commit] running..." >&2
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+SCRIPT_DIR="$REPO_ROOT/scripts"
+source "$SCRIPT_DIR/container_clang_format.sh"
+
+# Find staged C++ files
+FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' || true)
+
+if [ -z "$FILES" ]; then
+    echo "No staged C++ files to format."
+    exit 0
+fi
+
+FAILED=0
+for FILE in $FILES; do
+    # shellcheck disable=SC2086
+    $OCIRUN run --rm $USER_FLAG \
+        -v "$PWD":/work -w /work \
+        "$IMAGE_TAG" --dry-run -Werror --style=file "$FILE" || FAILED=1
+done
+
+if [ $FAILED -ne 0 ]; then
+    echo "Clang-format failed for some files. Please fix the issues and try again."
+    exit 1
+else
+    echo "All staged C++ files are properly formatted."
+    exit 0
+fi
