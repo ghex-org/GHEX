@@ -143,12 +143,14 @@ register_communication_object(pybind11::module& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream),
                                     b.begin(), b.end());
                             },
-                            pybind11::keep_alive<0, 1>())
+                            pybind11::keep_alive<0, 1>(),
+                            pybind11::arg("stream"), pybind11::arg("patterns"))
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b)
                             { return co.schedule_exchange(extract_cuda_stream(python_stream), b); },
-                            pybind11::keep_alive<0, 1>())
+                            pybind11::keep_alive<0, 1>(),
+                            pybind11::arg("stream"), pybind11::arg("b"))
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b0,
@@ -156,7 +158,8 @@ register_communication_object(pybind11::module& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1);
                             },
-                            pybind11::keep_alive<0, 1>())
+                            pybind11::keep_alive<0, 1>(),
+                            pybind11::arg("stream"), pybind11::arg("b0"), pybind11::arg("b1"))
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b0,
@@ -164,8 +167,8 @@ register_communication_object(pybind11::module& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1, b2);
                             },
-                            pybind11::keep_alive<0, 1>())
-
+                            pybind11::keep_alive<0, 1>(),
+                            pybind11::arg("stream"), pybind11::arg("b0"), pybind11::arg("b1"), pybind11::arg("b2"))
 #endif
                         ;
                 });
