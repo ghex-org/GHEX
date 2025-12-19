@@ -53,7 +53,8 @@ register_context(pybind11::module& m)
             "size", [](const context_shim& c) { return c.m.size(); },
             "number of ranks within the communicator");
 
-    m.def("expose_cpp_ptr", [](context_shim* obj){return reinterpret_cast<std::uintptr_t>(&obj->m);});
+    m.def("expose_cpp_ptr",
+        [](context_shim* obj) { return reinterpret_cast<std::uintptr_t>(&obj->m); });
 }
 
 } // namespace pyghex

@@ -28,9 +28,10 @@ namespace device
 template<typename T>
 struct future
 {
-    GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t,
-        [](auto&&... args) { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
-        [](auto& e){ GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
+    GHEX_C_MANAGED_STRUCT(
+        event_type, cudaEvent_t, [](auto&&... args)
+        { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
+        [](auto& e) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
 
     event_type m_event;
     T          m_data;
@@ -64,9 +65,10 @@ struct future
 template<>
 struct future<void>
 {
-    GHEX_C_MANAGED_STRUCT(event_type, cudaEvent_t,
-        [](auto&&... args) { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
-        [](auto& e){ GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
+    GHEX_C_MANAGED_STRUCT(
+        event_type, cudaEvent_t, [](auto&&... args)
+        { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
+        [](auto& e) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
 
     event_type m_event;
 

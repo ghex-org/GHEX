@@ -82,8 +82,8 @@ class pattern<structured::detail::grid<CoordinateArrayType>, DomainIdType>
 
       public: // print
         template<class CharT, class Traits>
-        friend std::basic_ostream<CharT, Traits>& operator<<(
-            std::basic_ostream<CharT, Traits>& os, const iteration_space& is)
+        friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
+            const iteration_space&                                                              is)
         {
             os << "[" << is._min << ", " << is._max << "]";
             return os;
@@ -111,8 +111,8 @@ class pattern<structured::detail::grid<CoordinateArrayType>, DomainIdType>
 
       public: // print
         template<class CharT, class Traits>
-        friend std::basic_ostream<CharT, Traits>& operator<<(
-            std::basic_ostream<CharT, Traits>& os, const iteration_space_pair& is)
+        friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
+            const iteration_space_pair&                                                         is)
         {
             os << is.m_global << " (local: " << is.m_local << ")";
             return os;
@@ -126,7 +126,7 @@ class pattern<structured::detail::grid<CoordinateArrayType>, DomainIdType>
       public: // members
         domain_id_type id;
         int            mpi_rank;
-        int tag;
+        int            tag;
 
       public: // member functions
         // unique ordering given by id and tag
@@ -137,8 +137,8 @@ class pattern<structured::detail::grid<CoordinateArrayType>, DomainIdType>
 
       public: // print
         template<class CharT, class Traits>
-        friend std::basic_ostream<CharT, Traits>& operator<<(
-            std::basic_ostream<CharT, Traits>& os, const extended_domain_id_type& dom_id)
+        friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
+            const extended_domain_id_type& dom_id)
         {
             os << "{id=" << dom_id.id << ", tag=" << dom_id.tag << ", rank=" << dom_id.mpi_rank
                << "}";
@@ -255,11 +255,13 @@ struct make_pattern_impl<ghex::structured::detail::grid<CoordinateArrayType>>
             {
                 iteration_space_pair is{iteration_space{coordinate_type{h.local().first()},
                                             coordinate_type{h.local().last()}},
-                    iteration_space{
-                        coordinate_type{h.global().first()}, coordinate_type{h.global().last()}}};
+                    iteration_space{coordinate_type{h.global().first()},
+                        coordinate_type{h.global().last()}}};
                 // check that invariant is fullfilled (halos are not empty)
                 if (is.local().first() <= is.local().last())
-                { my_generated_recv_halos.back().push_back(is); }
+                {
+                    my_generated_recv_halos.back().push_back(is);
+                }
             }
         }
 
@@ -309,8 +311,8 @@ struct make_pattern_impl<ghex::structured::detail::grid<CoordinateArrayType>>
                         const auto&           extent = extents_vec[k];
                         const auto&           domain_id = domain_id_vec[k];
                         const auto            x = hgen.intersect(*d_it, halo.local().first(),
-                            halo.local().last(), halo.global().first(), halo.global().last(),
-                            extent.global().first(), extent.global().last());
+                                       halo.local().last(), halo.global().first(), halo.global().last(),
+                                       extent.global().first(), extent.global().last());
                         const coordinate_type x_global_first{x.global().first()};
                         const coordinate_type x_global_last{x.global().last()};
                         if (x_global_first <= x_global_last)
@@ -564,12 +566,13 @@ struct make_pattern_impl<ghex::structured::detail::grid<CoordinateArrayType>>
             }
         }
 
-        return pattern_container<grid_type, domain_id_type>(ctxt, std::move(my_patterns), m_max_tag);
+        return pattern_container<grid_type, domain_id_type>(ctxt, std::move(my_patterns),
+            m_max_tag);
     }
 
     template<typename HaloGenerator, typename RecvDomainIdsGen, typename DomainRange>
-    static auto apply(
-        context& ctxt, HaloGenerator&& hgen, RecvDomainIdsGen&&, DomainRange&& d_range)
+    static auto apply(context& ctxt, HaloGenerator&& hgen, RecvDomainIdsGen&&,
+        DomainRange&& d_range)
     {
         return apply(ctxt, hgen, d_range);
     }

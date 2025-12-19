@@ -33,8 +33,8 @@ class halo_generator<DomainIdType, std::integral_constant<int, Dimension>>
     using dimension = typename domain_type::dimension;
     using coordinate_type = typename grid::template type<domain_type>::coordinate_type;
 
-  //private: // member types
-  // todo (tehrengruber): check with ghex team
+    //private: // member types
+    // todo (tehrengruber): check with ghex team
   public: // member types
     struct box
     {
@@ -66,8 +66,8 @@ class halo_generator<DomainIdType, std::integral_constant<int, Dimension>>
       * @param halos list of halo sizes (dim0_dir-, dim0_dir+, dim1_dir-, dim1_dir+, ...)
       * @param periodic list of bools indicating periodicity per dimension (true,true,false,...) */
     template<typename Array, typename RangeHalos, typename RangePeriodic>
-    halo_generator(
-        const Array& g_first, const Array& g_last, RangeHalos&& halos, RangePeriodic&& periodic)
+    halo_generator(const Array& g_first, const Array& g_last, RangeHalos&& halos,
+        RangePeriodic&& periodic)
     {
         std::copy(std::begin(g_first), std::end(g_first), m_first.begin());
         std::copy(std::begin(g_last), std::end(g_last), m_last.begin());
@@ -150,8 +150,8 @@ class halo_generator<DomainIdType, std::integral_constant<int, Dimension>>
         const coordinate_type& last_a_global, const coordinate_type& first_b_global,
         const coordinate_type& last_b_global) const noexcept
     {
-        const box global_box{
-            max(first_a_global, first_b_global), min(last_a_global, last_b_global)};
+        const box global_box{max(first_a_global, first_b_global),
+            min(last_a_global, last_b_global)};
         const box local_box{first_a_local + (global_box.first() - first_a_global),
             first_a_local + (global_box.last() - first_a_global)};
         return {local_box, global_box};

@@ -271,8 +271,8 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
     auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
 
     // application data
-    auto& d = local_domains[0];
-    ghex::test::util::memory<int> field(d.size()*levels, 0);
+    auto&                         d = local_domains[0];
+    ghex::test::util::memory<int> field(d.size() * levels, 0);
     initialize_data(d, field, levels, levels_first);
     data_descriptor_cpu_int_type data{d, field, levels, levels_first};
 

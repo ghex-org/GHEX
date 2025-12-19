@@ -144,7 +144,7 @@ class hierarchical_decomposition
     /** returns domain coordinate given rank and thread index */
     array_type operator()(size_type rank, size_type thread_idx) const noexcept
     {
-        return this->operator()(rank* threads_per_rank() + thread_idx);
+        return this->operator()(rank * threads_per_rank() + thread_idx);
     }
 };
 
