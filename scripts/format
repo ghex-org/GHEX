@@ -37,7 +37,8 @@ done
 # - With file args: normalize each to repo-root–relative.
 files=()
 if [[ ${#args[@]} -eq 0 ]]; then
-    while IFS= read -r f; do files+=("$f"); done < <(
+    # All tracked files
+    readarray -t files < <(
         git -C "$REPO_ROOT" ls-files | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' || true
     )
 else
@@ -82,13 +83,23 @@ else
     CF_ARGS=(-i --style=file)
 fi
 
-FAILED=0
+# Submit batch to the container
+submit_batch() {
+    local -a batch=("$@")
+    [[ ${#batch[@]} -eq 0 ]] && return 0
 
-for FILE in "${files[@]}"; do
-    # shellcheck disable=SC2086
     $OCIRUN run --rm $USER_FLAG \
         -v "$REPO_ROOT":/work -w /work \
-        "$IMAGE_TAG" "${CF_ARGS[@]}" "$FILE" || FAILED=1
+        "$IMAGE_TAG" "${CF_ARGS[@]}" "${batch[@]}"
+}
+
+BATCH_SIZE=100
+FAILED=0
+
+# Process files in batches
+for ((i=0; i<${#files[@]}; i+=BATCH_SIZE)); do
+    batch=( "${files[@]:i:BATCH_SIZE}" )
+    submit_batch "${batch[@]}" || FAILED=1
 done
 
 if [[ "$CHECK" -eq 1 ]]; then
