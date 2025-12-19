@@ -83,9 +83,6 @@ else
     CF_ARGS=(-i --style=file)
 fi
 
-BATCH_SIZE=200
-FAILED=0
-
 # Submit batch to the container
 submit_batch() {
     local -a batch=("$@")
@@ -96,17 +93,14 @@ submit_batch() {
         "$IMAGE_TAG" "${CF_ARGS[@]}" "${batch[@]}"
 }
 
+BATCH_SIZE=100
+FAILED=0
+
 # Process files in batches
-batch=()
-for FILE in "${files[@]}"; do
-    batch+=("$FILE")
-    if [[ ${#batch[@]} -ge $BATCH_SIZE ]]; then
-        submit_batch "${batch[@]}" || FAILED=1
-        batch=()
-    fi
+for ((i=0; i<${#files[@]}; i+=BATCH_SIZE)); do
+    batch=( "${files[@]:i:BATCH_SIZE}" )
+    submit_batch "${batch[@]}" || FAILED=1
 done
-# Submit any remaining files
-submit_batch "${batch[@]}" || FAILED=1
 
 if [[ "$CHECK" -eq 1 ]]; then
     if [[ "$FAILED" -ne 0 ]]; then
