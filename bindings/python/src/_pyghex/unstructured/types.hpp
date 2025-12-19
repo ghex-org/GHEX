@@ -21,7 +21,7 @@ namespace unstructured
 struct types : public ::pyghex::types
 {
     using global_ids = gridtools::meta::list<int>;
-    using grids = gridtools::meta::list<ghex::unstructured::detail::grid<std::size_t> >;
+    using grids = gridtools::meta::list<ghex::unstructured::detail::grid<std::size_t>>;
 };
 
 } // namespace unstructured

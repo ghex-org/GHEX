@@ -28,9 +28,9 @@ namespace xpmem
 // Below are implementations of a handle in a multi-process setting using xpmem.
 // Please refer to the documentation in rma/handle.hpp for further explanations.
 
-#define align_down_pow2(_n, _alignment) ((_n) & ~((_alignment)-1))
+#define align_down_pow2(_n, _alignment) ((_n) & ~((_alignment) - 1))
 
-#define align_up_pow2(_n, _alignment) align_down_pow2((_n) + (_alignment)-1, _alignment)
+#define align_up_pow2(_n, _alignment) align_down_pow2((_n) + (_alignment) - 1, _alignment)
 
 struct info
 {

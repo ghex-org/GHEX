@@ -26,4 +26,3 @@ using communication_object_specializations =
 } // namespace
 } // namespace unstructured
 } // namespace pyghex
-

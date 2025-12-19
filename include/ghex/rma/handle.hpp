@@ -129,8 +129,8 @@ struct remote_handle
 
         void* get_ptr(locality loc) const
         {
-            static_assert(
-                std::is_same<decltype(loc), locality>::value, ""); // prevent compiler warning
+            static_assert(std::is_same<decltype(loc), locality>::value,
+                ""); // prevent compiler warning
 #if defined(GHEX_GPU_MODE_EMULATE) && defined(GHEX_USE_XPMEM)
             if (loc == locality::process) return m_xpmem_data_holder.get_ptr();
 #elif defined(GHEX_USE_XPMEM)
