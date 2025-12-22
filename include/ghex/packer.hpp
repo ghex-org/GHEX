@@ -20,22 +20,6 @@
 #include <ghex/device/cuda/runtime.hpp>
 #endif
 
-#ifdef GHEX_USE_NCCL
-#include <nccl.h>
-
-#define GHEX_CHECK_NCCL_RESULT(x)                                                                  \
-    if (x != ncclSuccess && x != ncclInProgress)                                                   \
-        throw std::runtime_error(                                                                  \
-            std::string("nccl call failed (") + std::to_string(x) + "):" + ncclGetErrorString(x));
-#define GHEX_CHECK_NCCL_RESULT_NO_THROW(x)                                                         \
-    if (x != ncclSuccess && x != ncclInProgress)                                                   \
-    {                                                                                              \
-        std::cerr << "nccl call failed (" << std::to_string(x) << "): " << ncclGetErrorString(x)   \
-                  << '\n';                                                                         \
-        std::terminate();                                                                          \
-    }
-#endif
-
 #include <numeric>
 
 namespace ghex
