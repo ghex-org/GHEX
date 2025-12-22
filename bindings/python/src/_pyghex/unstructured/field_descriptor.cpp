@@ -72,11 +72,10 @@ struct buffer_info_accessor<ghex::gpu>
         std::vector<pybind11::ssize_t> strides(ndim);
         if (pybind11::isinstance<pybind11::none>(info["strides"]))
         {
-            strides[ndim - 1] = 1;
-            for (int i = ndim - 2; i >= 0; --i)
-            {
-                strides[i] = (strides[i + 1] * shape[i + 1]) * itemsize;
-            }
+            //It `strides` field is `None` then it is contiguous C-style
+            //see https://numpy.org/devdocs/reference/arrays.interface.html
+            strides[ndim - 1] = itemsize;
+            for (int i = ndim - 2; i >= 0; --i) { strides[i] = strides[i + 1] * shape[i + 1]; }
         }
         else
         {
@@ -140,43 +139,81 @@ register_field_descriptor(pybind11::module& m)
 
                         if (info.ndim > 2u)
                         {
-                            throw pybind11::type_error("field has too many dimensions");
+                            std::stringstream error;
+                            error << "field has too many dimensions. Expected at most 2, but got "
+                                  << info.ndim;
+                            throw pybind11::type_error(error.str());
                         }
 
                         if (static_cast<std::size_t>(info.shape[0]) != dom.size())
                         {
-                            throw pybind11::type_error(
-                                "field's first dimension must match the size of the domain");
+                            std::stringstream error;
+                            error << "field's first dimension ("
+                                  << static_cast<std::size_t>(info.shape[0])
+                                  << ") must match the size of the domain (" << dom.size() << ")";
+                            throw pybind11::type_error(error.str());
                         }
 
+                        /* NOTE: IN `buffer_info` the strides are in bytes, but in GHEX they are
+                         * 	in elements. */
                         bool        levels_first = true;
                         std::size_t outer_strides = 0u;
                         if (info.ndim == 2 && info.strides[1] != sizeof(T))
                         {
                             levels_first = false;
                             if (info.strides[0] != sizeof(T))
-                                throw pybind11::type_error(
-                                    "field's strides are not compatible with GHEX");
+                            {
+                                std::stringstream error;
+                                error << "field's strides are not compatible with GHEX! Expected "
+                                         "that the (byte) stride of dimension 0 is "
+                                      << sizeof(T) << " but got " << (std::size_t)(info.strides[0]);
+                                throw pybind11::type_error(error.str());
+                            }
+                            if (((std::size_t)(info.strides[1]) % sizeof(T)) != 0)
+                            {
+                                std::stringstream error;
+                                error << "field's strides are not compatible with GHEX! Expected "
+                                         "that the (byte) stride of dimension 1 was "
+                                      << (std::size_t)(info.strides[1])
+                                      << " which is not a multiply of the element size of "
+                                      << sizeof(T);
+                                throw pybind11::type_error(error.str());
+                            }
                             outer_strides = info.strides[1] / sizeof(T);
-                            if (outer_strides * sizeof(T) != (std::size_t)(info.strides[1]))
-                                throw pybind11::type_error(
-                                    "field's strides are not compatible with GHEX");
                         }
                         else if (info.ndim == 2)
                         {
                             if (info.strides[1] != sizeof(T))
-                                throw pybind11::type_error(
-                                    "field's strides are not compatible with GHEX");
+                            {
+                                std::stringstream error;
+                                error << "field's strides are not compatible with GHEX! Expected "
+                                         "that the (byte) stride of dimension 1 is "
+                                      << sizeof(T) << " but got " << (std::size_t)(info.strides[1]);
+                                throw pybind11::type_error(error.str());
+                            }
+                            if (((std::size_t)(info.strides[0]) % sizeof(T)) != 0)
+                            {
+                                std::stringstream error;
+                                error << "field's strides are not compatible with GHEX! Expected "
+                                         "that the (byte) stride of dimension 0 was "
+                                      << (std::size_t)(info.strides[0])
+                                      << " which is not a multiply of the element size of "
+                                      << sizeof(T);
+                                throw pybind11::type_error(error.str());
+                            }
                             outer_strides = info.strides[0] / sizeof(T);
-                            if (outer_strides * sizeof(T) != (std::size_t)(info.strides[0]))
-                                throw pybind11::type_error(
-                                    "field's strides are not compatible with GHEX");
                         }
                         else
                         {
+                            //Note this case only happens for `info.ndim == 1`.
                             if (info.strides[0] != sizeof(T))
-                                throw pybind11::type_error(
-                                    "field's strides are not compatible with GHEX");
+                            {
+                                std::stringstream error;
+                                error << "field's strides are not compatible with GHEX! With one "
+                                         " dimension expected the stride to be "
+                                      << sizeof(T) << " but got " << info.strides[0];
+                                throw pybind11::type_error(error.str());
+                            };
                         }
                         std::size_t levels = (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
 
