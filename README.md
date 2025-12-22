@@ -7,9 +7,9 @@ Generic exascale-ready library for halo-exchange operations on variety of grids/
 
 Documentation and instructions at [GHEX Documentation](https://ghex-org.github.io/GHEX/).
 
-### Installation instructions
+## Installation instructions
 
-#### Requirements
+### Requirements
 - C++17 compiler (gcc or clang)
 - CMake (3.21 or later)
 - GridTools (available as submodule with `GHEX_USE_BUNDLED_LIBS=ON`)
@@ -30,7 +30,7 @@ Documentation and instructions at [GHEX Documentation](https://ghex-org.github.i
 - MPI4PY (optional, for Python bindings )
 - Pybind11 (optional, for Python bindings)
 
-#### From Source
+### From Source
 
 ```
 git clone https://github.com/ghex-org/GHEX.git
@@ -42,7 +42,7 @@ make -j8
 make test
 ```
 
-##### CMake options
+#### CMake options
 
 | Option | Allowed Values | Default | Description |
 | --- | --- | --- | --- |
@@ -60,7 +60,7 @@ make test
 | `GHEX_USE_XPMEM=`                 | `{ON, OFF}`             | `OFF`                                                 | Use Xpmem
 | `GHEX_TRANSPORT_BACKEND=`         | `{MPI, UCX, LIBFABRIC}` | `MPI`                                                 | Choose transport backend
 
-#### Pip Install
+### Pip Install
 
 ```
 python -m venv ghex_venv
@@ -68,7 +68,7 @@ python -m venv ghex_venv
 python -m pip install ghex
 ```
 
-##### Pertinent environment variables
+#### Pertinent environment variables
 
 | Variable | Allowed Values | Default | Description |
 | --- | --- | --- | --- |
@@ -77,7 +77,42 @@ python -m pip install ghex
 | `GHEX_GPU_ARCH=`          | list of archs           | `"60;70;75;80"`/ `"gfx900;gfx906"` | GPU architecture
 | `GHEX_TRANSPORT_BACKEND=` | `{MPI, UCX, LIBFABRIC}` | `MPI`                              | Choose transport backend
 
-### Acknowledgements
+
+## Contributing
+
+### Code Formatting and Git Hooks Setup
+
+This project enforces a consistent C++ code style using [`clang-format`](https://clang.llvm.org/docs/ClangFormat.html) inside a Docker or Podman container.
+This ensures every contributor uses the same formatting version and configuration.
+
+#### 1. Formatting Your Code
+
+To format all tracked C/C++ files:
+
+```sh
+./scripts/format
+```
+
+This will run `clang-format` on all files matching the specified extensions (`.cpp`, `.hpp`, `.cc`, `.h`, `.cxx`, `.hxx`) in the repository.
+
+Run the following command to see available options:
+```sh
+./scripts/format --help
+```
+
+
+#### 2. Pre-commit Hook
+
+To automatically format code before committing, set up a pre-commit hook:
+
+```sh
+ln -sf "$(git rev-parse --show-toplevel)/scripts/pre-commit.clang-format" .git/hooks/pre-commit
+```
+
+If you clone elsewhere, repeat this step to ensure the hook is set up.
+
+
+## Acknowledgements
 
 The development of GHEX was supported partly by The Partnership for Advanced
 Computing in Europe (PRACE). PRACE is an international non-profit association

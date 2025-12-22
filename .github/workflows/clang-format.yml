@@ -1,0 +1,93 @@
+name: clang-format
+
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  clang_format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Optional: login so pulls from GHCR work for private repos / internal packages.
+      # For PRs from forks, this is skipped and format script will fall back to local build.
+      - name: Login to GHCR
+        if: ${{ env.ACT != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        continue-on-error: true
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine files to check
+        id: files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+
+          out="/tmp/clang_format_files.txt"
+          : > "$out"
+
+          valid_commit() {
+            local sha="${1:-}"
+            [[ -n "$sha" ]] && git cat-file -e "${sha}^{commit}" 2>/dev/null
+          }
+
+          write_all_cpp_files() {
+            git ls-files | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' > "$out" || true
+          }
+
+          if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.sha }}"
+
+            if valid_commit "$base" && valid_commit "$head"; then
+              git diff --name-only "$base" "$head" --diff-filter=ACMRT \
+                | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' > "$out" || true
+            else
+              echo "PR base/head SHAs not available. Falling back to checking all files."
+              write_all_cpp_files
+            fi
+
+          else
+            before="${{ github.event.before }}"
+            head="${{ github.sha }}"
+
+            if valid_commit "$before" && valid_commit "$head"; then
+              git diff --name-only "$before" "$head" --diff-filter=ACMRT \
+                | grep -E '\.(cpp|hpp|cc|h|cxx|hxx)$' > "$out" || true
+            else
+              echo "Push before/head SHAs not available/valid. Falling back to checking all files."
+              write_all_cpp_files
+            fi
+          fi
+
+          count="$(wc -l < "$out" | tr -d ' ')"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Found $count file(s) to check."
+
+
+      - name: Run clang-format check (container)
+        if: steps.files.outputs.count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+
+          xargs -a /tmp/clang_format_files.txt -r ./scripts/format --check
+
+      - name: No C/C++ files to check
+        if: steps.files.outputs.count == '0'
+        run: echo "No C/C++ files to check."
