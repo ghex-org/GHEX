@@ -307,7 +307,8 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
     , m_index_stride{levels_first ? (outer_stride ? outer_stride : m_levels) : 1u}
     , m_level_stride{levels_first ? 1u : (outer_stride ? outer_stride : m_domain_size)}
     {
-        assert(field.size() == (levels_first ? domain.size() * m_index_stride : m_level_stride * m_levels));
+        assert(field.size() ==
+               (levels_first ? domain.size() * m_index_stride : m_level_stride * m_levels));
         assert(!(outer_stride) || (outer_stride >= (levels_first ? m_levels : m_domain_size)));
     }
 
@@ -318,8 +319,8 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @param levels_first stride of levels
       * @param levels_first indicates whether levels have stide 1
       * @param outer_stride outer dimension's stride measured in number of elements of type T (special value 0: no padding)*/
-    data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr, std::size_t levels = 1u,
-        bool levels_first = true, std::size_t outer_stride = 0u)
+    data_descriptor(const domain_descriptor_type& domain, value_type* field_ptr,
+        std::size_t levels = 1u, bool levels_first = true, std::size_t outer_stride = 0u)
     : m_domain_id{domain.domain_id()}
     , m_domain_size{domain.size()}
     , m_levels{levels}
@@ -338,8 +339,8 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
       * @param levels number of levels
       * @param levels_first indicates whether levels have stide 1
       * @param outer_stride outer dimension's stride measured in number of elements of type T (special value 0: no padding)*/
-    data_descriptor(domain_id_type domain_id, std::size_t domain_size, value_type* field_ptr, std::size_t levels = 1u,
-        bool levels_first = true, std::size_t outer_stride = 0u)
+    data_descriptor(domain_id_type domain_id, std::size_t domain_size, value_type* field_ptr,
+        std::size_t levels = 1u, bool levels_first = true, std::size_t outer_stride = 0u)
     : m_domain_id{domain_id}
     , m_domain_size{domain_size}
     , m_levels{levels}
@@ -404,7 +405,6 @@ class data_descriptor<ghex::cpu, DomainId, Idx, T>
                     buffer += sizeof(value_type);
                 }
             }
-
         }
     }
 

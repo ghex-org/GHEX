@@ -28,7 +28,7 @@ namespace _impl
 //    return {Halo::template at<Is>()...};
 //}
 
-template <class Int>
+template<class Int>
 using not_negative = std::integral_constant<bool, (Int::value >= 0)>;
 
 template<typename Seq>
@@ -47,8 +47,7 @@ template<int... Args>
 struct get_unmasked_layout_map<gridtools::layout_map<Args...>>
 {
     using args = gridtools::meta::list<std::integral_constant<int, Args>...>;
-    using unmasked_args =
-        gridtools::meta::filter<not_negative, args>;
+    using unmasked_args = gridtools::meta::filter<not_negative, args>;
     using integer_seq = gridtools::meta::list_to_iseq<unmasked_args>;
     using type = typename get_layout_map<integer_seq>::type;
 };
@@ -58,8 +57,8 @@ struct get_unmasked_layout_map<gridtools::layout_map<Args...>>
 template<typename Arch, typename DomainDescriptor, typename DataStore>
 auto
 wrap_gt_field(const DomainDescriptor& dom, const std::shared_ptr<DataStore>& ds,
-    const std::array<int, DataStore::ndims>& origin, int device_id =
-    arch_traits<Arch>::current_id())
+    const std::array<int, DataStore::ndims>& origin,
+    int                                      device_id = arch_traits<Arch>::current_id())
 {
     using value_t = typename DataStore::data_t;
     using layout_t = typename DataStore::layout_t;
@@ -72,16 +71,17 @@ wrap_gt_field(const DomainDescriptor& dom, const std::shared_ptr<DataStore>& ds,
     auto strides = ds->strides();
     for (unsigned int i = 0u; i < dimension::value; ++i) strides[i] *= sizeof(value_t);
 
-    return field_desc_t(
-        dom, ds->get_target_ptr(), origin, ds->lengths(), strides, 1, false, device_id);
+    return field_desc_t(dom, ds->get_target_ptr(), origin, ds->lengths(), strides, 1, false,
+        device_id);
 }
 
 template<typename Arch, typename DataStore, typename Origin>
 auto
-wrap_gt_field(const gt_grid& grid, DataStore&& ds, Origin&& origin, int device_id = arch_traits<Arch>::current_id())
+wrap_gt_field(const gt_grid& grid, DataStore&& ds, Origin&& origin,
+    int device_id = arch_traits<Arch>::current_id())
 {
-    return wrap_gt_field<Arch>(
-        grid.m_domains[0], std::forward<DataStore>(ds), std::forward<Origin>(origin), device_id);
+    return wrap_gt_field<Arch>(grid.m_domains[0], std::forward<DataStore>(ds),
+        std::forward<Origin>(origin), device_id);
 }
 
 } // namespace ghex

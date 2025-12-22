@@ -152,8 +152,8 @@ class field_descriptor<T, Arch, DomainDescriptor, ::gridtools::layout_map<Order.
     template<typename DomainArray, typename OffsetArray, typename ExtentArray>
     field_descriptor(const domain_descriptor_type& dom_, const DomainArray& dom_first_,
         value_type* data_, const OffsetArray& offsets_, const ExtentArray& extents_,
-        unsigned int num_components_ = 1u, bool is_vector_field_ = false, device_id_type d_id_ =
-        arch_traits<Arch>::current_id())
+        unsigned int num_components_ = 1u, bool is_vector_field_ = false,
+        device_id_type d_id_ = arch_traits<Arch>::current_id())
     : m_dom{dom_}
     , m_data{data_}
     , m_num_components{num_components_}
@@ -179,8 +179,8 @@ class field_descriptor<T, Arch, DomainDescriptor, ::gridtools::layout_map<Order.
             m_extents[dimension::value - 1] = num_components_;
         }
         // compute strides in bytes
-        detail::compute_strides<dimension::value>::template apply<layout_map, value_type>(
-            m_extents, m_byte_strides, 0u);
+        detail::compute_strides<dimension::value>::template apply<layout_map, value_type>(m_extents,
+            m_byte_strides, 0u);
 
         m_bytes = m_byte_strides[layout_map::find(0)] * m_extents[layout_map::find(0)];
     }
@@ -189,8 +189,8 @@ class field_descriptor<T, Arch, DomainDescriptor, ::gridtools::layout_map<Order.
         value_type* data_, const OffsetArray& offsets_, const ExtentArray& extents_,
         const Strides& strides_, unsigned int num_components_ = 1u, bool is_vector_field_ = false,
         device_id_type d_id_ = arch_traits<Arch>::current_id())
-    : field_descriptor(
-          dom_, dom_first_, data_, offsets_, extents_, num_components_, is_vector_field_, d_id_)
+    : field_descriptor(dom_, dom_first_, data_, offsets_, extents_, num_components_,
+          is_vector_field_, d_id_)
     {
         for (unsigned int i = 0u; i < dimension::value; ++i) m_byte_strides[i] = strides_[i];
         m_bytes = m_byte_strides[layout_map::find(0)] * m_extents[layout_map::find(0)];

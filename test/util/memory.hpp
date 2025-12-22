@@ -41,10 +41,7 @@ struct memory
     memory(unsigned int size_, const T& value = T{}, bool /*no_device_delete*/ = false)
 #endif
     : m_size{size_}
-    , m_host_memory
-    {
-        new T[m_size]
-    }
+    , m_host_memory{new T[m_size]}
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     , m_device_memory((T*)hwmalloc::device_malloc(sizeof(T) * m_size), deleter{no_device_delete})
 #endif

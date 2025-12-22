@@ -68,8 +68,8 @@ struct rma_range_generator
         , m_event{m_on_gpu, loc}
         , m_comm{&comm}
         {
-            RangeFactory::serialize(
-                field_info, m_local_guard, m_event, m_local_range, m_archive.data());
+            RangeFactory::serialize(field_info, m_local_guard, m_event, m_local_range,
+                m_archive.data());
             m_request = comm.send(m_archive, m_dst, m_tag);
         }
 
@@ -148,8 +148,8 @@ struct rma_range_generator
             m_request.wait();
             // creates a traget range
             m_remote_range = RangeFactory::deserialize(m_archive.data(), m_src, m_on_gpu);
-            RangeFactory::call_back_with_type(
-                m_remote_range, [this](auto& r) { init(r, m_remote_range); });
+            RangeFactory::call_back_with_type(m_remote_range,
+                [this](auto& r) { init(r, m_remote_range); });
             m_remote_range.end_source_epoch();
         }
 

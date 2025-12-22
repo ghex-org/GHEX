@@ -109,7 +109,6 @@ register_mpi(pybind11::module& m)
     m.def("mpi_finalize", &mpi_finalize, "Finalize MPI (calls MPI_Finalize)");
     m.def("mpi_is_initialized", &mpi_is_initialized, "Check if MPI is initialized.");
     m.def("mpi_is_finalized", &mpi_is_finalized, "Check if MPI is finalized.");
-
 }
 
 } // namespace pyghex

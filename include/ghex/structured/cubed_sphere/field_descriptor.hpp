@@ -175,8 +175,8 @@ class field_descriptor<T, Arch, ::gridtools::layout_map<X, Y, Z, C>>
     }
 
     template<typename IterationSpace>
-    unpack_iteration_space make_unpack_is(
-        const IterationSpace& is, const T* buffer, size_type size, const transform& t)
+    unpack_iteration_space make_unpack_is(const IterationSpace& is, const T* buffer, size_type size,
+        const transform& t)
     {
         return {
             make_buffer_desc<typename base::template buffer_descriptor<const T*>>(is, buffer, size),
@@ -189,8 +189,8 @@ class field_descriptor<T, Arch, ::gridtools::layout_map<X, Y, Z, C>>
     {
         // description of the halo in the buffer
         coordinate_type buffer_offset;
-        std::copy(
-            is.global().first().begin() + 1, is.global().first().end(), buffer_offset.begin());
+        std::copy(is.global().first().begin() + 1, is.global().first().end(),
+            buffer_offset.begin());
         if (has_components::value) buffer_offset[dimension::value - 1] = 0;
         coordinate_type buffer_extents;
         std::copy(is.global().last().begin() + 1, is.global().last().end(), buffer_extents.begin());

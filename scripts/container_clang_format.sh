@@ -7,10 +7,11 @@ CONTAINERFILE="$REPO_ROOT/$CONTAINERFILE_REL"
 IMAGE_NAME="${CLANG_FORMAT_IMAGE_NAME:-clang-format}"
 
 # Detect container runtime
-if command -v docker &>/dev/null; then
-    OCIRUN="docker"
-    USER_FLAG="--user $(id -u):$(id -g)"
-elif command -v podman &>/dev/null; then
+# if command -v docker &>/dev/null; then
+#     OCIRUN="docker"
+#     USER_FLAG="--user $(id -u):$(id -g)"
+# el
+if command -v podman &>/dev/null; then
     OCIRUN="podman"
     USER_FLAG="--userns=keep-id"
 else

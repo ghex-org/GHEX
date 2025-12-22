@@ -107,16 +107,16 @@ make_gt_processor_grid(context& ctxt, const Array0& local_extents, const Array1&
     }
     std::partial_sum(extents_z.begin(), extents_z.end(), extents_z.begin());
 
-    const std::array<int, 3> global_extents = {
-        extents_x.back(), extents_y.back(), extents_z.back()};
+    const std::array<int, 3> global_extents = {extents_x.back(), extents_y.back(),
+        extents_z.back()};
     const std::array<int, 3> global_first = {coords[0] == 0 ? 0 : extents_x[coords[0] - 1],
         coords[1] == 0 ? 0 : extents_y[coords[1] - 1],
         coords[2] == 0 ? 0 : extents_z[coords[2] - 1]};
     const std::array<int, 3> global_last = {global_first[0] + local_extents[0] - 1,
         global_first[1] + local_extents[1] - 1, global_first[2] + local_extents[2] - 1};
 
-    structured::regular::domain_descriptor<int, std::integral_constant<int, 3>> local_domain{
-        rank, global_first, global_last};
+    structured::regular::domain_descriptor<int, std::integral_constant<int, 3>> local_domain{rank,
+        global_first, global_last};
 
     return {ctxt, {local_domain}, global_extents, periodic};
 }
