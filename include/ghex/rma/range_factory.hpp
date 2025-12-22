@@ -70,8 +70,9 @@ struct range_factory
         event_info e_info_;
         std::memcpy(&e_info_, buffer, sizeof(event_info));
         buffer += a16(sizeof(event_info));
-        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(
-            id, [buffer, field_info, info_, e_info_, rank, on_gpu](auto Id) {
+        return boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(id,
+            [buffer, field_info, info_, e_info_, rank, on_gpu](auto Id)
+            {
                 using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
                 return range(std::move(*reinterpret_cast<range_t*>(buffer)), decltype(Id)::value,
                     field_info, info_, e_info_, rank, on_gpu);
@@ -82,20 +83,21 @@ struct range_factory
     template<typename Func>
     static void call_back_with_type(range& r, Func&& f)
     {
-        boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(
-            r.m_id, [&r, f = std::forward<Func>(f)](auto Id) {
+        boost::mp11::mp_with_index<boost::mp11::mp_size<RangeList>::value>(r.m_id,
+            [&r, f = std::forward<Func>(f)](auto Id)
+            {
                 using range_t = boost::mp11::mp_at<RangeList, decltype(Id)>;
                 f(reinterpret_cast<range_impl<range_t>*>(r.m_impl.get())->m);
             });
     }
 
-  //private:
+    //private:
     template<typename Range>
     static void serialize(info field_info, local_access_guard& g, local_event& e, const Range& r,
         unsigned char* buffer)
     {
-        static_assert(
-            boost::mp11::mp_set_contains<RangeList, Range>::value, "range type not registered");
+        static_assert(boost::mp11::mp_set_contains<RangeList, Range>::value,
+            "range type not registered");
         using id = boost::mp11::mp_find<RangeList, Range>;
         const int m_id = id::value;
         std::memcpy(buffer, &m_id, sizeof(int));

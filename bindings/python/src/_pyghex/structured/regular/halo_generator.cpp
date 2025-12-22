@@ -38,7 +38,6 @@ register_halo_generator(pybind11::module& m)
             using box = typename type::box;
             using box2 = typename type::box2;
 
-
             auto _halo_generator = register_class<type>(m);
             auto _box = register_class<box>(m);
             auto _box2 = register_class<box2>(m);
@@ -54,8 +53,7 @@ register_halo_generator(pybind11::module& m)
                 .def_property_readonly("global_",
                     pybind11::overload_cast<>(&box2::global, pybind11::const_));
 
-            _box
-                .def_property_readonly("first",
+            _box.def_property_readonly("first",
                     [](const box& b)
                     {
                         auto first = b.first();

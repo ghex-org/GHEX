@@ -65,8 +65,8 @@ struct local_access_guard
     void start_target_epoch()
     {
         std::unique_lock<std::mutex> lk{m_impl->m_state.m_mtx};
-        m_impl->m_state.m_cv.wait(
-            lk, [this] { return m_impl->m_state.m_mode == access_mode::local; });
+        m_impl->m_state.m_cv.wait(lk,
+            [this] { return m_impl->m_state.m_mode == access_mode::local; });
     }
 
     bool try_start_target_epoch()

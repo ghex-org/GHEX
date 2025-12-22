@@ -89,8 +89,8 @@ struct parameters
     static field_type<U, ghex::cpu> wrap(ghex::test::util::memory<U>& f, domain_descriptor_type& d,
         Offsets const& o, Extents const& ext, ghex::cpu)
     {
-        return ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(
-            d, f.host_data(), o, ext);
+        return ghex::wrap_field<ghex::cpu, gridtools::layout_map<2, 1, 0>>(d, f.host_data(), o,
+            ext);
     }
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
@@ -98,8 +98,8 @@ struct parameters
     static field_type<U, ghex::gpu> wrap(ghex::test::util::memory<U>& f, domain_descriptor_type& d,
         Offsets const& o, Extents const& ext, ghex::gpu)
     {
-        return ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(
-            d, f.device_data(), o, ext);
+        return ghex::wrap_field<ghex::gpu, gridtools::layout_map<2, 1, 0>>(d, f.device_data(), o,
+            ext);
     }
 #endif
 
@@ -122,8 +122,8 @@ struct parameters
     // local domains
     std::vector<domain_descriptor_type> local_domains;
     // pattern containers
-    using pattern_container_type = decltype(ghex::make_pattern<ghex::structured::grid>(
-        ctxt, std::declval<halo_generator_type>(), local_domains));
+    using pattern_container_type = decltype(ghex::make_pattern<ghex::structured::grid>(ctxt,
+        std::declval<halo_generator_type>(), local_domains));
     std::unique_ptr<pattern_container_type> pattern1;
     std::unique_ptr<pattern_container_type> pattern2;
 
@@ -162,13 +162,13 @@ struct parameters
     }
 
     template<typename T>
-    void fill_values(
-        ghex::test::util::memory<array_type<T, 3>>& m, domain_descriptor_type const& d, ghex::cpu);
+    void fill_values(ghex::test::util::memory<array_type<T, 3>>& m, domain_descriptor_type const& d,
+        ghex::cpu);
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
     template<typename T>
-    void fill_values(
-        ghex::test::util::memory<array_type<T, 3>>& m, domain_descriptor_type const& d, ghex::gpu)
+    void fill_values(ghex::test::util::memory<array_type<T, 3>>& m, domain_descriptor_type const& d,
+        ghex::gpu)
     {
         fill_values(m, d, ghex::cpu{});
         m.clone_to_device();
@@ -237,7 +237,8 @@ struct test_exchange
     static void run_mt(ghex::context& ctxt)
     {
         params_type params(ctxt);
-        auto        func = [&ctxt](auto... bis) {
+        auto        func = [&ctxt](auto... bis)
+        {
             auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
             co.exchange(bis...).wait();
         };
@@ -253,7 +254,8 @@ struct test_exchange
     static void run_mt_async(ghex::context& ctxt)
     {
         params_type params(ctxt);
-        auto        func = [&ctxt](auto... bis) {
+        auto        func = [&ctxt](auto... bis)
+        {
             auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
             co.exchange(bis...).wait();
         };
@@ -280,12 +282,12 @@ struct test_exchange
         auto        func = [&ctxt](auto co, auto... bis) { return co->exchange(bis...); };
         auto        co1 = ghex::make_communication_object<pattern_container_type>(ctxt);
         auto        co2 = ghex::make_communication_object<pattern_container_type>(ctxt);
-        auto        future1 = std::async(
-            policy, func, &co1, params.field_1a.bi, params.field_2a.bi, params.field_3a.bi);
-        auto future2 = std::async(
-            policy, func, &co2, params.field_1b.bi, params.field_2b.bi, params.field_3b.bi);
-        auto h1 = future1.get();
-        auto h2 = future2.get();
+        auto        future1 = std::async(policy, func, &co1, params.field_1a.bi, params.field_2a.bi,
+                   params.field_3a.bi);
+        auto        future2 = std::async(policy, func, &co2, params.field_1b.bi, params.field_2b.bi,
+                   params.field_3b.bi);
+        auto        h1 = future1.get();
+        auto        h2 = future2.get();
         while (!h1.is_ready() || !h2.is_ready())
         {
             h1.progress();
@@ -308,10 +310,10 @@ struct test_exchange_vector
     {
         params_type params(ctxt);
         auto        co = ghex::make_communication_object<pattern_container_type>(ctxt);
-        std::vector<decltype(params.field_1a.bi)> fields1{
-            params.field_1a.bi, params.field_2a.bi, params.field_3a.bi};
-        std::vector<decltype(params.field_1b.bi)> fields2{
-            params.field_1b.bi, params.field_2b.bi, params.field_3b.bi};
+        std::vector<decltype(params.field_1a.bi)> fields1{params.field_1a.bi, params.field_2a.bi,
+            params.field_3a.bi};
+        std::vector<decltype(params.field_1b.bi)> fields2{params.field_1b.bi, params.field_2b.bi,
+            params.field_3b.bi};
         co.exchange(fields1.begin(), fields1.end(), fields2.begin(), fields2.end()).wait();
         params.check_values();
     }
@@ -321,12 +323,12 @@ struct test_exchange_vector
         params_type params(ctxt);
         auto        co1 = ghex::make_communication_object<pattern_container_type>(ctxt);
         auto        co2 = ghex::make_communication_object<pattern_container_type>(ctxt);
-        std::vector<decltype(params.field_1a.bi)> fields1{
-            params.field_1a.bi, params.field_2a.bi, params.field_3a.bi};
-        std::vector<decltype(params.field_1b.bi)> fields2{
-            params.field_1b.bi, params.field_2b.bi, params.field_3b.bi};
-        auto h1 = co1.exchange(fields1.begin(), fields1.end());
-        auto h2 = co2.exchange(fields2.begin(), fields2.end());
+        std::vector<decltype(params.field_1a.bi)> fields1{params.field_1a.bi, params.field_2a.bi,
+            params.field_3a.bi};
+        std::vector<decltype(params.field_1b.bi)> fields2{params.field_1b.bi, params.field_2b.bi,
+            params.field_3b.bi};
+        auto                                      h1 = co1.exchange(fields1.begin(), fields1.end());
+        auto                                      h2 = co2.exchange(fields2.begin(), fields2.end());
         while (!h1.is_ready() || !h2.is_ready())
         {
             h1.progress();
@@ -338,15 +340,16 @@ struct test_exchange_vector
     static void run_mt(ghex::context& ctxt)
     {
         params_type params(ctxt);
-        auto        func = [&ctxt](auto vec) {
+        auto        func = [&ctxt](auto vec)
+        {
             auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
             co.exchange(vec.begin(), vec.end()).wait();
         };
-        std::vector<decltype(params.field_1a.bi)> fields1{
-            params.field_1a.bi, params.field_2a.bi, params.field_3a.bi};
-        std::vector<decltype(params.field_1b.bi)> fields2{
-            params.field_1b.bi, params.field_2b.bi, params.field_3b.bi};
-        std::vector<std::thread> threads;
+        std::vector<decltype(params.field_1a.bi)> fields1{params.field_1a.bi, params.field_2a.bi,
+            params.field_3a.bi};
+        std::vector<decltype(params.field_1b.bi)> fields2{params.field_1b.bi, params.field_2b.bi,
+            params.field_3b.bi};
+        std::vector<std::thread>                  threads;
         threads.push_back(std::thread{func, fields1});
         threads.push_back(std::thread{func, fields2});
         for (auto& t : threads) t.join();
@@ -356,15 +359,16 @@ struct test_exchange_vector
     static void run_mt_async(ghex::context& ctxt)
     {
         params_type params(ctxt);
-        auto        func = [&ctxt](auto vec) {
+        auto        func = [&ctxt](auto vec)
+        {
             auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
             co.exchange(vec.begin(), vec.end()).wait();
         };
-        std::vector<decltype(params.field_1a.bi)> fields1{
-            params.field_1a.bi, params.field_2a.bi, params.field_3a.bi};
-        std::vector<decltype(params.field_1b.bi)> fields2{
-            params.field_1b.bi, params.field_2b.bi, params.field_3b.bi};
-        auto policy = std::launch::async;
+        std::vector<decltype(params.field_1a.bi)> fields1{params.field_1a.bi, params.field_2a.bi,
+            params.field_3a.bi};
+        std::vector<decltype(params.field_1b.bi)> fields2{params.field_1b.bi, params.field_2b.bi,
+            params.field_3b.bi};
+        auto                                      policy = std::launch::async;
         // note: deferred launch policy does not work since it will deadlock in the func
         auto future1 = std::async(policy, func, fields1);
         auto future2 = std::async(policy, func, fields2);
@@ -385,14 +389,14 @@ struct test_exchange_vector
         auto func = [&ctxt](auto co, auto vec) { return co->exchange(vec.begin(), vec.end()); };
         auto co1 = ghex::make_communication_object<pattern_container_type>(ctxt);
         auto co2 = ghex::make_communication_object<pattern_container_type>(ctxt);
-        std::vector<decltype(params.field_1a.bi)> fields1{
-            params.field_1a.bi, params.field_2a.bi, params.field_3a.bi};
-        std::vector<decltype(params.field_1b.bi)> fields2{
-            params.field_1b.bi, params.field_2b.bi, params.field_3b.bi};
-        auto future1 = std::async(policy, func, &co1, fields1);
-        auto future2 = std::async(policy, func, &co2, fields2);
-        auto h1 = future1.get();
-        auto h2 = future2.get();
+        std::vector<decltype(params.field_1a.bi)> fields1{params.field_1a.bi, params.field_2a.bi,
+            params.field_3a.bi};
+        std::vector<decltype(params.field_1b.bi)> fields2{params.field_1b.bi, params.field_2b.bi,
+            params.field_3b.bi};
+        auto                                      future1 = std::async(policy, func, &co1, fields1);
+        auto                                      future2 = std::async(policy, func, &co2, fields2);
+        auto                                      h1 = future1.get();
+        auto                                      h2 = future2.get();
         while (!h1.is_ready() || !h2.is_ready())
         {
             h1.progress();
@@ -606,16 +610,16 @@ parameters<T1, T2, T3, Arch_A, Arch_B>::parameters(ghex::context& c)
 template<typename T1, typename T2, typename T3, typename Arch_A, typename Arch_B>
 template<typename T>
 void
-parameters<T1, T2, T3, Arch_A, Arch_B>::fill_values(
-    ghex::test::util::memory<array_type<T, 3>>& m, domain_descriptor_type const& d, ghex::cpu)
+parameters<T1, T2, T3, Arch_A, Arch_B>::fill_values(ghex::test::util::memory<array_type<T, 3>>& m,
+    domain_descriptor_type const& d, ghex::cpu)
 {
     for (int z = 0; z < local_ext[2]; ++z)
         for (int y = 0; y < local_ext[1]; ++y)
             for (int x = 0; x < local_ext[0]; ++x)
                 m[(x + offset[0]) + local_ext_buffer[0] *
                                         ((y + offset[1]) + local_ext_buffer[1] * (z + offset[2]))] =
-                    array_type<T, 3>{
-                        (T)(x + d.first()[0]), (T)(y + d.first()[1]), (T)(z + d.first()[2])};
+                    array_type<T, 3>{(T)(x + d.first()[0]), (T)(y + d.first()[1]),
+                        (T)(z + d.first()[2])};
 }
 
 template<typename T1, typename T2, typename T3, typename Arch_A, typename Arch_B>

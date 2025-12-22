@@ -223,7 +223,8 @@ class communication_object
     : m_valid(false)
     , m_comm(c.transport_context()->get_communicator())
     {
-        std::cerr << "initializing communication_object with context.get_transport_option " << c.transport_context()->get_transport_option("name") << "\n";
+        std::cerr << "initializing communication_object with context.get_transport_option "
+                  << c.transport_context()->get_transport_option("name") << "\n";
     }
     communication_object(const communication_object&) = delete;
     communication_object(communication_object&&) = default;
@@ -240,18 +241,20 @@ class communication_object
     [[nodiscard]] handle_type exchange(buffer_info_type<Archs, Fields>... buffer_infos)
     {
         std::cerr << "Using main exchange overload\n";
-        std::cerr << "not using user-provided stream, assuming safe to start exchange immediately\n";
+        std::cerr
+            << "not using user-provided stream, assuming safe to start exchange immediately\n";
 
         // make sure previous exchange finished
-	// TODO: skip this? instead just keep adding to request vectors etc.
-	// and require wait before destruction? allow explicitly calling
-	// progress (currently private)?
+        // TODO: skip this? instead just keep adding to request vectors etc.
+        // and require wait before destruction? allow explicitly calling
+        // progress (currently private)?
         // TODO: If exchange is used, assume that wait was already called before?
         wait();
 
         setup_exchange(buffer_infos...);
 
-        if (m_comm.is_stream_aware()) {
+        if (m_comm.is_stream_aware())
+        {
             // Schedule everything in one go
             // Skip synchronizing with user-provided stream, none provided
             // TODO: Unify implementations
@@ -265,14 +268,16 @@ class communication_object
             // TODO: Move this to wait? Want it here for NCCL, in wait for MPI?
             unpack();
             // schedule_sync_unpack in wait
-        } else {
+        }
+        else
+        {
             pack();
 
             m_comm.start_group();
             post_recvs();
             post_sends();
             m_comm.end_group(); // TODO: Return request/event?
-            
+
             // Leave unpacking to wait
         }
 
@@ -283,22 +288,23 @@ class communication_object
     // TODO: Deduplicate.
     template<typename... Archs, typename... Fields>
     [[nodiscard]] handle_type schedule_exchange(
-	// TODO: Accept unmanaged (i.e. one that isn't freed) device::stream
-	// and construct implicitly from cudaStream_t or hipStream_t?
+        // TODO: Accept unmanaged (i.e. one that isn't freed) device::stream
+        // and construct implicitly from cudaStream_t or hipStream_t?
         cudaStream_t stream, buffer_info_type<Archs, Fields>... buffer_infos)
     {
         std::cerr << "Using main schedule_exchange overload\n";
         std::cerr << "stream is " << stream << "\n";
 
         // make sure previous exchange finished
-	// TODO: skip this? instead just keep adding to request vectors etc.
-	// and require wait before destruction? allow explicitly calling
-	// progress (currently private)?
+        // TODO: skip this? instead just keep adding to request vectors etc.
+        // and require wait before destruction? allow explicitly calling
+        // progress (currently private)?
         wait();
 
         setup_exchange(buffer_infos...);
 
-        if (m_comm.is_stream_aware()) {
+        if (m_comm.is_stream_aware())
+        {
             // Schedule everything in one go
             schedule_sync_pack(stream);
             pack();
@@ -311,14 +317,16 @@ class communication_object
             // TODO: Move this to wait? Want it here for NCCL, in wait for MPI?
             unpack();
             // schedule_sync_unpack in wait
-        } else {
+        }
+        else
+        {
             pack();
 
             m_comm.start_group();
             post_recvs();
             post_sends();
             m_comm.end_group(); // TODO: Return request/event?
-            
+
             // Leave unpacking to wait
         }
 
@@ -332,8 +340,8 @@ class communication_object
                   * @param last points to the end of the range
                   * @return handle to await communication */
     template<typename Iterator>
-    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(
-        Iterator first, Iterator last)
+    [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(Iterator first,
+        Iterator                                                                  last)
     {
         return exchange_u(first, last);
     }
@@ -350,11 +358,11 @@ class communication_object
                   * @return handle to await communication */
     // TODO: Need stream-dependent version of this exchange overload
     template<typename Iterator0, typename Iterator1, typename... Iterators>
-    [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(
-        Iterator0 first0, Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
+    [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(Iterator0 first0,
+        Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
     {
-        static_assert(
-            sizeof...(Iterators) % 2 == 0, "need even number of iterators: (begin, end) pairs");
+        static_assert(sizeof...(Iterators) % 2 == 0,
+            "need even number of iterators: (begin, end) pairs");
         // call helper function to turn iterators into pairs of iterators
         return exchange_make_pairs(std::make_index_sequence<2 + sizeof...(iters) / 2>(), first0,
             last0, first1, last1, iters...);
@@ -366,18 +374,20 @@ class communication_object
     [[nodiscard]] handle_type exchange(std::pair<Iterators, Iterators>... iter_pairs)
     {
         std::cerr << "Using private iter pairs exchange overload\n";
-        std::cerr << "not using user-provided stream, assuming safe to start exchange immediately\n";
+        std::cerr
+            << "not using user-provided stream, assuming safe to start exchange immediately\n";
 
         // make sure previous exchange finished
-	// TODO: skip this? instead just keep adding to request vectors etc.
-	// and require wait before destruction? allow explicitly calling
-	// progress (currently private)?
+        // TODO: skip this? instead just keep adding to request vectors etc.
+        // and require wait before destruction? allow explicitly calling
+        // progress (currently private)?
         // TODO: If exchange is used, assume that wait was already called before?
         wait();
 
         setup_exchange(iter_pairs...);
 
-        if (m_comm.is_stream_aware()) {
+        if (m_comm.is_stream_aware())
+        {
             // Schedule everything in one go
             // Skip synchronizing with user-provided stream, none provided
             // TODO: Unify implementations
@@ -391,14 +401,16 @@ class communication_object
             // TODO: Move this to wait? Want it here for NCCL, in wait for MPI?
             unpack();
             // schedule_sync_unpack in wait
-        } else {
+        }
+        else
+        {
             pack();
 
             m_comm.start_group();
             post_recvs();
             post_sends();
             m_comm.end_group(); // TODO: Return request/event?
-            
+
             // Leave unpacking to wait
         }
         return {this};
@@ -457,7 +469,8 @@ class communication_object
                     auto ptr = &p1.second;
                     m_recv_reqs.push_back(
                         m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
-                            [ptr](context::message_type& m, context::rank_type, context::tag_type) {
+                            [ptr](context::message_type& m, context::rank_type, context::tag_type)
+                            {
                                 device::guard g(m);
                                 packer<gpu>::unpack(*ptr, g.data());
                             }));
@@ -484,28 +497,33 @@ class communication_object
         using test_t = pattern_container<grid_type, domain_id_type>;
         std::map<const test_t*, int> pat_ptr_map;
         int                          max_tag = 0;
-        for_each(iter_pairs_t, [&pat_ptr_map, &max_tag](std::size_t, auto iter_pair) {
-            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+        for_each(iter_pairs_t,
+            [&pat_ptr_map, &max_tag](std::size_t, auto iter_pair)
             {
-                auto ptr = &(it->get_pattern_container());
-                auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
-                if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
-            }
-        });
-        for_each(iter_pairs_t, [this, &pat_ptr_map](std::size_t, auto iter_pair) {
-            using buffer_info_t = typename std::remove_reference<decltype(*iter_pair.first)>::type;
-            using arch_t = typename buffer_info_t::arch_type;
-            using value_t = typename buffer_info_t::value_type;
-            auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
-            for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                {
+                    auto ptr = &(it->get_pattern_container());
+                    auto p_it_bool = pat_ptr_map.insert(std::make_pair(ptr, max_tag));
+                    if (p_it_bool.second == true) max_tag += ptr->max_tag() + 1;
+                }
+            });
+        for_each(iter_pairs_t,
+            [this, &pat_ptr_map](std::size_t, auto iter_pair)
             {
-                auto       field_ptr = &(it->get_field());
-                auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
-                const auto my_dom_id = it->get_field().domain_id();
-                allocate<arch_t, value_t>(
-                    mem, it->get_pattern(), field_ptr, my_dom_id, it->device_id(), tag_offset);
-            }
-        });
+                using buffer_info_t =
+                    typename std::remove_reference<decltype(*iter_pair.first)>::type;
+                using arch_t = typename buffer_info_t::arch_type;
+                using value_t = typename buffer_info_t::value_type;
+                auto mem = &(std::get<buffer_memory<arch_t>>(m_mem));
+                for (auto it = iter_pair.first; it != iter_pair.second; ++it)
+                {
+                    auto       field_ptr = &(it->get_field());
+                    auto       tag_offset = pat_ptr_map[&(it->get_pattern_container())];
+                    const auto my_dom_id = it->get_field().domain_id();
+                    allocate<arch_t, value_t>(mem, it->get_pattern(), field_ptr, my_dom_id,
+                        it->device_id(), tag_offset);
+                }
+            });
     }
 
     // helper function to set up communicaton buffers (compile-time case)
@@ -540,83 +558,91 @@ class communication_object
         buffer_infos_ptr_t buffer_info_tuple{&buffer_infos...};
         memory_t           memory_tuple{&(std::get<buffer_memory<Archs>>(m_mem))...};
         // loop over buffer_infos/memory and compute required space
-        for_each(memory_tuple, buffer_info_tuple, [this, &tag_offsets](std::size_t i, auto mem, auto bi) {
-            using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
-            using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
-            auto                 field_ptr = &(bi->get_field());
-            const domain_id_type my_dom_id = bi->get_field().domain_id();
-            allocate<arch_type, value_type>(
-                mem, bi->get_pattern(), field_ptr, my_dom_id, bi->device_id(), tag_offsets[i]);
-        });
+        for_each(memory_tuple, buffer_info_tuple,
+            [this, &tag_offsets](std::size_t i, auto mem, auto bi)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(*mem)>::arch_type;
+                using value_type = typename std::remove_reference_t<decltype(*bi)>::value_type;
+                auto                 field_ptr = &(bi->get_field());
+                const domain_id_type my_dom_id = bi->get_field().domain_id();
+                allocate<arch_type, value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id,
+                    bi->device_id(), tag_offsets[i]);
+            });
     }
 
     void pack()
     {
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            for (auto& p0 : m.send_memory)
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
             {
-                const auto device_id = p0.first;
-                for (auto& p1 : p0.second)
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                for (auto& p0 : m.send_memory)
                 {
-                    if (p1.second.size > 0u)
+                    const auto device_id = p0.first;
+                    for (auto& p1 : p0.second)
                     {
-                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
-#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-                            || p1.second.buffer.device_id() != device_id
-#endif
-                        )
+                        if (p1.second.size > 0u)
                         {
-                            p1.second.buffer = arch_traits<arch_type>::make_message(
-                                m_comm, p1.second.size, device_id);
-                        }
+                            if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+                                || p1.second.buffer.device_id() != device_id
+#endif
+                            )
+                            {
+                                p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
+                                    p1.second.size, device_id);
+                            }
 
-			// TODO: Not using callback that was set up on buffer.
-			// Ok? Remove callback if not used.
-                        device::guard g(p1.second.buffer);
-                        packer<arch_type>::pack(p1.second, g.data());
+                            // TODO: Not using callback that was set up on buffer.
+                            // Ok? Remove callback if not used.
+                            device::guard g(p1.second.buffer);
+                            packer<arch_type>::pack(p1.second, g.data());
+                        }
                     }
                 }
-            }
-        });
+            });
     }
 
     void post_recvs()
     {
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            for (auto& p0 : m.recv_memory)
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
             {
-                const auto device_id = p0.first;
-                for (auto& p1 : p0.second)
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                for (auto& p0 : m.recv_memory)
                 {
-                    if (p1.second.size > 0u)
+                    const auto device_id = p0.first;
+                    for (auto& p1 : p0.second)
                     {
-                        // TODO: Always false? Set up in packing phase?
-                        if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
-#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-                            || p1.second.buffer.device_id() != device_id
-#endif
-                        )
+                        if (p1.second.size > 0u)
                         {
-                            p1.second.buffer = arch_traits<arch_type>::make_message(
-                                m_comm, p1.second.size, device_id);
-                        }
+                            // TODO: Always false? Set up in packing phase?
+                            if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+                                || p1.second.buffer.device_id() != device_id
+#endif
+                            )
+                            {
+                                p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
+                                    p1.second.size, device_id);
+                            }
 
-                        auto& ptr = p1.second;
-                        // TODO: Reserve space in vector?
-			// TODO: Don't use oomph callbacks to trigger
-			// unpacking, good idea? Necessary for NCCL, but may be
-			// suboptimal for MPI.
-                        // TODO: Split into stream aware and non-stream aware
-                        m_recv_reqs.push_back(m_comm.recv(ptr.buffer, ptr.rank, ptr.tag
-                            , [](context::message_type&, context::rank_type, context::tag_type) {} // TODO: Dummy callback? No callback?
-                            , static_cast<void*>(p1.second.m_stream.get())
-                        ));
+                            auto& ptr = p1.second;
+                            // TODO: Reserve space in vector?
+                            // TODO: Don't use oomph callbacks to trigger
+                            // unpacking, good idea? Necessary for NCCL, but may be
+                            // suboptimal for MPI.
+                            // TODO: Split into stream aware and non-stream aware
+                            m_recv_reqs.push_back(m_comm.recv(
+                                ptr.buffer, ptr.rank, ptr.tag,
+                                [](context::message_type&, context::rank_type, context::tag_type) {}
+                                // TODO: Dummy callback? No callback?
+                                ,
+                                static_cast<void*>(p1.second.m_stream.get())));
+                        }
                     }
                 }
-            }
-        });
+            });
     }
 
     void post_sends()
@@ -626,100 +652,116 @@ class communication_object
         if (m_comm.is_stream_aware())
         {
             // Schedule send without waiting for packing
-            for_each(m_mem, [this](std::size_t, auto& map) {
-                using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
-                // TODO: CPU skipped? Throw?
-                if constexpr (std::is_same_v<arch_type, gpu>) {
-                    for (auto& p0 : map.send_memory)
+            for_each(m_mem,
+                [this](std::size_t, auto& map)
+                {
+                    using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
+                    // TODO: CPU skipped? Throw?
+                    if constexpr (std::is_same_v<arch_type, gpu>)
                     {
-                        for (auto& p1 : p0.second)
+                        for (auto& p0 : map.send_memory)
                         {
-                            if (p1.second.size > 0u)
+                            for (auto& p1 : p0.second)
                             {
-            	        	// TODO: Good idea to assume that streams are pointers?
-            	        	// Pass void* because of type-erased interface.
-                                auto& ptr = p1.second;
-                                assert(ptr.buffer);
-                                m_send_reqs.push_back(m_comm.send(ptr.buffer, ptr.rank, ptr.tag
-                                    , [](context::message_type&, context::rank_type, context::tag_type) {} // TODO: Dummy callback? No callback?
-                                    , static_cast<void*>(p1.second.m_stream.get())
-                                ));
+                                if (p1.second.size > 0u)
+                                {
+                                    // TODO: Good idea to assume that streams are pointers?
+                                    // Pass void* because of type-erased interface.
+                                    auto& ptr = p1.second;
+                                    assert(ptr.buffer);
+                                    m_send_reqs.push_back(m_comm.send(
+                                        ptr.buffer, ptr.rank, ptr.tag,
+                                        [](context::message_type&, context::rank_type,
+                                            context::tag_type) {}
+                                        // TODO: Dummy callback? No callback?
+                                        ,
+                                        static_cast<void*>(p1.second.m_stream.get())));
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
         }
         else
 #endif
         {
             assert(false);
             // TODO: Handle CPU and GPU memory differently.
-            for_each(m_mem, [this](std::size_t, auto& map) {
-                using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
-                using send_buffer_type = typename std::remove_reference_t<decltype(map)>::send_buffer_type;
-                using future_type = device::future<send_buffer_type*>;
-                std::vector<future_type> stream_futures;
-                // TODO
-                // stream_futures.reserve(num_streams);
-                // num_streams = 0;
+            for_each(m_mem,
+                [this](std::size_t, auto& map)
+                {
+                    using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
+                    using send_buffer_type =
+                        typename std::remove_reference_t<decltype(map)>::send_buffer_type;
+                    using future_type = device::future<send_buffer_type*>;
+                    std::vector<future_type> stream_futures;
+                    // TODO
+                    // stream_futures.reserve(num_streams);
+                    // num_streams = 0;
 
-	        // TODO: Factor out into specialized overloads/class. But not
-	        // in packer, so that packer can focus on packing.
-                if constexpr (std::is_same_v<arch_type, gpu>) {
-                    for (auto& p0 : map.send_memory)
+                    // TODO: Factor out into specialized overloads/class. But not
+                    // in packer, so that packer can focus on packing.
+                    if constexpr (std::is_same_v<arch_type, gpu>)
                     {
-                        for (auto& p1 : p0.second)
+                        for (auto& p0 : map.send_memory)
                         {
-                            if (p1.second.size > 0u)
+                            for (auto& p1 : p0.second)
                             {
-                                stream_futures.push_back(future_type{&(p1.second), p1.second.m_stream});
-                                // ++num_streams;
+                                if (p1.second.size > 0u)
+                                {
+                                    stream_futures.push_back(
+                                        future_type{&(p1.second), p1.second.m_stream});
+                                    // ++num_streams;
+                                }
+                            }
+                        }
+
+                        await_futures(stream_futures, [this](send_buffer_type* b)
+                            { m_send_reqs.push_back(m_comm.send(b->buffer, b->rank, b->tag)); });
+                    }
+                    else
+                    {
+                        for (auto& p0 : map.send_memory)
+                        {
+                            for (auto& p1 : p0.second)
+                            {
+                                if (p1.second.size > 0u)
+                                {
+                                    m_send_reqs.push_back(m_comm.send(p1.second.buffer,
+                                        p1.second.rank, p1.second.tag));
+                                }
                             }
                         }
                     }
+                });
+        }
+    }
 
-                    await_futures(stream_futures, [this](send_buffer_type* b) {
-                        m_send_reqs.push_back(m_comm.send(b->buffer, b->rank, b->tag));
-                    });
-                } else {
-                    for (auto& p0 : map.send_memory)
+    void unpack()
+    {
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                for (auto& p0 : m.recv_memory)
+                {
+                    const auto device_id = p0.first;
+                    for (auto& p1 : p0.second)
                     {
-                        for (auto& p1 : p0.second)
+                        if (p1.second.size > 0u)
                         {
-                            if (p1.second.size > 0u)
-                            {
-	        	        m_send_reqs.push_back(m_comm.send(p1.second.buffer, p1.second.rank, p1.second.tag));
-                            }
+                            auto ptr = &p1.second;
+                            // TODO: Reserve space in vector?
+                            // TODO: Don't use oomph callbacks to trigger
+                            // unpacking, good idea? Necessary for NCCL, but may be
+                            // suboptimal for MPI.
+                            // m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag));
+                            device::guard g(p1.second.buffer);
+                            packer<arch_type>::unpack(*ptr, g.data());
                         }
                     }
                 }
             });
-        }
-    }
-
-    void unpack() {
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            for (auto& p0 : m.recv_memory)
-            {
-                const auto device_id = p0.first;
-                for (auto& p1 : p0.second)
-                {
-                    if (p1.second.size > 0u)
-                    {
-                        auto ptr = &p1.second;
-                        // TODO: Reserve space in vector?
-			// TODO: Don't use oomph callbacks to trigger
-			// unpacking, good idea? Necessary for NCCL, but may be
-			// suboptimal for MPI.
-                        // m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag));
-                        device::guard g(p1.second.buffer);
-                        packer<arch_type>::unpack(*ptr, g.data());
-                    }
-                }
-            }
-        });
     }
 
   private: // wait functions
@@ -734,7 +776,7 @@ class communication_object
         if (!m_valid) return true;
         if (m_comm.is_ready())
         {
-	    // TODO: Why does is_ready also wait and clear? Leave that to wait?
+            // TODO: Why does is_ready also wait and clear? Leave that to wait?
 #ifdef GHEX_CUDACC
             sync_streams();
 #endif
@@ -760,7 +802,8 @@ class communication_object
 
         // If communicator is stream-aware we've already triggered unpacking on
         // the same stream as the recvs, no need to do it again.
-        if (!m_comm.is_stream_aware()) {
+        if (!m_comm.is_stream_aware())
+        {
             // wait for data to arrive and unpack (unpack will not be called through callback)
             // TODO: Or use callback with non-stream-aware communicators?
             m_comm.wait_all();
@@ -778,7 +821,8 @@ class communication_object
 
         // If communicator is stream-aware we've already triggered unpacking on
         // the same stream as the recvs, no need to do it again.
-        if (!m_comm.is_stream_aware()) {
+        if (!m_comm.is_stream_aware())
+        {
             // wait for data to arrive and unpack (unpack will not be called through callback)
             // TODO: Or use callback with non-stream-aware communicators?
             m_comm.wait_all();
@@ -787,7 +831,7 @@ class communication_object
 #ifdef GHEX_CUDACC
         schedule_sync_unpack(stream);
 #endif
-	// TODO: What is supposed to clear? Clear before starting new exchange?
+        // TODO: What is supposed to clear? Clear before starting new exchange?
     }
 
 #ifdef GHEX_CUDACC
@@ -795,20 +839,17 @@ class communication_object
     void sync_streams()
     {
         // TODO: Use pool.
-        constexpr std::size_t num_events{128};
+        constexpr std::size_t                  num_events{128};
         static std::vector<device::cuda_event> events(num_events);
-        [[maybe_unused]] static std::size_t event_index{0};
- 
+        [[maybe_unused]] static std::size_t    event_index{0};
+
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
         {
-            for (auto& p1: p0.second)
+            for (auto& p1 : p0.second)
             {
-                if (p1.second.size > 0u)
-                {
-                    p1.second.m_stream.sync();
-                }
+                if (p1.second.size > 0u) { p1.second.m_stream.sync(); }
             }
         }
     }
@@ -817,32 +858,37 @@ class communication_object
     // after work on the given stream has completed, without blocking.
     void schedule_sync_pack(cudaStream_t stream)
     {
-        for_each(m_mem, [&, this](std::size_t, auto& m) {
-            using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-            if constexpr (std::is_same_v<arch_type, gpu>) {
-                std::cerr << "creating cuda event\n";
-                device::cuda_event event;
-
-                std::cerr << "recording event on stream " << stream << "\n";
-                GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
-
-                // TODO: Pack these pointers into a single vector to avoid the nested loops and ifs?
-                for (auto& p0 : m.send_memory)
+        for_each(m_mem,
+            [&, this](std::size_t, auto& m)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                if constexpr (std::is_same_v<arch_type, gpu>)
                 {
-                    for (auto& p1 : p0.second)
+                    std::cerr << "creating cuda event\n";
+                    device::cuda_event event;
+
+                    std::cerr << "recording event on stream " << stream << "\n";
+                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(event.get(), stream));
+
+                    // TODO: Pack these pointers into a single vector to avoid the nested loops and ifs?
+                    for (auto& p0 : m.send_memory)
                     {
-                        if (p1.second.size > 0u)
+                        for (auto& p1 : p0.second)
                         {
-                            // Make sure stream used for packing synchronizes with the
-                            // given stream. 
-                            std::cerr << "adding wait on stream " << p1.second.m_stream.get() << "\n";
-                            // TODO: Set device with guard?
-                            GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(), event.get()));
+                            if (p1.second.size > 0u)
+                            {
+                                // Make sure stream used for packing synchronizes with the
+                                // given stream.
+                                std::cerr << "adding wait on stream " << p1.second.m_stream.get()
+                                          << "\n";
+                                // TODO: Set device with guard?
+                                GHEX_CHECK_CUDA_RESULT(
+                                    cudaStreamWaitEvent(p1.second.m_stream.get(), event.get()));
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
     }
 
     // Add a dependency on the unpacking streams such that any work that happens
@@ -851,15 +897,15 @@ class communication_object
     void schedule_sync_unpack(cudaStream_t stream)
     {
         // TODO: Pool events.
-        constexpr std::size_t num_events{128};
+        constexpr std::size_t                  num_events{128};
         static std::vector<device::cuda_event> events(num_events);
-        static std::size_t event_index{0};
+        static std::size_t                     event_index{0};
 
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
         {
-            for (auto& p1: p0.second)
+            for (auto& p1 : p0.second)
             {
                 if (p1.second.size > 0u)
                 {
@@ -885,20 +931,22 @@ class communication_object
         m_valid = false;
         m_send_reqs.clear();
         m_recv_reqs.clear();
-        for_each(m_mem, [this](std::size_t, auto& m) {
-            for (auto& p0 : m.send_memory)
-                for (auto& p1 : p0.second)
-                {
-                    p1.second.size = 0;
-                    p1.second.field_infos.resize(0);
-                }
-            for (auto& p0 : m.recv_memory)
-                for (auto& p1 : p0.second)
-                {
-                    p1.second.size = 0;
-                    p1.second.field_infos.resize(0);
-                }
-        });
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                for (auto& p0 : m.send_memory)
+                    for (auto& p1 : p0.second)
+                    {
+                        p1.second.size = 0;
+                        p1.second.field_infos.resize(0);
+                    }
+                for (auto& p0 : m.recv_memory)
+                    for (auto& p1 : p0.second)
+                    {
+                        p1.second.size = 0;
+                        p1.second.field_infos.resize(0);
+                    }
+            });
     }
 
     //  private: // allocation member functions
@@ -908,16 +956,14 @@ class communication_object
     {
         allocate<Arch, T, typename buffer_memory<Arch>::recv_buffer_type>(
             mem->recv_memory[device_id], pattern.recv_halos(),
-            [field_ptr](const void* buffer, const index_container_type& c, void* arg) {
-                field_ptr->unpack(reinterpret_cast<const T*>(buffer), c, arg);
-            },
-            dom_id, tag_offset, true, field_ptr);
+            [field_ptr](const void* buffer, const index_container_type& c, void* arg)
+            { field_ptr->unpack(reinterpret_cast<const T*>(buffer), c, arg); }, dom_id, tag_offset,
+            true, field_ptr);
         allocate<Arch, T, typename buffer_memory<Arch>::send_buffer_type>(
             mem->send_memory[device_id], pattern.send_halos(),
-            [field_ptr](void* buffer, const index_container_type& c, void* arg) {
-                field_ptr->pack(reinterpret_cast<T*>(buffer), c, arg);
-            },
-            dom_id, tag_offset, false, field_ptr);
+            [field_ptr](void* buffer, const index_container_type& c, void* arg)
+            { field_ptr->pack(reinterpret_cast<T*>(buffer), c, arg); }, dom_id, tag_offset, false,
+            field_ptr);
     }
 
     // compute memory requirements to be allocated on the device
@@ -949,9 +995,9 @@ class communication_object
             if (it == memory.end())
             {
                 it = memory
-                         .insert(std::make_pair(
-                             d_p, BufferType{remote_rank, p_id_c.first.tag + tag_offset, {}, 0,
-                                      std::vector<typename BufferType::field_info_type>(), {}}))
+                         .insert(std::make_pair(d_p,
+                             BufferType{remote_rank, p_id_c.first.tag + tag_offset, {}, 0,
+                                 std::vector<typename BufferType::field_info_type>(), {}}))
                          .first;
             }
             else if (it->second.size == 0)

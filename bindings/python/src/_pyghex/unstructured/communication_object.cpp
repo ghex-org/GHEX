@@ -45,10 +45,10 @@ register_communication_object(pybind11::module& m)
             auto _communication_object = register_class<type>(m);
             auto _handle = register_class<handle>(m);
 
-            _handle
-                .def("wait", &handle::wait)
+            _handle.def("wait", &handle::wait)
                 .def(
-                    "schedule_wait", [](typename type::handle_type& h, void* s) { return h.schedule_wait(static_cast<cudaStream_t>(s)); },
+                    "schedule_wait", [](typename type::handle_type& h, void* s)
+                    { return h.schedule_wait(static_cast<cudaStream_t>(s)); },
                     pybind11::keep_alive<0, 1>())
                 .def("is_ready", &handle::is_ready)
                 .def("progress", &handle::progress);
@@ -62,18 +62,15 @@ register_communication_object(pybind11::module& m)
 
                     _communication_object
                         .def(
-                            "exchange",
-                            [](type& co, std::vector<buffer_info_type> b)
+                            "exchange", [](type& co, std::vector<buffer_info_type> b)
                             { return co.exchange(b.begin(), b.end()); },
                             pybind11::keep_alive<0, 1>())
                         .def(
-                            "exchange", [](type& co, buffer_info_type& b) { return co.exchange(b); },
-                            pybind11::keep_alive<0, 1>())
+                            "exchange", [](type& co, buffer_info_type& b)
+                            { return co.exchange(b); }, pybind11::keep_alive<0, 1>())
                         .def(
-                            "exchange",
-                            [](type& co, buffer_info_type& b0, buffer_info_type& b1)
-                            { return co.exchange(b0, b1); },
-                            pybind11::keep_alive<0, 1>())
+                            "exchange", [](type& co, buffer_info_type& b0, buffer_info_type& b1)
+                            { return co.exchange(b0, b1); }, pybind11::keep_alive<0, 1>())
                         .def(
                             "exchange",
                             [](type& co, buffer_info_type& b0, buffer_info_type& b1,
@@ -85,7 +82,8 @@ register_communication_object(pybind11::module& m)
                         //     { return co.schedule_exchange(static_cast<cudaStream_t>(s), b.begin(), b.end()); },
                         //     pybind11::keep_alive<0, 1>())
                         .def(
-                            "schedule_exchange", [](type& co, void* s, buffer_info_type& b) { return co.schedule_exchange(static_cast<cudaStream_t>(s), b); },
+                            "schedule_exchange", [](type& co, void* s, buffer_info_type& b)
+                            { return co.schedule_exchange(static_cast<cudaStream_t>(s), b); },
                             pybind11::keep_alive<0, 1>())
                         .def(
                             "schedule_exchange",
@@ -95,22 +93,21 @@ register_communication_object(pybind11::module& m)
                         .def(
                             "schedule_exchange",
                             [](type& co, void* s, buffer_info_type& b0, buffer_info_type& b1,
-                                buffer_info_type& b2) { return co.schedule_exchange(static_cast<cudaStream_t>(s), b0, b1, b2); },
-                            pybind11::keep_alive<0, 1>())
-                        ;
+                                buffer_info_type& b2) {
+                                return co.schedule_exchange(static_cast<cudaStream_t>(s), b0, b1,
+                                    b2);
+                            },
+                            pybind11::keep_alive<0, 1>());
                 });
 
-            m.def("make_co_unstructured",
-                [](context_shim& c)
-                {
-                    return type{c.m};
-                },
+            m.def(
+                "make_co_unstructured", [](context_shim& c) { return type{c.m}; },
                 pybind11::keep_alive<0, 1>());
 
-            m.def("expose_cpp_ptr", [](type* obj){return reinterpret_cast<std::uintptr_t>(obj);});
+            m.def("expose_cpp_ptr",
+                [](type* obj) { return reinterpret_cast<std::uintptr_t>(obj); });
         });
 }
 
 } // namespace unstructured
 } // namespace pyghex
-

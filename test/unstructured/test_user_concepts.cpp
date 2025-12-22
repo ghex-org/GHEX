@@ -47,14 +47,14 @@ void test_in_place_receive_threads(ghex::context& ctxt);
 // TEST_F(mpi_test_fixture, domain_descriptor)
 // {
 //     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-// 
+//
 //     if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
 // }
 
 // TEST_F(mpi_test_fixture, pattern_setup)
 // {
 //     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-// 
+//
 //     if (world_size == 4) { test_pattern_setup(ctxt); }
 //     else if (world_size == 2)
 //     {
@@ -84,7 +84,7 @@ TEST_F(mpi_test_fixture, data_descriptor)
 // TEST_F(mpi_test_fixture, in_place_receive)
 // {
 //     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-// 
+//
 //     if (world_size == 4)
 //     {
 //         test_in_place_receive(ctxt);
@@ -276,8 +276,8 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
     auto co = ghex::make_communication_object<pattern_container_type>(ctxt);
 
     // application data
-    auto& d = local_domains[0];
-    ghex::test::util::memory<int> field(d.size()*levels, 0);
+    auto&                         d = local_domains[0];
+    ghex::test::util::memory<int> field(d.size() * levels, 0);
 #if 0 // These tests can't be run with NCCL. How to detect?
     initialize_data(d, field, levels, levels_first);
     data_descriptor_cpu_int_type data{d, field, levels, levels_first};

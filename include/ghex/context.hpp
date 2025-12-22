@@ -20,6 +20,7 @@ class barrier;
 class context
 {
     friend class barrier;
+
   public:
     using rank_type = oomph::rank_type;
     using tag_type = oomph::tag_type;

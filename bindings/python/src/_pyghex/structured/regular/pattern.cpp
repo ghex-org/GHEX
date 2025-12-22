@@ -65,10 +65,8 @@ register_pattern(pybind11::module& m)
                     // `&pattern_container::template operator()<field>` leads to an
                     // "identifier undefined in device code" error when using NVCC
                     _pattern_container.def(
-                        "__call__",
-                        [](const pattern_container& pattern, field& f)
-                        { return pattern(f); },
-                        pybind11::keep_alive<0, 2>());
+                        "__call__", [](const pattern_container& pattern, field& f)
+                        { return pattern(f); }, pybind11::keep_alive<0, 2>());
                 });
         });
 }

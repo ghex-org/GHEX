@@ -25,8 +25,12 @@
                                  std::string(__FILE__) + ":" + std::to_string(__LINE__));
 
 #define GHEX_CHECK_CUDA_RESULT_NO_THROW(x)                                                         \
-    try { GHEX_CHECK_CUDA_RESULT(x) }                                                              \
-    catch (const std::exception& e) {                                                              \
+    try                                                                                            \
+    {                                                                                              \
+        GHEX_CHECK_CUDA_RESULT(x)                                                                  \
+    }                                                                                              \
+    catch (const std::exception& e)                                                                \
+    {                                                                                              \
         std::cerr << e.what() << std::endl;                                                        \
         std::terminate();                                                                          \
     }

@@ -23,13 +23,16 @@
 #ifdef GHEX_USE_NCCL
 #include <nccl.h>
 
-#define GHEX_CHECK_NCCL_RESULT(x) \
-    if (x != ncclSuccess && x != ncclInProgress) \
-        throw std::runtime_error(std::string("nccl call failed (") + std::to_string(x) + "):" + ncclGetErrorString(x));
-#define GHEX_CHECK_NCCL_RESULT_NO_THROW(x) \
-    if (x != ncclSuccess && x != ncclInProgress) { \
-        std::cerr << "nccl call failed (" << std::to_string(x) << "): " << ncclGetErrorString(x) << '\n'; \
-        std::terminate(); \
+#define GHEX_CHECK_NCCL_RESULT(x)                                                                  \
+    if (x != ncclSuccess && x != ncclInProgress)                                                   \
+        throw std::runtime_error(                                                                  \
+            std::string("nccl call failed (") + std::to_string(x) + "):" + ncclGetErrorString(x));
+#define GHEX_CHECK_NCCL_RESULT_NO_THROW(x)                                                         \
+    if (x != ncclSuccess && x != ncclInProgress)                                                   \
+    {                                                                                              \
+        std::cerr << "nccl call failed (" << std::to_string(x) << "): " << ncclGetErrorString(x)   \
+                  << '\n';                                                                         \
+        std::terminate();                                                                          \
     }
 #endif
 
@@ -60,7 +63,7 @@ struct packer
                     for (const auto& fb : p1.second.field_infos)
                         // Directly call pack functionality instead of going through callback?
                         fb.call_back(data + fb.offset, *fb.index_container, nullptr);
-                        // TODO: Only do packing, don't mix sending here. Good idea?
+                    // TODO: Only do packing, don't mix sending here. Good idea?
                 }
             }
         }
@@ -72,7 +75,6 @@ struct packer
         for (const auto& fb : buffer.field_infos)
             fb.call_back(data + fb.offset, *fb.index_container, nullptr);
     }
-
 
     template<typename Buffer>
     static void unpack(Buffer& buffer, unsigned char* data)
@@ -97,8 +99,9 @@ await_futures(std::vector<Future>& range, Continuation&& cont)
     auto       end = index_list.end();
     while (begin != end)
     {
-        end =
-            std::remove_if(begin, end, [&range, cont = std::forward<Continuation>(cont)](int idx) {
+        end = std::remove_if(begin, end,
+            [&range, cont = std::forward<Continuation>(cont)](int idx)
+            {
                 if (range[idx].test())
                 {
                     cont(range[idx].get());
@@ -152,10 +155,10 @@ struct packer<gpu>
                 {
                     if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
                         p1.second.buffer.device_id() != device_id)
-                        {
+                    {
                         p1.second.buffer =
                             arch_traits<gpu>::make_message(comm, p1.second.size, device_id);
-                            }
+                    }
 
                     for (const auto& fb : p1.second.field_infos)
                     {
@@ -288,9 +291,8 @@ struct packer<gpu>
                 }
             }
         }
-        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b) {
-            send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag));
-        });
+        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b)
+            { send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag)); });
     }
 };
 #endif

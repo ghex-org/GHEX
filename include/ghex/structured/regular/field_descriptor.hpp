@@ -184,10 +184,11 @@ wrap_field(const DomainDescriptor& dom, T* data, const Array& offsets, const Arr
      * @param extents extent of the wrapped N-dimensional array (including buffer regions)
      * @param strides array strides
      * @return wrapped field*/
-template<typename Arch, typename Layout, typename Strides, typename DomainDescriptor, typename T, typename Array>
+template<typename Arch, typename Layout, typename Strides, typename DomainDescriptor, typename T,
+    typename Array>
 structured::regular::field_descriptor<T, Arch, DomainDescriptor, Layout>
 wrap_field(const DomainDescriptor& dom, T* data, const Array& offsets, const Array& extents,
-    const Strides& strides,
+    const Strides&                             strides,
     typename arch_traits<Arch>::device_id_type device_id = arch_traits<Arch>::current_id())
 {
     return {dom, data, offsets, extents, strides, 1, false, device_id};

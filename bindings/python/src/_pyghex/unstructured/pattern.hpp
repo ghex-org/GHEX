@@ -37,5 +37,3 @@ using make_pattern_traits_specializations =
 } // namespace
 } // namespace unstructured
 } // namespace pyghex
-
-
