@@ -54,7 +54,7 @@ if(GHEX_USE_BUNDLED_OOMPH)
     elseif(GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
         set(OOMPH_WITH_UCX ON CACHE BOOL "Build with UCX backend")
     elseif(GHEX_TRANSPORT_BACKEND STREQUAL "NCCL")
-        set(OOMPH_WITH_UCX ON CACHE BOOL "Build with NCCL backend")
+        set(OOMPH_WITH_NCCL ON CACHE BOOL "Build with NCCL backend")
         set(GHEX_USE_GPU ON CACHE BOOL "use gpu")
     endif()
     if(GHEX_USE_GPU)
@@ -108,8 +108,6 @@ endif()
 # ---------------------------------------------------------------------
 if(GHEX_USE_NCCL)
   find_package(NCCL REQUIRED)
-  # link_libraries("-lnccl")
-  # include_directories("")
 endif()
 
 # ---------------------------------------------------------------------
