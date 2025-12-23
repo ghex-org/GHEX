@@ -228,7 +228,7 @@ class communication_object
     memory_type                    m_mem;
     std::vector<send_request_type> m_send_reqs;
     std::vector<recv_request_type> m_recv_reqs;
-    device::event_pool m_event_pool{128};
+    device::event_pool             m_event_pool{128};
 
     // This event records if there was a previous call to `schedule_wait()`. To
     //  avoid strange error conditions, we do not use an event from the pool.
