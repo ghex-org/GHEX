@@ -323,8 +323,8 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     //  test it for CPU memory, although it is kind of botherline.
 
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
-    cudaStreamSynchronize(stream);
+    GHEX_CHECK_CUDA_RESULT(cudaStreamCreate(&stream));
+    GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(stream));
 
     // domain
     std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};
@@ -347,16 +347,22 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
 
     EXPECT_NO_THROW(co.schedule_exchange(stream, patterns(data)).schedule_wait(stream));
     ASSERT_TRUE(co.has_scheduled_exchange());
+
     co.complete_schedule_exchange();
+    ASSERT_FALSE(co.has_scheduled_exchange());
 
     auto h = co.schedule_exchange(stream, patterns(data));
+    ASSERT_FALSE(co.has_scheduled_exchange());
+
     h.schedule_wait(stream);
+    ASSERT_TRUE(co.has_scheduled_exchange());
 
     // Check exchanged data. Because on CPU everything is synchronous we do not
     //  synchronize on the stream.
     check_exchanged_data(d, field, patterns[0], levels, levels_first);
-    ASSERT_TRUE(co.has_scheduled_exchange());
+
     co.complete_schedule_exchange();
+    ASSERT_FALSE(co.has_scheduled_exchange());
 
     // ----- GPU -----
     cudaDeviceSynchronize();
@@ -368,13 +374,18 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
 
     EXPECT_NO_THROW(co.schedule_exchange(stream, patterns(data_gpu)).schedule_wait(stream));
     ASSERT_TRUE(co.has_scheduled_exchange());
+
     co.complete_schedule_exchange();
+    ASSERT_FALSE(co.has_scheduled_exchange());
 
     auto h_gpu = co.schedule_exchange(stream, patterns(data_gpu));
-    h_gpu.schedule_wait(stream);
+    ASSERT_FALSE(co.has_scheduled_exchange());
 
+    h_gpu.schedule_wait(stream);
     ASSERT_TRUE(co.has_scheduled_exchange());
+
     co.complete_schedule_exchange();
+    ASSERT_FALSE(co.has_scheduled_exchange());
 
     // check exchanged data
     field.clone_to_host();
