@@ -291,8 +291,11 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
 @pytest.mark.mpi
 def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
 
-    if on_gpu and cp is None:
-        pytest.skip(reason="`CuPy` is not installed.")
+    if on_gpu:
+        if cp is None:
+            pytest.skip(reason="`CuPy` is not installed.")
+        if not cp.is_available():
+            pytest.skip(reason="`CuPy` is installed but no GPU could be found.")
 
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
@@ -324,12 +327,12 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
         field = make_field_descriptor(domain_desc, data)
         return data, field
 
-    def check_field(data, order):
+    def check_field(data, order, stream):
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         if on_gpu:
             # NOTE: Without the explicit order it fails sometimes.
-            data = cp.asnumpy(data, order=order)
+            data = cp.asnumpy(data, order=order, stream=stream, blocking=True)
 
         for x in range(len(all_list)):
             gid = all_list[x]
@@ -340,10 +343,6 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
                     assert (
                         data[x, l] - 1000 * int((data[x, l]) / 1000)
                     ) == 10 * gid + l
-
-        # TODO: Find out if there is a side effect that makes it important to keep them.
-        #field = make_field_descriptor(domain_desc, data)
-        #return data, field
 
     halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
     pattern = make_pattern(ctx, halo_gen, [domain_desc])
@@ -356,8 +355,5 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
     handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
     handle.schedule_wait(stream)
 
-    # TODO: Do we really need it.
-    handle.wait();
-
-    check_field(d1, "C")
-    check_field(d2, "F")
+    check_field(d1, "C", stream)
+    check_field(d2, "F", stream)

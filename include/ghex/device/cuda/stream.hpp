@@ -29,8 +29,8 @@ struct cuda_event
     cuda_event(){GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event,
         cudaEventDisableTiming))} cuda_event(const cuda_event&) = delete;
     cuda_event& operator=(const cuda_event&) = delete;
-    cuda_event(cuda_event&& other) = default;
-    cuda_event& operator=(cuda_event&&) = default;
+    cuda_event(cuda_event&& other) noexcept = default;
+    cuda_event& operator=(cuda_event&&) noexcept = default;
 
     ~cuda_event()
     {
@@ -61,8 +61,8 @@ struct stream
 
     stream(const stream&) = delete;
     stream& operator=(const stream&) = delete;
-    stream(stream&& other) = default;
-    stream& operator=(stream&&) = default;
+    stream(stream&& other) noexcept = default;
+    stream& operator=(stream&&) noexcept = default;
 
     ~stream()
     {
@@ -97,7 +97,7 @@ struct stream
 };
 
 /**
- * @breif	Pool of cuda events.
+ * @brief	Pool of cuda events.
  *
  * Essentially a pool of events that can be used and reused one by one.
  * The main function is `get_event()` which returns an unused event.
@@ -121,16 +121,13 @@ struct event_pool
 
   public: // constructors
     event_pool(std::size_t expected_pool_size)
-    : m_events(expected_pool_size)
-    , m_next_event(0) {
-        //We do not use `reserve()` to ensure that the events are initialized now
-        // and not in the hot path when they are actually queried.
-    };
+    : m_events(expected_pool_size) // Initialize events now.
+    , m_next_event(0) {};
 
     event_pool(const event_pool&) = delete;
     event_pool& operator=(const event_pool&) = delete;
-    event_pool(event_pool&& other) = default;
-    event_pool& operator=(event_pool&&) = default;
+    event_pool(event_pool&& other) noexcept = default;
+    event_pool& operator=(event_pool&&) noexcept = default;
 
   public:
     /** @brief	Get the next event of a pool.
@@ -141,11 +138,11 @@ struct event_pool
      */
     cuda_event& get_event()
     {
-        assert(!m_moved); //Ensure that `*this` was not moved.
+        assert(!m_moved);
         while (!(m_next_event < m_events.size())) { m_events.emplace_back(cuda_event()); };
 
         const std::size_t event_to_use = m_next_event;
-        assert(!bool(m_events[event_to_use])); //Ensure that event was not moved.
+        assert(!bool(m_events[event_to_use]));
         m_next_event += 1;
         return m_events[event_to_use];
     };
@@ -158,24 +155,24 @@ struct event_pool
 	 * and recreating them. It requires however, that a user can guarantee
 	 * that the events are no longer in use.
 	 */
-    void rewind_pool()
+    void rewind()
     {
         if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); };
         m_next_event = 0;
     };
 
-    /** @brief	Resets the pool by recreating all events.
+    /** @brief	Clear the pool by recreating all events.
 	 *
 	 * The function will destroy and recreate all events in the pool.
 	 * This is more costly than to rewind the pool, but allows to reuse
 	 * the pool without having to ensure that the events are no longer
 	 * in active use.
 	 */
-    void reset_pool()
+    void clear()
     {
         if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); };
 
-        //NOTE: If an event is still enqueued somewhere, the CUDA runtime
+        // NOTE: If an event is still enqueued somewhere, the CUDA runtime
         //	will made sure that it is kept alive as long as it is still used.
         m_events.clear();
         m_next_event = 0;
