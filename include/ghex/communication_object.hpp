@@ -673,7 +673,7 @@ class communication_object
                                 // postponed after the work, that was scheduled on `stream` has concluded.
                                 // NOTE: If a device guard here leads to a segmentation fault.
                                 GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(),
-                                    sync_event.get()));
+                                    sync_event.get(), 0));
                             }
                         }
                     }
