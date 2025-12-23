@@ -31,21 +31,21 @@ namespace
 {
 #ifdef GHEX_CUDACC
 cudaStream_t
-extract_cuda_stream(pybind11::object py_stream)
+extract_cuda_stream(pybind11::object python_stream)
 {
     static_assert(std::is_pointer<cudaStream_t>::value);
-    if (py_stream.is_none())
+    if (python_stream.is_none())
     {
         // NOTE: This is very C++ like, maybe remove and consider as an error?
         return static_cast<cudaStream_t>(nullptr);
     }
     else
     {
-        if (pybind11::hasattr(py_stream, "__cuda_stream__"))
+        if (pybind11::hasattr(python_stream, "__cuda_stream__"))
         {
             // CUDA stream protocol: https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol
             pybind11::tuple cuda_stream_protocol =
-                pybind11::getattr(py_stream, "__cuda_stream__")();
+                pybind11::getattr(python_stream, "__cuda_stream__")();
             if (cuda_stream_protocol.size() != 2)
             {
                 std::stringstream error;
@@ -66,13 +66,13 @@ extract_cuda_stream(pybind11::object py_stream)
             const auto stream_address = cuda_stream_protocol[1].cast<std::uintptr_t>();
             return reinterpret_cast<cudaStream_t>(stream_address);
         }
-        else if (pybind11::hasattr(py_stream, "ptr"))
+        else if (pybind11::hasattr(python_stream, "ptr"))
         {
             // CuPy stream: See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
-            std::uintptr_t stream_address = py_stream.attr("ptr").cast<std::uintptr_t>();
+            std::uintptr_t stream_address = python_stream.attr("ptr").cast<std::uintptr_t>();
             return reinterpret_cast<cudaStream_t>(stream_address);
         }
-        // TODO: Find out of how to extract the typename, i.e. `type(py_stream).__name__`.
+        // TODO: Find out of how to extract the typename, i.e. `type(python_stream).__name__`.
         std::stringstream error;
         error << "Failed to convert the stream object into a CUDA stream.";
         throw pybind11::type_error(error.str());
@@ -83,14 +83,13 @@ extract_cuda_stream(pybind11::object py_stream)
 
 /** @brief	In case no GPU support only allow `None`. */
 void
-check_python_gpu_stream(pybind11::object py_stream)
+check_python_gpu_stream(pybind11::object python_stream)
 {
-    if (!py_stream.is_none())
+    if (!python_stream.is_none())
     {
-        std::stringstream error;
-        error << "pyghex was compiled without GPU support. In that case only `None` can be"
-              << " passed as `stream` argument to `schedule_wait()` and `schedule_exchange()`.";
-        throw pybind11::type_error(error.str());
+        throw pybind11::type_error(
+            "pyghex was compiled without GPU support. In that case only `None` can be"
+            " passed as `stream` argument to `schedule_wait()` and `schedule_exchange()`.");
     };
 };
 
@@ -118,12 +117,12 @@ register_communication_object(pybind11::module& m)
             _handle.def("wait", &handle::wait)
                 .def(
                     "schedule_wait",
-                    [](typename type::handle_type& h, pybind11::object py_stream)
+                    [](typename type::handle_type& h, pybind11::object python_stream)
                     {
 #ifdef GHEX_CUDACC
-                        return h.schedule_wait(extract_cuda_stream(py_stream));
+                        return h.schedule_wait(extract_cuda_stream(python_stream));
 #else
-                        check_python_gpu_stream(py_stream);
+                        check_python_gpu_stream(python_stream);
                         return h.wait();
 #endif
                     },
@@ -163,7 +162,7 @@ register_communication_object(pybind11::module& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream),
                                     b.begin(), b.end());
 #else
-                                check_python_gpu_stream(py_stream);
+                                check_python_gpu_stream(python_stream);
                                 return co.exchange(b.begin(), b.end());
 #endif
                             },
@@ -176,7 +175,7 @@ register_communication_object(pybind11::module& m)
 #ifdef GHEX_CUDACC
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b);
 #else
-                                check_python_gpu_stream(py_stream);
+                                check_python_gpu_stream(python_stream);
                                 return co.exchange(b);
 #endif
                             },
@@ -191,7 +190,7 @@ register_communication_object(pybind11::module& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1);
 #else
-                                check_python_gpu_stream(py_stream);
+                                check_python_gpu_stream(python_stream);
                                 return co.exchange(b0, b1);
 #endif
                             },
@@ -206,7 +205,7 @@ register_communication_object(pybind11::module& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1, b2);
 #else
-                                check_python_gpu_stream();
+                                check_python_gpu_stream(python_stream);
                                 return co.exchange(b0, b1, b2);
 #endif
                             },
