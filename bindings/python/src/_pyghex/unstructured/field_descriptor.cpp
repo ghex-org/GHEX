@@ -197,9 +197,9 @@ register_field_descriptor(pybind11::module& m)
                             {
                                 std::stringstream error;
                                 error << "Field's strides are not compatible with GHEX. Expected "
-                                         "that the (byte) stride of dimension 0 was "
+                                         "that the (byte) stride of dimension 0 "
                                       << (std::size_t)(info.strides[0])
-                                      << " which is not a multiply of the element size of "
+                                      << " is a multiple of the element size of "
                                       << sizeof(T) << ".";
                                 throw pybind11::type_error(error.str());
                             }
