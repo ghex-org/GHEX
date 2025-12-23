@@ -353,7 +353,13 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
 
     stream = cp.cuda.Stream(non_blocking=True) if on_gpu else None
     handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
+    assert not co.has_scheduled_exchange()
+
     handle.schedule_wait(stream)
+    assert co.has_scheduled_exchange()
 
     check_field(d1, "C", stream)
     check_field(d2, "F", stream)
+
+    co.complete_schedule_exchange()
+    assert not co.has_scheduled_exchange()
