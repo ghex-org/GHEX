@@ -212,12 +212,10 @@ register_communication_object(pybind11::module& m)
                             },
                             pybind11::keep_alive<0, 1>(), pybind11::arg("stream"),
                             pybind11::arg("b0"), pybind11::arg("b1"), pybind11::arg("b2"))
-                        .def(
-                             "complete_schedule_exchange",
-                             [](type& co) -> void { return co.complete_schedule_exchange(); })
-                        .def(
-                             "has_scheduled_exchange",
-                             [](type& co) -> bool { return co.has_scheduled_exchange();});
+                        .def("complete_schedule_exchange",
+                            [](type& co) -> void { return co.complete_schedule_exchange(); })
+                        .def("has_scheduled_exchange",
+                            [](type& co) -> bool { return co.has_scheduled_exchange(); });
                 });
 
             m.def(
