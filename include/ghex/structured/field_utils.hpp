@@ -17,28 +17,28 @@ namespace gridtools
 {
 template<typename T, size_t D>
 GHEX_FUNCTION array<T, D>
-            operator+(array<T, D> a, const array<T, D>& b)
+              operator+(array<T, D> a, const array<T, D>& b)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] += b[i];
     return a;
 }
 template<typename T, size_t D, typename U>
 GHEX_FUNCTION array<T, D>
-            operator+(array<T, D> a, const U& scalar)
+              operator+(array<T, D> a, const U& scalar)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] += scalar;
     return a;
 }
 template<typename T, size_t D, typename U>
 GHEX_FUNCTION array<T, D>
-            operator+(const U& scalar, array<T, D> a)
+              operator+(const U& scalar, array<T, D> a)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] += scalar;
     return a;
 }
 template<typename T, size_t D>
 GHEX_FUNCTION array<T, D>
-            operator-(array<T, D> a, const array<T, D>& b)
+              operator-(array<T, D> a, const array<T, D>& b)
 {
     for (std::size_t i = 0u; i < D; ++i) a[i] -= b[i];
     return a;
@@ -100,7 +100,8 @@ struct compute_strides
         compute_strides_impl<D, D - 1>::template apply<Layout>(extents, strides);
     }
     template<typename Layout, typename T, typename Coordinate, typename Strides>
-    GHEX_FUNCTION static void apply(const Coordinate& extents, Strides& strides, std::size_t padding)
+    GHEX_FUNCTION static void apply(const Coordinate& extents, Strides& strides,
+        std::size_t padding)
     {
         const auto idx = Layout::find(D - 1);
         strides[idx] = sizeof(T);
@@ -132,8 +133,8 @@ struct compute_coordinate_impl
     {
         const auto idx = Layout::find(D - (K));
         coord[idx] = i / strides[idx];
-        compute_coordinate_impl<D, K - 1>::template apply<Layout>(
-            strides, coord, i - coord[idx] * strides[idx]);
+        compute_coordinate_impl<D, K - 1>::template apply<Layout>(strides, coord,
+            i - coord[idx] * strides[idx]);
     }
 };
 template<int D>
@@ -152,8 +153,8 @@ struct compute_coordinate
     {
         const auto idx = Layout::find(0);
         coord[idx] = i / strides[idx];
-        compute_coordinate_impl<D, D - 1>::template apply<Layout>(
-            strides, coord, i - coord[idx] * strides[idx]);
+        compute_coordinate_impl<D, D - 1>::template apply<Layout>(strides, coord,
+            i - coord[idx] * strides[idx]);
     }
 };
 

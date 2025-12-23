@@ -52,10 +52,8 @@ register_pattern(pybind11::module& m)
                     { return util::mangle_python<typename pattern_container::domain_id_type>(); });
 
             m.def(
-                "make_pattern_unstructured",
-                [](context_shim& c, halo_gen& h, domain_range& d)
-                { return ghex::make_pattern<grid_type>(c.m, h, d); },
-                pybind11::keep_alive<0, 1>());
+                "make_pattern_unstructured", [](context_shim& c, halo_gen& h, domain_range& d)
+                { return ghex::make_pattern<grid_type>(c.m, h, d); }, pybind11::keep_alive<0, 1>());
 
             gridtools::for_each<gridtools::meta::transform<gridtools::meta::list, fields>>(
                 [&m, &_pattern_container](auto k)
@@ -65,13 +63,12 @@ register_pattern(pybind11::module& m)
                     // `&pattern_container::template operator()<field>` leads to an
                     // "identifier undefined in device code" error when using NVCC
                     _pattern_container.def(
-                        "__call__",
-                        [](const pattern_container& pattern, field& f)
-                        { return pattern(f); },
-                        pybind11::keep_alive<0, 2>());
+                        "__call__", [](const pattern_container& pattern, field& f)
+                        { return pattern(f); }, pybind11::keep_alive<0, 2>());
                 });
 
-            m.def("expose_cpp_ptr", [](pattern_container* obj){return reinterpret_cast<std::uintptr_t>(obj);});
+            m.def("expose_cpp_ptr",
+                [](pattern_container* obj) { return reinterpret_cast<std::uintptr_t>(obj); });
         });
 }
 

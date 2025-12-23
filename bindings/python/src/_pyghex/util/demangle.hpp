@@ -34,16 +34,21 @@ demangle()
 }
 
 inline std::string
-mangle_python(std::string s) {
-    s.erase(std::remove_if(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c); }), s.end());
+mangle_python(std::string s)
+{
+    s.erase(std::remove_if(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c); }),
+        s.end());
     std::string _ghex = "ghex::";
-    auto pos = s.find(_ghex);
-    while(pos != std::string::npos) {
+    auto        pos = s.find(_ghex);
+    while (pos != std::string::npos)
+    {
         s.erase(pos, _ghex.length());
         pos = s.find(_ghex);
     }
-    for (auto& c : s) {
-        switch(c) {
+    for (auto& c : s)
+    {
+        switch (c)
+        {
             case ':':
             case ',':
             case '<':

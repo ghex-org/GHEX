@@ -34,32 +34,34 @@ using communication_object_specializations =
         communication_object_args>;
 } // namespace
 
-
 // Communication object specializations are stored in a variant and constructed on demand before the first exchange.
 // - this removes the need to inject the pattern type at construction, i.e.
 //   in the python function `make_communication_object` doesn't require a pattern object to infer the type anymore
 // - if this communication object shim is later used with a different *type* of pattern, for example
 //   a 2d pattern instead of a 3d pattern, the exchange will fail with an exception
-struct communication_object_shim {
+struct communication_object_shim
+{
     // the variant's first alternative is of type std::monostate to indicate the empty state
-    using variant_t =
-        gridtools::meta::rename<std::variant,
-            gridtools::meta::push_front<communication_object_specializations, std::monostate>>;
+    using variant_t = gridtools::meta::rename<std::variant,
+        gridtools::meta::push_front<communication_object_specializations, std::monostate>>;
     ghex::context* ctx = nullptr;
-    variant_t m;
+    variant_t      m;
 
     // exchange of buffer info objects
     template<typename... Patterns, typename... Archs, typename... Fields>
-    auto exchange(ghex::buffer_info<Patterns, Archs, Fields>&... b) {
+    auto exchange(ghex::buffer_info<Patterns, Archs, Fields>&... b)
+    {
         return get_co<gridtools::meta::list<Patterns...>>().exchange(b...);
     }
 
     // exchange of iterator pairs pointing to buffer info ranges
     template<typename... Its>
-    auto exchange(Its... its) {
+    auto exchange(Its... its)
+    {
         // need even number of iterators (begin and end)
         static_assert(sizeof...(Its) % 2 == 0);
-        return exchange_from_iterators(std::make_tuple(std::move(its)...), std::make_index_sequence<sizeof...(Its)/2>());
+        return exchange_from_iterators(std::make_tuple(std::move(its)...),
+            std::make_index_sequence<sizeof...(Its) / 2>());
     }
 
   private:
@@ -73,9 +75,10 @@ struct communication_object_shim {
 
     // helper function for iterators
     template<typename... Its, std::size_t... Is>
-    auto exchange_from_iterators(std::tuple<Its...> t, std::index_sequence<Is...>) {
+    auto exchange_from_iterators(std::tuple<Its...> t, std::index_sequence<Is...>)
+    {
         // every second iterator is a begin
-        using begins = decltype(std::make_tuple(std::get<Is*2>(t)...));
+        using begins = decltype(std::make_tuple(std::get<Is * 2>(t)...));
         static constexpr std::size_t half_size = sizeof...(Is);
         return get_co<gridtools::meta::transform<get_pattern_t, begins>>().exchange(
             std::get<Is>(t)..., std::get<Is + half_size>(t)...);
@@ -85,7 +88,8 @@ struct communication_object_shim {
     // - will initialize the communication object if the variant is empty
     // - will throw if a different communication object specialization was initialized earlier
     template<typename PatternList>
-    auto& get_co() {
+    auto& get_co()
+    {
         // extract and deduplicate grids from patterns
         using grids = gridtools::meta::dedup<gridtools::meta::transform<get_grid, PatternList>>;
         // check that all grids are of same type
@@ -97,11 +101,12 @@ struct communication_object_shim {
         static_assert(gridtools::meta::length<dids>::value == 1);
 
         // communication object type
-        using co_t = ghex::communication_object<gridtools::meta::at_c<grids, 0>, gridtools::meta::at_c<dids, 0>>;
+        using co_t = ghex::communication_object<gridtools::meta::at_c<grids, 0>,
+            gridtools::meta::at_c<dids, 0>>;
 
         // check whether co_t is in variant
         static_assert(gridtools::meta::find<communication_object_specializations, co_t>::value <
-            gridtools::meta::length<communication_object_specializations>::value);
+                      gridtools::meta::length<communication_object_specializations>::value);
 
         // initialize variant with communication object if necessary
         if (m.index() == 0) m.emplace<co_t>(*ctx);

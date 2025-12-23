@@ -53,8 +53,8 @@ template<typename RawField>
 auto
 wrap_cpu_field(RawField& raw_field, const domain& d)
 {
-    return wrap_field<cpu, ::gridtools::layout_map<1, 0>>(
-        d, raw_field.data(), arr{HALO, HALO}, arr{HALO * 2 + DIM, HALO * 2 + DIM / 2});
+    return wrap_field<cpu, ::gridtools::layout_map<1, 0>>(d, raw_field.data(), arr{HALO, HALO},
+        arr{HALO * 2 + DIM, HALO * 2 + DIM / 2});
 }
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
@@ -62,8 +62,8 @@ template<typename RawField>
 auto
 wrap_gpu_field(RawField& raw_field, const domain& d)
 {
-    return wrap_field<gpu, ::gridtools::layout_map<1, 0>>(
-        d, raw_field.device_data(), arr{HALO, HALO}, arr{HALO * 2 + DIM, HALO * 2 + DIM / 2});
+    return wrap_field<gpu, ::gridtools::layout_map<1, 0>>(d, raw_field.device_data(),
+        arr{HALO, HALO}, arr{HALO * 2 + DIM, HALO * 2 + DIM / 2});
 }
 #endif
 
@@ -128,8 +128,8 @@ check(const Field& field, const arr& dims)
             expected(j, dims[1], field.domain().first()[1], field.domain().last()[1], periodic[1]);
         for (int i = -HALO; i < DIM + HALO; ++i)
         {
-            const auto x = expected(
-                i, dims[0], field.domain().first()[0], field.domain().last()[0], periodic[0]);
+            const auto x = expected(i, dims[0], field.domain().first()[0], field.domain().last()[0],
+                periodic[0]);
             res = res && compare(field({i, j}), x, y);
         }
     }
@@ -481,13 +481,13 @@ sim(bool multi_threaded)
     coords[1] = ctxt.rank() / dims[0];
     coords[0] = ctxt.rank() - coords[1] * dims[0];
     // make 2 domains per rank
-    std::vector<domain> domains{
-        make_domain(ctxt.rank(), 0, coords), make_domain(ctxt.rank(), 1, coords)};
+    std::vector<domain> domains{make_domain(ctxt.rank(), 0, coords),
+        make_domain(ctxt.rank(), 1, coords)};
     // neighbor lookup
     domain_lu d_lu{dims};
 
-    auto staged_pattern = structured::regular::make_staged_pattern(
-        ctxt, domains, d_lu, arr{0, 0}, arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic);
+    auto staged_pattern = structured::regular::make_staged_pattern(ctxt, domains, d_lu, arr{0, 0},
+        arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic);
 
     // make halo generator
     halo_gen gen{arr{0, 0}, arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic};
@@ -497,18 +497,14 @@ sim(bool multi_threaded)
     bool res = true;
     if (multi_threaded)
     {
-        auto run_fct = [&ctxt, &pattern, &staged_pattern, &domains, &dims](int id) {
-            return run(ctxt, pattern, staged_pattern, domains, dims, id);
-        };
+        auto run_fct = [&ctxt, &pattern, &staged_pattern, &domains, &dims](int id)
+        { return run(ctxt, pattern, staged_pattern, domains, dims, id); };
         auto f1 = std::async(std::launch::async, run_fct, 0);
         auto f2 = std::async(std::launch::async, run_fct, 1);
         res = res && f1.get();
         res = res && f2.get();
     }
-    else
-    {
-        res = res && run(ctxt, pattern, staged_pattern, domains, dims);
-    }
+    else { res = res && run(ctxt, pattern, staged_pattern, domains, dims); }
     // reduce res
     bool all_res = false;
     MPI_Reduce(&res, &all_res, 1, MPI_C_BOOL, MPI_LAND, 0, MPI_COMM_WORLD);

@@ -22,21 +22,24 @@ namespace py = pybind11;
 namespace pyghex
 {
 
-std::string py_dtype_to_cpp_name(py::dtype dtype) {
+std::string
+py_dtype_to_cpp_name(py::dtype dtype)
+{
     std::string cpp_name;
 
-    gridtools::for_each<pyghex::types::data>([&cpp_name, &dtype](auto l) {
-        using type = decltype(l);
+    gridtools::for_each<pyghex::types::data>(
+        [&cpp_name, &dtype](auto l)
+        {
+            using type = decltype(l);
 
-        if (dtype.is(py::dtype::of<type>())) {
-            assert(cpp_name.empty());
-            cpp_name = util::mangle_python<type>();
-        }
-    });
+            if (dtype.is(py::dtype::of<type>()))
+            {
+                assert(cpp_name.empty());
+                cpp_name = util::mangle_python<type>();
+            }
+        });
 
-    if (cpp_name.empty()) {
-        throw std::invalid_argument("Unsupported numpy dtype");
-    }
+    if (cpp_name.empty()) { throw std::invalid_argument("Unsupported numpy dtype"); }
 
     return cpp_name;
 }

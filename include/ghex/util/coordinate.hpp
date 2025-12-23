@@ -34,8 +34,8 @@ struct coordinate
 
   public: // print
     template<class CharT, class Traits>
-    friend std::basic_ostream<CharT, Traits>& operator<<(
-        std::basic_ostream<CharT, Traits>& os, const coordinate& c)
+    friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
+        const coordinate&                                                                   c)
     {
         os << "{";
         for (int i = 0; i < size() - 1; ++i) os << c.m_coord[i] << ", ";
