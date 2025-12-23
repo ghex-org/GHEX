@@ -318,6 +318,7 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 void
 test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_first)
 {
+#ifdef GHEX_CUDACC
     // NOTE: Async exchange is only implemented for the GPU, however, we also
     //  test it for CPU memory, although it is kind of botherline.
 
@@ -360,7 +361,6 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     ASSERT_FALSE(co.has_scheduled_exchange());
 
     // ----- GPU -----
-#ifdef GHEX_CUDACC
     cudaStream_t stream;
     GHEX_CHECK_CUDA_RESULT(cudaStreamCreate(&stream));
     GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(stream));
