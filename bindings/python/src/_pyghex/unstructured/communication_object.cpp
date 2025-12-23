@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdint>
+#include <sstream>
 
 #include <gridtools/common/for_each.hpp>
 
