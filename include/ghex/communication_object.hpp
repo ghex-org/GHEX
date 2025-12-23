@@ -787,7 +787,7 @@ class communication_object
                     // has finished.
                     cudaEvent_t& e = m_event_pool.get_event().get();
                     GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, p1.second.m_stream.get()));
-                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e));
+                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e, 0));
                 }
             }
         }
