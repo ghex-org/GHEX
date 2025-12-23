@@ -318,13 +318,8 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 void
 test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_first)
 {
-#ifdef GHEX_CUDACC
     // NOTE: Async exchange is only implemented for the GPU, however, we also
     //  test it for CPU memory, although it is kind of botherline.
-
-    cudaStream_t stream;
-    GHEX_CHECK_CUDA_RESULT(cudaStreamCreate(&stream));
-    GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(stream));
 
     // domain
     std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};
@@ -345,16 +340,16 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     initialize_data(d, field, levels, levels_first);
     data_descriptor_cpu_int_type data{d, field, levels, levels_first};
 
-    EXPECT_NO_THROW(co.schedule_exchange(stream, patterns(data)).schedule_wait(stream));
+    EXPECT_NO_THROW(co.schedule_exchange(nullptr, patterns(data)).schedule_wait(nullptr));
     ASSERT_TRUE(co.has_scheduled_exchange());
 
     co.complete_schedule_exchange();
     ASSERT_FALSE(co.has_scheduled_exchange());
 
-    auto h = co.schedule_exchange(stream, patterns(data));
+    auto h = co.schedule_exchange(nullptr, patterns(data));
     ASSERT_FALSE(co.has_scheduled_exchange());
 
-    h.schedule_wait(stream);
+    h.schedule_wait(nullptr);
     ASSERT_TRUE(co.has_scheduled_exchange());
 
     // Check exchanged data. Because on CPU everything is synchronous we do not
@@ -365,7 +360,10 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     ASSERT_FALSE(co.has_scheduled_exchange());
 
     // ----- GPU -----
-    cudaDeviceSynchronize();
+#ifdef GHEX_CUDACC
+    cudaStream_t stream;
+    GHEX_CHECK_CUDA_RESULT(cudaStreamCreate(&stream));
+    GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(stream));
 
     // application data
     initialize_data(d, field, levels, levels_first);
