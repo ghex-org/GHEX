@@ -72,8 +72,8 @@ struct buffer_info_accessor<ghex::gpu>
         std::vector<pybind11::ssize_t> strides(ndim);
         if (pybind11::isinstance<pybind11::none>(info["strides"]))
         {
-            //If `strides` field is `None` then it is contiguous C-style,
-            //see https://numpy.org/devdocs/reference/arrays.interface.html
+            // If `strides` field is `None` then it is contiguous C-style,
+            // see https://numpy.org/devdocs/reference/arrays.interface.html
             strides[ndim - 1] = itemsize;
             for (int i = ndim - 2; i >= 0; --i) { strides[i] = strides[i + 1] * shape[i + 1]; }
         }
@@ -207,7 +207,7 @@ register_field_descriptor(pybind11::module& m)
                         }
                         else
                         {
-                            //Note this case only happens for `info.ndim == 1`.
+                            // Note this case only happens for `info.ndim == 1`.
                             if (info.strides[0] != sizeof(T))
                             {
                                 std::stringstream error;
