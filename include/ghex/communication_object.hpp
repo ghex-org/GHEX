@@ -110,6 +110,9 @@ class communication_handle
      * does not wait until this has finished. Instead it will add
      * synchronizations, to make sure that all work, that will be submitted
      * to `stream` will wait until the unpacking has finished.
+     *
+     * In order to check if the unpacking has finished the `complete_schedule_exchange()`
+     * function of the communication object can be used.
      */
     void schedule_wait(cudaStream_t stream);
 #endif
@@ -280,14 +283,14 @@ class communication_object
      * transmission of the halo data.
      *
      * It is required that the user calls `schedule_wait()` on the returned handle.
+     * To check if a communication has completed the function `complete_schedule_exchange()`
+     * can be used.
      *
      * Note:
      * - It is not safe to call this function from multiple threads.
      * - It is only allowed that one "scheduled exchange" is active at any given time.
      * - If CPU memory is transmitted, in addition to GPU memory, then the function will fall
      *   	back to `exchange()`, for the CPU part. (Make sure that this is the case.)
-     * - In case there was a previous call to `schedule_exchange()`, the stream that was
-     *   	passed to `schedule_wait()` must still exists (maybe lifted).
      */
     template<typename... Archs, typename... Fields>
     [[nodiscard]] handle_type schedule_exchange(cudaStream_t stream,
