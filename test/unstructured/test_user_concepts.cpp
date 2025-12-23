@@ -97,6 +97,8 @@ TEST_F(mpi_test_fixture, data_descriptor_async)
 TEST_F(mpi_test_fixture, in_place_receive)
 {
 #if 0
+    // This test results in a segmentation fault. The error is
+    //  also present on `master` (61f9ebbae4).
     ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
     if (world_size == 4)
