@@ -15,6 +15,8 @@
 #include <ghex/util/test_eq.hpp>
 #include <ghex/pattern_container.hpp>
 #include <ghex/device/stream.hpp>
+#include <ghex/device/event.hpp>
+#include <ghex/device/event_pool.hpp>
 #include <ghex/device/guard.hpp>
 #include <ghex/packer.hpp>
 #ifdef GHEX_CUDACC
@@ -226,16 +228,12 @@ class communication_object
     memory_type                    m_mem;
     std::vector<send_request_type> m_send_reqs;
     std::vector<recv_request_type> m_recv_reqs;
-#if defined(GHEX_CUDACC)
-    // Pools of event used for the asynchronous exchange.
     device::event_pool m_event_pool{128};
 
-    // This event records if there was a previous call to `schedule_wait()`.
-    // To avoid strange error conditions, we do not use an event from the
-    // pool.
+    // This event records if there was a previous call to `schedule_wait()`. To
+    //  avoid strange error conditions, we do not use an event from the pool.
     device::cuda_event  m_last_scheduled_exchange;
     device::cuda_event* m_active_scheduled_exchange{nullptr};
-#endif
 
   public: // ctors
     communication_object(context& c)
