@@ -135,7 +135,7 @@ register_communication_object(pybind11::module& m)
                             [](type& co, buffer_info_type& b0, buffer_info_type& b1,
                                 buffer_info_type& b2) { return co.exchange(b0, b1, b2); },
                             pybind11::keep_alive<0, 1>())
-#if definded(GHEX_CUDACC)
+#if defined(GHEX_CUDACC)
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream,
