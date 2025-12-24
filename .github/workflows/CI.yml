@@ -157,7 +157,7 @@ jobs:
             -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }}
 
       - name: Build
-        run: cmake --build build --parallel 4
+        run: cmake --build build --parallel 4 --verbose
 
       - if: ${{ matrix.config.run == 'ON' }}
         name: Execute tests

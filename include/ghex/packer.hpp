@@ -141,7 +141,7 @@ struct packer<gpu>
         }
         std::vector<future_type> stream_futures;
         stream_futures.reserve(num_streams);
-        num_streams = 0;
+
         for (auto& p0 : map.send_memory)
         {
             for (auto& p1 : p0.second)
@@ -155,10 +155,13 @@ struct packer<gpu>
                             (void*)(&p1.second.m_stream.get()));
                     }
                     stream_futures.push_back(future_type{&(p1.second), p1.second.m_stream});
-                    ++num_streams;
                 }
             }
         }
+        //TODO: This is blocking, we wait until the whole packing has concluded and then
+        //	we start the the sending, wich is in itself asynchronous. Best would be
+        //	that this function here woudl instead also run asynchronous.
+        //	However, it ensures that progress is made.
         await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b)
             { send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag)); });
     }
