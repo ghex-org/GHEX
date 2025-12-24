@@ -84,14 +84,6 @@ register_config(pybind11::module& m)
     m.def("config", &config, "Get GHEX's configuration.")
         .def(
             "print_config", [](const pybind11::dict& d) { return print_config(d); },
-            "Print GHEX's configuration.")
-        .def(
-            "has_gpu_support",
-#ifdef GHEX_USE_GPU
-            []() -> bool { return true; },
-#else
-            []() -> bool { return false; },
-#endif
-            "Check if GHEX was compiled with GPU support.");
+            "Print GHEX's configuration.");
 }
 } // namespace pyghex

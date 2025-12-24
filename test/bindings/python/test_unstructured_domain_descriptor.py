@@ -297,8 +297,8 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
             pytest.skip(reason="`CuPy` is not installed.")
         if not cp.is_available():
             pytest.skip(reason="`CuPy` is installed but no GPU could be found.")
-    if ghex.has_gpu_support():
-        pytest.skip(reason="`GHEX` was not compiled with GPU support, thus no `schedule_exchange()` support.")
+    if not ghex.__config__["gpu"]:
+        pytest.skip(reason="Skipping `schedule_exchange()` tests because `GHEX` was not compiled with GPU support")
 
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
