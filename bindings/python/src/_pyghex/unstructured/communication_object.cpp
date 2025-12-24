@@ -30,7 +30,7 @@ namespace unstructured
 {
 namespace
 {
-#ifdef GHEX_CUDACC
+#if defined(GHEX_CUDACC)
 cudaStream_t
 extract_cuda_stream(pybind11::object python_stream)
 {
@@ -79,21 +79,6 @@ extract_cuda_stream(pybind11::object python_stream)
         throw pybind11::type_error(error.str());
     };
 };
-
-#else
-
-/** @brief	In case no GPU support only allow `None`. */
-void
-check_python_gpu_stream(pybind11::object python_stream)
-{
-    if (!python_stream.is_none())
-    {
-        throw pybind11::type_error(
-            "pyghex was compiled without GPU support. In that case only `None` can be"
-            " passed as `stream` argument to `schedule_wait()` and `schedule_exchange()`.");
-    };
-};
-
 #endif
 } // namespace
 
@@ -115,19 +100,15 @@ register_communication_object(pybind11::module& m)
             auto _communication_object = register_class<type>(m);
             auto _handle = register_class<handle>(m);
 
-            _handle.def("wait", &handle::wait)
+            _handle
+                .def("wait", &handle::wait)
+#if defined(GHEX_CUDACC)
                 .def(
                     "schedule_wait",
                     [](typename type::handle_type& h, pybind11::object python_stream)
-                    {
-#ifdef GHEX_CUDACC
-                        return h.schedule_wait(extract_cuda_stream(python_stream));
-#else
-                        check_python_gpu_stream(python_stream);
-                        return h.wait();
-#endif
-                    },
+                    { return h.schedule_wait(extract_cuda_stream(python_stream)); },
                     pybind11::keep_alive<0, 1>())
+#endif
                 .def("is_ready", &handle::is_ready)
                 .def("progress", &handle::progress);
 
@@ -154,68 +135,46 @@ register_communication_object(pybind11::module& m)
                             [](type& co, buffer_info_type& b0, buffer_info_type& b1,
                                 buffer_info_type& b2) { return co.exchange(b0, b1, b2); },
                             pybind11::keep_alive<0, 1>())
+#if definded(GHEX_CUDACC)
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream,
-                                std::vector<buffer_info_type> b)
-                            {
-#ifdef GHEX_CUDACC
+                                std::vector<buffer_info_type> b) {
                                 return co.schedule_exchange(extract_cuda_stream(python_stream),
                                     b.begin(), b.end());
-#else
-                                check_python_gpu_stream(python_stream);
-                                return co.exchange(b.begin(), b.end());
-#endif
                             },
                             pybind11::keep_alive<0, 1>(), pybind11::arg("stream"),
                             pybind11::arg("patterns"))
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b)
-                            {
-#ifdef GHEX_CUDACC
-                                return co.schedule_exchange(extract_cuda_stream(python_stream), b);
-#else
-                                check_python_gpu_stream(python_stream);
-                                return co.exchange(b);
-#endif
-                            },
+                            { return co.schedule_exchange(extract_cuda_stream(python_stream), b); },
                             pybind11::keep_alive<0, 1>(), pybind11::arg("stream"),
                             pybind11::arg("b"))
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b0,
-                                buffer_info_type& b1)
-                            {
-#ifdef GHEX_CUDACC
+                                buffer_info_type& b1) {
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1);
-#else
-                                check_python_gpu_stream(python_stream);
-                                return co.exchange(b0, b1);
-#endif
                             },
                             pybind11::keep_alive<0, 1>(), pybind11::arg("stream"),
                             pybind11::arg("b0"), pybind11::arg("b1"))
                         .def(
                             "schedule_exchange",
                             [](type& co, pybind11::object python_stream, buffer_info_type& b0,
-                                buffer_info_type& b1, buffer_info_type& b2)
-                            {
-#ifdef GHEX_CUDACC
+                                buffer_info_type& b1, buffer_info_type& b2) {
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1, b2);
-#else
-                                check_python_gpu_stream(python_stream);
-                                return co.exchange(b0, b1, b2);
-#endif
                             },
                             pybind11::keep_alive<0, 1>(), pybind11::arg("stream"),
                             pybind11::arg("b0"), pybind11::arg("b1"), pybind11::arg("b2"))
                         .def("complete_schedule_exchange",
                             [](type& co) -> void { return co.complete_schedule_exchange(); })
                         .def("has_scheduled_exchange",
-                            [](type& co) -> bool { return co.has_scheduled_exchange(); });
+                            [](type& co) -> bool { return co.has_scheduled_exchange(); })
+#endif // end scheduled exchange
+                        ;
                 });
 
             m.def(

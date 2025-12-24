@@ -233,10 +233,12 @@ class communication_object
     std::vector<recv_request_type> m_recv_reqs;
     device::event_pool             m_event_pool{128};
 
+#if defined(GHEX_CUDACC) // TODO: Should we switch to `GHEX_USE_GPU`?
     // This event records if there was a previous call to `schedule_wait()`. To
     //  avoid strange error conditions, we do not use an event from the pool.
     device::cuda_event  m_last_scheduled_exchange;
     device::cuda_event* m_active_scheduled_exchange{nullptr};
+#endif
 
   public: // ctors
     communication_object(context& c)
@@ -324,6 +326,18 @@ class communication_object
 
         return {this};
     }
+
+    /**
+      * @brief	Checks if `*this` has an active scheduled exchange.
+      *
+      * Calling this function only makes sense after `schedule_wait()`
+      * has been called on the handler returned by `schedule_exchange()`.
+      */
+    bool has_scheduled_exchange() const noexcept
+    {
+        if (m_active_scheduled_exchange) { return true; };
+        return false;
+    }
 #endif
 
     /**
@@ -354,20 +368,6 @@ class communication_object
         }
 #endif
     };
-
-    /**
-      * @brief	Checks if `*this` has an active scheduled exchange.
-      *
-      * Calling this function only makes sense after `schedule_wait()`
-      * has been called on the handler returned by `schedule_exchange()`.
-      */
-    bool has_scheduled_exchange() const noexcept
-    {
-#if defined(GHEX_CUDACC)
-        if (m_active_scheduled_exchange) { return true; };
-#endif
-        return false;
-    }
 
     /** @brief  non-blocking exchange of halo data
                   * @tparam Iterator Iterator type to range of buffer_info objects
