@@ -297,6 +297,8 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
             pytest.skip(reason="`CuPy` is not installed.")
         if not cp.is_available():
             pytest.skip(reason="`CuPy` is installed but no GPU could be found.")
+    if ghex.has_gpu_support():
+        pytest.skip(reason="`GHEX` was not compiled with GPU support, thus no `schedule_exchange()` support.")
 
     ctx = make_context(mpi_cart_comm, True)
     assert ctx.size() == 4
@@ -354,17 +356,13 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
 
     stream = cp.cuda.Stream(non_blocking=True) if on_gpu else None
     handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
-
-    if ghex.has_gpu_support():
-        assert not co.has_scheduled_exchange()
+    assert not co.has_scheduled_exchange()
 
     handle.schedule_wait(stream)
-    if ghex.has_gpu_support():
-        assert co.has_scheduled_exchange()
+    assert co.has_scheduled_exchange()
 
     check_field(d1, "C", stream)
     check_field(d2, "F", stream)
 
-    if ghex.has_gpu_support():
-        co.complete_schedule_exchange()
-        assert not co.has_scheduled_exchange()
+    co.complete_schedule_exchange()
+    assert not co.has_scheduled_exchange()
