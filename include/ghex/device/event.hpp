@@ -29,7 +29,7 @@ struct cuda_event
 
     // By returning `true` we emulate the behaviour of a
     // CUDA `stream` that has been moved.
-    constexpr bool() const noexcept { return true; }
+    constexpr operator bool() const noexcept { return true; }
 };
 
 } // namespace device
