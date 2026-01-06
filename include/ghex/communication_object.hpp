@@ -823,9 +823,7 @@ class communication_object
                             // TODO: Split into stream aware and non-stream aware
                             m_recv_reqs.push_back(m_comm.recv(
                                 ptr.buffer, ptr.rank, ptr.tag,
-                                [](context::message_type&, context::rank_type, context::tag_type) {}
-                                // TODO: Dummy callback? No callback?
-                                ,
+                                [](context::message_type&, context::rank_type, context::tag_type) {},
                                 static_cast<void*>(p1.second.m_stream.get())));
                         }
                     }
@@ -859,10 +857,7 @@ class communication_object
                                     assert(ptr.buffer);
                                     m_send_reqs.push_back(m_comm.send(
                                         ptr.buffer, ptr.rank, ptr.tag,
-                                        [](context::message_type&, context::rank_type,
-                                            context::tag_type) {}
-                                        // TODO: Dummy callback? No callback?
-                                        ,
+                                        [](context::message_type&, context::rank_type, context::tag_type) {},
                                         static_cast<void*>(p1.second.m_stream.get())));
                                 }
                             }
