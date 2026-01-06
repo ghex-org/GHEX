@@ -788,7 +788,7 @@ class communication_object
 //                     auto record_capturer = [&sync_event](cudaStream_t stream) -> std::uintptr_t
 //                     {
 //                         //TODO: Is a device guard needed here? What should be the memory?
-//                         GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), stream));
+//                         sync_event.record(stream);
 //                         return (std::uintptr_t)stream;
 //                     };
 //                     const std::uintptr_t unused_variable_for_expansion[] = {
@@ -955,14 +955,12 @@ class communication_object
         if (!m_valid) return true;
         if (m_comm.is_ready())
         {
-            // TODO: Why does is_ready also wait and clear? Leave that to wait?
 #ifdef GHEX_CUDACC
             sync_streams();
 #endif
             clear();
             return true;
         }
-        // TODO: Why check progress?
         m_comm.progress();
         if (m_comm.is_ready())
         {
@@ -1054,12 +1052,11 @@ class communication_object
                 if constexpr (std::is_same_v<arch_type, gpu>)
                 {
                     std::cerr << "creating cuda event\n";
-                    cudaEvent_t& e = m_event_pool.get_event().get();
+                    auto& e = m_event_pool.get_event();
 
                     std::cerr << "recording event on stream " << stream << "\n";
-                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, stream));
+                    e.record(stream);
 
-                    // TODO: Pack these pointers into a single vector to avoid the nested loops and ifs?
                     for (auto& p0 : m.send_memory)
                     {
                         for (auto& p1 : p0.second)
@@ -1070,9 +1067,8 @@ class communication_object
                                 // given stream.
                                 std::cerr << "adding wait on stream " << p1.second.m_stream.get()
                                           << "\n";
-                                // TODO: Set device with guard?
                                 GHEX_CHECK_CUDA_RESULT(
-                                    cudaStreamWaitEvent(p1.second.m_stream.get(), e));
+                                    cudaStreamWaitEvent(p1.second.m_stream.get(), e.get()));
                             }
                         }
                     }
@@ -1102,9 +1098,9 @@ class communication_object
                     // This ensures that nothing that will be submitted to
                     // `stream` after this function starts before the unpacking
                     // has finished.
-                    cudaEvent_t& e = m_event_pool.get_event().get();
-                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, p1.second.m_stream.get()));
-                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e, 0));
+                    auto& e = m_event_pool.get_event();
+                    e.record(p1.second.m_stream.get());
+                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e.get(), 0));
                 }
             }
         }
@@ -1116,7 +1112,7 @@ class communication_object
         //  last event function.
         // TODO: Find out what happens to the event if `stream` is destroyed.
         assert(m_active_scheduled_exchange == nullptr);
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_last_scheduled_exchange.get(), stream));
+        m_last_scheduled_exchange.record(stream);
         m_active_scheduled_exchange = &m_last_scheduled_exchange;
     }
 #endif

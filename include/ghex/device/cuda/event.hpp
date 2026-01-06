@@ -26,6 +26,7 @@ struct cuda_event
 {
     cudaEvent_t           m_event;
     ghex::util::moved_bit m_moved;
+    bool                  m_recorded;
 
     cuda_event() {
         GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming))
@@ -42,6 +43,30 @@ struct cuda_event
 
     //! Returns `true` is `*this` has been moved, i.e. is no longer a usable event.
     operator bool() const noexcept { return m_moved; }
+
+    //! Records an event.
+    void record(cudaStream_t stream) {
+        assert(!m_moved);
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
+        m_recorded = true;
+    }
+  
+    //! Returns `true` if an event has been recorded and the event is ready.
+    bool is_ready() const {
+        if (m_moved || !m_recorded) {
+            return false;
+        }
+  
+        cudaError_t res = cudaEventQuery(m_event);
+        if (res == cudaSuccess) {
+            return true;
+        } else if (res == cudaErrorNotReady) {
+            return false;
+        } else {
+            GHEX_CHECK_CUDA_RESULT(res);
+            return false;
+        }
+    }
 
     cudaEvent_t& get() noexcept
     {
