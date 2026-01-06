@@ -47,50 +47,83 @@ void test_in_place_receive_threads(ghex::context& ctxt);
 
 TEST_F(mpi_test_fixture, domain_descriptor)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+    try {
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
-    if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
+        if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
+    } catch (std::runtime_error const& e) {
+        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        } else {
+            throw e;
+        }
+    }
 }
 
 TEST_F(mpi_test_fixture, pattern_setup)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-    if (world_size == 4) { test_pattern_setup(ctxt); }
-    else if (world_size == 2)
-    {
-        test_pattern_setup_oversubscribe(ctxt);
-        test_pattern_setup_oversubscribe_asymm(ctxt);
+    try {
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+        if (world_size == 4) { test_pattern_setup(ctxt); }
+        else if (world_size == 2)
+        {
+            test_pattern_setup_oversubscribe(ctxt);
+            test_pattern_setup_oversubscribe_asymm(ctxt);
+        }
+    } catch (std::runtime_error const& e) {
+        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        } else {
+            throw e;
+        }
     }
 }
 
 TEST_F(mpi_test_fixture, data_descriptor)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+    try {
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
-    if (world_size == 4)
-    {
-        test_data_descriptor(ctxt, 1, true);
-        test_data_descriptor(ctxt, 3, true);
-        test_data_descriptor(ctxt, 1, false);
-        test_data_descriptor(ctxt, 3, false);
-    }
-    else if (world_size == 2)
-    {
-        test_data_descriptor_oversubscribe(ctxt);
-        if (thread_safe) test_data_descriptor_threads(ctxt);
+        if (world_size == 4)
+        {
+            test_data_descriptor(ctxt, 1, true);
+            test_data_descriptor(ctxt, 3, true);
+            test_data_descriptor(ctxt, 1, false);
+            test_data_descriptor(ctxt, 3, false);
+        }
+        else if (world_size == 2)
+        {
+            test_data_descriptor_oversubscribe(ctxt);
+            if (thread_safe) test_data_descriptor_threads(ctxt);
+        }
+    } catch (std::runtime_error const& e) {
+        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        } else {
+            throw e;
+        }
     }
 }
 
 TEST_F(mpi_test_fixture, data_descriptor_async)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-
-    if (world_size == 4)
+    try
     {
-        test_data_descriptor_async(ctxt, 1, true);
-        test_data_descriptor_async(ctxt, 3, true);
-        test_data_descriptor_async(ctxt, 1, false);
-        test_data_descriptor_async(ctxt, 3, false);
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+
+        if (world_size == 4)
+        {
+            test_data_descriptor_async(ctxt, 1, true);
+            test_data_descriptor_async(ctxt, 3, true);
+            test_data_descriptor_async(ctxt, 1, false);
+            test_data_descriptor_async(ctxt, 3, false);
+        }
+    } catch (std::runtime_error const& e) {
+        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        } else {
+            throw e;
+        }
     }
 }
 
@@ -361,10 +394,10 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     // Check exchanged data. Because on CPU everything is synchronous we do not
     //  synchronize on the stream.
     check_exchanged_data(d, field, patterns[0], levels, levels_first);
-#endif
 
     co.complete_schedule_exchange();
     ASSERT_FALSE(co.has_scheduled_exchange());
+#endif
 
     // ----- GPU -----
     cudaStream_t stream;

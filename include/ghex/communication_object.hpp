@@ -490,11 +490,9 @@ class communication_object
             m_comm.start_group();
             post_recvs();
             post_sends();
-            m_comm.end_group(); // TODO: Return request/event?
+            m_comm.end_group();
 
-            // TODO: Move this to wait? Want it here for NCCL, in wait for MPI?
             unpack();
-            // schedule_sync_unpack in wait
         }
         else
         {
@@ -503,9 +501,7 @@ class communication_object
             m_comm.start_group();
             post_recvs();
             post_sends();
-            m_comm.end_group(); // TODO: Return request/event?
-
-            // Leave unpacking to wait
+            m_comm.end_group();
         }
 
         return {this};
@@ -982,10 +978,7 @@ class communication_object
         if (!m_comm.is_stream_aware())
         {
             // wait for data to arrive and unpack (unpack will not be called through callback)
-            // TODO: Or use callback with non-stream-aware communicators?
             m_comm.wait_all();
-
-             // Trigger unpacking once receives have finished.
             unpack();
         }
 #ifdef GHEX_CUDACC
@@ -1005,15 +998,11 @@ class communication_object
         if (!m_comm.is_stream_aware())
         {
             // wait for data to arrive and unpack (unpack will not be called through callback)
-            // TODO: Or use callback with non-stream-aware communicators?
             m_comm.wait_all();
-
-             // Trigger unpacking once receives have finished.
             unpack();
-
-            // Schedule a wait.
-            schedule_sync_unpack(stream);
         }
+
+        schedule_sync_unpack(stream);
 
         // NOTE: We do not call `clear()` here, because the memory might still be
         //	in use. Instead we call `clear()` in the next `schedule_exchange()`
