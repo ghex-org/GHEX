@@ -21,7 +21,7 @@ namespace device
 struct stream
 {
     // default construct
-    stream() {}
+    stream() = default;
     stream(bool) {}
 
     // non-copyable
