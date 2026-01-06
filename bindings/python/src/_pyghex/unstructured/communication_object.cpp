@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdint>
+#include <sstream>
 
 #include <gridtools/common/for_each.hpp>
 
@@ -29,23 +30,23 @@ namespace unstructured
 {
 namespace
 {
-#ifdef GHEX_CUDACC
+#if defined(GHEX_CUDACC)
 cudaStream_t
-extract_cuda_stream(pybind11::object py_stream)
+extract_cuda_stream(pybind11::object python_stream)
 {
     static_assert(std::is_pointer<cudaStream_t>::value);
-    if (py_stream.is_none())
+    if (python_stream.is_none())
     {
-        //NOTE: This is very C++ like, maybe remove and consider as an error?
+        // NOTE: This is very C++ like, maybe remove and consider as an error?
         return static_cast<cudaStream_t>(nullptr);
     }
     else
     {
-        if (pybind11::hasattr(py_stream, "__cuda_stream__"))
+        if (pybind11::hasattr(python_stream, "__cuda_stream__"))
         {
-            //CUDA stream protocol: https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol
+            // CUDA stream protocol: https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol
             pybind11::tuple cuda_stream_protocol =
-                pybind11::getattr(py_stream, "__cuda_stream__")();
+                pybind11::getattr(python_stream, "__cuda_stream__")();
             if (cuda_stream_protocol.size() != 2)
             {
                 std::stringstream error;
@@ -61,24 +62,23 @@ extract_cuda_stream(pybind11::object py_stream)
                 error << "Expected `__cuda_stream__` protocol version 0, but got "
                       << protocol_version;
                 throw pybind11::type_error(error.str());
-            };
+            }
 
-            //Is allowed to be `0`.
             const auto stream_address = cuda_stream_protocol[1].cast<std::uintptr_t>();
             return reinterpret_cast<cudaStream_t>(stream_address);
         }
-        else if (pybind11::hasattr(py_stream, "ptr"))
+        else if (pybind11::hasattr(python_stream, "ptr"))
         {
             // CuPy stream: See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
-            std::uintptr_t stream_address = py_stream.attr("ptr").cast<std::uintptr_t>();
+            std::uintptr_t stream_address = python_stream.attr("ptr").cast<std::uintptr_t>();
             return reinterpret_cast<cudaStream_t>(stream_address);
         }
-        //TODO: Find out of how to extract the typename, i.e. `type(py_stream).__name__`.
+        // TODO: Find out of how to extract the typename, i.e. `type(python_stream).__name__`.
         std::stringstream error;
         error << "Failed to convert the stream object into a CUDA stream.";
         throw pybind11::type_error(error.str());
-    };
-};
+    }
+}
 #endif
 } // namespace
 
@@ -102,10 +102,11 @@ register_communication_object(pybind11::module& m)
 
             _handle
                 .def("wait", &handle::wait)
-#ifdef GHEX_CUDACC
+#if defined(GHEX_CUDACC)
                 .def(
-                    "schedule_wait", [](typename type::handle_type& h, pybind11::object py_stream)
-                    { return h.schedule_wait(extract_cuda_stream(py_stream)); },
+                    "schedule_wait",
+                    [](typename type::handle_type& h, pybind11::object python_stream)
+                    { return h.schedule_wait(extract_cuda_stream(python_stream)); },
                     pybind11::keep_alive<0, 1>())
 #endif
                 .def("is_ready", &handle::is_ready)
@@ -134,12 +135,11 @@ register_communication_object(pybind11::module& m)
                             [](type& co, buffer_info_type& b0, buffer_info_type& b1,
                                 buffer_info_type& b2) { return co.exchange(b0, b1, b2); },
                             pybind11::keep_alive<0, 1>())
-#ifdef GHEX_CUDACC
+#if defined(GHEX_CUDACC)
                         .def(
                             "schedule_exchange",
-                            [](type& co,
-                                //This should be okay with reference counting?
-                                pybind11::object python_stream, std::vector<buffer_info_type> b) {
+                            [](type& co, pybind11::object python_stream,
+                                std::vector<buffer_info_type> b) {
                                 return co.schedule_exchange(extract_cuda_stream(python_stream),
                                     b.begin(), b.end());
                             },
@@ -169,7 +169,11 @@ register_communication_object(pybind11::module& m)
                             },
                             pybind11::keep_alive<0, 1>(), pybind11::arg("stream"),
                             pybind11::arg("b0"), pybind11::arg("b1"), pybind11::arg("b2"))
-#endif
+                        .def("complete_schedule_exchange",
+                            [](type& co) -> void { return co.complete_schedule_exchange(); })
+                        .def("has_scheduled_exchange",
+                            [](type& co) -> bool { return co.has_scheduled_exchange(); })
+#endif // end scheduled exchange
                         ;
                 });
 
