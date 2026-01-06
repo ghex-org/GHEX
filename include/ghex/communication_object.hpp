@@ -236,7 +236,7 @@ class communication_object
 
 #if defined(GHEX_CUDACC) // TODO: Should we switch to `GHEX_USE_GPU`?
     // This event records if there was a previous call to `schedule_wait()`. To
-    //  avoid strange error conditions, we do not use an event from the pool.
+    // avoid strange error conditions, we do not use an event from the pool.
     device::cuda_event  m_last_scheduled_exchange;
     device::cuda_event* m_active_scheduled_exchange{nullptr};
 #endif
@@ -271,41 +271,26 @@ class communication_object
     template<typename... Archs, typename... Fields>
     [[nodiscard]] handle_type exchange(buffer_info_type<Archs, Fields>... buffer_infos)
     {
-        std::cerr << "Using main exchange overload\n";
-        std::cerr
-            << "not using user-provided stream, assuming safe to start exchange immediately\n";
-
         complete_schedule_exchange();
         prepare_exchange_buffers(buffer_infos...);
+        pack();
 
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+
+        // When stream-aware, schedule everything in one go. Otherwise leave
+        // unpacking to wait.
         if (m_comm.is_stream_aware())
         {
-            // Schedule everything in one go
-            // Skip synchronizing with user-provided stream, none provided
-            // TODO: Unify implementations
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-
             unpack();
-        }
-        else
-        {
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
         }
 
         return {this};
     }
 
-#if defined(GHEX_CUDACC) // TODO
+#if defined(GHEX_CUDACC)
     /** @brief	Start a synchronized exchange.
      *
      * This function is similar to `exchange()` but it has some important (semantic)
@@ -328,37 +313,22 @@ class communication_object
     [[nodiscard]] handle_type schedule_exchange(cudaStream_t stream,
         buffer_info_type<Archs, Fields>... buffer_infos)
     {
-        std::cerr << "Using main schedule_exchange overload\n";
-        std::cerr << "stream is " << stream << "\n";
 
         complete_schedule_exchange();
-
-        // allocate memory, probably for the receiving buffers
         prepare_exchange_buffers(buffer_infos...);
+        schedule_sync_pack(stream);
+        pack();
 
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+
+        // When stream-aware, schedule everything in one go. Otherwise leave
+        // unpacking to wait.
         if (m_comm.is_stream_aware())
         {
-            // Schedule everything in one go
-            schedule_sync_pack(stream);
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-
             unpack();
-        }
-        else
-        {
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-
-            // Leave unpacking to wait
         }
 
         return {this};
@@ -370,27 +340,19 @@ class communication_object
     {
         complete_schedule_exchange();
         prepare_exchange_buffers(std::make_pair(std::move(first), std::move(last)));
+        schedule_sync_pack(stream);
+        pack();
 
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+
+	// When stream-aware, schedule everything in one go. Otherwise leave
+	// unpacking to wait.
         if (m_comm.is_stream_aware())
         {
-            schedule_sync_pack(stream);
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-
             unpack();
-        }
-        else
-        {
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
         }
 
         return {this};
@@ -418,7 +380,7 @@ class communication_object
     void complete_schedule_exchange()
     {
 #if defined(GHEX_CUDACC)
-        if (m_active_scheduled_exchange)
+        if (has_scheduled_exchange())
         {
             // NOTE: In order for this to work the call below must be safe even in the case
             // when the stream, that was passed to `schedule_wait()` has been destroyed.
@@ -473,35 +435,20 @@ class communication_object
     template<typename... Iterators>
     [[nodiscard]] handle_type exchange(std::pair<Iterators, Iterators>... iter_pairs)
     {
-        std::cerr << "Using private iter pairs exchange overload\n";
-        std::cerr
-            << "not using user-provided stream, assuming safe to start exchange immediately\n";
-
         complete_schedule_exchange();
         prepare_exchange_buffers(iter_pairs...);
+        pack();
 
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+
+	// When stream-aware, schedule everything in one go. Otherwise leave
+	// unpacking to wait.
         if (m_comm.is_stream_aware())
         {
-            // Schedule everything in one go
-            // Skip synchronizing with user-provided stream, none provided
-            // TODO: Unify implementations
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-
             unpack();
-        }
-        else
-        {
-            pack();
-
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
         }
 
         return {this};
