@@ -335,8 +335,7 @@ class communication_object
       */
     bool has_scheduled_exchange() const noexcept
     {
-        if (m_active_scheduled_exchange) { return true; };
-        return false;
+    	    return m_active_scheduled_exchange != nullptr;
     }
 #endif
 
@@ -356,9 +355,9 @@ class communication_object
         if (m_active_scheduled_exchange)
         {
             // NOTE: In order for this to work the call below must be safe even in the case
-            //  when the stream, that was passed to `schedule_wait()` has been destroyed.
-            //  The CUDA documentation is a bit unclear in that regard, but this should
-            //  be the case.
+            // when the stream, that was passed to `schedule_wait()` has been destroyed.
+            // The CUDA documentation is a bit unclear in that regard, but this should
+            // be the case.
             m_active_scheduled_exchange = nullptr; // must happen before the check
             GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_last_scheduled_exchange.get()));
 
@@ -367,7 +366,7 @@ class communication_object
             clear();
         }
 #endif
-    };
+    }
 
     /** @brief  non-blocking exchange of halo data
                   * @tparam Iterator Iterator type to range of buffer_info objects
@@ -633,7 +632,7 @@ class communication_object
      * However, the function will not return until the sending has been
      * initiated (subject to change).
      */
-    void pack_and_send(cudaStream_t stream) { pack_and_send_impl<true>(stream); };
+    void pack_and_send(cudaStream_t stream) { pack_and_send_impl<true>(stream); }
 #endif
 
     template<bool UseAsyncStream, typename... StreamType>

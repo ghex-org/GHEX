@@ -214,7 +214,7 @@ register_field_descriptor(pybind11::module& m)
                                          " dimension expected the stride to be "
                                       << sizeof(T) << " but got " << info.strides[0] << ".";
                                 throw pybind11::type_error(error.str());
-                            };
+                            }
                         }
                         std::size_t levels = (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
 

@@ -21,13 +21,13 @@ namespace device
 struct event_pool
 {
   public: // constructors
-    event_pool(std::size_t) {};
+    event_pool(std::size_t) = default;
     event_pool(const event_pool&) = delete;
     event_pool& operator=(const event_pool&) = delete;
     event_pool(event_pool&& other) noexcept = default;
     event_pool& operator=(event_pool&&) noexcept = default;
 
-    void rewind() {};
+    void rewind() {}
     void clear() {}
 };
 } // namespace device

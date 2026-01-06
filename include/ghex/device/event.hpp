@@ -20,12 +20,16 @@ namespace device
 {
 struct cuda_event
 {
-    cuda_event() {};
+    cuda_event() noexcept = default;
     cuda_event(const cuda_event&) = delete;
     cuda_event& operator=(const cuda_event&) = delete;
     cuda_event(cuda_event&& other) noexcept = default;
     cuda_event& operator=(cuda_event&&) noexcept = default;
     ~cuda_event() noexcept = default;
+
+    // By returning `true` we emulate the behaviour of a
+    // CUDA `stream` that has been moved.
+    constexpr bool const noexcept { return true; }
 };
 
 } // namespace device

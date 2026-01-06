@@ -13,7 +13,7 @@
 #include <ghex/device/cuda/error.hpp>
 #include <ghex/device/cuda/runtime.hpp>
 #include <ghex/util/moved_bit.hpp>
-#include <assert.h>
+#include <cassert>
 #include <memory>
 #include <vector>
 
@@ -39,6 +39,7 @@ struct stream
         if (!m_moved) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaStreamDestroy(m_stream)) }
     }
 
+    //! Returns `true` is `*this` has been moved, i.e. is no longer a usable stream.
     operator bool() const noexcept { return m_moved; }
 
     operator cudaStream_t() const noexcept

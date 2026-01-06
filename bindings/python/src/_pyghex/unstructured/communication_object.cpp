@@ -62,7 +62,7 @@ extract_cuda_stream(pybind11::object python_stream)
                 error << "Expected `__cuda_stream__` protocol version 0, but got "
                       << protocol_version;
                 throw pybind11::type_error(error.str());
-            };
+            }
 
             const auto stream_address = cuda_stream_protocol[1].cast<std::uintptr_t>();
             return reinterpret_cast<cudaStream_t>(stream_address);
@@ -77,8 +77,8 @@ extract_cuda_stream(pybind11::object python_stream)
         std::stringstream error;
         error << "Failed to convert the stream object into a CUDA stream.";
         throw pybind11::type_error(error.str());
-    };
-};
+    }
+}
 #endif
 } // namespace
 

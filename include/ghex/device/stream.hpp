@@ -32,6 +32,10 @@ struct stream
     stream(stream&& other) noexcept = default;
     stream& operator=(stream&&) noexcept = default;
 
+    // By returning `true` we emulate the behaviour of a
+    // CUDA `stream` that has been moved.
+    constexpr bool const noexcept { return true; }
+
     void sync() {}
 };
 } // namespace device

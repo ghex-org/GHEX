@@ -14,7 +14,7 @@
 #include <ghex/device/cuda/runtime.hpp>
 #include <ghex/device/cuda/event.hpp>
 #include <ghex/util/moved_bit.hpp>
-#include <assert.h>
+#include <cassert>
 #include <memory>
 #include <vector>
 
@@ -48,7 +48,7 @@ struct event_pool
   public: // constructors
     event_pool(std::size_t expected_pool_size)
     : m_events(expected_pool_size) // Initialize events now.
-    , m_next_event(0) {};
+    , m_next_event(0) {}
 
     event_pool(const event_pool&) = delete;
     event_pool& operator=(const event_pool&) = delete;
@@ -65,13 +65,13 @@ struct event_pool
     cuda_event& get_event()
     {
         assert(!m_moved);
-        while (!(m_next_event < m_events.size())) { m_events.emplace_back(cuda_event()); };
+        while (!(m_next_event < m_events.size())) { m_events.emplace_back(cuda_event()); }
 
         const std::size_t event_to_use = m_next_event;
         assert(!bool(m_events[event_to_use]));
         m_next_event += 1;
         return m_events[event_to_use];
-    };
+    }
 
     /** @brief	Mark all events in the pool as unused.
 	 *
@@ -83,9 +83,9 @@ struct event_pool
 	 */
     void rewind()
     {
-        if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); };
+        if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); }
         m_next_event = 0;
-    };
+    }
 
     /** @brief	Clear the pool by recreating all events.
 	 *
@@ -96,13 +96,13 @@ struct event_pool
 	 */
     void clear()
     {
-        if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); };
+        if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); }
 
         // NOTE: If an event is still enqueued somewhere, the CUDA runtime
         //	will made sure that it is kept alive as long as it is still used.
         m_events.clear();
         m_next_event = 0;
-    };
+    }
 };
 
 } // namespace device
