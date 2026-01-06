@@ -333,10 +333,7 @@ class communication_object
       * Calling this function only makes sense after `schedule_wait()`
       * has been called on the handler returned by `schedule_exchange()`.
       */
-    bool has_scheduled_exchange() const noexcept
-    {
-    	    return m_active_scheduled_exchange != nullptr;
-    }
+    bool has_scheduled_exchange() const noexcept { return m_active_scheduled_exchange != nullptr; }
 #endif
 
     /**

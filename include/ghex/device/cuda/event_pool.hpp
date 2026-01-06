@@ -48,7 +48,9 @@ struct event_pool
   public: // constructors
     event_pool(std::size_t expected_pool_size)
     : m_events(expected_pool_size) // Initialize events now.
-    , m_next_event(0) {}
+    , m_next_event(0)
+    {
+    }
 
     event_pool(const event_pool&) = delete;
     event_pool& operator=(const event_pool&) = delete;
