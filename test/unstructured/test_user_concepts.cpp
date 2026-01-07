@@ -394,7 +394,6 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     // application data
     auto&                         d = local_domains[0];
     ghex::test::util::memory<int> field(d.size() * levels, 0);
-#if 0 // These tests can't be run with NCCL. How to detect?
     initialize_data(d, field, levels, levels_first);
     data_descriptor_cpu_int_type data{d, field, levels, levels_first};
 
@@ -416,7 +415,6 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
 
     co.complete_schedule_exchange();
     ASSERT_FALSE(co.has_scheduled_exchange());
-#endif
 
     // ----- GPU -----
     cudaStream_t stream;
