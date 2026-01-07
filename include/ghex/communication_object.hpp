@@ -635,8 +635,6 @@ class communication_object
                                     p1.second.size, device_id);
                             }
 
-                            // TODO: Not using callback that was set up on buffer.
-                            // Ok? Remove callback if not used.
                             device::guard g(p1.second.buffer);
                             packer<arch_type>::pack(p1.second, g.data());
                         }
@@ -645,11 +643,72 @@ class communication_object
             });
     }
 
-    /** \brief	Non synchronizing version of `post_recvs()`.
+    void post_sends()
+    {
+        for_each(m_mem,
+            [this](std::size_t, auto& map)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
+
+		// If a communicator is stream aware the send will be scheduled on the same stream
+		// as the packing. If a communicator isn't stream-aware and we're dealing with GPU
+		// memory, we wait for each packing kernel to finish and trigger the send as soon as
+		// possible.
+#ifdef GHEX_CUDACC
+                if (!m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
+                {
+                    using send_buffer_type =
+                    typename std::remove_reference_t<decltype(map)>::send_buffer_type;
+                    using future_type = device::future<send_buffer_type*>;
+                    std::vector<future_type> stream_futures;
+
+                    for (auto& p0 : map.send_memory)
+                    {
+                        for (auto& p1 : p0.second)
+                        {
+                            if (p1.second.size > 0u)
+                            {
+                                stream_futures.push_back(
+                                    future_type{&(p1.second), p1.second.m_stream});
+                            }
+                        }
+                    }
+
+                    await_futures(stream_futures, [this](send_buffer_type* b)
+                        { m_send_reqs.push_back(m_comm.send(b->buffer, b->rank, b->tag,
+                              [](context::message_type&, context::rank_type, context::tag_type) {}));
+                        });
+                }
+                else
+#endif
+                {
+                    for (auto& p0 : map.send_memory)
+                    {
+                        for (auto& p1 : p0.second)
+                        {
+                            if (p1.second.size > 0u)
+                            {
+                                auto& ptr = p1.second;
+                                assert(ptr.buffer);
+                                m_send_reqs.push_back(m_comm.send(
+                                    ptr.buffer, ptr.rank, ptr.tag,
+                                    [](context::message_type&, context::rank_type, context::tag_type) {}
+#ifdef GHEX_CUDACC
+                                        , static_cast<void*>(p1.second.m_stream.get()
+#endif
+                                   )));
+                           }
+                       }
+                   }
+               }
+           });
+    }
+
+    /** \brief Posts receives without blocking.
      *
-     * Create the receives requests and also _register_ the unpacker
-     * callbacks. The function will return after the receives calls
-     * have been posted.
+     * Creates messages and posts receives for all memory types. Returns
+     * immediately after posting receives without waiting for receives to
+     * complete.
      */
     void post_recvs()
     {
@@ -663,86 +722,7 @@ class communication_object
                     for (auto& p1 : p0.second)
                     {
                         if (p1.second.size > 0u)
-//                         {
-//                             if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
-// #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-//                                 || p1.second.buffer.device_id() != device_id
-// #endif
-//                             )
-//                                 p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
-//                                     p1.second.size, device_id);
-//                             auto ptr = &p1.second;
-//                             // use callbacks for unpacking
-//                             // TODO: Reserve space in vector?
-//                             m_recv_reqs.push_back(
-//                                 m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
-//                                     [ptr](context::message_type& m, context::rank_type,
-//                                         context::tag_type)
-//                                     {
-//                                         device::guard g(m);
-//                                         packer<arch_type>::unpack(*ptr, g.data());
-//                                     }));
-//                         }
-//                     }
-//                 }
-//             });
-//     }
-// 
-//     /** \brief	Non synchronizing variant of `pack_and_send()`.
-//      *
-//      * The function will collect copy the halos into a continuous buffers
-//      * and send them to the destination.
-//      * It is important that the function will start packing immediately
-//      * and only return once the packing has been completed and the sending
-//      * request has been posted.
-//      */
-//     void pack_and_send() { pack_and_send_impl<false>(); }
-// 
-// #ifdef GHEX_CUDACC
-//     /** \brief	Synchronizing variant of `pack_and_send()`.
-//      *
-//      * As its non synchronizing version, the function packs the halos into
-//      * continuous buffers and starts sending them. The main difference is
-//      * that the function will not pack immediately, instead it will wait
-//      * until all work, that has been submitted to `stream` has finished.
-//      * However, the function will not return until the sending has been
-//      * initiated (subject to change).
-//      */
-//     void pack_and_send(cudaStream_t stream) { pack_and_send_impl<true>(stream); };
-// #endif
-// 
-//     template<bool UseAsyncStream, typename... StreamType>
-//     void pack_and_send_impl(StreamType&&... sync_streams)
-//     {
-//         static_assert(
-//             UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
-//         for_each(m_mem,
-//             [this, sync_streams...](std::size_t, auto& m)
-//             {
-//                 using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-// #ifdef GHEX_CUDACC
-//                 if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
-//                 {
-//                     //Put an event on the stream on which the packing is supposed to wait.
-//                     //NOTE: Currently only works for one stream because an event can only
-//                     //	be recorded to a single stream.
-//                     static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
-//                     device::cuda_event& sync_event = m_event_pool.get_event();
-//                     auto record_capturer = [&sync_event](cudaStream_t stream) -> std::uintptr_t
-//                     {
-//                         //TODO: Is a device guard needed here? What should be the memory?
-//                         sync_event.record(stream);
-//                         return (std::uintptr_t)stream;
-//                     };
-//                     const std::uintptr_t unused_variable_for_expansion[] = {
-//                         record_capturer(sync_streams)...};
-//                     (void)unused_variable_for_expansion;
-// 
-//                     for (auto& p0 : m.send_memory)
-//                     {
-//                         for (auto& p1 : p0.second)
                         {
-                            // TODO: Always false? Set up in packing phase?
                             if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
                                 || p1.second.buffer.device_id() != device_id
@@ -751,116 +731,46 @@ class communication_object
                             {
                                 p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
                                     p1.second.size, device_id);
-//                                 //Add the event to any stream that is used for packing. Thus any packing is
-//                                 //postponed after the work, that was scheduled on `stream` has concluded.
-//                                 //NOTE: If a device guard here leads to a segmentation fault.
-//                                 GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(),
-//                                     sync_event.get()));
                             }
 
-                            auto& ptr = p1.second;
-                            // TODO: Reserve space in vector?
-                            // TODO: Don't use oomph callbacks to trigger
-                            // unpacking, good idea? Necessary for NCCL, but may be
-                            // suboptimal for MPI.
-                            // TODO: Split into stream aware and non-stream aware
-                            m_recv_reqs.push_back(m_comm.recv(
-                                ptr.buffer, ptr.rank, ptr.tag,
-                                [](context::message_type&, context::rank_type, context::tag_type) {},
-                                static_cast<void*>(p1.second.m_stream.get())));
+                            auto ptr = &p1.second;
+
+			    // If a communicator is stream-aware unpacking will be triggered
+			    // separately by scheduling it on the same stream as the receive. If a
+			    // communicator isn't stream-aware we do unpacking in a callback so that
+			    // it can be triggered as soon as possible instead of having to wait for
+			    // all receives to complete before starting any unpacking.
+                            // TODO:
+                            // if (m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>) {
+                            if (m_comm.is_stream_aware()) {
+                                m_recv_reqs.push_back(m_comm.recv(
+                                    ptr->buffer, ptr->rank, ptr->tag,
+                                    [](context::message_type&, context::rank_type, context::tag_type) {}
+#if defined(GHEX_CUDACC)        
+                                    , static_cast<void*>(p1.second.m_stream.get())
+#endif
+                                    ));
+                            } else {
+                                m_recv_reqs.push_back(m_comm.recv(
+                                    ptr->buffer, ptr->rank, ptr->tag,
+                                    [ptr](context::message_type& m, context::rank_type, context::tag_type) {
+                                            device::guard g(m);
+                                            packer<arch_type>::unpack(*ptr, g.data());
+                                    }
+#if defined(GHEX_CUDACC)        
+                                    , static_cast<void*>(p1.second.m_stream.get())
+#endif
+                                    ));
+                            }
                         }
                     }
                 }
             });
     }
 
-    void post_sends()
-    {
-        // TODO: Add dependency on packing, but only for NCCL.
-#ifdef GHEX_CUDACC
-        if (m_comm.is_stream_aware())
-        {
-            // Schedule send without waiting for packing
-            for_each(m_mem,
-                [this](std::size_t, auto& map)
-                {
-                    using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
-                    // TODO: CPU skipped? Throw?
-                    if constexpr (std::is_same_v<arch_type, gpu>)
-                    {
-                        for (auto& p0 : map.send_memory)
-                        {
-                            for (auto& p1 : p0.second)
-                            {
-                                if (p1.second.size > 0u)
-                                {
-                                    // TODO: Good idea to assume that streams are pointers?
-                                    // Pass void* because of type-erased interface.
-                                    auto& ptr = p1.second;
-                                    assert(ptr.buffer);
-                                    m_send_reqs.push_back(m_comm.send(
-                                        ptr.buffer, ptr.rank, ptr.tag,
-                                        [](context::message_type&, context::rank_type, context::tag_type) {},
-                                        static_cast<void*>(p1.second.m_stream.get())));
-                                }
-                            }
-                        }
-                    }
-                });
-        }
-        else
-#endif
-        {
-            assert(false);
-            // TODO: Handle CPU and GPU memory differently.
-            for_each(m_mem,
-                [this](std::size_t, auto& map)
-                {
-                    using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
-                    using send_buffer_type =
-                        typename std::remove_reference_t<decltype(map)>::send_buffer_type;
-                    using future_type = device::future<send_buffer_type*>;
-                    std::vector<future_type> stream_futures;
-
-                    // TODO: Factor out into specialized overloads/class. But not
-                    // in packer, so that packer can focus on packing.
-                    if constexpr (std::is_same_v<arch_type, gpu>)
-                    {
-                        for (auto& p0 : map.send_memory)
-                        {
-                            for (auto& p1 : p0.second)
-                            {
-                                if (p1.second.size > 0u)
-                                {
-                                    stream_futures.push_back(
-                                        future_type{&(p1.second), p1.second.m_stream});
-                                }
-                            }
-                        }
-
-                        await_futures(stream_futures, [this](send_buffer_type* b)
-                            { m_send_reqs.push_back(m_comm.send(b->buffer, b->rank, b->tag)); });
-                    }
-                    else
-                    {
-                        for (auto& p0 : map.send_memory)
-                        {
-                            for (auto& p1 : p0.second)
-                            {
-                                if (p1.second.size > 0u)
-                                {
-                                    m_send_reqs.push_back(m_comm.send(p1.second.buffer,
-                                        p1.second.rank, p1.second.tag));
-                                }
-                            }
-                        }
-                    }
-                });
-        }
-    }
-
     void unpack()
     {
+        // TODO: Stream-aware with CPU memory? Correctly handled?
         for_each(m_mem,
             [this](std::size_t, auto& m)
             {
@@ -873,12 +783,7 @@ class communication_object
                         if (p1.second.size > 0u)
                         {
                             auto ptr = &p1.second;
-                            // TODO: Reserve space in vector?
-                            // TODO: Don't use oomph callbacks to trigger
-                            // unpacking, good idea? Necessary for NCCL, but may be
-                            // suboptimal for MPI.
-                            // m_recv_reqs.push_back(m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag));
-                            device::guard g(p1.second.buffer);
+                            device::guard g(ptr->buffer);
                             packer<arch_type>::unpack(*ptr, g.data());
                         }
                     }
@@ -924,7 +829,6 @@ class communication_object
         // the same stream as the receives, no need to do it again.
         if (!m_comm.is_stream_aware())
         {
-            // wait for data to arrive and unpack (unpack will not be called through callback)
             m_comm.wait_all();
             unpack();
         }
@@ -944,7 +848,7 @@ class communication_object
         // the same stream as the recvs, no need to do it again.
         if (!m_comm.is_stream_aware())
         {
-            // wait for data to arrive and unpack (unpack will not be called through callback)
+            // wait for data to arrive and unpack
             m_comm.wait_all();
             unpack();
         }
