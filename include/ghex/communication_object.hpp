@@ -12,7 +12,6 @@
 #include <ghex/config.hpp>
 #include <ghex/context.hpp>
 #include <ghex/util/for_each.hpp>
-#include <ghex/util/moved_bit.hpp>
 #include <ghex/util/test_eq.hpp>
 #include <ghex/pattern_container.hpp>
 #include <ghex/device/stream.hpp>
@@ -246,8 +245,6 @@ class communication_object
     : m_valid(false)
     , m_comm(c.transport_context()->get_communicator())
     {
-        std::cerr << "initializing communication_object with context.get_transport_option "
-                  << c.transport_context()->get_transport_option("name") << "\n";
     }
     communication_object(const communication_object&) = delete;
     communication_object(communication_object&&) = default;
