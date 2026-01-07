@@ -308,7 +308,6 @@ class communication_object
     [[nodiscard]] handle_type schedule_exchange(cudaStream_t stream,
         buffer_info_type<Archs, Fields>... buffer_infos)
     {
-
         complete_schedule_exchange();
         prepare_exchange_buffers(buffer_infos...);
         schedule_sync_pack(stream);
@@ -630,16 +629,16 @@ class communication_object
             {
                 using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
 
-		// If a communicator isn't stream-aware and we're dealing with GPU memory, we wait
-		// for each packing kernel to finish and trigger the send as soon as possible. if a
-		// communicator is stream-aware or we're dealing with CPU memory we trigger sends
-		// immediately (for stream-aware GPU memory the packing has been scheduled on a
-		// stream and for CPU memory the packing is blocking and has already completed).
+            // If a communicator isn't stream-aware and we're dealing with GPU memory, we wait
+            // for each packing kernel to finish and trigger the send as soon as possible. if a
+            // communicator is stream-aware or we're dealing with CPU memory we trigger sends
+            // immediately (for stream-aware GPU memory the packing has been scheduled on a
+            // stream and for CPU memory the packing is blocking and has already completed).
 #ifdef GHEX_CUDACC
                 if (!m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
                 {
                     using send_buffer_type =
-                    typename std::remove_reference_t<decltype(map)>::send_buffer_type;
+                        typename std::remove_reference_t<decltype(map)>::send_buffer_type;
                     using future_type = device::future<send_buffer_type*>;
                     std::vector<future_type> stream_futures;
 
@@ -655,9 +654,12 @@ class communication_object
                         }
                     }
 
-                    await_futures(stream_futures, [this](send_buffer_type* b)
-                        { m_send_reqs.push_back(m_comm.send(b->buffer, b->rank, b->tag,
-                              [](context::message_type&, context::rank_type, context::tag_type) {}));
+                    await_futures(stream_futures,
+                        [this](send_buffer_type* b)
+                        {
+                            m_send_reqs.push_back(m_comm.send(b->buffer, b->rank, b->tag,
+                                [](context::message_type&, context::rank_type, context::tag_type) {
+                                }));
                         });
                 }
                 else
@@ -673,16 +675,18 @@ class communication_object
                                 assert(ptr.buffer);
                                 m_send_reqs.push_back(m_comm.send(
                                     ptr.buffer, ptr.rank, ptr.tag,
-                                    [](context::message_type&, context::rank_type, context::tag_type) {}
+                                    [](context::message_type&, context::rank_type,
+                                        context::tag_type) {}
 #ifdef GHEX_CUDACC
-                                        , static_cast<void*>(p1.second.m_stream.get()
+                                    ,
+                                    static_cast<void*>(p1.second.m_stream.get()
 #endif
-                                   )));
-                           }
-                       }
-                   }
-               }
-           });
+                                            )));
+                            }
+                        }
+                    }
+                }
+            });
     }
 
     /** \brief Posts receives without blocking.
@@ -716,32 +720,40 @@ class communication_object
 
                             auto ptr = &p1.second;
 
-			    // If a communicator is stream-aware and we're dealing with GPU memory
-			    // unpacking will be triggered separately by scheduling it on the same
-			    // stream as the receive. If a communicator isn't stream-aware or we're
-			    // dealing with CPU memory (for which unpacking doesn't happen on a
-			    // stream) we do unpacking in a callback so that it can be triggered as
-			    // soon as possible instead of having to wait for all receives to
-			    // complete before starting any unpacking.
-                            if (m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>) {
+                            // If a communicator is stream-aware and we're dealing with GPU memory
+                            // unpacking will be triggered separately by scheduling it on the same
+                            // stream as the receive. If a communicator isn't stream-aware or we're
+                            // dealing with CPU memory (for which unpacking doesn't happen on a
+                            // stream) we do unpacking in a callback so that it can be triggered as
+                            // soon as possible instead of having to wait for all receives to
+                            // complete before starting any unpacking.
+                            if (m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
+                            {
                                 m_recv_reqs.push_back(m_comm.recv(
                                     ptr->buffer, ptr->rank, ptr->tag,
-                                    [](context::message_type&, context::rank_type, context::tag_type) {}
-#if defined(GHEX_CUDACC)        
-                                    , static_cast<void*>(p1.second.m_stream.get())
+                                    [](context::message_type&, context::rank_type,
+                                        context::tag_type) {}
+#if defined(GHEX_CUDACC)
+                                    ,
+                                    static_cast<void*>(p1.second.m_stream.get())
 #endif
-                                    ));
-                            } else {
+                                        ));
+                            }
+                            else
+                            {
                                 m_recv_reqs.push_back(m_comm.recv(
                                     ptr->buffer, ptr->rank, ptr->tag,
-                                    [ptr](context::message_type& m, context::rank_type, context::tag_type) {
-                                            device::guard g(m);
-                                            packer<arch_type>::unpack(*ptr, g.data());
+                                    [ptr](context::message_type& m, context::rank_type,
+                                        context::tag_type)
+                                    {
+                                        device::guard g(m);
+                                        packer<arch_type>::unpack(*ptr, g.data());
                                     }
-#if defined(GHEX_CUDACC)        
-                                    , static_cast<void*>(p1.second.m_stream.get())
+#if defined(GHEX_CUDACC)
+                                    ,
+                                    static_cast<void*>(p1.second.m_stream.get())
 #endif
-                                    ));
+                                        ));
                             }
                         }
                     }
@@ -763,7 +775,8 @@ class communication_object
                 // If a communicator is stream-aware and we're dealing with GPU memory we can
                 // schedule the unpacking without waiting for receives. In all other cases unpacking
                 // is added as callbacks to the receives (see post_recvs()).
-                if (m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>) {
+                if (m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
+                {
                     for (auto& p0 : m.recv_memory)
                     {
                         const auto device_id = p0.first;
@@ -771,7 +784,7 @@ class communication_object
                         {
                             if (p1.second.size > 0u)
                             {
-                                auto ptr = &p1.second;
+                                auto          ptr = &p1.second;
                                 device::guard g(ptr->buffer);
                                 packer<arch_type>::unpack(*ptr, g.data());
                             }
@@ -844,10 +857,7 @@ class communication_object
         // memory with the same communicator.
         using cpu_mem_t = buffer_memory<cpu>;
         auto& m = std::get<cpu_mem_t>(m_mem);
-        if (!m_comm.is_stream_aware() || !m.recv_memory.empty())
-        {
-            m_comm.wait_all();
-        }
+        if (!m_comm.is_stream_aware() || !m.recv_memory.empty()) { m_comm.wait_all(); }
 
         schedule_sync_unpack(stream);
 

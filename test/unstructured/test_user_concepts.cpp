@@ -47,22 +47,28 @@ void test_in_place_receive_threads(ghex::context& ctxt);
 
 TEST_F(mpi_test_fixture, domain_descriptor)
 {
-    try {
+    try
+    {
         ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
         if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
-    } catch (std::runtime_error const& e) {
-        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw e;
         }
+        else { throw e; }
     }
 }
 
 TEST_F(mpi_test_fixture, pattern_setup)
 {
-    try {
+    try
+    {
         ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
         if (world_size == 4) { test_pattern_setup(ctxt); }
         else if (world_size == 2)
@@ -70,18 +76,23 @@ TEST_F(mpi_test_fixture, pattern_setup)
             test_pattern_setup_oversubscribe(ctxt);
             test_pattern_setup_oversubscribe_asymm(ctxt);
         }
-    } catch (std::runtime_error const& e) {
-        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw e;
         }
+        else { throw e; }
     }
 }
 
 TEST_F(mpi_test_fixture, data_descriptor)
 {
-    try {
+    try
+    {
         ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
         if (world_size == 4)
@@ -96,12 +107,16 @@ TEST_F(mpi_test_fixture, data_descriptor)
             test_data_descriptor_oversubscribe(ctxt);
             if (thread_safe) test_data_descriptor_threads(ctxt);
         }
-    } catch (std::runtime_error const& e) {
-        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw e;
         }
+        else { throw e; }
     }
 }
 
@@ -118,12 +133,16 @@ TEST_F(mpi_test_fixture, data_descriptor_async)
             test_data_descriptor_async(ctxt, 1, false);
             test_data_descriptor_async(ctxt, 3, false);
         }
-    } catch (std::runtime_error const& e) {
-        if (thread_safe && ghex::context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw e;
         }
+        else { throw e; }
     }
 }
 

@@ -19,14 +19,19 @@ TEST_F(mpi_test_fixture, context)
 {
     using namespace ghex;
 
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
-    } catch (std::runtime_error const& e) {
-        if (thread_safe && context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw e;
         }
+        else { throw e; }
     }
 }
 
@@ -35,7 +40,8 @@ TEST_F(mpi_test_fixture, barrier)
 {
     using namespace ghex;
 
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
 
         if (thread_safe)
@@ -58,12 +64,16 @@ TEST_F(mpi_test_fixture, barrier)
             for (int i = 0; i < 4; ++i) threads.push_back(std::thread{use_barrier});
             for (int i = 0; i < 4; ++i) threads[i].join();
         }
-    } catch (std::runtime_error const& e) {
-        if (thread_safe && context(world, false).transport_context()->get_transport_option("name") == std::string("nccl")) {
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        } else {
-            throw e;
         }
+        else { throw e; }
     }
 }
 #endif
