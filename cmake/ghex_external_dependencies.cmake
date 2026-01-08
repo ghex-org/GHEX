@@ -43,8 +43,8 @@ endif()
 # ---------------------------------------------------------------------
 # oomph setup
 # ---------------------------------------------------------------------
-set(GHEX_TRANSPORT_BACKEND "MPI" CACHE STRING "Choose the backend type: MPI | UCX | LIBFABRIC")
-set_property(CACHE GHEX_TRANSPORT_BACKEND PROPERTY STRINGS "MPI" "UCX" "LIBFABRIC")
+set(GHEX_TRANSPORT_BACKEND "MPI" CACHE STRING "Choose the backend type: MPI | UCX | LIBFABRIC | NCCL")
+set_property(CACHE GHEX_TRANSPORT_BACKEND PROPERTY STRINGS "MPI" "UCX" "LIBFABRIC" "NCCL")
 cmake_dependent_option(GHEX_USE_BUNDLED_OOMPH "Use bundled oomph." ON "GHEX_USE_BUNDLED_LIBS" OFF)
 if(GHEX_USE_BUNDLED_OOMPH)
     set(OOMPH_GIT_SUBMODULE OFF CACHE BOOL "")
@@ -53,6 +53,11 @@ if(GHEX_USE_BUNDLED_OOMPH)
         set(OOMPH_WITH_LIBFABRIC ON CACHE BOOL "Build with LIBFABRIC backend")
     elseif(GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
         set(OOMPH_WITH_UCX ON CACHE BOOL "Build with UCX backend")
+    elseif(GHEX_TRANSPORT_BACKEND STREQUAL "NCCL")
+        set(OOMPH_WITH_NCCL ON CACHE BOOL "Build with NCCL backend")
+        if(NOT GHEX_USE_GPU)
+          message(FATAL_ERROR "GHEX_TRANSPORT_BACKEND=NCCL requires GHEX_USE_GPU=ON but GHEX_USE_GPU=OFF")
+        endif()
     endif()
     if(GHEX_USE_GPU)
         set(HWMALLOC_ENABLE_DEVICE ON CACHE BOOL "True if GPU support shall be enabled")
@@ -70,6 +75,9 @@ if(GHEX_USE_BUNDLED_OOMPH)
     if(TARGET oomph_ucx)
         add_library(oomph::oomph_ucx ALIAS oomph_ucx)
     endif()
+    if(TARGET oomph_nccl)
+        add_library(oomph::oomph_nccl ALIAS oomph_nccl)
+    endif()
     if(TARGET oomph_libfabric)
         add_library(oomph::oomph_libfabric ALIAS oomph_libfabric)
     endif()
@@ -82,6 +90,8 @@ function(ghex_link_to_oomph target)
         target_link_libraries(${target} PRIVATE oomph::oomph_libfabric)
     elseif (GHEX_TRANSPORT_BACKEND STREQUAL "UCX")
         target_link_libraries(${target} PRIVATE oomph::oomph_ucx)
+    elseif (GHEX_TRANSPORT_BACKEND STREQUAL "NCCL")
+        target_link_libraries(${target} PRIVATE oomph::oomph_nccl)
     else()
         target_link_libraries(${target} PRIVATE oomph::oomph_mpi)
     endif()
@@ -92,6 +102,14 @@ endfunction()
 # ---------------------------------------------------------------------
 if (GHEX_USE_XPMEM)
     find_package(XPMEM REQUIRED)
+endif()
+
+
+# ---------------------------------------------------------------------
+# nccl setup
+# ---------------------------------------------------------------------
+if(GHEX_USE_NCCL)
+  find_package(NCCL REQUIRED)
 endif()
 
 # ---------------------------------------------------------------------

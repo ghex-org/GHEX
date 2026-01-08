@@ -19,7 +19,20 @@ TEST_F(mpi_test_fixture, context)
 {
     using namespace ghex;
 
-    context ctxt(world, thread_safe);
+    try
+    {
+        context ctxt(world, thread_safe);
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        }
+        else { throw e; }
+    }
 }
 
 #if OOMPH_ENABLE_BARRIER
@@ -27,27 +40,40 @@ TEST_F(mpi_test_fixture, barrier)
 {
     using namespace ghex;
 
-    context ctxt(world, thread_safe);
-
-    if (thread_safe)
+    try
     {
-        barrier b(ctxt, 1);
-        b.rank_barrier();
+        context ctxt(world, thread_safe);
+
+        if (thread_safe)
+        {
+            barrier b(ctxt, 1);
+            b.rank_barrier();
+        }
+        else
+        {
+            barrier b(ctxt, 4);
+
+            auto use_barrier = [&]() { b(); };
+
+            auto use_thread_barrier = [&]() { b.thread_barrier(); };
+
+            std::vector<std::thread> threads;
+            for (int i = 0; i < 4; ++i) threads.push_back(std::thread{use_thread_barrier});
+            for (int i = 0; i < 4; ++i) threads[i].join();
+            threads.clear();
+            for (int i = 0; i < 4; ++i) threads.push_back(std::thread{use_barrier});
+            for (int i = 0; i < 4; ++i) threads[i].join();
+        }
     }
-    else
+    catch (std::runtime_error const& e)
     {
-        barrier b(ctxt, 4);
-
-        auto use_barrier = [&]() { b(); };
-
-        auto use_thread_barrier = [&]() { b.thread_barrier(); };
-
-        std::vector<std::thread> threads;
-        for (int i = 0; i < 4; ++i) threads.push_back(std::thread{use_thread_barrier});
-        for (int i = 0; i < 4; ++i) threads[i].join();
-        threads.clear();
-        for (int i = 0; i < 4; ++i) threads.push_back(std::thread{use_barrier});
-        for (int i = 0; i < 4; ++i) threads[i].join();
+        if (thread_safe &&
+            context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        }
+        else { throw e; }
     }
 }
 #endif

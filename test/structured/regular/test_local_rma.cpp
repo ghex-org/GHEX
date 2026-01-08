@@ -366,9 +366,24 @@ struct simulation_1
 
 TEST_F(mpi_test_fixture, rma_exchange)
 {
-    simulation_1 sim(thread_safe);
-    sim.exchange();
-    sim.exchange();
-    sim.exchange();
-    EXPECT_TRUE(sim.check());
+    // TODO: NCCL fails with "NCCL WARN Trying to recv to self without a matching send". Inherent to
+    // test? Avoidable?
+    try
+    {
+        simulation_1 sim(thread_safe);
+        sim.exchange();
+        sim.exchange();
+        sim.exchange();
+        EXPECT_TRUE(sim.check());
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        }
+        else { throw e; }
+    }
 }

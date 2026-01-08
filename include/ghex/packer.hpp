@@ -28,27 +28,11 @@ namespace ghex
 template<typename Arch>
 struct packer
 {
-    template<typename Map, typename Requests, typename Communicator>
-    static void pack(Map& map, Requests& send_reqs, Communicator& comm)
+    template<typename Buffer>
+    static void pack(Buffer& buffer, unsigned char* data)
     {
-        for (auto& p0 : map.send_memory)
-        {
-            const auto device_id = p0.first;
-            for (auto& p1 : p0.second)
-            {
-                if (p1.second.size > 0u)
-                {
-                    if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size)
-                        p1.second.buffer =
-                            arch_traits<Arch>::make_message(comm, p1.second.size, device_id);
-                    device::guard g(p1.second.buffer);
-                    auto          data = g.data();
-                    for (const auto& fb : p1.second.field_infos)
-                        fb.call_back(data + fb.offset, *fb.index_container, nullptr);
-                    send_reqs.push_back(comm.send(p1.second.buffer, p1.second.rank, p1.second.tag));
-                }
-            }
-        }
+        for (const auto& fb : buffer.field_infos)
+            fb.call_back(data + fb.offset, *fb.index_container, nullptr);
     }
 
     template<typename Buffer>
@@ -117,50 +101,12 @@ pack_kernel_u(device::kernel_argument<PackIterationSpace, N> args)
 template<>
 struct packer<gpu>
 {
-    template<typename Map, typename Requests, typename Communicator>
-    static void pack(Map& map, Requests& send_reqs, Communicator& comm)
+    template<typename Buffer>
+    static void pack(Buffer& buffer, unsigned char* data)
     {
-        using send_buffer_type = typename Map::send_buffer_type;
-        using future_type = device::future<send_buffer_type*>;
-        std::size_t num_streams = 0;
-
-        for (auto& p0 : map.send_memory)
-        {
-            const auto device_id = p0.first;
-            for (auto& p1 : p0.second)
-            {
-                if (p1.second.size > 0u)
-                {
-                    if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size ||
-                        p1.second.buffer.device_id() != device_id)
-                        p1.second.buffer =
-                            arch_traits<gpu>::make_message(comm, p1.second.size, device_id);
-                    ++num_streams;
-                }
-            }
-        }
-        std::vector<future_type> stream_futures;
-        stream_futures.reserve(num_streams);
-        num_streams = 0;
-        for (auto& p0 : map.send_memory)
-        {
-            for (auto& p1 : p0.second)
-            {
-                if (p1.second.size > 0u)
-                {
-                    for (const auto& fb : p1.second.field_infos)
-                    {
-                        device::guard g(p1.second.buffer);
-                        fb.call_back(g.data() + fb.offset, *fb.index_container,
-                            (void*)(&p1.second.m_stream.get()));
-                    }
-                    stream_futures.push_back(future_type{&(p1.second), p1.second.m_stream});
-                    ++num_streams;
-                }
-            }
-        }
-        await_futures(stream_futures, [&comm, &send_reqs](send_buffer_type* b)
-            { send_reqs.push_back(comm.send(b->buffer, b->rank, b->tag)); });
+        auto& stream = buffer.m_stream;
+        for (const auto& fb : buffer.field_infos)
+            fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
     }
 
     template<typename Buffer>
