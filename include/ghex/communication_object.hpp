@@ -983,9 +983,6 @@ class communication_object
     // important: does not deallocate the memory
     void clear()
     {
-#ifdef GHEX_CUDACC
-        assert(has_scheduled_exchange());
-#endif
         m_valid = false;
         m_send_reqs.clear();
         m_recv_reqs.clear();
