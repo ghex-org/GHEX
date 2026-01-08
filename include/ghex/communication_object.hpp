@@ -290,8 +290,9 @@ class communication_object
      * transmission of the halo data.
      *
      * It is required that the user calls `schedule_wait()` on the returned handle.
-     * To check if a communication has completed the function `complete_schedule_exchange()`
-     * can be used.
+     * To check if communication and unpacking has finished it is advised to sync
+     * on the stream passed to `schedule_wait()` as an alternative, `is_ready()`
+     * can be called as well.
      *
      * Note:
      * - It is not safe to call this function from multiple threads.
