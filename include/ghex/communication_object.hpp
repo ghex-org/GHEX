@@ -904,7 +904,7 @@ class communication_object
                                 // Make sure stream used for packing synchronizes with the
                                 // given stream.
                                 GHEX_CHECK_CUDA_RESULT(
-                                    cudaStreamWaitEvent(p1.second.m_stream.get(), e.get()));
+                                    cudaStreamWaitEvent(p1.second.m_stream.get(), e.get(), 0));
                             }
                         }
                     }

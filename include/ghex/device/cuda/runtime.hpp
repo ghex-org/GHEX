@@ -20,6 +20,7 @@
 #define cudaDeviceProp           hipDeviceProp_t
 #define cudaDeviceSynchronize    hipDeviceSynchronize
 #define cudaErrorInvalidValue    hipErrorInvalidValue
+#define cudaErrorNotReady        hipErrorNotReady
 #define cudaError_t              hipError_t
 #define cudaEventCreate          hipEventCreate
 #define cudaEventDestroy         hipEventDestroy
