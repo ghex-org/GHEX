@@ -624,12 +624,12 @@ class communication_object
         for_each(m_mem,
             [this](std::size_t, auto& map)
             {
+#ifdef GHEX_CUDACC
                 // If a communicator isn't stream-aware and we're dealing with GPU memory, we wait
                 // for each packing kernel to finish and trigger the send as soon as possible. if a
                 // communicator is stream-aware or we're dealing with CPU memory we trigger sends
                 // immediately (for stream-aware GPU memory the packing has been scheduled on a
                 // stream and for CPU memory the packing is blocking and has already completed).
-#ifdef GHEX_CUDACC
                 using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
                 if (!m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
                 {
@@ -677,7 +677,7 @@ class communication_object
                                     ,
                                     static_cast<void*>(p1.second.m_stream.get())
 #endif
-                                            ));
+                                        ));
                             }
                         }
                     }
