@@ -624,14 +624,13 @@ class communication_object
         for_each(m_mem,
             [this](std::size_t, auto& map)
             {
-                using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
-
-            // If a communicator isn't stream-aware and we're dealing with GPU memory, we wait
-            // for each packing kernel to finish and trigger the send as soon as possible. if a
-            // communicator is stream-aware or we're dealing with CPU memory we trigger sends
-            // immediately (for stream-aware GPU memory the packing has been scheduled on a
-            // stream and for CPU memory the packing is blocking and has already completed).
+                // If a communicator isn't stream-aware and we're dealing with GPU memory, we wait
+                // for each packing kernel to finish and trigger the send as soon as possible. if a
+                // communicator is stream-aware or we're dealing with CPU memory we trigger sends
+                // immediately (for stream-aware GPU memory the packing has been scheduled on a
+                // stream and for CPU memory the packing is blocking and has already completed).
 #ifdef GHEX_CUDACC
+                using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
                 if (!m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
                 {
                     using send_buffer_type =
@@ -676,9 +675,9 @@ class communication_object
                                         context::tag_type) {}
 #ifdef GHEX_CUDACC
                                     ,
-                                    static_cast<void*>(p1.second.m_stream.get()
+                                    static_cast<void*>(p1.second.m_stream.get())
 #endif
-                                            )));
+                                            ));
                             }
                         }
                     }
@@ -776,7 +775,6 @@ class communication_object
                 {
                     for (auto& p0 : m.recv_memory)
                     {
-                        const auto device_id = p0.first;
                         for (auto& p1 : p0.second)
                         {
                             if (p1.second.size > 0u)

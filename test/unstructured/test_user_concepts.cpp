@@ -372,7 +372,7 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 
 /** @brief Test data descriptor concept*/
 void
-test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_first)
+test_data_descriptor_async([[maybe_unused]] ghex::context& ctxt, [[maybe_unused]] std::size_t levels, [[maybe_unused]] bool levels_first)
 {
 #ifdef GHEX_CUDACC
     // NOTE: Async exchange is only implemented for the GPU, however, we also
