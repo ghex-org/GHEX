@@ -368,6 +368,16 @@ class communication_object
             last0, first1, last1, iters...);
     }
 
+#if defined(GHEX_CUDACC)
+    /**
+      * @brief	Checks if `*this` has an active scheduled exchange.
+      *
+      * Calling this function only makes sense after `schedule_wait()`
+      * has been called on the handler returned by `schedule_exchange()`.
+      */
+    bool has_scheduled_exchange() const noexcept { return m_active_scheduled_exchange != nullptr; }
+#endif
+
   private: // implementation
     // overload for pairs of iterators
     template<typename... Iterators>
@@ -562,16 +572,6 @@ class communication_object
         }
 #endif
     }
-
-#if defined(GHEX_CUDACC)
-    /**
-      * @brief	Checks if `*this` has an active scheduled exchange.
-      *
-      * Calling this function only makes sense after `schedule_wait()`
-      * has been called on the handler returned by `schedule_exchange()`.
-      */
-    bool has_scheduled_exchange() const noexcept { return m_active_scheduled_exchange != nullptr; }
-#endif
 
     /** \brief	Non synchronizing version of `post_recvs()`.
      *
