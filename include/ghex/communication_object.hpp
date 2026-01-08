@@ -378,6 +378,36 @@ class communication_object
     bool has_scheduled_exchange() const noexcept { return m_active_scheduled_exchange != nullptr; }
 #endif
 
+    /**
+     * @brief	Wait until the scheduled exchange has completed.
+     *
+     * This function can be used to ensure that the scheduled exchange, that was
+     * "completed" by a call to `schedule_wait()` has really been finished and
+     * it is possible to delete the internal buffers that were used in the
+     * exchange. A user will never have to call it directly. If there was no such
+     * exchange or GPU support was disabled, the function does nothing.
+     *
+     * \note  This should be a private function, but the tests need them.
+     */
+    void complete_schedule_exchange()
+    {
+#if defined(GHEX_CUDACC)
+        if (m_active_scheduled_exchange)
+        {
+            // NOTE: In order for this to work the call below must be safe even in the case
+            // when the stream, that was passed to `schedule_wait()` has been destroyed.
+            // The CUDA documentation is a bit unclear in that regard, but this should
+            // be the case.
+            m_active_scheduled_exchange = nullptr; // must happen before the check
+            GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_last_scheduled_exchange.get()));
+
+            // In normal mode, `wait()` would call `clear()`, but `schedule_wait()` can not
+            // do that thus, we have to do it here.
+            clear();
+        }
+#endif
+    }
+
   private: // implementation
     // overload for pairs of iterators
     template<typename... Iterators>
@@ -543,34 +573,6 @@ class communication_object
                 allocate<arch_type, value_type>(mem, bi->get_pattern(), field_ptr, my_dom_id,
                     bi->device_id(), tag_offsets[i]);
             });
-    }
-
-    /**
-     * @brief	Wait until the scheduled exchange has completed.
-     *
-     * This function can be used to ensure that the scheduled exchange, that was
-     * "completed" by a call to `schedule_wait()` has really been finished and
-     * it is possible to delete the internal buffers that were used in the
-     * exchange. A user will never have to call it directly. If there was no such
-     * exchange or GPU support was disabled, the function does nothing.
-     */
-    void complete_schedule_exchange()
-    {
-#if defined(GHEX_CUDACC)
-        if (m_active_scheduled_exchange)
-        {
-            // NOTE: In order for this to work the call below must be safe even in the case
-            // when the stream, that was passed to `schedule_wait()` has been destroyed.
-            // The CUDA documentation is a bit unclear in that regard, but this should
-            // be the case.
-            m_active_scheduled_exchange = nullptr; // must happen before the check
-            GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_last_scheduled_exchange.get()));
-
-            // In normal mode, `wait()` would call `clear()`, but `schedule_wait()` can not
-            // do that thus, we have to do it here.
-            clear();
-        }
-#endif
     }
 
     /** \brief	Non synchronizing version of `post_recvs()`.
