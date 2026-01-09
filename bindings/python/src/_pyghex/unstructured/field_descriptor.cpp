@@ -58,7 +58,7 @@ struct buffer_info_accessor<ghex::gpu>
         void* ptr = reinterpret_cast<void*>(
             info["data"].cast<pybind11::tuple>()[0].cast<pybind11::ssize_t>());
 
-        // create buffer protocol format and itemsize from typestr
+        // Create buffer protocol format and itemsize from typestr
         pybind11::function memory_view = pybind11::module::import("builtins").attr("memoryview");
         pybind11::function np_array = pybind11::module::import("numpy").attr("array");
         pybind11::buffer   empty_buffer =
@@ -214,7 +214,7 @@ register_field_descriptor(pybind11::module& m)
                                          " dimension expected the stride to be "
                                       << sizeof(T) << " but got " << info.strides[0] << ".";
                                 throw pybind11::type_error(error.str());
-                            };
+                            }
                         }
                         std::size_t levels = (info.ndim == 1) ? 1u : (std::size_t)info.shape[1];
 

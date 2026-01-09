@@ -13,7 +13,9 @@
 #include <ghex/device/cuda/error.hpp>
 #include <ghex/device/cuda/runtime.hpp>
 #include <ghex/util/moved_bit.hpp>
+#include <cassert>
 #include <memory>
+#include <vector>
 
 namespace ghex
 {
@@ -23,40 +25,46 @@ namespace device
 struct stream
 {
     cudaStream_t          m_stream;
-    cudaEvent_t           m_event;
     ghex::util::moved_bit m_moved;
 
-    stream(){GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking))
-            GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming))}
+    stream(){GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking))}
 
     stream(const stream&) = delete;
     stream& operator=(const stream&) = delete;
-    stream(stream&& other) = default;
-    stream& operator=(stream&&) = default;
+    stream(stream&& other) noexcept = default;
+    stream& operator=(stream&&) noexcept = default;
 
     ~stream()
     {
-        if (!m_moved)
-        {
-            GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaStreamDestroy(m_stream))
-            GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(m_event))
-        }
+        if (!m_moved) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaStreamDestroy(m_stream)) }
     }
 
+    //! Returns `true` is `*this` has been moved, i.e. is no longer a usable stream.
     operator bool() const noexcept { return m_moved; }
 
-    operator cudaStream_t() const noexcept { return m_stream; }
+    operator cudaStream_t() const noexcept
+    {
+        assert(!m_moved);
+        return m_stream;
+    }
 
-    cudaStream_t&       get() noexcept { return m_stream; }
-    const cudaStream_t& get() const noexcept { return m_stream; }
+    cudaStream_t& get() noexcept
+    {
+        assert(!m_moved);
+        return m_stream;
+    }
+    const cudaStream_t& get() const noexcept
+    {
+        assert(!m_moved);
+        return m_stream;
+    }
 
     void sync()
     {
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, m_stream))
         // busy wait here
-        GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event))
+        assert(!m_moved);
+        GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(m_stream))
     }
 };
 } // namespace device
-
 } // namespace ghex
