@@ -363,6 +363,7 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
 
     check_field(d1, "C", stream)
     check_field(d2, "F", stream)
+    assert co.has_scheduled_exchange()
 
-    co.complete_schedule_exchange()
+    handle.wait()
     assert not co.has_scheduled_exchange()

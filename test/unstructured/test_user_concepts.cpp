@@ -345,11 +345,13 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     initialize_data(d, field, levels, levels_first);
     data_descriptor_cpu_int_type data{d, field, levels, levels_first};
 
-    EXPECT_NO_THROW(co.schedule_exchange(nullptr, patterns(data)).schedule_wait(nullptr));
-    ASSERT_TRUE(co.has_scheduled_exchange());
-
-    co.complete_schedule_exchange();
-    ASSERT_FALSE(co.has_scheduled_exchange());
+    EXPECT_NO_THROW({
+        auto h = co.schedule_exchange(nullptr, patterns(data));
+        h.schedule_wait(nullptr);
+        ASSERT_TRUE(co.has_scheduled_exchange());
+        h.wait();
+        ASSERT_FALSE(co.has_scheduled_exchange());
+    });
 
     auto h = co.schedule_exchange(nullptr, patterns(data));
     ASSERT_FALSE(co.has_scheduled_exchange());
@@ -361,7 +363,7 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     //  synchronize on the stream.
     check_exchanged_data(d, field, patterns[0], levels, levels_first);
 
-    co.complete_schedule_exchange();
+    h.wait();
     ASSERT_FALSE(co.has_scheduled_exchange());
 
     // ----- GPU -----
@@ -374,11 +376,14 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     field.clone_to_device();
     data_descriptor_gpu_int_type data_gpu{d, field.device_data(), levels, levels_first, 0, 0};
 
-    EXPECT_NO_THROW(co.schedule_exchange(stream, patterns(data_gpu)).schedule_wait(stream));
-    ASSERT_TRUE(co.has_scheduled_exchange());
-
-    co.complete_schedule_exchange();
-    ASSERT_FALSE(co.has_scheduled_exchange());
+    EXPECT_NO_THROW({
+        auto h = co.schedule_exchange(stream, patterns(data));
+        h.schedule_wait(stream);
+        GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(stream));
+        ASSERT_TRUE(co.has_scheduled_exchange());
+        h.wait();
+        ASSERT_FALSE(co.has_scheduled_exchange());
+    });
 
     auto h_gpu = co.schedule_exchange(stream, patterns(data_gpu));
     ASSERT_FALSE(co.has_scheduled_exchange());
@@ -386,12 +391,16 @@ test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_
     h_gpu.schedule_wait(stream);
     ASSERT_TRUE(co.has_scheduled_exchange());
 
-    co.complete_schedule_exchange();
-    ASSERT_FALSE(co.has_scheduled_exchange());
+    GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(stream));
+    ASSERT_TRUE(co.has_scheduled_exchange());
 
     // check exchanged data
     field.clone_to_host();
     check_exchanged_data(d, field, patterns[0], levels, levels_first);
+    ASSERT_TRUE(co.has_scheduled_exchange());
+
+    h.wait();
+    ASSERT_FALSE(co.has_scheduled_exchange());
 #endif
 }
 
