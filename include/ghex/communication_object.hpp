@@ -107,14 +107,14 @@ class communication_handle
      * \brief	Schedule a wait for the communication on `stream`.
      *
      * This function will wait until all remote halo data has been received.
-     * It will then _start_ the unpacking of the data but not wait until it
-     * is completed. The function will add synchronizations to `stream` such
-     * that all work that will be submitted to it, after this function
-     * returned, will wait until the unpacking has finished.
+     * It will then _start_ the unpacking of the data, but not wait until it
+     * is completed. Instead the function will add synchronizations to `stream`
+     * such that all future work will wait until the unpacking has finished.
      *
      * Note, GHEX is able to transfer memory on the device and on host in the
-     * same call. If a transfer involves memory on the host, the function
-     * will only return once that memory has been fully unpacked.
+     * same call. In such a case the function will wait until the host memory
+     * has been fully unpacked. However, the device memory might not be fully
+     * unpacked when the function returns.
      *
      * In order to check if unpacking has concluded the user should synchronize
      * with `stream`.
@@ -239,8 +239,9 @@ class communication_object
     device::event_pool             m_event_pool{128};
 
 #if defined(GHEX_CUDACC) // TODO: Should we switch to `GHEX_USE_GPU`?
-    // This event records if there was a previous call to `schedule_wait()`. To
-    //  avoid strange error conditions, we do not use an event from the pool.
+    // This event records if there was a previous call to `schedule_wait()`,
+    // it ensures that a "scheduled exchange" will wait until the previous
+    // one has finished.
     device::cuda_event  m_last_scheduled_exchange;
     device::cuda_event* m_active_scheduled_exchange{nullptr};
 #endif
@@ -286,7 +287,7 @@ class communication_object
      * This function is similar to `exchange()` but it has some important (semantic)
      * differences. Instead of packing the halos and sending them immediately, the
      * function will wait until all work, that has been previously submitted to
-     * `stream` has been finished. The function will not start sending with the
+     * `stream`, has been finished. The function will not start sending with the
      * transmission of the halo data.
      *
      * It is required that the user calls `schedule_wait()` on the returned handle.
@@ -676,7 +677,7 @@ class communication_object
 #ifdef GHEX_CUDACC
             if (has_scheduled_exchange())
             {
-                // TODO(reviewer): See comments in `wait()`.
+                // NOTE: See comments in `wait()`.
                 complete_schedule_exchange();
             }
             else
@@ -703,11 +704,12 @@ class communication_object
 #ifdef GHEX_CUDACC
         if (has_scheduled_exchange())
         {
-            // TODO(reviewer): I am pretty sure that it is not needed to call `sync_stream()`
+            // TODO: I am pretty sure that it is not needed to call `sync_stream()`
             // in this case, because `complete_scheduled_exchange()` will sync with the stream
             // passed to `schedule_wait()`. This means that after the sync unpacking has
             // completed and this implies that the work, enqueued in the unpacking streams
             // is done.
+            // See also: `is_ready()`.
             complete_schedule_exchange();
         }
         else

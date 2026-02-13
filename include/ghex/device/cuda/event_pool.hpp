@@ -85,7 +85,7 @@ struct event_pool
 	 */
     void rewind()
     {
-        if (m_moved) { throw std::runtime_error("ERROR: Can not reset a moved pool."); }
+        if (m_moved) { throw std::runtime_error("ERROR: Can not rewind a moved pool."); }
         m_next_event = 0;
     }
 
