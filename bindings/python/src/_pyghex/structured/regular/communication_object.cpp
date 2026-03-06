@@ -17,6 +17,10 @@
 #include <structured/regular/field_descriptor.hpp>
 #include <structured/regular/communication_object.hpp>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/string.h>
+
 namespace pyghex
 {
 namespace structured
@@ -25,7 +29,7 @@ namespace regular
 {
 
 void
-register_communication_object(pybind11::module& m)
+register_communication_object(nanobind::module_& m)
 {
     auto _communication_object = register_class<communication_object_shim>(m);
 
@@ -34,7 +38,7 @@ register_communication_object(pybind11::module& m)
         [&m, &_communication_object](auto l)
         {
             using namespace std::string_literals;
-            using namespace pybind11::literals;
+            using namespace nanobind::literals;
             using communication_object_type = gridtools::meta::first<decltype(l)>;
             using handle_type = typename communication_object_type::handle_type;
             using pattern_type = typename communication_object_type::pattern_type;
@@ -59,28 +63,28 @@ register_communication_object(pybind11::module& m)
                             "exchange",
                             [](communication_object_shim& co, std::vector<buffer_info_type> b)
                             { return co.exchange(b.begin(), b.end()); },
-                            pybind11::keep_alive<0, 1>())
+                            nanobind::keep_alive<0, 1>())
                         .def(
                             "exchange", [](communication_object_shim& co, buffer_info_type& b)
-                            { return co.exchange(b); }, pybind11::keep_alive<0, 1>())
+                            { return co.exchange(b); }, nanobind::keep_alive<0, 1>())
                         .def(
                             "exchange",
                             [](communication_object_shim& co, buffer_info_type& b0,
                                 buffer_info_type& b1) { return co.exchange(b0, b1); },
-                            pybind11::keep_alive<0, 1>())
+                            nanobind::keep_alive<0, 1>())
                         .def(
                             "exchange",
                             [](communication_object_shim& co, buffer_info_type& b0,
                                 buffer_info_type& b1, buffer_info_type& b2)
                             { return co.exchange(b0, b1, b2); },
-                            pybind11::keep_alive<0, 1>());
+                            nanobind::keep_alive<0, 1>());
                 });
         });
 
     m.def(
         "make_co_regular",
         [](context_shim& c) { return communication_object_shim{&c.m, std::monostate{}}; },
-        pybind11::keep_alive<0, 1>());
+        nanobind::keep_alive<0, 1>());
 }
 
 } //namespace regular

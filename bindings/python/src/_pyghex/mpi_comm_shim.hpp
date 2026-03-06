@@ -10,7 +10,7 @@
 #pragma once
 
 #include <mpi.h>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include <util/to_string.hpp>
 
 namespace pyghex
@@ -30,7 +30,7 @@ struct mpi_comm_shim
     : comm(c)
     {
     }
-    mpi_comm_shim(pybind11::object o);
+    mpi_comm_shim(nanobind::object o);
 };
 
 namespace util

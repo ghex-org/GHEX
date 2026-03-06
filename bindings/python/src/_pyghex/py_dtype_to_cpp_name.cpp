@@ -9,7 +9,8 @@
  */
 #include <string>
 
-#include <pybind11/numpy.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
 
 #include <gridtools/meta.hpp>
 #include <gridtools/common/for_each.hpp>
@@ -17,13 +18,13 @@
 #include <types.hpp>
 #include <util/demangle.hpp>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace pyghex
 {
 
 std::string
-py_dtype_to_cpp_name(py::dtype dtype)
+py_dtype_to_cpp_name(nb::dtype dtype)
 {
     std::string cpp_name;
 
@@ -32,7 +33,7 @@ py_dtype_to_cpp_name(py::dtype dtype)
         {
             using type = decltype(l);
 
-            if (dtype.is(py::dtype::of<type>()))
+            if (dtype == nb::dtype::of<type>())
             {
                 assert(cpp_name.empty());
                 cpp_name = util::mangle_python<type>();
@@ -45,7 +46,7 @@ py_dtype_to_cpp_name(py::dtype dtype)
 }
 
 void
-register_py_dtype_to_cpp_name(pybind11::module& m)
+register_py_dtype_to_cpp_name(nanobind::module_& m)
 {
     m.def("py_dtype_to_cpp_name", &py_dtype_to_cpp_name, "Convert numpy dtype to C++ type name");
 }

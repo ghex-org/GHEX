@@ -12,19 +12,23 @@
 #include <register_class.hpp>
 #include <unstructured/halo_generator.hpp>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+
 namespace pyghex
 {
 namespace unstructured
 {
 void
-register_halo_generator(pybind11::module& m)
+register_halo_generator(nanobind::module_& m)
 {
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, halo_generator_specializations>>(
         [&m](auto l)
         {
             using namespace std::string_literals;
-            using namespace pybind11::literals;
+            using namespace nanobind::literals;
 
             using type = gridtools::meta::first<decltype(l)>;
             using global_index_type = typename type::global_index_type;
@@ -33,8 +37,8 @@ register_halo_generator(pybind11::module& m)
             auto _halo_generator = register_class<type>(m);
             /*auto _halo = */ register_class<halo>(m);
 
-            _halo_generator.def(pybind11::init<>(), "Create a halo generator")
-                .def(pybind11::init(
+            _halo_generator.def(nanobind::init<>(), "Create a halo generator")
+                .def(nanobind::init(
                     [](const std::vector<global_index_type>& gids) { return type{gids}; }))
                 .def("__call__", &type::operator());
         });

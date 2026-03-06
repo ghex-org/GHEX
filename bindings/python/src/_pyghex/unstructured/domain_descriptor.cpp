@@ -15,19 +15,23 @@
 #include <register_class.hpp>
 #include <unstructured/domain_descriptor.hpp>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/string.h>
+
 namespace pyghex
 {
 namespace unstructured
 {
 void
-register_domain_descriptor(pybind11::module& m)
+register_domain_descriptor(nanobind::module_& m)
 {
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, domain_descriptor_specializations>>(
         [&m](auto l)
         {
             using namespace std::string_literals;
-            using namespace pybind11::literals;
+            using namespace nanobind::literals;
 
             using type = gridtools::meta::first<decltype(l)>;
             using domain_id_type = typename type::domain_id_type;
@@ -37,7 +41,7 @@ register_domain_descriptor(pybind11::module& m)
             auto _domain_descriptor = register_class<type>(m);
 
             _domain_descriptor
-                .def(pybind11::init(
+                .def(nanobind::init(
                     [](domain_id_type id, const std::vector<global_index_type>& gids,
                         const std::vector<local_index_type>& halo_lids) {
                         return type{id, gids.begin(), gids.end(), halo_lids.begin(),

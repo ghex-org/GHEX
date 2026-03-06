@@ -13,6 +13,10 @@
 #include <register_class.hpp>
 #include <structured/regular/halo_generator.hpp>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/array.h>
+
 namespace pyghex
 {
 namespace structured
@@ -21,14 +25,14 @@ namespace regular
 {
 
 void
-register_halo_generator(pybind11::module& m)
+register_halo_generator(nanobind::module_& m)
 {
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, halo_generator_specializations>>(
         [&m](auto l)
         {
             using namespace std::string_literals;
-            using namespace pybind11::literals;
+            using namespace nanobind::literals;
 
             using type = gridtools::meta::first<decltype(l)>;
             using dimension = typename type::dimension;
@@ -43,15 +47,12 @@ register_halo_generator(pybind11::module& m)
             auto _box2 = register_class<box2>(m);
 
             _halo_generator
-                .def(pybind11::init<array, array, halo_array, periodic_array>(), "first"_a,
+                .def(nanobind::init<array, array, halo_array, periodic_array>(), "first"_a,
                     "last"_a, "halos"_a, "periodic"_a, "Create a halo generator")
                 .def("__call__", &type::operator());
 
-            _box2
-                .def_property_readonly("local",
-                    pybind11::overload_cast<>(&box2::local, pybind11::const_))
-                .def_property_readonly("global_",
-                    pybind11::overload_cast<>(&box2::global, pybind11::const_));
+            _box2.def_property_readonly("local", [](const box2& b) { return b.local(); })
+                .def_property_readonly("global_", [](const box2& b) { return b.global(); });
 
             _box.def_property_readonly("first",
                     [](const box& b)

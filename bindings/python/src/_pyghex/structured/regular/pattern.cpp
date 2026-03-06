@@ -17,6 +17,9 @@
 #include <structured/regular/field_descriptor.hpp>
 #include <structured/regular/pattern.hpp>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+
 namespace pyghex
 {
 namespace structured
@@ -25,14 +28,14 @@ namespace regular
 {
 
 void
-register_pattern(pybind11::module& m)
+register_pattern(nanobind::module_& m)
 {
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, make_pattern_traits_specializations>>(
         [&m](auto l)
         {
             using namespace std::string_literals;
-            using namespace pybind11::literals;
+            using namespace nanobind::literals;
 
             using type = gridtools::meta::first<decltype(l)>;
             using halo_gen = typename type::halo_gen;
@@ -48,14 +51,14 @@ register_pattern(pybind11::module& m)
             auto _pattern_container = register_class<pattern_container>(m);
 
             _pattern_container
-                .def_property_readonly_static("grid_type", [](const pybind11::object&)
+                .def_property_readonly_static("grid_type", [](const nanobind::object&)
                     { return util::mangle_python<typename pattern_container::grid_type>(); })
-                .def_property_readonly_static("domain_id_type", [](const pybind11::object&)
+                .def_property_readonly_static("domain_id_type", [](const nanobind::object&)
                     { return util::mangle_python<typename pattern_container::domain_id_type>(); });
 
             m.def(
                 "make_pattern_regular", [](context_shim& c, halo_gen& h, domain_range& d)
-                { return ghex::make_pattern<grid_type>(c.m, h, d); }, pybind11::keep_alive<0, 1>());
+                { return ghex::make_pattern<grid_type>(c.m, h, d); }, nanobind::keep_alive<0, 1>());
 
             gridtools::for_each<gridtools::meta::transform<gridtools::meta::list, fields>>(
                 [&m, &_pattern_container](auto k)
@@ -66,7 +69,7 @@ register_pattern(pybind11::module& m)
                     // "identifier undefined in device code" error when using NVCC
                     _pattern_container.def(
                         "__call__", [](const pattern_container& pattern, field& f)
-                        { return pattern(f); }, pybind11::keep_alive<0, 2>());
+                        { return pattern(f); }, nanobind::keep_alive<0, 2>());
                 });
         });
 }

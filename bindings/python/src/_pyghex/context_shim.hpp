@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <nanobind/nanobind.h>
+
 #include <ghex/context.hpp>
 
 #include <mpi_comm_shim.hpp>
