@@ -257,9 +257,7 @@ class communication_object
 
     ~communication_object()
     {
-        // Make sure that communication has finished and we can deallocate
-        // the buffers. Maybe the call to `clear()` is too much here and
-        // we should only wait.
+        // Make sure that communication has finished and we can deallocate the buffers.
         complete_schedule_exchange();
     }
 
@@ -597,7 +595,16 @@ class communication_object
      * and only return once the packing has been completed and the sending
      * request has been posted.
      */
-    void pack_and_send() { pack_and_send_impl<false>(); }
+    void pack_and_send()
+    {
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                // NOTE: This function currently blocks until the send has been fully scheduled.
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                packer<arch_type>::pack(m, m_send_reqs, m_comm);
+            });
+    }
 
 #ifdef GHEX_CUDACC
     /** \brief	Synchronizing variant of `pack_and_send()`.
@@ -609,7 +616,38 @@ class communication_object
      * However, the function will not return until the sending has been
      * initiated (subject to change).
      */
-    void pack_and_send(cudaStream_t stream) { pack_and_send_impl<true>(stream); }
+    void pack_and_send(cudaStream_t sync_stream)
+    {
+        for_each(m_mem,
+            [this, &sync_stream](std::size_t, auto& m)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+
+                // Put an event on the stream on which the packing is supposed to wait.
+                static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
+                device::cuda_event& sync_event = m_event_pool.get_event();
+                GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), sync_stream));
+
+                for (auto& p0 : m.send_memory)
+                {
+                    for (auto& p1 : p0.second)
+                    {
+                        if (p1.second.size > 0u)
+                        {
+                            // Add the event to any stream that is used for packing. Thus any packing is
+                            // postponed after the work, that was scheduled on `stream` has concluded.
+                            // NOTE: If a device guard here leads to a segmentation fault.
+                            GHEX_CHECK_CUDA_RESULT(
+                                cudaStreamWaitEvent(p1.second.m_stream.get(), sync_event.get(), 0));
+                        }
+                    }
+                }
+
+                // TODO: This function currently blocks until the send has been fully scheduled.
+                //  Consider using `cudaLaunchHostFunc()` to initiate the sending.
+                packer<arch_type>::pack(m, m_send_reqs, m_comm);
+            });
+    }
 #endif
 
     template<bool UseAsyncStream, typename... StreamType>
