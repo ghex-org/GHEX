@@ -624,7 +624,6 @@ class communication_object
                 using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
 
                 // Put an event on the stream on which the packing is supposed to wait.
-                static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
                 device::cuda_event& sync_event = m_event_pool.get_event();
                 GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), sync_stream));
 
@@ -649,55 +648,6 @@ class communication_object
             });
     }
 #endif
-
-    template<bool UseAsyncStream, typename... StreamType>
-    void pack_and_send_impl(StreamType&&... sync_streams)
-    {
-        static_assert(
-            UseAsyncStream ? (sizeof...(sync_streams) > 0) : (sizeof...(sync_streams) == 0));
-        for_each(m_mem,
-            [this, sync_streams...](std::size_t, auto& m)
-            {
-                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-#ifdef GHEX_CUDACC
-                if constexpr (UseAsyncStream && std::is_same_v<arch_type, gpu>)
-                {
-                    // Put an event on the stream on which the packing is supposed to wait.
-                    // NOTE: Currently only works for one stream because an event can only
-                    //	be recorded to a single stream.
-                    static_assert((not UseAsyncStream) || (sizeof...(sync_streams) == 1));
-                    device::cuda_event& sync_event = m_event_pool.get_event();
-                    auto record_capturer = [&sync_event](cudaStream_t stream) -> std::uintptr_t
-                    {
-                        //TODO: Is a device guard needed here? What should be the memory?
-                        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), stream));
-                        return (std::uintptr_t)stream;
-                    };
-                    const std::uintptr_t unused_variable_for_expansion[] = {
-                        record_capturer(sync_streams)...};
-                    (void)unused_variable_for_expansion;
-
-                    for (auto& p0 : m.send_memory)
-                    {
-                        for (auto& p1 : p0.second)
-                        {
-                            if (p1.second.size > 0u)
-                            {
-                                // Add the event to any stream that is used for packing. Thus any packing is
-                                // postponed after the work, that was scheduled on `stream` has concluded.
-                                // NOTE: If a device guard here leads to a segmentation fault.
-                                GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(p1.second.m_stream.get(),
-                                    sync_event.get(), 0));
-                            }
-                        }
-                    }
-                }
-#endif
-                // NOTE: This function currently blocks until the send has been fully scheduled.
-                // TODO: Consider using `cudaLaunchHostFunc()` to initiate the sending.
-                packer<arch_type>::pack(m, m_send_reqs, m_comm);
-            });
-    }
 
   private: // wait functions
     void progress()
