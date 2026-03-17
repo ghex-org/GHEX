@@ -49,6 +49,7 @@
 #define cudaStreamCreate         hipStreamCreate
 #define cudaStreamDestroy        hipStreamDestroy
 #define cudaStreamSynchronize    hipStreamSynchronize
+#define cudaStreamWaitEvent      hipStreamWaitEvent
 #define cudaStream_t             hipStream_t
 #define cudaSuccess              hipSuccess
 

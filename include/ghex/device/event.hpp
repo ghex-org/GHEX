@@ -12,32 +12,26 @@
 #include <ghex/config.hpp>
 
 #if defined(GHEX_CUDACC)
-#include <ghex/device/cuda/stream.hpp>
+#include <ghex/device/cuda/event.hpp>
 #else
 namespace ghex
 {
 namespace device
 {
-struct stream
+struct cuda_event
 {
-    // default construct
-    stream() = default;
-    stream(bool) {}
-
-    // non-copyable
-    stream(const stream&) noexcept = delete;
-    stream& operator=(const stream&) = delete;
-
-    // movable
-    stream(stream&& other) noexcept = default;
-    stream& operator=(stream&&) noexcept = default;
+    cuda_event() noexcept = default;
+    cuda_event(const cuda_event&) = delete;
+    cuda_event& operator=(const cuda_event&) = delete;
+    cuda_event(cuda_event&& other) noexcept = default;
+    cuda_event& operator=(cuda_event&&) noexcept = default;
+    ~cuda_event() noexcept = default;
 
     // By returning `true` we emulate the behaviour of a
     // CUDA `stream` that has been moved.
     constexpr operator bool() const noexcept { return true; }
-
-    void sync() {}
 };
+
 } // namespace device
 } // namespace ghex
 #endif
