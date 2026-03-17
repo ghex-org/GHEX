@@ -43,7 +43,7 @@ void register_communication_object(nb::module_& m);
 
 NB_MODULE(_pyghex, m)
 {
-    // m.doc() = "pybind11 ghex bindings"; // optional module docstring
+    // m.doc() = "nanobind ghex bindings"; // optional module docstring
 
     pyghex::register_config(m);
     pyghex::register_mpi(m);

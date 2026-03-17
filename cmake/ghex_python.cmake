@@ -1,7 +1,5 @@
 include(GNUInstallDirs)
 
-set(PYBIND11_CPP_STANDARD -std=c++17)
-
 if (GHEX_BUILD_PYTHON_BINDINGS)
 
     find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
@@ -11,7 +9,7 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
     endif()
 
     include(ghex_find_python_module)
-    find_package(pybind11 REQUIRED PATHS ${Python_SITELIB})
+    # nanobind is found and linked in bindings/python/src/_pyghex/CMakeLists.txt
 
     # Ask Python where it keeps its system (platform) packages.
     file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")

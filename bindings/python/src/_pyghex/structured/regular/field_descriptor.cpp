@@ -105,10 +105,10 @@ register_field_descriptor(nanobind::module_& m)
                         // "NOTE: In `buffer_info` the strides are in bytes, but in GHEX they are in elements."
                         // However, let's check `ghex::wrap_field`.
                         // It usually takes strides in bytes or elements depending on implementation.
-                        // The original code passed `info.strides` to `wrap_field`. `info.strides` from pybind11 buffer_info are in BYTES.
+                        // The original code passed `info.strides` to `wrap_field`. `info.strides` from buffer_info are in BYTES.
                         // Wait, let's check the deleted code in `structured/regular/field_descriptor.cpp`.
                         // It calls: `ghex::wrap_field<arch_type, layout_map>(..., info.strides);`
-                        // `info.strides` in `pybind11::buffer_info` are in bytes.
+                        // `info.strides` in buffer_info are in bytes.
                         // So I should pass strides in bytes.
                         // `b.stride(i)` is in bytes.
                         // But `ghex::wrap_field` expects a vector of strides.
