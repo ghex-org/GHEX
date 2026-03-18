@@ -52,7 +52,6 @@ config()
     }
     {
         const char* version = mk_ver(NB_VERSION_MAJOR, NB_VERSION_MINOR, NB_VERSION_PATCH);
-        dict[nanobind::str("pybind-version")] = nanobind::str(version);
         dict[nanobind::str("nanobind-version")] = nanobind::str(version);
     }
 #undef mk_str
