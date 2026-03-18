@@ -9,41 +9,39 @@
  */
 #include <nanobind/nanobind.h>
 
-namespace nb = nanobind;
-
 namespace pyghex
 {
-void register_config(nb::module_& m);
-void register_mpi(nb::module_& m);
-void register_context(nb::module_& m);
-void register_py_dtype_to_cpp_name(nb::module_& m);
+void register_config(nanobind::module_& m);
+void register_mpi(nanobind::module_& m);
+void register_context(nanobind::module_& m);
+void register_py_dtype_to_cpp_name(nanobind::module_& m);
 
 namespace structured
 {
 namespace regular
 {
-void register_domain_descriptor(nb::module_& m);
-void register_halo_generator(nb::module_& m);
-void register_field_descriptor(nb::module_& m);
-void register_pattern(nb::module_& m);
-void register_communication_object(nb::module_& m);
+void register_domain_descriptor(nanobind::module_& m);
+void register_halo_generator(nanobind::module_& m);
+void register_field_descriptor(nanobind::module_& m);
+void register_pattern(nanobind::module_& m);
+void register_communication_object(nanobind::module_& m);
 } // namespace regular
 } // namespace structured
 
 namespace unstructured
 {
-void register_domain_descriptor(nb::module_& m);
-void register_halo_generator(nb::module_& m);
-void register_field_descriptor(nb::module_& m);
-void register_pattern(nb::module_& m);
-void register_communication_object(nb::module_& m);
+void register_domain_descriptor(nanobind::module_& m);
+void register_halo_generator(nanobind::module_& m);
+void register_field_descriptor(nanobind::module_& m);
+void register_pattern(nanobind::module_& m);
+void register_communication_object(nanobind::module_& m);
 } // namespace unstructured
 
 } // namespace pyghex
 
 NB_MODULE(_pyghex, m)
 {
-    // m.doc() = "nanobind ghex bindings"; // optional module docstring
+    m.doc() = "nanobind ghex bindings";
 
     pyghex::register_config(m);
     pyghex::register_mpi(m);

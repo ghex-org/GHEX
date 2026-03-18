@@ -19,40 +19,38 @@
 #include <types.hpp>
 #include <util/demangle.hpp>
 
-namespace nb = nanobind;
-
 namespace pyghex
 {
 
 namespace
 {
-nb::object
-numpy_dtype(const nb::handle& value)
+nanobind::object
+numpy_dtype(const nanobind::handle& value)
 {
-    static nb::module_ numpy = nb::module_::import_("numpy");
-    return numpy.attr("dtype")(nb::borrow<nb::object>(value));
+    return nanobind::module_::import_("numpy").attr("dtype")(
+        nanobind::borrow<nanobind::object>(value));
 }
 
 template<typename T>
-nb::object
+nanobind::object
 dtype_of()
 {
-    if constexpr (std::is_same_v<T, double>) return numpy_dtype(nb::str("float64"));
+    if constexpr (std::is_same_v<T, double>) return numpy_dtype(nanobind::str("float64"));
     else if constexpr (std::is_same_v<T, float>)
-        return numpy_dtype(nb::str("float32"));
+        return numpy_dtype(nanobind::str("float32"));
     else if constexpr (std::is_same_v<T, bool>)
-        return numpy_dtype(nb::str("bool"));
+        return numpy_dtype(nanobind::str("bool"));
     else if constexpr (std::is_same_v<T, std::int32_t>)
-        return numpy_dtype(nb::str("int32"));
+        return numpy_dtype(nanobind::str("int32"));
     else if constexpr (std::is_same_v<T, std::int64_t>)
-        return numpy_dtype(nb::str("int64"));
+        return numpy_dtype(nanobind::str("int64"));
     else
         static_assert(sizeof(T) == 0, "unsupported dtype");
 }
 } // namespace
 
 std::string
-py_dtype_to_cpp_name(nb::handle dtype)
+py_dtype_to_cpp_name(nanobind::handle dtype)
 {
     const auto  canonical_dtype = numpy_dtype(dtype);
     std::string cpp_name;
@@ -63,7 +61,7 @@ py_dtype_to_cpp_name(nb::handle dtype)
             using type = decltype(l);
 
             auto candidate_dtype = dtype_of<type>();
-            if (nb::bool_(canonical_dtype.equal(candidate_dtype)))
+            if (nanobind::bool_(canonical_dtype.equal(candidate_dtype)))
             {
                 assert(cpp_name.empty());
                 cpp_name = util::mangle_python<type>();
