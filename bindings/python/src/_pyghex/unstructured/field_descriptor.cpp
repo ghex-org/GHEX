@@ -127,14 +127,7 @@ register_field_descriptor(nanobind::module_& m)
                 }
                 else if (b.ndim() == 2)
                 {
-                    if (stride_1 != sizeof(T))
-                    {
-                        std::stringstream error;
-                        error << "Field's strides are not compatible with GHEX. Expected that the "
-                                 "(byte) stride of dimension 1 is "
-                              << sizeof(T) << " but got " << (std::size_t)(stride_1) << ".";
-                        throw nanobind::type_error(error.str().c_str());
-                    }
+                    // stride_1 == sizeof(T): levels are the inner (fast) dimension
                     if (((std::size_t)(stride_0) % sizeof(T)) != 0)
                     {
                         std::stringstream error;
@@ -161,7 +154,7 @@ register_field_descriptor(nanobind::module_& m)
             };
 
             _field_descriptor.def(nanobind::new_(make_field_descriptor),
-                nanobind::keep_alive<0, 2>());
+                nanobind::keep_alive<0, 3>());
         });
 }
 

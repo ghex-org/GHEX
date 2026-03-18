@@ -132,7 +132,7 @@ register_field_descriptor(nanobind::module_& m)
             };
 
             _field_descriptor.def(nanobind::new_(make_field_descriptor),
-                nanobind::keep_alive<0, 2>());
+                nanobind::keep_alive<0, 3>());
         });
 }
 
