@@ -16,7 +16,7 @@ get_filename_component(pyghex_test_workdir ${python_mod_path}/.. ABSOLUTE)
 # command to create a virtual environment
 add_custom_command(
     OUTPUT ${venv_dir}
-    COMMAND ${Python3_EXECUTABLE} -m venv ${venv_dir}
+    COMMAND ${Python_EXECUTABLE} -m venv ${venv_dir}
     COMMENT "Creating virtual environment for test dependencies"
 )
 

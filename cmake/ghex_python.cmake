@@ -2,12 +2,9 @@ include(GNUInstallDirs)
 
 if (GHEX_BUILD_PYTHON_BINDINGS)
 
-    find_package (Python REQUIRED COMPONENTS Interpreter Development.Module)
-    find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(Python 3 REQUIRED COMPONENTS Interpreter Development.Module)
 
-    if(${Python3_FOUND})
-        set(PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
-    endif()
+    set(PYTHON_EXECUTABLE "${Python_EXECUTABLE}")
 
     include(ghex_find_python_module)
     find_python_module(nanobind REQUIRED)
