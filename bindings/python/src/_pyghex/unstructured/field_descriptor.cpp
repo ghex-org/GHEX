@@ -28,6 +28,35 @@ namespace pyghex
 namespace unstructured
 {
 
+namespace
+{
+template<typename Arch>
+struct ndarray_device_type;
+
+template<>
+struct ndarray_device_type<ghex::cpu>
+{
+    using type = nanobind::device::cpu;
+};
+
+template<>
+struct ndarray_device_type<ghex::gpu>
+{
+#ifdef __HIP_PLATFORM_HCC__
+    using type = nanobind::device::rocm;
+#else
+    using type = nanobind::device::cuda;
+#endif
+};
+
+template<typename T>
+nanobind::ssize_t
+byte_stride(const T& b, const size_t dim)
+{
+    return b.stride(dim) * static_cast<nanobind::ssize_t>(b.itemsize());
+}
+} // namespace
+
 void
 register_field_descriptor(nanobind::module_& m)
 {
@@ -50,95 +79,88 @@ register_field_descriptor(nanobind::module_& m)
             auto _field_descriptor = register_class<type>(m);
             register_class<buffer_info_type>(m);
 
-            _field_descriptor.def(
-                nanobind::init(
-                    [](const domain_descriptor_type&                dom,
-                        nanobind::ndarray<T, nanobind::device::any> b)
+            auto make_field_descriptor =
+                [](const domain_descriptor_type&                                        dom,
+                    nanobind::ndarray<T, typename ndarray_device_type<arch_type>::type> b)
+            {
+                if (b.ndim() > 2u)
+                {
+                    std::stringstream error;
+                    error << "Field has too many dimensions. Expected at most 2, but got "
+                          << b.ndim();
+                    throw nanobind::type_error(error.str().c_str());
+                }
+
+                if (static_cast<std::size_t>(b.shape(0)) != dom.size())
+                {
+                    std::stringstream error;
+                    error << "Field's first dimension (" << static_cast<std::size_t>(b.shape(0))
+                          << ") must match the size of the domain (" << dom.size() << ")";
+                    throw nanobind::type_error(error.str().c_str());
+                }
+
+                bool        levels_first = true;
+                std::size_t outer_strides = 0u;
+                const auto  stride_0 = byte_stride(b, 0);
+                const auto  stride_1 = (b.ndim() == 2) ? byte_stride(b, 1) : nanobind::ssize_t{0};
+                if (b.ndim() == 2 && stride_1 != sizeof(T))
+                {
+                    levels_first = false;
+                    if (stride_0 != sizeof(T))
                     {
-                        if (b.ndim() > 2u)
-                        {
-                            std::stringstream error;
-                            error << "Field has too many dimensions. Expected at most 2, but got "
-                                  << b.ndim();
-                            throw nanobind::type_error(error.str().c_str());
-                        }
+                        std::stringstream error;
+                        error << "Field's strides are not compatible with GHEX. Expected that the "
+                                 "(byte) stride of dimension 0 is "
+                              << sizeof(T) << " but got " << (std::size_t)(stride_0) << ".";
+                        throw nanobind::type_error(error.str().c_str());
+                    }
+                    if (((std::size_t)(stride_1) % sizeof(T)) != 0)
+                    {
+                        std::stringstream error;
+                        error << "Field's strides are not compatible with GHEX. Expected that the "
+                                 "(byte) stride of dimension 1  "
+                              << (std::size_t)(stride_1) << " is a multiple of the element size "
+                              << sizeof(T) << ".";
+                        throw nanobind::type_error(error.str().c_str());
+                    }
+                    outer_strides = stride_1 / sizeof(T);
+                }
+                else if (b.ndim() == 2)
+                {
+                    if (stride_1 != sizeof(T))
+                    {
+                        std::stringstream error;
+                        error << "Field's strides are not compatible with GHEX. Expected that the "
+                                 "(byte) stride of dimension 1 is "
+                              << sizeof(T) << " but got " << (std::size_t)(stride_1) << ".";
+                        throw nanobind::type_error(error.str().c_str());
+                    }
+                    if (((std::size_t)(stride_0) % sizeof(T)) != 0)
+                    {
+                        std::stringstream error;
+                        error << "Field's strides are not compatible with GHEX. Expected that the "
+                                 "(byte) stride of dimension 0 "
+                              << (std::size_t)(stride_0) << " is a multiple of the element size of "
+                              << sizeof(T) << ".";
+                        throw nanobind::type_error(error.str().c_str());
+                    }
+                    outer_strides = stride_0 / sizeof(T);
+                }
+                else if (stride_0 != sizeof(T))
+                {
+                    std::stringstream error;
+                    error
+                        << "Field's strides are not compatible with GHEX. With one dimension expected "
+                           "the stride to be "
+                        << sizeof(T) << " but got " << stride_0 << ".";
+                    throw nanobind::type_error(error.str().c_str());
+                }
 
-                        if (static_cast<std::size_t>(b.shape(0)) != dom.size())
-                        {
-                            std::stringstream error;
-                            error << "Field's first dimension ("
-                                  << static_cast<std::size_t>(b.shape(0))
-                                  << ") must match the size of the domain (" << dom.size() << ")";
-                            throw nanobind::type_error(error.str().c_str());
-                        }
+                const std::size_t levels = (b.ndim() == 1) ? 1u : (std::size_t)b.shape(1);
+                return type{dom, static_cast<T*>(b.data()), levels, levels_first, outer_strides};
+            };
 
-                        // NOTE: In `buffer_info` the strides are in bytes, but in
-                        // GHEX they are in elements.
-                        bool        levels_first = true;
-                        std::size_t outer_strides = 0u;
-                        if (b.ndim() == 2 && b.stride(1) != sizeof(T))
-                        {
-                            levels_first = false;
-                            if (b.stride(0) != sizeof(T))
-                            {
-                                std::stringstream error;
-                                error << "Field's strides are not compatible with GHEX. Expected "
-                                         "that the (byte) stride of dimension 0 is "
-                                      << sizeof(T) << " but got " << (std::size_t)(b.stride(0))
-                                      << ".";
-                                throw nanobind::type_error(error.str().c_str());
-                            }
-                            if (((std::size_t)(b.stride(1)) % sizeof(T)) != 0)
-                            {
-                                std::stringstream error;
-                                error << "Field's strides are not compatible with GHEX. Expected "
-                                         "that the (byte) stride of dimension 1  "
-                                      << (std::size_t)(b.stride(1))
-                                      << " is a multiple of the element size " << sizeof(T) << ".";
-                                throw nanobind::type_error(error.str().c_str());
-                            }
-                            outer_strides = b.stride(1) / sizeof(T);
-                        }
-                        else if (b.ndim() == 2)
-                        {
-                            if (b.stride(1) != sizeof(T))
-                            {
-                                std::stringstream error;
-                                error << "Field's strides are not compatible with GHEX. Expected "
-                                         "that the (byte) stride of dimension 1 is "
-                                      << sizeof(T) << " but got " << (std::size_t)(b.stride(1))
-                                      << ".";
-                                throw nanobind::type_error(error.str().c_str());
-                            }
-                            if (((std::size_t)(b.stride(0)) % sizeof(T)) != 0)
-                            {
-                                std::stringstream error;
-                                error << "Field's strides are not compatible with GHEX. Expected "
-                                         "that the (byte) stride of dimension 0 "
-                                      << (std::size_t)(b.stride(0))
-                                      << " is a multiple of the element size of " << sizeof(T)
-                                      << ".";
-                                throw nanobind::type_error(error.str().c_str());
-                            }
-                            outer_strides = b.stride(0) / sizeof(T);
-                        }
-                        else
-                        {
-                            // Note this case only happens for `info.ndim == 1`.
-                            if (b.stride(0) != sizeof(T))
-                            {
-                                std::stringstream error;
-                                error << "Field's strides are not compatible with GHEX. With one "
-                                         " dimension expected the stride to be "
-                                      << sizeof(T) << " but got " << b.stride(0) << ".";
-                                throw nanobind::type_error(error.str().c_str());
-                            };
-                        }
-                        std::size_t levels = (b.ndim() == 1) ? 1u : (std::size_t)b.shape(1);
-
-                        return type{dom, static_cast<T*>(b.data()), levels, levels_first,
-                            outer_strides};
-                    }),
+            _field_descriptor.def(nanobind::new_(make_field_descriptor),
                 nanobind::keep_alive<0, 2>());
         });
 }

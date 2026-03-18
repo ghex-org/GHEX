@@ -52,6 +52,7 @@ config()
     }
     {
         const char* version = mk_ver(NB_VERSION_MAJOR, NB_VERSION_MINOR, NB_VERSION_PATCH);
+        dict[nanobind::str("pybind-version")] = nanobind::str(version);
         dict[nanobind::str("nanobind-version")] = nanobind::str(version);
     }
 #undef mk_str
@@ -70,7 +71,7 @@ print_config(const nanobind::dict& d)
     for (auto x : d)
     {
         s << "     " << std::left << std::setw(16) << nanobind::cast<std::string>(x.first) << ": "
-          << std::right << std::setw(10) << nanobind::cast<std::string>(x.second) << "\n";
+          << std::right << std::setw(10) << nanobind::str(x.second).c_str() << "\n";
     }
 
     nanobind::print(s.str().c_str());

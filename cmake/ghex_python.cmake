@@ -2,6 +2,7 @@ include(GNUInstallDirs)
 
 if (GHEX_BUILD_PYTHON_BINDINGS)
 
+    find_package (Python REQUIRED COMPONENTS Interpreter Development.Module)
     find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 
     if(${Python3_FOUND})
@@ -9,7 +10,8 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
     endif()
 
     include(ghex_find_python_module)
-    # nanobind is found and linked in bindings/python/src/_pyghex/CMakeLists.txt
+    find_python_module(nanobind REQUIRED)
+    find_package(nanobind CONFIG REQUIRED PATHS "${PY_NANOBIND}/cmake")
 
     # Ask Python where it keeps its system (platform) packages.
     file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")

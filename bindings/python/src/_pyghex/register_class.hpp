@@ -24,7 +24,7 @@ register_class(nanobind::module_& m)
     auto demangled = util::demangle<T>();
     auto pymangled = util::mangle_python(demangled);
     return nanobind::class_<T>(m, pymangled.c_str())
-        .def_property_readonly_static("__cpp_type__",
+        .def_prop_ro_static("__cpp_type__",
             [demangled](const nanobind::object&) { return demangled; })
         .def("__str__", [pymangled](const T&) { return "<ghex." + pymangled + ">"; })
         .def("__repr__", [pymangled](const T&) { return "<ghex." + pymangled + ">"; });

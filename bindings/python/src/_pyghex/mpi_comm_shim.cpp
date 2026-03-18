@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 #include <mpi_comm_shim.hpp>
 #include <util/to_string.hpp>
 
@@ -101,8 +102,7 @@ register_mpi(nanobind::module_& m)
 
     nanobind::class_<mpi_comm_shim> mpi_comm(m, "mpi_comm");
     mpi_comm.def(nanobind::init<>())
-        .def(nanobind::init([](nanobind::object o) { return mpi_comm_shim(o); }), "mpi_comm_obj"_a,
-            "MPI communicator object.")
+        .def(nanobind::init<nanobind::object>(), "mpi_comm_obj"_a, "MPI communicator object.")
         .def("__str__", util::to_string<mpi_comm_shim>)
         .def("__repr__", util::to_string<mpi_comm_shim>);
 

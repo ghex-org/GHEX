@@ -26,6 +26,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/array.h>
 #include <nanobind/stl/string.h>
 
 namespace pyghex
@@ -38,6 +39,35 @@ namespace
 {
 template<int... val>
 using int_tuple_constant = gridtools::meta::list<std::integral_constant<int, val>...>;
+
+template<typename Arch>
+struct ndarray_device_type;
+
+template<>
+struct ndarray_device_type<ghex::cpu>
+{
+    using type = nanobind::device::cpu;
+};
+
+template<>
+struct ndarray_device_type<ghex::gpu>
+{
+#ifdef __HIP_PLATFORM_HCC__
+    using type = nanobind::device::rocm;
+#else
+    using type = nanobind::device::cuda;
+#endif
+};
+
+template<typename T>
+std::vector<nanobind::ssize_t>
+byte_strides(const T& b)
+{
+    std::vector<nanobind::ssize_t> result(b.ndim());
+    const auto                     itemsize = static_cast<nanobind::ssize_t>(b.itemsize());
+    for (size_t i = 0; i < b.ndim(); ++i) result[i] = b.stride(i) * itemsize;
+    return result;
+}
 
 } // namespace
 
@@ -67,55 +97,41 @@ register_field_descriptor(nanobind::module_& m)
             auto _field_descriptor = register_class<field_descriptor_type>(m);
             register_class<buffer_info_type>(m);
 
-            _field_descriptor.def(
-                nanobind::init(
-                    [](const domain_descriptor_type&                dom,
-                        nanobind::ndarray<T, nanobind::device::any> b, const array& offsets,
-                        const array& extents)
+            auto make_field_descriptor =
+                [](const domain_descriptor_type&                                        dom,
+                    nanobind::ndarray<T, typename ndarray_device_type<arch_type>::type> b,
+                    const array& offsets, const array& extents)
+            {
+                if (b.ndim() != dimension::value)
+                {
+                    std::stringstream error;
+                    error << "Field has wrong dimensions. Expected " << dimension::value
+                          << ", but got " << b.ndim();
+                    throw nanobind::type_error(error.str().c_str());
+                }
+
+                auto strides = byte_strides(b);
+
+                auto ordered_strides = strides;
+                std::sort(ordered_strides.begin(), ordered_strides.end(),
+                    [](nanobind::ssize_t a, nanobind::ssize_t b) { return a > b; });
+
+                array b_layout_map;
+                for (size_t i = 0; i < dimension::value; ++i)
+                {
+                    auto it = std::find(ordered_strides.begin(), ordered_strides.end(), strides[i]);
+                    b_layout_map[i] = std::distance(ordered_strides.begin(), it);
+                    if (b_layout_map[i] != layout_map::at(i))
                     {
-                        if (b.ndim() != dimension::value)
-                        {
-                            std::stringstream error;
-                            error << "Field has wrong dimensions. Expected " << dimension::value
-                                  << ", but got " << b.ndim();
-                            throw nanobind::type_error(error.str().c_str());
-                        }
+                        throw nanobind::type_error("Buffer has a different layout than specified.");
+                    }
+                }
 
-                        std::vector<nanobind::ssize_t> strides(dimension::value);
-                        for (size_t i = 0; i < dimension::value; ++i) strides[i] = b.stride(i);
+                return ghex::wrap_field<arch_type, layout_map>(dom, static_cast<T*>(b.data()),
+                    offsets, extents, strides);
+            };
 
-                        auto ordered_strides = strides;
-                        std::sort(ordered_strides.begin(), ordered_strides.end(),
-                            [](nanobind::ssize_t a, nanobind::ssize_t b) { return a > b; });
-
-                        array b_layout_map;
-                        for (size_t i = 0; i < dimension::value; ++i)
-                        {
-                            auto it = std::find(ordered_strides.begin(), ordered_strides.end(),
-                                strides[i]);
-                            b_layout_map[i] = std::distance(ordered_strides.begin(), it);
-                            if (b_layout_map[i] != layout_map::at(i))
-                            {
-                                throw nanobind::type_error(
-                                    "Buffer has a different layout than specified.");
-                            }
-                        }
-
-                        // GHEX expects strides in bytes? No, the original code comments in unstructured said:
-                        // "NOTE: In `buffer_info` the strides are in bytes, but in GHEX they are in elements."
-                        // However, let's check `ghex::wrap_field`.
-                        // It usually takes strides in bytes or elements depending on implementation.
-                        // The original code passed `info.strides` to `wrap_field`. `info.strides` from buffer_info are in BYTES.
-                        // Wait, let's check the deleted code in `structured/regular/field_descriptor.cpp`.
-                        // It calls: `ghex::wrap_field<arch_type, layout_map>(..., info.strides);`
-                        // `info.strides` in buffer_info are in bytes.
-                        // So I should pass strides in bytes.
-                        // `b.stride(i)` is in bytes.
-                        // But `ghex::wrap_field` expects a vector of strides.
-
-                        return ghex::wrap_field<arch_type, layout_map>(dom,
-                            static_cast<T*>(b.data()), offsets, extents, strides);
-                    }),
+            _field_descriptor.def(nanobind::new_(make_field_descriptor),
                 nanobind::keep_alive<0, 2>());
         });
 }

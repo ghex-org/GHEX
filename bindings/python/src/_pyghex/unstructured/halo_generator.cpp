@@ -36,10 +36,12 @@ register_halo_generator(nanobind::module_& m)
 
             auto _halo_generator = register_class<type>(m);
             /*auto _halo = */ register_class<halo>(m);
+            auto make_halo_generator = []() { return type{}; };
+            auto make_halo_generator_from_gids = [](const std::vector<global_index_type>& gids)
+            { return type{gids}; };
 
-            _halo_generator.def(nanobind::init<>(), "Create a halo generator")
-                .def(nanobind::init(
-                    [](const std::vector<global_index_type>& gids) { return type{gids}; }))
+            _halo_generator.def(nanobind::new_(make_halo_generator), "Create a halo generator")
+                .def(nanobind::new_(make_halo_generator_from_gids))
                 .def("__call__", &type::operator());
         });
 }

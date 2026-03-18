@@ -9,6 +9,7 @@
  */
 #include <cstdint>
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 
 #include <context_shim.hpp>
 #include <util/to_string.hpp>

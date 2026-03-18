@@ -16,6 +16,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/array.h>
+#include <nanobind/stl/vector.h>
 
 namespace pyghex
 {
@@ -49,18 +50,25 @@ register_halo_generator(nanobind::module_& m)
             _halo_generator
                 .def(nanobind::init<array, array, halo_array, periodic_array>(), "first"_a,
                     "last"_a, "halos"_a, "periodic"_a, "Create a halo generator")
-                .def("__call__", &type::operator());
+                .def("__call__",
+                    [](const type& halo_gen, const typename type::domain_type& domain)
+                    {
+                        nanobind::list result;
+                        for (const auto& halo : halo_gen(domain))
+                            result.append(nanobind::cast(halo));
+                        return result;
+                    });
 
-            _box2.def_property_readonly("local", [](const box2& b) { return b.local(); })
-                .def_property_readonly("global_", [](const box2& b) { return b.global(); });
+            _box2.def_prop_ro("local", [](const box2& b) { return b.local(); })
+                .def_prop_ro("global_", [](const box2& b) { return b.global(); });
 
-            _box.def_property_readonly("first",
+            _box.def_prop_ro("first",
                     [](const box& b)
                     {
                         auto first = b.first();
                         return static_cast<typename decltype(first)::array_type>(first);
                     })
-                .def_property_readonly("last",
+                .def_prop_ro("last",
                     [](const box& b)
                     {
                         auto last = b.last();

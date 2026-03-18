@@ -40,13 +40,12 @@ register_domain_descriptor(nanobind::module_& m)
 
             auto _domain_descriptor = register_class<type>(m);
 
-            _domain_descriptor
-                .def(nanobind::init(
-                    [](domain_id_type id, const std::vector<global_index_type>& gids,
-                        const std::vector<local_index_type>& halo_lids) {
-                        return type{id, gids.begin(), gids.end(), halo_lids.begin(),
-                            halo_lids.end()};
-                    }))
+            auto make_domain_descriptor = [](domain_id_type                         id,
+                                              const std::vector<global_index_type>& gids,
+                                              const std::vector<local_index_type>&  halo_lids)
+            { return type{id, gids.begin(), gids.end(), halo_lids.begin(), halo_lids.end()}; };
+
+            _domain_descriptor.def(nanobind::new_(make_domain_descriptor))
                 .def("domain_id", &type::domain_id, "Returns the domain id")
                 .def("size", &type::size, "Returns the size")
                 .def("inner_size", &type::inner_size, "Returns the inner size")

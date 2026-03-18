@@ -21,6 +21,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 
 namespace pyghex
 {
@@ -49,9 +50,9 @@ register_pattern(nanobind::module_& m)
             auto _pattern_container = register_class<pattern_container>(m);
 
             _pattern_container
-                .def_property_readonly_static("grid_type", [](const nanobind::object&)
+                .def_prop_ro_static("grid_type", [](const nanobind::object&)
                     { return util::mangle_python<typename pattern_container::grid_type>(); })
-                .def_property_readonly_static("domain_id_type", [](const nanobind::object&)
+                .def_prop_ro_static("domain_id_type", [](const nanobind::object&)
                     { return util::mangle_python<typename pattern_container::domain_id_type>(); });
 
             m.def(

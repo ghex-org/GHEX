@@ -11,6 +11,9 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/string.h>
+
+#include <Python.h>
 
 #include <gridtools/meta.hpp>
 #include <gridtools/common/for_each.hpp>
@@ -23,17 +26,46 @@ namespace nb = nanobind;
 namespace pyghex
 {
 
-std::string
-py_dtype_to_cpp_name(nb::dtype dtype)
+namespace
 {
+nb::object
+numpy_dtype(const nb::handle& value)
+{
+    static nb::module_ numpy = nb::module_::import_("numpy");
+    return numpy.attr("dtype")(nb::borrow<nb::object>(value));
+}
+
+template<typename T>
+nb::object
+dtype_of()
+{
+    if constexpr (std::is_same_v<T, double>) return numpy_dtype(nb::str("float64"));
+    else if constexpr (std::is_same_v<T, float>)
+        return numpy_dtype(nb::str("float32"));
+    else if constexpr (std::is_same_v<T, bool>)
+        return numpy_dtype(nb::str("bool"));
+    else if constexpr (std::is_same_v<T, std::int32_t>)
+        return numpy_dtype(nb::str("int32"));
+    else if constexpr (std::is_same_v<T, std::int64_t>)
+        return numpy_dtype(nb::str("int64"));
+    else
+        static_assert(sizeof(T) == 0, "unsupported dtype");
+}
+} // namespace
+
+std::string
+py_dtype_to_cpp_name(nb::handle dtype)
+{
+    const auto  canonical_dtype = numpy_dtype(dtype);
     std::string cpp_name;
 
     gridtools::for_each<pyghex::types::data>(
-        [&cpp_name, &dtype](auto l)
+        [&cpp_name, &canonical_dtype](auto l)
         {
             using type = decltype(l);
 
-            if (dtype == nb::dtype::of<type>())
+            auto candidate_dtype = dtype_of<type>();
+            if (PyObject_RichCompareBool(canonical_dtype.ptr(), candidate_dtype.ptr(), Py_EQ) == 1)
             {
                 assert(cpp_name.empty());
                 cpp_name = util::mangle_python<type>();

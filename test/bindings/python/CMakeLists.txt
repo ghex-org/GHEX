@@ -48,9 +48,10 @@ add_custom_target(
 # setup test target
 # =================
 
-add_custom_target(pyghex_tests)
-add_dependencies(pyghex pyghex_tests)
-add_dependencies(setup_test_env pyghex_tests)
+add_custom_target(pyghex_tests ALL)
+add_dependencies(pyghex_tests pyghex)
+add_dependencies(pyghex_tests pyghex_files)
+add_dependencies(pyghex_tests setup_test_env)
 
 copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fixtures FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/context.py)
@@ -90,3 +91,4 @@ ghex_reg_parallel_pytest(structured_pattern 4)
 
 #ghex_reg_pytest(unstructured_domain_descriptor)
 ghex_reg_parallel_pytest(unstructured_domain_descriptor 4)
+ghex_reg_parallel_pytest(unstructured_default_halo_generator 4)
