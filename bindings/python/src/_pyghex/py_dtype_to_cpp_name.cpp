@@ -13,8 +13,6 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/string.h>
 
-#include <Python.h>
-
 #include <gridtools/meta.hpp>
 #include <gridtools/common/for_each.hpp>
 
@@ -65,7 +63,7 @@ py_dtype_to_cpp_name(nb::handle dtype)
             using type = decltype(l);
 
             auto candidate_dtype = dtype_of<type>();
-            if (PyObject_RichCompareBool(canonical_dtype.ptr(), candidate_dtype.ptr(), Py_EQ) == 1)
+            if (nb::bool_(canonical_dtype.equal(candidate_dtype)))
             {
                 assert(cpp_name.empty());
                 cpp_name = util::mangle_python<type>();
