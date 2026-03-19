@@ -49,7 +49,8 @@ extract_cuda_stream(nanobind::object python_stream)
         if (nanobind::hasattr(python_stream, "__cuda_stream__"))
         {
             // CUDA stream protocol: https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol
-            nanobind::tuple cuda_stream_protocol = python_stream.attr("__cuda_stream__")();
+            nanobind::tuple cuda_stream_protocol =
+                nanobind::cast<nanobind::tuple>(python_stream.attr("__cuda_stream__")());
             if (cuda_stream_protocol.size() != 2)
             {
                 std::stringstream error;
@@ -58,7 +59,7 @@ extract_cuda_stream(nanobind::object python_stream)
                 throw nanobind::type_error(error.str().c_str());
             }
 
-            const auto protocol_version = cuda_stream_protocol[0].cast<std::size_t>();
+            const auto protocol_version = nanobind::cast<std::size_t>(cuda_stream_protocol[0]);
             if (protocol_version == 0)
             {
                 std::stringstream error;
@@ -67,13 +68,14 @@ extract_cuda_stream(nanobind::object python_stream)
                 throw nanobind::type_error(error.str().c_str());
             }
 
-            const auto stream_address = cuda_stream_protocol[1].cast<std::uintptr_t>();
+            const auto stream_address = nanobind::cast<std::uintptr_t>(cuda_stream_protocol[1]);
             return reinterpret_cast<cudaStream_t>(stream_address);
         }
         else if (nanobind::hasattr(python_stream, "ptr"))
         {
             // CuPy stream: See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
-            std::uintptr_t stream_address = python_stream.attr("ptr").cast<std::uintptr_t>();
+            std::uintptr_t stream_address =
+                nanobind::cast<std::uintptr_t>(python_stream.attr("ptr"));
             return reinterpret_cast<cudaStream_t>(stream_address);
         }
         // TODO: Find out of how to extract the typename, i.e. `type(python_stream).__name__`.
