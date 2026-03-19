@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-# The Python wrapper generated using pybind11 is a compiled dynamic library,
+# The Python wrapper generated using nanobind is a compiled dynamic library,
 # with a name like _pyghex.cpython-38-x86_64-linux-gnu.so
 #
 # The library will be installed in the same path as this file, which will
