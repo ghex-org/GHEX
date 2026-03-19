@@ -60,11 +60,10 @@ struct ndarray_device_type<ghex::gpu>
 };
 
 template<typename T>
-std::vector<nanobind::ssize_t>
-byte_strides(const T& b)
+std::vector<std::ptrdiff_t>
+byte_strides(const T& b, std::ptrdiff_t itemsize)
 {
-    std::vector<nanobind::ssize_t> result(b.ndim());
-    const auto                     itemsize = static_cast<nanobind::ssize_t>(b.itemsize());
+    std::vector<std::ptrdiff_t> result(b.ndim());
     for (size_t i = 0; i < b.ndim(); ++i) result[i] = b.stride(i) * itemsize;
     return result;
 }
@@ -110,11 +109,11 @@ register_field_descriptor(nanobind::module_& m)
                     throw nanobind::type_error(error.str().c_str());
                 }
 
-                auto strides = byte_strides(b);
+                auto strides = byte_strides(b, sizeof(T));
 
                 auto ordered_strides = strides;
                 std::sort(ordered_strides.begin(), ordered_strides.end(),
-                    [](nanobind::ssize_t a, nanobind::ssize_t b) { return a > b; });
+                    [](std::ptrdiff_t a, std::ptrdiff_t b) { return a > b; });
 
                 array b_layout_map;
                 for (size_t i = 0; i < dimension::value; ++i)
@@ -131,8 +130,18 @@ register_field_descriptor(nanobind::module_& m)
                     offsets, extents, strides);
             };
 
+#if NB_VERSION_MAJOR < 2
+            _field_descriptor.def(
+                "__init__",
+                [make_field_descriptor](field_descriptor_type* t, const domain_descriptor_type& dom,
+                    nanobind::ndarray<T, typename ndarray_device_type<arch_type>::type> b,
+                    const array& offsets, const array& extents)
+                { new (t) field_descriptor_type(make_field_descriptor(dom, b, offsets, extents)); },
+                nanobind::keep_alive<1, 3>());
+#else
             _field_descriptor.def(nanobind::new_(make_field_descriptor),
                 nanobind::keep_alive<0, 3>());
+#endif
         });
 }
 
