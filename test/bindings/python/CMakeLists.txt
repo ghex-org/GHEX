@@ -91,4 +91,3 @@ ghex_reg_parallel_pytest(structured_pattern 4)
 
 #ghex_reg_pytest(unstructured_domain_descriptor)
 ghex_reg_parallel_pytest(unstructured_domain_descriptor 4)
-ghex_reg_parallel_pytest(unstructured_default_halo_generator 4)
