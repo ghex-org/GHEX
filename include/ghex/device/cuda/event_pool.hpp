@@ -70,7 +70,7 @@ struct event_pool
         while (!(m_next_event < m_events.size())) { m_events.emplace_back(cuda_event()); }
 
         const std::size_t event_to_use = m_next_event;
-        assert(!bool(m_events[event_to_use]));
+        assert(bool(m_events[event_to_use]));
         m_next_event += 1;
         return m_events[event_to_use];
     }
