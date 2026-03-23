@@ -32,7 +32,7 @@ struct future
     T          m_data;
 
     future(T&& data, stream& stream)
-    : m_event{cudaEventDisableTiming} //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
+    : m_event{}
     , m_data{std::move(data)}
     {
         GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
@@ -63,8 +63,7 @@ struct future<void>
     cuda_event m_event;
 
     future(stream& stream)
-    : m_event{cudaEventDisableTiming}
-    //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
+    : m_event{}
     {
         GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
     }
