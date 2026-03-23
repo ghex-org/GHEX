@@ -10,7 +10,7 @@
 #pragma once
 
 #include <ghex/config.hpp>
-#include <ghex/util/c_managed_struct.hpp>
+#include <ghex/device/cuda/event.hpp>
 #include <ghex/device/cuda/error.hpp>
 #ifdef GHEX_CUDACC
 #include <ghex/device/cuda/runtime.hpp>
@@ -28,12 +28,7 @@ namespace device
 template<typename T>
 struct future
 {
-    GHEX_C_MANAGED_STRUCT(
-        event_type, cudaEvent_t, [](auto&&... args)
-        { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
-        [](auto& e) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
-
-    event_type m_event;
+    cuda_event m_event;
     T          m_data;
 
     future(T&& data, stream& stream)
@@ -65,12 +60,7 @@ struct future
 template<>
 struct future<void>
 {
-    GHEX_C_MANAGED_STRUCT(
-        event_type, cudaEvent_t, [](auto&&... args)
-        { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
-        [](auto& e) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
-
-    event_type m_event;
+    cuda_event m_event;
 
     future(stream& stream)
     : m_event{cudaEventDisableTiming}
