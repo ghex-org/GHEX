@@ -753,7 +753,7 @@ class communication_object
                 {
                     for (auto& p0 : m.recv_memory)
                     {
-                        if (p1.second.size > 0u)
+                        for (auto& p1 : p0.second)
                         {
                             if (p1.second.size > 0u)
                             {
@@ -766,7 +766,6 @@ class communication_object
                 }
             });
     }
-#endif
 
   private: // wait functions
     void progress()
