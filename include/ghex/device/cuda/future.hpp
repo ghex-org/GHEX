@@ -10,9 +10,9 @@
 #pragma once
 
 #include <ghex/config.hpp>
+#ifdef GHEX_CUDACC
 #include <ghex/device/cuda/event.hpp>
 #include <ghex/device/cuda/error.hpp>
-#ifdef GHEX_CUDACC
 #include <ghex/device/cuda/runtime.hpp>
 #endif
 #include <memory>
