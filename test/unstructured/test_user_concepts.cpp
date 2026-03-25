@@ -61,7 +61,7 @@ TEST_F(mpi_test_fixture, domain_descriptor)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -85,7 +85,7 @@ TEST_F(mpi_test_fixture, pattern_setup)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -116,7 +116,7 @@ TEST_F(mpi_test_fixture, data_descriptor)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -142,7 +142,7 @@ TEST_F(mpi_test_fixture, data_descriptor_async)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 

@@ -521,7 +521,7 @@ sim(bool multi_threaded)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 

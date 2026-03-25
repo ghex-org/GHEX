@@ -462,7 +462,7 @@ TEST_F(mpi_test_fixture, exchange_host_host)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -494,7 +494,7 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -527,7 +527,7 @@ TEST_F(mpi_test_fixture, exchange_device_device)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -559,7 +559,7 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -591,7 +591,7 @@ TEST_F(mpi_test_fixture, exchange_host_device)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -623,7 +623,7 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 #endif

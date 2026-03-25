@@ -31,7 +31,7 @@ TEST_F(mpi_test_fixture, context)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 
@@ -73,7 +73,7 @@ TEST_F(mpi_test_fixture, barrier)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
 #endif

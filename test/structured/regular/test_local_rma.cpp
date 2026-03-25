@@ -384,6 +384,6 @@ TEST_F(mpi_test_fixture, rma_exchange)
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
-        else { throw e; }
+        else { throw; }
     }
 }
