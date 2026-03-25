@@ -27,7 +27,10 @@ struct cuda_event
     cudaEvent_t           m_event;
     ghex::util::moved_bit m_moved;
 
-    cuda_event() : cuda_event(cudaEventDisableTiming) {}
+    cuda_event()
+    : cuda_event(cudaEventDisableTiming)
+    {
+    }
     explicit cuda_event(unsigned int flags) {
         GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, flags))
     };

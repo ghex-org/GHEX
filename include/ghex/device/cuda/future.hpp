@@ -43,7 +43,10 @@ struct future
     future(future&& other) = default;
     future& operator=(future&&) = default;
 
-    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true); }
+    bool test() noexcept
+    {
+        return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true);
+    }
 
     void wait()
     {
@@ -73,7 +76,10 @@ struct future<void>
     future(future&& other) = default;
     future& operator=(future&&) = default;
 
-    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true); }
+    bool test() noexcept
+    {
+        return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true);
+    }
 
     void wait()
     {
