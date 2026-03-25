@@ -107,14 +107,14 @@ class communication_handle
      * \brief	Schedule a wait for the communication on `stream`.
      *
      * This function will wait until all remote halo data has been received.
-     * It will then _start_ the unpacking of the data but not wait until it
-     * is completed. The function will add synchronizations to `stream` such
-     * that all work that will be submitted to it, after this function
-     * returned, will wait until the unpacking has finished.
+     * It will then _start_ the unpacking of the data, but not wait until it
+     * is completed. Instead the function will add synchronizations to `stream`
+     * such that all future work will wait until the unpacking has finished.
      *
      * Note, GHEX is able to transfer memory on the device and on host in the
-     * same call. If a transfer involves memory on the host, the function
-     * will only return once that memory has been fully unpacked.
+     * same call. In such a case the function will wait until the host memory
+     * has been fully unpacked. However, the device memory might not be fully
+     * unpacked when the function returns.
      *
      * In order to check if unpacking has concluded the user should synchronize
      * with `stream`.
@@ -239,8 +239,9 @@ class communication_object
     device::event_pool             m_event_pool{128};
 
 #if defined(GHEX_CUDACC) // TODO: Should we switch to `GHEX_USE_GPU`?
-    // This event records if there was a previous call to `schedule_wait()`. To
-    // avoid strange error conditions, we do not use an event from the pool.
+    // This event records if there was a previous call to `schedule_wait()`,
+    // it ensures that a "scheduled exchange" will wait until the previous
+    // one has finished.
     device::cuda_event  m_last_scheduled_exchange;
     device::cuda_event* m_active_scheduled_exchange{nullptr};
 #endif
@@ -256,9 +257,7 @@ class communication_object
 
     ~communication_object()
     {
-        // Make sure that communication has finished and we can deallocate
-        // the buffers. Maybe the call to `clear()` is too much here and
-        // we should only wait.
+        // Make sure that communication has finished and we can deallocate the buffers.
         complete_schedule_exchange();
     }
 
@@ -293,7 +292,7 @@ class communication_object
      * This function is similar to `exchange()` but it has some important (semantic)
      * differences. Instead of packing the halos and sending them immediately, the
      * function will wait until all work, that has been previously submitted to
-     * `stream` has been finished. The function will not start sending with the
+     * `stream`, has been finished. The function will not start sending with the
      * transmission of the halo data.
      *
      * It is required that the user calls `schedule_wait()` on the returned handle.
@@ -389,36 +388,6 @@ class communication_object
       */
     bool has_scheduled_exchange() const noexcept { return m_active_scheduled_exchange != nullptr; }
 #endif
-
-    /**
-     * @brief	Wait until the scheduled exchange has completed.
-     *
-     * This function can be used to ensure that the scheduled exchange, that was
-     * "completed" by a call to `schedule_wait()` has really been finished and
-     * it is possible to delete the internal buffers that were used in the
-     * exchange. A user will never have to call it directly. If there was no such
-     * exchange or GPU support was disabled, the function does nothing.
-     *
-     * \note  This should be a private function, but the tests need them.
-     */
-    void complete_schedule_exchange()
-    {
-#if defined(GHEX_CUDACC)
-        if (m_active_scheduled_exchange)
-        {
-            // NOTE: In order for this to work the call below must be safe even in the case
-            // when the stream, that was passed to `schedule_wait()` has been destroyed.
-            // The CUDA documentation is a bit unclear in that regard, but this should
-            // be the case.
-            m_active_scheduled_exchange = nullptr; // must happen before the check
-            GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_last_scheduled_exchange.get()));
-
-            // In normal mode, `wait()` would call `clear()`, but `schedule_wait()` can not
-            // do that thus, we have to do it here.
-            clear();
-        }
-#endif
-    }
 
   private: // implementation
     // overload for pairs of iterators
@@ -784,7 +753,7 @@ class communication_object
                 {
                     for (auto& p0 : m.recv_memory)
                     {
-                        for (auto& p1 : p0.second)
+                        if (p1.second.size > 0u)
                         {
                             if (p1.second.size > 0u)
                             {
@@ -797,6 +766,7 @@ class communication_object
                 }
             });
     }
+#endif
 
   private: // wait functions
     void progress()
@@ -814,7 +784,7 @@ class communication_object
 #ifdef GHEX_CUDACC
             if (has_scheduled_exchange())
             {
-                // TODO(reviewer): See comments in `wait()`.
+                // NOTE: See comments in `wait()`.
                 complete_schedule_exchange();
             }
             else
@@ -841,11 +811,12 @@ class communication_object
 #ifdef GHEX_CUDACC
         if (has_scheduled_exchange())
         {
-            // TODO(reviewer): I am pretty sure that it is not needed to call `sync_stream()`
+            // TODO: I am pretty sure that it is not needed to call `sync_stream()`
             // in this case, because `complete_scheduled_exchange()` will sync with the stream
             // passed to `schedule_wait()`. This means that after the sync unpacking has
             // completed and this implies that the work, enqueued in the unpacking streams
             // is done.
+            // See also: `is_ready()`.
             complete_schedule_exchange();
         }
         else
@@ -895,7 +866,7 @@ class communication_object
         // NOTE: Depending on how `pack_and_send()` is modified here might be a race condition.
         //  This is because currently `pack_and_send()` waits until everything has been send,
         //  thus if we are here, we know that the send operations have concluded and we only
-        //  have to check the recive buffer.
+        //  have to check the receive buffer.
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
@@ -942,10 +913,9 @@ class communication_object
     // blocking.
     void schedule_sync_unpack(cudaStream_t stream)
     {
-        // TODO: We only iterate over the receive buffers and not over the send streams.
-        //  Currently this is not needed, because of how `pack_and_send()` is implemented,
-        //  as it will wait until send has been completed, but depending on how the
-        //  function is changed we have to modify this function.
+        // NOTE: We only iterate over the receive buffers because `pack_and_send()` will
+        //  wait until the sending has been completed. Thus if we are here, the sending
+        //  is done and no synchronizations with these streams is needed.
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
@@ -977,6 +947,34 @@ class communication_object
         m_active_scheduled_exchange = &m_last_scheduled_exchange;
     }
 #endif
+
+    /**
+     * @brief	Wait until the scheduled exchange has completed.
+     *
+     * This function can be used to ensure that the scheduled exchange, that was
+     * "completed" by a call to `schedule_wait()` has really been finished and
+     * it is possible to delete the internal buffers that were used in the
+     * exchange. A user will never have to call it directly. If there was no such
+     * exchange or GPU support was disabled, the function does nothing.
+     */
+    void complete_schedule_exchange()
+    {
+#if defined(GHEX_CUDACC)
+        if (m_active_scheduled_exchange)
+        {
+            // NOTE: In order for this to work the call below must be safe even in the case
+            // when the stream, that was passed to `schedule_wait()` has been destroyed.
+            // The CUDA documentation is a bit unclear in that regard, but this should
+            // be the case.
+            m_active_scheduled_exchange = nullptr; // must happen before the check
+            GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_last_scheduled_exchange.get()));
+
+            // In normal mode, `wait()` would call `clear()`, but `schedule_wait()` can not
+            // do that thus, we have to do it here.
+            clear();
+        }
+#endif
+    }
 
   private: // reset
     // clear the internal flags so that a new exchange can be started
