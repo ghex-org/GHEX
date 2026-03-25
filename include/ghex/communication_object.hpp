@@ -354,6 +354,7 @@ class communication_object
     [[nodiscard]] disable_if_buffer_info<Iterator, handle_type> exchange(Iterator first,
         Iterator                                                                  last)
     {
+        // call special function for a single range
         return exchange_u(first, last);
     }
 
