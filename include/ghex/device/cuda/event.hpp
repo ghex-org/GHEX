@@ -27,7 +27,8 @@ struct cuda_event
     cudaEvent_t           m_event;
     ghex::util::moved_bit m_moved;
 
-    cuda_event(unsigned int flags = cudaEventDisableTiming) {
+    cuda_event() : cuda_event(cudaEventDisableTiming) {}
+    explicit cuda_event(unsigned int flags) {
         GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, flags))
     };
     cuda_event(const cuda_event&) = delete;
@@ -52,9 +53,6 @@ struct cuda_event
         assert(!m_moved);
         return m_event;
     }
-
-    operator cudaEvent_t&() noexcept { return get(); }
-    operator const cudaEvent_t&() const noexcept { return get(); }
 };
 } // namespace device
 } // namespace ghex

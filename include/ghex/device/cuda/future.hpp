@@ -35,7 +35,7 @@ struct future
     : m_event{}
     , m_data{std::move(data)}
     {
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event.get(), stream));
     }
 
     future(const future&) = delete;
@@ -43,11 +43,11 @@ struct future
     future(future&& other) = default;
     future& operator=(future&&) = default;
 
-    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); }
+    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true); }
 
     void wait()
     {
-        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
+        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event.get()));
     }
 
     [[nodiscard]] T get()
@@ -65,7 +65,7 @@ struct future<void>
     future(stream& stream)
     : m_event{}
     {
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event.get(), stream));
     }
 
     future(const future&) = delete;
@@ -73,11 +73,11 @@ struct future<void>
     future(future&& other) = default;
     future& operator=(future&&) = default;
 
-    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); }
+    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true); }
 
     void wait()
     {
-        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
+        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event.get()));
     }
 
     void get() { wait(); }
