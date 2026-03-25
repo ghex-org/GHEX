@@ -368,7 +368,6 @@ class communication_object
                   * @param last1 points to the end of the range1
                   * @param iters first and last iterators for further ranges
                   * @return handle to await communication */
-    // TODO: Need stream-dependent version of this exchange overload
     template<typename Iterator0, typename Iterator1, typename... Iterators>
     [[nodiscard]] disable_if_buffer_info<Iterator0, handle_type> exchange(Iterator0 first0,
         Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
