@@ -29,6 +29,12 @@ template<int>
 struct layouts;
 
 template<>
+struct layouts<1>
+{
+    using list = gridtools::meta::list<gridtools::layout_map<0>>;
+};
+
+template<>
 struct layouts<2>
 {
     using list = gridtools::meta::list<gridtools::layout_map<0, 1>, gridtools::layout_map<1, 0>>;
