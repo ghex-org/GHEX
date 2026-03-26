@@ -32,8 +32,9 @@ using domain_descriptor_specializations_ = gridtools::meta::transform<
 } // namespace
 
 using domain_descriptor_specializations =
-    gridtools::meta::concat<domain_descriptor_specializations_<2>,
-        domain_descriptor_specializations_<3>, domain_descriptor_specializations_<4>>;
+    gridtools::meta::concat<domain_descriptor_specializations_<1>,
+        domain_descriptor_specializations_<2>, domain_descriptor_specializations_<3>,
+        domain_descriptor_specializations_<4>>;
 
 } // namespace regular
 } // namespace structured

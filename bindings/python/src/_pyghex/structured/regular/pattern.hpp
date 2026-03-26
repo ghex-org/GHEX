@@ -41,8 +41,9 @@ using make_pattern_traits_specializations_ =
         make_pattern_traits_args_<D>>;
 
 using make_pattern_traits_specializations =
-    gridtools::meta::concat<make_pattern_traits_specializations_<2>,
-        make_pattern_traits_specializations_<3>, make_pattern_traits_specializations_<4>>;
+    gridtools::meta::concat<make_pattern_traits_specializations_<1>,
+        make_pattern_traits_specializations_<2>, make_pattern_traits_specializations_<3>,
+        make_pattern_traits_specializations_<4>>;
 
 } // namespace
 } // namespace regular
