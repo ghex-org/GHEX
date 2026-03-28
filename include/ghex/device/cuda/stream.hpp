@@ -27,7 +27,11 @@ struct stream
     cudaStream_t          m_stream;
     ghex::util::moved_bit m_moved;
 
-    stream(){GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking))}
+    stream() {
+        int least_priority, greatest_priority;
+        GHEX_CHECK_CUDA_RESULT(cudaDeviceGetStreamPriorityRange(&least_priority, &greatest_priority))
+        GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithPriority(&m_stream, cudaStreamNonBlocking, greatest_priority))
+    }
 
     stream(const stream&) = delete;
     stream& operator=(const stream&) = delete;
