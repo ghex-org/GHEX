@@ -47,50 +47,102 @@ void test_in_place_receive_threads(ghex::context& ctxt);
 
 TEST_F(mpi_test_fixture, domain_descriptor)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+    try
+    {
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
-    if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
+        if (world_size == 4) { test_domain_descriptor_and_halos(ctxt); }
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        }
+        else { throw; }
+    }
 }
 
 TEST_F(mpi_test_fixture, pattern_setup)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-    if (world_size == 4) { test_pattern_setup(ctxt); }
-    else if (world_size == 2)
+    try
     {
-        test_pattern_setup_oversubscribe(ctxt);
-        test_pattern_setup_oversubscribe_asymm(ctxt);
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+        if (world_size == 4) { test_pattern_setup(ctxt); }
+        else if (world_size == 2)
+        {
+            test_pattern_setup_oversubscribe(ctxt);
+            test_pattern_setup_oversubscribe_asymm(ctxt);
+        }
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        }
+        else { throw; }
     }
 }
 
 TEST_F(mpi_test_fixture, data_descriptor)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+    try
+    {
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
-    if (world_size == 4)
-    {
-        test_data_descriptor(ctxt, 1, true);
-        test_data_descriptor(ctxt, 3, true);
-        test_data_descriptor(ctxt, 1, false);
-        test_data_descriptor(ctxt, 3, false);
+        if (world_size == 4)
+        {
+            test_data_descriptor(ctxt, 1, true);
+            test_data_descriptor(ctxt, 3, true);
+            test_data_descriptor(ctxt, 1, false);
+            test_data_descriptor(ctxt, 3, false);
+        }
+        else if (world_size == 2)
+        {
+            test_data_descriptor_oversubscribe(ctxt);
+            if (thread_safe) test_data_descriptor_threads(ctxt);
+        }
     }
-    else if (world_size == 2)
+    catch (std::runtime_error const& e)
     {
-        test_data_descriptor_oversubscribe(ctxt);
-        if (thread_safe) test_data_descriptor_threads(ctxt);
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        }
+        else { throw; }
     }
 }
 
 TEST_F(mpi_test_fixture, data_descriptor_async)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
-
-    if (world_size == 4)
+    try
     {
-        test_data_descriptor_async(ctxt, 1, true);
-        test_data_descriptor_async(ctxt, 3, true);
-        test_data_descriptor_async(ctxt, 1, false);
-        test_data_descriptor_async(ctxt, 3, false);
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+
+        if (world_size == 4)
+        {
+            test_data_descriptor_async(ctxt, 1, true);
+            test_data_descriptor_async(ctxt, 3, true);
+            test_data_descriptor_async(ctxt, 1, false);
+            test_data_descriptor_async(ctxt, 3, false);
+        }
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe &&
+            ghex::context(world, false).transport_context()->get_transport_option("name") ==
+                std::string("nccl"))
+        {
+            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+        }
+        else { throw; }
     }
 }
 
@@ -320,7 +372,8 @@ test_data_descriptor(ghex::context& ctxt, std::size_t levels, bool levels_first)
 
 /** @brief Test data descriptor concept*/
 void
-test_data_descriptor_async(ghex::context& ctxt, std::size_t levels, bool levels_first)
+test_data_descriptor_async([[maybe_unused]] ghex::context& ctxt,
+    [[maybe_unused]] std::size_t levels, [[maybe_unused]] bool levels_first)
 {
 #ifdef GHEX_CUDACC
     // NOTE: Async exchange is only implemented for the GPU, however, we also
