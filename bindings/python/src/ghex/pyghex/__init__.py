@@ -14,4 +14,4 @@
 # The library will be installed in the same path as this file, which will
 # import the compiled part of the wrapper from the _pyghex namespace.
 
-from .._pyghex import *  # noqa:F403
+from ._pyghex import *  # noqa:F403
