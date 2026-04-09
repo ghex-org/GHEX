@@ -52,17 +52,19 @@ set_target_properties(pyghex PROPERTIES
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
 
-# Generate the typing stub files.
-nanobind_add_stub(
-  pyghex_stub
-  MODULE pyghex
-  OUTPUT pyghex.pyi
-  RECURSIVE  # We need to specify `RECURSIVE` to enable `OUTPUT_PATH`.
-  PYTHON_PATH $<TARGET_FILE_DIR:pyghex>
-  OUTPUT_PATH $<TARGET_FILE_DIR:pyghex>
-  DEPENDS ghex
-)
-add_dependencies(pyghex_stub pyghex)
+# Generate the type stub if version permits it.
+if (${nanobind_VERSION} VERSION_GREATER "2.3")
+    nanobind_add_stub(
+        pyghex_stub
+        MODULE pyghex
+        OUTPUT pyghex.pyi
+        RECURSIVE  # We need to specify `RECURSIVE` to enable `OUTPUT_PATH`.
+        PYTHON_PATH $<TARGET_FILE_DIR:pyghex>
+        OUTPUT_PATH $<TARGET_FILE_DIR:pyghex>
+	DEPENDS ghex
+    )
+    add_dependencies(pyghex_stub pyghex)
+endif()
 
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)
