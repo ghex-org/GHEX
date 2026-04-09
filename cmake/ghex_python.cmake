@@ -8,7 +8,7 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
 
     include(ghex_find_python_module)
     find_python_module(nanobind REQUIRED)
-    find_package(nanobind CONFIG REQUIRED HINTS "${PY_NANOBIND}/cmake")
+    find_package(nanobind CONFIG REQUIRED PATH "${PY_NANOBIND}/cmake")
 
     # Ask Python where it keeps its system (platform) packages.
     file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")
