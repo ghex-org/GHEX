@@ -59,7 +59,7 @@ nanobind_add_stub(
   OUTPUT pyghex.pyi
   RECURSIVE  # We need to specify `RECURSIVE` to enable `OUTPUT_PATH`.
   PYTHON_PATH $<TARGET_FILE_DIR:pyghex>
-  OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/../../ghex"
+  OUTPUT_PATH $<TARGET_FILE_DIR:pyghex>
   DEPENDS ghex
 )
 
