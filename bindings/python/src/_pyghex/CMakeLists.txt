@@ -44,11 +44,8 @@ compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
 nanobind_add_module(pyghex $<TARGET_OBJECTS:pyghex_obj>)
 
 target_link_libraries(pyghex_obj PRIVATE nanobind-static)
-# With this, the full name of the library will be something like:
-# _pyghex.cpython-36m-x86_64-linux-gnu.so
+# Choose this particular output directory for testing purposes
 set_target_properties(pyghex PROPERTIES
-	#OUTPUT_NAME _pyghex
-    # Choose this particular output directory for testing purposes
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../ghex/")
 # This dependency has to be spelt out again, despite being added to
 # pyghex_obj because CMake.
@@ -59,21 +56,12 @@ ghex_link_to_oomph(ghex)
 nanobind_add_stub(
   pyghex_stub
   MODULE pyghex
-  OUTPUT __init__.pyi  # If `Recursive` is not given then it is generated otherwise it is ignored.
-  #RECURSIVE
+  OUTPUT pyghex.pyi
+  RECURSIVE  # We need to specify `RECURSIVE` to enable `OUTPUT_PATH`.
   PYTHON_PATH $<TARGET_FILE_DIR:pyghex>
-  #OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/../../ghex/pyghex"
-  #PYTHON_PATH "."
+  OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/../../ghex"
   DEPENDS ghex
 )
-
-
-
-
-
-
-
-
 
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)
