@@ -52,7 +52,7 @@ set_target_properties(pyghex PROPERTIES
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
 
-# If compiled with `make -j 6` this fails, because it is not fully build, there is a dependency that is not set correctly.
+# Generate the typing stub files.
 nanobind_add_stub(
   pyghex_stub
   MODULE pyghex
@@ -62,6 +62,7 @@ nanobind_add_stub(
   OUTPUT_PATH $<TARGET_FILE_DIR:pyghex>
   DEPENDS ghex
 )
+add_dependencies(pyghex_stub pyghex)
 
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)
