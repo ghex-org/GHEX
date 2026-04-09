@@ -12,7 +12,7 @@ from enum import Enum
 import inspect
 from typing import TYPE_CHECKING
 
-import ghex.pyghex as _pyghex
+from ghex import pyghex
 
 if TYPE_CHECKING:
     from numpy.typing import DTypeLike
@@ -30,7 +30,7 @@ def unwrap(arg: Any) -> Any:
 
 def cls_from_cpp_type_spec(cpp_type_spec: Union[str, tuple[str, ...]]) -> Any:
     if isinstance(cpp_type_spec, str):
-        return getattr(_pyghex, cpp_type_spec)
+        return getattr(pyghex, cpp_type_spec)
     else:
         fq_cpp_type_name, *template_args = cpp_type_spec
         template_args = [
@@ -39,7 +39,7 @@ def cls_from_cpp_type_spec(cpp_type_spec: Union[str, tuple[str, ...]]) -> Any:
         ]
         fq_cpp_type_specialization_name = fq_cpp_type_name + "_" + "_".join(template_args) + "_"
 
-        return getattr(_pyghex, fq_cpp_type_specialization_name)
+        return getattr(pyghex, fq_cpp_type_specialization_name)
 
 
 class CppWrapper:

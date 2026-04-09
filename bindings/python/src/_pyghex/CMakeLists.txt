@@ -47,17 +47,18 @@ target_link_libraries(pyghex_obj PRIVATE nanobind-static)
 # With this, the full name of the library will be something like:
 # _pyghex.cpython-36m-x86_64-linux-gnu.so
 set_target_properties(pyghex PROPERTIES
-    OUTPUT_NAME _pyghex
+	#OUTPUT_NAME _pyghex
     # Choose this particular output directory for testing purposes
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../ghex/pyghex")
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../ghex/")
 # This dependency has to be spelt out again, despite being added to
 # pyghex_obj because CMake.
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
 
+# If compiled with `make -j 6` this fails, because it is not fully build, there is a dependency that is not set correctly.
 nanobind_add_stub(
   pyghex_stub
-  MODULE _pyghex
+  MODULE pyghex
   OUTPUT __init__.pyi  # If `Recursive` is not given then it is generated otherwise it is ignored.
   #RECURSIVE
   PYTHON_PATH $<TARGET_FILE_DIR:pyghex>

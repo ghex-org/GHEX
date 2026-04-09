@@ -39,7 +39,7 @@ void register_communication_object(nanobind::module_& m);
 
 } // namespace pyghex
 
-NB_MODULE(_pyghex, m)
+NB_MODULE(pyghex, m)
 {
     m.doc() = "nanobind ghex bindings";
 
