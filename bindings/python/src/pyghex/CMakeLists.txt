@@ -61,9 +61,8 @@ if (${nanobind_VERSION} VERSION_GREATER "2.3")
         RECURSIVE  # We need to specify `RECURSIVE` to enable `OUTPUT_PATH`.
         PYTHON_PATH $<TARGET_FILE_DIR:pyghex>
         OUTPUT_PATH $<TARGET_FILE_DIR:pyghex>
-	DEPENDS ghex
+	DEPENDS pyghex
     )
-    add_dependencies(pyghex_stub pyghex)
 endif()
 
 # Set RPaths such that the python module is able to find libghex
