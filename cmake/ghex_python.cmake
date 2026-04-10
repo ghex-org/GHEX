@@ -10,19 +10,23 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
     find_python_module(nanobind)
 
     if (SKBUILD_PROJECT_NAME)
+	    message(STATUS "Building in pip mode.")
         # Build as a Python package, `nanobind` is a buiild dependency, so it should be found.
         if(NOT HAVE_NANOBIND)
             message(FATAL_ERROR "Expected that the `nanobind` Python pakage was installed as dependency")
         endif()
         find_package(nanobind CONFIG REQUIRED HINTS "${PY_NANOBIND}/cmake")
     elseif (HAVE_NANOBIND)
+	    message(STATUS "Building in normal mode but use installed nanobind package.")
         # Normal build and the `nanobind` Python package was found, use it.
         find_package(nanobind CONFIG REQUIRED HINTS "${PY_NANOBIND}/cmake")
     else()
+	    message(STATUS "Building in normal mode but use system nanobind.")
         # Normal build but no `nanobind` Python package was found, try to localize the one on the system.
 	# NOTE: The `CONFIG` is retained for compatibility with the old version, but maybe remove it.
 	find_package(nanobind CONFIG REQUIRED)
     endif()
+    message(STATUS "NANOBIND VERSION: ${nanobind_VERSION}")
 
     # Ask Python where it keeps its system (platform) packages.
     file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")
