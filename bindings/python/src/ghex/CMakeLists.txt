@@ -1,3 +1,5 @@
+# NOTE: These install commands only copy the `ghex` Python (wrapper) project. The actuall library, `pyghex`
+#	is copied in the `CMakeLists.txt` file of that folder.
 if (SKBUILD_PROJECT_NAME)
     # CMake driven by scikit-build-core
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ DESTINATION . FILES_MATCHING PATTERN "*.py")

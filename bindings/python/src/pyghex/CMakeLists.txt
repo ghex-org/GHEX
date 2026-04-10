@@ -68,9 +68,11 @@ endif()
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)
 if (SKBUILD_PROJECT_NAME)
+    # TODO: Include the stub file here such that it is installed.
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${rpath_origin_install_libdir}")
     install(TARGETS pyghex DESTINATION .)
 else()
+    # TODO: Include the stub file here such that it is installed.
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
     install(TARGETS pyghex DESTINATION ${GHEX_PYTHON_LIB_PATH}/ghex)
 endif()
