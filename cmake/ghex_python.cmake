@@ -1,17 +1,14 @@
 include(GNUInstallDirs)
 
-set(PYBIND11_CPP_STANDARD -std=c++17)
-
 if (GHEX_BUILD_PYTHON_BINDINGS)
 
-    find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(Python 3 REQUIRED COMPONENTS Interpreter Development.Module)
 
-    if(${Python3_FOUND})
-        set(PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
-    endif()
+    set(PYTHON_EXECUTABLE "${Python_EXECUTABLE}")
 
     include(ghex_find_python_module)
-    find_package(pybind11 REQUIRED PATHS ${Python_SITELIB})
+    find_python_module(nanobind REQUIRED)
+    find_package(nanobind CONFIG REQUIRED PATHS "${PY_NANOBIND}/cmake")
 
     # Ask Python where it keeps its system (platform) packages.
     file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")
