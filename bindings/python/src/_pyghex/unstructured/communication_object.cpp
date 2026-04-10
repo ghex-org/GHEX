@@ -60,7 +60,7 @@ extract_cuda_stream(nanobind::object python_stream)
             }
 
             const auto protocol_version = nanobind::cast<std::size_t>(cuda_stream_protocol[0]);
-            if (protocol_version == 0)
+            if (protocol_version != 0)
             {
                 std::stringstream error;
                 error << "Expected `__cuda_stream__` protocol version 0, but got "

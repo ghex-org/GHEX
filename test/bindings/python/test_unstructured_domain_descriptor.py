@@ -12,8 +12,20 @@ import numpy as np
 
 try:
     import cupy as cp
+
+    # Mock to implement CUDA's Stream protocol: https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol
+    class CUDAStreamProtocolMock:
+        def __init__(self, *args, **kwargs):
+            self.cupy_stream = cp.cuda.Stream(*args, **kwargs)
+
+        def __cuda_stream__(self):
+            return 0, self.cupy_stream.ptr
+
+    STREAM_TYPES_TO_TEST = [None, cp.cuda.Stream, CUDAStreamProtocolMock]
+
 except ImportError:
     cp = None
+    STREAM_TYPES_TO_TEST = [None]  # Must be at least one element.
 
 import ghex
 from ghex.context import make_context
@@ -217,6 +229,7 @@ LEVELS = 2
 @pytest.mark.parametrize("on_gpu", [True, False])
 @pytest.mark.mpi
 def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
+    # Does not uses streams.
 
     if on_gpu and cp is None:
         pytest.skip(reason="`CuPy` is not installed.")
@@ -289,8 +302,9 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
 @pytest.mark.parametrize("on_gpu", [True, False])
+@pytest.mark.parametrize("stream_type", STREAM_TYPES_TO_TEST)
 @pytest.mark.mpi
-def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
+def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, dtype):
 
     if on_gpu:
         if cp is None:
@@ -354,7 +368,7 @@ def test_domain_descriptor_async(on_gpu, capsys, mpi_cart_comm, dtype):
     d1, f1 = make_field("C")
     d2, f2 = make_field("F")
 
-    stream = cp.cuda.Stream(non_blocking=True) if on_gpu else None
+    stream = None if stream_type is None else stream_type(non_blocking=True)
     handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
     assert not co.has_scheduled_exchange()
 
