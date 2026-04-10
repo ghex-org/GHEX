@@ -53,7 +53,7 @@ target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
 
 # Generate the type stub if version permits it.
-if (${nanobind_VERSION} VERSION_GREATER "2.3")
+if (nanobind_VERSION AND (${nanobind_VERSION} VERSION_GREATER "2.3"))
     nanobind_add_stub(
         pyghex_stub
         MODULE pyghex

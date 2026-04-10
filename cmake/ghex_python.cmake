@@ -26,7 +26,6 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
 	# NOTE: The `CONFIG` is retained for compatibility with the old version, but maybe remove it.
 	find_package(nanobind CONFIG REQUIRED)
     endif()
-    message(STATUS "NANOBIND VERSION: ${nanobind_VERSION}")
 
     # Ask Python where it keeps its system (platform) packages.
     file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")
