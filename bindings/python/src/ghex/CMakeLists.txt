@@ -1,3 +1,5 @@
+# NOTE: These install commands only copy the `ghex` Python (wrapper) project. The actuall library, `pyghex`
+#	is copied in the `CMakeLists.txt` file of that folder.
 if (SKBUILD_PROJECT_NAME)
     # CMake driven by scikit-build-core
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ DESTINATION . FILES_MATCHING PATTERN "*.py")
@@ -8,10 +10,13 @@ else()
 endif()
 
 if(GHEX_WITH_TESTING)
-    add_custom_target(pyghex_files)
-    add_custom_command(TARGET pyghex_files PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_BINARY_DIR}/../../ghex")
-    add_custom_command(TARGET pyghex_files PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/version.txt "${CMAKE_CURRENT_BINARY_DIR}/../../ghex")
-    add_dependencies(pyghex pyghex_files)
+    file(GLOB_RECURSE pyghex_python_files CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.py")
+
+    add_custom_target(pyghex_files ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR} "${CMAKE_CURRENT_BINARY_DIR}/../../ghex"
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/version.txt "${CMAKE_CURRENT_BINARY_DIR}/../../ghex"
+        DEPENDS ${pyghex_python_files} ${CMAKE_BINARY_DIR}/version.txt
+        COMMENT "Refreshing Python binding files for tests")
+
+    add_dependencies(pyghex_files pyghex)
 endif()

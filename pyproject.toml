@@ -2,9 +2,8 @@
 build-backend = 'scikit_build_core.build'
 requires = [
     'cmake',
-    'pybind11>=2.6',
-    'scikit-build-core',
-    'wheel',
+    'nanobind>=2.0.0',
+    'scikit-build-core'
 ]
 
 [project]

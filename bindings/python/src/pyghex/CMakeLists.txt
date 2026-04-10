@@ -1,3 +1,5 @@
+set(CMAKE_CXX_STANDARD 17)
+
 set(pyghex_source
     config.cpp
     context_shim.cpp
@@ -25,7 +27,6 @@ set_property(TARGET pyghex_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
-target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(pyghex_obj PRIVATE -fbracket-depth=512)
@@ -40,27 +41,38 @@ compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
 # ==================
 # Create the Python module in the build directory.
 # The module contains the dynamic library, __init__.py and VERSION information.
-add_library(pyghex MODULE $<TARGET_OBJECTS:pyghex_obj>)
-# With this, the full name of the library will be something like:
-# _pyghex.cpython-36m-x86_64-linux-gnu.so
+nanobind_add_module(pyghex $<TARGET_OBJECTS:pyghex_obj>)
+
+target_link_libraries(pyghex_obj PRIVATE nanobind-static)
+# Choose this particular output directory for testing purposes
 set_target_properties(pyghex PROPERTIES
-    OUTPUT_NAME _pyghex
-    PREFIX "${PYTHON_MODULE_PREFIX}"
-    SUFFIX "${PYTHON_MODULE_EXTENSION}"
-    # Choose this particular output directory for testing purposes
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../ghex")
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../ghex/")
 # This dependency has to be spelt out again, despite being added to
 # pyghex_obj because CMake.
-target_link_libraries(pyghex PRIVATE pybind11::module)
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
+
+# Generate the type stub if version permits it.
+if ((DEFINED nanobind_VERSION) AND ("${nanobind_VERSION}" VERSION_GREATER "2.3"))
+    nanobind_add_stub(
+        pyghex_stub
+        MODULE pyghex
+        OUTPUT pyghex.pyi
+        RECURSIVE  # We need to specify `RECURSIVE` to enable `OUTPUT_PATH`.
+        PYTHON_PATH $<TARGET_FILE_DIR:pyghex>
+        OUTPUT_PATH $<TARGET_FILE_DIR:pyghex>
+	DEPENDS pyghex
+    )
+endif()
 
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)
 if (SKBUILD_PROJECT_NAME)
+    # TODO: Include the stub file here such that it is installed.
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${rpath_origin_install_libdir}")
     install(TARGETS pyghex DESTINATION .)
 else()
+    # TODO: Include the stub file here such that it is installed.
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
     install(TARGETS pyghex DESTINATION ${GHEX_PYTHON_LIB_PATH}/ghex)
 endif()

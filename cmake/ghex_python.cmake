@@ -1,17 +1,31 @@
 include(GNUInstallDirs)
 
-set(PYBIND11_CPP_STANDARD -std=c++17)
-
 if (GHEX_BUILD_PYTHON_BINDINGS)
-
-    find_package (Python3 REQUIRED COMPONENTS Interpreter Development.Module)
-
-    if(${Python3_FOUND})
-        set(PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
-    endif()
-
     include(ghex_find_python_module)
-    find_package(pybind11 REQUIRED PATHS ${Python_SITELIB})
+
+    find_package(Python 3 REQUIRED COMPONENTS Interpreter Development.Module)
+    set(PYTHON_EXECUTABLE "${Python_EXECUTABLE}")
+
+    # Look for the `nanobind` Python module.
+    find_python_module(nanobind)
+
+    if (SKBUILD_PROJECT_NAME)
+	    message(STATUS "Building in pip mode.")
+        # Build as a Python package, `nanobind` is a buiild dependency, so it should be found.
+        if(NOT HAVE_NANOBIND)
+            message(FATAL_ERROR "Expected that the `nanobind` Python pakage was installed as dependency")
+        endif()
+        find_package(nanobind CONFIG REQUIRED HINTS "${PY_NANOBIND}/cmake")
+    elseif (HAVE_NANOBIND)
+	    message(STATUS "Building in normal mode but use installed nanobind package.")
+        # Normal build and the `nanobind` Python package was found, use it.
+        find_package(nanobind CONFIG REQUIRED HINTS "${PY_NANOBIND}/cmake")
+    else()
+	    message(STATUS "Building in normal mode but use system nanobind.")
+        # Normal build but no `nanobind` Python package was found, try to localize the one on the system.
+	# NOTE: The `CONFIG` is retained for compatibility with the old version, but maybe remove it.
+	find_package(nanobind CONFIG REQUIRED)
+    endif()
 
     # Ask Python where it keeps its system (platform) packages.
     file(WRITE "${CMAKE_BINARY_DIR}/install-prefix" "${CMAKE_INSTALL_PREFIX}")

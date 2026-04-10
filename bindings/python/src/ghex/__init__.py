@@ -29,7 +29,7 @@ def get_version() -> str:
 
 
 __version__ = get_version()
-__config__ = _pyghex.config()  # noqa:F405
+__config__ = pyghex.config()  # noqa:F405
 
 # Remove get_version from module.
 del get_version
