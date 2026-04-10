@@ -31,7 +31,7 @@ function(find_python_module module)
         else()
             set(HAVE_${module_upper} OFF CACHE INTERNAL "Python module available")
         endif()
-    endif(NOT PY_${module_upper})
+    endif()
 
     find_package_handle_standard_args(PY_${module} DEFAULT_MSG PY_${module_upper})
 endfunction(find_python_module)

@@ -123,9 +123,8 @@ jobs:
       - name: Install packages
         run: |
           apt update
-          # TODO: We need `python3-nanobind` but we do not need `nanobind-def`, in fact it should
-          #       not even be used. Consider removing it.
-          apt-get -y install python3-dev python3-venv nanobind-dev ninja-build python3-nanobind
+          # TODO: Use `python3-nanobind` instead of `nanobind-dev` once it is in the repo.
+          apt-get -y install python3-dev python3-venv nanobind-dev ninja-build
 
       - name: Clone w/ submodules
         uses: actions/checkout@v3
