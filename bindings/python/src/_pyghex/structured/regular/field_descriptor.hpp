@@ -31,8 +31,9 @@ using field_descriptor_specializations_ = gridtools::meta::transform<
     field_descriptor_args_<D>>;
 
 using field_descriptor_specializations =
-    gridtools::meta::concat<field_descriptor_specializations_<2>,
-        field_descriptor_specializations_<3>, field_descriptor_specializations_<4>>;
+    gridtools::meta::concat<field_descriptor_specializations_<1>,
+        field_descriptor_specializations_<2>, field_descriptor_specializations_<3>,
+        field_descriptor_specializations_<4>>;
 
 } // namespace
 } // namespace regular
