@@ -69,14 +69,17 @@ struct serialization
         const auto     x_first = pack_is.m_data_is.m_first[cont_idx];
         const auto     x_last = pack_is.m_data_is.m_last[cont_idx];
 
-        if constexpr (D == 1) {
+        if constexpr (D == 1)
+        {
             const coordinate_type x{x_first};
-            value_type*       buffer = &(pack_is.buffer(x));
-            value_type const* field = &(pack_is.data(x));
+            value_type*           buffer = &(pack_is.buffer(x));
+            value_type const*     field = &(pack_is.data(x));
             std::memcpy(buffer, field, (x_last - x_first + 1) * sizeof(value_type));
-        } else {
-            using LayoutMap2 =
-                typename reduced_layout_map<cont_idx, std::make_index_sequence<D - 1>, LayoutMap>::type;
+        }
+        else
+        {
+            using LayoutMap2 = typename reduced_layout_map<cont_idx,
+                std::make_index_sequence<D - 1>, LayoutMap>::type;
             using scalar_coord_type = typename std::remove_cv<decltype(x_first)>::type;
             using cont_coord_type = gridtools::array<scalar_coord_type, D - 1>;
             cont_coord_type first, last;
@@ -115,14 +118,17 @@ struct serialization
         const auto     x_first = unpack_is.m_data_is.m_first[cont_idx];
         const auto     x_last = unpack_is.m_data_is.m_last[cont_idx];
 
-        if constexpr (D == 1) {
+        if constexpr (D == 1)
+        {
             const coordinate_type x{x_first};
-            value_type const* buffer = &(unpack_is.buffer(x));
-            value_type*       field = &(unpack_is.data(x));
+            value_type const*     buffer = &(unpack_is.buffer(x));
+            value_type*           field = &(unpack_is.data(x));
             std::memcpy(field, buffer, (x_last - x_first + 1) * sizeof(value_type));
-        } else {
-            using LayoutMap2 =
-                typename reduced_layout_map<cont_idx, std::make_index_sequence<D - 1>, LayoutMap>::type;
+        }
+        else
+        {
+            using LayoutMap2 = typename reduced_layout_map<cont_idx,
+                std::make_index_sequence<D - 1>, LayoutMap>::type;
             using scalar_coord_type = typename std::remove_cv<decltype(x_first)>::type;
             using cont_coord_type = gridtools::array<scalar_coord_type, D - 1>;
             cont_coord_type first, last;
