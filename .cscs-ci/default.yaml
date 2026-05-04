@@ -25,6 +25,13 @@ variables:
     reports:
       dotenv: base-${BACKEND}.env
 
+build_deps_nccl:
+  variables:
+    BACKEND: nccl
+  extends:
+    - .container-builder-cscs-gh200
+    - .build_deps_template
+
 build_deps_mpi:
   variables:
     BACKEND: mpi
@@ -59,6 +66,14 @@ build_deps_libfabric:
   artifacts:
     reports:
       dotenv: build-${BACKEND}.env
+
+build_nccl:
+  variables:
+    BACKEND: nccl
+  extends: .build_template
+  needs:
+    - job: build_deps_nccl
+      artifacts: true
 
 build_mpi:
   variables:
@@ -116,6 +131,20 @@ build_libfabric:
     - if [[ "${SLURM_PROCID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
     - sleep 1
     - ctest --test-dir /ghex/build -L "parallel-ranks-4" --output-on-failure --timeout 60
+
+test_serial_nccl:
+  extends: .test_serial_template
+  needs:
+    - job: build_nccl
+      artifacts: true
+  image: $BUILD_IMAGE
+
+test_parallel_nccl:
+  extends: .test_parallel_template
+  needs:
+    - job: build_nccl
+      artifacts: true
+  image: $BUILD_IMAGE
 
 test_serial_mpi:
   extends: .test_serial_template
