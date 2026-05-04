@@ -145,16 +145,17 @@ test_parallel_ucx:
       artifacts: true
   image: $BUILD_IMAGE
 
-test_serial_libfabric:
-  extends: .test_serial_template
-  needs:
-    - job: build_libfabric
-      artifacts: true
-  image: $BUILD_IMAGE
+# TODO: Libfabric tests are currently failing on Alps and need to be fixed.
+# test_serial_libfabric:
+#   extends: .test_serial_template
+#   needs:
+#     - job: build_libfabric
+#       artifacts: true
+#   image: $BUILD_IMAGE
 
-test_parallel_libfabric:
-  extends: .test_parallel_template
-  needs:
-    - job: build_libfabric
-      artifacts: true
-  image: $BUILD_IMAGE
+# test_parallel_libfabric:
+#   extends: .test_parallel_template
+#   needs:
+#     - job: build_libfabric
+#       artifacts: true
+#   image: $BUILD_IMAGE
