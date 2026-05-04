@@ -7,4 +7,5 @@ spack:
   packages:
     oomph:
       require: '@git.a62c49650a5260d5873a1cbd6d493994b67be9cc=main'
-      git: "https://github.com/msimberg/oomph.git"
+      package_attributes:
+        git: "https://github.com/msimberg/oomph.git"
