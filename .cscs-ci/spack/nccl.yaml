@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - ghex@master backend=nccl +cuda cuda_arch=90a
+  view: false
+  concretizer:
+    unify: true
