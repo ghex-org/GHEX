@@ -55,8 +55,9 @@ extract_cuda_stream(pybind11::object python_stream)
                 throw pybind11::type_error(error.str());
             }
 
+            //Currently there is only version 0.
             const auto protocol_version = cuda_stream_protocol[0].cast<std::size_t>();
-            if (protocol_version == 0)
+            if (protocol_version != 0)
             {
                 std::stringstream error;
                 error << "Expected `__cuda_stream__` protocol version 0, but got "

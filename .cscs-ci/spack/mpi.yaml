@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - ghex@master backend=mpi +cuda
+  view: false
+  concretizer:
+    unify: true

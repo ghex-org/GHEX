@@ -30,8 +30,9 @@ using halo_generator_specializations_ = gridtools::meta::transform<
     gridtools::meta::rename<ghex::structured::regular::halo_generator>::template apply,
     halo_generator_args_<D>>;
 
-using halo_generator_specializations = gridtools::meta::concat<halo_generator_specializations_<2>,
-    halo_generator_specializations_<3>, halo_generator_specializations_<4>>;
+using halo_generator_specializations =
+    gridtools::meta::concat<halo_generator_specializations_<1>, halo_generator_specializations_<2>,
+        halo_generator_specializations_<3>, halo_generator_specializations_<4>>;
 } // namespace
 } // namespace regular
 } // namespace structured

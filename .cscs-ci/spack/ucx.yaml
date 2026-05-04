@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - ghex@master backend=ucx +cuda
+  view: false
+  concretizer:
+    unify: true
