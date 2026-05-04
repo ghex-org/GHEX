@@ -108,14 +108,34 @@ build_libfabric:
 
 .test_parallel_template:
   extends: .test_template_base
-  variables:
-    SLURM_NTASKS: 4
   script:
     # All ranks write to ctest files in Testing, but this can deadlock when
     # writing inside the container.
     - if [[ "${SLURM_PROCID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
     - sleep 1
-    - ctest --test-dir /ghex/build -L "parallel-ranks-4" --output-on-failure --timeout 60
+    - ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --output-on-failure --timeout 60
+
+.test_parallel_job:
+  extends: .test_parallel_template
+  image: $BUILD_IMAGE
+
+.test_parallel_mpi:
+  extends: .test_parallel_job
+  needs:
+    - job: build_mpi
+      artifacts: true
+
+.test_parallel_ucx:
+  extends: .test_parallel_job
+  needs:
+    - job: build_ucx
+      artifacts: true
+
+#.test_parallel_libfabric:
+#  extends: .test_parallel_job
+#  needs:
+#    - job: build_libfabric
+#      artifacts: true
 
 test_serial_mpi:
   extends: .test_serial_template
@@ -124,12 +144,20 @@ test_serial_mpi:
       artifacts: true
   image: $BUILD_IMAGE
 
-test_parallel_mpi:
-  extends: .test_parallel_template
-  needs:
-    - job: build_mpi
-      artifacts: true
-  image: $BUILD_IMAGE
+test_parallel_2_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 6
 
 test_serial_ucx:
   extends: .test_serial_template
@@ -138,12 +166,20 @@ test_serial_ucx:
       artifacts: true
   image: $BUILD_IMAGE
 
-test_parallel_ucx:
-  extends: .test_parallel_template
-  needs:
-    - job: build_ucx
-      artifacts: true
-  image: $BUILD_IMAGE
+test_parallel_2_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 6
 
 # TODO: Libfabric tests are currently failing on Alps and need to be fixed.
 # test_serial_libfabric:
@@ -153,9 +189,17 @@ test_parallel_ucx:
 #       artifacts: true
 #   image: $BUILD_IMAGE
 
-# test_parallel_libfabric:
-#   extends: .test_parallel_template
-#   needs:
-#     - job: build_libfabric
-#       artifacts: true
-#   image: $BUILD_IMAGE
+# test_parallel_2_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 2
+#
+# test_parallel_4_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 4
+#
+# test_parallel_6_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 6
