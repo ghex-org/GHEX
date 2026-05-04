@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - ghex@master backend=libfabric +cuda
+  view: false
+  concretizer:
+    unify: true
