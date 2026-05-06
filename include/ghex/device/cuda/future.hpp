@@ -10,9 +10,9 @@
 #pragma once
 
 #include <ghex/config.hpp>
-#include <ghex/util/c_managed_struct.hpp>
-#include <ghex/device/cuda/error.hpp>
 #ifdef GHEX_CUDACC
+#include <ghex/device/cuda/event.hpp>
+#include <ghex/device/cuda/error.hpp>
 #include <ghex/device/cuda/runtime.hpp>
 #endif
 #include <memory>
@@ -28,19 +28,14 @@ namespace device
 template<typename T>
 struct future
 {
-    GHEX_C_MANAGED_STRUCT(
-        event_type, cudaEvent_t, [](auto&&... args)
-        { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
-        [](auto& e) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
-
-    event_type m_event;
+    cuda_event m_event;
     T          m_data;
 
     future(T&& data, stream& stream)
-    : m_event{cudaEventDisableTiming} //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
+    : m_event{}
     , m_data{std::move(data)}
     {
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event.get(), stream));
     }
 
     future(const future&) = delete;
@@ -48,11 +43,14 @@ struct future
     future(future&& other) = default;
     future& operator=(future&&) = default;
 
-    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); }
+    bool test() noexcept
+    {
+        return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true);
+    }
 
     void wait()
     {
-        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
+        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event.get()));
     }
 
     [[nodiscard]] T get()
@@ -65,18 +63,12 @@ struct future
 template<>
 struct future<void>
 {
-    GHEX_C_MANAGED_STRUCT(
-        event_type, cudaEvent_t, [](auto&&... args)
-        { GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(std::forward<decltype(args)>(args)...)) },
-        [](auto& e) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(e)) })
-
-    event_type m_event;
+    cuda_event m_event;
 
     future(stream& stream)
-    : m_event{cudaEventDisableTiming}
-    //: m_event{cudaEventDisableTiming | cudaEventBlockingSync}
+    : m_event{}
     {
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event, stream));
+        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_event.get(), stream));
     }
 
     future(const future&) = delete;
@@ -84,11 +76,14 @@ struct future<void>
     future(future&& other) = default;
     future& operator=(future&&) = default;
 
-    bool test() noexcept { return (m_event ? (cudaSuccess == cudaEventQuery(m_event)) : true); }
+    bool test() noexcept
+    {
+        return (m_event ? (cudaSuccess == cudaEventQuery(m_event.get())) : true);
+    }
 
     void wait()
     {
-        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event));
+        if (m_event) GHEX_CHECK_CUDA_RESULT(cudaEventSynchronize(m_event.get()));
     }
 
     void get() { wait(); }

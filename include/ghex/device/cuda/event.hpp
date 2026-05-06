@@ -27,8 +27,12 @@ struct cuda_event
     cudaEvent_t           m_event;
     ghex::util::moved_bit m_moved;
 
-    cuda_event() {
-        GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, cudaEventDisableTiming))
+    cuda_event()
+    : cuda_event(cudaEventDisableTiming)
+    {
+    }
+    explicit cuda_event(unsigned int flags) {
+        GHEX_CHECK_CUDA_RESULT(cudaEventCreateWithFlags(&m_event, flags))
     };
     cuda_event(const cuda_event&) = delete;
     cuda_event& operator=(const cuda_event&) = delete;
@@ -40,15 +44,7 @@ struct cuda_event
         if (!m_moved) { GHEX_CHECK_CUDA_RESULT_NO_THROW(cudaEventDestroy(m_event)) }
     }
 
-    /**
-     * @brief	Returns `true` if `*this` has been moved, i.e. can no longer be used.
-     *
-     * @todo  The semantic of this function is a bit confusing as a valid object returns
-     *   `false`. It should be changed such that a valid object returns `true` and an
-     *   invalid one returns `false`. This is the behaviour for `GHEX_C_STRUCT` and
-     *   `GHEX_C_MANAGED_STRUCT` but not for `stream` and `cuda_event`.
-     */
-    operator bool() const noexcept { return m_moved; }
+    operator bool() const noexcept { return !m_moved; }
 
     cudaEvent_t& get() noexcept
     {
