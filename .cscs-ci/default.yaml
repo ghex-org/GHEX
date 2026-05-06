@@ -8,6 +8,7 @@ variables:
   FF_TIMESTAMPS: true
 
 .build_deps_template:
+  extends: .container-builder-cscs-gh200
   timeout: 1 hour
   before_script:
     - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
@@ -26,25 +27,19 @@ variables:
       dotenv: base-${BACKEND}.env
 
 build_deps_mpi:
+  extends: .build_deps_template
   variables:
     BACKEND: mpi
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
 
 build_deps_ucx:
+  extends: .build_deps_template
   variables:
     BACKEND: ucx
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
 
 build_deps_libfabric:
+  extends: .build_deps_template
   variables:
     BACKEND: libfabric
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
 
 .build_template:
   extends: .container-builder-cscs-gh200
@@ -61,25 +56,25 @@ build_deps_libfabric:
       dotenv: build-${BACKEND}.env
 
 build_mpi:
+  extends: .build_template
   variables:
     BACKEND: mpi
-  extends: .build_template
   needs:
     - job: build_deps_mpi
       artifacts: true
 
 build_ucx:
+  extends: .build_template
   variables:
     BACKEND: ucx
-  extends: .build_template
   needs:
     - job: build_deps_ucx
       artifacts: true
 
 build_libfabric:
+  extends: .build_template
   variables:
     BACKEND: libfabric
-  extends: .build_template
   needs:
     - job: build_deps_libfabric
       artifacts: true
