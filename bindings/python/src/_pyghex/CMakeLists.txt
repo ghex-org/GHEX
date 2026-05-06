@@ -63,3 +63,24 @@ else()
     set_target_properties(pyghex PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
     install(TARGETS pyghex DESTINATION ${GHEX_PYTHON_LIB_PATH}/ghex)
 endif()
+
+# Type stub generation (requires nanobind >= 2.0)
+set(_pyghex_output_dir "${CMAKE_CURRENT_BINARY_DIR}/../../ghex")
+if(COMMAND nanobind_add_stub)
+    nanobind_add_stub(pyghex_stub
+        MODULE _pyghex
+        OUTPUT "${_pyghex_output_dir}/_pyghex.pyi"
+        MARKER_FILE "${_pyghex_output_dir}/py.typed"
+        PYTHON_PATH "${_pyghex_output_dir}"
+        DEPENDS pyghex
+    )
+    if (SKBUILD_PROJECT_NAME)
+        install(FILES "${_pyghex_output_dir}/_pyghex.pyi" "${_pyghex_output_dir}/py.typed"
+                DESTINATION .)
+    else()
+        install(FILES "${_pyghex_output_dir}/_pyghex.pyi" "${_pyghex_output_dir}/py.typed"
+                DESTINATION ${GHEX_PYTHON_LIB_PATH}/ghex)
+    endif()
+else()
+    message(STATUS "Skipping stub generation: nanobind_add_stub not available (requires nanobind >= 2.0)")
+endif()
