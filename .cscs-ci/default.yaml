@@ -125,6 +125,12 @@ build_libfabric:
   extends: .test_parallel_template
   image: $BUILD_IMAGE
 
+.test_parallel_nccl:
+  extends: .test_parallel_job
+  needs:
+    - job: build_nccl
+      artifacts: true
+
 .test_parallel_mpi:
   extends: .test_parallel_job
   needs:
