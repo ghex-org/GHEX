@@ -1,0 +1,11 @@
+spack:
+  specs:
+  - ghex@master backend=mpi +cuda cuda_arch=90a +python
+  view: false
+  concretizer:
+    unify: true
+  packages:
+    oomph:
+      require: '@git.a62c49650a5260d5873a1cbd6d493994b67be9cc=main'
+      package_attributes:
+        git: "https://github.com/msimberg/oomph.git"

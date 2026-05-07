@@ -274,12 +274,19 @@ class communication_object
     {
         complete_schedule_exchange();
         prepare_exchange_buffers(buffer_infos...);
+        pack();
+
+        m_comm.start_group();
         post_recvs();
-        pack_and_send();
+        post_sends();
+        m_comm.end_group();
+
+        unpack();
+
         return {this};
     }
 
-#if defined(GHEX_CUDACC) // TODO
+#if defined(GHEX_CUDACC)
     /** @brief	Start a synchronized exchange.
      *
      * This function is similar to `exchange()` but it has some important (semantic)
@@ -303,19 +310,17 @@ class communication_object
     [[nodiscard]] handle_type schedule_exchange(cudaStream_t stream,
         buffer_info_type<Archs, Fields>... buffer_infos)
     {
-        // make sure that the previous exchange has finished and free memory
         complete_schedule_exchange();
-
-        // allocate memory, probably for the receiving buffers
         prepare_exchange_buffers(buffer_infos...);
+        schedule_sync_pack(stream);
+        pack();
 
-        // set up the receives, and also install the call backs that will then do the unpacking
+        m_comm.start_group();
         post_recvs();
+        post_sends();
+        m_comm.end_group();
 
-        // NOTE: The function will wait until the sends have been concluded, so it is not
-        //  fully asynchronous. Changing that might be hard because this might lead
-        //  to race conditions somewhere else, but it ensures that progress is made.
-        pack_and_send(stream);
+        unpack();
 
         return {this};
     }
@@ -326,8 +331,15 @@ class communication_object
     {
         complete_schedule_exchange();
         prepare_exchange_buffers(std::make_pair(std::move(first), std::move(last)));
+        schedule_sync_pack(stream);
+        pack();
+
+        m_comm.start_group();
         post_recvs();
-        pack_and_send(stream);
+        post_sends();
+        m_comm.end_group();
+
+        unpack();
 
         return {this};
     }
@@ -361,7 +373,7 @@ class communication_object
         Iterator0 last0, Iterator1 first1, Iterator1 last1, Iterators... iters)
     {
         static_assert(sizeof...(Iterators) % 2 == 0,
-            "need even number of iteratiors: (begin,end) pairs");
+            "need even number of iterators: (begin, end) pairs");
         // call helper function to turn iterators into pairs of iterators
         return exchange_make_pairs(std::make_index_sequence<2 + sizeof...(iters) / 2>(), first0,
             last0, first1, last1, iters...);
@@ -384,8 +396,15 @@ class communication_object
     {
         complete_schedule_exchange();
         prepare_exchange_buffers(iter_pairs...);
+        pack();
+
+        m_comm.start_group();
         post_recvs();
-        pack_and_send();
+        post_sends();
+        m_comm.end_group();
+
+        unpack();
+
         return {this};
     }
 
@@ -421,11 +440,14 @@ class communication_object
         handle_type>
     exchange_u(Iterator first, Iterator last)
     {
+        // TODO: Update for NCCL.
         using gpu_mem_t = buffer_memory<gpu>;
         using field_type = std::remove_reference_t<decltype(first->get_field())>;
         using value_type = typename field_type::value_type;
+
         complete_schedule_exchange();
         prepare_exchange_buffers(std::make_pair(first, last));
+
         // post recvs
         auto& gpu_mem = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : gpu_mem.recv_memory)
@@ -544,11 +566,108 @@ class communication_object
             });
     }
 
-    /** \brief	Non synchronizing version of `post_recvs()`.
+    void pack()
+    {
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                for (auto& p0 : m.send_memory)
+                {
+                    const auto device_id = p0.first;
+                    for (auto& p1 : p0.second)
+                    {
+                        if (p1.second.size > 0u)
+                        {
+                            if (!p1.second.buffer || p1.second.buffer.size() != p1.second.size
+#if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
+                                || p1.second.buffer.device_id() != device_id
+#endif
+                            )
+                            {
+                                p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
+                                    p1.second.size, device_id);
+                            }
+
+                            device::guard g(p1.second.buffer);
+                            packer<arch_type>::pack(p1.second, g.data());
+                        }
+                    }
+                }
+            });
+    }
+
+    void post_sends()
+    {
+        for_each(m_mem,
+            [this](std::size_t, auto& map)
+            {
+#ifdef GHEX_CUDACC
+                // If a communicator isn't stream-aware and we're dealing with GPU memory, we wait
+                // for each packing kernel to finish and trigger the send as soon as possible. if a
+                // communicator is stream-aware or we're dealing with CPU memory we trigger sends
+                // immediately (for stream-aware GPU memory the packing has been scheduled on a
+                // stream and for CPU memory the packing is blocking and has already completed).
+                using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
+                if (!m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
+                {
+                    using send_buffer_type =
+                        typename std::remove_reference_t<decltype(map)>::send_buffer_type;
+                    using future_type = device::future<send_buffer_type*>;
+                    std::vector<future_type> stream_futures;
+
+                    for (auto& p0 : map.send_memory)
+                    {
+                        for (auto& p1 : p0.second)
+                        {
+                            if (p1.second.size > 0u)
+                            {
+                                stream_futures.push_back(
+                                    future_type{&(p1.second), p1.second.m_stream});
+                            }
+                        }
+                    }
+
+                    await_futures(stream_futures,
+                        [this](send_buffer_type* b)
+                        {
+                            m_send_reqs.push_back(m_comm.send(b->buffer, b->rank, b->tag,
+                                [](context::message_type&, context::rank_type, context::tag_type) {
+                                }));
+                        });
+                }
+                else
+#endif
+                {
+                    for (auto& p0 : map.send_memory)
+                    {
+                        for (auto& p1 : p0.second)
+                        {
+                            if (p1.second.size > 0u)
+                            {
+                                auto& ptr = p1.second;
+                                assert(ptr.buffer);
+                                m_send_reqs.push_back(m_comm.send(
+                                    ptr.buffer, ptr.rank, ptr.tag,
+                                    [](context::message_type&, context::rank_type,
+                                        context::tag_type) {}
+#ifdef GHEX_CUDACC
+                                    ,
+                                    static_cast<void*>(p1.second.m_stream.get())
+#endif
+                                        ));
+                            }
+                        }
+                    }
+                }
+            });
+    }
+
+    /** \brief Posts receives without blocking.
      *
-     * Create the receives requests and also _register_ the unpacker
-     * callbacks. The function will return after the receives calls
-     * have been posted.
+     * Creates messages and posts receives for all memory types. Returns
+     * immediately after posting receives without waiting for receives to
+     * complete.
      */
     void post_recvs()
     {
@@ -568,86 +687,85 @@ class communication_object
                                 || p1.second.buffer.device_id() != device_id
 #endif
                             )
+                            {
                                 p1.second.buffer = arch_traits<arch_type>::make_message(m_comm,
                                     p1.second.size, device_id);
+                            }
+
                             auto ptr = &p1.second;
-                            // use callbacks for unpacking
-                            // TODO: Reserve space in vector?
-                            m_recv_reqs.push_back(
-                                m_comm.recv(p1.second.buffer, p1.second.rank, p1.second.tag,
+
+                            // If a communicator is stream-aware and we're dealing with GPU memory
+                            // unpacking will be triggered separately by scheduling it on the same
+                            // stream as the receive. If a communicator isn't stream-aware or we're
+                            // dealing with CPU memory (for which unpacking doesn't happen on a
+                            // stream) we do unpacking in a callback so that it can be triggered as
+                            // soon as possible instead of having to wait for all receives to
+                            // complete before starting any unpacking.
+                            if (m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
+                            {
+                                m_recv_reqs.push_back(m_comm.recv(
+                                    ptr->buffer, ptr->rank, ptr->tag,
+                                    [](context::message_type&, context::rank_type,
+                                        context::tag_type) {}
+#if defined(GHEX_CUDACC)
+                                    ,
+                                    static_cast<void*>(p1.second.m_stream.get())
+#endif
+                                        ));
+                            }
+                            else
+                            {
+                                m_recv_reqs.push_back(m_comm.recv(
+                                    ptr->buffer, ptr->rank, ptr->tag,
                                     [ptr](context::message_type& m, context::rank_type,
                                         context::tag_type)
                                     {
                                         device::guard g(m);
                                         packer<arch_type>::unpack(*ptr, g.data());
-                                    }));
+                                    }
+#if defined(GHEX_CUDACC)
+                                    ,
+                                    static_cast<void*>(p1.second.m_stream.get())
+#endif
+                                        ));
+                            }
                         }
                     }
                 }
             });
     }
 
-    /** \brief	Non synchronizing variant of `pack_and_send()`.
+    /** \brief Trigger unpacking.
      *
-     * The function will collect copy the halos into a continuous buffers
-     * and send them to the destination.
-     * It is important that the function will start packing immediately
-     * and only return once the packing has been completed and the sending
-     * request has been posted.
+     * In cases where unpacking can be done without callbacks (stream-aware communicator, GPU
+     * memory) trigger unpacking. In other cases this is a no-op.
      */
-    void pack_and_send()
+    void unpack()
     {
         for_each(m_mem,
             [this](std::size_t, auto& m)
             {
-                // NOTE: This function currently blocks until the send has been fully scheduled.
                 using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-                packer<arch_type>::pack(m, m_send_reqs, m_comm);
-            });
-    }
-
-#ifdef GHEX_CUDACC
-    /** \brief	Synchronizing variant of `pack_and_send()`.
-     *
-     * As its non synchronizing version, the function packs the halos into
-     * continuous buffers and starts sending them. The main difference is
-     * that the function will not pack immediately, instead it will wait
-     * until all work, that has been submitted to `stream` has finished.
-     * However, the function will not return until the sending has been
-     * initiated (subject to change).
-     */
-    void pack_and_send(cudaStream_t sync_stream)
-    {
-        for_each(m_mem,
-            [this, &sync_stream](std::size_t, auto& m)
-            {
-                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-
-                // Put an event on the stream on which the packing is supposed to wait.
-                device::cuda_event& sync_event = m_event_pool.get_event();
-                GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), sync_stream));
-
-                for (auto& p0 : m.send_memory)
+                // If a communicator is stream-aware and we're dealing with GPU memory we can
+                // schedule the unpacking without waiting for receives. In all other cases unpacking
+                // is added as callbacks to the receives (see post_recvs()).
+                if (m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>)
                 {
-                    for (auto& p1 : p0.second)
+                    for (auto& p0 : m.recv_memory)
                     {
-                        if (p1.second.size > 0u)
+                        for (auto& p1 : p0.second)
                         {
-                            // Add the event to any stream that is used for packing. Thus any packing is
-                            // postponed after the work, that was scheduled on `stream` has concluded.
-                            // NOTE: If a device guard here leads to a segmentation fault.
-                            GHEX_CHECK_CUDA_RESULT(
-                                cudaStreamWaitEvent(p1.second.m_stream.get(), sync_event.get(), 0));
+                            if (p1.second.size > 0u)
+                            {
+                                auto          ptr = &p1.second;
+                                device::guard g(ptr->buffer);
+                                packer<arch_type>::unpack(*ptr, g.data());
+                            }
                         }
                     }
                 }
-
-                // TODO: This function currently blocks until the send has been fully scheduled.
-                //  Consider using `cudaLaunchHostFunc()` to initiate the sending.
-                packer<arch_type>::pack(m, m_send_reqs, m_comm);
             });
     }
-#endif
 
   private: // wait functions
     void progress()
@@ -687,7 +805,7 @@ class communication_object
         //  in terms of it, i.e. something like `while(!is_read()) {};`?
 
         if (!m_valid) return;
-        // wait for data to arrive (unpack callback will be invoked)
+
         m_comm.wait_all();
 #ifdef GHEX_CUDACC
         if (has_scheduled_exchange())
@@ -716,11 +834,23 @@ class communication_object
     {
         if (!m_valid) return;
 
-        // Wait for data to arrive, needed to make progress.
-        m_comm.wait_all();
+        // If communicator isn't stream-aware we need to explicitly wait for requests to make sure
+        // callbacks for unpacking are triggered. If we have CPU memory with a stream-aware
+        // communicator we also need wait for requests to make sure the blocking unpacking callback
+        // is called for the CPU communication.
+        //
+        // The additional synchronization when CPU memory is involved is a pessimization that could
+        // theoretically be avoided by separately tracking CPU and GPU memory communication, and
+        // only waiting for the CPU requests. However, in practice e.g. with NCCL, the communication
+        // with CPU and GPU memory happens in one NCCL group so waiting for a CPU request means
+        // waiting for all communication anyway. CPU memory communication with NCCL also only works
+        // on unified memory architectures. One should avoid communicating CPU and GPU
+        // memory with the same communicator.
+        using cpu_mem_t = buffer_memory<cpu>;
+        auto& m = std::get<cpu_mem_t>(m_mem);
+        if (!m_comm.is_stream_aware() || !m.recv_memory.empty()) { m_comm.wait_all(); }
 
-        // Schedule a wait.
-        schedule_sync_streams(stream);
+        schedule_sync_unpack(stream);
 
         // NOTE: We do not call `clear()` here, because the memory might still be
         //  in use. Instead we call `clear()` in the next `schedule_exchange()` call.
@@ -747,9 +877,40 @@ class communication_object
         }
     }
 
-    // Actual implementation of the scheduled wait, for more information,
-    // see description of the `communication_handle::schedule_wait()`.
-    void schedule_sync_streams(cudaStream_t stream)
+    // Add a dependency on the given stream streams such that packing happens
+    // after work on the given stream has completed, without blocking.
+    void schedule_sync_pack(cudaStream_t stream)
+    {
+        for_each(m_mem,
+            [&, this](std::size_t, auto& m)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                if constexpr (std::is_same_v<arch_type, gpu>)
+                {
+                    auto& e = m_event_pool.get_event();
+                    e.record(stream);
+
+                    for (auto& p0 : m.send_memory)
+                    {
+                        for (auto& p1 : p0.second)
+                        {
+                            if (p1.second.size > 0u)
+                            {
+                                // Make sure stream used for packing synchronizes with the
+                                // given stream.
+                                GHEX_CHECK_CUDA_RESULT(
+                                    cudaStreamWaitEvent(p1.second.m_stream.get(), e.get(), 0));
+                            }
+                        }
+                    }
+                }
+            });
+    }
+
+    // Add a dependency on the unpacking streams such that any work that happens
+    // on the given stream happens after unpacking has completed, without
+    // blocking.
+    void schedule_sync_unpack(cudaStream_t stream)
     {
         // NOTE: We only iterate over the receive buffers because `pack_and_send()` will
         //  wait until the sending has been completed. Thus if we are here, the sending
@@ -762,13 +923,14 @@ class communication_object
             {
                 if (p1.second.size > 0u)
                 {
-                    // Instead of doing a blocking wait, create events on each unpacking
-                    // stream and make `stream` wait on that event. This ensures that
-                    // nothing that will be submitted to `stream` after this function
-                    // starts before the unpacking has finished.
-                    cudaEvent_t& e = m_event_pool.get_event().get();
-                    GHEX_CHECK_CUDA_RESULT(cudaEventRecord(e, p1.second.m_stream.get()));
-                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e, 0));
+                    // Instead of doing a blocking wait, create events on each
+                    // unpacking stream and make `stream` wait on that event.
+                    // This ensures that nothing that will be submitted to
+                    // `stream` after this function starts before the unpacking
+                    // has finished.
+                    auto& e = m_event_pool.get_event();
+                    e.record(p1.second.m_stream.get());
+                    GHEX_CHECK_CUDA_RESULT(cudaStreamWaitEvent(stream, e.get(), 0));
                 }
             }
         }
@@ -780,7 +942,7 @@ class communication_object
         //  last event function.
         // TODO: Find out what happens to the event if `stream` is destroyed.
         assert(m_active_scheduled_exchange == nullptr);
-        GHEX_CHECK_CUDA_RESULT(cudaEventRecord(m_last_scheduled_exchange.get(), stream));
+        m_last_scheduled_exchange.record(stream);
         m_active_scheduled_exchange = &m_last_scheduled_exchange;
     }
 #endif
@@ -818,9 +980,6 @@ class communication_object
     // important: does not deallocate the memory
     void clear()
     {
-#ifdef GHEX_CUDACC
-        assert(!has_scheduled_exchange());
-#endif
         m_valid = false;
         m_send_reqs.clear();
         m_recv_reqs.clear();

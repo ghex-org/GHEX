@@ -1,0 +1,239 @@
+include:
+  - remote: 'https://gitlab.com/cscs-ci/recipes/-/raw/master/templates/v2/.ci-ext.yml'
+
+variables:
+  BASE_IMAGE: jfrog.svc.cscs.ch/docker-group-csstaff/alps-images/ngc-pytorch:26.01-py3-alps4-dev
+  SPACK_SHA: v1.1.1
+  SPACK_PACKAGES_SHA: 1529196eac28bf32a8b4bb9fa8dee89503ebd4cb # https://github.com/msimberg/spack-packages/tree/oomph-nccl
+  FF_TIMESTAMPS: true
+
+.build_deps_template:
+  extends: .container-builder-cscs-gh200
+  timeout: 1 hour
+  before_script:
+    - export DOCKERFILE_SHA=`sha256sum .cscs-ci/container/deps.Containerfile | head -c 16`
+    - export ENV_FILE_SHA=`sha256sum ${SPACK_ENV_FILE} | head -c 16`
+    - export CONFIG_TAG=`echo $DOCKERFILE_SHA-$BASE_IMAGE-$SPACK_SHA-$SPACK_PACKAGES_SHA-$ENV_FILE_SHA | sha256sum - | head -c 16`
+    - export PERSIST_IMAGE_NAME=$CSCS_REGISTRY_PATH/public/ghex-spack-deps-$BACKEND:$CONFIG_TAG
+    - echo -e "CONFIG_TAG=$CONFIG_TAG" >> base-${BACKEND}.env
+    - echo -e "DEPS_IMAGE=$PERSIST_IMAGE_NAME" >> base-${BACKEND}.env
+  variables:
+    DOCKERFILE: .cscs-ci/container/deps.Containerfile
+    DOCKER_BUILD_ARGS: '["BASE_IMAGE", "SPACK_SHA", "SPACK_PACKAGES_SHA", "SPACK_ENV_FILE"]'
+    SPACK_ENV_FILE: .cscs-ci/spack/$BACKEND.yaml
+  artifacts:
+    reports:
+      dotenv: base-${BACKEND}.env
+
+build_deps_nccl:
+  variables:
+    BACKEND: nccl
+  extends:
+    - .build_deps_template
+
+build_deps_mpi:
+  extends: .build_deps_template
+  variables:
+    BACKEND: mpi
+
+build_deps_ucx:
+  extends: .build_deps_template
+  variables:
+    BACKEND: ucx
+
+build_deps_libfabric:
+  extends: .build_deps_template
+  variables:
+    BACKEND: libfabric
+
+.build_template:
+  extends: .container-builder-cscs-gh200
+  timeout: 15 minutes
+  before_script:
+    - export PERSIST_IMAGE_NAME=$CSCS_REGISTRY_PATH/public/ghex-build-$BACKEND:$CI_COMMIT_SHA
+    - echo -e "BUILD_IMAGE=$PERSIST_IMAGE_NAME" >> build-${BACKEND}.env
+  variables:
+    DOCKERFILE: .cscs-ci/container/build.Containerfile
+    DOCKER_BUILD_ARGS: '["DEPS_IMAGE", "BACKEND"]'
+  artifacts:
+    reports:
+      dotenv: build-${BACKEND}.env
+
+build_nccl:
+  extends: .build_template
+  variables:
+    BACKEND: nccl
+  needs:
+    - job: build_deps_nccl
+      artifacts: true
+
+build_mpi:
+  extends: .build_template
+  variables:
+    BACKEND: mpi
+  needs:
+    - job: build_deps_mpi
+      artifacts: true
+
+build_ucx:
+  extends: .build_template
+  variables:
+    BACKEND: ucx
+  needs:
+    - job: build_deps_ucx
+      artifacts: true
+
+build_libfabric:
+  extends: .build_template
+  variables:
+    BACKEND: libfabric
+  needs:
+    - job: build_deps_libfabric
+      artifacts: true
+
+.test_template_base:
+  extends: .container-runner-clariden-gh200
+  variables:
+    SLURM_GPUS_PER_TASK: 1
+    SLURM_TIMELIMIT: '5:00'
+    SLURM_PARTITION: normal
+    SLURM_MPI_TYPE: pmix
+    SLURM_NETWORK: disable_rdzv_get
+    SLURM_LABELIO: 1
+    SLURM_UNBUFFEREDIO: 1
+    PMIX_MCA_psec: native
+    PMIX_MCA_gds: "^shmem2"
+    USE_MPI: NO
+
+.test_serial_template:
+  extends: .test_template_base
+  variables:
+    SLURM_NTASKS: 1
+  script:
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "serial" --output-on-failure --timeout 60 --parallel 8
+
+.test_parallel_template:
+  extends: .test_template_base
+  script:
+    # All ranks write to ctest files in Testing, but this can deadlock when
+    # writing inside the container.
+    - if [[ "${SLURM_LOCALID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
+    - until [[ -L /ghex/build/Testing ]]; do sleep 1; done
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --output-on-failure --timeout 60
+
+.test_parallel_job:
+  extends: .test_parallel_template
+  image: $BUILD_IMAGE
+
+.test_parallel_nccl:
+  extends: .test_parallel_job
+  needs:
+    - job: build_nccl
+      artifacts: true
+
+.test_parallel_mpi:
+  extends: .test_parallel_job
+  needs:
+    - job: build_mpi
+      artifacts: true
+
+.test_parallel_ucx:
+  extends: .test_parallel_job
+  needs:
+    - job: build_ucx
+      artifacts: true
+
+#.test_parallel_libfabric:
+#  extends: .test_parallel_job
+#  needs:
+#    - job: build_libfabric
+#      artifacts: true
+
+test_serial_nccl:
+  extends: .test_serial_template
+  needs:
+    - job: build_nccl
+      artifacts: true
+  image: $BUILD_IMAGE
+
+test_parallel_2_nccl:
+  extends: .test_parallel_nccl
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_nccl:
+  extends: .test_parallel_nccl
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_nccl:
+  extends: .test_parallel_nccl
+  variables:
+    SLURM_NTASKS: 6
+
+test_serial_mpi:
+  extends: .test_serial_template
+  needs:
+    - job: build_mpi
+      artifacts: true
+  image: $BUILD_IMAGE
+
+test_parallel_2_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 6
+
+test_serial_ucx:
+  extends: .test_serial_template
+  needs:
+    - job: build_ucx
+      artifacts: true
+  image: $BUILD_IMAGE
+
+test_parallel_2_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 6
+
+# TODO: Libfabric tests are currently failing on Alps and need to be fixed.
+# test_serial_libfabric:
+#   extends: .test_serial_template
+#   needs:
+#     - job: build_libfabric
+#       artifacts: true
+#   image: $BUILD_IMAGE
+
+# test_parallel_2_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 2
+#
+# test_parallel_4_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 4
+#
+# test_parallel_6_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 6
