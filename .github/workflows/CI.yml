@@ -146,7 +146,7 @@ jobs:
 
       - name: Setup venv and install dependencies
         run: |
-          uv sync --no-install-project
+          uv sync
 
       - name: Configure
         run: |
