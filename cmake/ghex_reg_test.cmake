@@ -21,7 +21,7 @@ function(ghex_reg_test t_)
     add_test(
         NAME ${t}
         COMMAND $<TARGET_FILE:${t}>)
-    set_tests_properties(${t} PROPERTIES RUN_SERIAL ON)
+    set_tests_properties(${t} PROPERTIES RUN_SERIAL ON LABELS "serial")
 endfunction()
 
 function(ghex_reg_parallel_test t_ n mt)
@@ -38,9 +38,13 @@ function(ghex_reg_parallel_test t_ n mt)
     ghex_link_to_oomph(${t})
     # workaround for clang+openmp
     target_link_libraries(${t} PRIVATE $<$<CXX_COMPILER_ID:Clang>:$<LINK_ONLY:-fopenmp=libomp>>)
-    add_test(
-        NAME ${t}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-            $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
-    set_tests_properties(${t} PROPERTIES RUN_SERIAL ON)
+    if("${MPIEXEC_EXECUTABLE}" STREQUAL "")
+      add_test(NAME ${t} COMMAND $<TARGET_FILE:${t}>)
+    else()
+      add_test(
+          NAME ${t}
+          COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    endif()
+    set_tests_properties(${t} PROPERTIES RUN_SERIAL ON LABELS "parallel-ranks-${n}")
 endfunction()
