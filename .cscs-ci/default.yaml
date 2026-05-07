@@ -29,7 +29,6 @@ build_deps_nccl:
   variables:
     BACKEND: nccl
   extends:
-    - .container-builder-cscs-gh200
     - .build_deps_template
 
 build_deps_mpi:
@@ -61,9 +60,9 @@ build_deps_libfabric:
       dotenv: build-${BACKEND}.env
 
 build_nccl:
+  extends: .build_template
   variables:
     BACKEND: nccl
-  extends: .build_template
   needs:
     - job: build_deps_nccl
       artifacts: true
@@ -151,12 +150,20 @@ test_serial_nccl:
       artifacts: true
   image: $BUILD_IMAGE
 
-test_parallel_nccl:
-  extends: .test_parallel_template
-  needs:
-    - job: build_nccl
-      artifacts: true
-  image: $BUILD_IMAGE
+test_parallel_2_nccl:
+  extends: .test_parallel_nccl
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_nccl:
+  extends: .test_parallel_nccl
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_nccl:
+  extends: .test_parallel_nccl
+  variables:
+    SLURM_NTASKS: 6
 
 test_serial_mpi:
   extends: .test_serial_template
