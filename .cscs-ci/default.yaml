@@ -4,7 +4,8 @@ include:
 variables:
   BASE_IMAGE: jfrog.svc.cscs.ch/docker-group-csstaff/alps-images/ngc-pytorch:26.01-py3-alps4-dev
   SPACK_SHA: v1.1.1
-  SPACK_PACKAGES_SHA: bc93746ce936d6653271b6e98f6df6ee28f64e84 # develop on 2026-03-25
+  # TODO: Use upstream commit
+  SPACK_PACKAGES_SHA: ghex-nanobind
   FF_TIMESTAMPS: true
 
 .build_deps_template:
