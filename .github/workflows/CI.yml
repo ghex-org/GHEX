@@ -146,7 +146,7 @@ jobs:
 
       - name: Setup venv and install dependencies
         run: |
-          uv sync
+          uv sync --resolution lowest
 
       - name: Configure
         run: |
@@ -175,8 +175,7 @@ jobs:
             -DGHEX_USE_GPU=${{ matrix.config.gpu }} \
             -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }} \
             -DCMAKE_CUDA_ARCHITECTURES=${GHEX_GPU_ARCH} \
-            -DCMAKE_HIP_ARCHITECTURES=${GHEX_GPU_ARCH} \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+            -DCMAKE_HIP_ARCHITECTURES=${GHEX_GPU_ARCH}
 
       - name: Build
         run: cmake --build build --parallel 4 --verbose
