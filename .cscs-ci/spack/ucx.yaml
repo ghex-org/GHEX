@@ -1,6 +1,6 @@
 spack:
   specs:
-  - ghex@master backend=ucx +cuda cuda_arch=90a
+  - ghex@master backend=ucx +cuda cuda_arch=90a +python
   view: false
   concretizer:
     unify: true

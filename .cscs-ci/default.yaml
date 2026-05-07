@@ -8,9 +8,9 @@ variables:
   FF_TIMESTAMPS: true
 
 .build_deps_template:
+  extends: .container-builder-cscs-gh200
   timeout: 1 hour
   before_script:
-    - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
     - export DOCKERFILE_SHA=`sha256sum .cscs-ci/container/deps.Containerfile | head -c 16`
     - export ENV_FILE_SHA=`sha256sum ${SPACK_ENV_FILE} | head -c 16`
     - export CONFIG_TAG=`echo $DOCKERFILE_SHA-$BASE_IMAGE-$SPACK_SHA-$SPACK_PACKAGES_SHA-$ENV_FILE_SHA | sha256sum - | head -c 16`
@@ -33,31 +33,24 @@ build_deps_nccl:
     - .build_deps_template
 
 build_deps_mpi:
+  extends: .build_deps_template
   variables:
     BACKEND: mpi
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
 
 build_deps_ucx:
+  extends: .build_deps_template
   variables:
     BACKEND: ucx
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
 
 build_deps_libfabric:
+  extends: .build_deps_template
   variables:
     BACKEND: libfabric
-  extends:
-    - .container-builder-cscs-gh200
-    - .build_deps_template
 
 .build_template:
   extends: .container-builder-cscs-gh200
   timeout: 15 minutes
   before_script:
-    - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
     - export PERSIST_IMAGE_NAME=$CSCS_REGISTRY_PATH/public/ghex-build-$BACKEND:$CI_COMMIT_SHA
     - echo -e "BUILD_IMAGE=$PERSIST_IMAGE_NAME" >> build-${BACKEND}.env
   variables:
@@ -76,25 +69,25 @@ build_nccl:
       artifacts: true
 
 build_mpi:
+  extends: .build_template
   variables:
     BACKEND: mpi
-  extends: .build_template
   needs:
     - job: build_deps_mpi
       artifacts: true
 
 build_ucx:
+  extends: .build_template
   variables:
     BACKEND: ucx
-  extends: .build_template
   needs:
     - job: build_deps_ucx
       artifacts: true
 
 build_libfabric:
+  extends: .build_template
   variables:
     BACKEND: libfabric
-  extends: .build_template
   needs:
     - job: build_deps_libfabric
       artifacts: true
@@ -102,7 +95,6 @@ build_libfabric:
 .test_template_base:
   extends: .container-runner-clariden-gh200
   variables:
-    SLURM_JOB_NUM_NODES: 1
     SLURM_GPUS_PER_TASK: 1
     SLURM_TIMELIMIT: '5:00'
     SLURM_PARTITION: normal
@@ -119,18 +111,38 @@ build_libfabric:
   variables:
     SLURM_NTASKS: 1
   script:
-    - ctest --test-dir /ghex/build -L "serial" --output-on-failure --timeout 60 --parallel 8
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "serial" --output-on-failure --timeout 60 --parallel 8
 
 .test_parallel_template:
   extends: .test_template_base
-  variables:
-    SLURM_NTASKS: 4
   script:
     # All ranks write to ctest files in Testing, but this can deadlock when
     # writing inside the container.
-    - if [[ "${SLURM_PROCID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
-    - sleep 1
-    - ctest --test-dir /ghex/build -L "parallel-ranks-4" --output-on-failure --timeout 60
+    - if [[ "${SLURM_LOCALID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
+    - until [[ -L /ghex/build/Testing ]]; do sleep 1; done
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --output-on-failure --timeout 60
+
+.test_parallel_job:
+  extends: .test_parallel_template
+  image: $BUILD_IMAGE
+
+.test_parallel_mpi:
+  extends: .test_parallel_job
+  needs:
+    - job: build_mpi
+      artifacts: true
+
+.test_parallel_ucx:
+  extends: .test_parallel_job
+  needs:
+    - job: build_ucx
+      artifacts: true
+
+#.test_parallel_libfabric:
+#  extends: .test_parallel_job
+#  needs:
+#    - job: build_libfabric
+#      artifacts: true
 
 test_serial_nccl:
   extends: .test_serial_template
@@ -153,12 +165,20 @@ test_serial_mpi:
       artifacts: true
   image: $BUILD_IMAGE
 
-test_parallel_mpi:
-  extends: .test_parallel_template
-  needs:
-    - job: build_mpi
-      artifacts: true
-  image: $BUILD_IMAGE
+test_parallel_2_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 6
 
 test_serial_ucx:
   extends: .test_serial_template
@@ -167,12 +187,20 @@ test_serial_ucx:
       artifacts: true
   image: $BUILD_IMAGE
 
-test_parallel_ucx:
-  extends: .test_parallel_template
-  needs:
-    - job: build_ucx
-      artifacts: true
-  image: $BUILD_IMAGE
+test_parallel_2_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 2
+
+test_parallel_4_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 4
+
+test_parallel_6_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 6
 
 # TODO: Libfabric tests are currently failing on Alps and need to be fixed.
 # test_serial_libfabric:
@@ -182,9 +210,17 @@ test_parallel_ucx:
 #       artifacts: true
 #   image: $BUILD_IMAGE
 
-# test_parallel_libfabric:
-#   extends: .test_parallel_template
-#   needs:
-#     - job: build_libfabric
-#       artifacts: true
-#   image: $BUILD_IMAGE
+# test_parallel_2_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 2
+#
+# test_parallel_4_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 4
+#
+# test_parallel_6_libfabric:
+#   extends: .test_parallel_libfabric
+#   variables:
+#     SLURM_NTASKS: 6
