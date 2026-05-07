@@ -123,15 +123,26 @@ jobs:
       - name: Install packages
         run: |
           apt update
-          apt-get -y install python3-dev python3-venv nanobind-dev ninja-build
+          apt-get -y install python3-dev python3-venv python3-pip ninja-build
 
       - name: Clone w/ submodules
         uses: actions/checkout@v3
         with:
           submodules: recursive
 
+      - name: Setup venv
+        run: |
+          python3 -m venv ~/env
+
+      - name: Build and install ghex python dependencies
+        run: |
+          . ~/env/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -ve .
+
       - name: Configure
         run: |
+          source .venv/bin/activate
           mkdir -p build
           cd build
           cmake .. \
