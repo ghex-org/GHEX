@@ -82,7 +82,6 @@ build_libfabric:
 .test_template_base:
   extends: .container-runner-clariden-gh200
   variables:
-    SLURM_JOB_NUM_NODES: 1
     SLURM_GPUS_PER_TASK: 1
     SLURM_TIMELIMIT: '5:00'
     SLURM_PARTITION: normal
