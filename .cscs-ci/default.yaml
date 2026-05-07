@@ -11,7 +11,6 @@ variables:
   extends: .container-builder-cscs-gh200
   timeout: 1 hour
   before_script:
-    - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
     - export DOCKERFILE_SHA=`sha256sum .cscs-ci/container/deps.Containerfile | head -c 16`
     - export ENV_FILE_SHA=`sha256sum ${SPACK_ENV_FILE} | head -c 16`
     - export CONFIG_TAG=`echo $DOCKERFILE_SHA-$BASE_IMAGE-$SPACK_SHA-$SPACK_PACKAGES_SHA-$ENV_FILE_SHA | sha256sum - | head -c 16`
@@ -45,7 +44,6 @@ build_deps_libfabric:
   extends: .container-builder-cscs-gh200
   timeout: 15 minutes
   before_script:
-    - echo $DOCKERHUB_TOKEN | podman login docker.io -u $DOCKERHUB_USERNAME --password-stdin || true
     - export PERSIST_IMAGE_NAME=$CSCS_REGISTRY_PATH/public/ghex-build-$BACKEND:$CI_COMMIT_SHA
     - echo -e "BUILD_IMAGE=$PERSIST_IMAGE_NAME" >> build-${BACKEND}.env
   variables:
