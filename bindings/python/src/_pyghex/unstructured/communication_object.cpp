@@ -112,7 +112,7 @@ register_communication_object(nanobind::module_& m)
                     "schedule_wait",
                     [](typename type::handle_type& h, nanobind::object python_stream)
                     { return h.schedule_wait(extract_cuda_stream(python_stream)); },
-                    nanobind::keep_alive<0, 1>())
+                    nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none())
 #endif
                 .def("is_ready", &handle::is_ready)
                 .def("progress", &handle::progress);
@@ -148,13 +148,13 @@ register_communication_object(nanobind::module_& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream),
                                     b.begin(), b.end());
                             },
-                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream"),
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
                             nanobind::arg("patterns"))
                         .def(
                             "schedule_exchange",
                             [](type& co, nanobind::object python_stream, buffer_info_type& b)
                             { return co.schedule_exchange(extract_cuda_stream(python_stream), b); },
-                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream"),
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
                             nanobind::arg("b"))
                         .def(
                             "schedule_exchange",
@@ -163,7 +163,7 @@ register_communication_object(nanobind::module_& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1);
                             },
-                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream"),
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
                             nanobind::arg("b0"), nanobind::arg("b1"))
                         .def(
                             "schedule_exchange",
@@ -172,7 +172,7 @@ register_communication_object(nanobind::module_& m)
                                 return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
                                     b1, b2);
                             },
-                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream"),
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
                             nanobind::arg("b0"), nanobind::arg("b1"), nanobind::arg("b2"))
                         .def("has_scheduled_exchange",
                             [](type& co) -> bool { return co.has_scheduled_exchange(); })
