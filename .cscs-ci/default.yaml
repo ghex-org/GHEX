@@ -105,7 +105,7 @@ build_libfabric:
   script:
     # All ranks write to ctest files in Testing, but this can deadlock when
     # writing inside the container.
-    - if [[ "${SLURM_PROCID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
+    - if [[ "${SLURM_LOCALID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
     - until [[ -L /ghex/build/Testing ]]; do sleep 1; done
     - ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --output-on-failure --timeout 60
 
