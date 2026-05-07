@@ -23,6 +23,7 @@ jobs:
             fortran:   "ON",
             gpu:       "OFF",
             gpu_type:  "AUTO",
+            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -37,6 +38,7 @@ jobs:
             fortran:   "ON",
             gpu:       "OFF",
             gpu_type:  "AUTO",
+            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -51,6 +53,7 @@ jobs:
             fortran:   "OFF",
             gpu:       "OFF",
             gpu_type:  "AUTO",
+            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -65,6 +68,7 @@ jobs:
             fortran:   "OFF",
             gpu:       "OFF",
             gpu_type:  "AUTO",
+            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -79,6 +83,7 @@ jobs:
             fortran:   "OFF",
             gpu:       "ON",
             gpu_type:  "AMD",
+            gpu_arch:  "gfx90a",
             run:       "OFF",
             atlas:     "ON",
             parmetis:  "ON",
@@ -93,6 +98,7 @@ jobs:
             fortran:   "ON",
             gpu:       "ON",
             gpu_type:  "NVIDIA",
+            gpu_arch:  "70",
             run:       "OFF",
             atlas:     "ON",
             parmetis:  "ON",
@@ -104,6 +110,7 @@ jobs:
       CXX:                            ${{ matrix.config.cxx }}
       GHEX_USE_GPU:                   ${{ matrix.config.gpu }}
       GHEX_GPU_TYPE:                  ${{ matrix.config.gpu_type }}
+      GHEX_GPU_ARCH:                  ${{ matrix.config.gpu_arch }}
       eckit_DIR:                      ${{ matrix.eckit }}
       Atlas_DIR:                      ${{ matrix.atlas }}
       SHLVL:                          "1"
@@ -166,7 +173,9 @@ jobs:
             -DPARMETIS_LIB_DIR=${PARMETIS_LIB_DIR} \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             -DGHEX_USE_GPU=${{ matrix.config.gpu }} \
-            -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }}
+            -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }} \
+            -DCMAKE_CUDA_ARCHITECTURES=${GHEX_GPU_ARCH} \
+            -DCMAKE_HIP_ARCHITECTURES=${GHEX_GPU_ARCH}
 
       - name: Build
         run: cmake --build build --parallel 4 --verbose
