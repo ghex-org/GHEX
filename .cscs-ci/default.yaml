@@ -96,7 +96,7 @@ build_libfabric:
   variables:
     SLURM_NTASKS: 1
   script:
-    - ctest --test-dir /ghex/build -L "serial" --output-on-failure --timeout 60 --parallel 8
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "serial" --output-on-failure --timeout 60 --parallel 8
 
 .test_parallel_template:
   extends: .test_template_base
@@ -105,7 +105,7 @@ build_libfabric:
     # writing inside the container.
     - if [[ "${SLURM_LOCALID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
     - until [[ -L /ghex/build/Testing ]]; do sleep 1; done
-    - ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --output-on-failure --timeout 60
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --output-on-failure --timeout 60
 
 .test_parallel_job:
   extends: .test_parallel_template
