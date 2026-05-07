@@ -175,7 +175,8 @@ jobs:
             -DGHEX_USE_GPU=${{ matrix.config.gpu }} \
             -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }} \
             -DCMAKE_CUDA_ARCHITECTURES=${GHEX_GPU_ARCH} \
-            -DCMAKE_HIP_ARCHITECTURES=${GHEX_GPU_ARCH}
+            -DCMAKE_HIP_ARCHITECTURES=${GHEX_GPU_ARCH} \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         run: cmake --build build --parallel 4 --verbose
