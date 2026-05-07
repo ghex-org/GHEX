@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - ghex@master backend=libfabric +cuda cuda_arch=90a +python
+  view: false
+  concretizer:
+    unify: true
