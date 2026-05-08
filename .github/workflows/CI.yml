@@ -23,7 +23,6 @@ jobs:
             fortran:   "ON",
             gpu:       "OFF",
             gpu_type:  "AUTO",
-            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -38,7 +37,6 @@ jobs:
             fortran:   "ON",
             gpu:       "OFF",
             gpu_type:  "AUTO",
-            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -53,7 +51,6 @@ jobs:
             fortran:   "OFF",
             gpu:       "OFF",
             gpu_type:  "AUTO",
-            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -68,7 +65,6 @@ jobs:
             fortran:   "OFF",
             gpu:       "OFF",
             gpu_type:  "AUTO",
-            gpu_arch:  "",
             run:       "ON",
             atlas:     "ON",
             parmetis:  "ON",
@@ -83,7 +79,6 @@ jobs:
             fortran:   "OFF",
             gpu:       "ON",
             gpu_type:  "AMD",
-            gpu_arch:  "gfx90a",
             run:       "OFF",
             atlas:     "ON",
             parmetis:  "ON",
@@ -98,7 +93,6 @@ jobs:
             fortran:   "ON",
             gpu:       "ON",
             gpu_type:  "NVIDIA",
-            gpu_arch:  "70",
             run:       "OFF",
             atlas:     "ON",
             parmetis:  "ON",
@@ -110,7 +104,6 @@ jobs:
       CXX:                            ${{ matrix.config.cxx }}
       GHEX_USE_GPU:                   ${{ matrix.config.gpu }}
       GHEX_GPU_TYPE:                  ${{ matrix.config.gpu_type }}
-      GHEX_GPU_ARCH:                  ${{ matrix.config.gpu_arch }}
       eckit_DIR:                      ${{ matrix.eckit }}
       Atlas_DIR:                      ${{ matrix.atlas }}
       SHLVL:                          "1"
@@ -130,27 +123,16 @@ jobs:
       - name: Install packages
         run: |
           apt update
-          apt-get -y install ninja-build
+          # TODO: Use `python3-nanobind` instead of `nanobind-dev` once it is in the repo.
+          apt-get -y install python3-dev python3-venv nanobind-dev ninja-build
 
       - name: Clone w/ submodules
         uses: actions/checkout@v3
         with:
           submodules: recursive
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
-        with:
-          version: "0.11.11"
-          enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-
-      - name: Setup venv and install dependencies
-        run: |
-          uv sync --resolution lowest
-
       - name: Configure
         run: |
-          source .venv/bin/activate
           mkdir -p build
           cd build
           cmake .. \
@@ -173,9 +155,7 @@ jobs:
             -DPARMETIS_LIB_DIR=${PARMETIS_LIB_DIR} \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             -DGHEX_USE_GPU=${{ matrix.config.gpu }} \
-            -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }} \
-            -DCMAKE_CUDA_ARCHITECTURES=${GHEX_GPU_ARCH} \
-            -DCMAKE_HIP_ARCHITECTURES=${GHEX_GPU_ARCH}
+            -DGHEX_GPU_TYPE=${{ matrix.config.gpu_type }}
 
       - name: Build
         run: cmake --build build --parallel 4 --verbose

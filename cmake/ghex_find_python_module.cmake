@@ -5,7 +5,7 @@ function(find_python_module module)
 
     if(NOT PY_${module_upper})
         if(ARGC GREATER 1 AND ARGV1 STREQUAL "REQUIRED")
-            set(${module}_FIND_REQUIRED TRUE)
+            set(PY_${module}_FIND_REQUIRED TRUE)
         endif()
 
         # A module's location is usually a directory, but for binary modules
@@ -31,7 +31,7 @@ function(find_python_module module)
         else()
             set(HAVE_${module_upper} OFF CACHE INTERNAL "Python module available")
         endif()
-    endif(NOT PY_${module_upper})
+    endif()
 
     find_package_handle_standard_args(PY_${module} DEFAULT_MSG PY_${module_upper})
 endfunction(find_python_module)
