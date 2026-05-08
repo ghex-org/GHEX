@@ -112,7 +112,7 @@ register_communication_object(nanobind::module_& m)
                     "schedule_wait",
                     [](typename type::handle_type& h, nanobind::object python_stream)
                     { return h.schedule_wait(extract_cuda_stream(python_stream)); },
-                    nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none())
+                    nanobind::arg("stream").none())
 #endif
                 .def("is_ready", &handle::is_ready)
                 .def("progress", &handle::progress);
