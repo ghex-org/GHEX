@@ -94,7 +94,7 @@ register_field_descriptor(nanobind::module_& m)
                 ghex::buffer_info<pattern_type, arch_type, field_descriptor_type>;
 
             auto _field_descriptor = register_class<field_descriptor_type>(m);
-            register_class<buffer_info_type>(m);
+            (void)register_class<buffer_info_type>(m);
 
             auto make_field_descriptor =
                 [](const domain_descriptor_type&                                        dom,
