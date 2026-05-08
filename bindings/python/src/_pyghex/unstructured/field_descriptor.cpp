@@ -95,9 +95,9 @@ register_field_descriptor(nanobind::module_& m)
 
                 bool        levels_first = true;
                 std::size_t outer_strides = 0u;
-                const auto  stride_0 = b.stride(0) * sizeof(T);
+                const auto  stride_0 = static_cast<std::ptrdiff_t>(b.stride(0) * b.itemsize());
                 const auto  stride_1 =
-                    (b.ndim() == 2) ? (b.stride(1) * sizeof(T)) : std::ptrdiff_t{0};
+                    (b.ndim() == 2) ? static_cast<std::ptrdiff_t>(b.stride(1) * b.itemsize()) : std::ptrdiff_t{0};
                 if (b.ndim() == 2 && stride_1 != sizeof(T))
                 {
                     levels_first = false;

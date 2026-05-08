@@ -59,11 +59,12 @@ struct ndarray_device_type<ghex::gpu>
 #endif
 };
 
-template<typename T>
+template<typename... Ts>
 std::vector<std::ptrdiff_t>
-byte_strides(const T& b, std::ptrdiff_t itemsize)
+byte_strides(const nanobind::ndarray<Ts...>& b)
 {
     std::vector<std::ptrdiff_t> result(b.ndim());
+    const auto                  itemsize = static_cast<std::ptrdiff_t>(b.itemsize());
     for (size_t i = 0; i < b.ndim(); ++i) result[i] = b.stride(i) * itemsize;
     return result;
 }
@@ -109,7 +110,7 @@ register_field_descriptor(nanobind::module_& m)
                     throw nanobind::type_error(error.str().c_str());
                 }
 
-                auto strides = byte_strides(b, sizeof(T));
+                auto strides = byte_strides(b);
 
                 auto ordered_strides = strides;
                 std::sort(ordered_strides.begin(), ordered_strides.end(),
