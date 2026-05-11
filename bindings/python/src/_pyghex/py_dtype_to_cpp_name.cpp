@@ -21,6 +21,8 @@
 
 namespace pyghex
 {
+// Note that taking the array by value does not copy it. ndarray has reference
+// semantics, exactly like numpy/cupy arrays.
 std::string
 py_dtype_to_cpp_name(nanobind::ndarray<> array)
 {
