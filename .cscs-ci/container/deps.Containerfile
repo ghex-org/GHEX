@@ -8,9 +8,8 @@ RUN mkdir -p /opt/spack && \
 ENV PATH="/opt/spack/bin:$PATH"
 
 ARG SPACK_PACKAGES_SHA
-# TODO: Change msimberg back to upstream
 RUN mkdir -p /opt/spack-packages && \
-    curl -fLsS "https://api.github.com/repos/msimberg/spack-packages/tarball/$SPACK_PACKAGES_SHA" | tar --strip-components=1 -xz -C /opt/spack-packages
+    curl -fLsS "https://api.github.com/repos/spack/spack-packages/tarball/$SPACK_PACKAGES_SHA" | tar --strip-components=1 -xz -C /opt/spack-packages
 
 RUN spack repo remove --scope defaults:base builtin && \
     spack repo add --scope site /opt/spack-packages/repos/spack_repo/builtin
