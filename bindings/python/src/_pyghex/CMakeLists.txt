@@ -53,6 +53,7 @@ set_target_properties(pyghex PROPERTIES
 # pyghex_obj because CMake.
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
+ghex_link_to_oomph(pyghex)
 
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)
