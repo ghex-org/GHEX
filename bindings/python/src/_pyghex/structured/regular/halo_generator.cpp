@@ -13,6 +13,11 @@
 #include <register_class.hpp>
 #include <structured/regular/halo_generator.hpp>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/array.h>
+#include <nanobind/stl/vector.h>
+
 namespace pyghex
 {
 namespace structured
@@ -21,14 +26,14 @@ namespace regular
 {
 
 void
-register_halo_generator(pybind11::module& m)
+register_halo_generator(nanobind::module_& m)
 {
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, halo_generator_specializations>>(
         [&m](auto l)
         {
             using namespace std::string_literals;
-            using namespace pybind11::literals;
+            using namespace nanobind::literals;
 
             using type = gridtools::meta::first<decltype(l)>;
             using dimension = typename type::dimension;
@@ -43,23 +48,27 @@ register_halo_generator(pybind11::module& m)
             auto _box2 = register_class<box2>(m);
 
             _halo_generator
-                .def(pybind11::init<array, array, halo_array, periodic_array>(), "first"_a,
+                .def(nanobind::init<array, array, halo_array, periodic_array>(), "first"_a,
                     "last"_a, "halos"_a, "periodic"_a, "Create a halo generator")
-                .def("__call__", &type::operator());
+                .def("__call__",
+                    [](const type& halo_gen, const typename type::domain_type& domain)
+                    {
+                        nanobind::list result;
+                        for (const auto& halo : halo_gen(domain))
+                            result.append(nanobind::cast(halo));
+                        return result;
+                    });
 
-            _box2
-                .def_property_readonly("local",
-                    pybind11::overload_cast<>(&box2::local, pybind11::const_))
-                .def_property_readonly("global_",
-                    pybind11::overload_cast<>(&box2::global, pybind11::const_));
+            _box2.def_prop_ro("local", [](const box2& b) { return b.local(); })
+                .def_prop_ro("global_", [](const box2& b) { return b.global(); });
 
-            _box.def_property_readonly("first",
+            _box.def_prop_ro("first",
                     [](const box& b)
                     {
                         auto first = b.first();
                         return static_cast<typename decltype(first)::array_type>(first);
                     })
-                .def_property_readonly("last",
+                .def_prop_ro("last",
                     [](const box& b)
                     {
                         auto last = b.last();

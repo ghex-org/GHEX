@@ -28,7 +28,7 @@ Documentation and instructions at [GHEX Documentation](https://ghex-org.github.i
 - gfortran compiler (optional, for Fortran bindings)
 - Python3 (optional, for Python bindings )
 - MPI4PY (optional, for Python bindings )
-- Pybind11 (optional, for Python bindings)
+- Nanobind (optional, for Python bindings)
 
 ### From Source
 

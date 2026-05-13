@@ -8,7 +8,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdint>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 
 #include <context_shim.hpp>
 #include <util/to_string.hpp>
@@ -35,13 +36,13 @@ to_string(const context_shim& c)
 } // namespace util
 
 void
-register_context(pybind11::module& m)
+register_context(nanobind::module_& m)
 {
     using namespace std::string_literals;
-    using namespace pybind11::literals;
+    using namespace nanobind::literals;
 
-    pybind11::class_<context_shim>(m, "context")
-        .def(pybind11::init<mpi_comm_shim, bool>(), "mpi_comm"_a, "thread_safe"_a = false,
+    nanobind::class_<context_shim>(m, "context")
+        .def(nanobind::init<mpi_comm_shim, bool>(), "mpi_comm"_a, "thread_safe"_a = false,
             "Create a ghex context")
         .def("__str__", util::to_string<context_shim>)
         .def("__repr__", util::to_string<context_shim>)

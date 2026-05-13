@@ -16,7 +16,7 @@ get_filename_component(pyghex_test_workdir ${python_mod_path}/.. ABSOLUTE)
 # command to create a virtual environment
 add_custom_command(
     OUTPUT ${venv_dir}
-    COMMAND ${Python3_EXECUTABLE} -m venv ${venv_dir}
+    COMMAND ${Python_EXECUTABLE} -m venv ${venv_dir}
     COMMENT "Creating virtual environment for test dependencies"
 )
 
@@ -48,9 +48,10 @@ add_custom_target(
 # setup test target
 # =================
 
-add_custom_target(pyghex_tests)
-add_dependencies(pyghex pyghex_tests)
-add_dependencies(setup_test_env pyghex_tests)
+add_custom_target(pyghex_tests ALL)
+add_dependencies(pyghex_tests pyghex)
+add_dependencies(pyghex_tests pyghex_files)
+add_dependencies(pyghex_tests setup_test_env)
 
 copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fixtures FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/context.py)
@@ -68,18 +69,25 @@ function(ghex_reg_pytest t)
         NAME py_${t}
         COMMAND ${venv_dir}/bin/python -m pytest -s ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
         WORKING_DIRECTORY ${pyghex_test_workdir})
-    set_tests_properties(py_${t} PROPERTIES RUN_SERIAL ON)
+    set_tests_properties(py_${t} PROPERTIES RUN_SERIAL ON LABELS "serial")
 endfunction()
 
 function(ghex_reg_parallel_pytest t n)
     copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/test_${t}.py)
-    add_test(
-        NAME py_${t}_parallel
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-        ${venv_dir}/bin/python -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
-        WORKING_DIRECTORY ${pyghex_test_workdir})
-    set_tests_properties(py_${t}_parallel PROPERTIES RUN_SERIAL ON)
+    if("${MPIEXEC_EXECUTABLE}" STREQUAL "")
+      add_test(
+          NAME py_${t}_parallel
+          COMMAND ${venv_dir}/bin/python -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
+          WORKING_DIRECTORY ${pyghex_test_workdir})
+    else()
+      add_test(
+          NAME py_${t}_parallel
+          COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
+          ${venv_dir}/bin/python -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
+          WORKING_DIRECTORY ${pyghex_test_workdir})
+    endif()
+    set_tests_properties(py_${t}_parallel PROPERTIES RUN_SERIAL ON LABELS "parallel-ranks-${n}")
 endfunction()
 
 ghex_reg_pytest(context)

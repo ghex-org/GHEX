@@ -16,6 +16,11 @@
 #include <register_class.hpp>
 #include <structured/regular/domain_descriptor.hpp>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/array.h>
+#include <nanobind/stl/tuple.h>
+
 namespace pyghex
 {
 namespace structured
@@ -40,14 +45,14 @@ as_tuple(const std::array<T, N>& arr)
 } // namespace
 
 void
-register_domain_descriptor(pybind11::module& m)
+register_domain_descriptor(nanobind::module_& m)
 {
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, domain_descriptor_specializations>>(
         [&m](auto l)
         {
             using namespace std::string_literals;
-            using namespace pybind11::literals;
+            using namespace nanobind::literals;
 
             using type = gridtools::meta::first<decltype(l)>;
             using domain_id_type = typename type::domain_id_type;
@@ -57,7 +62,7 @@ register_domain_descriptor(pybind11::module& m)
             auto _domain_descriptor = register_class<type>(m);
 
             _domain_descriptor
-                .def(pybind11::init<domain_id_type, array, array>(), "domain_id"_a, "first"_a,
+                .def(nanobind::init<domain_id_type, array, array>(), "domain_id"_a, "first"_a,
                     "last"_a, "Create a domain descriptor")
                 .def("domain_id", &type::domain_id, "Returns the domain id")
                 .def(
