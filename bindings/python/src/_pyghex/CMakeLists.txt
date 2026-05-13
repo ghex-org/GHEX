@@ -52,11 +52,8 @@ set_target_properties(pyghex PROPERTIES
 # This dependency has to be spelt out again, despite being added to
 # pyghex_obj because CMake.
 target_link_libraries(pyghex PRIVATE ghex)
-target_link_libraries(pyghex PRIVATE ghex_common)
-target_link_libraries(pyghex_obj PRIVATE ghex_common)
 ghex_link_to_oomph(ghex)
 ghex_link_to_oomph(pyghex)
-ghex_link_to_oomph(pyghex_obj)
 
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)
