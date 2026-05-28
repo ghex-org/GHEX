@@ -16,7 +16,7 @@ from ghex.pyghex import make_pattern_regular as _make_pattern_regular
 from ghex.pyghex import py_dtype_to_cpp_name as _py_dtype_to_cpp_name
 from ghex.util import CppWrapper, cls_from_cpp_type_spec, unwrap
 from ghex.util import Architecture
-from ghex.structured.cartesian_sets import CartesianSet, ProductSet, union
+from ghex.structured.cartesian_sets import CartesianSet, ProductSet, UnitRange, union
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -31,10 +31,10 @@ def make_communication_object(context: context):
 class DomainDescriptor(CppWrapper):
     def __init__(self, id_: int, sub_domain_indices: CartesianSet) -> None:
         super(DomainDescriptor, self).__init__(
-            ("structured__regular__domain_descriptor", "int", sub_domain_indices.dim),
+            ("structured__regular__domain_descriptor", "int", sub_domain_indices.ndim),
             id_,
-            sub_domain_indices[tuple(0 for _ in range(sub_domain_indices.dim))],
-            sub_domain_indices[tuple(-1 for _ in range(sub_domain_indices.dim))],
+            sub_domain_indices[tuple(0 for _ in range(sub_domain_indices.ndim))],
+            sub_domain_indices[tuple(-1 for _ in range(sub_domain_indices.ndim))],
         )
 
 
@@ -115,8 +115,8 @@ class HaloGenerator(CppWrapper):
         halos: tuple[Union[int, tuple[int, int]], ...],
         periodicity: tuple[bool, ...],
     ) -> None:
-        assert glob_domain_indices.dim == len(halos)
-        assert glob_domain_indices.dim == len(periodicity)
+        assert glob_domain_indices.ndim == len(halos)
+        assert glob_domain_indices.ndim == len(periodicity)
 
         # canonicalize integer halos, e.g. turn (h0, (h1, h2), h3) into ((h0, h0), (h1, h2), ...)
         halos2 = ((halo, halo) if isinstance(halo, int) else halo for halo in halos)
@@ -126,10 +126,10 @@ class HaloGenerator(CppWrapper):
             (
                 "structured__regular__halo_generator",
                 "int",
-                glob_domain_indices.dim,
+                glob_domain_indices.ndim,
             ),
-            glob_domain_indices[tuple(0 for _ in range(glob_domain_indices.dim))],
-            glob_domain_indices[tuple(-1 for _ in range(glob_domain_indices.dim))],
+            glob_domain_indices[tuple(0 for _ in range(glob_domain_indices.ndim))],
+            glob_domain_indices[tuple(-1 for _ in range(glob_domain_indices.ndim))],
             flattened_halos,
             periodicity,
         )
@@ -139,13 +139,15 @@ class HaloGenerator(CppWrapper):
 
         local = union(
             *(
-                ProductSet.from_coords(tuple(box2.local.first), tuple(box2.local.last))
+                ProductSet(*(UnitRange(f, l + 1) for f, l in zip(box2.local.first, box2.local.last)))
                 for box2 in result
             )
         )
         global_ = union(
             *(
-                ProductSet.from_coords(tuple(box2.global_.first), tuple(box2.global_.last))
+                ProductSet(
+                    *(UnitRange(f, l + 1) for f, l in zip(box2.global_.first, box2.global_.last))
+                )
                 for box2 in result
             )
         )
