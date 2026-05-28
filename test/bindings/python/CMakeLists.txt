@@ -94,7 +94,8 @@ ghex_reg_pytest(context)
 ghex_reg_parallel_pytest(context 4)
 
 ghex_reg_parallel_pytest(structured_domain_descriptor 4)
-ghex_reg_parallel_pytest(structured_pattern 4)
+# 8 ranks so the 3d test case gets a genuine 2x2x2 decomposition
+ghex_reg_parallel_pytest(structured_pattern 8)
 
 #ghex_reg_pytest(unstructured_domain_descriptor)
 ghex_reg_parallel_pytest(unstructured_domain_descriptor 4)
