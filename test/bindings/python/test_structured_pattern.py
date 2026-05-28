@@ -35,9 +35,13 @@ def test_pattern(capsys, mpi_cart_comm):
     p_coord = tuple(mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank()))
     global_grid = IndexSpace.from_sizes(Nx, Ny, Nz)
     sub_grids = global_grid.decompose(mpi_cart_comm.dims)
-    sub_grid = sub_grids[p_coord]  # sub-grid in global coordinates
-    owned_indices = sub_grid.subset["definition"]
-    sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
+    owned_indices = sub_grids[p_coord].subset["definition"]  # sub-grid in global coordinates
+    sub_grid = IndexSpace(
+        {
+            "definition": owned_indices,
+            "halo": owned_indices.extend(*halos).without(owned_indices),
+        }
+    )
 
     memory_local_grid = sub_grid.translate(
         *(-origin_l for origin_l in sub_grid.bounds[0, 0, 0])
