@@ -8,21 +8,25 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 from __future__ import annotations
-from copy import copy
+
 import functools
+from functools import cached_property
 import itertools
 import math
 import operator
+import typing
+import warnings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Literal, Sequence, Tuple, Union, TypeAlias
+    from collections.abc import Callable, Iterator, Sequence
+    from typing import Any, Literal, Optional, Union
 
-    integer: TypeAlias = Union[int, Literal[math.inf], Literal[-math.inf]]
+    Integer = Union[int, Literal[math.inf, -math.inf]]
 
 
-def is_integer_like(val):
-    return isinstance(val, int) or val == math.inf or val == -math.inf
+def is_integer_like(val: Any) -> bool:
+    return isinstance(val, int) or val in (math.inf, -math.inf)
 
 
 class Set:
@@ -32,34 +36,30 @@ class Set:
 class IntegerSet(Set):
     """A set containing integers."""
 
-    def empty_set(self):
+    @staticmethod
+    def empty_set() -> UnitRange:
         return UnitRange(0, 0)
 
-    def universe(self):
+    @staticmethod
+    def universe() -> UnitRange:
         return UnitRange(-math.inf, math.inf)
 
-    def shrink(self, arg: Union[int, Tuple[int, int]]):
-        if isinstance(arg, int):
-            arg = (arg, arg)
-
-        return self.extend(tuple(-v for v in arg))
-
     @staticmethod
-    def primitive_type():
+    def primitive_type() -> type[UnitRange]:
         return UnitRange
 
     @staticmethod
-    def union_type():
+    def union_type() -> type[UnionRange]:
         return UnionRange
 
 
 class UnitRange(IntegerSet):
     """Range from `start` to `stop` with step size one."""
 
-    start: integer
-    stop: integer
+    start: Integer
+    stop: Integer
 
-    def __init__(self, start: integer, stop: integer):
+    def __init__(self, start: Integer, stop: Integer) -> None:
         assert stop >= start
 
         self.start = start
@@ -70,30 +70,30 @@ class UnitRange(IntegerSet):
             self.start = 0
             self.stop = 0
 
-    @property
+    @cached_property
     def size(self) -> int:
         """Return the number of elements."""
         assert self.start <= self.stop
         return self.stop - self.start
 
-    @property
+    @cached_property
     def empty(self) -> bool:
         """Return if the range is empty"""
         return self.start >= self.stop
 
-    @property
+    @cached_property
     def bounds(self) -> UnitRange:
         """Smallest range containing all elements. In this case itelf."""
         return self
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Return if `self` and `other` contain the same elements."""
         if isinstance(other, Set):
             return self.issubset(other) and other.issubset(self)
 
         return False
 
-    def __contains__(self, arg: integer) -> bool:
+    def __contains__(self, arg: Integer) -> bool:
         """Is (the integer-like) `arg` element of this range"""
         assert is_integer_like(arg)
 
@@ -103,7 +103,7 @@ class UnitRange(IntegerSet):
         """Return if `self` is a subset of `arg`."""
         return arg.complement(simplify=False).intersect(self).empty
 
-    def __getitem__(self, arg: Union[int, slice]):
+    def __getitem__(self, arg: Union[int, slice]) -> Union[int, UnitRange]:
         """Return element(s) at relative index (slice)"""
         if isinstance(arg, slice):
             assert arg.step in [1, None]
@@ -133,10 +133,10 @@ class UnitRange(IntegerSet):
 
         raise ValueError(f"Invalid argument `{arg}`")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"UnitRange({self.start}, {self.stop})"
 
-    def __mul__(self, other: UnitRange):
+    def __mul__(self, other: UnitRange) -> Union[ProductSet, UnionRange]:
         """Cartesian product of `self` with `other`"""
         if isinstance(other, ProductSet):
             return ProductSet(self, *other.args)
@@ -144,21 +144,19 @@ class UnitRange(IntegerSet):
             return ProductSet(self, other)
         elif isinstance(other, UnionRange) or isinstance(other, UnionCartesian):
             return union(
-                *(self * arg for arg in other.args),
-                disjoint=other.disjoint,
-                simplify=False,
+                *(self * arg for arg in other.args), disjoint=other.disjoint, simplify=False
             )
 
         raise NotImplementedError()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         """Return an iterator over all elements of the set"""
         return range(self.start, self.stop).__iter__()
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.start, self.stop))
 
-    def intersect(self, other: Set):
+    def intersect(self, other: Set) -> Union[UnionRange, UnitRange]:
         """Return intersection of `self` with `other`"""
         if isinstance(other, UnitRange):
             start = max(self.start, other.start)
@@ -170,17 +168,20 @@ class UnitRange(IntegerSet):
         raise NotImplementedError()
 
     def without(
-        self,
-        other: Union[UnitRange, UnionRange],
-        *tail: Union[UnitRange, UnionRange],
-        simplify=True,
-    ):
-        """Return range containing all elements in self, but not in other, i.e. the complement of `other` with `self`"""
-        result = other.complement(self, simplify=simplify)
+        self, *others: Union[UnionRange, UnitRange], simplify=True
+    ) -> Union[UnionRange, UnitRange]:
+        """
+        Return range containing all elements in self, but not in other, i.e. the complement of
+        all `others` with `self`.
+        """
+        result = self
+        for other in others:
+            result = other.complement(result, simplify=simplify)
+        return result
 
-        return result if len(tail) == 0 else result.without(*tail, simplify=simplify)
-
-    def complement(self, other: Union[None, Set] = None, simplify=True):
+    def complement(
+        self, other: Optional[Set] = None, simplify: bool = True
+    ) -> Union[UnionRange, UnitRange]:
         """Return the complement of self in other."""
         result = union(
             UnitRange(-math.inf, self.start),
@@ -191,34 +192,31 @@ class UnitRange(IntegerSet):
 
         return result.intersect(other) if other else result
 
-    def union(self, *others: Set):
+    def union(self, *others: Set) -> Union[UnionRange, UnitRange]:
         """Return the union of `self` with `other`"""
         return union(self, *others)
 
-    def extend(self, arg: Union[int, Tuple[int, int]]):
+    def extend(self, arg: Union[int, tuple[int, int]]) -> UnitRange:
         if self.empty:
-            raise ValueError("The empty set can not be extended.")
+            return self
 
         if isinstance(arg, int):
             arg = (arg, arg)
 
         return UnitRange(self.start - arg[0], self.stop + arg[1])
 
-    def translate(self, arg: int):
+    def translate(self, arg: int) -> UnitRange:
         """Return a range shifted by arg."""
-        if self.empty:
-            raise ValueError("The empty set can not be translated.")
-
         return UnitRange(self.start + arg, self.stop + arg)
 
-    def as_tuple(self):
-        return (self.start, self.stop)
+    def as_tuple(self) -> tuple[int, int]:
+        return self.start, self.stop
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"UnitRange({self.start}, {self.stop})"
 
 
-def union(*args: Set, simplify=True, disjoint=False):
+def union(*args: Set, simplify: bool = True, disjoint: bool = False) -> UnionMixin:
     assert len(args) > 0
     empty_set = args[0].empty_set()
     union_type = args[0].union_type()
@@ -228,9 +226,7 @@ def union(*args: Set, simplify=True, disjoint=False):
 
     # flatten
     args = functools.reduce(
-        operator.add,
-        [list(arg.args) if isinstance(arg, UnionMixin) else [arg] for arg in args],
-        [],
+        operator.add, [list(arg.args) if isinstance(arg, UnionMixin) else [arg] for arg in args], []
     )
 
     if len(args) == 0:
@@ -243,22 +239,16 @@ def union(*args: Set, simplify=True, disjoint=False):
     return result.simplify() if simplify else result
 
 
-from functools import reduce
+PT = typing.TypeVar("PT")
 
 
-def intersect(a, *args: Set):
-    if len(args) == 0:
-        return a
-    return reduce(lambda a, b: a.intersect(b), args, a)
-
-
-class UnionMixin:
+class UnionMixin(typing.Generic[PT]):
     # todo: abstract bounds property
-    args: Sequence[UnitRange]
+    args: Sequence[PT]
 
     disjoint: bool
 
-    def __init__(self, *args, disjoint=False):
+    def __init__(self, *args: PT, disjoint: bool = False) -> None:
         assert len(args) > 1
 
         if not all(isinstance(arg, self.primitive_type()) for arg in args):
@@ -272,69 +262,68 @@ class UnionMixin:
         self.args = args
         self.disjoint = disjoint
 
-    @property
+    @cached_property
     def size(self) -> int:
         overlap = 0
         if not self.disjoint:
             for i, arg1 in enumerate(self.args):
-                for j, arg2 in enumerate(self.args[i + 1 :], start=i + 1):
+                for arg2 in self.args[i + 1 :]:
                     overlap += arg1.intersect(arg2).size
 
         return functools.reduce(operator.add, (arg.size for arg in self.args)) - overlap
 
-    @property
+    @cached_property
     def empty(self) -> bool:
         return all(arg.empty for arg in self.args)
 
-    def union(self, *args: Sequence[Union[UnitRange, UnionRange]]):
+    def union(self, *args: Union[UnionRange, UnitRange]):
         return union(*self.args, *args)
 
-    def without(self, *others: Sequence[Set], simplify=True):
+    def without(self, *others: Set, simplify: bool = True) -> UnionMixin:
         return union(
             *(s.without(*others, simplify=simplify) for s in self.args),
             disjoint=self.disjoint,
             simplify=simplify,
         )
 
-    def complement(self, other: Union[None, Set] = None, simplify=True):
+    def complement(self, other: Optional[Set] = None, simplify: bool = True):
         if not other:
             other = self.universe()
 
         return other.without(*self.args, simplify=simplify)
 
-    def intersect(self, other: Set):
+    def intersect(self, other: Set) -> UnionMixin:
         return union(
-            *(s.intersect(other) for s in self.args),
-            disjoint=self.disjoint,
-            simplify=False,
+            *(s.intersect(other) for s in self.args), disjoint=self.disjoint, simplify=False
         )
 
-    def translate(self, *args):
+    def translate(self, *args: int):
         return union(*(s.translate(*args) for s in self.args), disjoint=self.disjoint)
 
-    def simplify(self):
+    def simplify(self) -> UnionMixin:
         if not self.disjoint:
             return self.make_disjoint()
 
         return self
 
-    def make_disjoint(self):
+    def make_disjoint(self) -> UnionMixin:
         if self.disjoint:
             return self
 
         args = list(self.args)
-        for i, arg1 in enumerate(args):
-            for j, arg2 in enumerate(args[i + 1 :], start=i + 1):
-                args[j] = arg2.without(arg1, simplify=False)
+        for i in range(len(args)):
+            arg1 = args[i]
+            for j in range(i + 1, len(args)):
+                args[j] = args[j].without(arg1, simplify=False)
 
         return union(*args, disjoint=True, simplify=False)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         for arg in self.args:
             for p in arg:
                 yield p
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Set):
             return self.issubset(other) and other.issubset(self)
 
@@ -344,20 +333,23 @@ class UnionMixin:
         """Return if `self` is a subset of `other`."""
         return other.complement(simplify=False).intersect(self).empty
 
-    def __contains__(self, arg: integer):
+    def __contains__(self, arg: Integer) -> bool:
         return any(arg in comp for comp in self.args)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "union(" + ", ".join(str(arg) for arg in self.args) + ")"
 
+    def __hash__(self) -> int:
+        return hash(tuple(hash(arg) for arg in self.args))
 
-class UnionRange(IntegerSet, UnionMixin):
+
+class UnionRange(IntegerSet, UnionMixin[UnitRange]):
     """Union of a set of integer sets"""
 
     def __init__(self, *args, **kwargs):
         UnionMixin.__init__(self, *args, **kwargs)
 
-    @property
+    @cached_property
     def bounds(self) -> UnitRange:
         """Smallest UnitRange containing all elements"""
         return UnitRange(
@@ -366,191 +358,190 @@ class UnionRange(IntegerSet, UnionMixin):
         )
 
     def simplify(self) -> IntegerSet:
-        if not self.disjoint:
-            # note: just return as UnionMixin.simplify indirectly calls UnionRange.simplify after it made its components
-            #  disjoint
-            return UnionMixin.simplify(self)
-
         # do some basic fusing
         assert all(isinstance(arg, UnitRange) for arg in self.args)
         args = sorted(self.args, key=lambda arg: (arg.start, arg.stop))
         fused_args = [args[0]]
         for arg in args[1:]:
             if fused_args[-1].stop == arg.start:
-                fused_args = [
-                    *fused_args[0:-1],
-                    UnitRange(fused_args[-1].start, arg.stop),
-                ]
+                fused_args = [*fused_args[0:-1], UnitRange(fused_args[-1].start, arg.stop)]
             else:
                 fused_args.append(arg)
 
         return union(*fused_args, simplify=False, disjoint=self.disjoint)
 
-    def __mul__(self, other):
+    def __mul__(self, other) -> UnionCartesian:
         # todo: may user facing interface should simplify
         return union(*(arg * other for arg in self.args), disjoint=self.disjoint, simplify=False)
-
-    def __hash__(self):
-        return hash(tuple(hash(arg) for arg in self.args))
-
-
-_empty_cartesian_cache = {}
 
 
 class CartesianSet(Set):
     """A set of (cartesian indices, i.e. tuples of integers)"""
 
-    # todo: implement abstract methods
-    def empty_set(self):
-        if self.dim not in _empty_cartesian_cache:
-            _empty_cartesian_cache[self.dim] = functools.reduce(
-                operator.mul, itertools.repeat(UnitRange(0, 0), self.dim)
-            )
-        return _empty_cartesian_cache[self.dim]
+    @property
+    def ndim(self) -> int: ...
 
-    def universe(self):
-        return functools.reduce(
-            operator.mul, itertools.repeat(UnitRange(-math.inf, math.inf), self.dim)
+    @property
+    def dim(self) -> int:
+        # `dim` is a deprecated alias of `ndim`
+        warnings.warn(
+            "`dim` is deprecated, use `ndim` instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
+        return self.ndim
 
-    def shrink(self, *args: Sequence[Union[int, Tuple[int, int]]]):
-        args = tuple((-arg, -arg) if isinstance(arg, int) else (-arg[0], -arg[1]) for arg in args)
-        return self.extend(*args)
+    # todo: implement abstract methods
+    def empty_set(self) -> ProductSet:
+        return ProductSet(*([UnitRange(0, 0)] * self.ndim))
+
+    def universe(self) -> ProductSet:
+        return ProductSet(*([UnitRange(-math.inf, math.inf)] * self.ndim))
+
+    @classmethod
+    def from_range(cls, rng: Union[UnitRange, UnionRange]):
+        if isinstance(rng, UnitRange):
+            return ProductSet(rng)
+        elif isinstance(rng, UnionRange):
+            return UnionCartesian(*(ProductSet(arg) for arg in rng.args), disjoint=rng.disjoint)
+        raise ValueError(f"Invalid argument `{rng}`")
 
     @staticmethod
-    def union_type():
+    def union_type() -> type[UnionCartesian]:
         return UnionCartesian
 
     @staticmethod
-    def primitive_type():
+    def primitive_type() -> type[ProductSet]:
         return ProductSet
 
-    def simplify(self):
+    def simplify(self) -> CartesianSet:
         return self
+
+    def elements(self) -> Sequence[ProductSet]:
+        raise NotImplementedError()
 
 
 class ProductSet(CartesianSet):
-    """Cartesian product of a set of `UnitRange`s"""
+    """Cartesian product of a set of `UnitRange`s."""
 
     args: Sequence[UnitRange]
 
-    def __init__(self, *args: Sequence[UnitRange]):
+    def __init__(self, *args: UnitRange) -> None:
         assert all(isinstance(arg, UnitRange) for arg in args)
-        assert len(args) > 1
+        assert len(args) > 0
 
         self.args = args
 
-    @classmethod
-    def from_coords(cls, p1: Tuple, p2: Tuple):
-        assert len(p1) == len(p2)
-        return functools.reduce(
-            operator.mul, (UnitRange(first, last + 1) for (first, last) in zip(p1, p2))
-        )
-
-    @property
-    def size(self):
+    @cached_property
+    def size(self) -> int:
         return functools.reduce(operator.mul, self.shape)
 
     @property
-    def bounds(self):
+    def bounds(self) -> ProductSet:
         return self
 
-    @property
-    def shape(self):
+    @cached_property
+    def shape(self) -> tuple[int]:
         return tuple(arg.size for arg in self.args)
 
-    @property
-    def empty(self):
+    @cached_property
+    def empty(self) -> bool:
         return any(arg.empty for arg in self.args)
 
     @property
-    def dim(self):
+    def ndim(self) -> int:
         return len(self.args)
 
-    def without(self, other: ProductSet, *tail: ProductSet, simplify=True):
-        if isinstance(other, ProductSet):
-            # if there is no overlap in any dimension nothing is to be removed
-            if any(r1.intersect(r2).empty for r1, r2 in zip(self.args, other.args)):
-                result = self
-            else:
-                if len(self.args) == 2:  # break recursion
-                    result = union(
-                        self.args[0].without(other.args[0], simplify=simplify) * self.args[1],
-                        self.args[0].intersect(other.args[0]) * self.args[1].without(other.args[1]),
-                        simplify=simplify,
-                    )
-                else:
-                    result = union(
-                        self.args[0].without(other.args[0], simplify=simplify)
-                        * ProductSet(*self.args[1:]),
-                        self.args[0].intersect(other.args[0])
-                        * ProductSet(*self.args[1:]).without(
-                            ProductSet(*other.args[1:]), simplify=simplify
-                        ),
-                        simplify=simplify,
-                    )
+    def without(
+        self, *others: ProductSet | UnionCartesian, simplify: bool = True
+    ) -> ProductSet | UnionCartesian:
+        others_flat: list[ProductSet] = [el for other in others for el in other.elements()]
+        results = [self]
+        for other in others_flat:
+            results = [el._without_single(other, simplify) for el in results]
+            results = [el for r in results for el in r.elements()]
 
-            return result if len(tail) == 0 else result.without(*tail, simplify=simplify)
-        elif isinstance(other, UnionCartesian):
-            return self.without(other.args[0], *other.args[1:], *tail)
+        return union(*results, simplify=simplify)
 
-        raise NotImplementedError()
+    def _without_single(self, other: ProductSet, simplify: bool) -> ProductSet | UnionCartesian:
+        assert isinstance(other, ProductSet)
+        assert self.ndim == other.ndim
+        # if there is no overlap in any dimension nothing is to be removed
+        if any(r1.intersect(r2).empty for r1, r2 in zip(self.args, other.args)):
+            return self
+        elif len(self.args) == 1:  # degenerate case
+            return CartesianSet.from_range(self.args[0].without(other.args[0], simplify=simplify))
+        elif len(self.args) == 2:  # break recursion
+            return union(
+                self.args[0].without(other.args[0], simplify=simplify) * self.args[1],
+                self.args[0].intersect(other.args[0]) * self.args[1].without(other.args[1]),
+                simplify=simplify,
+            )
+        else:
+            return union(
+                self.args[0].without(other.args[0], simplify=simplify) * ProductSet(*self.args[1:]),
+                self.args[0].intersect(other.args[0])
+                * ProductSet(*self.args[1:]).without(
+                    ProductSet(*other.args[1:]), simplify=simplify
+                ),
+                simplify=simplify,
+            )
 
-    def complement(self, arg: Union[None, ProductSet] = None, simplify=True):
+    def complement(
+        self, arg: Optional[ProductSet] = None, simplify: bool = True
+    ) -> Union[ProductSet, UnionCartesian]:
         if not arg:
             arg = self.universe()
 
         return arg.without(self, simplify=simplify)
 
-    def intersect(self, other: Union[ProductSet, UnionCartesian]):
+    def intersect(
+        self, other: Union[ProductSet, UnionCartesian]
+    ) -> Union[ProductSet, UnionCartesian]:
         if isinstance(other, ProductSet):
-            return functools.reduce(
-                operator.mul,
-                (arg1.intersect(arg2) for (arg1, arg2) in zip(self.args, other.args)),
+            return ProductSet(
+                *(arg1.intersect(arg2) for (arg1, arg2) in zip(self.args, other.args))
             )
         elif isinstance(other, UnionCartesian):
             return other.intersect(self)
 
         raise ValueError(f"Invalid argument `{other}`")
 
-    def extend(self, *args: Sequence[Union[int, Tuple[int, int]]]):
+    def extend(self, *args: Union[int, tuple[int, int]]) -> ProductSet:
         if self.empty:
-            raise ValueError("Empty set can not be extended")
+            return self
         assert len(self.args) == len(args)
-        return functools.reduce(operator.mul, (r.extend(arg) for r, arg in zip(self.args, args)))
+        return ProductSet(*(r.extend(arg) for r, arg in zip(self.args, args)))
 
-    def translate(self, *args: Sequence[int]):
-        if self.empty:
-            raise ValueError("Empty set can not be translated")
+    def translate(self, *args: int) -> ProductSet:
         assert len(self.args) == len(args)
-        return functools.reduce(operator.mul, (r.translate(arg) for r, arg in zip(self.args, args)))
+        return ProductSet(*(r.translate(arg) for r, arg in zip(self.args, args)))
 
-    def as_tuple(self):
+    def as_tuple(self) -> tuple[tuple[int, int]]:
         return tuple(arg.as_tuple() for arg in self.args)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         # memory-lightweight itertools.product like iterator
         for i in self.args[0]:
-            if len(self.args[1:]) > 1:
-                for tail in functools.reduce(operator.mul, self.args[1:]):
+            if len(self.args[1:]) > 0:
+                for tail in ProductSet(*self.args[1:]):
                     yield i, *tail
             else:  # break recursion
-                for j in self.args[1]:
-                    yield i, j
+                yield (i,)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Set):
             return self.issubset(other) and other.issubset(self)
 
         return False
 
-    def __contains__(self, arg: Sequence[integer]):
+    def __contains__(self, arg: Sequence[Integer]) -> bool:
         assert all(is_integer_like(i) for i in arg)
         assert len(arg) == len(self.args)
 
         return all(i in r for r, i in zip(self.args, arg))
 
-    def issubset(self, arg):
+    def issubset(self, arg: Set):
         # if isinstance(arg, ProductSet):
         #    assert len(arg.args) == len(self.args)
         #    return all(subr.issubset(r) for subr, r in zip(self.args, arg.args))
@@ -559,7 +550,7 @@ class ProductSet(CartesianSet):
 
         raise ValueError(f"Invalid argument `{arg}`")
 
-    def __getitem__(self, args):
+    def __getitem__(self, args: Sequence[Union[int, slice]]) -> Union[tuple, ProductSet]:
         if all(isinstance(arg, int) for arg in args):
             return tuple(r[i] for r, i in zip(self.args, args))
         elif all(isinstance(arg, slice) for arg in args):
@@ -567,7 +558,7 @@ class ProductSet(CartesianSet):
 
         raise ValueError(f"Invalid argument `{args}`")
 
-    def __mul__(self, other: UnitRange):
+    def __mul__(self, other: UnitRange) -> ProductSet:
         if not isinstance(other, UnitRange):
             raise ValueError(f"Invalid argument `{other}`")
 
@@ -576,34 +567,36 @@ class ProductSet(CartesianSet):
             other if not self.empty else other.empty_set(),
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(tuple(hash(arg) for arg in self.args))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return " * ".join(repr(arg) for arg in self.args)
 
+    def elements(self) -> Sequence[ProductSet]:
+        return [self]
 
-class UnionCartesian(CartesianSet, UnionMixin):
-    """(set)union of a set of cartesian sets"""
 
-    def __init__(self, *args, **kwargs):
+class UnionCartesian(CartesianSet, UnionMixin[ProductSet]):
+    """(Set)union of a set of cartesian sets"""
+
+    def __init__(self, *args, **kwargs) -> None:
         UnionMixin.__init__(self, *args, **kwargs)
 
-    @property
+    @cached_property
     def bounds(self) -> Set:
-        return functools.reduce(
-            operator.mul,
-            (
+        return ProductSet(
+            *(
                 union(*comp_ranges, simplify=False).bounds
                 for comp_ranges in zip(*(ps.args for ps in self.args))
-            ),
+            )
         )
 
-    @property
-    def dim(self):
-        assert all(arg.dim == self.args[0].dim for arg in self.args)
+    @cached_property
+    def ndim(self) -> int:
+        assert all(arg.ndim == self.args[0].ndim for arg in self.args)
 
-        return self.args[0].dim
+        return self.args[0].ndim
 
     def simplify(self):
         a = UnionMixin.simplify(self)
@@ -618,7 +611,7 @@ class UnionCartesian(CartesianSet, UnionMixin):
                 touching_sets = [
                     other
                     for other in a.args
-                    if not curr.extend(*(1 for _ in range(0, self.dim))).intersect(other).empty
+                    if not curr.extend(*(1 for _ in range(0, self.ndim))).intersect(other).empty
                     and other != curr
                 ]
                 for touching_set in touching_sets:
@@ -627,12 +620,14 @@ class UnionCartesian(CartesianSet, UnionMixin):
                         rest = [
                             set_.without(curr)
                             for set_ in a.args
-                            if not set_.issubset(covering) and set_ != curr and set_ != touching_set
+                            if not set_.issubset(covering) and set_ != curr and set_ != touching_set  # noqa: PLR1714 (repeated-equality-comparison)
                         ]
                         merged = union(
-                            union(*rest, disjoint=a.disjoint, simplify=False)
-                            if len(rest) > 0
-                            else a.empty_set(),
+                            (
+                                union(*rest, disjoint=a.disjoint, simplify=False)
+                                if len(rest) > 0
+                                else a.empty_set()
+                            ),
                             covering,
                             disjoint=False,
                             simplify=False,
@@ -649,63 +644,103 @@ class UnionCartesian(CartesianSet, UnionMixin):
                         else:
                             raise RuntimeError()
                 # reset simplification to merged a
-                if converged == False:
+                if not converged:
                     break
-        return a.make_disjoint()
+        return a
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(tuple(hash(arg) for arg in self.args))
 
+    def elements(self) -> Sequence[ProductSet]:
+        return self.args
 
 class IndexSpace:
-    """
-    An index_space is a collection of cartesian sets associated with a label
-    """
+    """An `IndexSpace` is a collection of cartesian sets associated with a label."""
 
-    subset: Dict[Any, CartesianSet]
+    subset: dict[Any, CartesianSet]
 
-    def __init__(self, definition: CartesianSet = None):
-        self.subset = {}
-        if definition:
-            self.subset["definition"] = definition
+    def __init__(self, subset: dict[Any, CartesianSet]) -> None:
+        assert "definition" in subset
+        self.subset = subset
 
     @classmethod
-    def from_sizes(cls, n_i: int, n_j: int, n_k: int):
-        return cls(UnitRange(0, n_i) * UnitRange(0, n_j) * UnitRange(0, n_k))
+    def from_sizes(cls, *shape) -> IndexSpace:
+        subset = {"definition": ProductSet(*(UnitRange(0, size) for size in shape))}
+        return cls(subset)
 
-    def __getitem__(self, arg):
+    def __getitem__(self, arg: Sequence[Union[int, slice]]) -> Union[tuple, ProductSet]:
         return self.subset["definition"][arg]
 
+    def transform(self, transformer: Callable[[CartesianSet], CartesianSet]) -> IndexSpace:
+        """Get a new :class:`IndexSpace` by invoking `transformer` on every subset."""
+        new_subsets = {}
+        for name, subset in self.subset.items():
+            new_subsets[name] = transformer(subset)
+        return IndexSpace(new_subsets)
+
+    def intersect(self, mask: ProductSet) -> IndexSpace:
+        """Get a new :class:`IndexSpace` by masking all subsets."""
+        if self.ndim == 1:
+            m = ProductSet(mask.args[2])
+        elif self.ndim == 2:
+            m = mask.args[0] * mask.args[1]
+        else:
+            m = mask
+        return self.transform(lambda subset: subset.intersect(m))
+
+    @cached_property
+    def ndim(self):
+        return self.covering.ndim
+
     @property
-    def bounds(self):
+    def dim(self):
+        # `dim` is a deprecated alias of `ndim`
+        warnings.warn(
+            "`dim` is deprecated, use `ndim` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.ndim
+
+    @cached_property
+    def bounds(self) -> ProductSet:
         return self.covering.bounds
 
-    @property
-    def covering(self):
-        # todo: simplification is expensive, so cache the value
+    @cached_property
+    def covering(self) -> CartesianSet:
         return union(*(subset for subset in self.subset.values()), simplify=False)
 
-    @property
-    def default_origin(self):
+    @cached_property
+    def default_origin(self) -> tuple[int, ...]:
         """A tuple of the lowest indices in each dimension"""
         return tuple(bound.start for bound in self.subset["definition"].bounds.args)
 
-    @property
-    def shape(self):
+    @cached_property
+    def shape(self) -> tuple[int, ...]:
         """The maximum size of each dimensions"""
         return tuple(bound.size for bound in self.bounds.args)
 
-    def translate(self, *args):
-        """Translate each subset"""
-        assert len(args) == 3
-        new_space = copy(self)
-        new_space.subset = {k: s.translate(*args) for k, s in self.subset.items()}
-        return new_space
+    @cached_property
+    def empty(self) -> bool:
+        pruned_index_space = self.prune()
+        return len(pruned_index_space.subset) == 1 and pruned_index_space.subset["definition"].empty
 
-    def add_subset(self, name, subset):
-        self.subset[name] = subset.simplify()
+    def translate(self, *args: int) -> IndexSpace:
+        """Translate each subset."""
+        return self.transform(lambda subset: subset.translate(*args))
 
-    def decompose(self, parts_per_dim: Tuple[int, int, int]):
+    def prune(self) -> IndexSpace:
+        """Remove empty subsets."""
+        new_subsets = {}
+        for label, subset in self.subset.items():
+            new_subset = subset.simplify()
+            if not new_subset.empty:
+                new_subsets[label] = new_subset
+        if "definition" not in new_subsets:
+            new_subsets["definition"] = ProductSet(*([UnitRange(0, 0)] * self.ndim))
+        return IndexSpace(new_subsets)
+
+    def decompose(self, parts_per_dim: tuple[int, int, int]):
         def dim_splitters(n, length):
             "Divide `length` long dimension into `n` parts"
             interval_length = math.floor(length / n)
@@ -717,26 +752,26 @@ class IndexSpace:
         ]
 
         coords = list(itertools.product(*[range(0, parts) for parts in parts_per_dim]))
-        index_spaces = {coord: None for coord in coords}
+        index_spaces = {}
 
         for coord in coords:
-            coord_idx_space = IndexSpace()
-            for name, subset in self.subset.items():
-                subset_part = subset[
+            subsets = {
+                name: subset[
                     tuple(
                         slice(splitters[dim][coord_l], splitters[dim][coord_l + 1])
                         for dim, coord_l in enumerate(coord)
                     )
                 ]
-                coord_idx_space.add_subset(name, subset_part)
-            index_spaces[coord] = coord_idx_space
+                for name, subset in self.subset.items()
+            }
+            index_spaces[coord] = IndexSpace(subsets)
 
         return index_spaces
 
-    def __str__(self):
+    def __str__(self) -> str:
         result = f"{self.__repr__()}\n  subsets:\n"
         for label, value in self.subset.items():
-            result += f"    {label}: {str(value)}\n"
+            result += f"    {label}: {value!s}\n"
         return result
 
 
