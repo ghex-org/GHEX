@@ -28,7 +28,6 @@ except ImportError:
     STREAM_TYPES_TO_TEST = [None]  # Must be at least one element.
 
 import ghex
-from ghex.context import make_context
 from ghex.unstructured import make_communication_object
 from ghex.unstructured import DomainDescriptor
 from ghex.unstructured import HaloGenerator
@@ -225,16 +224,17 @@ domains = {
 
 LEVELS = 2
 
+
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
 @pytest.mark.parametrize("on_gpu", [True, False])
 @pytest.mark.mpi
-def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
+def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, cart_context, dtype):
     # Does not uses streams.
 
     if on_gpu and cp is None:
         pytest.skip(reason="`CuPy` is not installed.")
 
-    ctx = make_context(mpi_cart_comm, True)
+    ctx = cart_context
     assert ctx.size() == 4
 
     domain_desc = DomainDescriptor(
@@ -247,9 +247,7 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
 
     def make_field(order):
         # Creation is always on host.
-        data = np.zeros(
-            [len(domains[ctx.rank()]["all"]), LEVELS], dtype=dtype, order=order
-        )
+        data = np.zeros([len(domains[ctx.rank()]["all"]), LEVELS], dtype=dtype, order=order)
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         for x in range(len(all_list)):
@@ -278,13 +276,11 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
                 if gid in inner_set:
                     assert data[x, l] == ctx.rank() * 1000 + 10 * gid + l
                 else:
-                    assert (
-                        data[x, l] - 1000 * int((data[x, l]) / 1000)
-                    ) == 10 * gid + l
+                    assert (data[x, l] - 1000 * int((data[x, l]) / 1000)) == 10 * gid + l
 
         # TODO: Find out if there is a side effect that makes it important to keep them.
-        #field = make_field_descriptor(domain_desc, data)
-        #return data, field
+        # field = make_field_descriptor(domain_desc, data)
+        # return data, field
 
     halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
     pattern = make_pattern(ctx, halo_gen, [domain_desc])
@@ -304,7 +300,7 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, dtype):
 @pytest.mark.parametrize("on_gpu", [True, False])
 @pytest.mark.parametrize("stream_type", STREAM_TYPES_TO_TEST)
 @pytest.mark.mpi
-def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, dtype):
+def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, cart_context, dtype):
 
     if on_gpu:
         if cp is None:
@@ -312,9 +308,11 @@ def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, dty
         if not cp.is_available():
             pytest.skip(reason="`CuPy` is installed but no GPU could be found.")
     if not ghex.__config__["gpu"]:
-        pytest.skip(reason="Skipping `schedule_exchange()` tests because `GHEX` was not compiled with GPU support")
+        pytest.skip(
+            reason="Skipping `schedule_exchange()` tests because `GHEX` was not compiled with GPU support"
+        )
 
-    ctx = make_context(mpi_cart_comm, True)
+    ctx = cart_context
     assert ctx.size() == 4
 
     domain_desc = DomainDescriptor(
@@ -326,9 +324,7 @@ def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, dty
     assert domain_desc.inner_size() == len(domains[ctx.rank()]["inner"])
 
     def make_field(order):
-        data = np.zeros(
-            [len(domains[ctx.rank()]["all"]), LEVELS], dtype=dtype, order=order
-        )
+        data = np.zeros([len(domains[ctx.rank()]["all"]), LEVELS], dtype=dtype, order=order)
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         for x in range(len(all_list)):
@@ -357,9 +353,7 @@ def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, dty
                 if gid in inner_set:
                     assert data[x, l] == ctx.rank() * 1000 + 10 * gid + l
                 else:
-                    assert (
-                        data[x, l] - 1000 * int((data[x, l]) / 1000)
-                    ) == 10 * gid + l
+                    assert (data[x, l] - 1000 * int((data[x, l]) / 1000)) == 10 * gid + l
 
     halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
     pattern = make_pattern(ctx, halo_gen, [domain_desc])

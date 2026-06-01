@@ -10,9 +10,6 @@
 import numpy as np
 import pytest
 
-# import cupy as cp
-
-from ghex.context import make_context
 from ghex.structured.cartesian_sets import IndexSpace
 from ghex.structured.regular import (
     make_communication_object,
@@ -24,8 +21,8 @@ from ghex.structured.regular import (
 
 
 @pytest.mark.mpi
-def test_pattern(capsys, mpi_cart_comm):
-    ctx = make_context(mpi_cart_comm, True)
+def test_pattern(capsys, mpi_cart_comm, cart_context):
+    ctx = cart_context
 
     # Nx, Ny, Nz = 2*260, 260, 80
     Nx, Ny, Nz = 2 * 260, 260, 1
@@ -39,9 +36,7 @@ def test_pattern(capsys, mpi_cart_comm):
     owned_indices = sub_grid.subset["definition"]
     sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
 
-    memory_local_grid = sub_grid.translate(
-        *(-origin_l for origin_l in sub_grid.bounds[0, 0, 0])
-    )
+    memory_local_grid = sub_grid.translate(*(-origin_l for origin_l in sub_grid.bounds[0, 0, 0]))
 
     domain_desc = DomainDescriptor(ctx.rank(), owned_indices)
     halo_gen = HaloGenerator(global_grid.subset["definition"], halos, periodicity)
