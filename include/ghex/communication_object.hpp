@@ -276,6 +276,7 @@ class communication_object
         prepare_exchange_buffers(buffer_infos...);
         pack();
 
+        fprintf(stderr, "--- EXCHANGE my_rank=%d ---\n", m_comm.rank());
         m_comm.start_group();
         post_recvs();
         post_sends();
@@ -315,6 +316,7 @@ class communication_object
         schedule_sync_pack(stream);
         pack();
 
+        fprintf(stderr, "--- SCHEDULE_EXCHANGE my_rank=%d ---\n", m_comm.rank());
         m_comm.start_group();
         post_recvs();
         post_sends();
@@ -334,6 +336,7 @@ class communication_object
         schedule_sync_pack(stream);
         pack();
 
+        fprintf(stderr, "--- SCHEDULE_EXCHANGE_ITER my_rank=%d ---\n", m_comm.rank());
         m_comm.start_group();
         post_recvs();
         post_sends();
@@ -398,6 +401,7 @@ class communication_object
         prepare_exchange_buffers(iter_pairs...);
         pack();
 
+        fprintf(stderr, "--- EXCHANGE_ITERS my_rank=%d ---\n", m_comm.rank());
         m_comm.start_group();
         post_recvs();
         post_sends();
@@ -647,6 +651,15 @@ class communication_object
                             {
                                 auto& ptr = p1.second;
                                 assert(ptr.buffer);
+#ifdef GHEX_CUDACC
+                                using arch_type = typename std::remove_reference_t<decltype(map)>::arch_type;
+                                const char* arch = std::is_same_v<arch_type, gpu> ? "gpu" : "cpu";
+#else
+                                const char* arch = "cpu";
+#endif
+                                fprintf(stderr, "DEBUG post_sends: my_rank=%d -> dst=%d tag=%d size=%zu arch=%s%s\n",
+                                    m_comm.rank(), ptr.rank, ptr.tag, ptr.size, arch,
+                                    ptr.rank == m_comm.rank() ? " SELF" : "");
                                 m_send_reqs.push_back(m_comm.send(
                                     ptr.buffer, ptr.rank, ptr.tag,
                                     [](context::message_type&, context::rank_type,
@@ -693,6 +706,16 @@ class communication_object
                             }
 
                             auto ptr = &p1.second;
+
+#ifdef GHEX_CUDACC
+                            {
+                                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                                const char* arch = std::is_same_v<arch_type, gpu> ? "gpu" : "cpu";
+                                fprintf(stderr, "DEBUG post_recvs: my_rank=%d <- src=%d tag=%d size=%zu arch=%s%s\n",
+                                    m_comm.rank(), ptr->rank, ptr->tag, ptr->size, arch,
+                                    ptr->rank == m_comm.rank() ? " SELF" : "");
+                            }
+#endif
 
                             // If a communicator is stream-aware and we're dealing with GPU memory
                             // unpacking will be triggered separately by scheduling it on the same
