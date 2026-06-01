@@ -27,8 +27,7 @@ struct cuda_event
     cuda_event& operator=(cuda_event&&) noexcept = default;
     ~cuda_event() noexcept = default;
 
-    // By returning `true` we emulate the behaviour of a
-    // CUDA `stream` that has been moved.
+    // By returning `true` we emulate a valid (non-moved) CUDA event.
     constexpr operator bool() const noexcept { return true; }
 };
 
