@@ -438,7 +438,8 @@ TEST_F(mpi_test_fixture, exchange_host_host)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
 
         if (!thread_safe)
@@ -470,7 +471,8 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
 
         if (!thread_safe)
@@ -503,7 +505,8 @@ TEST_F(mpi_test_fixture, exchange_device_device)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
 
         if (!thread_safe)
@@ -535,7 +538,8 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
 
         if (!thread_safe)
@@ -567,7 +571,8 @@ TEST_F(mpi_test_fixture, exchange_host_device)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
 
         if (!thread_safe)
@@ -599,7 +604,8 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    try {
+    try
+    {
         context ctxt(world, thread_safe);
 
         if (!thread_safe)

@@ -476,7 +476,8 @@ sim(bool multi_threaded)
 {
     // TODO: NCCL fails with "NCCL WARN Trying to recv to self without a matching send". Inherent to
     // test? Avoidable?
-    try {
+    try
+    {
         context ctxt(MPI_COMM_WORLD, multi_threaded);
         // 2D domain decomposition
         arr dims{0, 0}, coords{0, 0};
@@ -489,8 +490,8 @@ sim(bool multi_threaded)
         // neighbor lookup
         domain_lu d_lu{dims};
 
-        auto staged_pattern = structured::regular::make_staged_pattern(ctxt, domains, d_lu, arr{0, 0},
-            arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic);
+        auto staged_pattern = structured::regular::make_staged_pattern(ctxt, domains, d_lu,
+            arr{0, 0}, arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic);
 
         // make halo generator
         halo_gen gen{arr{0, 0}, arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic};
@@ -515,9 +516,9 @@ sim(bool multi_threaded)
     }
     catch (std::runtime_error const& e)
     {
-        if (multi_threaded &&
-            ghex::context(MPI_COMM_WORLD, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
+        if (multi_threaded && ghex::context(MPI_COMM_WORLD, false)
+                                      .transport_context()
+                                      ->get_transport_option("name") == std::string("nccl"))
         {
             EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
         }
