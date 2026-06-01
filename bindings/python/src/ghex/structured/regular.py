@@ -88,7 +88,7 @@ def make_field_descriptor(
 
     type_spec = (
         "structured__regular__field_descriptor",
-        _py_dtype_to_cpp_name(field.dtype),
+        _py_dtype_to_cpp_name(field),
         arch.value,
         domain_desc.__wrapped__.__class__.__name__,
         f"gridtools__layout_map_impl__layout_map_{'_'.join(map(str,_layout_order(field, arch)))}_",

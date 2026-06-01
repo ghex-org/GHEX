@@ -10,7 +10,7 @@
 #pragma once
 
 #include <mpi.h>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include <util/to_string.hpp>
 
 namespace pyghex
@@ -19,7 +19,7 @@ namespace pyghex
 // This is a slight variation of Arbor's mpi_comm_shim as introduced here
 // https://github.com/arbor-sim/arbor/commit/1d6a48d0ce4b96f59acf931efd61d55c571c5e68
 // A shim is required for MPI_Comm, because OpenMPI defines it as a pointer to
-// a forward-declared type, which pybind11 won't allow as an argument.
+// a forward-declared type, which nanobind won't allow as an argument.
 // MPICH and its derivatives use an integer.
 struct mpi_comm_shim
 {
@@ -30,7 +30,7 @@ struct mpi_comm_shim
     : comm(c)
     {
     }
-    mpi_comm_shim(pybind11::object o);
+    mpi_comm_shim(nanobind::object o);
 };
 
 namespace util

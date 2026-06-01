@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <vector>
+
 #include <ghex/structured/grid.hpp>
 #include <ghex/structured/regular/domain_descriptor.hpp>
 #include <ghex/util/math.hpp>

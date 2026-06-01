@@ -1,3 +1,5 @@
+set(CMAKE_CXX_STANDARD 17)
+
 set(pyghex_source
     config.cpp
     context_shim.cpp
@@ -25,7 +27,6 @@ set_property(TARGET pyghex_obj PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(pyghex_obj PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
-target_link_libraries(pyghex_obj PRIVATE pybind11::module)
 ghex_target_compile_options(pyghex_obj)
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(pyghex_obj PRIVATE -fbracket-depth=512)
@@ -40,20 +41,19 @@ compile_as_cuda(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} SOURCES ${pyghex_source})
 # ==================
 # Create the Python module in the build directory.
 # The module contains the dynamic library, __init__.py and VERSION information.
-add_library(pyghex MODULE $<TARGET_OBJECTS:pyghex_obj>)
+nanobind_add_module(pyghex $<TARGET_OBJECTS:pyghex_obj>)
+target_link_libraries(pyghex_obj PRIVATE nanobind-static)
 # With this, the full name of the library will be something like:
 # _pyghex.cpython-36m-x86_64-linux-gnu.so
 set_target_properties(pyghex PROPERTIES
     OUTPUT_NAME _pyghex
-    PREFIX "${PYTHON_MODULE_PREFIX}"
-    SUFFIX "${PYTHON_MODULE_EXTENSION}"
     # Choose this particular output directory for testing purposes
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/../../ghex")
 # This dependency has to be spelt out again, despite being added to
 # pyghex_obj because CMake.
-target_link_libraries(pyghex PRIVATE pybind11::module)
 target_link_libraries(pyghex PRIVATE ghex)
 ghex_link_to_oomph(ghex)
+ghex_link_to_oomph(pyghex)
 
 # Set RPaths such that the python module is able to find libghex
 include(ghex_rpath)

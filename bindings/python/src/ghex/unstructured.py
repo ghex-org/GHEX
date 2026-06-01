@@ -59,7 +59,7 @@ def make_field_descriptor(
         arch.value,
         "int",
         "int",
-        _py_dtype_to_cpp_name(field.dtype),
+        _py_dtype_to_cpp_name(field),
     )
     return cls_from_cpp_type_spec(type_spec)(unwrap(domain_desc), field)
 

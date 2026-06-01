@@ -9,7 +9,9 @@
  */
 #include <string>
 
-#include <pybind11/numpy.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/string.h>
 
 #include <gridtools/meta.hpp>
 #include <gridtools/common/for_each.hpp>
@@ -17,22 +19,21 @@
 #include <types.hpp>
 #include <util/demangle.hpp>
 
-namespace py = pybind11;
-
 namespace pyghex
 {
-
+// Note that taking the array by value does not copy it. ndarray has reference
+// semantics, exactly like numpy/cupy arrays.
 std::string
-py_dtype_to_cpp_name(py::dtype dtype)
+py_dtype_to_cpp_name(nanobind::ndarray<> array)
 {
     std::string cpp_name;
 
     gridtools::for_each<pyghex::types::data>(
-        [&cpp_name, &dtype](auto l)
+        [&cpp_name, &array](auto l)
         {
             using type = decltype(l);
 
-            if (dtype.is(py::dtype::of<type>()))
+            if (array.dtype() == nanobind::dtype<type>())
             {
                 assert(cpp_name.empty());
                 cpp_name = util::mangle_python<type>();
@@ -45,7 +46,7 @@ py_dtype_to_cpp_name(py::dtype dtype)
 }
 
 void
-register_py_dtype_to_cpp_name(pybind11::module& m)
+register_py_dtype_to_cpp_name(nanobind::module_& m)
 {
     m.def("py_dtype_to_cpp_name", &py_dtype_to_cpp_name, "Convert numpy dtype to C++ type name");
 }

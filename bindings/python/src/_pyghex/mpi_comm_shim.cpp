@@ -11,6 +11,8 @@
 #include <string>
 #include <sstream>
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 #include <mpi_comm_shim.hpp>
 #include <util/to_string.hpp>
 
@@ -30,11 +32,11 @@ namespace
 
 // Convert a Python object to an MPI Communicator.
 inline MPI_Comm
-convert_to_mpi_comm(pybind11::object o)
+convert_to_mpi_comm(nanobind::object o)
 {
-    if (!pybind11::hasattr(o, "py2f"))
-        throw pybind11::type_error("Argument must be `mpi4py.MPI.Comm`");
-    return MPI_Comm_f2c(o.attr("py2f")().cast<MPI_Fint>());
+    if (!nanobind::hasattr(o, "py2f"))
+        throw nanobind::type_error("Argument must be `mpi4py.MPI.Comm`");
+    return MPI_Comm_f2c(nanobind::cast<MPI_Fint>(o.attr("py2f")()));
 }
 
 } // anonymous namespace
@@ -55,7 +57,7 @@ to_string(const mpi_comm_shim& c)
 }
 } // namespace util
 
-mpi_comm_shim::mpi_comm_shim(pybind11::object o) { comm = convert_to_mpi_comm(o); }
+mpi_comm_shim::mpi_comm_shim(nanobind::object o) { comm = convert_to_mpi_comm(o); }
 
 void
 mpi_init(bool threadsafe)
@@ -93,15 +95,14 @@ mpi_is_finalized()
 }
 
 void
-register_mpi(pybind11::module& m)
+register_mpi(nanobind::module_& m)
 {
     using namespace std::string_literals;
-    using namespace pybind11::literals;
+    using namespace nanobind::literals;
 
-    pybind11::class_<mpi_comm_shim> mpi_comm(m, "mpi_comm");
-    mpi_comm.def(pybind11::init<>())
-        .def(pybind11::init([](pybind11::object o) { return mpi_comm_shim(o); }), "mpi_comm_obj"_a,
-            "MPI communicator object.")
+    nanobind::class_<mpi_comm_shim> mpi_comm(m, "mpi_comm");
+    mpi_comm.def(nanobind::init<>())
+        .def(nanobind::init<nanobind::object>(), "mpi_comm_obj"_a, "MPI communicator object.")
         .def("__str__", util::to_string<mpi_comm_shim>)
         .def("__repr__", util::to_string<mpi_comm_shim>);
 
