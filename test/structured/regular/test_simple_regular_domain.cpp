@@ -516,11 +516,22 @@ sim(bool multi_threaded)
     }
     catch (std::runtime_error const& e)
     {
-        if (multi_threaded && ghex::context(MPI_COMM_WORLD, false)
-                                      .transport_context()
-                                      ->get_transport_option("name") == std::string("nccl"))
+        if (ghex::context(MPI_COMM_WORLD, false)
+                .transport_context()
+                ->get_transport_option("name") == std::string("nccl"))
         {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
+            if (multi_threaded)
+            {
+                EXPECT_STREQ(e.what(),
+                    "NCCL not supported with thread_safe = true");
+            }
+            else
+            {
+                EXPECT_STREQ(e.what(),
+                    "Attempting to do send/recv to self with oomph NCCL backend. "
+                    "This is currently not supported. "
+                    "Please use another backend for this functionality.");
+            }
         }
         else { throw; }
     }
