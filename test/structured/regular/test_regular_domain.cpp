@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -24,6 +24,7 @@
 
 #include <gridtools/common/array.hpp>
 #include "../../util/memory.hpp"
+#include "../../util/nccl_test_helpers.hpp"
 #include <vector>
 #include <thread>
 #include <future>
@@ -457,23 +458,10 @@ TEST_F(mpi_test_fixture, exchange_host_host)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -500,23 +488,10 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -544,23 +519,10 @@ TEST_F(mpi_test_fixture, exchange_device_device)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -587,23 +549,10 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -630,23 +579,10 @@ TEST_F(mpi_test_fixture, exchange_host_device)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -673,23 +609,10 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 #endif
@@ -766,9 +689,8 @@ parameters<T1, T2, T3, Arch_A, Arch_B>::check_values()
 {
     EXPECT_TRUE(check_values(field_1a));
     EXPECT_TRUE(check_values(field_1b));
-    // TODO: field_2a and 2b are wrong with NCCL, others ok. Why? Different pattern and halos...
-    // EXPECT_TRUE(check_values(field_2a));
-    // EXPECT_TRUE(check_values(field_2b));
+    EXPECT_TRUE(check_values(field_2a));
+    EXPECT_TRUE(check_values(field_2b));
     EXPECT_TRUE(check_values(field_3a));
     EXPECT_TRUE(check_values(field_3b));
 }

@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -67,7 +67,6 @@ struct stream
 
     void sync()
     {
-        // busy wait here
         assert(!m_moved);
         GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(m_stream))
     }

@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -11,6 +11,7 @@
 #include <ghex/barrier.hpp>
 #include <gtest/gtest.h>
 #include "./mpi_runner/mpi_test_fixture.hpp"
+#include "./util/nccl_test_helpers.hpp"
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -25,13 +26,7 @@ TEST_F(mpi_test_fixture, context)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe &&
-            context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        }
-        else { throw; }
+        ghex::test::handle_nccl_thread_safe_exception(world, e);
     }
 }
 
@@ -67,13 +62,7 @@ TEST_F(mpi_test_fixture, barrier)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe &&
-            context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            EXPECT_EQ(e.what(), std::string("NCCL not supported with thread_safe = true"));
-        }
-        else { throw; }
+        ghex::test::handle_nccl_thread_safe_exception(world, e);
     }
 }
 #endif

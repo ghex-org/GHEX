@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -18,6 +18,7 @@
 #include <ghex/unstructured/communication_object_ipr.hpp>
 #include "./unstructured_test_case.hpp"
 #include "../util/memory.hpp"
+#include "../util/nccl_test_helpers.hpp"
 
 #include <vector>
 #include <thread>
@@ -55,23 +56,10 @@ TEST_F(mpi_test_fixture, domain_descriptor)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -89,23 +77,10 @@ TEST_F(mpi_test_fixture, pattern_setup)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -130,23 +105,10 @@ TEST_F(mpi_test_fixture, data_descriptor)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -166,23 +128,10 @@ TEST_F(mpi_test_fixture, data_descriptor_async)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
@@ -417,7 +366,7 @@ test_data_descriptor_async([[maybe_unused]] ghex::context& ctxt,
 {
 #ifdef GHEX_CUDACC
     // NOTE: Async exchange is only implemented for the GPU, however, we also
-    //  test it for CPU memory, although it is kind of botherline.
+    //  test it for CPU memory, although it is kind of borderline.
 
     // domain
     std::vector<domain_descriptor_type> local_domains{make_domain(ctxt.rank())};

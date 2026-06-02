@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -24,6 +24,7 @@
 #endif
 
 #include "../../util/memory.hpp"
+#include "../../util/nccl_test_helpers.hpp"
 #include <gridtools/common/array.hpp>
 #include <array>
 #include <iostream>
@@ -516,24 +517,10 @@ sim(bool multi_threaded)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(MPI_COMM_WORLD, false)
-                .transport_context()
-                ->get_transport_option("name") == std::string("nccl"))
-        {
-            if (multi_threaded)
-            {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
-            }
-        }
-        else { throw; }
+        if (multi_threaded)
+            ghex::test::handle_nccl_thread_safe_exception(MPI_COMM_WORLD, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(MPI_COMM_WORLD, e);
     }
 }
 
