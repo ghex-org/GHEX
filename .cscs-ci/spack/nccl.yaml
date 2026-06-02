@@ -6,6 +6,7 @@ spack:
     unify: true
   packages:
     oomph:
-      require: '@git.a62c49650a5260d5873a1cbd6d493994b67be9cc=main'
+      # TODO
+      require: '@git.c7d7ebef4d55bc980322a7a8c78e4a08fc63eb26=main'
       package_attributes:
         git: "https://github.com/msimberg/oomph.git"
