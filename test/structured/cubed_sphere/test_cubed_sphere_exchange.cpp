@@ -21,6 +21,8 @@
 #include <ghex/structured/cubed_sphere/field_descriptor.hpp>
 
 #include "../../util/memory.hpp"
+#include "../../util/nccl_test_helpers.hpp"
+#include <stdexcept>
 #include <iostream>
 #include <iomanip>
 
@@ -934,113 +936,123 @@ TEST_F(mpi_test_fixture, cubed_sphere)
     using namespace ghex::structured::cubed_sphere;
     EXPECT_TRUE(world_size == 6);
 
-    // create context
-    ghex::context ctxt(world, thread_safe);
+    try
+    {
+        // create context
+        ghex::context ctxt(world, thread_safe);
 
-    // halo generator with 2 halo lines in x and y dimensions (on both sides)
-    halo_generator halo_gen(2);
+        // halo generator with 2 halo lines in x and y dimensions (on both sides)
+        halo_generator halo_gen(2);
 
-    // cube with size 10 and 6 levels
-    cube c{10, 6};
+        // cube with size 10 and 6 levels
+        cube c{10, 6};
 
-    // define 4 local domains
-    domain_descriptor              domain0(c, ctxt.rank(), 0, 4, 0, 4);
-    domain_descriptor              domain1(c, ctxt.rank(), 5, 9, 0, 4);
-    domain_descriptor              domain2(c, ctxt.rank(), 0, 4, 5, 9);
-    domain_descriptor              domain3(c, ctxt.rank(), 5, 9, 5, 9);
-    std::vector<domain_descriptor> local_domains{domain0, domain1, domain2, domain3};
+        // define 4 local domains
+        domain_descriptor              domain0(c, ctxt.rank(), 0, 4, 0, 4);
+        domain_descriptor              domain1(c, ctxt.rank(), 5, 9, 0, 4);
+        domain_descriptor              domain2(c, ctxt.rank(), 0, 4, 5, 9);
+        domain_descriptor              domain3(c, ctxt.rank(), 5, 9, 5, 9);
+        std::vector<domain_descriptor> local_domains{domain0, domain1, domain2, domain3};
 
-    // allocate large enough memory for fields, sufficient for 3 halo lines
-    // use 8 components per field and 6 z-levels
-    const int                       halo = 3;
-    ghex::test::util::memory<float> data_dom_0((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
-        -1); // fields
-    ghex::test::util::memory<float> data_dom_1((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
-        -1); // fields
-    ghex::test::util::memory<float> data_dom_2((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
-        -1); // fields
-    ghex::test::util::memory<float> data_dom_3((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
-        -1); // fields
+        // allocate large enough memory for fields, sufficient for 3 halo lines
+        // use 8 components per field and 6 z-levels
+        const int                       halo = 3;
+        ghex::test::util::memory<float> data_dom_0((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
+            -1); // fields
+        ghex::test::util::memory<float> data_dom_1((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
+            -1); // fields
+        ghex::test::util::memory<float> data_dom_2((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
+            -1); // fields
+        ghex::test::util::memory<float> data_dom_3((2 * halo + 5) * (2 * halo + 5) * 6 * 8,
+            -1); // fields
 
-    // initialize physical domain (leave halos as they are)
-    for (int comp = 0; comp < 8; ++comp)
-        for (int z = 0; z < 6; ++z)
-            for (int y = 0; y < 5; ++y)
-                for (int x = 0; x < 5; ++x)
-                {
-                    const auto idx = (x + halo) + (y + halo) * (2 * halo + 5) +
-                                     z * (2 * halo + 5) * (2 * halo + 5) +
-                                     comp * (2 * halo + 5) * (2 * halo + 5) * 6;
-                    data_dom_0[idx] = 100000 * (domain0.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain0.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                    data_dom_1[idx] = 100000 * (domain1.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain1.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                    data_dom_2[idx] = 100000 * (domain2.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain2.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                    data_dom_3[idx] = 100000 * (domain3.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain3.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                }
+        // initialize physical domain (leave halos as they are)
+        for (int comp = 0; comp < 8; ++comp)
+            for (int z = 0; z < 6; ++z)
+                for (int y = 0; y < 5; ++y)
+                    for (int x = 0; x < 5; ++x)
+                    {
+                        const auto idx = (x + halo) + (y + halo) * (2 * halo + 5) +
+                                         z * (2 * halo + 5) * (2 * halo + 5) +
+                                         comp * (2 * halo + 5) * (2 * halo + 5) * 6;
+                        data_dom_0[idx] = 100000 * (domain0.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain0.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                        data_dom_1[idx] = 100000 * (domain1.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain1.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                        data_dom_2[idx] = 100000 * (domain2.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain2.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                        data_dom_3[idx] = 100000 * (domain3.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain3.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                    }
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-    using arch_t = ghex::gpu;
-    float* data_ptr_0 = data_dom_0.device_data();
-    float* data_ptr_1 = data_dom_1.device_data();
-    float* data_ptr_2 = data_dom_2.device_data();
-    float* data_ptr_3 = data_dom_3.device_data();
-    data_dom_0.clone_to_device();
-    data_dom_1.clone_to_device();
-    data_dom_2.clone_to_device();
-    data_dom_3.clone_to_device();
+        using arch_t = ghex::gpu;
+        float* data_ptr_0 = data_dom_0.device_data();
+        float* data_ptr_1 = data_dom_1.device_data();
+        float* data_ptr_2 = data_dom_2.device_data();
+        float* data_ptr_3 = data_dom_3.device_data();
+        data_dom_0.clone_to_device();
+        data_dom_1.clone_to_device();
+        data_dom_2.clone_to_device();
+        data_dom_3.clone_to_device();
 #else
-    using arch_t = ghex::cpu;
-    float* data_ptr_0 = data_dom_0.host_data();
-    float* data_ptr_1 = data_dom_1.host_data();
-    float* data_ptr_2 = data_dom_2.host_data();
-    float* data_ptr_3 = data_dom_3.host_data();
+        using arch_t = ghex::cpu;
+        float* data_ptr_0 = data_dom_0.host_data();
+        float* data_ptr_1 = data_dom_1.host_data();
+        float* data_ptr_2 = data_dom_2.host_data();
+        float* data_ptr_3 = data_dom_3.host_data();
 #endif
 
-    // wrap field memory in a field_descriptor
-    field_descriptor<float, arch_t> field_dom_0(domain0, data_ptr_0,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
-    field_descriptor<float, arch_t> field_dom_1(domain1, data_ptr_1,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
-    field_descriptor<float, arch_t> field_dom_2(domain2, data_ptr_2,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
-    field_descriptor<float, arch_t> field_dom_3(domain3, data_ptr_3,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+        // wrap field memory in a field_descriptor
+        field_descriptor<float, arch_t> field_dom_0(domain0, data_ptr_0,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+        field_descriptor<float, arch_t> field_dom_1(domain1, data_ptr_1,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+        field_descriptor<float, arch_t> field_dom_2(domain2, data_ptr_2,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+        field_descriptor<float, arch_t> field_dom_3(domain3, data_ptr_3,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
 
-    // create a structured pattern
-    auto pattern1 = ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains);
+        // create a structured pattern
+        auto pattern1 = ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains);
 
-    // make a communication object
-    using pattern_type = decltype(pattern1);
-    auto co = ghex::make_communication_object<pattern_type>(ctxt);
+        // make a communication object
+        using pattern_type = decltype(pattern1);
+        auto co = ghex::make_communication_object<pattern_type>(ctxt);
 
-    // exchange halo data
-    co.exchange(pattern1(field_dom_0), pattern1(field_dom_1), pattern1(field_dom_2),
-          pattern1(field_dom_3))
-        .wait();
+        // exchange halo data
+        co.exchange(pattern1(field_dom_0), pattern1(field_dom_1), pattern1(field_dom_2),
+              pattern1(field_dom_3))
+            .wait();
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-    data_dom_0.clone_to_host();
-    data_dom_1.clone_to_host();
-    data_dom_2.clone_to_host();
-    data_dom_3.clone_to_host();
-    field_dom_0.set_data(data_dom_0.host_data());
-    field_dom_1.set_data(data_dom_1.host_data());
-    field_dom_2.set_data(data_dom_2.host_data());
-    field_dom_3.set_data(data_dom_3.host_data());
+        data_dom_0.clone_to_host();
+        data_dom_1.clone_to_host();
+        data_dom_2.clone_to_host();
+        data_dom_3.clone_to_host();
+        field_dom_0.set_data(data_dom_0.host_data());
+        field_dom_1.set_data(data_dom_1.host_data());
+        field_dom_2.set_data(data_dom_2.host_data());
+        field_dom_3.set_data(data_dom_3.host_data());
 #endif
 
-    // check results
-    check_field(field_dom_0, 2, 5);
-    check_field(field_dom_1, 2, 5);
-    check_field(field_dom_2, 2, 5);
-    check_field(field_dom_3, 2, 5);
+        // check results
+        check_field(field_dom_0, 2, 5);
+        check_field(field_dom_1, 2, 5);
+        check_field(field_dom_2, 2, 5);
+        check_field(field_dom_3, 2, 5);
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
+    }
 }
 
 TEST_F(mpi_test_fixture, cubed_sphere_vector)
@@ -1048,115 +1060,125 @@ TEST_F(mpi_test_fixture, cubed_sphere_vector)
     using namespace ghex::structured::cubed_sphere;
     EXPECT_TRUE(world_size == 6);
 
-    // create context
-    ghex::context ctxt(world, thread_safe);
+    try
+    {
+        // create context
+        ghex::context ctxt(world, thread_safe);
 
-    // halo generator with 2 halo lines in x and y dimensions (on both sides)
-    halo_generator halo_gen(2);
+        // halo generator with 2 halo lines in x and y dimensions (on both sides)
+        halo_generator halo_gen(2);
 
-    // cube with size 10 and 7 levels
-    cube c{10, 7};
+        // cube with size 10 and 7 levels
+        cube c{10, 7};
 
-    // define 4 local domains
-    domain_descriptor              domain0(c, ctxt.rank(), 0, 4, 0, 4);
-    domain_descriptor              domain1(c, ctxt.rank(), 5, 9, 0, 4);
-    domain_descriptor              domain2(c, ctxt.rank(), 0, 4, 5, 9);
-    domain_descriptor              domain3(c, ctxt.rank(), 5, 9, 5, 9);
-    std::vector<domain_descriptor> local_domains{domain0, domain1, domain2, domain3};
+        // define 4 local domains
+        domain_descriptor              domain0(c, ctxt.rank(), 0, 4, 0, 4);
+        domain_descriptor              domain1(c, ctxt.rank(), 5, 9, 0, 4);
+        domain_descriptor              domain2(c, ctxt.rank(), 0, 4, 5, 9);
+        domain_descriptor              domain3(c, ctxt.rank(), 5, 9, 5, 9);
+        std::vector<domain_descriptor> local_domains{domain0, domain1, domain2, domain3};
 
-    // allocate large enough memory for fields, sufficient for 3 halo lines
-    // use 8 components per field and 6 z-levels
-    const int                       halo = 3;
-    ghex::test::util::memory<float> data_dom_0((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
-        -1); // fields
-    ghex::test::util::memory<float> data_dom_1((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
-        -1); // fields
-    ghex::test::util::memory<float> data_dom_2((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
-        -1); // fields
-    ghex::test::util::memory<float> data_dom_3((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
-        -1); // fields
+        // allocate large enough memory for fields, sufficient for 3 halo lines
+        // use 8 components per field and 6 z-levels
+        const int                       halo = 3;
+        ghex::test::util::memory<float> data_dom_0((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
+            -1); // fields
+        ghex::test::util::memory<float> data_dom_1((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
+            -1); // fields
+        ghex::test::util::memory<float> data_dom_2((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
+            -1); // fields
+        ghex::test::util::memory<float> data_dom_3((2 * halo + 5) * (2 * halo + 5) * 3 * 7,
+            -1); // fields
 
-    // initialize physical domain (leave halos as they are)
-    for (int comp = 0; comp < 3; ++comp)
-        for (int z = 0; z < 7; ++z)
-            for (int y = 0; y < 5; ++y)
-                for (int x = 0; x < 5; ++x)
-                {
-                    const auto idx = (x + halo) + (y + halo) * (2 * halo + 5) +
-                                     z * (2 * halo + 5) * (2 * halo + 5) +
-                                     comp * (2 * halo + 5) * (2 * halo + 5) * 7;
-                    data_dom_0[idx] = 100000 * (domain0.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain0.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                    data_dom_1[idx] = 100000 * (domain1.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain1.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                    data_dom_2[idx] = 100000 * (domain2.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain2.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                    data_dom_3[idx] = 100000 * (domain3.domain_id().tile + 1) +
-                                      10000 * id_to_int(domain3.domain_id().id) + 1000 * comp +
-                                      100 * x + 10 * y + 1 * z;
-                }
+        // initialize physical domain (leave halos as they are)
+        for (int comp = 0; comp < 3; ++comp)
+            for (int z = 0; z < 7; ++z)
+                for (int y = 0; y < 5; ++y)
+                    for (int x = 0; x < 5; ++x)
+                    {
+                        const auto idx = (x + halo) + (y + halo) * (2 * halo + 5) +
+                                         z * (2 * halo + 5) * (2 * halo + 5) +
+                                         comp * (2 * halo + 5) * (2 * halo + 5) * 7;
+                        data_dom_0[idx] = 100000 * (domain0.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain0.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                        data_dom_1[idx] = 100000 * (domain1.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain1.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                        data_dom_2[idx] = 100000 * (domain2.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain2.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                        data_dom_3[idx] = 100000 * (domain3.domain_id().tile + 1) +
+                                          10000 * id_to_int(domain3.domain_id().id) + 1000 * comp +
+                                          100 * x + 10 * y + 1 * z;
+                    }
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-    using arch_t = ghex::gpu;
-    float* data_ptr_0 = data_dom_0.device_data();
-    float* data_ptr_1 = data_dom_1.device_data();
-    float* data_ptr_2 = data_dom_2.device_data();
-    float* data_ptr_3 = data_dom_3.device_data();
-    data_dom_0.clone_to_device();
-    data_dom_1.clone_to_device();
-    data_dom_2.clone_to_device();
-    data_dom_3.clone_to_device();
+        using arch_t = ghex::gpu;
+        float* data_ptr_0 = data_dom_0.device_data();
+        float* data_ptr_1 = data_dom_1.device_data();
+        float* data_ptr_2 = data_dom_2.device_data();
+        float* data_ptr_3 = data_dom_3.device_data();
+        data_dom_0.clone_to_device();
+        data_dom_1.clone_to_device();
+        data_dom_2.clone_to_device();
+        data_dom_3.clone_to_device();
 #else
-    using arch_t = ghex::cpu;
-    float* data_ptr_0 = data_dom_0.host_data();
-    float* data_ptr_1 = data_dom_1.host_data();
-    float* data_ptr_2 = data_dom_2.host_data();
-    float* data_ptr_3 = data_dom_3.host_data();
+        using arch_t = ghex::cpu;
+        float* data_ptr_0 = data_dom_0.host_data();
+        float* data_ptr_1 = data_dom_1.host_data();
+        float* data_ptr_2 = data_dom_2.host_data();
+        float* data_ptr_3 = data_dom_3.host_data();
 #endif
 
-    // wrap field memory in a field_descriptor
-    field_descriptor<float, arch_t> field_dom_0(domain0, data_ptr_0,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
-        true);
-    field_descriptor<float, arch_t> field_dom_1(domain1, data_ptr_1,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
-        true);
-    field_descriptor<float, arch_t> field_dom_2(domain2, data_ptr_2,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
-        true);
-    field_descriptor<float, arch_t> field_dom_3(domain3, data_ptr_3,
-        std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
-        true);
+        // wrap field memory in a field_descriptor
+        field_descriptor<float, arch_t> field_dom_0(domain0, data_ptr_0,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
+            true);
+        field_descriptor<float, arch_t> field_dom_1(domain1, data_ptr_1,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
+            true);
+        field_descriptor<float, arch_t> field_dom_2(domain2, data_ptr_2,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
+            true);
+        field_descriptor<float, arch_t> field_dom_3(domain3, data_ptr_3,
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 7}, 3,
+            true);
 
-    // create a structured pattern
-    auto pattern1 = ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains);
+        // create a structured pattern
+        auto pattern1 = ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains);
 
-    // make a communication object
-    using pattern_type = decltype(pattern1);
-    auto co = ghex::make_communication_object<pattern_type>(ctxt);
+        // make a communication object
+        using pattern_type = decltype(pattern1);
+        auto co = ghex::make_communication_object<pattern_type>(ctxt);
 
-    // exchange halo data
-    co.exchange(pattern1(field_dom_0), pattern1(field_dom_1), pattern1(field_dom_2),
-          pattern1(field_dom_3))
-        .wait();
+        // exchange halo data
+        co.exchange(pattern1(field_dom_0), pattern1(field_dom_1), pattern1(field_dom_2),
+              pattern1(field_dom_3))
+            .wait();
 
 #if defined(GHEX_USE_GPU) || defined(GHEX_GPU_MODE_EMULATE)
-    data_dom_0.clone_to_host();
-    data_dom_1.clone_to_host();
-    data_dom_2.clone_to_host();
-    data_dom_3.clone_to_host();
-    field_dom_0.set_data(data_dom_0.host_data());
-    field_dom_1.set_data(data_dom_1.host_data());
-    field_dom_2.set_data(data_dom_2.host_data());
-    field_dom_3.set_data(data_dom_3.host_data());
+        data_dom_0.clone_to_host();
+        data_dom_1.clone_to_host();
+        data_dom_2.clone_to_host();
+        data_dom_3.clone_to_host();
+        field_dom_0.set_data(data_dom_0.host_data());
+        field_dom_1.set_data(data_dom_1.host_data());
+        field_dom_2.set_data(data_dom_2.host_data());
+        field_dom_3.set_data(data_dom_3.host_data());
 #endif
 
-    // check results
-    check_field(field_dom_0, 2, 5);
-    check_field(field_dom_1, 2, 5);
-    check_field(field_dom_2, 2, 5);
-    check_field(field_dom_3, 2, 5);
+        // check results
+        check_field(field_dom_0, 2, 5);
+        check_field(field_dom_1, 2, 5);
+        check_field(field_dom_2, 2, 5);
+        check_field(field_dom_3, 2, 5);
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe)
+            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
+    }
 }
