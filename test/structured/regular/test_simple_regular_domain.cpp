@@ -475,8 +475,6 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
 void
 sim(bool multi_threaded)
 {
-    // TODO: NCCL fails with "NCCL WARN Trying to recv to self without a matching send". Inherent to
-    // test? Avoidable?
     try
     {
         context ctxt(MPI_COMM_WORLD, multi_threaded);
