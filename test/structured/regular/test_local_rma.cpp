@@ -379,12 +379,11 @@ TEST_F(mpi_test_fixture, rma_exchange)
     catch (std::runtime_error const& e)
     {
         if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-                std::string("nccl"))
+            std::string("nccl"))
         {
             if (thread_safe)
             {
-                EXPECT_STREQ(e.what(),
-                    "NCCL not supported with thread_safe = true");
+                EXPECT_STREQ(e.what(), "NCCL not supported with thread_safe = true");
             }
             else
             {
