@@ -95,7 +95,7 @@ build_libfabric:
   extends: .container-runner-clariden-gh200
   variables:
     SLURM_GPUS_PER_TASK: 1
-    SLURM_TIMELIMIT: '5:00'
+    SLURM_TIMELIMIT: '15:00'
     SLURM_PARTITION: normal
     SLURM_MPI_TYPE: pmix
     SLURM_NETWORK: disable_rdzv_get
