@@ -1009,13 +1009,17 @@ TEST_F(mpi_test_fixture, cubed_sphere)
 
         // wrap field memory in a field_descriptor
         field_descriptor<float, arch_t> field_dom_0(domain0, data_ptr_0,
-            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6},
+            8);
         field_descriptor<float, arch_t> field_dom_1(domain1, data_ptr_1,
-            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6},
+            8);
         field_descriptor<float, arch_t> field_dom_2(domain2, data_ptr_2,
-            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6},
+            8);
         field_descriptor<float, arch_t> field_dom_3(domain3, data_ptr_3,
-            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6}, 8);
+            std::array<int, 3>{halo, halo, 0}, std::array<int, 3>{2 * halo + 5, 2 * halo + 5, 6},
+            8);
 
         // create a structured pattern
         auto pattern1 = ghex::make_pattern<ghex::structured::grid>(ctxt, halo_gen, local_domains);
@@ -1048,8 +1052,7 @@ TEST_F(mpi_test_fixture, cubed_sphere)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }
@@ -1176,8 +1179,7 @@ TEST_F(mpi_test_fixture, cubed_sphere_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }

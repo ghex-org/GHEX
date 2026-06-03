@@ -458,8 +458,7 @@ TEST_F(mpi_test_fixture, exchange_host_host)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }
@@ -488,8 +487,7 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }
@@ -519,8 +517,7 @@ TEST_F(mpi_test_fixture, exchange_device_device)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }
@@ -549,8 +546,7 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }
@@ -579,8 +575,7 @@ TEST_F(mpi_test_fixture, exchange_host_device)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }
@@ -609,8 +604,7 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe)
-            ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
         else
             ghex::test::handle_nccl_self_comm_exception(world, e);
     }
