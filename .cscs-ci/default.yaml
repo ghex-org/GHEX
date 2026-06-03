@@ -104,7 +104,7 @@ build_libfabric:
     PMIX_MCA_psec: native
     PMIX_MCA_gds: "^shmem2"
     USE_MPI: NO
-    NCCL_DEBUG: DEBUG
+    NCCL_DEBUG: trace
 
 .test_serial_template:
   extends: .test_template_base
