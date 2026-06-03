@@ -111,7 +111,7 @@ build_libfabric:
   variables:
     SLURM_NTASKS: 1
   script:
-    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "serial" --output-on-failure --timeout 300 --parallel 8
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "serial" --verbose --timeout 300 --parallel 8
 
 .test_parallel_template:
   extends: .test_template_base
