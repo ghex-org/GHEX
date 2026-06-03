@@ -2,7 +2,7 @@ include:
   - remote: 'https://gitlab.com/cscs-ci/recipes/-/raw/master/templates/v2/.ci-ext.yml'
 
 variables:
-  BASE_IMAGE: jfrog.svc.cscs.ch/docker-group-csstaff/alps-images/ngc-pytorch:26.01-py3-alps4-dev
+  BASE_IMAGE: jfrog.svc.cscs.ch/docker-group-csstaff/alps-images/ngc-pytorch:26.01-py3-alps3
   SPACK_SHA: v1.1.1
   SPACK_PACKAGES_SHA: 8ea120fe82c02737dddef32451edf88929f266ff # https://github.com/msimberg/spack-packages/tree/oomph-nccl
   FF_TIMESTAMPS: true
