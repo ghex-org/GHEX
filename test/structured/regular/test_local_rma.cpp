@@ -366,8 +366,6 @@ struct simulation_1
 
 TEST_F(mpi_test_fixture, rma_exchange)
 {
-    // TODO: NCCL fails with "NCCL WARN Trying to recv to self without a matching send". Inherent to
-    // test? Avoidable?
     try
     {
         simulation_1 sim(thread_safe);

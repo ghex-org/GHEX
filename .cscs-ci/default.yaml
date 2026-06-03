@@ -120,7 +120,7 @@ build_libfabric:
     # writing inside the container.
     - if [[ "${SLURM_LOCALID}" == 0 ]]; then rm -rf /ghex/build/Testing; mkdir /tmp/Testing; ln -s /tmp/Testing /ghex/build/Testing; fi
     - until [[ -L /ghex/build/Testing ]]; do sleep 1; done
-    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --output-on-failure --timeout 300
+    - spack -e ci build-env ghex -- ctest --test-dir /ghex/build -L "parallel-ranks-${SLURM_NTASKS}" --verbose --timeout 300
 
 .test_parallel_job:
   extends: .test_parallel_template
