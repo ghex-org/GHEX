@@ -52,7 +52,7 @@ struct ndarray_device_type<ghex::cpu>
 template<>
 struct ndarray_device_type<ghex::gpu>
 {
-#ifdef __HIP_PLATFORM_HCC__
+#ifdef __HIP_PLATFORM_AMD__
     using type = nanobind::device::rocm;
 #else
     using type = nanobind::device::cuda;
