@@ -55,7 +55,7 @@ def test_pattern(capsys, ndim, periodic):
     p_coord = tuple(mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank()))
     global_grid = IndexSpace.from_sizes(*sizes[:ndim])
     sub_grids = global_grid.decompose(mpi_cart_comm.dims)
-    owned_indices = sub_grids[p_coord].subset["definition"]
+    owned_indices = sub_grids[p_coord].subset["definition"]  # sub-grid in global coordinates
     sub_grid = IndexSpace(
         {
             "definition": owned_indices,
