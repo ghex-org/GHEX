@@ -150,8 +150,10 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
 
     handle exchange()
     {
+        m_comm.start_group();
         post_recvs();
         pack();
+        m_comm.end_group();
         //while (m_status->num_completed < m_status->num_total) { m_status->comm.progress(); }
         return {m_status.get()};
     }
