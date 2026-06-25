@@ -936,11 +936,6 @@ TEST_F(mpi_test_fixture, cubed_sphere)
     using namespace ghex::structured::cubed_sphere;
     EXPECT_TRUE(world_size == 6);
 
-    if (ghex::test::is_nccl_backend(world))
-    {
-        GTEST_SKIP() << "structured tests are not supported with the NCCL backend";
-    }
-
     try
     {
         // create context
@@ -1067,11 +1062,6 @@ TEST_F(mpi_test_fixture, cubed_sphere_vector)
 {
     using namespace ghex::structured::cubed_sphere;
     EXPECT_TRUE(world_size == 6);
-
-    if (ghex::test::is_nccl_backend(world))
-    {
-        GTEST_SKIP() << "structured tests are not supported with the NCCL backend";
-    }
 
     try
     {
