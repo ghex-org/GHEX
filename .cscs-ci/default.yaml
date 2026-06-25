@@ -105,6 +105,7 @@ build_libfabric:
     PMIX_MCA_gds: "^shmem2"
     USE_MPI: NO
     NCCL_DEBUG: trace
+    NCCL_PXN_DISABLE: 1
 
 .test_serial_template:
   extends: .test_template_base

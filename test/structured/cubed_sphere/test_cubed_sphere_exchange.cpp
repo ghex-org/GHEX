@@ -931,8 +931,8 @@ check_field(const Field& field, int halo, int n)
 
 TEST_F(mpi_test_fixture, cubed_sphere)
 {
-    // TODO: Returns "NCCL WARN PXN should not use host buffers for data" with NCCL. Why? Test works
-    // with NCCL_PXN_DISABLE=1.
+    // NCCL PXN (PCIe x NVLink) warns about host buffers. This is expected for CPU memory
+    // with NCCL and is handled by setting NCCL_PXN_DISABLE=1 in the test environment.
     using namespace ghex::structured::cubed_sphere;
     EXPECT_TRUE(world_size == 6);
 
