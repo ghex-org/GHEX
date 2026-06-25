@@ -40,9 +40,8 @@ handle_nccl_self_comm_exception(MPI_Comm world, std::runtime_error const& e)
 {
     if (is_nccl_backend(world))
     {
-        EXPECT_STREQ(e.what(), "Attempting to do send/recv to self with oomph NCCL backend. "
-                               "This is currently not supported. "
-                               "Please use another backend for this functionality.");
+        EXPECT_STREQ(e.what(), "oomph NCCL backend: self-send/recv requires an active NCCL group. "
+                               "Use start_group()/end_group() around self-send/recv operations.");
     }
     else { throw; }
 }

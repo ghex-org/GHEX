@@ -386,9 +386,8 @@ TEST_F(mpi_test_fixture, rma_exchange)
             else
             {
                 EXPECT_STREQ(e.what(),
-                    "Attempting to do send/recv to self with oomph NCCL backend. "
-                    "This is currently not supported. "
-                    "Please use another backend for this functionality.");
+                    "oomph NCCL backend: self-send/recv requires an active NCCL group. "
+                    "Use start_group()/end_group() around self-send/recv operations.");
             }
         }
         else { throw; }
