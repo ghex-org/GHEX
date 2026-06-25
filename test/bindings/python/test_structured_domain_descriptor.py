@@ -76,9 +76,13 @@ def test_halo_gen_call(mpi_cart_comm, cart_context, halos):
     # setup grid
     global_grid = IndexSpace.from_sizes(Nx, Ny, Nz)
     sub_grids = global_grid.decompose(mpi_cart_comm.dims)
-    sub_grid = sub_grids[p_coord]  # sub-grid in global coordinates
-    owned_indices = sub_grid.subset["definition"]
-    sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
+    owned_indices = sub_grids[p_coord].subset["definition"]  # sub-grid in global coordinates
+    sub_grid = IndexSpace(
+        {
+            "definition": owned_indices,
+            "halo": owned_indices.extend(*halos).without(owned_indices),
+        }
+    )
 
     # construct halo_generator
     halo_gen = HaloGenerator(global_grid.subset["definition"], halos, periodicity)
@@ -101,9 +105,13 @@ def test_domain_descriptor_grid(mpi_cart_comm, cart_context, halos):
     # setup grid
     global_grid = IndexSpace.from_sizes(Nx, Ny, Nz)
     sub_grids = global_grid.decompose(mpi_cart_comm.dims)
-    sub_grid = sub_grids[p_coord]  # sub-grid in global coordinates
-    owned_indices = sub_grid.subset["definition"]
-    sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
+    owned_indices = sub_grids[p_coord].subset["definition"]  # sub-grid in global coordinates
+    sub_grid = IndexSpace(
+        {
+            "definition": owned_indices,
+            "halo": owned_indices.extend(*halos).without(owned_indices),
+        }
+    )
 
     domain_desc = DomainDescriptor(ctx.rank(), owned_indices)
 

@@ -73,15 +73,15 @@ struct types : public ::pyghex::types
 {
     template<int D>
     using dims_ = detail::dims<D>;
-    using dims = gridtools::meta::list<dims_<2>, dims_<3>, dims_<4>>;
+    using dims = gridtools::meta::list<dims_<1>, dims_<2>, dims_<3>, dims_<4>>;
 
     template<int D>
     using grids_ = detail::grids<D>;
-    using grids = gridtools::meta::list<grids_<2>, grids_<3>, grids_<4>>;
+    using grids = gridtools::meta::list<grids_<1>, grids_<2>, grids_<3>, grids_<4>>;
 
     template<int D>
     using layouts_ = typename detail::layouts<D>::list;
-    using layouts = gridtools::meta::list<layouts_<2>, layouts_<3>, layouts_<4>>;
+    using layouts = gridtools::meta::list<layouts_<1>, layouts_<2>, layouts_<3>, layouts_<4>>;
 };
 
 } // namespace structured
