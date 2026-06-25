@@ -87,7 +87,7 @@ function(ghex_reg_parallel_pytest t n)
           ${venv_dir}/bin/python -m pytest -s --with-mpi ${CMAKE_CURRENT_BINARY_DIR}/test_${t}.py
           WORKING_DIRECTORY ${pyghex_test_workdir})
     endif()
-    set_tests_properties(py_${t}_parallel PROPERTIES RUN_SERIAL ON LABELS "parallel-ranks-${n}")
+    set_tests_properties(py_${t}_parallel PROPERTIES RUN_SERIAL ON LABELS "parallel-ranks-${n}" TIMEOUT 1200)
 endfunction()
 
 ghex_reg_pytest(context)
