@@ -439,10 +439,6 @@ TEST_F(mpi_test_fixture, exchange_host_host)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    if (ghex::test::is_nccl_backend(world))
-    {
-        GTEST_SKIP() << "structured tests are not supported with the NCCL backend";
-    }
     try
     {
         context ctxt(world, thread_safe);
@@ -450,14 +446,20 @@ TEST_F(mpi_test_fixture, exchange_host_host)
         if (!thread_safe)
         {
             test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run(ctxt);
-            test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            }
         }
         else
         {
-            test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt(ctxt);
-            test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
-            test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
-            test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(ctxt);
+            }
         }
     }
     catch (std::runtime_error const& e)
@@ -472,10 +474,6 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    if (ghex::test::is_nccl_backend(world))
-    {
-        GTEST_SKIP() << "structured tests are not supported with the NCCL backend";
-    }
     try
     {
         context ctxt(world, thread_safe);
@@ -483,14 +481,21 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
         if (!thread_safe)
         {
             test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run(ctxt);
-            test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            }
         }
         else
         {
-            test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt(ctxt);
-            test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
-            test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
-            test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(
+                    ctxt);
+            }
         }
     }
     catch (std::runtime_error const& e)
@@ -727,14 +732,12 @@ parameters<T1, T2, T3, Arch_A, Arch_B>::check_values(ghex::test::util::memory<ar
     int xl = -halos[0];
     int hxl = halos[0];
     int hxr = halos[1];
-    // hack begin: make it work with 1 rank (works with even number of ranks otherwise)
     if (i == 0 && size == 1)
     {
         xl = 0;
         hxl = 0;
     }
     if (i == 1 && size == 1) { hxr = 0; }
-    // hack end
     for (int x = d.first()[0] - hxl; x <= d.last()[0] + hxr; ++x, ++xl)
     {
         if (i == 0 && x < d.first()[0] && !periodic[0]) continue;
@@ -766,11 +769,22 @@ parameters<T1, T2, T3, Arch_A, Arch_B>::check_values(ghex::test::util::memory<ar
                 if (value[0] != x_wrapped || value[1] != y_wrapped || value[2] != z_wrapped)
                 {
                     passed = false;
-                    std::cout << "(" << xl << ", " << yl << ", " << zl
-                              << ") values found != expected: "
-                              << "(" << value[0] << ", " << value[1] << ", " << value[2] << ") != "
-                              << "(" << x_wrapped << ", " << y_wrapped << ", " << z_wrapped << ") "
-                              << i << "  " << rank << std::endl;
+                    std::cout << "rank=" << rank << " dom_id=" << d.domain_id() << " i=" << i
+                              << " local_idx=(" << xl << "," << yl << "," << zl << ")"
+                              << " global=(" << x << "," << y << "," << z << ")"
+                              << " found=(" << value[0] << "," << value[1] << "," << value[2] << ")"
+                              << " expected=(" << x_wrapped << "," << y_wrapped << "," << z_wrapped
+                              << ")"
+                              << " halos=[" << halos[0] << "," << halos[1] << "," << halos[2] << ","
+                              << halos[3] << "," << halos[4] << "," << halos[5] << "]"
+                              << " d.first=(" << d.first()[0] << "," << d.first()[1] << ","
+                              << d.first()[2] << ")"
+                              << " d.last=(" << d.last()[0] << "," << d.last()[1] << ","
+                              << d.last()[2] << ")"
+                              << " g_first=(" << g_first[0] << "," << g_first[1] << ","
+                              << g_first[2] << ")"
+                              << " g_last=(" << g_last[0] << "," << g_last[1] << "," << g_last[2]
+                              << ")" << std::endl;
                 }
             }
         }

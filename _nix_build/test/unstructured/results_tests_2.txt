@@ -1,0 +1,10 @@
+*** test output for rank 2 of 4
+
+  TEST  mpi_test_fixture::domain_descriptor
+  TEST  mpi_test_fixture::pattern_setup
+  TEST  mpi_test_fixture::data_descriptor
+  TEST  mpi_test_fixture::data_descriptor_async
+  TEST  mpi_test_fixture::in_place_receive
+[ALL PASSED   5; ] of   5 tests in mpi_test_fixture
+
+*** end test output for rank 2 of 4

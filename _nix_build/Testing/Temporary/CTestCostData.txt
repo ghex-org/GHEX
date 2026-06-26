@@ -1,0 +1,19 @@
+decomposition 1 0.231128
+cubed_sphere_transform 1 0.185339
+py_context 1 2.48407
+context 3 0.667502
+mpi_communicator 3 0.604626
+context_mt 3 0.634524
+regular_domain 3 0.660782
+regular_domain_mt 3 0.70053
+simple_regular_domain 3 0.596391
+simple_regular_domain_mt 3 0.734619
+local_rma 3 0.570931
+local_rma_mt 3 0.60776
+user_concepts 3 0.811374
+gt_datastore 3 0.588606
+py_context_parallel 3 1.03298
+py_structured_domain_descriptor_parallel 3 2.4789
+py_structured_pattern_parallel 3 1.50757
+py_unstructured_domain_descriptor_parallel 3 1.26314
+---

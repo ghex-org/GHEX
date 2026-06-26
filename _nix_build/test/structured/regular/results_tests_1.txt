@@ -1,0 +1,6 @@
+*** test output for rank 1 of 4
+
+  TEST  mpi_test_fixture::rma_exchange
+[ALL PASSED   1; ] of   1 tests in mpi_test_fixture
+
+*** end test output for rank 1 of 4
