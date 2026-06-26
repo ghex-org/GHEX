@@ -235,6 +235,7 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, cart_context, dtype):
         pytest.skip(reason="`CuPy` is not installed.")
 
     ctx = cart_context
+    print(f"[RANK {ctx.rank()}] test_domain_descriptor: dtype={dtype}, on_gpu={on_gpu}", flush=True)
     assert ctx.size() == 4
 
     domain_desc = DomainDescriptor(
@@ -283,17 +284,23 @@ def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, cart_context, dtype):
         # return data, field
 
     halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
+    print(f"[RANK {ctx.rank()}] Creating pattern", flush=True)
     pattern = make_pattern(ctx, halo_gen, [domain_desc])
+    print(f"[RANK {ctx.rank()}] Creating communication_object", flush=True)
     co = make_communication_object(ctx)
 
     d1, f1 = make_field("C")
     d2, f2 = make_field("F")
 
+    print(f"[RANK {ctx.rank()}] Calling exchange", flush=True)
     handle = co.exchange([pattern(f1), pattern(f2)])
+    print(f"[RANK {ctx.rank()}] Waiting for handle", flush=True)
     handle.wait()
+    print(f"[RANK {ctx.rank()}] Handle wait complete", flush=True)
 
     check_field(d1, "C")
     check_field(d2, "F")
+    print(f"[RANK {ctx.rank()}] Test complete", flush=True)
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
@@ -313,6 +320,10 @@ def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, car
         )
 
     ctx = cart_context
+    print(
+        f"[RANK {ctx.rank()}] test_domain_descriptor_async: dtype={dtype}, on_gpu={on_gpu}, stream_type={stream_type}",
+        flush=True,
+    )
     assert ctx.size() == 4
 
     domain_desc = DomainDescriptor(
@@ -363,15 +374,22 @@ def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, car
     d2, f2 = make_field("F")
 
     stream = None if stream_type is None else stream_type(non_blocking=True)
+    print(f"[RANK {ctx.rank()}] Calling schedule_exchange", flush=True)
     handle = co.schedule_exchange(stream, [pattern(f1), pattern(f2)])
+    print(f"[RANK {ctx.rank()}] schedule_exchange returned", flush=True)
     assert not co.has_scheduled_exchange()
 
+    print(f"[RANK {ctx.rank()}] Calling schedule_wait", flush=True)
     handle.schedule_wait(stream)
+    print(f"[RANK {ctx.rank()}] schedule_wait returned", flush=True)
     assert co.has_scheduled_exchange()
 
     check_field(d1, "C", stream)
     check_field(d2, "F", stream)
     assert co.has_scheduled_exchange()
 
+    print(f"[RANK {ctx.rank()}] Calling handle.wait()", flush=True)
     handle.wait()
+    print(f"[RANK {ctx.rank()}] handle.wait() returned", flush=True)
     assert not co.has_scheduled_exchange()
+    print(f"[RANK {ctx.rank()}] Async test complete", flush=True)
