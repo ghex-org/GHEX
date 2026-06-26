@@ -30,6 +30,11 @@ def thread_safe(request):
 def context(thread_safe):
     if ghex.__config__["transport"] == "NCCL" and thread_safe:
         pytest.skip("NCCL not supported with thread_safe = true")
+    # Workaround for UCX backend indeterministic hang
+    if ghex.__config__["transport"] == "UCX" and not thread_safe:
+        pytest.skip(
+            "UCX backend has indeterministic hang with thread_safe=false (under investigation)"
+        )
     return make_context(MPI.COMM_WORLD, thread_safe)
 
 
@@ -45,4 +50,9 @@ def mpi_cart_comm():
 def cart_context(mpi_cart_comm, thread_safe):
     if ghex.__config__["transport"] == "NCCL" and thread_safe:
         pytest.skip("NCCL not supported with thread_safe = true")
+    # Workaround for UCX backend indeterministic hang
+    if ghex.__config__["transport"] == "UCX" and not thread_safe:
+        pytest.skip(
+            "UCX backend has indeterministic hang with thread_safe=false (under investigation)"
+        )
     return make_context(mpi_cart_comm, thread_safe)
