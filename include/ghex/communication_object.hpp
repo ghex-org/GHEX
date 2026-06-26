@@ -637,6 +637,51 @@ class communication_object
             });
     }
 
+    void pack_and_send()
+    {
+        for_each(m_mem,
+            [this](std::size_t, auto& m)
+            {
+                // NOTE: This function currently blocks until the send has been fully scheduled.
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+                packer<arch_type>::pack(m, m_send_reqs, m_comm);
+            });
+    }
+
+#ifdef GHEX_CUDACC
+    void pack_and_send(cudaStream_t sync_stream)
+    {
+        for_each(m_mem,
+            [this, &sync_stream](std::size_t, auto& m)
+            {
+                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
+
+                // Put an event on the stream on which the packing is supposed to wait.
+                device::cuda_event& sync_event = m_event_pool.get_event();
+                GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), sync_stream));
+
+                for (auto& p0 : m.send_memory)
+                {
+                    for (auto& p1 : p0.second)
+                    {
+                        if (p1.second.size > 0u)
+                        {
+                            // Add the event to any stream that is used for packing. Thus any packing is
+                            // postponed after the work, that was scheduled on `stream` has concluded.
+                            // NOTE: If a device guard here leads to a segmentation fault.
+                            GHEX_CHECK_CUDA_RESULT(
+                                cudaStreamWaitEvent(p1.second.m_stream.get(), sync_event.get(), 0));
+                        }
+                    }
+                }
+
+                // TODO: This function currently blocks until the send has been fully scheduled.
+                //  Consider using `cudaLaunchHostFunc()` to initiate the sending.
+                packer<arch_type>::pack(m, m_send_reqs, m_comm);
+            });
+    }
+#endif
+
     void post_sends()
     {
         for_each(m_mem,
