@@ -9,6 +9,18 @@
 #
 import pytest
 import numpy as np
+import sys
+import os
+
+# Debug: log to file to ensure output appears
+debug_log_path = os.path.join(os.getcwd(), "ucx_test_debug.log")
+debug_log = open(debug_log_path, "a")
+print(
+    f"[MODULE] test_unstructured_domain_descriptor.py loaded, PID={os.getpid()}, CWD={os.getcwd()}",
+    file=debug_log,
+    flush=True,
+)
+debug_log.close()
 
 try:
     import cupy as cp
@@ -231,11 +243,20 @@ LEVELS = 2
 def test_domain_descriptor(on_gpu, capsys, mpi_cart_comm, cart_context, dtype):
     # Does not uses streams.
 
+    # Debug logging
+    with open("/tmp/ucx_test_debug.log", "a") as f:
+        print(
+            f"[TEST] test_domain_descriptor called: dtype={dtype}, on_gpu={on_gpu}",
+            file=f,
+            flush=True,
+        )
+
     if on_gpu and cp is None:
         pytest.skip(reason="`CuPy` is not installed.")
 
     ctx = cart_context
-    print(f"[RANK {ctx.rank()}] test_domain_descriptor: dtype={dtype}, on_gpu={on_gpu}", flush=True)
+    with open("/tmp/ucx_test_debug.log", "a") as f:
+        print(f"[RANK {ctx.rank()}] Starting test_domain_descriptor", file=f, flush=True)
     assert ctx.size() == 4
 
     domain_desc = DomainDescriptor(
