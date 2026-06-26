@@ -289,7 +289,7 @@ class communication_object
         else
         {
             post_recvs();
-            pack_and_send();
+            this->pack_and_send();
         }
 
         return {this};
@@ -438,7 +438,7 @@ class communication_object
         else
         {
             post_recvs();
-            pack_and_send();
+            this->pack_and_send();
         }
 
         return {this};
