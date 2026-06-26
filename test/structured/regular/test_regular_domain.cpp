@@ -582,6 +582,10 @@ TEST_F(mpi_test_fixture, exchange_host_device)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
+    if (ghex::test::is_nccl_backend(world))
+    {
+        GTEST_SKIP() << "mixed-architecture exchanges not supported with NCCL backend";
+    }
     try
     {
         context ctxt(world, thread_safe);
@@ -617,6 +621,10 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
+    if (ghex::test::is_nccl_backend(world))
+    {
+        GTEST_SKIP() << "mixed-architecture exchanges not supported with NCCL backend";
+    }
     try
     {
         context ctxt(world, thread_safe);
