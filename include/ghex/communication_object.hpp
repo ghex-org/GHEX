@@ -24,7 +24,7 @@
 #endif
 #include <functional>
 #include <map>
-#include <stdio.h>
+#include <cstring>
 #include <cassert>
 
 namespace ghex
@@ -274,14 +274,23 @@ class communication_object
     {
         complete_schedule_exchange();
         prepare_exchange_buffers(buffer_infos...);
-        pack();
 
-        m_comm.start_group();
-        post_recvs();
-        post_sends();
-        m_comm.end_group();
-
-        unpack();
+        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
+        const char* backend_name = m_comm.get_transport_option("name");
+        if (std::strcmp(backend_name, "nccl") == 0)
+        {
+            pack();
+            m_comm.start_group();
+            post_recvs();
+            post_sends();
+            m_comm.end_group();
+            unpack();
+        }
+        else
+        {
+            post_recvs();
+            pack_and_send();
+        }
 
         return {this};
     }
@@ -313,14 +322,23 @@ class communication_object
         complete_schedule_exchange();
         prepare_exchange_buffers(buffer_infos...);
         schedule_sync_pack(stream);
-        pack();
 
-        m_comm.start_group();
-        post_recvs();
-        post_sends();
-        m_comm.end_group();
-
-        unpack();
+        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
+        const char* backend_name = m_comm.get_transport_option("name");
+        if (std::strcmp(backend_name, "nccl") == 0)
+        {
+            pack();
+            m_comm.start_group();
+            post_recvs();
+            post_sends();
+            m_comm.end_group();
+            unpack();
+        }
+        else
+        {
+            post_recvs();
+            pack_and_send(stream);
+        }
 
         return {this};
     }
@@ -332,14 +350,23 @@ class communication_object
         complete_schedule_exchange();
         prepare_exchange_buffers(std::make_pair(std::move(first), std::move(last)));
         schedule_sync_pack(stream);
-        pack();
 
-        m_comm.start_group();
-        post_recvs();
-        post_sends();
-        m_comm.end_group();
-
-        unpack();
+        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
+        const char* backend_name = m_comm.get_transport_option("name");
+        if (std::strcmp(backend_name, "nccl") == 0)
+        {
+            pack();
+            m_comm.start_group();
+            post_recvs();
+            post_sends();
+            m_comm.end_group();
+            unpack();
+        }
+        else
+        {
+            post_recvs();
+            pack_and_send(stream);
+        }
 
         return {this};
     }
@@ -396,14 +423,23 @@ class communication_object
     {
         complete_schedule_exchange();
         prepare_exchange_buffers(iter_pairs...);
-        pack();
 
-        m_comm.start_group();
-        post_recvs();
-        post_sends();
-        m_comm.end_group();
-
-        unpack();
+        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
+        const char* backend_name = m_comm.get_transport_option("name");
+        if (std::strcmp(backend_name, "nccl") == 0)
+        {
+            pack();
+            m_comm.start_group();
+            post_recvs();
+            post_sends();
+            m_comm.end_group();
+            unpack();
+        }
+        else
+        {
+            post_recvs();
+            pack_and_send();
+        }
 
         return {this};
     }
