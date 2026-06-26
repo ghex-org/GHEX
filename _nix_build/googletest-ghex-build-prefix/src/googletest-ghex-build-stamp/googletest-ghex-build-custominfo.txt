@@ -1,9 +1,0 @@
-# This is a generated file and its contents are an internal implementation detail.
-# The download step will be re-executed if anything in this file changes.
-# No other meaning or use of this file is supported.
-
-method=custom
-command=/nix/store/r9941n32g4wyvggz2703dlplbdq8a6rd-cmake-4.1.2/bin/cmake;-E;echo;Warning: /home/mjs/src/GHEX/ext/googletest empty or missing.
-source_dir=/home/mjs/src/GHEX/ext/googletest
-work_dir=/home/mjs/src/GHEX/_nix_build/googletest-ghex-build-prefix/src
-

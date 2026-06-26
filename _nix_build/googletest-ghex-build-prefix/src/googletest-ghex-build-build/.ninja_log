@@ -1,6 +1,0 @@
-# ninja log v7
-7	10240	1780300648835944318	googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o	8db6114d2ba27ce7
-1	46660	1780300648830944280	googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o	183c3b310838e0b1
-46692	46997	1780300695521327812	lib/libgtest.a	64b8c7bb40053dd5
-46997	47064	1780300695826330515	lib/libgtest_main.a	e337494ccc51a42c
-144	351	1780300696420335791	CMakeFiles/install.util	f18dfd2feb950ac0

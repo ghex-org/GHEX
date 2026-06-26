@@ -1,6 +1,0 @@
-# CMake generated Testfile for 
-# Source directory: /home/mjs/src/GHEX/ext/googletest/googletest
-# Build directory: /home/mjs/src/GHEX/_nix_build/googletest-ghex-build-prefix/src/googletest-ghex-build-build/googletest
-# 
-# This file includes the relevant testing commands required for 
-# testing this directory and lists subdirectories to be tested as well.

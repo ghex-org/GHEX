@@ -1,6 +1,0 @@
-*** test output for rank 0 of 4
-
-  TEST  mpi_test_fixture::data_store
-[ALL PASSED   1; ] of   1 tests in mpi_test_fixture
-
-*** end test output for rank 0 of 4
