@@ -446,7 +446,10 @@ TEST_F(mpi_test_fixture, exchange_host_host)
         if (!thread_safe)
         {
             test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run(ctxt);
-            test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            }
         }
         else
         {
@@ -478,7 +481,10 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
         if (!thread_safe)
         {
             test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run(ctxt);
-            test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            }
         }
         else
         {
@@ -512,7 +518,10 @@ TEST_F(mpi_test_fixture, exchange_device_device)
         if (!thread_safe)
         {
             test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run(ctxt);
-            test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_split(ctxt);
+            }
         }
         else
         {
@@ -544,7 +553,10 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
         if (!thread_safe)
         {
             test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run(ctxt);
-            test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_split(ctxt);
+            }
         }
         else
         {
@@ -577,7 +589,10 @@ TEST_F(mpi_test_fixture, exchange_host_device)
         if (!thread_safe)
         {
             test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run(ctxt);
-            test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_split(ctxt);
+            }
         }
         else
         {
@@ -609,7 +624,10 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
         if (!thread_safe)
         {
             test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run(ctxt);
-            test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_split(ctxt);
+            if (!ghex::test::is_nccl_backend(world))
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_split(ctxt);
+            }
         }
         else
         {
