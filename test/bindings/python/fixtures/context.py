@@ -32,7 +32,9 @@ def context(thread_safe):
         pytest.skip("NCCL not supported with thread_safe = true")
     ctx = make_context(MPI.COMM_WORLD, thread_safe)
     yield ctx
-    # Explicit cleanup to ensure UCX/MPI resources are released
+    # Explicit cleanup to ensure UCX/MPI resources are released.
+    # Necessary to prevent state accumulation between tests that can cause
+    # subsequent parallel tests to hang (especially with UCX backend).
     del ctx
     import gc
 
@@ -45,7 +47,9 @@ def mpi_cart_comm():
     dims = MPI.Compute_dims(mpi_comm.Get_size(), [0, 0, 0])
     mpi_cart_comm = mpi_comm.Create_cart(dims=dims, periods=[False, False, False])
     yield mpi_cart_comm
-    # Explicitly free the communicator to clean up UCX/MPI state
+    # Explicitly free the communicator to clean up UCX/MPI state.
+    # Without this, subsequent parallel tests may hang due to leftover state
+    # from previous tests (particularly when mixing structured and unstructured tests).
     mpi_cart_comm.Free()
 
 
@@ -55,7 +59,9 @@ def cart_context(mpi_cart_comm, thread_safe):
         pytest.skip("NCCL not supported with thread_safe = true")
     ctx = make_context(mpi_cart_comm, thread_safe)
     yield ctx
-    # Explicit cleanup to ensure UCX/MPI resources are released
+    # Explicit cleanup to ensure UCX/MPI resources are released.
+    # Necessary to prevent state accumulation between tests that can cause
+    # subsequent parallel tests to hang (especially with UCX backend).
     del ctx
     import gc
 
