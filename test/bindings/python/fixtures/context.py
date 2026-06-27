@@ -30,7 +30,13 @@ def thread_safe(request):
 def context(thread_safe):
     if ghex.__config__["transport"] == "NCCL" and thread_safe:
         pytest.skip("NCCL not supported with thread_safe = true")
-    return make_context(MPI.COMM_WORLD, thread_safe)
+    ctx = make_context(MPI.COMM_WORLD, thread_safe)
+    yield ctx
+    # Explicit cleanup to ensure UCX/MPI resources are released
+    del ctx
+    import gc
+
+    gc.collect()
 
 
 @pytest.fixture
@@ -38,11 +44,19 @@ def mpi_cart_comm():
     mpi_comm = MPI.COMM_WORLD
     dims = MPI.Compute_dims(mpi_comm.Get_size(), [0, 0, 0])
     mpi_cart_comm = mpi_comm.Create_cart(dims=dims, periods=[False, False, False])
-    return mpi_cart_comm
+    yield mpi_cart_comm
+    # Explicitly free the communicator to clean up UCX/MPI state
+    mpi_cart_comm.Free()
 
 
 @pytest.fixture
 def cart_context(mpi_cart_comm, thread_safe):
     if ghex.__config__["transport"] == "NCCL" and thread_safe:
         pytest.skip("NCCL not supported with thread_safe = true")
-    return make_context(mpi_cart_comm, thread_safe)
+    ctx = make_context(mpi_cart_comm, thread_safe)
+    yield ctx
+    # Explicit cleanup to ensure UCX/MPI resources are released
+    del ctx
+    import gc
+
+    gc.collect()
