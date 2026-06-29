@@ -313,10 +313,6 @@ def test_domain_descriptor_async(on_gpu, stream_type, capsys, mpi_cart_comm, car
         )
 
     ctx = cart_context
-    print(
-        f"[RANK {ctx.rank()}] test_domain_descriptor_async: dtype={dtype}, on_gpu={on_gpu}, stream_type={stream_type}",
-        flush=True,
-    )
     assert ctx.size() == 4
 
     domain_desc = DomainDescriptor(

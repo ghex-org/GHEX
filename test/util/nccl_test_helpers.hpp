@@ -21,8 +21,10 @@ namespace ghex::test
 inline bool
 is_nccl_backend(MPI_Comm world)
 {
-    return ghex::context(world, false).transport_context()->get_transport_option("name") ==
-           std::string("nccl");
+    static const bool result =
+        ghex::context(world, false).transport_context()->get_transport_option("name") ==
+        std::string("nccl");
+    return result;
 }
 
 inline void
