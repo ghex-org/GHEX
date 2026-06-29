@@ -80,7 +80,7 @@ python -m pip install ghex
 
 ### NCCL Backend Restrictions
 
-The NCCL backend in oomph is experimental has some restrictions compared to other backends.
+The NCCL backend in oomph is experimental and has some restrictions compared to other backends.
 It has primarily been tested with the regular `communication_object`.
 Other paths like `communication_object_ipr` and `GHEX_COMM_OBJ_USE_U` are less well tested and may not work in all situations.
 See the [oomph documentation](https://github.com/ghex-org/oomph#nccl-restrictions) for more details on the underlying NCCL communicator restrictions.
