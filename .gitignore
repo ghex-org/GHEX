@@ -48,4 +48,3 @@ doc_src/_build/
 __pycache__
 _build
 .venv*/
-_nix_build/
