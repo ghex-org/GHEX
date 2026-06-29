@@ -56,9 +56,9 @@ TEST_F(mpi_test_fixture, domain_descriptor)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -76,9 +76,9 @@ TEST_F(mpi_test_fixture, pattern_setup)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -103,9 +103,9 @@ TEST_F(mpi_test_fixture, data_descriptor)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -125,9 +125,9 @@ TEST_F(mpi_test_fixture, data_descriptor_async)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -155,9 +155,9 @@ TEST_F(mpi_test_fixture, in_place_receive)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 

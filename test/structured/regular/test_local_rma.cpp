@@ -24,6 +24,7 @@
 #endif
 
 #include "../../util/memory.hpp"
+#include "../../util/nccl_test_helpers.hpp"
 #include <gridtools/common/array.hpp>
 #include <thread>
 #include <array>
@@ -376,20 +377,7 @@ TEST_F(mpi_test_fixture, rma_exchange)
     }
     catch (std::runtime_error const& e)
     {
-        if (ghex::context(world, false).transport_context()->get_transport_option("name") ==
-            std::string("nccl"))
-        {
-            if (thread_safe)
-            {
-                EXPECT_STREQ(e.what(), "NCCL not supported with thread_safe = true");
-            }
-            else
-            {
-                EXPECT_STREQ(e.what(),
-                    "oomph NCCL backend: self-send/recv requires an active NCCL group. "
-                    "Use start_group()/end_group() around self-send/recv operations.");
-            }
-        }
-        else { throw; }
+        if (thread_safe) { ghex::test::handle_nccl_thread_safe_exception(e); }
+        else { ghex::test::handle_nccl_self_comm_exception(e); }
     }
 }

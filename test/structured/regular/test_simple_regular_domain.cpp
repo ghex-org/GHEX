@@ -515,9 +515,9 @@ sim(bool multi_threaded)
     }
     catch (std::runtime_error const& e)
     {
-        if (multi_threaded) ghex::test::handle_nccl_thread_safe_exception(MPI_COMM_WORLD, e);
+        if (multi_threaded) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(MPI_COMM_WORLD, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 

@@ -446,14 +446,14 @@ TEST_F(mpi_test_fixture, exchange_host_host)
         if (!thread_safe)
         {
             test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run(ctxt);
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_split(ctxt);
             }
         }
         else
         {
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt(ctxt);
                 test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
@@ -464,9 +464,9 @@ TEST_F(mpi_test_fixture, exchange_host_host)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -481,14 +481,14 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
         if (!thread_safe)
         {
             test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run(ctxt);
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_split(ctxt);
             }
         }
         else
         {
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt(ctxt);
                 test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
@@ -500,9 +500,9 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -518,14 +518,14 @@ TEST_F(mpi_test_fixture, exchange_device_device)
         if (!thread_safe)
         {
             test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run(ctxt);
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_split(ctxt);
             }
         }
         else
         {
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt(ctxt);
                 test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt_async(ctxt);
@@ -536,9 +536,9 @@ TEST_F(mpi_test_fixture, exchange_device_device)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -553,14 +553,14 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
         if (!thread_safe)
         {
             test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run(ctxt);
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_split(ctxt);
             }
         }
         else
         {
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt(ctxt);
                 test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt_async(ctxt);
@@ -572,9 +572,9 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -582,7 +582,7 @@ TEST_F(mpi_test_fixture, exchange_host_device)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    if (ghex::test::is_nccl_backend(world))
+    if (ghex::test::is_nccl_backend())
     {
         GTEST_SKIP() << "mixed-architecture exchanges not supported with NCCL backend";
     }
@@ -593,14 +593,14 @@ TEST_F(mpi_test_fixture, exchange_host_device)
         if (!thread_safe)
         {
             test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run(ctxt);
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_split(ctxt);
             }
         }
         else
         {
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt(ctxt);
                 test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt_async(ctxt);
@@ -611,9 +611,9 @@ TEST_F(mpi_test_fixture, exchange_host_device)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -621,7 +621,7 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    if (ghex::test::is_nccl_backend(world))
+    if (ghex::test::is_nccl_backend())
     {
         GTEST_SKIP() << "mixed-architecture exchanges not supported with NCCL backend";
     }
@@ -632,14 +632,14 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
         if (!thread_safe)
         {
             test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run(ctxt);
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_split(ctxt);
             }
         }
         else
         {
-            if (!ghex::test::is_nccl_backend(world))
+            if (!ghex::test::is_nccl_backend())
             {
                 test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt(ctxt);
                 test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt_async(ctxt);
@@ -651,9 +651,9 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 #endif

@@ -26,7 +26,7 @@ TEST_F(mpi_test_fixture, context)
     }
     catch (std::runtime_error const& e)
     {
-        ghex::test::handle_nccl_thread_safe_exception(world, e);
+        ghex::test::handle_nccl_thread_safe_exception(e);
     }
 }
 
@@ -62,7 +62,7 @@ TEST_F(mpi_test_fixture, barrier)
     }
     catch (std::runtime_error const& e)
     {
-        ghex::test::handle_nccl_thread_safe_exception(world, e);
+        ghex::test::handle_nccl_thread_safe_exception(e);
     }
 }
 #endif

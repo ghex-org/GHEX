@@ -1052,9 +1052,9 @@ TEST_F(mpi_test_fixture, cubed_sphere)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -1179,8 +1179,8 @@ TEST_F(mpi_test_fixture, cubed_sphere_vector)
     }
     catch (std::runtime_error const& e)
     {
-        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
         else
-            ghex::test::handle_nccl_self_comm_exception(world, e);
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
