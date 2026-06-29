@@ -24,7 +24,6 @@
 #endif
 #include <functional>
 #include <map>
-#include <cstring>
 #include <cassert>
 
 namespace ghex
@@ -275,22 +274,12 @@ class communication_object
         complete_schedule_exchange();
         prepare_exchange_buffers(buffer_infos...);
 
-        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
-        const char* backend_name = m_comm.get_transport_option("name");
-        if (std::strcmp(backend_name, "nccl") == 0)
-        {
-            pack();
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-            unpack();
-        }
-        else
-        {
-            post_recvs();
-            this->pack_and_send();
-        }
+        pack();
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+        unpack();
 
         return {this};
     }
@@ -323,22 +312,12 @@ class communication_object
         prepare_exchange_buffers(buffer_infos...);
         schedule_sync_pack(stream);
 
-        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
-        const char* backend_name = m_comm.get_transport_option("name");
-        if (std::strcmp(backend_name, "nccl") == 0)
-        {
-            pack();
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-            unpack();
-        }
-        else
-        {
-            post_recvs();
-            pack_and_send(stream);
-        }
+        pack();
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+        unpack();
 
         return {this};
     }
@@ -351,22 +330,12 @@ class communication_object
         prepare_exchange_buffers(std::make_pair(std::move(first), std::move(last)));
         schedule_sync_pack(stream);
 
-        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
-        const char* backend_name = m_comm.get_transport_option("name");
-        if (std::strcmp(backend_name, "nccl") == 0)
-        {
-            pack();
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-            unpack();
-        }
-        else
-        {
-            post_recvs();
-            pack_and_send(stream);
-        }
+        pack();
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+        unpack();
 
         return {this};
     }
@@ -424,22 +393,12 @@ class communication_object
         complete_schedule_exchange();
         prepare_exchange_buffers(iter_pairs...);
 
-        // Use new code path for NCCL (requires start_group/end_group), old path for UCX/MPI
-        const char* backend_name = m_comm.get_transport_option("name");
-        if (std::strcmp(backend_name, "nccl") == 0)
-        {
-            pack();
-            m_comm.start_group();
-            post_recvs();
-            post_sends();
-            m_comm.end_group();
-            unpack();
-        }
-        else
-        {
-            post_recvs();
-            this->pack_and_send();
-        }
+        pack();
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
+        unpack();
 
         return {this};
     }
@@ -636,51 +595,6 @@ class communication_object
                 }
             });
     }
-
-    void pack_and_send()
-    {
-        for_each(m_mem,
-            [this](std::size_t, auto& m)
-            {
-                // NOTE: This function currently blocks until the send has been fully scheduled.
-                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-                packer<arch_type>::pack(m, m_send_reqs, m_comm);
-            });
-    }
-
-#ifdef GHEX_CUDACC
-    void pack_and_send(cudaStream_t sync_stream)
-    {
-        for_each(m_mem,
-            [this, &sync_stream](std::size_t, auto& m)
-            {
-                using arch_type = typename std::remove_reference_t<decltype(m)>::arch_type;
-
-                // Put an event on the stream on which the packing is supposed to wait.
-                device::cuda_event& sync_event = m_event_pool.get_event();
-                GHEX_CHECK_CUDA_RESULT(cudaEventRecord(sync_event.get(), sync_stream));
-
-                for (auto& p0 : m.send_memory)
-                {
-                    for (auto& p1 : p0.second)
-                    {
-                        if (p1.second.size > 0u)
-                        {
-                            // Add the event to any stream that is used for packing. Thus any packing is
-                            // postponed after the work, that was scheduled on `stream` has concluded.
-                            // NOTE: If a device guard here leads to a segmentation fault.
-                            GHEX_CHECK_CUDA_RESULT(
-                                cudaStreamWaitEvent(p1.second.m_stream.get(), sync_event.get(), 0));
-                        }
-                    }
-                }
-
-                // TODO: This function currently blocks until the send has been fully scheduled.
-                //  Consider using `cudaLaunchHostFunc()` to initiate the sending.
-                packer<arch_type>::pack(m, m_send_reqs, m_comm);
-            });
-    }
-#endif
 
     void post_sends()
     {
@@ -947,10 +861,6 @@ class communication_object
     // Ensures that all communication has finished.
     void sync_streams()
     {
-        // NOTE: Depending on how `pack_and_send()` is modified here might be a race condition.
-        //  This is because currently `pack_and_send()` waits until everything has been send,
-        //  thus if we are here, we know that the send operations have concluded and we only
-        //  have to check the receive buffer.
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
@@ -997,9 +907,6 @@ class communication_object
     // blocking.
     void schedule_sync_unpack(cudaStream_t stream)
     {
-        // NOTE: We only iterate over the receive buffers because `pack_and_send()` will
-        //  wait until the sending has been completed. Thus if we are here, the sending
-        //  is done and no synchronizations with these streams is needed.
         using gpu_mem_t = buffer_memory<gpu>;
         auto& m = std::get<gpu_mem_t>(m_mem);
         for (auto& p0 : m.recv_memory)
