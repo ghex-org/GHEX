@@ -133,17 +133,26 @@ TEST_F(mpi_test_fixture, data_descriptor_async)
 
 TEST_F(mpi_test_fixture, in_place_receive)
 {
-    ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
+    try
+    {
+        ghex::context ctxt{MPI_COMM_WORLD, thread_safe};
 
-    if (world_size == 4)
-    {
-        test_in_place_receive(ctxt);
-        //test_in_place_receive_multi(ctxt);
+        if (world_size == 4)
+        {
+            test_in_place_receive(ctxt);
+            //test_in_place_receive_multi(ctxt);
+        }
+        else if (world_size == 2)
+        {
+            //test_in_place_receive_oversubscribe(ctxt);
+            if (thread_safe) test_in_place_receive_threads(ctxt);
+        }
     }
-    else if (world_size == 2)
+    catch (std::runtime_error const& e)
     {
-        //test_in_place_receive_oversubscribe(ctxt);
-        if (thread_safe) test_in_place_receive_threads(ctxt);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(world, e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(world, e);
     }
 }
 
