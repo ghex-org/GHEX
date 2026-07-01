@@ -4,7 +4,7 @@ include:
 variables:
   BASE_IMAGE: jfrog.svc.cscs.ch/docker-group-csstaff/alps-images/ngc-pytorch:26.02-py3-alps5
   SPACK_SHA: v1.1.1
-  SPACK_PACKAGES_SHA: 8ea120fe82c02737dddef32451edf88929f266ff # https://github.com/msimberg/spack-packages/tree/oomph-nccl
+  SPACK_PACKAGES_SHA: e0c91d5c94bccda7ee63eb346957278a93807cce # develop on 2026-07-01
   FF_TIMESTAMPS: true
 
 .build_deps_template:
