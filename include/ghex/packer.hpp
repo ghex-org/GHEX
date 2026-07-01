@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -28,6 +28,13 @@ namespace ghex
 template<typename Arch>
 struct packer
 {
+    template<typename Buffer>
+    static void pack(Buffer& buffer, unsigned char* data)
+    {
+        for (const auto& fb : buffer.field_infos)
+            fb.call_back(data + fb.offset, *fb.index_container, nullptr);
+    }
+
     template<typename Map, typename Requests, typename Communicator>
     static void pack(Map& map, Requests& send_reqs, Communicator& comm)
     {
@@ -117,6 +124,14 @@ pack_kernel_u(device::kernel_argument<PackIterationSpace, N> args)
 template<>
 struct packer<gpu>
 {
+    template<typename Buffer>
+    static void pack(Buffer& buffer, unsigned char* data)
+    {
+        auto& stream = buffer.m_stream;
+        for (const auto& fb : buffer.field_infos)
+            fb.call_back(data + fb.offset, *fb.index_container, static_cast<void*>(&stream.get()));
+    }
+
     template<typename Map, typename Requests, typename Communicator>
     static void pack(Map& map, Requests& send_reqs, Communicator& comm)
     {
@@ -171,7 +186,7 @@ struct packer<gpu>
     {
         auto& stream = buffer.m_stream;
         for (const auto& fb : buffer.field_infos)
-            fb.call_back(data + fb.offset, *fb.index_container, (void*)(&stream.get()));
+            fb.call_back(data + fb.offset, *fb.index_container, static_cast<void*>(&stream.get()));
     }
 
     template<typename T, typename FieldType, typename Map, typename Requests, typename Communicator>

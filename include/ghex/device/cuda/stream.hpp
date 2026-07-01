@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -27,7 +27,14 @@ struct stream
     cudaStream_t          m_stream;
     ghex::util::moved_bit m_moved;
 
-    stream(){GHEX_CHECK_CUDA_RESULT(cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking))}
+    stream()
+    {
+        int least_priority, greatest_priority;
+        GHEX_CHECK_CUDA_RESULT(
+            cudaDeviceGetStreamPriorityRange(&least_priority, &greatest_priority))
+        GHEX_CHECK_CUDA_RESULT(
+            cudaStreamCreateWithPriority(&m_stream, cudaStreamNonBlocking, greatest_priority))
+    }
 
     stream(const stream&) = delete;
     stream& operator=(const stream&) = delete;
@@ -60,7 +67,6 @@ struct stream
 
     void sync()
     {
-        // busy wait here
         assert(!m_moved);
         GHEX_CHECK_CUDA_RESULT(cudaStreamSynchronize(m_stream))
     }

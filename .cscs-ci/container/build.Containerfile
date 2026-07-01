@@ -16,6 +16,7 @@ RUN spack -e ci build-env ghex -- \
             -DGHEX_USE_BUNDLED_GTEST=ON \
             -DGHEX_USE_BUNDLED_OOMPH=OFF \
             -DGHEX_USE_BUNDLED_GRIDTOOLS=OFF \
+            -DCMAKE_CUDA_ARCHITECTURES=90 \
             -DGHEX_USE_GPU=ON \
             -DGHEX_GPU_TYPE=NVIDIA \
             -DGHEX_BUILD_PYTHON_BINDINGS=ON \

@@ -150,9 +150,11 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
 
     handle exchange()
     {
-        post_recvs();
         pack();
-        //while (m_status->num_completed < m_status->num_total) { m_status->comm.progress(); }
+        m_comm.start_group();
+        post_recvs();
+        post_sends();
+        m_comm.end_group();
         return {m_status.get()};
     }
 
@@ -161,8 +163,14 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
     {
         for (halo& h : m_recv_halos)
         {
+#ifdef GHEX_CUDACC
+            m_comm.recv(
+                h.message, h.remote_rank, h.tag, [s = m_status.get()](message_type&, int, int)
+                { ++s->num_completed; }, static_cast<void*>(m_stream.get()));
+#else
             m_comm.recv(h.message, h.remote_rank, h.tag,
                 [s = m_status.get()](message_type&, int, int) { ++s->num_completed; });
+#endif
         }
     }
 
@@ -174,9 +182,24 @@ class communication_object_ipr<data_descriptor<Arch, DomainIdType, IndexType, T>
             auto          data = g.data();
             m_field.pack(reinterpret_cast<T*>(data), h.index_container,
                 std::is_same<arch_type, cpu>::value ? nullptr : &m_stream);
-            m_stream.sync();
+        }
+    }
+
+    void post_sends()
+    {
+#ifdef GHEX_CUDACC
+        if (!m_comm.is_stream_aware() && std::is_same_v<arch_type, gpu>) { m_stream.sync(); }
+#endif
+        for (halo& h : m_send_halos)
+        {
+#ifdef GHEX_CUDACC
+            m_comm.send(
+                h.message, h.remote_rank, h.tag, [s = m_status.get()](message_type&, int, int)
+                { ++s->num_completed; }, static_cast<void*>(m_stream.get()));
+#else
             m_comm.send(h.message, h.remote_rank, h.tag,
                 [s = m_status.get()](message_type&, int, int) { ++s->num_completed; });
+#endif
         }
     }
 };

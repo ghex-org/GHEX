@@ -24,6 +24,7 @@
 #endif
 
 #include "../../util/memory.hpp"
+#include "../../util/nccl_test_helpers.hpp"
 #include <gridtools/common/array.hpp>
 #include <thread>
 #include <array>
@@ -366,9 +367,17 @@ struct simulation_1
 
 TEST_F(mpi_test_fixture, rma_exchange)
 {
-    simulation_1 sim(thread_safe);
-    sim.exchange();
-    sim.exchange();
-    sim.exchange();
-    EXPECT_TRUE(sim.check());
+    try
+    {
+        simulation_1 sim(thread_safe);
+        sim.exchange();
+        sim.exchange();
+        sim.exchange();
+        EXPECT_TRUE(sim.check());
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe) { ghex::test::handle_nccl_thread_safe_exception(e); }
+        else { ghex::test::handle_nccl_self_comm_exception(e); }
+    }
 }

@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -24,6 +24,7 @@
 #endif
 
 #include "../../util/memory.hpp"
+#include "../../util/nccl_test_helpers.hpp"
 #include <gridtools/common/array.hpp>
 #include <array>
 #include <iostream>
@@ -474,41 +475,50 @@ run(context& ctxt, const Pattern& pattern, const SPattern& spattern, const Domai
 void
 sim(bool multi_threaded)
 {
-    context ctxt(MPI_COMM_WORLD, multi_threaded);
-    // 2D domain decomposition
-    arr dims{0, 0}, coords{0, 0};
-    MPI_Dims_create(ctxt.size(), 2, dims.data());
-    coords[1] = ctxt.rank() / dims[0];
-    coords[0] = ctxt.rank() - coords[1] * dims[0];
-    // make 2 domains per rank
-    std::vector<domain> domains{make_domain(ctxt.rank(), 0, coords),
-        make_domain(ctxt.rank(), 1, coords)};
-    // neighbor lookup
-    domain_lu d_lu{dims};
-
-    auto staged_pattern = structured::regular::make_staged_pattern(ctxt, domains, d_lu, arr{0, 0},
-        arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic);
-
-    // make halo generator
-    halo_gen gen{arr{0, 0}, arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic};
-    // create a pattern for communication
-    auto pattern = make_pattern<structured::grid>(ctxt, gen, domains);
-    // run
-    bool res = true;
-    if (multi_threaded)
+    try
     {
-        auto run_fct = [&ctxt, &pattern, &staged_pattern, &domains, &dims](int id)
-        { return run(ctxt, pattern, staged_pattern, domains, dims, id); };
-        auto f1 = std::async(std::launch::async, run_fct, 0);
-        auto f2 = std::async(std::launch::async, run_fct, 1);
-        res = res && f1.get();
-        res = res && f2.get();
+        context ctxt(MPI_COMM_WORLD, multi_threaded);
+        // 2D domain decomposition
+        arr dims{0, 0}, coords{0, 0};
+        MPI_Dims_create(ctxt.size(), 2, dims.data());
+        coords[1] = ctxt.rank() / dims[0];
+        coords[0] = ctxt.rank() - coords[1] * dims[0];
+        // make 2 domains per rank
+        std::vector<domain> domains{make_domain(ctxt.rank(), 0, coords),
+            make_domain(ctxt.rank(), 1, coords)};
+        // neighbor lookup
+        domain_lu d_lu{dims};
+
+        auto staged_pattern = structured::regular::make_staged_pattern(ctxt, domains, d_lu,
+            arr{0, 0}, arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic);
+
+        // make halo generator
+        halo_gen gen{arr{0, 0}, arr{dims[0] * DIM - 1, dims[1] * DIM - 1}, halos, periodic};
+        // create a pattern for communication
+        auto pattern = make_pattern<structured::grid>(ctxt, gen, domains);
+        // run
+        bool res = true;
+        if (multi_threaded)
+        {
+            auto run_fct = [&ctxt, &pattern, &staged_pattern, &domains, &dims](int id)
+            { return run(ctxt, pattern, staged_pattern, domains, dims, id); };
+            auto f1 = std::async(std::launch::async, run_fct, 0);
+            auto f2 = std::async(std::launch::async, run_fct, 1);
+            res = res && f1.get();
+            res = res && f2.get();
+        }
+        else { res = res && run(ctxt, pattern, staged_pattern, domains, dims); }
+        // reduce res
+        bool all_res = false;
+        MPI_Reduce(&res, &all_res, 1, MPI_C_BOOL, MPI_LAND, 0, MPI_COMM_WORLD);
+        if (ctxt.rank() == 0) { EXPECT_TRUE(all_res); }
     }
-    else { res = res && run(ctxt, pattern, staged_pattern, domains, dims); }
-    // reduce res
-    bool all_res = false;
-    MPI_Reduce(&res, &all_res, 1, MPI_C_BOOL, MPI_LAND, 0, MPI_COMM_WORLD);
-    if (ctxt.rank() == 0) { EXPECT_TRUE(all_res); }
+    catch (std::runtime_error const& e)
+    {
+        if (multi_threaded) ghex::test::handle_nccl_thread_safe_exception(e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(e);
+    }
 }
 
 TEST_F(mpi_test_fixture, simple_exchange) { sim(thread_safe); }

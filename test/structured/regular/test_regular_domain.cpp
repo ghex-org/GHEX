@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -24,6 +24,7 @@
 
 #include <gridtools/common/array.hpp>
 #include "../../util/memory.hpp"
+#include "../../util/nccl_test_helpers.hpp"
 #include <vector>
 #include <thread>
 #include <future>
@@ -438,19 +439,34 @@ TEST_F(mpi_test_fixture, exchange_host_host)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    context ctxt(world, thread_safe);
+    try
+    {
+        context ctxt(world, thread_safe);
 
-    if (!thread_safe)
-    {
-        test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_split(ctxt);
+        if (!thread_safe)
+        {
+            test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run(ctxt);
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            }
+        }
+        else
+        {
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(ctxt);
+            }
+        }
     }
-    else
+    catch (std::runtime_error const& e)
     {
-        test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(ctxt);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -458,19 +474,35 @@ TEST_F(mpi_test_fixture, exchange_host_host_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    context ctxt(world, thread_safe);
+    try
+    {
+        context ctxt(world, thread_safe);
 
-    if (!thread_safe)
-    {
-        test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_split(ctxt);
+        if (!thread_safe)
+        {
+            test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run(ctxt);
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_split(ctxt);
+            }
+        }
+        else
+        {
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(
+                    ctxt);
+            }
+        }
     }
-    else
+    catch (std::runtime_error const& e)
     {
-        test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_async_ret(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::cpu>::run_mt_deferred_ret(ctxt);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -479,19 +511,34 @@ TEST_F(mpi_test_fixture, exchange_device_device)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    context ctxt(world, thread_safe);
+    try
+    {
+        context ctxt(world, thread_safe);
 
-    if (!thread_safe)
-    {
-        test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run(ctxt);
-        test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_split(ctxt);
+        if (!thread_safe)
+        {
+            test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run(ctxt);
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_split(ctxt);
+            }
+        }
+        else
+        {
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt(ctxt);
+                test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt_async(ctxt);
+                test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt_deferred_ret(ctxt);
+            }
+        }
     }
-    else
+    catch (std::runtime_error const& e)
     {
-        test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt(ctxt);
-        test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt_async(ctxt);
-        test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt_async_ret(ctxt);
-        test_exchange<double, float, int, ghex::gpu, ghex::gpu>::run_mt_deferred_ret(ctxt);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -499,19 +546,35 @@ TEST_F(mpi_test_fixture, exchange_device_device_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    context ctxt(world, thread_safe);
+    try
+    {
+        context ctxt(world, thread_safe);
 
-    if (!thread_safe)
-    {
-        test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run(ctxt);
-        test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_split(ctxt);
+        if (!thread_safe)
+        {
+            test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run(ctxt);
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_split(ctxt);
+            }
+        }
+        else
+        {
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt(ctxt);
+                test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt_async(ctxt);
+                test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt_deferred_ret(
+                    ctxt);
+            }
+        }
     }
-    else
+    catch (std::runtime_error const& e)
     {
-        test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt(ctxt);
-        test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt_async(ctxt);
-        test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt_async_ret(ctxt);
-        test_exchange<double, double, double, ghex::gpu, ghex::gpu>::run_mt_deferred_ret(ctxt);
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -519,19 +582,38 @@ TEST_F(mpi_test_fixture, exchange_host_device)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    context ctxt(world, thread_safe);
-
-    if (!thread_safe)
+    if (ghex::test::is_nccl_backend())
     {
-        test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_split(ctxt);
+        GTEST_SKIP() << "mixed-architecture exchanges not supported with NCCL backend";
     }
-    else
+    try
     {
-        test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt_async(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt_async_ret(ctxt);
-        test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt_deferred_ret(ctxt);
+        context ctxt(world, thread_safe);
+
+        if (!thread_safe)
+        {
+            test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run(ctxt);
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_split(ctxt);
+            }
+        }
+        else
+        {
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt_async(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, float, int, ghex::cpu, ghex::gpu>::run_mt_deferred_ret(ctxt);
+            }
+        }
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 
@@ -539,19 +621,39 @@ TEST_F(mpi_test_fixture, exchange_host_device_vector)
 {
     using namespace ghex;
     EXPECT_TRUE((world_size == 1) || (world_size % 2 == 0));
-    context ctxt(world, thread_safe);
-
-    if (!thread_safe)
+    if (ghex::test::is_nccl_backend())
     {
-        test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_split(ctxt);
+        GTEST_SKIP() << "mixed-architecture exchanges not supported with NCCL backend";
     }
-    else
+    try
     {
-        test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt_async(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt_async_ret(ctxt);
-        test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt_deferred_ret(ctxt);
+        context ctxt(world, thread_safe);
+
+        if (!thread_safe)
+        {
+            test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run(ctxt);
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_split(ctxt);
+            }
+        }
+        else
+        {
+            if (!ghex::test::is_nccl_backend())
+            {
+                test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt_async(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt_async_ret(ctxt);
+                test_exchange<double, double, double, ghex::cpu, ghex::gpu>::run_mt_deferred_ret(
+                    ctxt);
+            }
+        }
+    }
+    catch (std::runtime_error const& e)
+    {
+        if (thread_safe) ghex::test::handle_nccl_thread_safe_exception(e);
+        else
+            ghex::test::handle_nccl_self_comm_exception(e);
     }
 }
 #endif
@@ -648,14 +750,12 @@ parameters<T1, T2, T3, Arch_A, Arch_B>::check_values(ghex::test::util::memory<ar
     int xl = -halos[0];
     int hxl = halos[0];
     int hxr = halos[1];
-    // hack begin: make it work with 1 rank (works with even number of ranks otherwise)
     if (i == 0 && size == 1)
     {
         xl = 0;
         hxl = 0;
     }
     if (i == 1 && size == 1) { hxr = 0; }
-    // hack end
     for (int x = d.first()[0] - hxl; x <= d.last()[0] + hxr; ++x, ++xl)
     {
         if (i == 0 && x < d.first()[0] && !periodic[0]) continue;

@@ -58,7 +58,7 @@ make test
 | `GHEX_PYTHON_LIB_PATH=`           | `<path>`                | `${CMAKE_INSTALL_PREFIX}/<python-site-packages-path>` | Installation directory for GHEX's Python package
 | `GHEX_WITH_TESTING=`              | `{ON, OFF}`             | `OFF`                                                 | Build unit tests
 | `GHEX_USE_XPMEM=`                 | `{ON, OFF}`             | `OFF`                                                 | Use Xpmem
-| `GHEX_TRANSPORT_BACKEND=`         | `{MPI, UCX, LIBFABRIC}` | `MPI`                                                 | Choose transport backend
+| `GHEX_TRANSPORT_BACKEND=`         | `{MPI, UCX, LIBFABRIC, NCCL}` | `MPI`                                                 | Choose transport backend
 
 ### Pip Install
 
@@ -75,7 +75,15 @@ python -m pip install ghex
 | `GHEX_USE_GPU=`           | `{ON, OFF}`             | `OFF`                              | Enable GPU
 | `GHEX_GPU_TYPE=`          | `{AUTO, NVIDIA, AMD}`   | `AUTO`                             | Choose GPU type
 | `GHEX_GPU_ARCH=`          | list of archs           | `"60;70;75;80"`/ `"gfx900;gfx906"` | GPU architecture
-| `GHEX_TRANSPORT_BACKEND=` | `{MPI, UCX, LIBFABRIC}` | `MPI`                              | Choose transport backend
+| `GHEX_TRANSPORT_BACKEND=` | `{MPI, UCX, LIBFABRIC, NCCL}` | `MPI`                              | Choose transport backend
+
+
+### NCCL Backend Restrictions
+
+The NCCL backend in oomph is experimental and has some restrictions compared to other backends.
+It has primarily been tested with the regular `communication_object`.
+Other paths like `communication_object_ipr` and `GHEX_COMM_OBJ_USE_U` are less well tested and may not work in all situations.
+See the [oomph documentation](https://github.com/ghex-org/oomph#nccl-restrictions) for more details on the underlying NCCL communicator restrictions.
 
 
 ## Contributing

@@ -4,3 +4,6 @@ spack:
   view: false
   concretizer:
     unify: true
+  packages:
+    oomph:
+      require: '@main'

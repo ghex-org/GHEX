@@ -27,11 +27,18 @@ def test_mpi_comm():
         comm = ghex.mpi_comm("invalid")
 
 
+@pytest.mark.parametrize("thread_safe", [True, False], ids=["thread_safe", "not_thread_safe"])
 @pytest.mark.mpi_skip
-def test_context_mpi4py():
-    ctx = make_context(MPI.COMM_WORLD, True)
-    assert ctx.size() == 1
-    assert ctx.rank() == 0
+def test_context_mpi4py(thread_safe):
+    try:
+        ctx = make_context(MPI.COMM_WORLD, thread_safe)
+        assert ctx.size() == 1
+        assert ctx.rank() == 0
+    except RuntimeError as e:
+        if ghex.__config__["transport"] == "NCCL" and thread_safe:
+            assert str(e) == "NCCL not supported with thread_safe = true"
+        else:
+            raise
 
 
 @pytest.mark.mpi
