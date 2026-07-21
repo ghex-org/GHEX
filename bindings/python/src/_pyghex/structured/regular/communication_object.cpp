@@ -13,6 +13,7 @@
 #include <ghex/structured/pattern.hpp>
 
 #include <context_shim.hpp>
+#include <cuda_stream.hpp>
 #include <register_class.hpp>
 #include <structured/regular/field_descriptor.hpp>
 #include <structured/regular/communication_object.hpp>
@@ -47,7 +48,14 @@ register_communication_object(nanobind::module_& m)
 
             auto _handle = register_class<handle_type>(m);
 
-            _handle.def("wait", &handle_type::wait)
+            _handle
+                .def("wait", &handle_type::wait)
+#if defined(GHEX_CUDACC)
+                .def(
+                    "schedule_wait", [](handle_type& h, nanobind::object python_stream)
+                    { return h.schedule_wait(extract_cuda_stream(python_stream)); },
+                    nanobind::arg("stream").none())
+#endif
                 .def("is_ready", &handle_type::is_ready)
                 .def("progress", &handle_type::progress);
 
@@ -77,7 +85,46 @@ register_communication_object(nanobind::module_& m)
                             [](communication_object_shim& co, buffer_info_type& b0,
                                 buffer_info_type& b1, buffer_info_type& b2)
                             { return co.exchange(b0, b1, b2); },
-                            nanobind::keep_alive<0, 1>());
+                            nanobind::keep_alive<0, 1>())
+#if defined(GHEX_CUDACC)
+                        .def(
+                            "schedule_exchange",
+                            [](communication_object_shim& co, nanobind::object python_stream,
+                                std::vector<buffer_info_type> b) {
+                                return co.schedule_exchange(extract_cuda_stream(python_stream),
+                                    b.begin(), b.end());
+                            },
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
+                            nanobind::arg("patterns"))
+                        .def(
+                            "schedule_exchange",
+                            [](communication_object_shim& co, nanobind::object python_stream,
+                                buffer_info_type& b)
+                            { return co.schedule_exchange(extract_cuda_stream(python_stream), b); },
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
+                            nanobind::arg("b"))
+                        .def(
+                            "schedule_exchange",
+                            [](communication_object_shim& co, nanobind::object python_stream,
+                                buffer_info_type& b0, buffer_info_type& b1) {
+                                return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
+                                    b1);
+                            },
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
+                            nanobind::arg("b0"), nanobind::arg("b1"))
+                        .def(
+                            "schedule_exchange",
+                            [](communication_object_shim& co, nanobind::object python_stream,
+                                buffer_info_type& b0, buffer_info_type& b1, buffer_info_type& b2) {
+                                return co.schedule_exchange(extract_cuda_stream(python_stream), b0,
+                                    b1, b2);
+                            },
+                            nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
+                            nanobind::arg("b0"), nanobind::arg("b1"), nanobind::arg("b2"))
+                        .def("has_scheduled_exchange", [](communication_object_shim& co) -> bool
+                            { return co.has_scheduled_exchange(); })
+#endif // end scheduled exchange
+                        ;
                 });
         });
 
