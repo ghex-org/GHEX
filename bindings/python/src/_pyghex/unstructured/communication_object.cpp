@@ -8,18 +8,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdint>
-#include <sstream>
 
 #include <gridtools/common/for_each.hpp>
 
 #include <ghex/buffer_info.hpp>
 #include <ghex/unstructured/pattern.hpp>
 
-#ifdef GHEX_CUDACC
-#include <ghex/device/cuda/runtime.hpp>
-#endif
-
 #include <context_shim.hpp>
+#include <cuda_stream.hpp>
 #include <register_class.hpp>
 #include <unstructured/field_descriptor.hpp>
 #include <unstructured/communication_object.hpp>
@@ -32,60 +28,6 @@ namespace pyghex
 {
 namespace unstructured
 {
-namespace
-{
-#if defined(GHEX_CUDACC)
-cudaStream_t
-extract_cuda_stream(nanobind::object python_stream)
-{
-    static_assert(std::is_pointer<cudaStream_t>::value);
-    if (python_stream.is_none())
-    {
-        // NOTE: This is very C++ like, maybe remove and consider as an error?
-        return static_cast<cudaStream_t>(nullptr);
-    }
-    else
-    {
-        if (nanobind::hasattr(python_stream, "__cuda_stream__"))
-        {
-            // CUDA stream protocol: https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol
-            nanobind::tuple cuda_stream_protocol =
-                nanobind::cast<nanobind::tuple>(python_stream.attr("__cuda_stream__")());
-            if (cuda_stream_protocol.size() != 2)
-            {
-                std::stringstream error;
-                error << "Expected a tuple of length 2, but got one with length "
-                      << cuda_stream_protocol.size();
-                throw nanobind::type_error(error.str().c_str());
-            }
-
-            const auto protocol_version = nanobind::cast<std::size_t>(cuda_stream_protocol[0]);
-            if (protocol_version != 0)
-            {
-                std::stringstream error;
-                error << "Expected `__cuda_stream__` protocol version 0, but got "
-                      << protocol_version;
-                throw nanobind::type_error(error.str().c_str());
-            }
-
-            const auto stream_address = nanobind::cast<std::uintptr_t>(cuda_stream_protocol[1]);
-            return reinterpret_cast<cudaStream_t>(stream_address);
-        }
-        else if (nanobind::hasattr(python_stream, "ptr"))
-        {
-            // CuPy stream: See https://docs.cupy.dev/en/latest/reference/generated/cupy.cuda.Stream.html#cupy-cuda-stream
-            std::uintptr_t stream_address =
-                nanobind::cast<std::uintptr_t>(python_stream.attr("ptr"));
-            return reinterpret_cast<cudaStream_t>(stream_address);
-        }
-        // TODO: Find out of how to extract the typename, i.e. `type(python_stream).__name__`.
-        std::stringstream error;
-        error << "Failed to convert the stream object into a CUDA stream.";
-        throw nanobind::type_error(error.str().c_str());
-    }
-}
-#endif
-} // namespace
 
 void
 register_communication_object(nanobind::module_& m)

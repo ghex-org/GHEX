@@ -12,9 +12,14 @@ import pytest
 
 from mpi4py import MPI
 
-# import cupy as cp
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
 
+import ghex
 from ghex.context import make_context
+from ghex.util import Architecture
 from ghex.structured.cartesian_sets import IndexSpace
 from ghex.structured.regular import (
     make_communication_object,
@@ -35,9 +40,33 @@ halos_per_dim = ((2, 1), (1, 2), (1, 1))
 
 
 @pytest.mark.mpi
+@pytest.mark.parametrize("gpu_and_stream", (
+    (False, None),
+    (True, None),
+    (True, {"null": True}),
+    (True, {"non_blocking": True}),
+))
 @pytest.mark.parametrize("periodic", [True, False])
 @pytest.mark.parametrize("ndim", [1, 2, 3])
-def test_pattern(capsys, ndim, periodic):
+def test_pattern(capsys, ndim, periodic, gpu_and_stream):
+    gpu, stream_args = gpu_and_stream
+    if gpu:
+        if cp is None:
+            pytest.skip("`CuPy` is not installed.")
+        if not cp.is_available():
+            pytest.skip("`CuPy` is installed but no GPU could be found.")
+        if not ghex.__config__["gpu"]:
+            pytest.skip("`GHEX` was not compiled with GPU support.")
+        xp = cp
+        arch = Architecture.GPU
+    else:
+        xp = np
+        arch = Architecture.CPU
+    # `stream_args is None` selects a plain exchange, with the cupy arrays living
+    # on the cupy default stream; otherwise a scheduled exchange is run on the
+    # requested stream (the null/default stream or a non-blocking one).
+    cuda_stream = cp.cuda.Stream(**stream_args) if stream_args else None
+
     mpi_comm = MPI.COMM_WORLD
 
     # decompose all `ndim` dimensions over the ranks
@@ -80,18 +109,34 @@ def test_pattern(capsys, ndim, periodic):
     co = make_communication_object(ctx)
 
     def make_field():
-        field_1 = np.zeros(
-            memory_local_grid.bounds.shape, dtype=np.float64, order="F"
-        )  # todo: , order='F'
-        # field_1 = cp.zeros(memory_local_grid.bounds.shape, dtype=np.float64, order='F')
+        field_1 = xp.zeros(memory_local_grid.bounds.shape, dtype=np.float64, order="F")
         gfield_1 = make_field_descriptor(
             domain_desc,
             field_1,
             memory_local_grid.subset["definition"][(0,) * ndim],
             memory_local_grid.bounds.shape,
-        )  # ,
-        # arch=architecture.CPU)
+            arch=arch,
+        )
         return field_1, gfield_1
+
+    def exchange(buffer_infos):
+        if cuda_stream is None:
+            if gpu:
+                cp.cuda.Device().synchronize()
+            res = co.exchange(buffer_infos)
+            res.wait()
+        else:
+            # The fields were initialized on the cupy default stream. Unless we are
+            # scheduling on that same (null) stream, make `cuda_stream` wait for
+            # them so they are not packed prematurely.
+            if not stream_args.get("null"):
+                cuda_stream.wait_event(cp.cuda.get_current_stream().record())
+            res = co.schedule_exchange(cuda_stream, buffer_infos)
+            assert not co.has_scheduled_exchange()
+            res.schedule_wait(cuda_stream)
+            assert co.has_scheduled_exchange()
+            res.wait()
+            assert not co.has_scheduled_exchange()
 
     # one field per dimension, each storing the owner's coordinate in that dimension
     fields = []
@@ -103,17 +148,18 @@ def test_pattern(capsys, ndim, periodic):
     for p_dim, p_coord_l in enumerate(p_coord):
         fields[p_dim][...] = p_coord_l
 
-    res = co.exchange([pattern(gfield) for gfield in gfields])
-    res.wait()
+    exchange([pattern(gfield) for gfield in gfields])
 
     rank_field, grank_field = make_field()
     rank_field[...] = ctx.rank()
-    # cp.cuda.Device(0).synchronize()
-    res = co.exchange(
+    exchange(
         [pattern(grank_field)]
     )  # arch, dtype. exchange of fields living on cpu+gpu possible
-    res.wait()
-    # cp.cuda.Device(0).synchronize()
+
+    # copy the results back to the host for checking
+    if gpu:
+        fields = [cp.asnumpy(field) for field in fields]
+        rank_field = cp.asnumpy(rank_field)
 
     with capsys.disabled():
         print("post_ex:")

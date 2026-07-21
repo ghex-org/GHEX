@@ -11,6 +11,10 @@
 #include <ghex/communication_object.hpp>
 #include <structured/types.hpp>
 
+#ifdef GHEX_CUDACC
+#include <ghex/device/cuda/runtime.hpp>
+#endif
+
 #include <iterator>
 #include <tuple>
 #include <type_traits>
@@ -64,6 +68,39 @@ struct communication_object_shim
             std::make_index_sequence<sizeof...(Its) / 2>());
     }
 
+#if defined(GHEX_CUDACC)
+    // scheduled exchange of buffer info objects, synchronized with a cuda stream
+    template<typename... Patterns, typename... Archs, typename... Fields>
+    auto schedule_exchange(cudaStream_t stream, ghex::buffer_info<Patterns, Archs, Fields>&... b)
+    {
+        return get_co<gridtools::meta::list<Patterns...>>().schedule_exchange(stream, b...);
+    }
+
+    // scheduled exchange of iterator pairs pointing to buffer info ranges
+    template<typename... Its>
+    auto schedule_exchange(cudaStream_t stream, Its... its)
+    {
+        // need even number of iterators (begin and end)
+        static_assert(sizeof...(Its) % 2 == 0);
+        return schedule_exchange_from_iterators(stream, std::make_tuple(std::move(its)...),
+            std::make_index_sequence<sizeof...(Its) / 2>());
+    }
+
+    // query whether a scheduled exchange is still active on the held communication object
+    bool has_scheduled_exchange() const
+    {
+        return std::visit(
+            [](auto const& co) -> bool
+            {
+                if constexpr (std::is_same_v<std::decay_t<decltype(co)>, std::monostate>)
+                    return false;
+                else
+                    return co.has_scheduled_exchange();
+            },
+            m);
+    }
+#endif
+
   private:
     // extractors for nested typedefs
     template<typename It>
@@ -83,6 +120,20 @@ struct communication_object_shim
         return get_co<gridtools::meta::transform<get_pattern_t, begins>>().exchange(
             std::get<Is>(t)..., std::get<Is + half_size>(t)...);
     }
+
+#if defined(GHEX_CUDACC)
+    // helper function for iterators
+    template<typename... Its, std::size_t... Is>
+    auto schedule_exchange_from_iterators(cudaStream_t stream, std::tuple<Its...> t,
+        std::index_sequence<Is...>)
+    {
+        // every second iterator is a begin
+        using begins = decltype(std::make_tuple(std::get<Is * 2>(t)...));
+        static constexpr std::size_t half_size = sizeof...(Is);
+        return get_co<gridtools::meta::transform<get_pattern_t, begins>>().schedule_exchange(stream,
+            std::get<Is>(t)..., std::get<Is + half_size>(t)...);
+    }
+#endif
 
     // get the required communcation object specialization from the variant based on a list of pattern types
     // - will initialize the communication object if the variant is empty
