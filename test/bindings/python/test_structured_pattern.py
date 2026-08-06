@@ -50,7 +50,7 @@ def test_pattern(capsys, ndim, periodic):
 
     mpi_cart_comm = mpi_comm.Create_cart(dims=dims, periods=list(periodicity))
     try:
-        ctx = make_context(mpi_cart_comm, True)
+        ctx = make_context(mpi_cart_comm, False)
 
         p_coord = tuple(mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank()))
         global_grid = IndexSpace.from_sizes(*sizes[:ndim])
