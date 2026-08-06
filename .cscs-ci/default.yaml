@@ -185,6 +185,11 @@ test_parallel_6_nccl:
   variables:
     SLURM_NTASKS: 6
 
+test_parallel_8_nccl:
+  extends: .test_parallel_nccl
+  variables:
+    SLURM_NTASKS: 8
+
 test_serial_mpi:
   extends: .test_serial_template
   needs:
@@ -219,6 +224,11 @@ test_parallel_6_mpi:
   variables:
     SLURM_NTASKS: 6
 
+test_parallel_8_mpi:
+  extends: .test_parallel_mpi
+  variables:
+    SLURM_NTASKS: 8
+
 test_serial_ucx:
   extends: .test_serial_template
   needs:
@@ -252,6 +262,11 @@ test_parallel_6_ucx:
   extends: .test_parallel_ucx
   variables:
     SLURM_NTASKS: 6
+
+test_parallel_8_ucx:
+  extends: .test_parallel_ucx
+  variables:
+    SLURM_NTASKS: 8
 
 # TODO: Libfabric tests are currently failing on Alps and need to be fixed.
 # test_serial_libfabric:
